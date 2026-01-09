@@ -1,0 +1,117 @@
+/* Leaflet Custom Styles */
+
+/* Fix for Leaflet icons in Next.js */
+.leaflet-default-icon-path {
+  background-image: url("https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png");
+}
+
+/* Map Container */
+.map-container {
+  height: 400px;
+  width: 100%;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  z-index: 0;
+}
+
+/* School Marker */
+.school-marker {
+  background-color: #3b82f6;
+  border: 3px solid #1d4ed8;
+  border-radius: 50%;
+  width: 24px !important;
+  height: 24px !important;
+}
+
+/* Home Marker - Draggable */
+.home-marker {
+  background-color: #22c55e;
+  border: 3px solid #16a34a;
+  border-radius: 50%;
+  width: 24px !important;
+  height: 24px !important;
+  cursor: grab;
+}
+
+.home-marker:active {
+  cursor: grabbing;
+}
+
+/* Distance Display */
+.distance-display {
+  position: absolute;
+  bottom: 1rem;
+  left: 1rem;
+  z-index: 1000;
+  background: white;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  font-weight: 600;
+}
+
+.distance-display.within-zone {
+  border-left: 4px solid #22c55e;
+}
+
+.distance-display.outside-zone {
+  border-left: 4px solid #ef4444;
+}
+
+/* Zone Circle */
+.zone-circle {
+  fill: #3b82f6;
+  fill-opacity: 0.1;
+  stroke: #3b82f6;
+  stroke-width: 2;
+  stroke-dasharray: 5, 5;
+}
+
+/* Distance Line (Polyline) */
+.distance-line {
+  stroke: #f97316;
+  stroke-width: 3;
+  stroke-dasharray: 10, 10;
+}
+
+/* Popup Styles */
+.leaflet-popup-content-wrapper {
+  border-radius: 0.5rem;
+}
+
+.leaflet-popup-content {
+  margin: 0.75rem 1rem;
+  font-size: 0.875rem;
+}
+
+/* Map Attribution */
+.leaflet-control-attribution {
+  font-size: 0.625rem;
+}
+
+/* Zoom Controls */
+.leaflet-control-zoom {
+  border: none !important;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1) !important;
+}
+
+.leaflet-control-zoom a {
+  border-radius: 0.25rem !important;
+  width: 32px !important;
+  height: 32px !important;
+  line-height: 32px !important;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .map-container {
+    height: 300px;
+  }
+
+  .distance-display {
+    bottom: 0.5rem;
+    left: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+  }
+}

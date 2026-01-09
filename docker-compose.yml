@@ -1,0 +1,36 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sekolahku-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_POCKETBASE_URL=http://pocketbase:8090
+      - NEXT_PUBLIC_APP_URL=http://localhost:3000
+    depends_on:
+      - pocketbase
+    networks:
+      - sekolahku-network
+
+  pocketbase:
+    image: ghcr.io/muchobien/pocketbase:latest
+    container_name: sekolahku-pocketbase
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    volumes:
+      - pocketbase-data:/pb_data
+      - pocketbase-public:/pb_public
+    networks:
+      - sekolahku-network
+
+networks:
+  sekolahku-network:
+    driver: bridge
+
+volumes:
+  pocketbase-data:
+  pocketbase-public:
