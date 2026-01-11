@@ -217,11 +217,11 @@ export default function TrackingPage() {
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div>
                       <p className="text-muted-foreground">Nama Lengkap</p>
-                      <p className="font-medium">{registrant.full_name}</p>
+                      <p className="font-medium">{registrant.student_name || registrant.full_name}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">NIK</p>
-                      <p className="font-medium">{registrant.nik}</p>
+                      <p className="font-medium">{registrant.student_nik || registrant.nik}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Tempat, Tanggal Lahir</p>
@@ -254,10 +254,10 @@ export default function TrackingPage() {
                     <div>
                       <p className="text-muted-foreground">Status Zonasi</p>
                       <Badge
-                        variant={registrant.is_within_zone ? "default" : "secondary"}
-                        className={registrant.is_within_zone ? "bg-green-600" : ""}
+                        variant={(registrant.is_in_zone || registrant.is_within_zone) ? "default" : "secondary"}
+                        className={(registrant.is_in_zone || registrant.is_within_zone) ? "bg-green-600" : ""}
                       >
-                        {registrant.is_within_zone ? "Dalam Zona" : "Luar Zona"}
+                        {(registrant.is_in_zone || registrant.is_within_zone) ? "Dalam Zona" : "Luar Zona"}
                       </Badge>
                     </div>
                   </div>

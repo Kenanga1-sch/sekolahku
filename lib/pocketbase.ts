@@ -23,7 +23,11 @@ export function getPocketBase(): PocketBase {
     return pbInstance;
   }
 
-  const pbUrl = process.env.NEXT_PUBLIC_POCKETBASE_URL || "http://127.0.0.1:8090";
+  // Use internal URL for server-side, public URL for client-side
+  const pbUrl = typeof window === "undefined"
+    ? (process.env.POCKETBASE_URL || "http://127.0.0.1:8090")
+    : (process.env.NEXT_PUBLIC_POCKETBASE_URL || "http://127.0.0.1:8090");
+
   pbInstance = new PocketBase(pbUrl);
 
   // Auto-refresh auth on expiry
@@ -75,6 +79,7 @@ export async function login(
   password: string
 ): Promise<User> {
   const authData = await collections.users().authWithPassword(identity, password);
+  // PocketBase authStore.onChange will trigger auth state sync
   return authData.record as User;
 }
 
@@ -83,6 +88,10 @@ export async function login(
  */
 export function logout(): void {
   pb.authStore.clear();
+  // Clear any stored cookies if needed
+  if (typeof document !== 'undefined') {
+    document.cookie = 'pb_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+  }
 }
 
 /**

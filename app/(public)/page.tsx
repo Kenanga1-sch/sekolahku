@@ -1,24 +1,14 @@
 "use client";
 
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
 import {
-  GraduationCap,
-  Users,
-  Award,
-  BookOpen,
-  ArrowRight,
-  Calendar,
-  MapPin,
-  Clock,
-  CheckCircle,
-  PlayCircle,
-  Sparkles,
-  ChevronRight,
-} from "lucide-react";
+  pb,
+  getSchoolSettings,
+  getPublishedAnnouncements,
+  getActiveSPMBPeriod,
+  getFileUrl
+} from "@/lib/pocketbase";
+import type { SchoolSettings, Announcement, SPMBPeriod } from "@/types";
 
 // Stats data
 const stats = [
@@ -26,34 +16,6 @@ const stats = [
   { icon: GraduationCap, label: "Tenaga Pengajar", value: "32", color: "text-green-500", bg: "bg-green-500/10" },
   { icon: Award, label: "Prestasi", value: "50+", color: "text-amber-500", bg: "bg-amber-500/10" },
   { icon: BookOpen, label: "Ekstrakurikuler", value: "12", color: "text-purple-500", bg: "bg-purple-500/10" },
-];
-
-// Sample news
-const latestNews = [
-  {
-    id: 1,
-    title: "Pembukaan Pendaftaran Siswa Baru Tahun Ajaran 2024/2025",
-    excerpt: "Pendaftaran siswa baru telah dibuka. Daftar sekarang dan raih masa depan cerah bersama kami.",
-    date: "2024-01-15",
-    category: "spmb",
-    image: "https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=800&q=80",
-  },
-  {
-    id: 2,
-    title: "Prestasi Gemilang di Olimpiade Matematika Tingkat Provinsi",
-    excerpt: "Siswa kami berhasil meraih medali emas dalam Olimpiade Matematika tingkat provinsi.",
-    date: "2024-01-10",
-    category: "berita",
-    image: "https://images.unsplash.com/photo-1596495578065-6e0763fa1178?w=800&q=80",
-  },
-  {
-    id: 3,
-    title: "Kegiatan Pentas Seni Akhir Tahun",
-    excerpt: "Sekolah mengadakan pentas seni tahunan yang diikuti oleh seluruh siswa.",
-    date: "2024-01-05",
-    category: "berita",
-    image: "https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=800&q=80",
-  },
 ];
 
 // Features for SPMB
@@ -80,6 +42,31 @@ const itemVariants = {
 };
 
 export default function HomePage() {
+  const [settings, setSettings] = useState<SchoolSettings | null>(null);
+  const [news, setNews] = useState<Announcement[]>([]);
+  const [activePeriod, setActivePeriod] = useState<SPMBPeriod | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function init() {
+      try {
+        const [settingsData, announcements, period] = await Promise.all([
+          getSchoolSettings(),
+          getPublishedAnnouncements(3),
+          getActiveSPMBPeriod(),
+        ]);
+        setSettings(settingsData);
+        setNews(announcements);
+        setActivePeriod(period);
+      } catch (error) {
+        console.error("Initialization failed:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    init();
+  }, []);
+
   return (
     <div className="flex flex-col min-h-screen bg-zinc-50 dark:bg-zinc-950/50">
       {/* Hero Section */}
@@ -100,13 +87,19 @@ export default function HomePage() {
             className="flex flex-col items-center text-center max-w-4xl mx-auto space-y-8"
           >
             <motion.div variants={itemVariants}>
-              <Badge variant="outline" className="px-4 py-1.5 text-sm rounded-full border-primary/20 bg-primary/5 text-primary backdrop-blur-sm shadow-sm gap-2">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-                </span>
-                Penerimaan Siswa Baru Tahun Ajaran 2024/2025 Dibuka!
-              </Badge>
+              {activePeriod ? (
+                <Badge variant="outline" className="px-4 py-1.5 text-sm rounded-full border-primary/20 bg-primary/5 text-primary backdrop-blur-sm shadow-sm gap-2">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                  </span>
+                  Penerimaan Siswa Baru {activePeriod.academic_year} Dibuka!
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="px-4 py-1.5 text-sm rounded-full border-zinc-200 bg-zinc-50 text-zinc-500 dark:bg-zinc-900 dark:border-zinc-800">
+                  Penerimaan Siswa Baru Sedang Ditutup
+                </Badge>
+              )}
             </motion.div>
 
             <motion.h1
@@ -117,7 +110,7 @@ export default function HomePage() {
               <span className="text-primary relative inline-block">
                 Cerdas
                 <svg className="absolute w-full h-3 -bottom-1 left-0 text-amber-400 opacity-60" viewBox="0 0 100 10" preserveAspectRatio="none">
-                   <path d="M0 5 Q 50 10 100 5" stroke="currentColor" strokeWidth="8" fill="none" />
+                  <path d="M0 5 Q 50 10 100 5" stroke="currentColor" strokeWidth="8" fill="none" />
                 </svg>
               </span> & Berkarakter
             </motion.h1>
@@ -126,17 +119,19 @@ export default function HomePage() {
               variants={itemVariants}
               className="text-xl md:text-2xl text-muted-foreground max-w-2xl leading-relaxed font-light"
             >
-              SD Negeri 1 berkomitmen memberikan pendidikan terbaik dengan kurikulum modern
+              {settings?.school_name || "SD Negeri 1"} berkomitmen memberikan pendidikan terbaik dengan kurikulum modern
               yang terintegrasi teknologi.
             </motion.p>
 
             <motion.div variants={itemVariants} className="flex flex-wrap items-center justify-center gap-4 pt-4">
-              <Link href="/spmb/daftar">
-                <Button size="lg" className="rounded-full h-12 px-8 text-base shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all gap-2 group">
-                  Daftar Sekarang
-                  <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                </Button>
-              </Link>
+              {settings?.spmb_is_open && (
+                <Link href="/spmb/daftar">
+                  <Button size="lg" className="rounded-full h-12 px-8 text-base shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all gap-2 group">
+                    Daftar Sekarang
+                    <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                  </Button>
+                </Link>
+              )}
               <Link href="/profil/visi-misi">
                 <Button size="lg" variant="outline" className="rounded-full h-12 px-8 text-base hover:bg-muted/50 gap-2">
                   <PlayCircle className="h-4 w-4" />
@@ -176,7 +171,7 @@ export default function HomePage() {
       {/* About Section */}
       <section className="py-32 relative overflow-hidden bg-white dark:bg-zinc-950">
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px] mask-image:linear-gradient(to_bottom,transparent,white,transparent)" />
-        
+
         <div className="container px-4 md:px-6 relative z-10">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <motion.div
@@ -194,10 +189,10 @@ export default function HomePage() {
                 Pendidikan Berkualitas untuk <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-purple-600">Masa Depan Cerah</span>
               </h2>
               <p className="text-muted-foreground text-lg leading-relaxed">
-                Kami menggabungkan kurikulum nasional dengan metode pembelajaran inovatif
+                {settings?.school_name || "Sekolah kami"} menggabungkan kurikulum nasional dengan metode pembelajaran inovatif
                 untuk mengembangkan potensi akademis dan non-akademis setiap siswa.
               </p>
-              
+
               <div className="grid sm:grid-cols-2 gap-x-6 gap-y-4">
                 {[
                   "Kurikulum Merdeka Belajar",
@@ -231,14 +226,14 @@ export default function HomePage() {
             >
               <div className="aspect-square rounded-[2.5rem] overflow-hidden border-8 border-white dark:border-zinc-800 shadow-2xl relative z-10 transition-transform hover:scale-[1.02] duration-500">
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-indigo-700 flex flex-col items-center justify-center text-white p-8 text-center pattern-grid-lg">
-                   <div className="bg-white/10 backdrop-blur-md p-6 rounded-3xl mb-6 shadow-inner ring-1 ring-white/20">
-                      <GraduationCap className="h-20 w-20 text-white" />
-                   </div>
-                   <h3 className="text-2xl font-bold mb-2">Lingkungan Belajar Kondusif</h3>
-                   <p className="text-blue-100">Fasilitas lengkap untuk mendukung tumbuh kembang siswa</p>
+                  <div className="bg-white/10 backdrop-blur-md p-6 rounded-3xl mb-6 shadow-inner ring-1 ring-white/20">
+                    <GraduationCap className="h-20 w-20 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-bold mb-2">Lingkungan Belajar Kondusif</h3>
+                  <p className="text-blue-100">Fasilitas lengkap untuk mendukung tumbuh kembang siswa</p>
                 </div>
               </div>
-              
+
               {/* Decorative elements */}
               <div className="absolute -top-12 -right-12 w-64 h-64 bg-amber-500/20 rounded-full blur-[80px] -z-10 animate-pulse" />
               <div className="absolute -bottom-12 -left-12 w-64 h-64 bg-primary/20 rounded-full blur-[80px] -z-10 animate-pulse animation-delay-1000" />
@@ -251,12 +246,12 @@ export default function HomePage() {
       <section className="py-24 bg-gradient-to-br from-zinc-900 to-zinc-950 text-white relative overflow-hidden">
         {/* Abstract shapes */}
         <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-primary/20 rounded-full blur-[120px] mix-blend-screen opacity-30" />
-        
+
         <div className="container relative z-10 px-4 md:px-6">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-8">
               <Badge className="bg-white/10 text-white hover:bg-white/20 border-none backdrop-blur-md px-4 py-1.5 text-sm">
-                SPMB 2024/2025
+                SPMB {activePeriod?.academic_year || "2024/2025"}
               </Badge>
               <h2 className="text-3xl md:text-5xl font-bold leading-tight">
                 Bergabunglah Menjadi Bagian dari Keluarga Besar Kami
@@ -265,7 +260,7 @@ export default function HomePage() {
                 Proses pendaftaran mudah dan transparan dengan sistem zonasi digital.
                 Pantau status pendaftaran secara real-time.
               </p>
-              
+
               <div className="grid sm:grid-cols-2 gap-4">
                 {spmbFeatures.map((feature, i) => (
                   <div key={i} className="flex items-center gap-3 bg-white/5 rounded-lg p-4 backdrop-blur-sm border border-white/5">
@@ -276,11 +271,13 @@ export default function HomePage() {
               </div>
 
               <div className="flex flex-wrap gap-4 pt-4">
-                <Link href="/spmb/daftar">
-                  <Button size="lg" className="rounded-full h-12 px-8 text-base bg-white text-zinc-900 hover:bg-zinc-100">
-                    Daftar Sekarang
-                  </Button>
-                </Link>
+                {settings?.spmb_is_open && (
+                  <Link href="/spmb/daftar">
+                    <Button size="lg" className="rounded-full h-12 px-8 text-base bg-white text-zinc-900 hover:bg-zinc-100">
+                      Daftar Sekarang
+                    </Button>
+                  </Link>
+                )}
                 <Link href="/spmb/tracking">
                   <Button size="lg" variant="outline" className="rounded-full h-12 px-8 text-base border-white/20 bg-transparent text-white hover:bg-white/10 hover:text-white">
                     Cek Status Pendaftaran
@@ -290,23 +287,23 @@ export default function HomePage() {
             </div>
 
             <div className="relative hidden lg:block">
-               {/* Map Visualization Abstract */}
-               <div className="relative z-10 bg-zinc-800/50 backdrop-blur-xl rounded-2xl p-6 border border-white/10 shadow-2xl">
-                  <div className="aspect-[4/3] rounded-lg bg-zinc-900/50 relative overflow-hidden flex items-center justify-center border border-white/5">
-                     <MapPin className="h-16 w-16 text-primary animate-bounce" />
-                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/20 via-transparent to-transparent opacity-50" />
+              {/* Map Visualization Abstract */}
+              <div className="relative z-10 bg-zinc-800/50 backdrop-blur-xl rounded-2xl p-6 border border-white/10 shadow-2xl">
+                <div className="aspect-[4/3] rounded-lg bg-zinc-900/50 relative overflow-hidden flex items-center justify-center border border-white/5">
+                  <MapPin className="h-16 w-16 text-primary animate-bounce" />
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/20 via-transparent to-transparent opacity-50" />
+                </div>
+                <div className="mt-6 flex justify-between items-center">
+                  <div>
+                    <p className="text-sm text-zinc-400">Alamat Sekolah</p>
+                    <p className="text-lg font-bold text-white line-clamp-1">{settings?.school_address || "Jakarta Pusat"}</p>
                   </div>
-                  <div className="mt-6 flex justify-between items-center">
-                    <div>
-                      <p className="text-sm text-zinc-400">Status Zonasi</p>
-                      <p className="text-lg font-bold text-white">Jakarta Pusat</p>
-                    </div>
-                    <div className="text-right">
-                       <p className="text-sm text-zinc-400">Radius</p>
-                       <p className="text-lg font-bold text-primary">3 KM</p>
-                    </div>
+                  <div className="text-right">
+                    <p className="text-sm text-zinc-400">Kuota Terbatas</p>
+                    <p className="text-lg font-bold text-primary">{activePeriod?.quota || "100"} Siswa</p>
                   </div>
-               </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -329,49 +326,74 @@ export default function HomePage() {
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
-            {latestNews.map((news, i) => (
-              <motion.div
-                key={news.id}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: i * 0.1 }}
-              >
-                <Card className="h-full border-none shadow-lg hover:shadow-xl transition-all duration-300 group bg-white dark:bg-zinc-900 overflow-hidden">
-                  <div className="aspect-video relative overflow-hidden bg-muted">
-                    {/* Placeholder image since external images might load slowly or fail */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-zinc-100 to-zinc-200 dark:from-zinc-800 dark:to-zinc-900" />
-                    <div className="absolute top-4 left-4">
-                      <Badge className="bg-white/90 text-zinc-900 border-none backdrop-blur hover:bg-white shadow-sm">
-                        {news.category === "spmb" ? "SPMB" : "Berita"}
-                      </Badge>
-                    </div>
+            {isLoading ? (
+              [1, 2, 3].map((i) => (
+                <Card key={i} className="h-full overflow-hidden">
+                  <div className="aspect-video bg-zinc-200 dark:bg-zinc-800 animate-pulse" />
+                  <div className="p-6 space-y-4">
+                    <div className="h-4 w-24 bg-zinc-200 dark:bg-zinc-800 animate-pulse rounded" />
+                    <div className="h-6 w-full bg-zinc-200 dark:bg-zinc-800 animate-pulse rounded" />
+                    <div className="h-4 w-2/3 bg-zinc-200 dark:bg-zinc-800 animate-pulse rounded" />
                   </div>
-                  <CardHeader>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                       <Calendar className="h-4 w-4" />
-                       {new Date(news.date).toLocaleDateString("id-ID", {
+                </Card>
+              ))
+            ) : news.length > 0 ? (
+              news.map((item, i) => (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: i * 0.1 }}
+                >
+                  <Card className="h-full border-none shadow-lg hover:shadow-xl transition-all duration-300 group bg-white dark:bg-zinc-900 overflow-hidden">
+                    <div className="aspect-video relative overflow-hidden bg-muted">
+                      {item.thumbnail ? (
+                        <img
+                          src={getFileUrl(item, item.thumbnail)}
+                          alt={item.title}
+                          className="absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 bg-gradient-to-br from-zinc-100 to-zinc-200 dark:from-zinc-800 dark:to-zinc-900" />
+                      )}
+                      <div className="absolute top-4 left-4">
+                        <Badge className="bg-white/90 text-zinc-900 border-none backdrop-blur hover:bg-white shadow-sm capitalize">
+                          {item.category || "Berita"}
+                        </Badge>
+                      </div>
+                    </div>
+                    <CardHeader>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                        <Calendar className="h-4 w-4" />
+                        {item.created ? new Date(item.created).toLocaleDateString("id-ID", {
                           day: "numeric",
                           month: "long",
                           year: "numeric",
-                        })}
-                    </div>
-                    <CardTitle className="text-xl group-hover:text-primary transition-colors line-clamp-2">
-                      {news.title}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground line-clamp-2 mb-6">
-                      {news.excerpt}
-                    </p>
-                    <Link href={`/berita/${news.id}`} className="inline-flex items-center text-sm font-medium text-primary hover:text-primary/80 transition-colors">
-                      Baca Selengkapnya
-                      <ArrowRight className="h-4 w-4 ml-1" />
-                    </Link>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
+                        }) : "-"}
+                      </div>
+                      <CardTitle className="text-xl group-hover:text-primary transition-colors line-clamp-2">
+                        {item.title}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-muted-foreground line-clamp-2 mb-6">
+                        {item.excerpt}
+                      </p>
+                      <Link href={`/berita/${item.slug || item.id}`} className="inline-flex items-center text-sm font-medium text-primary hover:text-primary/80 transition-colors">
+                        Baca Selengkapnya
+                        <ArrowRight className="h-4 w-4 ml-1" />
+                      </Link>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))
+            ) : (
+              <div className="col-span-full py-12 text-center text-muted-foreground">
+                <Newspaper className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                <p>Belum ada berita terbaru yang dipublikasikan.</p>
+              </div>
+            )}
           </div>
         </div>
       </section>

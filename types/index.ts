@@ -18,16 +18,20 @@ export interface BaseRecord extends RecordModel {
 export type UserRole =
   | "superadmin"
   | "admin"
+  | "staff"
+  | "user"
   | "guru"
   | "siswa"
   | "calon_siswa";
 
 export interface User extends BaseRecord {
-  username: string;
+  username?: string;
+  name?: string;
   email: string;
+  phone?: string;
   role: UserRole;
   avatar?: string;
-  verified: boolean;
+  verified?: boolean;
 }
 
 export interface Profile extends BaseRecord {
@@ -78,18 +82,25 @@ export type Gender = "L" | "P";
 
 export interface SPMBRegistrant extends BaseRecord {
   registration_number: string;
-  period: string; // relation to spmb_periods
-  full_name: string;
-  nik: string;
+  period?: string; // relation to spmb_periods
+  period_id?: string;
+  // Multiple naming conventions support
+  full_name?: string;
+  student_name?: string;
+  nik?: string;
+  student_nik?: string;
+  // Other fields
   birth_place?: string;
   birth_date?: string;
   gender?: Gender;
   previous_school?: string;
   home_address?: string;
+  address?: string;
   home_lat?: number;
   home_lng?: number;
   distance_to_school?: number;
   is_within_zone?: boolean;
+  is_in_zone?: boolean;
   parent_name?: string;
   parent_phone?: string;
   parent_email?: string;
@@ -104,17 +115,19 @@ export interface SPMBRegistrant extends BaseRecord {
 // Announcements Type
 // ==========================================
 
-export type AnnouncementCategory = "berita" | "pengumuman" | "spmb";
+export type AnnouncementCategory = "berita" | "pengumuman" | "spmb" | "prestasi" | "kegiatan";
 
 export interface Announcement extends BaseRecord {
   title: string;
-  slug: string;
-  content: string;
+  slug?: string;
+  excerpt?: string;
+  content?: string;
   thumbnail?: string;
-  category: AnnouncementCategory;
+  category?: string;
   is_published: boolean;
+  is_featured?: boolean;
   published_at?: string;
-  author: string; // relation to users
+  author?: string; // relation to users
 }
 
 // ==========================================
@@ -150,8 +163,8 @@ export interface DocumentFormData {
 
 export interface RegistrationFormData
   extends StudentFormData,
-    ParentFormData,
-    LocationFormData {
+  ParentFormData,
+  LocationFormData {
   documents: File[];
 }
 

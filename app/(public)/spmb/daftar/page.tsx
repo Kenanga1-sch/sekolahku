@@ -38,55 +38,54 @@ export default function RegistrationPage() {
         return { success: false, error: "Data tidak lengkap" };
       }
 
-      // Generate registration number
-      const registrationNumber = await generateRegistrationNumber();
-
-      // Get active period
-      const activePeriod = await getActiveSPMBPeriod();
-
-      // Create FormData for file upload
-      const formData = new FormData();
-
-      // Add all fields
-      formData.append("registration_number", registrationNumber);
-      if (activePeriod) {
-        formData.append("period", activePeriod.id);
-      }
-
-      // Student data
-      formData.append("full_name", data.student.full_name);
-      formData.append("nik", data.student.nik);
-      formData.append("birth_place", data.student.birth_place);
-      formData.append("birth_date", data.student.birth_date);
-      formData.append("gender", data.student.gender);
-      formData.append("previous_school", data.student.previous_school);
-
-      // Parent data
-      formData.append("parent_name", data.parent.parent_name);
-      formData.append("parent_phone", data.parent.parent_phone);
-      formData.append("parent_email", data.parent.parent_email);
-      formData.append("home_address", data.parent.home_address);
-
-      // Location data
-      formData.append("home_lat", data.location.home_lat.toString());
-      formData.append("home_lng", data.location.home_lng.toString());
-      formData.append("distance_to_school", data.location.distance_to_school.toString());
-      formData.append("is_within_zone", data.location.is_within_zone.toString());
-
-      // Status
-      formData.append("status", "pending");
-
-      // Add documents
-      data.documents.forEach((file) => {
-        formData.append("documents", file);
+      // Submit to API route
+      const response = await fetch("/api/spmb/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          student_name: data.student.full_name,
+          student_nik: data.student.nik,
+          birth_place: data.student.birth_place,
+          birth_date: data.student.birth_date,
+          gender: data.student.gender,
+          previous_school: data.student.previous_school || "",
+          parent_name: data.parent.parent_name,
+          parent_phone: data.parent.parent_phone,
+          parent_email: data.parent.parent_email,
+          address: data.parent.home_address,
+          home_lat: data.location.home_lat,
+          home_lng: data.location.home_lng,
+          distance_to_school: data.location.distance_to_school,
+        }),
       });
 
-      // Submit to PocketBase
-      await pb.collection("spmb_registrants").create(formData);
+      const result = await response.json();
+
+      if (!result.success) {
+        return {
+          success: false,
+          error: result.error || "Terjadi kesalahan saat mendaftar",
+        };
+      }
+
+      // Handle document upload if any
+      if (data.documents.length > 0 && result.data?.id) {
+        const formData = new FormData();
+        data.documents.forEach((file) => {
+          formData.append("documents", file);
+        });
+
+        await fetch(`/api/spmb/upload?id=${result.data.id}`, {
+          method: "POST",
+          body: formData,
+        });
+      }
 
       return {
         success: true,
-        registrationNumber,
+        registrationNumber: result.data?.registration_number,
       };
     } catch (error) {
       console.error("Registration error:", error);

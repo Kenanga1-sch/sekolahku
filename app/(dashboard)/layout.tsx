@@ -2,23 +2,25 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { 
-  LayoutDashboard, 
-  Users, 
-  CalendarDays, 
-  Settings, 
+import { usePathname, useRouter } from "next/navigation";
+import {
+  LayoutDashboard,
+  Users,
+  CalendarDays,
+  Settings,
   Menu,
   GraduationCap,
   Bell,
   LogOut,
-  ChevronDown
+  User,
+  Home,
+  Activity,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/lib/hooks/use-auth";
+import { useAuthStore } from "@/lib/stores/auth-store";
 import { logout } from "@/lib/pocketbase";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import {
@@ -35,6 +37,9 @@ const sidebarLinks = [
   { href: "/spmb-admin", label: "Pendaftar", icon: Users },
   { href: "/spmb-admin/periods", label: "Periode SPMB", icon: CalendarDays },
   { href: "/announcements", label: "Pengumuman", icon: Bell },
+  { href: "/users", label: "Pengguna", icon: User },
+  { href: "/activity-log", label: "Log Aktivitas", icon: Activity },
+  { href: "/profile", label: "Profil Saya", icon: User },
   { href: "/school-settings", label: "Pengaturan", icon: Settings },
 ];
 
@@ -44,13 +49,14 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { user, setUser } = useAuth();
+  const router = useRouter();
+  const { user, logout: storeLogout } = useAuthStore();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
-    setUser(null);
-    window.location.href = "/login";
+    storeLogout();
+    router.push("/login");
   };
 
   const SidebarContent = () => (
@@ -68,7 +74,7 @@ export default function DashboardLayout({
         <p className="px-4 text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">
           Menu Utama
         </p>
-        
+
         {sidebarLinks.map((link) => {
           const isActive = pathname === link.href || pathname?.startsWith(link.href + "/");
           return (
@@ -77,8 +83,8 @@ export default function DashboardLayout({
                 variant={isActive ? "secondary" : "ghost"}
                 className={cn(
                   "w-full justify-start gap-3 h-11 transition-all duration-200",
-                  isActive 
-                    ? "bg-sidebar-primary/10 text-sidebar-primary font-medium hover:bg-sidebar-primary/15" 
+                  isActive
+                    ? "bg-sidebar-primary/10 text-sidebar-primary font-medium hover:bg-sidebar-primary/15"
                     : "text-muted-foreground hover:text-foreground hover:bg-zinc-100 dark:hover:bg-zinc-800/50"
                 )}
               >
@@ -128,7 +134,7 @@ export default function DashboardLayout({
                 <SidebarContent />
               </SheetContent>
             </Sheet>
-            
+
             <div className="hidden md:flex flex-col">
               <h1 className="text-sm font-semibold leading-none">
                 SD Negeri 1
@@ -141,24 +147,36 @@ export default function DashboardLayout({
 
           <div className="flex items-center gap-3">
             <ThemeToggle />
-            
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="rounded-full">
                   <Avatar className="h-8 w-8">
-                     <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.name || "User"}`} />
-                     <AvatarFallback>AD</AvatarFallback>
+                    <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.name || "User"}`} />
+                    <AvatarFallback>AD</AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <div className="flex items-center justify-start gap-2 p-2">
                   <div className="flex flex-col space-y-1 leading-none">
-                    <p className="font-medium">{user?.name}</p>
+                    <p className="font-medium">{user?.name || "Admin"}</p>
                     <p className="text-xs text-muted-foreground">{user?.email}</p>
                   </div>
                 </div>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/" className="cursor-pointer">
+                    <Home className="mr-2 h-4 w-4" />
+                    Website
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/profile" className="cursor-pointer">
+                    <User className="mr-2 h-4 w-4" />
+                    Profil Saya
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/school-settings" className="cursor-pointer">
                     <Settings className="mr-2 h-4 w-4" />
@@ -166,7 +184,7 @@ export default function DashboardLayout({
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   className="text-red-600 focus:text-red-600 cursor-pointer"
                   onClick={handleLogout}
                 >

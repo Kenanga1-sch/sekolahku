@@ -199,9 +199,9 @@ export default function SPMBPage() {
           </div>
           <div className="grid md:grid-cols-4 gap-6">
             {timelineSteps.map((item) => (
-              <Card key={item.step} className="relative text-center">
-                <CardContent className="pt-8">
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold">
+              <Card key={item.step} className="text-center">
+                <CardContent className="pt-8 pb-8">
+                  <div className="h-10 w-10 mx-auto mb-4 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-lg">
                     {item.step}
                   </div>
                   <item.icon className="h-10 w-10 mx-auto mb-4 text-primary" />

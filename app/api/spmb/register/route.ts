@@ -1,12 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
 import PocketBase from "pocketbase";
+import { checkRateLimit, sanitizeString, sanitizeEmail, sanitizePhone, sanitizeNIK } from "@/lib/security";
 
 const pb = new PocketBase(process.env.NEXT_PUBLIC_POCKETBASE_URL || "http://127.0.0.1:8090");
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting - 10 registrations per IP per hour
+    const clientIp = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
+    const rateCheck = checkRateLimit(`register:${clientIp}`, {
+      windowMs: 60 * 60 * 1000, // 1 hour
+      maxRequests: 10
+    });
+
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { success: false, error: "Terlalu banyak percobaan. Coba lagi nanti." },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
-    
+
+    // Sanitize inputs
+    const sanitizedData = {
+      ...body,
+      student_name: sanitizeString(body.student_name || ""),
+      student_nik: sanitizeNIK(body.student_nik || ""),
+      birth_place: sanitizeString(body.birth_place || ""),
+      parent_name: sanitizeString(body.parent_name || ""),
+      parent_phone: sanitizePhone(body.parent_phone || ""),
+      parent_email: sanitizeEmail(body.parent_email || ""),
+      address: sanitizeString(body.address || ""),
+      previous_school: sanitizeString(body.previous_school || ""),
+    };
     // Validate required fields
     const requiredFields = [
       "student_name",
@@ -84,16 +111,16 @@ export async function POST(request: NextRequest) {
     const registrant = await pb.collection("spmb_registrants").create({
       period_id: activePeriod.id,
       registration_number: registrationNumber,
-      student_name: body.student_name,
-      student_nik: body.student_nik,
+      student_name: sanitizedData.student_name,
+      student_nik: sanitizedData.student_nik,
       birth_date: body.birth_date,
-      birth_place: body.birth_place,
+      birth_place: sanitizedData.birth_place,
       gender: body.gender,
-      previous_school: body.previous_school || "",
-      parent_name: body.parent_name,
-      parent_phone: body.parent_phone,
-      parent_email: body.parent_email,
-      address: body.address,
+      previous_school: sanitizedData.previous_school,
+      parent_name: sanitizedData.parent_name,
+      parent_phone: sanitizedData.parent_phone,
+      parent_email: sanitizedData.parent_email,
+      address: sanitizedData.address,
       home_lat: body.home_lat,
       home_lng: body.home_lng,
       distance_to_school: body.distance_to_school,

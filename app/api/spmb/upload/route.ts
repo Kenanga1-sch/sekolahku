@@ -5,34 +5,43 @@ const pb = new PocketBase(process.env.NEXT_PUBLIC_POCKETBASE_URL || "http://127.
 
 export async function POST(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const registrantId = searchParams.get("id");
+
+    if (!registrantId) {
+      return NextResponse.json(
+        { success: false, error: "ID pendaftar diperlukan" },
+        { status: 400 }
+      );
+    }
+
     const formData = await request.formData();
-    const registrantId = formData.get("registrant_id") as string;
-    const documentType = formData.get("document_type") as string;
-    const file = formData.get("file") as File;
+    const files = formData.getAll("documents") as File[];
 
-    if (!registrantId || !documentType || !file) {
+    if (!files || files.length === 0) {
       return NextResponse.json(
-        { success: false, error: "Semua field harus diisi" },
+        { success: false, error: "Tidak ada file yang diunggah" },
         { status: 400 }
       );
     }
 
-    // Validate file type
+    // Validate file types and sizes
     const allowedTypes = ["application/pdf", "image/jpeg", "image/png"];
-    if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json(
-        { success: false, error: "Format file tidak didukung. Gunakan PDF, JPG, atau PNG" },
-        { status: 400 }
-      );
-    }
+    const maxSize = 2 * 1024 * 1024; // 2MB
 
-    // Validate file size (max 2MB)
-    const maxSize = 2 * 1024 * 1024;
-    if (file.size > maxSize) {
-      return NextResponse.json(
-        { success: false, error: "Ukuran file maksimal 2MB" },
-        { status: 400 }
-      );
+    for (const file of files) {
+      if (!allowedTypes.includes(file.type)) {
+        return NextResponse.json(
+          { success: false, error: `Format file ${file.name} tidak didukung. Gunakan PDF, JPG, atau PNG` },
+          { status: 400 }
+        );
+      }
+      if (file.size > maxSize) {
+        return NextResponse.json(
+          { success: false, error: `File ${file.name} melebihi ukuran maksimal 2MB` },
+          { status: 400 }
+        );
+      }
     }
 
     // Verify registrant exists
@@ -45,10 +54,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update registrant with document
-    // PocketBase handles file upload automatically when using FormData
+    // Update registrant with documents
     const updateData = new FormData();
-    updateData.append(`document_${documentType}`, file);
+    files.forEach((file) => {
+      updateData.append("documents", file);
+    });
 
     const updated = await pb.collection("spmb_registrants").update(registrantId, updateData);
 
@@ -56,7 +66,7 @@ export async function POST(request: NextRequest) {
       success: true,
       data: {
         id: updated.id,
-        document_type: documentType,
+        documents_count: files.length,
         uploaded_at: new Date().toISOString(),
       },
     });
@@ -68,3 +78,4 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+

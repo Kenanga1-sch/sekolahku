@@ -1,36 +1,52 @@
+version: '3.8'
+
 services:
   app:
+    container_name: sekolahku-app
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: sekolahku-app
-    restart: unless-stopped
+    restart: always
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_POCKETBASE_URL=http://pocketbase:8090
-      - NEXT_PUBLIC_APP_URL=http://localhost:3000
+      - NODE_ENV=production
+      # Update this with your actual public IP or domain
+      - NEXT_PUBLIC_POCKETBASE_URL=http://${HOST_IP:-localhost}:8092
+      # Internal URL for SSR (optional, if code supports it)
+      - POCKETBASE_URL=http://pocketbase:8090
+      - NEXT_PUBLIC_SENTRY_DSN=${NEXT_PUBLIC_SENTRY_DSN}
     depends_on:
       - pocketbase
     networks:
       - sekolahku-network
 
   pocketbase:
-    image: ghcr.io/muchobien/pocketbase:latest
-    container_name: sekolahku-pocketbase
-    restart: unless-stopped
+    container_name: sekolahku-pb
+    image: alpine:latest
+    restart: always
     ports:
-      - "8090:8090"
+      - "8092:8090"
     volumes:
-      - pocketbase-data:/pb_data
-      - pocketbase-public:/pb_public
+      - ./pb_data:/pb/pb_data
+      - ./pb_public:/pb/pb_public
+      # Mount the pocketbase executable from local host
+      # OR we can use a proper pocketbase image. 
+      # Since user already has pocketbase locally, let's try to wrap it or download in container.
+      # Better approach for portability: Download it in the container.
+    entrypoint: |
+      /bin/sh -c "
+        if [ ! -f /pb/pocketbase ]; then
+          wget https://github.com/pocketbase/pocketbase/releases/download/v0.22.3/pocketbase_0.22.3_linux_amd64.zip -O /tmp/pb.zip
+          unzip /tmp/pb.zip -d /pb/
+          chmod +x /pb/pocketbase
+        fi
+        /pb/pocketbase serve --http=0.0.0.0:8090
+      "
+    working_dir: /pb
     networks:
       - sekolahku-network
 
 networks:
   sekolahku-network:
     driver: bridge
-
-volumes:
-  pocketbase-data:
-  pocketbase-public:
