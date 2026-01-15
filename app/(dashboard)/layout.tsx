@@ -18,6 +18,7 @@ import {
   BookOpen,
   ExternalLink,
   Package,
+  Wallet,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -60,6 +61,7 @@ const ADMIN_ROLES: UserRole[] = ["superadmin", "admin"];
 const SARANA_ROLES: UserRole[] = ["superadmin", "admin", "staff"];
 const PUSTAKA_ROLES: UserRole[] = ["superadmin", "admin", "staff"];
 const SPMB_ROLES: UserRole[] = ["superadmin", "admin", "staff"];
+const TABUNGAN_ROLES: UserRole[] = ["superadmin", "admin", "staff"];
 
 const navGroups: NavGroup[] = [
   {
@@ -86,6 +88,12 @@ const navGroups: NavGroup[] = [
     label: "Inventaris",
     items: [
       { href: "/inventaris", label: "Dashboard Inventaris", icon: Package, roles: SARANA_ROLES },
+    ],
+  },
+  {
+    label: "Tabungan",
+    items: [
+      { href: "/tabungan", label: "Dashboard Tabungan", icon: Wallet, roles: TABUNGAN_ROLES },
     ],
   },
   {
