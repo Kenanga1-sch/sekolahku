@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { AuthProvider } from "@/components/providers/auth-provider";
+import { SchoolSettingsProvider } from "@/lib/contexts/school-settings-context";
 import "./globals.css";
 
 const inter = Inter({
@@ -64,7 +65,9 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         <ThemeProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <SchoolSettingsProvider>{children}</SchoolSettingsProvider>
+          </AuthProvider>
         </ThemeProvider>
         <script
           dangerouslySetInnerHTML={{

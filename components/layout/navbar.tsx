@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { logout as pbLogout } from "@/lib/pocketbase";
 
@@ -46,6 +47,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, isAuthenticated, logout: storeLogout } = useAuthStore();
+  const { settings } = useSchoolSettings();
 
   const handleLogout = () => {
     pbLogout();
@@ -80,9 +82,9 @@ export default function Navbar() {
             <p className={cn("font-bold text-lg leading-none group-hover:text-primary transition-colors",
               !scrolled && pathname === "/" ? "text-zinc-900" : "text-foreground"
             )}>
-              SD Negeri 1
+              {settings?.school_name || "Sekolah"}
             </p>
-            <p className="text-xs text-muted-foreground font-medium">Sekolah Terpadu</p>
+            <p className="text-xs text-muted-foreground font-medium">Website Sekolah Terpadu</p>
           </div>
         </Link>
 
@@ -195,7 +197,7 @@ export default function Navbar() {
                 <GraduationCap className="h-6 w-6 text-white" />
               </div>
               <div className="text-left">
-                <span className="block font-bold">SD Negeri 1</span>
+                <span className="block font-bold">{settings?.school_name || "Sekolah"}</span>
                 <span className="block text-xs text-muted-foreground font-medium">Menu Navigasi</span>
               </div>
             </SheetTitle>

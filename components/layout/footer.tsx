@@ -1,11 +1,15 @@
+"use client";
+
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { GraduationCap, Mail, Phone, MapPin, Facebook, Instagram, Youtube, ArrowRight } from "lucide-react";
+import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
+  const { settings } = useSchoolSettings();
 
   return (
     <footer className="bg-zinc-950 text-slate-200 border-t border-white/5 relative overflow-hidden">
@@ -22,21 +26,21 @@ export default function Footer() {
                 <GraduationCap className="h-7 w-7 text-white" />
               </div>
               <div>
-                <p className="font-bold text-xl text-white">SD Negeri 1</p>
+                <p className="font-bold text-xl text-white">{settings?.school_name || "Sekolah"}</p>
                 <p className="text-sm text-slate-400">Website Sekolah Terpadu</p>
               </div>
             </div>
             <p className="text-slate-400 leading-relaxed">
-              Membangun generasi cerdas dan berkarakter mulia melalui pendidikan 
+              Membangun generasi cerdas dan berkarakter mulia melalui pendidikan
               berkualitas yang terintegrasi dengan teknologi modern.
             </p>
-            
+
             <div className="space-y-2">
               <p className="text-sm font-medium text-white">Berlangganan Newsletter</p>
               <div className="flex gap-2">
-                <Input 
-                  placeholder="Email Anda" 
-                  className="bg-white/5 border-white/10 text-white placeholder:text-slate-500 focus-visible:ring-primary/50" 
+                <Input
+                  placeholder="Email Anda"
+                  className="bg-white/5 border-white/10 text-white placeholder:text-slate-500 focus-visible:ring-primary/50"
                 />
                 <Button size="icon" className="bg-primary hover:bg-primary/90">
                   <ArrowRight className="h-4 w-4" />
@@ -56,8 +60,8 @@ export default function Footer() {
                 { label: "Hubungi Kami", href: "/kontak" },
               ].map((link) => (
                 <li key={link.href}>
-                  <Link 
-                    href={link.href} 
+                  <Link
+                    href={link.href}
                     className="text-slate-400 hover:text-primary transition-colors hover:translate-x-1 inline-block"
                   >
                     {link.label}
@@ -78,8 +82,8 @@ export default function Footer() {
                 { label: "Persyaratan", href: "/spmb#syarat" },
               ].map((link) => (
                 <li key={link.href}>
-                  <Link 
-                    href={link.href} 
+                  <Link
+                    href={link.href}
                     className="text-slate-400 hover:text-primary transition-colors hover:translate-x-1 inline-block"
                   >
                     {link.label}
@@ -98,21 +102,20 @@ export default function Footer() {
                   <MapPin className="h-4 w-4 text-primary" />
                 </div>
                 <span className="text-slate-400 text-sm leading-relaxed">
-                  Jl. Pendidikan No. 123, Kel. Sukamaju, <br />
-                  Kec. Kota Utara, Jakarta 12345
+                  {settings?.school_address || "Alamat Sekolah"}
                 </span>
               </li>
               <li className="flex items-center gap-3 group">
                 <div className="h-8 w-8 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                   <Phone className="h-4 w-4 text-primary" />
                 </div>
-                <span className="text-slate-400 text-sm">(021) 1234-5678</span>
+                <span className="text-slate-400 text-sm">{settings?.school_phone || "-"}</span>
               </li>
               <li className="flex items-center gap-3 group">
                 <div className="h-8 w-8 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                   <Mail className="h-4 w-4 text-primary" />
                 </div>
-                <span className="text-slate-400 text-sm">info@sdnegeri1.sch.id</span>
+                <span className="text-slate-400 text-sm">{settings?.school_email || "-"}</span>
               </li>
             </ul>
           </div>
@@ -125,9 +128,9 @@ export default function Footer() {
       <div className="container py-6">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-slate-500 text-sm">
-            © {currentYear} SD Negeri 1. All rights reserved.
+            © {currentYear} {settings?.school_name || "Sekolah"}. All rights reserved.
           </p>
-          
+
           <div className="flex gap-4">
             {[Facebook, Instagram, Youtube].map((Icon, i) => (
               <a

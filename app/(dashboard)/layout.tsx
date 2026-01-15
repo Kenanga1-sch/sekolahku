@@ -22,6 +22,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { logout } from "@/lib/pocketbase";
+import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import {
   DropdownMenu,
@@ -51,6 +52,7 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout: storeLogout } = useAuthStore();
+  const { settings } = useSchoolSettings();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const handleLogout = () => {
@@ -137,7 +139,7 @@ export default function DashboardLayout({
 
             <div className="hidden md:flex flex-col">
               <h1 className="text-sm font-semibold leading-none">
-                SD Negeri 1
+                {settings?.school_name || "Sekolah"}
               </h1>
               <p className="text-xs text-muted-foreground mt-1">
                 Website Sekolah Terpadu

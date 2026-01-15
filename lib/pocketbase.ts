@@ -24,9 +24,14 @@ export function getPocketBase(): PocketBase {
   }
 
   // Use internal URL for server-side, public URL for client-side
+  // Default to 8092 which is the Docker-exposed port
   const pbUrl = typeof window === "undefined"
-    ? (process.env.POCKETBASE_URL || "http://127.0.0.1:8090")
-    : (process.env.NEXT_PUBLIC_POCKETBASE_URL || "http://127.0.0.1:8090");
+    ? (process.env.POCKETBASE_URL || "http://127.0.0.1:8092")
+    : (process.env.NEXT_PUBLIC_POCKETBASE_URL || "http://127.0.0.1:8092");
+
+  if (typeof window !== "undefined") {
+    console.log("[PocketBase] Client URL:", pbUrl);
+  }
 
   pbInstance = new PocketBase(pbUrl);
 

@@ -1,6 +1,25 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
+import { motion } from "framer-motion";
+import {
+  Users,
+  GraduationCap,
+  Award,
+  BookOpen,
+  ArrowRight,
+  PlayCircle,
+  CheckCircle,
+  Sparkles,
+  ChevronRight,
+  MapPin,
+  Calendar,
+  Newspaper,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   pb,
   getSchoolSettings,
