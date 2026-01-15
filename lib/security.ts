@@ -1,225 +1,216 @@
-// Security utilities for input sanitization and validation
+// ==========================================
+// Security Utilities
+// ==========================================
+// This module provides security helpers for:
+// - XSS prevention (HTML sanitization)
+// - Filter injection prevention (PocketBase query sanitization)
+// - Input validation helpers
+
+import DOMPurify from "isomorphic-dompurify";
+
+// ==========================================
+// XSS Prevention
+// ==========================================
 
 /**
- * Sanitize string input to prevent XSS
- * Removes or escapes potentially dangerous characters
+ * Sanitize HTML content to prevent XSS attacks
+ * Use this before rendering user-generated HTML with dangerouslySetInnerHTML
  */
-export function sanitizeString(input: string): string {
-    if (!input || typeof input !== "string") return "";
+export function sanitizeHTML(dirty: string): string {
+    if (!dirty) return "";
 
-    return input
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#x27;")
-        .replace(/\//g, "&#x2F;")
-        .replace(/`/g, "&#x60;")
+    return DOMPurify.sanitize(dirty, {
+        // Allow safe HTML tags for rich content
+        ALLOWED_TAGS: [
+            "p", "br", "strong", "em", "u", "s", "blockquote",
+            "h1", "h2", "h3", "h4", "h5", "h6",
+            "ul", "ol", "li",
+            "a", "img",
+            "table", "thead", "tbody", "tr", "th", "td",
+            "pre", "code",
+            "hr", "div", "span",
+        ],
+        ALLOWED_ATTR: [
+            "href", "src", "alt", "title", "class", "id",
+            "target", "rel", "width", "height",
+        ],
+        // Force links to open in new tab with noopener
+        ADD_ATTR: ["target", "rel"],
+        // Disallow javascript: URLs
+        ALLOW_DATA_ATTR: false,
+    });
+}
+
+/**
+ * Sanitize plain text - strips ALL HTML
+ */
+export function sanitizeText(dirty: string): string {
+    if (!dirty) return "";
+    return DOMPurify.sanitize(dirty, { ALLOWED_TAGS: [] });
+}
+
+// ==========================================
+// PocketBase Filter Injection Prevention
+// ==========================================
+
+/**
+ * Sanitize a value for use in PocketBase filter queries
+ * Prevents filter injection attacks by escaping special characters
+ * 
+ * Usage:
+ * ```ts
+ * const filter = `name = "${sanitizeFilter(userInput)}"`;
+ * ```
+ */
+export function sanitizeFilter(value: string): string {
+    if (!value) return "";
+
+    // Remove or escape characters that could break PocketBase filter syntax
+    return value
+        .replace(/\\/g, "\\\\")  // Escape backslashes first
+        .replace(/"/g, '\\"')    // Escape double quotes
+        .replace(/'/g, "\\'")    // Escape single quotes
+        .replace(/\n/g, "")      // Remove newlines
+        .replace(/\r/g, "")      // Remove carriage returns
+        .replace(/\t/g, "")      // Remove tabs
         .trim();
 }
 
 /**
- * Sanitize HTML content - allows safe tags only
- * For rich text content, use with caution
+ * Sanitize an ID value (alphanumeric + underscore only)
+ * Use for record IDs to prevent injection
  */
-export function sanitizeHtml(html: string): string {
-    if (!html || typeof html !== "string") return "";
-
-    // Remove script tags and their content
-    let cleaned = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
-
-    // Remove event handlers
-    cleaned = cleaned.replace(/\s*on\w+\s*=\s*["'][^"']*["']/gi, "");
-    cleaned = cleaned.replace(/\s*on\w+\s*=\s*[^\s>]*/gi, "");
-
-    // Remove javascript: URLs
-    cleaned = cleaned.replace(/javascript:/gi, "");
-
-    // Remove data: URLs in src/href (except for images)
-    cleaned = cleaned.replace(/(?:src|href)\s*=\s*["']data:(?!image)/gi, 'src="');
-
-    return cleaned.trim();
+export function sanitizeId(value: string): string {
+    if (!value) return "";
+    // PocketBase IDs are alphanumeric, allow only those
+    return value.replace(/[^a-zA-Z0-9_]/g, "");
 }
 
 /**
- * Validate and sanitize email
+ * Sanitize a slug (URL-safe characters only)
  */
-export function sanitizeEmail(email: string): string {
-    if (!email || typeof email !== "string") return "";
-
-    // Basic email validation regex
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    const cleaned = email.toLowerCase().trim();
-
-    if (!emailRegex.test(cleaned)) {
-        return "";
-    }
-
-    return cleaned;
+export function sanitizeSlug(value: string): string {
+    if (!value) return "";
+    return value
+        .toLowerCase()
+        .replace(/[^a-z0-9-]/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "");
 }
 
 /**
- * Sanitize phone number - keep only digits and + prefix
+ * Sanitize a generic string - removes dangerous characters
  */
-export function sanitizePhone(phone: string): string {
-    if (!phone || typeof phone !== "string") return "";
-
-    // Remove everything except digits and leading +
-    let cleaned = phone.replace(/[^\d+]/g, "");
-
-    // Ensure + is only at the start if present
-    if (cleaned.includes("+") && !cleaned.startsWith("+")) {
-        cleaned = cleaned.replace(/\+/g, "");
-    }
-
-    return cleaned;
+export function sanitizeString(value: string): string {
+    if (!value) return "";
+    return value
+        .replace(/<[^>]*>/g, "") // Remove HTML tags
+        .replace(/[<>]/g, "")    // Remove angle brackets
+        .trim();
 }
 
 /**
- * Sanitize NIK - keep only 16 digits
+ * Sanitize email address
  */
-export function sanitizeNIK(nik: string): string {
-    if (!nik || typeof nik !== "string") return "";
-
-    const digitsOnly = nik.replace(/\D/g, "");
-
-    // NIK must be exactly 16 digits
-    if (digitsOnly.length !== 16) {
-        return "";
-    }
-
-    return digitsOnly;
+export function sanitizeEmail(value: string): string {
+    if (!value) return "";
+    return value
+        .toLowerCase()
+        .replace(/[^a-z0-9@._+-]/g, "")
+        .trim();
 }
 
 /**
- * Validate file upload
+ * Sanitize phone number (keep only digits and +)
  */
-export function validateFileUpload(
-    file: File,
-    options: {
-        maxSize?: number; // in bytes
-        allowedTypes?: string[];
-    } = {}
-): { valid: boolean; error?: string } {
-    const maxSize = options.maxSize || 5 * 1024 * 1024; // 5MB default
-    const allowedTypes = options.allowedTypes || [
-        "image/jpeg",
-        "image/png",
-        "image/webp",
-        "application/pdf",
-    ];
-
-    if (file.size > maxSize) {
-        return { valid: false, error: `File terlalu besar (max ${maxSize / 1024 / 1024}MB)` };
-    }
-
-    if (!allowedTypes.includes(file.type)) {
-        return { valid: false, error: "Tipe file tidak diizinkan" };
-    }
-
-    // Check for double extensions (e.g., file.jpg.exe)
-    const nameParts = file.name.split(".");
-    if (nameParts.length > 2) {
-        const suspiciousExts = ["exe", "bat", "cmd", "sh", "php", "js", "html"];
-        if (suspiciousExts.some(ext => nameParts.includes(ext))) {
-            return { valid: false, error: "File mencurigakan terdeteksi" };
-        }
-    }
-
-    return { valid: true };
+export function sanitizePhone(value: string): string {
+    if (!value) return "";
+    return value.replace(/[^\d+]/g, "");
 }
 
 /**
- * Rate limiter using in-memory store
- * Note: For production, use Redis or similar
+ * Sanitize NIK (Indonesian ID - 16 digits only)
  */
-const rateLimitStore: Map<string, { count: number; resetTime: number }> = new Map();
+export function sanitizeNIK(value: string): string {
+    if (!value) return "";
+    return value.replace(/\D/g, "").substring(0, 16);
+}
 
+// ==========================================
+// Input Validation
+// ==========================================
+
+/**
+ * Validate email format
+ */
+export function isValidEmail(email: string): boolean {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+}
+
+/**
+ * Validate phone number (Indonesian format)
+ */
+export function isValidPhone(phone: string): boolean {
+    // Indonesian phone: 08xx, +62xx, 62xx
+    const phoneRegex = /^(\+62|62|0)8[1-9][0-9]{7,10}$/;
+    return phoneRegex.test(phone.replace(/[\s-]/g, ""));
+}
+
+/**
+ * Validate NIK (Indonesian ID number - 16 digits)
+ */
+export function isValidNIK(nik: string): boolean {
+    return /^\d{16}$/.test(nik);
+}
+
+// ==========================================
+// Rate Limiting Helper (Client-side)
+// ==========================================
+
+const requestTimestamps: Map<string, number[]> = new Map();
+
+interface RateLimitOptions {
+    windowMs?: number;
+    maxRequests?: number;
+}
+
+interface RateLimitResult {
+    allowed: boolean;
+    remaining: number;
+    resetIn: number;
+}
+
+/**
+ * Simple client-side rate limiting
+ * Returns object with allowed status and remaining requests
+ */
 export function checkRateLimit(
-    identifier: string,
-    options: { windowMs?: number; maxRequests?: number } = {}
-): { allowed: boolean; remaining: number; resetIn: number } {
-    const windowMs = options.windowMs || 60 * 1000; // 1 minute default
-    const maxRequests = options.maxRequests || 60; // 60 requests per minute default
-
+    key: string,
+    options: RateLimitOptions = {}
+): RateLimitResult {
+    const { maxRequests = 10, windowMs = 60000 } = options;
     const now = Date.now();
-    const record = rateLimitStore.get(identifier);
+    const timestamps = requestTimestamps.get(key) || [];
 
-    // Clean up expired entries periodically
-    if (rateLimitStore.size > 10000) {
-        for (const [key, value] of rateLimitStore.entries()) {
-            if (value.resetTime < now) {
-                rateLimitStore.delete(key);
-            }
-        }
-    }
+    // Remove timestamps outside the window
+    const validTimestamps = timestamps.filter(t => now - t < windowMs);
 
-    if (!record || record.resetTime < now) {
-        rateLimitStore.set(identifier, { count: 1, resetTime: now + windowMs });
-        return { allowed: true, remaining: maxRequests - 1, resetIn: windowMs };
-    }
-
-    if (record.count >= maxRequests) {
+    if (validTimestamps.length >= maxRequests) {
+        const oldestTimestamp = Math.min(...validTimestamps);
         return {
             allowed: false,
             remaining: 0,
-            resetIn: record.resetTime - now
+            resetIn: windowMs - (now - oldestTimestamp),
         };
     }
 
-    record.count++;
+    validTimestamps.push(now);
+    requestTimestamps.set(key, validTimestamps);
+
     return {
         allowed: true,
-        remaining: maxRequests - record.count,
-        resetIn: record.resetTime - now
+        remaining: maxRequests - validTimestamps.length,
+        resetIn: windowMs,
     };
-}
-
-/**
- * Generate CSRF token
- */
-export function generateCSRFToken(): string {
-    const array = new Uint8Array(32);
-    if (typeof crypto !== "undefined" && crypto.getRandomValues) {
-        crypto.getRandomValues(array);
-    } else {
-        // Fallback for environments without crypto
-        for (let i = 0; i < array.length; i++) {
-            array[i] = Math.floor(Math.random() * 256);
-        }
-    }
-    return Array.from(array, byte => byte.toString(16).padStart(2, "0")).join("");
-}
-
-/**
- * Password strength checker
- */
-export function checkPasswordStrength(password: string): {
-    score: number; // 0-4
-    feedback: string[];
-} {
-    const feedback: string[] = [];
-    let score = 0;
-
-    if (password.length >= 8) score++;
-    else feedback.push("Minimal 8 karakter");
-
-    if (password.length >= 12) score++;
-
-    if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++;
-    else feedback.push("Gunakan huruf besar dan kecil");
-
-    if (/\d/.test(password)) score++;
-    else feedback.push("Tambahkan angka");
-
-    if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) score++;
-    else feedback.push("Tambahkan simbol");
-
-    // Check for common patterns
-    const commonPatterns = ["password", "123456", "qwerty", "admin"];
-    if (commonPatterns.some(p => password.toLowerCase().includes(p))) {
-        score = Math.max(0, score - 2);
-        feedback.push("Hindari kata/pola umum");
-    }
-
-    return { score: Math.min(4, score), feedback };
 }

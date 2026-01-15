@@ -15,6 +15,9 @@ import {
   User,
   Home,
   Activity,
+  BookOpen,
+  ExternalLink,
+  Package,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -33,16 +36,82 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-const sidebarLinks = [
-  { href: "/overview", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/spmb-admin", label: "Pendaftar", icon: Users },
-  { href: "/spmb-admin/periods", label: "Periode SPMB", icon: CalendarDays },
-  { href: "/announcements", label: "Pengumuman", icon: Bell },
-  { href: "/users", label: "Pengguna", icon: User },
-  { href: "/activity-log", label: "Log Aktivitas", icon: Activity },
-  { href: "/profile", label: "Profil Saya", icon: User },
-  { href: "/school-settings", label: "Pengaturan", icon: Settings },
+import type { UserRole } from "@/types";
+import type { LucideIcon } from "lucide-react";
+
+// ==========================================
+// Navigation Structure with Role-Based Access
+// ==========================================
+
+interface NavItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  roles?: UserRole[]; // If undefined, accessible to all authenticated users
+}
+
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+// Define which roles can access which menus
+const ADMIN_ROLES: UserRole[] = ["superadmin", "admin"];
+const SARANA_ROLES: UserRole[] = ["superadmin", "admin", "staff"];
+const PUSTAKA_ROLES: UserRole[] = ["superadmin", "admin", "staff"];
+const SPMB_ROLES: UserRole[] = ["superadmin", "admin", "staff"];
+
+const navGroups: NavGroup[] = [
+  {
+    label: "Dashboard",
+    items: [
+      { href: "/overview", label: "Overview", icon: LayoutDashboard },
+    ],
+  },
+  {
+    label: "Akademik",
+    items: [
+      { href: "/spmb-admin", label: "Pendaftar", icon: Users, roles: SPMB_ROLES },
+      { href: "/spmb-admin/periods", label: "Periode SPMB", icon: CalendarDays, roles: SPMB_ROLES },
+      { href: "/announcements", label: "Pengumuman", icon: Bell },
+    ],
+  },
+  {
+    label: "Perpustakaan",
+    items: [
+      { href: "/perpustakaan", label: "Dashboard Perpus", icon: BookOpen, roles: PUSTAKA_ROLES },
+    ],
+  },
+  {
+    label: "Inventaris",
+    items: [
+      { href: "/inventaris", label: "Dashboard Inventaris", icon: Package, roles: SARANA_ROLES },
+    ],
+  },
+  {
+    label: "Sistem",
+    items: [
+      { href: "/users", label: "Pengguna", icon: User, roles: ADMIN_ROLES },
+      { href: "/activity-log", label: "Log Aktivitas", icon: Activity, roles: ADMIN_ROLES },
+      { href: "/profile", label: "Profil Saya", icon: User },
+      { href: "/school-settings", label: "Pengaturan", icon: Settings, roles: ADMIN_ROLES },
+    ],
+  },
 ];
+
+// Helper to filter nav items by user role
+function filterNavByRole(groups: NavGroup[], userRole?: UserRole): NavGroup[] {
+  if (!userRole) return [];
+
+  return groups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter(
+        (item) => !item.roles || item.roles.includes(userRole)
+      ),
+    }))
+    .filter((group) => group.items.length > 0);
+}
 
 export default function DashboardLayout({
   children,
@@ -72,30 +141,35 @@ export default function DashboardLayout({
       </div>
 
       {/* Navigation */}
-      <div className="flex-1 py-6 px-4 space-y-1.5 overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-200 dark:scrollbar-thumb-zinc-800">
-        <p className="px-4 text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">
-          Menu Utama
-        </p>
-
-        {sidebarLinks.map((link) => {
-          const isActive = pathname === link.href || pathname?.startsWith(link.href + "/");
-          return (
-            <Link key={link.href} href={link.href} onClick={() => setIsSidebarOpen(false)}>
-              <Button
-                variant={isActive ? "secondary" : "ghost"}
-                className={cn(
-                  "w-full justify-start gap-3 h-11 transition-all duration-200",
-                  isActive
-                    ? "bg-sidebar-primary/10 text-sidebar-primary font-medium hover:bg-sidebar-primary/15"
-                    : "text-muted-foreground hover:text-foreground hover:bg-zinc-100 dark:hover:bg-zinc-800/50"
-                )}
-              >
-                <link.icon className={cn("h-4 w-4", isActive && "text-sidebar-primary")} />
-                {link.label}
-              </Button>
-            </Link>
-          );
-        })}
+      <div className="flex-1 py-4 px-3 overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-200 dark:scrollbar-thumb-zinc-800">
+        {filterNavByRole(navGroups, user?.role).map((group) => (
+          <div key={group.label} className="mb-4">
+            <p className="px-3 text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">
+              {group.label}
+            </p>
+            <div className="space-y-1">
+              {group.items.map((link) => {
+                const isActive = pathname === link.href || pathname?.startsWith(link.href + "/");
+                return (
+                  <Link key={link.href} href={link.href} onClick={() => setIsSidebarOpen(false)}>
+                    <Button
+                      variant={isActive ? "secondary" : "ghost"}
+                      className={cn(
+                        "w-full justify-start gap-3 h-10 transition-all duration-200",
+                        isActive
+                          ? "bg-sidebar-primary/10 text-sidebar-primary font-medium hover:bg-sidebar-primary/15"
+                          : "text-muted-foreground hover:text-foreground hover:bg-zinc-100 dark:hover:bg-zinc-800/50"
+                      )}
+                    >
+                      <link.icon className={cn("h-4 w-4", isActive && "text-sidebar-primary")} />
+                      {link.label}
+                    </Button>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Sidebar Footer */}

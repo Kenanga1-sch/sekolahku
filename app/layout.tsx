@@ -3,6 +3,9 @@ import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { SchoolSettingsProvider } from "@/lib/contexts/school-settings-context";
+import { SWRProvider } from "@/components/providers/swr-provider";
+import { Toaster } from "@/components/ui/toaster";
+import { SkipToContent } from "@/components/accessibility";
 import "./globals.css";
 
 const inter = Inter({
@@ -64,10 +67,14 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
+        <SkipToContent />
         <ThemeProvider>
-          <AuthProvider>
-            <SchoolSettingsProvider>{children}</SchoolSettingsProvider>
-          </AuthProvider>
+          <SWRProvider>
+            <AuthProvider>
+              <SchoolSettingsProvider>{children}</SchoolSettingsProvider>
+            </AuthProvider>
+          </SWRProvider>
+          <Toaster />
         </ThemeProvider>
         <script
           dangerouslySetInnerHTML={{

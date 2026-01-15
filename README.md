@@ -1,6 +1,6 @@
 # 🎓 Website Sekolah Terpadu
 
-Modern school website built with Next.js 15, featuring online student registration (SPMB) with interactive zonasi map.
+Modern school website built with Next.js 16, featuring integrated Library Management, Inventory System, and Online Student Registration (SPMB).
 
 ![Next.js](https://img.shields.io/badge/Next.js-16.1-black?logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?logo=typescript)
@@ -9,12 +9,26 @@ Modern school website built with Next.js 15, featuring online student registrati
 
 ## ✨ Features
 
-- **📝 SPMB Online** - Multi-step registration wizard with document upload
-- **🗺️ Interactive Zonasi Map** - Real-time distance calculation using Leaflet + Turf.js
-- **📊 Admin Dashboard** - Manage registrants, periods, and announcements
-- **🌙 Dark Mode** - System-aware theme switching
-- **📱 Responsive** - Mobile-first design
-- **⚡ Fast** - Static generation + Turbopack
+### 🎯 Core Modules
+| Module | Description |
+|--------|-------------|
+| **SPMB** | Online student registration with zonasi map |
+| **Perpustakaan** | Library management with kiosk mode |
+| **Inventaris** | Asset management with stock opname |
+| **Pengumuman** | News and announcements |
+
+### 🔒 Security Features
+- XSS Prevention (DOMPurify)
+- Filter Injection Protection
+- Rate Limiting
+- Input Sanitization
+- Role-Based Access Control
+
+### ⚡ Performance Features
+- SWR Caching
+- Pagination
+- Standalone Build (512MB RAM limit)
+- Optimized Docker deployment
 
 ## 🚀 Quick Start
 
@@ -40,18 +54,25 @@ Open [http://localhost:3000](http://localhost:3000)
 
 ```
 ├── app/
-│   ├── (public)/          # Public pages (landing, profile, news)
-│   ├── (auth)/            # Authentication (login, register)
+│   ├── (public)/          # Public pages
+│   ├── (auth)/            # Authentication
 │   ├── (dashboard)/       # Admin dashboard
+│   │   ├── perpustakaan/  # Library module
+│   │   ├── inventaris/    # Inventory module
+│   │   └── spmb-admin/    # SPMB management
 │   └── api/               # API routes
 ├── components/
-│   ├── layout/            # Navbar, Footer
-│   ├── spmb/              # Registration wizard components
-│   └── ui/                # Shadcn UI components
+│   ├── providers/         # Context providers
+│   ├── ui/                # Shadcn UI components
+│   └── ...               # Feature components
+├── hooks/
+│   └── use-data.ts        # SWR data hooks
 ├── lib/
 │   ├── pocketbase.ts      # PocketBase client
-│   ├── utils.ts           # Utility functions
-│   └── validations/       # Zod schemas
+│   ├── security.ts        # Security utilities
+│   ├── library.ts         # Library helpers
+│   ├── inventory.ts       # Inventory helpers
+│   └── toast.ts           # Toast notifications
 └── types/                 # TypeScript definitions
 ```
 
@@ -65,69 +86,78 @@ NEXT_PUBLIC_POCKETBASE_URL=http://127.0.0.1:8090
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 NEXT_PUBLIC_APP_NAME="Website Sekolah Terpadu"
 
-# Default Map Center (Jakarta)
+# Default Map Center
 NEXT_PUBLIC_DEFAULT_LAT=-6.200000
 NEXT_PUBLIC_DEFAULT_LNG=106.816666
 ```
 
-## 📦 Tech Stack
+## 🐳 Docker Deployment
 
-| Category  | Technology                 |
-| --------- | -------------------------- |
-| Framework | Next.js 15 (App Router)    |
-| Language  | TypeScript                 |
-| Styling   | Tailwind CSS 4 + Shadcn UI |
-| Backend   | PocketBase                 |
-| Maps      | React Leaflet + Turf.js    |
-| Forms     | React Hook Form + Zod      |
-| Animation | Framer Motion              |
+### Quick Deploy
+```bash
+docker-compose up -d
+```
+
+### Memory Limits (For 4GB Server)
+| Service | Memory Limit |
+|---------|--------------|
+| Next.js | 512 MB |
+| PocketBase | 256 MB |
+
+### Manual Production
+```bash
+npm run build
+./start-production.sh
+```
+
+## 📝 Available Scripts
+
+```bash
+npm run dev         # Development server
+npm run build       # Production build
+npm run start       # Production server (default)
+npm run start:prod  # Production with memory limits
+npm run lint        # ESLint
+npm run test        # Vitest unit tests
+npm run test:e2e    # Playwright E2E tests
+```
 
 ## 🗺️ Routes
 
-### Public
+### Public Routes
+| Route | Description |
+|-------|-------------|
+| `/` | Landing page |
+| `/profil/*` | School profile pages |
+| `/berita` | News listing |
+| `/spmb/daftar` | SPMB registration |
+| `/spmb/tracking` | Status check |
+| `/kiosk` | Library kiosk mode |
 
-- `/` - Landing page
-- `/profil/visi-misi` - Vision & Mission
-- `/profil/sejarah` - School history
-- `/kontak` - Contact
-- `/berita` - News listing
-- `/spmb` - SPMB info
-- `/spmb/daftar` - Registration form
-- `/spmb/tracking` - Status check
+### Dashboard Routes (Protected)
+| Route | Description |
+|-------|-------------|
+| `/overview` | Dashboard |
+| `/spmb-admin` | Manage registrants |
+| `/perpustakaan` | Library dashboard |
+| `/inventaris` | Inventory dashboard |
+| `/users` | User management |
 
-### Admin
+## 📚 API Documentation
 
-- `/overview` - Dashboard
-- `/spmb-admin` - Manage registrants
-- `/spmb-admin/periods` - Manage periods
-- `/announcements` - Manage news
-- `/school-settings` - Settings
+See [docs/API.md](docs/API.md) for detailed API documentation.
 
-### API
-
-- `POST /api/spmb/register`
-- `GET /api/spmb/status`
-- `POST /api/spmb/upload`
-- `GET/PUT /api/settings`
-
-## 🐳 Docker
+## 🧪 Testing
 
 ```bash
-# Build and run
-docker-compose up -d
+# Unit tests
+npm run test
 
-# Or build image only
-docker build -t sekolahku .
-```
+# E2E tests
+npm run test:e2e
 
-## 📝 Scripts
-
-```bash
-npm run dev      # Development server
-npm run build    # Production build
-npm run start    # Production server
-npm run lint     # ESLint
-npm run test     # Run tests
+# With UI
+npm run test:e2e:ui
 ```
 
 ## 🤝 Contributing

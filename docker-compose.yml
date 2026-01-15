@@ -1,52 +1,64 @@
 version: '3.8'
 
 services:
-  app:
-    container_name: sekolahku-app
+  # ==========================================
+  # Sekolahku Next.js Application
+  # ==========================================
+  sekolahku:
     build:
       context: .
       dockerfile: Dockerfile
-    restart: always
+    container_name: sekolahku-app
+    restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      # Update this with your actual public IP or domain
-      - NEXT_PUBLIC_POCKETBASE_URL=http://${HOST_IP:-localhost}:8092
-      # Internal URL for SSR (optional, if code supports it)
-      - POCKETBASE_URL=http://pocketbase:8090
-      - NEXT_PUBLIC_SENTRY_DSN=${NEXT_PUBLIC_SENTRY_DSN}
+      - NEXT_PUBLIC_POCKETBASE_URL=http://pocketbase:8080
+      - POCKETBASE_URL=http://pocketbase:8080
     depends_on:
       - pocketbase
-    networks:
-      - sekolahku-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
+  # ==========================================
+  # PocketBase Backend
+  # ==========================================
   pocketbase:
-    container_name: sekolahku-pb
-    image: alpine:latest
-    restart: always
+    image: ghcr.io/muchobien/pocketbase:latest
+    container_name: sekolahku-pocketbase
+    restart: unless-stopped
     ports:
-      - "8092:8090"
+      - "8092:8080"
     volumes:
       - ./pb_data:/pb/pb_data
-      - ./pb_public:/pb/pb_public
-      # Mount the pocketbase executable from local host
-      # OR we can use a proper pocketbase image. 
-      # Since user already has pocketbase locally, let's try to wrap it or download in container.
-      # Better approach for portability: Download it in the container.
-    entrypoint: |
-      /bin/sh -c "
-        if [ ! -f /pb/pocketbase ]; then
-          wget https://github.com/pocketbase/pocketbase/releases/download/v0.22.3/pocketbase_0.22.3_linux_amd64.zip -O /tmp/pb.zip
-          unzip /tmp/pb.zip -d /pb/
-          chmod +x /pb/pocketbase
-        fi
-        /pb/pocketbase serve --http=0.0.0.0:8090
-      "
-    working_dir: /pb
-    networks:
-      - sekolahku-network
+      - ./pb_migrations:/pb/pb_migrations
+    environment:
+      - GOMEMLIMIT=128MiB
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 64M
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-networks:
-  sekolahku-network:
-    driver: bridge
+# ==========================================
+# RAM Summary (for 4GB server):
+# - Sekolahku: 256-512MB
+# - PocketBase: 64-256MB
+# - Total: ~350-800MB (leaves room for OS + other services)
+# ==========================================

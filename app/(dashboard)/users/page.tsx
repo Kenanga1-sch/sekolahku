@@ -77,6 +77,9 @@ export default function UserManagementPage() {
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalUsers, setTotalUsers] = useState(0);
 
     const [formData, setFormData] = useState({
         name: "",
@@ -89,16 +92,26 @@ export default function UserManagementPage() {
 
     const fetchUsers = useCallback(async () => {
         try {
-            const result = await pb.collection("users").getFullList<User>({
+            // Build filter for search
+            let filter = "";
+            if (searchQuery) {
+                const safeQuery = searchQuery.replace(/["']/g, "");
+                filter = `name ~ "${safeQuery}" || email ~ "${safeQuery}"`;
+            }
+
+            const result = await pb.collection("users").getList<User>(page, 20, {
                 sort: "-created",
+                filter,
             });
-            setUsers(result);
+            setUsers(result.items);
+            setTotalPages(result.totalPages);
+            setTotalUsers(result.totalItems);
         } catch (error) {
             console.error("Failed to fetch users:", error);
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [page, searchQuery]);
 
     useEffect(() => {
         fetchUsers();
@@ -207,7 +220,7 @@ export default function UserManagementPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <Card className="p-4">
                     <div className="text-sm text-muted-foreground">Total User</div>
-                    <div className="text-2xl font-bold">{isLoading ? <Skeleton className="h-8 w-12" /> : users.length}</div>
+                    <div className="text-2xl font-bold">{isLoading ? <Skeleton className="h-8 w-12" /> : totalUsers}</div>
                 </Card>
                 <Card className="p-4">
                     <div className="text-sm text-muted-foreground">Admin</div>
@@ -236,7 +249,7 @@ export default function UserManagementPage() {
                     placeholder="Cari nama atau email..."
                     className="pl-10"
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
                 />
             </div>
 
@@ -266,7 +279,7 @@ export default function UserManagementPage() {
                                         <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                                     </TableRow>
                                 ))
-                            ) : filteredUsers.length === 0 ? (
+                            ) : users.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={6} className="text-center py-8">
                                         <Users className="h-12 w-12 mx-auto text-muted-foreground/50 mb-2" />
@@ -274,7 +287,7 @@ export default function UserManagementPage() {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                filteredUsers.map((user) => {
+                                users.map((user) => {
                                     const roleInfo = getRoleInfo(user.role);
                                     return (
                                         <TableRow key={user.id}>
@@ -318,6 +331,33 @@ export default function UserManagementPage() {
                         </TableBody>
                     </Table>
                 </CardContent>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                    <div className="flex items-center justify-between p-4 border-t">
+                        <p className="text-sm text-muted-foreground">
+                            Halaman {page} dari {totalPages}
+                        </p>
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={page <= 1}
+                                onClick={() => setPage(p => p - 1)}
+                            >
+                                Sebelumnya
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={page >= totalPages}
+                                onClick={() => setPage(p => p + 1)}
+                            >
+                                Selanjutnya
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </Card>
 
             {/* Create/Edit Dialog */}

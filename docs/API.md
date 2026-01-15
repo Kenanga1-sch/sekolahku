@@ -1,43 +1,44 @@
 # API Documentation
 
-Base URL: `/api`
+## Base URL
+```
+http://localhost:3000/api
+```
 
-## SPMB Registration
+## Authentication
+Most API endpoints require authentication via PocketBase token.
+
+---
+
+## SPMB Endpoints
 
 ### Register New Student
-
 ```http
 POST /api/spmb/register
 Content-Type: application/json
-```
 
-**Request Body:**
-
-```json
 {
   "student_name": "John Doe",
   "student_nik": "1234567890123456",
-  "birth_date": "2015-05-15",
+  "birth_date": "2018-05-15",
   "birth_place": "Jakarta",
-  "gender": "male",
-  "previous_school": "TK Harapan Bangsa",
-  "parent_name": "Jane Doe",
+  "gender": "L",
+  "parent_name": "Parent Name",
   "parent_phone": "081234567890",
-  "parent_email": "jane@example.com",
+  "parent_email": "parent@example.com",
   "address": "Jl. Contoh No. 123",
-  "home_lat": -6.123456,
-  "home_lng": 106.789012,
+  "home_lat": -6.2088,
+  "home_lng": 106.8456,
   "distance_to_school": 1.5
 }
 ```
 
-**Response (Success):**
-
+**Response:**
 ```json
 {
   "success": true,
   "data": {
-    "registration_number": "SPMB20240001",
+    "registration_number": "SPMB20260001",
     "id": "abc123",
     "status": "pending",
     "is_in_zone": true
@@ -45,93 +46,41 @@ Content-Type: application/json
 }
 ```
 
----
-
 ### Check Registration Status
-
 ```http
-GET /api/spmb/status?number=SPMB20240001
+GET /api/spmb/status?registration_number=SPMB20260001
 ```
 
-**Response:**
-
-```json
-{
-  "success": true,
-  "data": {
-    "registration_number": "SPMB20240001",
-    "student_name": "John Doe",
-    "status": "pending",
-    "status_label": "Menunggu Verifikasi",
-    "is_in_zone": true,
-    "distance_to_school": 1.5,
-    "registered_at": "2024-01-15T10:30:00Z"
-  }
-}
-```
-
----
-
-### Upload Document
-
+### Upload Documents
 ```http
 POST /api/spmb/upload
 Content-Type: multipart/form-data
-```
 
-**Form Data:**
-
-- `registrant_id`: string
-- `document_type`: "kk" | "akta" | "foto"
-- `file`: File (PDF, JPG, PNG, max 2MB)
-
----
-
-### Update Registrant Status (Admin)
-
-```http
-PATCH /api/spmb/registrants/{id}
-Content-Type: application/json
-```
-
-**Request Body:**
-
-```json
-{
-  "status": "verified",
-  "notes": "Dokumen lengkap dan valid"
-}
+registrant_id: abc123
+document_type: birth_certificate
+file: [binary]
 ```
 
 ---
 
-## School Settings
+## Health Check
 
-### Get Settings
-
+### Server Health
 ```http
-GET /api/settings
+GET /api/health
 ```
 
-### Update Settings
-
-```http
-PUT /api/settings
-Content-Type: application/json
-```
-
-**Request Body:**
-
+**Response:**
 ```json
 {
-  "school_name": "SD Negeri 1",
-  "npsn": "12345678",
-  "address": "Jl. Pendidikan No. 123",
-  "phone": "(021) 1234-5678",
-  "email": "info@sdnegeri1.sch.id",
-  "school_lat": -6.2,
-  "school_lng": 106.816666,
-  "max_distance": 3
+  "status": "healthy",
+  "timestamp": "2026-01-15T12:00:00Z",
+  "uptime": 3600,
+  "memory": {
+    "used": 128,
+    "total": 512,
+    "unit": "MB"
+  }
 }
 ```
 
@@ -139,17 +88,56 @@ Content-Type: application/json
 
 ## Error Responses
 
-All endpoints return errors in this format:
-
+All errors follow this format:
 ```json
 {
   "success": false,
-  "error": "Error message here"
+  "error": "Error message description"
 }
 ```
 
-**Common HTTP Status Codes:**
+### Error Codes
+| Status | Description |
+|--------|-------------|
+| 400 | Bad Request - Invalid input |
+| 401 | Unauthorized - Missing auth |
+| 403 | Forbidden - Insufficient permissions |
+| 404 | Not Found |
+| 429 | Too Many Requests - Rate limited |
+| 500 | Internal Server Error |
 
-- `400` - Bad Request (validation error)
-- `404` - Not Found
-- `500` - Internal Server Error
+---
+
+## Rate Limiting
+
+- Registration: 10 requests per hour per IP
+- General API: 100 requests per minute per IP
+
+---
+
+## PocketBase Collections
+
+### Core Collections
+| Collection | Description |
+|------------|-------------|
+| `users` | User accounts |
+| `spmb_registrants` | SPMB registrations |
+| `spmb_periods` | Registration periods |
+| `announcements` | News/announcements |
+| `school_settings` | School configuration |
+
+### Library Collections
+| Collection | Description |
+|------------|-------------|
+| `library_items` | Books/items |
+| `library_members` | Library members |
+| `library_loans` | Loan records |
+| `library_visits` | Visit logs |
+
+### Inventory Collections
+| Collection | Description |
+|------------|-------------|
+| `inventory_assets` | Asset items |
+| `inventory_rooms` | Room locations |
+| `inventory_opname` | Stock opname records |
+| `inventory_audit` | Audit log |

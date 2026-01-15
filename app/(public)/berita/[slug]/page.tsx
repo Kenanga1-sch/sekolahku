@@ -21,6 +21,7 @@ import {
     Newspaper,
 } from "lucide-react";
 import { pb } from "@/lib/pocketbase";
+import { sanitizeHTML, sanitizeSlug } from "@/lib/security";
 import type { Announcement } from "@/types";
 
 function getCategoryColor(category: string) {
@@ -100,8 +101,9 @@ export default function BeritaDetailPage() {
             let record: Announcement | null = null;
 
             try {
+                const safeSlug = sanitizeSlug(slug);
                 record = await pb.collection("announcements").getFirstListItem<Announcement>(
-                    `slug = "${slug}" || id = "${slug}"`
+                    `slug = "${safeSlug}" || id = "${safeSlug}"`
                 );
             } catch {
                 // Use mock data if not found
@@ -269,7 +271,7 @@ export default function BeritaDetailPage() {
                 prose-p:text-muted-foreground prose-p:leading-relaxed
                 prose-li:text-muted-foreground
                 prose-a:text-primary prose-a:no-underline hover:prose-a:underline"
-                            dangerouslySetInnerHTML={{ __html: article.content || article.excerpt || "" }}
+                            dangerouslySetInnerHTML={{ __html: sanitizeHTML(article.content || article.excerpt || "") }}
                         />
 
                         <Separator className="my-8" />
