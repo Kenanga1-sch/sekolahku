@@ -1,8 +1,10 @@
-// PocketBase Migration: Create Tabungan Collections
-// Run: pocketbase migrate
+/// <reference path="../pb_data/types.d.ts" />
 
-migrate((app) => {
-    const collection = new Collection({
+migrate((db) => {
+    const dao = new Dao(db);
+
+    // 1. Create tabungan_kelas
+    const kelas = new Collection({
         name: 'tabungan_kelas',
         type: 'base',
         system: false,
@@ -33,15 +35,10 @@ migrate((app) => {
         updateRule: '@request.auth.role = "admin"',
         deleteRule: '@request.auth.role = "admin"',
     });
+    dao.saveCollection(kelas);
 
-    return app.save(collection);
-}, (app) => {
-    const collection = app.findCollectionByNameOrId('tabungan_kelas');
-    return app.delete(collection);
-});
-
-migrate((app) => {
-    const collection = new Collection({
+    // 2. Create tabungan_siswa
+    const siswa = new Collection({
         name: 'tabungan_siswa',
         type: 'base',
         system: false,
@@ -70,7 +67,7 @@ migrate((app) => {
                 type: 'relation',
                 required: true,
                 options: {
-                    collectionId: 'tabungan_kelas',
+                    collectionId: kelas.id,
                     cascadeDelete: false,
                     maxSelect: 1,
                 },
@@ -114,15 +111,10 @@ migrate((app) => {
         updateRule: '@request.auth.id != ""',
         deleteRule: '@request.auth.role = "admin"',
     });
+    dao.saveCollection(siswa);
 
-    return app.save(collection);
-}, (app) => {
-    const collection = app.findCollectionByNameOrId('tabungan_siswa');
-    return app.delete(collection);
-});
-
-migrate((app) => {
-    const collection = new Collection({
+    // 3. Create tabungan_transaksi
+    const transaksi = new Collection({
         name: 'tabungan_transaksi',
         type: 'base',
         system: false,
@@ -132,7 +124,7 @@ migrate((app) => {
                 type: 'relation',
                 required: true,
                 options: {
-                    collectionId: 'tabungan_siswa',
+                    collectionId: siswa.id,
                     cascadeDelete: false,
                     maxSelect: 1,
                 },
@@ -161,7 +153,7 @@ migrate((app) => {
                 type: 'number',
                 required: true,
                 options: {
-                    min: 1000, // Minimum Rp 1.000
+                    min: 1000,
                 },
             },
             {
@@ -203,9 +195,20 @@ migrate((app) => {
         updateRule: '@request.auth.role = "admin" || @request.auth.role = "bendahara"',
         deleteRule: '@request.auth.role = "admin"',
     });
+    dao.saveCollection(transaksi);
 
-    return app.save(collection);
-}, (app) => {
-    const collection = app.findCollectionByNameOrId('tabungan_transaksi');
-    return app.delete(collection);
+}, (db) => {
+    const dao = new Dao(db);
+    try {
+        const transaksi = dao.findCollectionByNameOrId('tabungan_transaksi');
+        dao.deleteCollection(transaksi);
+    } catch (_) { }
+    try {
+        const siswa = dao.findCollectionByNameOrId('tabungan_siswa');
+        dao.deleteCollection(siswa);
+    } catch (_) { }
+    try {
+        const kelas = dao.findCollectionByNameOrId('tabungan_kelas');
+        dao.deleteCollection(kelas);
+    } catch (_) { }
 });

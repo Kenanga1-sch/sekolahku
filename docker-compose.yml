@@ -1,5 +1,9 @@
 version: '3.8'
 
+networks:
+  sekolahku-network:
+    driver: bridge
+
 services:
   # ==========================================
   # Sekolahku Next.js Application
@@ -8,16 +12,23 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_POCKETBASE_URL=${NEXT_PUBLIC_POCKETBASE_URL:-http://localhost:8092}
+        - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+        - NEXT_PUBLIC_APP_NAME=${NEXT_PUBLIC_APP_NAME:-Website Sekolah Terpadu}
     container_name: sekolahku-app
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_POCKETBASE_URL=http://pocketbase:8080
-      - POCKETBASE_URL=http://pocketbase:8080
+      - NEXT_PUBLIC_POCKETBASE_URL=${NEXT_PUBLIC_POCKETBASE_URL:-http://localhost:8092}
+      - POCKETBASE_URL=http://pocketbase:8090
     depends_on:
-      - pocketbase
+      pocketbase:
+        condition: service_healthy
+    networks:
+      - sekolahku-network
     deploy:
       resources:
         limits:
@@ -25,10 +36,11 @@ services:
         reservations:
           memory: 256M
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
 
   # ==========================================
   # PocketBase Backend
@@ -38,12 +50,15 @@ services:
     container_name: sekolahku-pocketbase
     restart: unless-stopped
     ports:
-      - "8092:8080"
+      - "8092:8090"
     volumes:
-      - ./pb_data:/pb/pb_data
-      - ./pb_migrations:/pb/pb_migrations
+      - ./pb_data:/pb_data
+      - ./pb_migrations:/pb_migrations
+      - ./pb_public:/pb_public
     environment:
       - GOMEMLIMIT=128MiB
+    networks:
+      - sekolahku-network
     deploy:
       resources:
         limits:
@@ -51,10 +66,11 @@ services:
         reservations:
           memory: 64M
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/api/health"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8090/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 10s
 
 # ==========================================
 # RAM Summary (for 4GB server):

@@ -42,7 +42,7 @@ function addSecurityHeaders(response: NextResponse): NextResponse {
         "style-src 'self' 'unsafe-inline'",
         "img-src 'self' data: blob: https:",
         "font-src 'self' data:",
-        "connect-src 'self' ws: wss: http://127.0.0.1:8090 http://localhost:8090",
+        "connect-src 'self' ws: wss: http: https:",
         "frame-ancestors 'none'",
     ].join("; ");
     response.headers.set("Content-Security-Policy", csp);

@@ -1,0 +1,277 @@
+[
+    {
+        "id": "inventory_rooms",
+        "name": "inventory_rooms",
+        "type": "base",
+        "system": false,
+        "schema": [
+            {
+                "name": "name",
+                "type": "text",
+                "required": true,
+                "options": {
+                    "min": 1,
+                    "max": 100
+                }
+            },
+            {
+                "name": "code",
+                "type": "text",
+                "required": true,
+                "unique": true,
+                "options": {
+                    "max": 20
+                }
+            },
+            {
+                "name": "description",
+                "type": "text",
+                "required": false
+            },
+            {
+                "name": "pic",
+                "type": "relation",
+                "required": false,
+                "options": {
+                    "collectionId": "_pb_users_auth_",
+                    "cascadeDelete": false,
+                    "maxSelect": 1
+                }
+            }
+        ],
+        "listRule": "@request.auth.id != ''",
+        "viewRule": "@request.auth.id != ''",
+        "createRule": "@request.auth.id != ''",
+        "updateRule": "@request.auth.id != ''",
+        "deleteRule": "@request.auth.id != ''"
+    },
+    {
+        "id": "inventory_assets",
+        "name": "inventory_assets",
+        "type": "base",
+        "system": false,
+        "schema": [
+            {
+                "name": "name",
+                "type": "text",
+                "required": true,
+                "options": {
+                    "min": 1,
+                    "max": 200
+                }
+            },
+            {
+                "name": "code",
+                "type": "text",
+                "required": true,
+                "unique": true,
+                "options": {
+                    "max": 50
+                }
+            },
+            {
+                "name": "category",
+                "type": "text",
+                "required": true,
+                "options": {
+                    "max": 50
+                }
+            },
+            {
+                "name": "purchase_date",
+                "type": "date",
+                "required": false
+            },
+            {
+                "name": "price",
+                "type": "number",
+                "required": false,
+                "options": {
+                    "min": 0
+                }
+            },
+            {
+                "name": "quantity",
+                "type": "number",
+                "required": true,
+                "options": {
+                    "min": 0
+                }
+            },
+            {
+                "name": "room",
+                "type": "relation",
+                "required": true,
+                "options": {
+                    "collectionId": "inventory_rooms",
+                    "cascadeDelete": false,
+                    "maxSelect": 1
+                }
+            },
+            {
+                "name": "image",
+                "type": "file",
+                "required": false,
+                "options": {
+                    "maxSelect": 1,
+                    "maxSize": 5242880,
+                    "mimeTypes": [
+                        "image/png",
+                        "image/jpeg",
+                        "image/webp"
+                    ]
+                }
+            },
+            {
+                "name": "notes",
+                "type": "text",
+                "required": false
+            },
+            {
+                "name": "condition_good",
+                "type": "number",
+                "required": false,
+                "options": {
+                    "min": 0
+                }
+            },
+            {
+                "name": "condition_light_damaged",
+                "type": "number",
+                "required": false,
+                "options": {
+                    "min": 0
+                }
+            },
+            {
+                "name": "condition_heavy_damaged",
+                "type": "number",
+                "required": false,
+                "options": {
+                    "min": 0
+                }
+            },
+            {
+                "name": "condition_lost",
+                "type": "number",
+                "required": false,
+                "options": {
+                    "min": 0
+                }
+            }
+        ],
+        "listRule": "@request.auth.id != ''",
+        "viewRule": "@request.auth.id != ''",
+        "createRule": "@request.auth.id != ''",
+        "updateRule": "@request.auth.id != ''",
+        "deleteRule": "@request.auth.id != ''"
+    },
+    {
+        "id": "inventory_opname",
+        "name": "inventory_opname",
+        "type": "base",
+        "system": false,
+        "schema": [
+            {
+                "name": "date",
+                "type": "date",
+                "required": true
+            },
+            {
+                "name": "room",
+                "type": "relation",
+                "required": true,
+                "options": {
+                    "collectionId": "inventory_rooms",
+                    "cascadeDelete": false,
+                    "maxSelect": 1
+                }
+            },
+            {
+                "name": "auditor",
+                "type": "relation",
+                "required": true,
+                "options": {
+                    "collectionId": "_pb_users_auth_",
+                    "cascadeDelete": false,
+                    "maxSelect": 1
+                }
+            },
+            {
+                "name": "items",
+                "type": "json",
+                "required": false
+            },
+            {
+                "name": "status",
+                "type": "select",
+                "required": false,
+                "options": {
+                    "values": [
+                        "PENDING",
+                        "APPLIED",
+                        "REJECTED"
+                    ]
+                }
+            },
+            {
+                "name": "note",
+                "type": "text",
+                "required": false
+            }
+        ],
+        "listRule": "@request.auth.id != ''",
+        "viewRule": "@request.auth.id != ''",
+        "createRule": "@request.auth.id != ''",
+        "updateRule": "@request.auth.id != ''",
+        "deleteRule": "@request.auth.id != ''"
+    },
+    {
+        "id": "inventory_audit",
+        "name": "inventory_audit",
+        "type": "base",
+        "system": false,
+        "schema": [
+            {
+                "name": "user",
+                "type": "relation",
+                "required": true,
+                "options": {
+                    "collectionId": "_pb_users_auth_",
+                    "cascadeDelete": false,
+                    "maxSelect": 1
+                }
+            },
+            {
+                "name": "action",
+                "type": "text",
+                "required": true
+            },
+            {
+                "name": "entity",
+                "type": "text",
+                "required": true
+            },
+            {
+                "name": "entity_id",
+                "type": "text",
+                "required": true
+            },
+            {
+                "name": "changes",
+                "type": "json",
+                "required": false
+            },
+            {
+                "name": "note",
+                "type": "text",
+                "required": false
+            }
+        ],
+        "listRule": "@request.auth.id != ''",
+        "viewRule": "@request.auth.id != ''",
+        "createRule": "@request.auth.id != ''",
+        "updateRule": "",
+        "deleteRule": ""
+    }
+]

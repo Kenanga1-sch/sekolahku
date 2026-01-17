@@ -213,7 +213,7 @@ export function useTabunganStats() {
             // Calculate today's totals
             let todayDeposit = 0;
             let todayWithdraw = 0;
-            for (const t of todayRes.items as TabunganTransaksi[]) {
+            for (const t of todayRes.items as unknown as TabunganTransaksi[]) {
                 if (t.tipe === "setor") todayDeposit += t.nominal;
                 else todayWithdraw += t.nominal;
             }
