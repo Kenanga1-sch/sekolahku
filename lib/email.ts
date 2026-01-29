@@ -2,8 +2,6 @@
 // Note: In production, you would use a service like SendGrid, Mailgun, or Resend
 // For now, this creates a flexible email service that can be configured
 
-import { pb } from "./pocketbase";
-
 export interface EmailOptions {
     to: string;
     subject: string;

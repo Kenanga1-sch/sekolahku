@@ -1,14 +1,13 @@
 // ==========================================
-// PocketBase Collection Types
+// Base Types
 // ==========================================
 
-import { RecordModel } from "pocketbase";
-
 // Base record with common fields
-export interface BaseRecord extends RecordModel {
+export interface BaseRecord {
   id: string;
   created: string;
   updated: string;
+  [key: string]: any; // Allow loose typing for now
 }
 
 // ==========================================
@@ -57,6 +56,12 @@ export interface SchoolSettings extends BaseRecord {
   school_lng: number;
   max_distance_km: number;
   spmb_is_open: boolean;
+  current_academic_year?: string;
+  school_website?: string;
+  principal_name?: string;
+  principal_nip?: string;
+  last_letter_number?: number;
+  letter_number_format?: string;
 }
 
 // ==========================================
@@ -84,23 +89,34 @@ export interface SPMBRegistrant extends BaseRecord {
   registration_number: string;
   period?: string; // relation to spmb_periods
   period_id?: string;
-  // Multiple naming conventions support
+  
+  // === PRIMARY FIELDS (use these in all new code) ===
   full_name?: string;
-  student_name?: string;
   nik?: string;
+  home_address?: string;
+  is_within_zone?: boolean;
+  
+  // === DEPRECATED ALIASES ===
+  // These fields exist for backward compatibility with existing database records.
+  // DO NOT use in new code - use the primary fields above instead.
+  // Will be removed in a future major version.
+  /** @deprecated Use `full_name` instead. Will be removed in v2.0 */
+  student_name?: string;
+  /** @deprecated Use `nik` instead. Will be removed in v2.0 */
   student_nik?: string;
-  // Other fields
+  /** @deprecated Use `home_address` instead. Will be removed in v2.0 */
+  address?: string;
+  /** @deprecated Use `is_within_zone` instead. Will be removed in v2.0 */
+  is_in_zone?: boolean;
+  
+  // === OTHER FIELDS ===
   birth_place?: string;
   birth_date?: string;
   gender?: Gender;
-  previous_school?: string;
-  home_address?: string;
-  address?: string;
   home_lat?: number;
   home_lng?: number;
   distance_to_school?: number;
-  is_within_zone?: boolean;
-  is_in_zone?: boolean;
+  previous_school?: string;
   parent_name?: string;
   parent_phone?: string;
   parent_email?: string;
@@ -109,6 +125,10 @@ export interface SPMBRegistrant extends BaseRecord {
   notes?: string;
   verified_by?: string; // relation to users
   verified_at?: string;
+  
+  // Priority fields (calculated during acceptance processing)
+  priority_rank?: number;
+  priority_group?: 1 | 2 | 3; // 1=7-12yo, 2=6yo, 3=<6yo
 }
 
 // ==========================================
@@ -189,4 +209,26 @@ export interface MapPickerProps {
 export interface Coordinates {
   lat: number;
   lng: number;
+}
+
+// ==========================================
+// System Monitor Types
+// ==========================================
+
+export interface SystemHealth {
+  status: "ok" | "error";
+  timestamp: string;
+  database: {
+    status: "Online" | "Offline" | "Unknown";
+    size_bytes: number;
+    formatted_size: string;
+  };
+  system: {
+    uptime_seconds: number;
+    memory_usage_mb: string;
+  };
+  backup: {
+    count: number;
+    last_backup: Date | string | null;
+  };
 }

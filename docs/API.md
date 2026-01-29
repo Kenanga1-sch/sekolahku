@@ -1,143 +1,218 @@
-# API Documentation
+# Sekolahku API Documentation
+
+This document provides an overview of all available API endpoints in the Sekolahku application.
 
 ## Base URL
+
 ```
-http://localhost:3000/api
+Development: http://localhost:3000/api
+Production: https://your-domain.com/api
 ```
 
 ## Authentication
-Most API endpoints require authentication via PocketBase token.
+
+Most endpoints require authentication via session cookies (NextAuth).
+
+### Headers
+
+```
+Cookie: next-auth.session-token=<token>
+```
+
+### Protected Routes
+
+All routes under `/api/*` except `/api/auth/*`, `/api/health`, and `/api/spmb/register` require authentication.
 
 ---
 
-## SPMB Endpoints
+## Endpoints
 
-### Register New Student
-```http
-POST /api/spmb/register
-Content-Type: application/json
+### Health & Monitoring
 
-{
-  "student_name": "John Doe",
-  "student_nik": "1234567890123456",
-  "birth_date": "2018-05-15",
-  "birth_place": "Jakarta",
-  "gender": "L",
-  "parent_name": "Parent Name",
-  "parent_phone": "081234567890",
-  "parent_email": "parent@example.com",
-  "address": "Jl. Contoh No. 123",
-  "home_lat": -6.2088,
-  "home_lng": 106.8456,
-  "distance_to_school": 1.5
-}
-```
+#### GET /api/health
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "registration_number": "SPMB20260001",
-    "id": "abc123",
-    "status": "pending",
-    "is_in_zone": true
-  }
-}
-```
+Health check endpoint for container orchestration.
 
-### Check Registration Status
-```http
-GET /api/spmb/status?registration_number=SPMB20260001
-```
+**Response**
 
-### Upload Documents
-```http
-POST /api/spmb/upload
-Content-Type: multipart/form-data
-
-registrant_id: abc123
-document_type: birth_certificate
-file: [binary]
-```
-
----
-
-## Health Check
-
-### Server Health
-```http
-GET /api/health
-```
-
-**Response:**
 ```json
 {
   "status": "healthy",
-  "timestamp": "2026-01-15T12:00:00Z",
+  "timestamp": "2026-01-23T12:00:00.000Z",
   "uptime": 3600,
-  "memory": {
-    "used": 128,
-    "total": 512,
-    "unit": "MB"
-  }
+  "version": "0.1.0",
+  "checks": {
+    "database": { "status": "pass", "latency": 5 },
+    "memory": { "status": "pass", "used": 128, "total": 512, "percentage": 25 }
+  },
+  "circuits": {},
+  "responseTime": "15ms"
 }
 ```
+
+**Status Codes**
+| Code | Description |
+|------|-------------|
+| 200 | Healthy or degraded |
+| 503 | Unhealthy (critical failure) |
+
+---
+
+#### GET /api/metrics
+
+Application metrics in Prometheus format.
+
+**Query Parameters**
+| Param | Type | Description |
+|-------|------|-------------|
+| format | string | `json` for JSON format, omit for Prometheus text |
+
+---
+
+### Authentication
+
+#### POST /api/auth/signin
+
+Sign in with credentials.
+
+#### POST /api/auth/signout
+
+Sign out current user.
+
+#### GET /api/auth/session
+
+Get current session info.
+
+---
+
+### SPMB (Student Registration)
+
+#### GET /api/spmb/periods
+
+Get all SPMB periods.
+
+#### POST /api/spmb/register
+
+Register a new student (public endpoint).
+
+**Request Body**
+
+```json
+{
+  "fullName": "Nama Lengkap",
+  "studentNik": "1234567890123456",
+  "birthDate": "2015-01-01",
+  "birthPlace": "Jakarta",
+  "gender": "L",
+  "parentName": "Nama Orang Tua",
+  "parentPhone": "08123456789",
+  "parentEmail": "email@example.com",
+  "address": "Alamat lengkap"
+}
+```
+
+#### GET /api/spmb/registrants
+
+Get all registrants (admin only).
+
+#### PUT /api/spmb/registrants/[id]
+
+Update registrant status (admin only).
+
+---
+
+### Library
+
+#### GET /api/perpustakaan/data
+
+Get library data (items, members, or loans).
+
+#### GET /api/perpustakaan/stats
+
+Get library statistics.
+
+#### POST /api/perpustakaan/items
+
+Create a new library item.
+
+#### POST /api/perpustakaan/loans
+
+Create a new loan.
+
+#### POST /api/perpustakaan/returns
+
+Return a borrowed item.
+
+---
+
+### Tabungan (Savings)
+
+#### GET /api/tabungan/siswa
+
+Get student savings accounts.
+
+#### POST /api/tabungan/transaksi
+
+Create a new transaction.
+
+---
+
+### Users
+
+#### GET /api/users
+
+Get all users (admin only).
+
+#### POST /api/users
+
+Create a new user (admin only).
+
+---
+
+### Gallery
+
+#### GET /api/gallery
+
+Get gallery items.
+
+#### POST /api/gallery/upload
+
+Upload a new image (multipart/form-data).
 
 ---
 
 ## Error Responses
 
-All errors follow this format:
 ```json
 {
   "success": false,
-  "error": "Error message description"
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "Human readable error message",
+    "statusCode": 400
+  }
 }
 ```
 
-### Error Codes
-| Status | Description |
-|--------|-------------|
-| 400 | Bad Request - Invalid input |
-| 401 | Unauthorized - Missing auth |
-| 403 | Forbidden - Insufficient permissions |
-| 404 | Not Found |
-| 429 | Too Many Requests - Rate limited |
-| 500 | Internal Server Error |
+### Common Error Codes
+
+| Code                | HTTP Status | Description              |
+| ------------------- | ----------- | ------------------------ |
+| VALIDATION_ERROR    | 400         | Invalid input data       |
+| UNAUTHORIZED        | 401         | Authentication required  |
+| FORBIDDEN           | 403         | Insufficient permissions |
+| NOT_FOUND           | 404         | Resource not found       |
+| RATE_LIMIT_EXCEEDED | 429         | Too many requests        |
+| INTERNAL_ERROR      | 500         | Server error             |
 
 ---
 
 ## Rate Limiting
 
-- Registration: 10 requests per hour per IP
-- General API: 100 requests per minute per IP
+| Endpoint Type  | Limit       | Window     |
+| -------------- | ----------- | ---------- |
+| Authentication | 5 requests  | 15 minutes |
+| File Upload    | 10 requests | 10 minutes |
+| Standard API   | 60 requests | 1 minute   |
 
----
-
-## PocketBase Collections
-
-### Core Collections
-| Collection | Description |
-|------------|-------------|
-| `users` | User accounts |
-| `spmb_registrants` | SPMB registrations |
-| `spmb_periods` | Registration periods |
-| `announcements` | News/announcements |
-| `school_settings` | School configuration |
-
-### Library Collections
-| Collection | Description |
-|------------|-------------|
-| `library_items` | Books/items |
-| `library_members` | Library members |
-| `library_loans` | Loan records |
-| `library_visits` | Visit logs |
-
-### Inventory Collections
-| Collection | Description |
-|------------|-------------|
-| `inventory_assets` | Asset items |
-| `inventory_rooms` | Room locations |
-| `inventory_opname` | Stock opname records |
-| `inventory_audit` | Audit log |
+Headers: `X-RateLimit-Remaining`, `X-RateLimit-Reset`, `Retry-After`

@@ -66,16 +66,16 @@ const faqCategories = [
         icon: Calendar,
         questions: [
             {
-                q: "Berapa biaya pendaftaran?",
-                a: "Pendaftaran online melalui website GRATIS tanpa biaya. Biaya hanya dikenakan setelah siswa diterima."
+                q: "Berapa biaya pendaftaran dan sekolah?",
+                a: "Sekolah kami TIDAK MEMUNGUT BIAYA APAPUN (Gratis). Mulai dari pendaftaran hingga biaya pendidikan bulanan (SPP) ditanggung sepenuhnya oleh pemerintah dan dana BOS."
             },
             {
-                q: "Bagaimana sistem pembayaran SPP?",
-                a: "Pembayaran SPP dilakukan setiap bulan melalui transfer bank atau payment gateway. Detail rekening akan diberikan setelah siswa diterima."
+                q: "Bagaimana jika ada permintaan biaya lain?",
+                a: "Jika ada oknum yang meminta biaya atas nama sekolah, mohon segera laporkan kepada pihak sekolah. Segala kebutuhan operasional sekolah sudah tercover."
             },
             {
                 q: "Apakah ada program beasiswa?",
-                a: "Ya, kami menyediakan beasiswa untuk siswa berprestasi dan siswa dari keluarga kurang mampu. Informasi lebih lanjut hubungi bagian Tata Usaha."
+                a: "Saat ini kami belum memiliki program beasiswa internal. Namun, sekolah memfasilitasi pengajuan bantuan Program Indonesia Pintar (PIP) dari pemerintah bagi siswa yang memenuhi syarat."
             }
         ]
     },

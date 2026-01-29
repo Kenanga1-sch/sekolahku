@@ -12,9 +12,10 @@ interface Step {
 interface StepIndicatorProps {
   steps: Step[];
   currentStep: number;
+  onStepClick?: (stepId: number) => void;
 }
 
-export default function StepIndicator({ steps, currentStep }: StepIndicatorProps) {
+export default function StepIndicator({ steps, currentStep, onStepClick }: StepIndicatorProps) {
   return (
     <div className="relative">
       {/* Progress Bar Container */}
@@ -32,8 +33,14 @@ export default function StepIndicator({ steps, currentStep }: StepIndicatorProps
           const isCompleted = step.id < currentStep;
           const isCurrent = step.id === currentStep;
 
+          const isClickable = onStepClick && step.id < currentStep;
+
           return (
-            <div key={step.id} className="flex flex-col items-center group">
+            <div 
+              key={step.id} 
+              className={cn("flex flex-col items-center group", isClickable && "cursor-pointer")}
+              onClick={() => isClickable && onStepClick(step.id)}
+            >
               {/* Step Circle */}
               <div
                 className={cn(

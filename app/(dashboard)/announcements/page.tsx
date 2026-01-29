@@ -1,4 +1,5 @@
 "use client";
+// Force rebuild to clear stale pocketbase dependency cache
 
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,9 +61,11 @@ import {
   Loader2,
   Newspaper,
   Search,
+  Upload,
+  Image as ImageIcon,
+  X,
 } from "lucide-react";
 import dynamic from "next/dynamic";
-import { pb } from "@/lib/pocketbase";
 import type { Announcement } from "@/types";
 
 // Lazy load heavy Rich Text Editor
@@ -113,15 +116,17 @@ export default function AnnouncementsAdminPage() {
     excerpt: "",
     content: "",
     category: "pengumuman",
+    thumbnail: "",
     is_published: false,
     is_featured: false,
   });
+  const [isUploading, setIsUploading] = useState(false);
 
   const fetchAnnouncements = useCallback(async () => {
     try {
-      const result = await pb.collection("announcements").getFullList<Announcement>({
-        sort: "-created",
-      });
+      const res = await fetch("/api/announcements");
+      if (!res.ok) throw new Error("Failed to fetch");
+      const result = await res.json();
       setAnnouncements(result);
     } catch (error) {
       console.error("Failed to fetch announcements:", error);
@@ -140,13 +145,22 @@ export default function AnnouncementsAdminPage() {
       const data = {
         ...formData,
         slug: formData.slug || generateSlug(formData.title),
-        published_at: formData.is_published ? new Date().toISOString() : null,
       };
 
       if (editingId) {
-        await pb.collection("announcements").update(editingId, data);
+        const res = await fetch(`/api/announcements/${editingId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error("Failed to update");
       } else {
-        await pb.collection("announcements").create(data);
+        const res = await fetch("/api/announcements", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error("Failed to create");
       }
 
       fetchAnnouncements();
@@ -166,6 +180,7 @@ export default function AnnouncementsAdminPage() {
       excerpt: item.excerpt || "",
       content: item.content || "",
       category: item.category || "pengumuman",
+      thumbnail: item.thumbnail || "",
       is_published: item.is_published || false,
       is_featured: item.is_featured || false,
     });
@@ -175,7 +190,8 @@ export default function AnnouncementsAdminPage() {
   const handleDelete = async () => {
     if (!deleteId) return;
     try {
-      await pb.collection("announcements").delete(deleteId);
+      const res = await fetch(`/api/announcements/${deleteId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete");
       setDeleteId(null);
       fetchAnnouncements();
     } catch (error) {
@@ -185,10 +201,12 @@ export default function AnnouncementsAdminPage() {
 
   const togglePublish = async (id: string, current: boolean) => {
     try {
-      await pb.collection("announcements").update(id, {
-        is_published: !current,
-        published_at: !current ? new Date().toISOString() : null,
+      const res = await fetch(`/api/announcements/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_published: !current }),
       });
+      if (!res.ok) throw new Error("Failed to toggle");
       fetchAnnouncements();
     } catch (error) {
       console.error("Failed to toggle publish:", error);
@@ -197,7 +215,12 @@ export default function AnnouncementsAdminPage() {
 
   const toggleFeatured = async (id: string, current: boolean) => {
     try {
-      await pb.collection("announcements").update(id, { is_featured: !current });
+      const res = await fetch(`/api/announcements/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_featured: !current }),
+      });
+      if (!res.ok) throw new Error("Failed to toggle featured");
       fetchAnnouncements();
     } catch (error) {
       console.error("Failed to toggle featured:", error);
@@ -209,13 +232,41 @@ export default function AnnouncementsAdminPage() {
       title: "",
       slug: "",
       excerpt: "",
-      content: "",
-      category: "pengumuman",
-      is_published: false,
-      is_featured: false,
-    });
+    content: "",
+    category: "pengumuman",
+    thumbnail: "",
+    is_published: false,
+    is_featured: false,
+  });
     setEditingId(null);
     setIsDialogOpen(false);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const formDataUpload = new FormData();
+    formDataUpload.append("file", file);
+    formDataUpload.append("folder", "announcements");
+
+    try {
+      const res = await fetch("/api/uploads", {
+        method: "POST",
+        body: formDataUpload,
+      });
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload failed");
+
+      setFormData(prev => ({ ...prev, thumbnail: data.url }));
+    } catch (error: any) {
+      console.error("Upload error:", error);
+      alert("Gagal mengupload gambar: " + error.message);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const filteredAnnouncements = announcements.filter(
@@ -426,6 +477,42 @@ export default function AnnouncementsAdminPage() {
                 placeholder="Ringkasan singkat untuk preview"
                 rows={2}
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Foto Sampul (Thumbnail)</Label>
+              <div className="flex gap-4 items-start">
+                {formData.thumbnail ? (
+                  <div className="relative w-32 h-20 rounded-lg overflow-hidden border">
+                    <img 
+                      src={formData.thumbnail} 
+                      alt="Preview" 
+                      className="w-full h-full object-cover" 
+                    />
+                    <button
+                      onClick={() => setFormData({ ...formData, thumbnail: "" })}
+                      className="absolute top-1 right-1 bg-black/50 hover:bg-black/70 text-white rounded-full p-0.5"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-32 h-20 rounded-lg border border-dashed flex items-center justify-center bg-muted/50 text-muted-foreground">
+                    <ImageIcon className="h-8 w-8 opacity-50" />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    disabled={isUploading}
+                    className="cursor-pointer"
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Format: JPG, PNG, WEBP. Maks 5MB.
+                  </p>
+                </div>
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Konten</Label>

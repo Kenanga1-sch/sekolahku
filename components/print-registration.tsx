@@ -2,13 +2,10 @@
 
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Printer, GraduationCap, MapPin, Phone, Mail, Calendar, User } from "lucide-react";
-import type { SPMBRegistrant } from "@/types";
+import { Printer } from "lucide-react";
 
 interface PrintRegistrationProps {
-    registrant: SPMBRegistrant;
+    registrant: any; // Using any to support both legacy and new structures during migration, or specifically updated structure
     schoolName?: string;
     schoolAddress?: string;
 }
@@ -37,17 +34,30 @@ export function PrintRegistrationCard({ registrant, schoolName = "SD Negeri 1", 
     const printRef = useRef<HTMLDivElement>(null);
 
     const handlePrint = () => {
-        const printContent = printRef.current;
-        if (!printContent) return;
-
         const printWindow = window.open("", "_blank");
         if (!printWindow) return;
+
+        // Handle both camelCase (Drizzle) and snake_case (Legacy PB)
+        const r = registrant;
+        const regNum = r.registrationNumber || r.registration_number;
+        const fullName = r.fullName || r.student_name || r.full_name;
+        const nik = r.nik || r.student_nik;
+        const birthPlace = r.birthPlace || r.birth_place;
+        const birthDate = r.birthDate || r.birth_date;
+        const previousSchool = r.previousSchool || r.previous_school;
+        const parentName = r.parentName || r.parent_name;
+        const parentPhone = r.parentPhone || r.parent_phone;
+        const parentEmail = r.parentEmail || r.parent_email;
+        const address = r.homeAddress || r.address || r.home_address;
+        const distance = r.distanceToSchool || r.distance_to_school;
+        const inZone = r.isInZone || r.is_in_zone || r.is_within_zone;
+        const created = r.createdAt || r.created;
 
         printWindow.document.write(`
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Bukti Pendaftaran - ${registrant.registration_number}</title>
+          <title>Bukti Pendaftaran - ${regNum}</title>
           <style>
             * {
               margin: 0;
@@ -111,7 +121,7 @@ export function PrintRegistrationCard({ registrant, schoolName = "SD Negeri 1", 
               font-size: 12px;
               font-weight: 600;
               color: white;
-              background: ${getStatusColor(registrant.status)};
+              background: ${getStatusColor(r.status)};
             }
             .info-grid {
               display: grid;
@@ -171,60 +181,60 @@ export function PrintRegistrationCard({ registrant, schoolName = "SD Negeri 1", 
               <div class="school-name">${schoolName}</div>
               ${schoolAddress ? `<div class="school-address">${schoolAddress}</div>` : ""}
               <div class="title">Kartu Bukti Pendaftaran</div>
-              <div class="reg-number">${registrant.registration_number}</div>
-              <div><span class="status">${getStatusLabel(registrant.status)}</span></div>
+              <div class="reg-number">${regNum}</div>
+              <div><span class="status">${getStatusLabel(r.status)}</span></div>
             </div>
             
             <div class="info-grid">
               <div class="info-item full-width">
                 <div class="info-label">Nama Lengkap</div>
-                <div class="info-value">${registrant.student_name || registrant.full_name}</div>
+                <div class="info-value">${fullName}</div>
               </div>
               <div class="info-item">
                 <div class="info-label">NIK</div>
-                <div class="info-value">${registrant.student_nik || registrant.nik || "-"}</div>
+                <div class="info-value">${nik || "-"}</div>
               </div>
               <div class="info-item">
                 <div class="info-label">Jenis Kelamin</div>
-                <div class="info-value">${registrant.gender === "L" ? "Laki-laki" : "Perempuan"}</div>
+                <div class="info-value">${r.gender === "L" ? "Laki-laki" : "Perempuan"}</div>
               </div>
               <div class="info-item">
                 <div class="info-label">Tempat/Tanggal Lahir</div>
-                <div class="info-value">${registrant.birth_place || "-"}, ${registrant.birth_date ? new Date(registrant.birth_date).toLocaleDateString("id-ID") : "-"}</div>
+                <div class="info-value">${birthPlace || "-"}, ${birthDate ? new Date(birthDate).toLocaleDateString("id-ID") : "-"}</div>
               </div>
               <div class="info-item">
                 <div class="info-label">Asal Sekolah</div>
-                <div class="info-value">${registrant.previous_school || "-"}</div>
+                <div class="info-value">${previousSchool || "-"}</div>
               </div>
               <div class="info-item full-width">
                 <div class="info-label">Nama Orang Tua/Wali</div>
-                <div class="info-value">${registrant.parent_name || "-"}</div>
+                <div class="info-value">${parentName || "-"}</div>
               </div>
               <div class="info-item">
                 <div class="info-label">No. Telepon</div>
-                <div class="info-value">${registrant.parent_phone || "-"}</div>
+                <div class="info-value">${parentPhone || "-"}</div>
               </div>
               <div class="info-item">
                 <div class="info-label">Email</div>
-                <div class="info-value">${registrant.parent_email || "-"}</div>
+                <div class="info-value">${parentEmail || "-"}</div>
               </div>
               <div class="info-item full-width">
                 <div class="info-label">Alamat</div>
-                <div class="info-value">${registrant.address || registrant.home_address || "-"}</div>
+                <div class="info-value">${address || "-"}</div>
               </div>
               <div class="info-item">
                 <div class="info-label">Jarak ke Sekolah</div>
-                <div class="info-value">${registrant.distance_to_school?.toFixed(2) || "-"} km</div>
+                <div class="info-value">${distance?.toFixed(2) || "-"} km</div>
               </div>
               <div class="info-item">
                 <div class="info-label">Status Zonasi</div>
-                <div class="info-value">${(registrant.is_in_zone || registrant.is_within_zone) ? "Dalam Zona ✓" : "Luar Zona"}</div>
+                <div class="info-value">${inZone ? "Dalam Zona ✓" : "Luar Zona"}</div>
               </div>
             </div>
             
             <div class="footer">
               <div>
-                <strong>Tanggal Daftar:</strong> ${new Date(registrant.created).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+                <strong>Tanggal Daftar:</strong> ${new Date(created).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
               </div>
               <div>
                 Dicetak: ${new Date().toLocaleDateString("id-ID")}

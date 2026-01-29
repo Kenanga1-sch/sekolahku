@@ -1,10 +1,11 @@
 "use client";
 
+// Removed Card imports
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Edit, User, Users, MapPin, FileText, CheckCircle } from "lucide-react";
+
 import { formatDate, formatDistance, getGenderLabel } from "@/lib/utils";
 import type { StudentFormValues, ParentFormValues, LocationFormValues } from "@/lib/validations/spmb";
 
@@ -13,11 +14,12 @@ interface ReviewStepProps {
     student: StudentFormValues | null;
     parent: ParentFormValues | null;
     location: LocationFormValues | null;
-    documents: File[];
+    documents: any;
   };
   onEdit: (step: number) => void;
 }
 
+// ReviewSection refactored to be lighter (no Card wrapper)
 function ReviewSection({
   title,
   icon: Icon,
@@ -32,20 +34,20 @@ function ReviewSection({
   children: React.ReactNode;
 }) {
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between py-3">
-        <CardTitle className="text-base flex items-center gap-2">
-          <Icon className="h-4 w-4" />
+    <div className="bg-zinc-100/50 dark:bg-zinc-800/50 rounded-2xl p-5 border border-zinc-200/50 dark:border-zinc-700/50 backdrop-blur-sm hover:bg-zinc-100/70 dark:hover:bg-zinc-800/70 transition-colors">
+      <div className="flex flex-row items-center justify-between mb-4">
+        <h3 className="text-base font-semibold flex items-center gap-2 text-zinc-800 dark:text-zinc-200">
+          <Icon className="h-4 w-4 text-primary" />
           {title}
-        </CardTitle>
-        <Button variant="ghost" size="sm" onClick={() => onEdit(step)}>
-          <Edit className="h-4 w-4 mr-1" />
+        </h3>
+        <Button variant="ghost" size="sm" onClick={() => onEdit(step)} className="h-8 hover:bg-primary/10 hover:text-primary">
+          <Edit className="h-3.5 w-3.5 mr-1.5" />
           Edit
         </Button>
-      </CardHeader>
-      <Separator />
-      <CardContent className="pt-4">{children}</CardContent>
-    </Card>
+      </div>
+      <Separator className="bg-zinc-200 dark:bg-zinc-700 mb-4" />
+      <div>{children}</div>
+    </div>
   );
 }
 
@@ -90,11 +92,55 @@ export default function ReviewStep({ data, onEdit }: ReviewStepProps) {
       {/* Parent Data */}
       {parent && (
         <ReviewSection title="Data Orang Tua" icon={Users} step={2} onEdit={onEdit}>
-          <div className="space-y-1">
-            <DataRow label="Nama Orang Tua" value={parent.parent_name} />
-            <DataRow label="Nomor HP" value={parent.parent_phone} />
-            <DataRow label="Email" value={parent.parent_email} />
-            <DataRow label="Alamat" value={parent.home_address} />
+          <div className="space-y-4">
+            {/* Ayah */}
+            <div className="space-y-1">
+              <h4 className="font-semibold text-sm text-blue-600 dark:text-blue-400">Ayah Kandung</h4>
+              <DataRow label="Nama" value={parent.father_name} />
+              <DataRow label="NIK" value={parent.father_nik} />
+              <DataRow label="Pekerjaan" value={parent.father_job} />
+              <DataRow label="Penghasilan" value={parent.father_income} />
+              <DataRow label="Pendidikan" value={parent.father_education} />
+            </div>
+            
+            <Separator />
+
+            {/* Ibu */}
+            <div className="space-y-1">
+              <h4 className="font-semibold text-sm text-pink-600 dark:text-pink-400">Ibu Kandung</h4>
+              <DataRow label="Nama" value={parent.mother_name} />
+              <DataRow label="NIK" value={parent.mother_nik} />
+              <DataRow label="Pekerjaan" value={parent.mother_job} />
+              <DataRow label="Penghasilan" value={parent.mother_income} />
+              <DataRow label="Pendidikan" value={parent.mother_education} />
+            </div>
+
+            {/* Wali (Opsional) */}
+            {parent.guardian_name && (
+              <>
+                <Separator />
+                <div className="space-y-1">
+                  <h4 className="font-semibold text-sm text-amber-600 dark:text-amber-400">Wali</h4>
+                  <DataRow label="Nama" value={parent.guardian_name} />
+                  <DataRow label="NIK" value={parent.guardian_nik || "-"} />
+                  <DataRow label="Pekerjaan" value={parent.guardian_job || "-"} />
+                </div>
+              </>
+            )}
+
+            <Separator />
+
+             {/* Kontak */}
+            <div className="space-y-1">
+               <h4 className="font-semibold text-sm">Kontak & Alamat</h4>
+               <DataRow label="Nomor HP" value={parent.parent_phone} />
+               <DataRow label="Email" value={parent.parent_email || "-"} />
+               <DataRow 
+                  label="Alamat" 
+                  value={`${parent.address_street}, RT ${parent.address_rt}/RW ${parent.address_rw}, ${parent.address_village}`} 
+               />
+               <DataRow label="Kode Pos" value={parent.postal_code || "-"} />
+            </div>
           </div>
         </ReviewSection>
       )}
@@ -130,19 +176,33 @@ export default function ReviewStep({ data, onEdit }: ReviewStepProps) {
       {/* Documents */}
       <ReviewSection title="Dokumen" icon={FileText} step={4} onEdit={onEdit}>
         <div className="space-y-2">
-          {documents.map((file, index) => (
-            <div
-              key={`${file.name}-${index}`}
-              className="flex items-center gap-2 text-sm"
-            >
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <span>{file.name}</span>
-              <span className="text-muted-foreground">
-                ({(file.size / 1024).toFixed(1)} KB)
-              </span>
-            </div>
-          ))}
-          {documents.length === 0 && (
+          {documents && Object.entries(documents as Record<string, File>).map(([key, file]) => {
+            if (!file) return null;
+            const labels: Record<string, string> = {
+              kk: "Kartu Keluarga",
+              akte: "Akta Kelahiran",
+              ktp_ayah: "KTP Ayah",
+              ktp_ibu: "KTP Ibu",
+              pas_foto: "Pas Foto",
+              ijazah: "Ijazah",
+              kip: "KIP",
+              kps: "KPS"
+            };
+            return (
+              <div
+                key={key}
+                className="flex items-center gap-2 text-sm"
+              >
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <span className="font-medium min-w-[120px]">{labels[key] || key}:</span>
+                <span>{file.name}</span>
+                <span className="text-muted-foreground">
+                  ({(file.size / 1024).toFixed(1)} KB)
+                </span>
+              </div>
+            );
+          })}
+          {(!documents || Object.keys(documents).length === 0) && (
             <p className="text-amber-600 text-sm">⚠️ Belum ada dokumen yang diupload</p>
           )}
         </div>

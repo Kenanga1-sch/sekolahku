@@ -19,7 +19,7 @@ import {
   Users,
   RefreshCw,
 } from "lucide-react";
-import { pb } from "@/lib/pocketbase";
+import { HoverEffect } from "@/components/ui/card-hover-effect";
 import type { Announcement } from "@/types";
 
 const categories = [
@@ -76,15 +76,14 @@ export default function BeritaPage() {
 
   const fetchNews = async () => {
     try {
-      const result = await pb.collection("announcements").getFullList<Announcement>({
-        filter: "is_published = true",
-        sort: "-published_at",
-      });
+      const res = await fetch("/api/news");
+      if (!res.ok) throw new Error("Failed to fetch");
+      const result = await res.json();
 
       if (result.length > 0) {
         setNews(result);
       } else {
-        // Use mock data if no announcements in PocketBase
+        // Use mock data if no announcements
         setNews(mockNews as unknown as Announcement[]);
       }
     } catch (error) {
@@ -180,6 +179,13 @@ export default function BeritaPage() {
                   className="border-none shadow-xl bg-white dark:bg-zinc-900 overflow-hidden group hover:shadow-2xl transition-shadow"
                 >
                   <div className="aspect-video bg-gradient-to-br from-zinc-100 to-zinc-200 dark:from-zinc-800 dark:to-zinc-900 relative">
+                    {item.thumbnail && (
+                      <img 
+                        src={item.thumbnail} 
+                        alt={item.title} 
+                        className="absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-105 duration-500" 
+                      />
+                    )}
                     <div className="absolute top-4 left-4">
                       <Badge className={getCategoryColor(item.category || "")}>
                         {getCategoryLabel(item.category || "")}
@@ -260,29 +266,27 @@ export default function BeritaPage() {
                   <p>Tidak ada berita ditemukan</p>
                 </div>
               ) : (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
-                >
-                  {filteredNews.map((item, index) => (
-                    <motion.div
-                      key={item.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: index * 0.05 }}
-                    >
-                      <Card className="h-full border-none shadow-lg hover:shadow-xl transition-all group bg-white dark:bg-zinc-900">
-                        <div className="aspect-video bg-gradient-to-br from-zinc-100 to-zinc-200 dark:from-zinc-800 dark:to-zinc-900 relative">
+                  <HoverEffect 
+                    items={filteredNews} 
+                    className="grid-cols-1 md:grid-cols-2 lg:grid-cols-3 py-4"
+                    renderItem={(item) => (
+                      <Card className="h-full border-zinc-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden flex flex-col">
+                        <div className="aspect-video bg-gradient-to-br from-zinc-100 to-zinc-200 dark:from-zinc-800 dark:to-zinc-900 relative overflow-hidden shrink-0">
+                          {item.thumbnail && (
+                            <img 
+                              src={item.thumbnail} 
+                              alt={item.title} 
+                              className="absolute inset-0 w-full h-full object-cover" 
+                            />
+                          )}
                           <div className="absolute top-3 left-3">
                             <Badge className={getCategoryColor(item.category || "")}>
                               {getCategoryLabel(item.category || "")}
                             </Badge>
                           </div>
                         </div>
-                        <CardHeader className="pb-2">
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <div className="flex-1 flex flex-col p-5">
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
                             <Calendar className="h-3.5 w-3.5" />
                             {item.published_at ? new Date(item.published_at).toLocaleDateString("id-ID", {
                               day: "numeric",
@@ -290,26 +294,23 @@ export default function BeritaPage() {
                               year: "numeric",
                             }) : "-"}
                           </div>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                          <h3 className="font-semibold group-hover:text-primary transition-colors line-clamp-2">
+                          <h3 className="font-semibold text-lg mb-2 line-clamp-2 leading-tight">
                             {item.title}
                           </h3>
-                          <p className="text-sm text-muted-foreground line-clamp-2">
+                          <p className="text-sm text-muted-foreground line-clamp-2 mb-4 flex-1">
                             {item.excerpt}
                           </p>
                           <Link
                             href={`/berita/${item.slug || item.id}`}
-                            className="inline-flex items-center text-sm font-medium text-primary hover:text-primary/80 gap-1"
+                            className="inline-flex items-center text-sm font-medium text-primary hover:text-primary/80 gap-1 mt-auto"
                           >
                             Selengkapnya
                             <ArrowRight className="h-3.5 w-3.5" />
                           </Link>
-                        </CardContent>
+                        </div>
                       </Card>
-                    </motion.div>
-                  ))}
-                </motion.div>
+                    )}
+                  />
               )}
             </TabsContent>
           </Tabs>

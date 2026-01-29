@@ -1,106 +1,125 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import NextAuth from "next-auth";
+import { authConfig } from "./auth.config";
 
-// Routes that require authentication
-const protectedRoutes = [
-    "/overview",
-    "/school-settings",
-    "/spmb-admin",
-    "/announcements",
-    "/profile",
-    "/users",
-    "/activity-log",
-];
+const { auth } = NextAuth(authConfig);
 
-// Routes that require admin role
-const adminRoutes = [
-    "/overview",
-    "/school-settings",
-    "/spmb-admin",
-    "/users",
-    "/activity-log",
-];
+// ==========================================
+// Security Headers
+// ==========================================
 
-// Security headers
-function addSecurityHeaders(response: NextResponse): NextResponse {
+const securityHeaders = {
+    // Prevent XSS attacks
+    "X-XSS-Protection": "1; mode=block",
+    
+    // Prevent MIME type sniffing
+    "X-Content-Type-Options": "nosniff",
+    
     // Prevent clickjacking
-    response.headers.set("X-Frame-Options", "DENY");
-    response.headers.set("X-Content-Type-Options", "nosniff");
-    response.headers.set("X-XSS-Protection", "1; mode=block");
-    response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-
-    // Permissions policy
-    response.headers.set(
-        "Permissions-Policy",
-        "camera=(), microphone=(), geolocation=(self), interest-cohort=()"
-    );
-
-    // Content Security Policy (relaxed for development)
-    const csp = [
+    "X-Frame-Options": "SAMEORIGIN",
+    
+    // Control referrer information
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    
+    // Restrict browser features
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(self), interest-cohort=()",
+    
+    // Content Security Policy
+    "Content-Security-Policy": [
         "default-src 'self'",
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-        "style-src 'self' 'unsafe-inline'",
-        "img-src 'self' data: blob: https:",
-        "font-src 'self' data:",
-        "connect-src 'self' ws: wss: http: https:",
-        "frame-ancestors 'none'",
-    ].join("; ");
-    response.headers.set("Content-Security-Policy", csp);
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Required for Next.js
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' https://fonts.gstatic.com",
+        "img-src 'self' data: blob: https://images.unsplash.com",
+        "connect-src 'self' https://*.sentry.io",
+        "frame-ancestors 'self'",
+        "base-uri 'self'",
+        "form-action 'self'",
+    ].join("; "),
+};
+
+// ==========================================
+// Middleware Function
+// ==========================================
+
+export default auth(async function middleware(request: NextRequest) {
+    const response = NextResponse.next();
+    response.headers.set("x-pathname", request.nextUrl.pathname);
+    
+    // Apply security headers to all responses
+    Object.entries(securityHeaders).forEach(([key, value]) => {
+        response.headers.set(key, value);
+    });
+    
+    // Add HSTS header for HTTPS connections
+    if (request.nextUrl.protocol === "https:") {
+        response.headers.set(
+            "Strict-Transport-Security",
+            "max-age=31536000; includeSubDomains"
+        );
+    }
+    
+    // Rate Limiting for Login
+    if (request.nextUrl.pathname === "/login" && request.method === "POST") {
+        const ip = request.headers.get("x-forwarded-for") || "unknown";
+        const limit = rateLimit(ip);
+        if (limit.blocked) {
+            return new NextResponse("Too Many Requests", { status: 429 });
+        }
+    }
 
     return response;
-}
+});
 
-export function middleware(request: NextRequest) {
-    const { pathname } = request.nextUrl;
+// Simple in-memory rate limiter (Token Bucket / Window)
+const rateLimitMap = new Map<string, { count: number; lastTime: number }>();
 
-    // Check if route is protected
-    const isProtectedRoute = protectedRoutes.some((route) =>
-        pathname.startsWith(route)
-    );
+function rateLimit(ip: string) {
+    const now = Date.now();
+    const windowMs = 60 * 1000; // 1 minute
+    const max = 5; // 5 attempts
 
-    // Create base response with security headers
-    if (!isProtectedRoute) {
-        return addSecurityHeaders(NextResponse.next());
+    const record = rateLimitMap.get(ip) || { count: 0, lastTime: now };
+    
+    if (now - record.lastTime > windowMs) {
+        // Reset window
+        record.count = 1;
+        record.lastTime = now;
+    } else {
+        record.count++;
     }
-
-    // Check for auth cookie/token
-    const authCookie = request.cookies.get("sekolahku-auth");
-
-    if (!authCookie?.value) {
-        const loginUrl = new URL("/login", request.url);
-        loginUrl.searchParams.set("redirect", pathname);
-        return addSecurityHeaders(NextResponse.redirect(loginUrl));
+    
+    rateLimitMap.set(ip, record);
+    
+    if (record.count > max) {
+        return { blocked: true };
     }
-
-    try {
-        const authData = JSON.parse(authCookie.value);
-
-        const isAdminRoute = adminRoutes.some((route) =>
-            pathname.startsWith(route)
-        );
-
-        if (isAdminRoute && authData.state?.user?.role !== "admin" && authData.state?.user?.role !== "superadmin") {
-            return addSecurityHeaders(NextResponse.redirect(new URL("/", request.url)));
-        }
-
-        return addSecurityHeaders(NextResponse.next());
-    } catch {
-        const loginUrl = new URL("/login", request.url);
-        loginUrl.searchParams.set("redirect", pathname);
-        return addSecurityHeaders(NextResponse.redirect(loginUrl));
-    }
+    return { blocked: false };
 }
 
 export const config = {
+    // Only run middleware on specific protected paths
+    // This greatly improves performance for public pages (landing, blog, etc) by bypassing the auth check entirely
     matcher: [
-        "/overview/:path*",
-        "/school-settings/:path*",
+        "/dashboard/:path*",
         "/spmb-admin/:path*",
-        "/announcements/:path*",
-        "/profile/:path*",
+        "/tabungan/admin/:path*",
+        "/library/admin/:path*",
+        "/overview/:path*",
         "/users/:path*",
         "/activity-log/:path*",
-        // Also apply security headers to public routes
-        "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+        "/school-settings/:path*",
+        "/profile/:path*",
+        "/inventaris/:path*", 
+        // Note: We need to be careful not to match /inventaris/public if that exists, 
+        // but assuming inventaris is mostly internal/admin based on previous context.
+        // If there are public subpaths, they should be excluded.
+        "/perpustakaan/admin/:path*",
+        "/tabungan/admin/:path*",
+        "/keuangan/:path*",
+        // Also match login to redirect if already logged in
+        "/login",
+        "/register",
     ],
 };

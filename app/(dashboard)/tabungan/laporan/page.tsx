@@ -18,10 +18,11 @@ import {
     Wallet,
     Download,
     Calendar,
+    ArrowLeft,
 } from "lucide-react";
-import { getTabunganStats, getTransaksiByDateRange, getAllKelas } from "@/lib/tabungan";
+import Link from "next/link";
 import { showSuccess, showError } from "@/lib/toast";
-import type { TabunganStats, TabunganTransaksi, TabunganKelas } from "@/types/tabungan";
+import type { TabunganStats, TabunganTransaksiWithRelations, TabunganKelas } from "@/types/tabungan";
 
 function formatRupiah(amount: number): string {
     return new Intl.NumberFormat("id-ID", {
@@ -60,7 +61,7 @@ function getDateRange(period: PeriodType): { start: string; end: string } {
 
 export default function TabunganLaporanPage() {
     const [stats, setStats] = useState<TabunganStats | null>(null);
-    const [transactions, setTransactions] = useState<TabunganTransaksi[]>([]);
+    const [transactions, setTransactions] = useState<TabunganTransaksiWithRelations[]>([]);
     const [kelasList, setKelasList] = useState<TabunganKelas[]>([]);
     const [period, setPeriod] = useState<PeriodType>("month");
     const [isLoading, setIsLoading] = useState(true);
@@ -70,15 +71,31 @@ export default function TabunganLaporanPage() {
             setIsLoading(true);
             try {
                 const { start, end } = getDateRange(period);
-                const [statsData, transData, kelasData] = await Promise.all([
-                    getTabunganStats(),
-                    getTransaksiByDateRange(start, end),
-                    getAllKelas(),
+                
+                const statsPromise = fetch("/api/tabungan/stats").then(r => r.json());
+                
+                const transParams = new URLSearchParams({
+                    startDate: start,
+                    endDate: end,
+                    perPage: "10000", // Fetch all for report
+                });
+                const transPromise = fetch(`/api/tabungan/transaksi?${transParams.toString()}`).then(r => r.json());
+                
+                const kelasPromise = fetch("/api/tabungan/kelas").then(r => r.json());
+
+                const [statsData, transRes, kelasRes] = await Promise.all([
+                    statsPromise,
+                    transPromise,
+                    kelasPromise,
                 ]);
 
+                if (statsData.error) throw new Error(statsData.error);
+                if (transRes.error) throw new Error(transRes.error);
+                if (kelasRes.error) throw new Error(kelasRes.error);
+
                 setStats(statsData);
-                setTransactions(transData);
-                setKelasList(kelasData);
+                setTransactions(transRes.items || []);
+                setKelasList(Array.isArray(kelasRes) ? kelasRes : []);
             } catch (error) {
                 console.error("Failed to fetch report data:", error);
                 showError("Gagal memuat data laporan");
@@ -103,10 +120,11 @@ export default function TabunganLaporanPage() {
 
     const handleExport = () => {
         // Simple CSV export
-        const headers = ["Tanggal", "Siswa", "Tipe", "Nominal", "Status"];
+        const headers = ["Tanggal", "Siswa", "Kelas", "Tipe", "Nominal", "Status"];
         const rows = transactions.map((t) => [
-            new Date(t.created).toLocaleDateString("id-ID"),
-            t.expand?.siswa_id?.nama || "-",
+            new Date(t.createdAt || "").toLocaleDateString("id-ID"),
+            t.siswa?.nama || "-",
+            t.siswa?.kelas?.nama || "-",
             t.tipe,
             t.nominal.toString(),
             t.status,
@@ -135,11 +153,18 @@ export default function TabunganLaporanPage() {
         <div className="space-y-6">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold">Laporan Tabungan</h1>
-                    <p className="text-muted-foreground">
-                        Statistik dan analisis tabungan siswa
-                    </p>
+                <div className="flex items-center gap-4">
+                    <Link href="/tabungan">
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <ArrowLeft className="h-4 w-4" />
+                        </Button>
+                    </Link>
+                    <div>
+                        <h1 className="text-2xl font-bold">Laporan Tabungan</h1>
+                        <p className="text-muted-foreground">
+                            Statistik dan analisis tabungan siswa
+                        </p>
+                    </div>
                 </div>
                 <div className="flex gap-2">
                     <Select value={period} onValueChange={(v) => setPeriod(v as PeriodType)}>

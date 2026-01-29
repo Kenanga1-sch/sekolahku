@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
   CalendarDays,
   Settings,
-  Menu,
   GraduationCap,
   Bell,
   LogOut,
@@ -19,36 +19,35 @@ import {
   ExternalLink,
   Package,
   Wallet,
+  IdCard,
+  ClipboardList,
+  Mail,
+  Image as ImageIcon,
+  ArrowRightLeft,
+  FileText,
+  BookOpenCheck,
+  NotebookPen,
+  Presentation,
+  Recycle,
+  Library,
+  ArrowRight,
+  Banknote,
+  ShieldCheck,
 } from "lucide-react";
-
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import { logout } from "@/lib/pocketbase";
-import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { useLayoutStore } from "@/lib/stores/layout-store";
+import { cn } from "@/lib/utils";
+import type { UserRole } from "@/types";
+import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/sidebar";
+import { ThemeToggle } from "@/components/ui/theme-toggle"; // Keep theme toggle access
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-import type { UserRole } from "@/types";
-import type { LucideIcon } from "lucide-react";
-
-// ==========================================
-// Navigation Structure with Role-Based Access
-// ==========================================
-
+// --- Navigation Config (Preserved) ---
 interface NavItem {
   href: string;
   label: string;
-  icon: LucideIcon;
-  roles?: UserRole[]; // If undefined, accessible to all authenticated users
+  icon: any;
+  roles?: UserRole[];
 }
 
 interface NavGroup {
@@ -56,66 +55,101 @@ interface NavGroup {
   items: NavItem[];
 }
 
-// Define which roles can access which menus
 const ADMIN_ROLES: UserRole[] = ["superadmin", "admin"];
-const SARANA_ROLES: UserRole[] = ["superadmin", "admin", "staff"];
-const PUSTAKA_ROLES: UserRole[] = ["superadmin", "admin", "staff"];
-const SPMB_ROLES: UserRole[] = ["superadmin", "admin", "staff"];
-const TABUNGAN_ROLES: UserRole[] = ["superadmin", "admin", "staff"];
+const SUPERADMIN_ONLY: UserRole[] = ["superadmin"];
+const INVENTARIS_ROLES: UserRole[] = ["superadmin", "admin", "guru", "staff"];
+const GURU_ACCESS_ROLES: UserRole[] = ["superadmin", "admin", "guru"]; 
+const NON_STAFF_ROLES: UserRole[] = ["superadmin", "admin", "guru"];
+const TABUNGAN_ROLES: UserRole[] = ["superadmin", "admin", "guru", "staff"]; 
 
 const navGroups: NavGroup[] = [
   {
-    label: "Dashboard",
+    label: "Menu Utama",
     items: [
-      { href: "/overview", label: "Overview", icon: LayoutDashboard },
+      { href: "/overview", label: "Beranda", icon: LayoutDashboard, roles: NON_STAFF_ROLES },
+      { href: "/perpustakaan", label: "Perpustakaan", icon: Library, roles: ADMIN_ROLES },
+      { href: "/inventaris", label: "Inventaris", icon: Package, roles: INVENTARIS_ROLES },
+      { href: "/arsip", label: "E-Arsip", icon: FileText, roles: ADMIN_ROLES },
     ],
+  }, 
+  {
+      label: "Keuangan",
+      items: [
+          { href: "/keuangan/arus-kas", label: "Bendahara BOS", icon: Banknote, roles: ADMIN_ROLES },
+          { href: "/tabungan", label: "Tabungan Siswa", icon: Wallet, roles: TABUNGAN_ROLES },
+          { href: "/keuangan/tabungan/bendahara", label: "Bendahara Tabungan", icon: ShieldCheck, roles: ADMIN_ROLES },
+      ]
+  },
+  {
+      label: "Pusat Data",
+      items: [
+          { href: "/admin/master/sekolah", label: "Profil Sekolah", icon: Home, roles: ADMIN_ROLES },
+          { href: "/admin/master/siswa", label: "Direktori Siswa", icon: Users, roles: ADMIN_ROLES },
+          { href: "/admin/master/gtk", label: "Direktori GTK", icon: IdCard, roles: ADMIN_ROLES },
+          { href: "/admin/pendidikan/kelas", label: "Data Kelas", icon: BookOpen, roles: ADMIN_ROLES },
+          { href: "/admin/pendidikan/kenaikan-kelas", label: "Kenaikan/Kelulusan", icon: ArrowRight, roles: ADMIN_ROLES },
+          { href: "/admin/master/akademik", label: "Ref. Akademik", icon: Library, roles: ADMIN_ROLES },
+      ]
+  },
+  {
+    label: "Kurikulum",
+    items: [
+       { href: "/admin/kurikulum", label: "Ringkasan", icon: BookOpenCheck, roles: GURU_ACCESS_ROLES },
+       { href: "/admin/kurikulum/perencanaan", label: "Rencana Ajar", icon: NotebookPen, roles: GURU_ACCESS_ROLES },
+       { href: "/admin/kurikulum/kbm", label: "Jurnal Mengajar", icon: Presentation, roles: GURU_ACCESS_ROLES },
+       { href: "/admin/kurikulum/penilaian", label: "Asesmen & Rapor", icon: GraduationCap, roles: GURU_ACCESS_ROLES },
+       { href: "/admin/kurikulum/p5", label: "Projek P5", icon: Recycle, roles: GURU_ACCESS_ROLES },
+    ]
   },
   {
     label: "Akademik",
     items: [
-      { href: "/spmb-admin", label: "Pendaftar", icon: Users, roles: SPMB_ROLES },
-      { href: "/spmb-admin/periods", label: "Periode SPMB", icon: CalendarDays, roles: SPMB_ROLES },
-      { href: "/announcements", label: "Pengumuman", icon: Bell },
+      { href: "/spmb-admin", label: "Pendaftar", icon: Users, roles: ADMIN_ROLES },
+      { href: "/spmb-admin/periods", label: "Periode SPMB", icon: CalendarDays, roles: ADMIN_ROLES },
     ],
   },
   {
-    label: "Perpustakaan",
+    label: "Kesiswaan",
     items: [
-      { href: "/perpustakaan", label: "Dashboard Perpus", icon: BookOpen, roles: PUSTAKA_ROLES },
+      { href: "/peserta-didik", label: "Kartu Siswa", icon: IdCard, roles: ADMIN_ROLES },
+      { href: "/presensi", label: "Presensi", icon: ClipboardList, roles: GURU_ACCESS_ROLES },
+      { href: "/arsip-alumni", label: "Arsip Alumni", icon: GraduationCap, roles: ADMIN_ROLES },
+      { href: "/admin/mutasi", label: "Mutasi Masuk", icon: ArrowRightLeft, roles: ADMIN_ROLES },
+      { href: "/admin/mutasi-keluar", label: "Mutasi Keluar", icon: ExternalLink, roles: ADMIN_ROLES },
     ],
   },
   {
-    label: "Inventaris",
+    label: "Komunikasi",
     items: [
-      { href: "/inventaris", label: "Dashboard Inventaris", icon: Package, roles: SARANA_ROLES },
+      { href: "/messages", label: "Pesan Masuk", icon: Mail, roles: ADMIN_ROLES },
+      { href: "/admin/surat/template", label: "Surat Otomatis", icon: FileText, roles: ADMIN_ROLES },
     ],
   },
   {
-    label: "Tabungan",
+    label: "Konten",
     items: [
-      { href: "/tabungan", label: "Dashboard Tabungan", icon: Wallet, roles: TABUNGAN_ROLES },
+       { href: "/admin/galeri", label: "Galeri Foto", icon: ImageIcon, roles: ADMIN_ROLES },
+       { href: "/admin/content/staff", label: "Guru & Staff", icon: Users, roles: ADMIN_ROLES },
+       { href: "/announcements", label: "Pengumuman", icon: Bell, roles: ADMIN_ROLES },
     ],
   },
   {
     label: "Sistem",
     items: [
-      { href: "/users", label: "Pengguna", icon: User, roles: ADMIN_ROLES },
+      { href: "/users", label: "Pengguna", icon: User, roles: SUPERADMIN_ONLY },
       { href: "/activity-log", label: "Log Aktivitas", icon: Activity, roles: ADMIN_ROLES },
       { href: "/profile", label: "Profil Saya", icon: User },
-      { href: "/school-settings", label: "Pengaturan", icon: Settings, roles: ADMIN_ROLES },
+      { href: "/admin/master/sekolah", label: "Pengaturan", icon: Settings, roles: ADMIN_ROLES },
     ],
   },
 ];
 
-// Helper to filter nav items by user role
 function filterNavByRole(groups: NavGroup[], userRole?: UserRole): NavGroup[] {
-  if (!userRole) return [];
-
   return groups
     .map((group) => ({
       ...group,
       items: group.items.filter(
-        (item) => !item.roles || item.roles.includes(userRole)
+        (item) => !item.roles || (userRole && item.roles.includes(userRole))
       ),
     }))
     .filter((group) => group.items.length > 0);
@@ -126,166 +160,91 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
+  const { user, logout } = useAuthStore();
+  const [mounted, setMounted] = useState(false);
+  const [open, setOpen] = useState(false); // Sidebar open state
   const router = useRouter();
-  const { user, logout: storeLogout } = useAuthStore();
-  const { settings } = useSchoolSettings();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  const handleLogout = () => {
-    logout();
-    storeLogout();
-    router.push("/login");
-  };
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  const SidebarContent = () => (
-    <div className="flex flex-col h-full bg-sidebar border-r border-sidebar-border">
-      {/* Sidebar Header */}
-      <div className="h-16 flex items-center gap-3 px-6 border-b border-sidebar-border bg-sidebar-primary/5">
-        <div className="h-8 w-8 rounded-lg bg-sidebar-primary flex items-center justify-center text-sidebar-primary-foreground shadow-sm">
-          <GraduationCap className="h-5 w-5" />
-        </div>
-        <span className="font-bold text-lg tracking-tight">Admin Panel</span>
-      </div>
-
-      {/* Navigation */}
-      <div className="flex-1 py-4 px-3 overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-200 dark:scrollbar-thumb-zinc-800">
-        {filterNavByRole(navGroups, user?.role).map((group) => (
-          <div key={group.label} className="mb-4">
-            <p className="px-3 text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">
-              {group.label}
-            </p>
-            <div className="space-y-1">
-              {group.items.map((link) => {
-                const isActive = pathname === link.href || pathname?.startsWith(link.href + "/");
-                return (
-                  <Link key={link.href} href={link.href} onClick={() => setIsSidebarOpen(false)}>
-                    <Button
-                      variant={isActive ? "secondary" : "ghost"}
-                      className={cn(
-                        "w-full justify-start gap-3 h-10 transition-all duration-200",
-                        isActive
-                          ? "bg-sidebar-primary/10 text-sidebar-primary font-medium hover:bg-sidebar-primary/15"
-                          : "text-muted-foreground hover:text-foreground hover:bg-zinc-100 dark:hover:bg-zinc-800/50"
-                      )}
-                    >
-                      <link.icon className={cn("h-4 w-4", isActive && "text-sidebar-primary")} />
-                      {link.label}
-                    </Button>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Sidebar Footer */}
-      <div className="p-4 border-t border-sidebar-border bg-sidebar-accent/20">
-        <div className="flex items-center gap-3 px-2 py-2">
-          <Avatar className="h-9 w-9 border">
-            <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.name || "User"}`} />
-            <AvatarFallback>A</AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{user?.name || "Admin"}</p>
-            <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  const forcedRole = mounted ? (user?.role || "user") : "user";
+  const filteredNav = filterNavByRole(navGroups, forcedRole);
+  const displayName = mounted && user?.name ? user.name : "Admin";
+  const displayInitials = mounted && user?.name ? user.name.substring(0, 2).toUpperCase() : "A";
 
   return (
-    <div className="min-h-screen flex bg-zinc-50 dark:bg-zinc-950">
-      {/* Desktop Sidebar */}
-      <aside className="hidden lg:block w-72 sticky top-0 h-screen z-30">
-        <SidebarContent />
-      </aside>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-h-screen">
-        {/* Top Navbar */}
-        <header className="h-16 border-b bg-background/80 backdrop-blur-md sticky top-0 z-20 flex items-center justify-between px-4 lg:px-8">
-          <div className="flex items-center gap-4">
-            <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
-              <SheetTrigger asChild className="lg:hidden">
-                <Button variant="ghost" size="icon" className="-ml-2">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="p-0 w-72">
-                <SidebarContent />
-              </SheetContent>
-            </Sheet>
-
-            <div className="hidden md:flex flex-col">
-              <h1 className="text-sm font-semibold leading-none">
-                {settings?.school_name || "Sekolah"}
-              </h1>
-              <p className="text-xs text-muted-foreground mt-1">
-                Website Sekolah Terpadu
-              </p>
+    <div className={cn(
+      "flex flex-col md:flex-row bg-gray-100 dark:bg-neutral-800 w-full flex-1 max-w-7xl mx-auto border-neutral-200 dark:border-neutral-700 overflow-hidden",
+      "h-screen" // Enforce full height
+    )}>
+      <Sidebar open={open} setOpen={setOpen}>
+        <SidebarBody className="justify-between gap-10">
+          <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
+            {/* Logo */}
+            <div className="flex flex-col">
+                <Link href="#" className="font-normal flex space-x-2 items-center text-sm text-black py-1 relative z-20">
+                    <div className="h-6 w-6 relative flex-shrink-0 rounded-full bg-black dark:bg-white flex items-center justify-center">
+                        <span className="text-white dark:text-black font-bold text-xs">{displayInitials}</span>
+                    </div>
+                    <span className="font-medium text-black dark:text-white whitespace-pre opacity-100">
+                        Sekolahku
+                    </span>
+                </Link>
+             </div>
+             
+             {/* Nav Links */}
+            <div className="mt-8 flex flex-col gap-2">
+              {filteredNav.map((group) => (
+                 <div key={group.label} className="flex flex-col gap-1">
+                    <p className="text-[10px] uppercase font-bold text-neutral-500 mb-1 px-1 truncate">
+                        {open ? group.label : "•"}
+                    </p>
+                    {group.items.map((link) => (
+                        <SidebarLink key={link.href} link={{
+                            label: link.label,
+                            href: link.href,
+                            icon: <link.icon className="text-neutral-700 dark:text-neutral-200 h-5 w-5 flex-shrink-0" />
+                        }} />
+                    ))}
+                 </div>
+              ))}
             </div>
           </div>
-
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.name || "User"}`} />
-                    <AvatarFallback>AD</AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <div className="flex items-center justify-start gap-2 p-2">
-                  <div className="flex flex-col space-y-1 leading-none">
-                    <p className="font-medium">{user?.name || "Admin"}</p>
-                    <p className="text-xs text-muted-foreground">{user?.email}</p>
-                  </div>
-                </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/" className="cursor-pointer">
-                    <Home className="mr-2 h-4 w-4" />
-                    Website
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/profile" className="cursor-pointer">
-                    <User className="mr-2 h-4 w-4" />
-                    Profil Saya
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/school-settings" className="cursor-pointer">
-                    <Settings className="mr-2 h-4 w-4" />
-                    Pengaturan
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-red-600 focus:text-red-600 cursor-pointer"
-                  onClick={handleLogout}
-                >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Keluar
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+          
+          {/* Footer User Profile */}
+          <div>
+            <SidebarLink
+              link={{
+                label: displayName,
+                href: "/profile",
+                icon: (
+                     <div className="h-7 w-7 flex-shrink-0 rounded-full bg-neutral-200 dark:bg-neutral-700 overflow-hidden">
+                        <Avatar className="h-full w-full">
+                            <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${displayName}`} />
+                            <AvatarFallback>{displayInitials}</AvatarFallback>
+                        </Avatar>
+                     </div>
+                ),
+              }}
+            />
+            <div className="mt-2" onClick={() => { logout(); router.push("/login");}}>
+                 <SidebarLink 
+                    link={{
+                        label: "Keluar",
+                        href: "#",
+                        icon: <LogOut className="text-red-500 h-5 w-5 flex-shrink-0" />
+                    }}
+                 />
+            </div>
           </div>
-        </header>
-
-        {/* Page Content */}
-        <main className="flex-1 p-4 lg:p-8 overflow-y-auto">
-          <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        </SidebarBody>
+      </Sidebar>
+      <div className="flex flex-1">
+         <div className="p-2 md:p-10 rounded-tl-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 flex flex-col gap-2 flex-1 w-full h-full overflow-y-auto">
             {children}
-          </div>
-        </main>
+         </div>
       </div>
     </div>
   );

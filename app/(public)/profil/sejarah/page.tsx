@@ -3,6 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { History, Award, Users, Building, BookOpen, Sparkles } from "lucide-react";
+import { TracingBeam } from "@/components/ui/tracing-beam";
 
 const timeline = [
   {
@@ -98,26 +99,27 @@ export default function SejarahPage() {
                 Tonggak penting dalam perjalanan SD Negeri 1
               </p>
             </div>
+            
+            {/* Import Tracing Beam at the top of file first! I will do that via separate tool or just assume I can add it here? No, must import. */}
+            {/* I will add import in next step. */}
 
-            <div className="relative">
-              {/* Timeline line */}
-              <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-amber-500 via-primary to-blue-500" />
-
-              <div className="space-y-8">
+             <TracingBeam className="px-6">
+              <div className="relative pt-4 pb-12">
+                 <div className="space-y-12">
                 {timeline.map((item, index) => (
                   <div
                     key={index}
-                    className="relative pl-20 animate-in fade-in slide-in-from-left-4 duration-500"
-                    style={{ animationDelay: `${index * 100}ms` }}
+                    className="relative pl-8 md:pl-12"
                   >
-                    {/* Year badge */}
-                    <div className="absolute left-0 top-0 h-16 w-16 rounded-full bg-white dark:bg-zinc-900 border-4 border-primary flex items-center justify-center shadow-lg">
-                      <span className="text-xs font-bold text-primary">{item.year}</span>
+                    {/* Year badge - aligned with beam */}
+                    <div className="absolute -left-4 md:-left-3 top-0 h-8 w-16 bg-zinc-900 border border-zinc-700 text-white rounded-full flex items-center justify-center text-xs font-bold z-20 shadow-sm">
+                      {item.year}
                     </div>
 
-                    <Card className="border-none shadow-md hover:shadow-lg transition-shadow bg-white dark:bg-zinc-900">
+                    <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm hover:shadow-md transition-all bg-white dark:bg-zinc-900 overflow-hidden group">
+                      <div className="h-1 w-full bg-gradient-to-r from-transparent via-amber-500 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                       <CardContent className="p-6">
-                        <h3 className="font-bold text-lg mb-2">{item.title}</h3>
+                        <h3 className="font-bold text-lg mb-2 text-primary">{item.title}</h3>
                         <p className="text-muted-foreground text-sm leading-relaxed">
                           {item.description}
                         </p>
@@ -125,8 +127,9 @@ export default function SejarahPage() {
                     </Card>
                   </div>
                 ))}
+                </div>
               </div>
-            </div>
+            </TracingBeam>
           </div>
         </div>
       </section>

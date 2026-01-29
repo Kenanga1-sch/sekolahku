@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,11 +31,17 @@ import {
     ArrowUpCircle,
     Loader2,
     RefreshCw,
+    ArrowLeft,
 } from "lucide-react";
-import { getPendingTransaksi, verifyTransaksi } from "@/lib/tabungan";
+import Link from "next/link";
 import { showSuccess, showError } from "@/lib/toast";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import type { TabunganTransaksi } from "@/types/tabungan";
+import type { TabunganSetoran } from "@/db/schema/tabungan"; // Use from schema for now
+import type { User } from "@/db/schema/users";
+
+type SetoranWithRelations = TabunganSetoran & {
+    guru: User;
+};
 
 function formatRupiah(amount: number): string {
     return new Intl.NumberFormat("id-ID", {
@@ -45,7 +51,8 @@ function formatRupiah(amount: number): string {
     }).format(amount);
 }
 
-function formatDateTime(date: string): string {
+function formatDateTime(date: string | Date | null): string {
+    if (!date) return "-";
     return new Date(date).toLocaleString("id-ID", {
         day: "2-digit",
         month: "short",
@@ -57,7 +64,7 @@ function formatDateTime(date: string): string {
 
 export default function TabunganVerifikasiPage() {
     const { user } = useAuthStore();
-    const [transactions, setTransactions] = useState<TabunganTransaksi[]>([]);
+    const [setoranList, setSetoranList] = useState<SetoranWithRelations[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [verifyId, setVerifyId] = useState<string | null>(null);
     const [verifyAction, setVerifyAction] = useState<"approve" | "reject" | null>(null);
@@ -65,11 +72,14 @@ export default function TabunganVerifikasiPage() {
 
     const fetchData = useCallback(async () => {
         try {
-            const result = await getPendingTransaksi();
-            setTransactions(result.items);
+            const res = await fetch("/api/tabungan/setoran?status=pending");
+            const data = await res.json();
+            if (data.items) {
+                setSetoranList(data.items);
+            }
         } catch (error) {
-            console.error("Failed to fetch transactions:", error);
-            showError("Gagal memuat data transaksi");
+            console.error("Failed to fetch setoran:", error);
+            showError("Gagal memuat data setoran");
         } finally {
             setIsLoading(false);
         }
@@ -84,18 +94,29 @@ export default function TabunganVerifikasiPage() {
 
         setIsProcessing(true);
         try {
-            await verifyTransaksi(verifyId, user.id, verifyAction === "approve");
+            const status = verifyAction === "approve" ? "verified" : "rejected";
+            const res = await fetch(`/api/tabungan/setoran/${verifyId}/verify`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status, bendaharaId: user.id }),
+            });
+
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || "Gagal memproses verifikasi");
+            }
+
             showSuccess(
                 verifyAction === "approve"
-                    ? "Transaksi berhasil diverifikasi"
-                    : "Transaksi ditolak"
+                    ? "Setoran berhasil diverifikasi"
+                    : "Setoran ditolak"
             );
             setVerifyId(null);
             setVerifyAction(null);
             fetchData();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Verification error:", error);
-            showError("Gagal memproses verifikasi");
+            showError(error.message || "Gagal memproses verifikasi");
         } finally {
             setIsProcessing(false);
         }
@@ -106,17 +127,23 @@ export default function TabunganVerifikasiPage() {
         setVerifyAction(action);
     };
 
-    const selectedTransaction = transactions.find((t) => t.id === verifyId);
+    const selectedSetoran = setoranList.find((t) => t.id === verifyId);
 
     return (
         <div className="space-y-6">
-            {/* Header */}
             <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold">Verifikasi Transaksi</h1>
-                    <p className="text-muted-foreground">
-                        Verifikasi transaksi setoran dan penarikan siswa
-                    </p>
+                <div className="flex items-center gap-4">
+                    <Link href="/tabungan">
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <ArrowLeft className="h-4 w-4" />
+                        </Button>
+                    </Link>
+                    <div>
+                        <h1 className="text-2xl font-bold">Verifikasi Setoran</h1>
+                        <p className="text-muted-foreground">
+                            Verifikasi setoran harian dari guru kelas
+                        </p>
+                    </div>
                 </div>
                 <Button variant="outline" onClick={() => { setIsLoading(true); fetchData(); }}>
                     <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
@@ -124,7 +151,6 @@ export default function TabunganVerifikasiPage() {
                 </Button>
             </div>
 
-            {/* Pending Count */}
             <Card className="bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
                 <CardContent className="pt-6">
                     <div className="flex items-center gap-4">
@@ -133,25 +159,24 @@ export default function TabunganVerifikasiPage() {
                         </div>
                         <div>
                             <p className="text-sm text-muted-foreground">Menunggu Verifikasi</p>
-                            <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">
-                                {isLoading ? <Skeleton className="h-8 w-12" /> : transactions.length}
-                            </p>
+                            <div className="text-2xl font-bold text-amber-700 dark:text-amber-400">
+                                {isLoading ? <Skeleton className="h-8 w-12" /> : setoranList.length}
+                            </div>
                         </div>
                     </div>
                 </CardContent>
             </Card>
 
-            {/* Transactions Table */}
             <Card>
                 <CardContent className="p-0">
                     <Table>
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Waktu</TableHead>
-                                <TableHead>Siswa</TableHead>
+                                <TableHead>Guru / Penyetor</TableHead>
                                 <TableHead>Tipe</TableHead>
-                                <TableHead className="text-right">Nominal</TableHead>
-                                <TableHead>Operator</TableHead>
+                                <TableHead className="text-right">Total Nominal</TableHead>
+                                <TableHead>Catatan</TableHead>
                                 <TableHead className="text-center">Aksi</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -163,58 +188,51 @@ export default function TabunganVerifikasiPage() {
                                         <TableCell><Skeleton className="h-4 w-28" /></TableCell>
                                         <TableCell><Skeleton className="h-6 w-16" /></TableCell>
                                         <TableCell><Skeleton className="h-4 w-24 ml-auto" /></TableCell>
-                                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                                         <TableCell><Skeleton className="h-8 w-32 mx-auto" /></TableCell>
                                     </TableRow>
                                 ))
-                            ) : transactions.length === 0 ? (
+                            ) : setoranList.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={6} className="text-center py-12">
                                         <CheckCircle2 className="h-16 w-16 mx-auto text-green-500/50 mb-4" />
                                         <p className="text-lg font-medium text-muted-foreground">
-                                            Semua transaksi sudah diverifikasi
-                                        </p>
-                                        <p className="text-sm text-muted-foreground">
-                                            Tidak ada transaksi pending saat ini
+                                            Semua setoran sudah diverifikasi
                                         </p>
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                transactions.map((t) => (
+                                setoranList.map((t) => (
                                     <TableRow key={t.id}>
                                         <TableCell className="text-sm text-muted-foreground">
-                                            {formatDateTime(t.created)}
+                                            {formatDateTime(t.createdAt)}
                                         </TableCell>
                                         <TableCell>
-                                            <div>
-                                                <p className="font-medium">{t.expand?.siswa_id?.nama || "-"}</p>
-                                                <p className="text-xs text-muted-foreground">
-                                                    {t.expand?.siswa_id?.nisn}
-                                                </p>
-                                            </div>
+                                            <div className="font-medium">{t.guru?.fullName || t.guru?.name || "-"}</div>
+                                            <div className="text-xs text-muted-foreground">{t.guru?.email}</div>
                                         </TableCell>
                                         <TableCell>
                                             <Badge
                                                 variant="outline"
                                                 className={
-                                                    t.tipe === "setor"
+                                                    t.tipe === "setor_ke_bendahara"
                                                         ? "border-green-500 text-green-600"
                                                         : "border-red-500 text-red-600"
                                                 }
                                             >
-                                                {t.tipe === "setor" ? (
+                                                {t.tipe === "setor_ke_bendahara" ? (
                                                     <ArrowDownCircle className="h-3 w-3 mr-1" />
                                                 ) : (
                                                     <ArrowUpCircle className="h-3 w-3 mr-1" />
                                                 )}
-                                                {t.tipe === "setor" ? "Setor" : "Tarik"}
+                                                {t.tipe === "setor_ke_bendahara" ? "Setor Masuk" : "Tarik Keluar"}
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-right font-mono font-semibold">
-                                            {formatRupiah(t.nominal)}
+                                            {formatRupiah(t.totalNominal)}
                                         </TableCell>
-                                        <TableCell className="text-sm text-muted-foreground">
-                                            {t.expand?.user_id?.name || "-"}
+                                        <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
+                                            {t.catatan || "-"}
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex justify-center gap-2">
@@ -225,7 +243,7 @@ export default function TabunganVerifikasiPage() {
                                                     onClick={() => openVerifyDialog(t.id, "approve")}
                                                 >
                                                     <CheckCircle2 className="h-4 w-4 mr-1" />
-                                                    Approve
+                                                    Terima
                                                 </Button>
                                                 <Button
                                                     size="sm"
@@ -246,37 +264,36 @@ export default function TabunganVerifikasiPage() {
                 </CardContent>
             </Card>
 
-            {/* Verify Confirmation Dialog */}
             <AlertDialog open={!!verifyId} onOpenChange={() => { setVerifyId(null); setVerifyAction(null); }}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
                         <AlertDialogTitle>
-                            {verifyAction === "approve" ? "Verifikasi Transaksi?" : "Tolak Transaksi?"}
+                            {verifyAction === "approve" ? "Terima Setoran?" : "Tolak Setoran?"}
                         </AlertDialogTitle>
                         <AlertDialogDescription asChild>
                             <div className="space-y-4">
                                 <p>
                                     {verifyAction === "approve"
-                                        ? "Transaksi akan diverifikasi dan saldo siswa akan diperbarui."
-                                        : "Transaksi akan ditolak dan tidak akan mempengaruhi saldo siswa."}
+                                        ? "Setoran akan diverifikasi dan saldo brankas sekolah akan bertambah."
+                                        : "Setoran akan ditolak. Transaksi terkait harus dikoreksi oleh guru."}
                                 </p>
-                                {selectedTransaction && (
+                                {selectedSetoran && (
                                     <div className="p-4 bg-muted rounded-lg space-y-2">
                                         <div className="flex justify-between">
-                                            <span>Siswa:</span>
+                                            <span>Penyetor:</span>
                                             <span className="font-medium">
-                                                {selectedTransaction.expand?.siswa_id?.nama}
+                                                {selectedSetoran.guru?.fullName || selectedSetoran.guru?.name}
                                             </span>
                                         </div>
                                         <div className="flex justify-between">
                                             <span>Tipe:</span>
-                                            <Badge variant={selectedTransaction.tipe === "setor" ? "default" : "destructive"}>
-                                                {selectedTransaction.tipe === "setor" ? "Setor" : "Tarik"}
-                                            </Badge>
+                                            <span >
+                                                {selectedSetoran.tipe === "setor_ke_bendahara" ? "Setor Uang Masuk" : "Ambil Uang Keluar"}
+                                            </span>
                                         </div>
                                         <div className="flex justify-between">
                                             <span>Nominal:</span>
-                                            <span className="font-bold">{formatRupiah(selectedTransaction.nominal)}</span>
+                                            <span className="font-bold">{formatRupiah(selectedSetoran.totalNominal)}</span>
                                         </div>
                                     </div>
                                 )}
@@ -295,7 +312,7 @@ export default function TabunganVerifikasiPage() {
                             }
                         >
                             {isProcessing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                            {verifyAction === "approve" ? "Verifikasi" : "Tolak"}
+                            {verifyAction === "approve" ? "Terima Uang" : "Tolak"}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

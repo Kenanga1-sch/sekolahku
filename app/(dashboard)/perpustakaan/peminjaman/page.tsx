@@ -8,7 +8,9 @@ import {
     AlertTriangle,
     Clock,
     CheckCircle,
+    ArrowLeft,
 } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,7 +39,8 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { getActiveLoans, getOverdueLoans, returnBook } from "@/lib/library";
+// Removed server imports to fix build error
+import { showError, showSuccess } from "@/lib/toast";
 import type { LibraryLoan } from "@/types/library";
 
 export default function PeminjamanPage() {
@@ -50,14 +53,22 @@ export default function PeminjamanPage() {
     const loadLoans = useCallback(async () => {
         setLoading(true);
         try {
-            const [active, overdue] = await Promise.all([
-                getActiveLoans(),
-                getOverdueLoans(),
+            const [activeRes, overdueRes] = await Promise.all([
+                fetch("/api/library/loans?type=active"),
+                fetch("/api/library/loans?type=overdue"),
             ]);
-            setActiveLoans(active.items);
-            setOverdueLoans(overdue);
+
+            if (!activeRes.ok || !overdueRes.ok) throw new Error("Failed to fetch data");
+
+            const activeData = await activeRes.json();
+            const overdueData = await overdueRes.json();
+
+            // activeData uses getActiveLoans structure { items: [], totalItems }
+            setActiveLoans(activeData.items || []);
+            setOverdueLoans(overdueData || []);
         } catch (error) {
             console.error("Failed to load loans:", error);
+            showError("Gagal memuat data peminjaman");
         } finally {
             setLoading(false);
         }
@@ -70,23 +81,30 @@ export default function PeminjamanPage() {
     const handleReturn = async () => {
         if (!returningLoan) return;
         try {
-            await returnBook(returningLoan.id);
+            const res = await fetch(`/api/library/loans/${returningLoan.id}/return`, {
+                method: "POST"
+            });
+            
+            if (!res.ok) throw new Error("Failed to return book");
+            
             setReturningLoan(null);
+            showSuccess("Buku berhasil dikembalikan");
             loadLoans();
         } catch (error) {
             console.error("Failed to return book:", error);
+            showError("Gagal mengembalikan buku");
         }
     };
 
-    const formatDate = (dateStr: string) => {
-        return new Date(dateStr).toLocaleDateString("id-ID", {
+    const formatDate = (date: Date | string) => {
+        return new Date(date).toLocaleDateString("id-ID", {
             day: "numeric",
             month: "short",
             year: "numeric",
         });
     };
 
-    const getDaysUntilDue = (dueDate: string) => {
+    const getDaysUntilDue = (dueDate: Date | string) => {
         const due = new Date(dueDate);
         const now = new Date();
         const diffTime = due.getTime() - now.getTime();
@@ -95,16 +113,16 @@ export default function PeminjamanPage() {
     };
 
     const calculateFine = (loan: LibraryLoan) => {
-        if (loan.is_returned) return loan.fine_amount;
-        const daysOverdue = -getDaysUntilDue(loan.due_date);
+        if (loan.isReturned) return loan.fineAmount;
+        const daysOverdue = -getDaysUntilDue(loan.dueDate);
         if (daysOverdue <= 0) return 0;
         return daysOverdue * 1000; // Rp 1.000 per hari
     };
 
     const filteredActiveLoans = activeLoans.filter((loan) => {
         if (!searchQuery) return true;
-        const memberName = loan.expand?.member?.name?.toLowerCase() || "";
-        const itemTitle = loan.expand?.item?.title?.toLowerCase() || "";
+        const memberName = loan.member?.name?.toLowerCase() || "";
+        const itemTitle = loan.item?.title?.toLowerCase() || "";
         const query = searchQuery.toLowerCase();
         return memberName.includes(query) || itemTitle.includes(query);
     });
@@ -131,7 +149,7 @@ export default function PeminjamanPage() {
                     </TableRow>
                 ) : (
                     loans.map((loan) => {
-                        const daysUntilDue = getDaysUntilDue(loan.due_date);
+                        const daysUntilDue = getDaysUntilDue(loan.dueDate);
                         const isOverdue = daysUntilDue < 0;
                         const fine = calculateFine(loan);
 
@@ -139,17 +157,17 @@ export default function PeminjamanPage() {
                             <TableRow key={loan.id}>
                                 <TableCell>
                                     <div>
-                                        <p className="font-medium">{loan.expand?.member?.name || "-"}</p>
+                                        <p className="font-medium">{loan.member?.name || "-"}</p>
                                         <p className="text-xs text-muted-foreground">
-                                            {loan.expand?.member?.class_name || ""}
+                                            {loan.member?.className || ""}
                                         </p>
                                     </div>
                                 </TableCell>
                                 <TableCell>
-                                    <p className="font-medium">{loan.expand?.item?.title || "-"}</p>
+                                    <p className="font-medium">{loan.item?.title || "-"}</p>
                                 </TableCell>
-                                <TableCell>{formatDate(loan.borrow_date)}</TableCell>
-                                <TableCell>{formatDate(loan.due_date)}</TableCell>
+                                <TableCell>{formatDate(loan.borrowDate)}</TableCell>
+                                <TableCell>{formatDate(loan.dueDate)}</TableCell>
                                 <TableCell>
                                     {isOverdue ? (
                                         <Badge variant="destructive" className="gap-1">
@@ -201,11 +219,18 @@ export default function PeminjamanPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight">Peminjaman</h1>
-                <p className="text-muted-foreground">
-                    Kelola peminjaman dan pengembalian buku
-                </p>
+            <div className="flex items-center gap-4">
+                <Link href="/perpustakaan">
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                </Link>
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight">Peminjaman</h1>
+                    <p className="text-muted-foreground">
+                        Kelola peminjaman dan pengembalian buku
+                    </p>
+                </div>
             </div>
 
             {/* Stats */}
@@ -320,10 +345,10 @@ export default function PeminjamanPage() {
                                 <>
                                     <p>Kembalikan buku:</p>
                                     <p className="font-medium mt-2">
-                                        {returningLoan.expand?.item?.title}
+                                        {returningLoan.item?.title}
                                     </p>
                                     <p className="text-sm text-muted-foreground">
-                                        Dipinjam oleh: {returningLoan.expand?.member?.name}
+                                        Dipinjam oleh: {returningLoan.member?.name}
                                     </p>
                                     {calculateFine(returningLoan) > 0 && (
                                         <p className="mt-2 text-red-600">

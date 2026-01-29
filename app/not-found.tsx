@@ -1,74 +1,58 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Home, ArrowLeft, Search } from "lucide-react";
+import { Ghost, Home, ArrowLeft } from "lucide-react";
+import { AuroraBackground } from "@/components/ui/aurora-background";
+import { TypewriterEffect } from "@/components/ui/typewriter-effect";
+import { motion } from "framer-motion";
 
 export default function NotFound() {
+  const words = [
+    { text: "404", className: "text-red-500 dark:text-red-500" },
+    { text: "Halaman" },
+    { text: "Tidak" },
+    { text: "Ditemukan." },
+  ];
+
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-4">
+    <AuroraBackground>
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-center space-y-8 max-w-lg"
+        initial={{ opacity: 0, y: 40 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        transition={{
+          delay: 0.3,
+          duration: 0.8,
+          ease: "easeInOut",
+        }}
+        className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 text-center"
       >
-        {/* 404 Illustration */}
-        <div className="relative">
-          <div className="text-[180px] md:text-[220px] font-bold text-zinc-100 dark:text-zinc-800 leading-none select-none">
-            404
-          </div>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center">
-              <Search className="h-12 w-12 text-primary" />
-            </div>
-          </div>
+        <div className="w-24 h-24 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center mb-8 border border-white/20 shadow-2xl">
+          <Ghost className="w-12 h-12 text-white" />
         </div>
 
-        {/* Text */}
-        <div className="space-y-4">
-          <h1 className="text-3xl font-bold">Halaman Tidak Ditemukan</h1>
-          <p className="text-muted-foreground">
-            Maaf, halaman yang Anda cari tidak ada atau telah dipindahkan.
-            Silakan kembali ke beranda atau gunakan navigasi di atas.
-          </p>
-        </div>
+        <TypewriterEffect words={words} className="mb-8" />
+        
+        <p className="text-zinc-500 dark:text-zinc-300 mb-12 text-lg max-w-md mx-auto leading-relaxed">
+           Ups! Sepertinya Anda tersesat. Halaman yang Anda cari mungkin sudah dipindahkan atau tidak pernah ada.
+        </p>
 
-        {/* Actions */}
-        <div className="flex flex-wrap items-center justify-center gap-4">
-          <Link href="/">
-            <Button size="lg" className="gap-2">
-              <Home className="h-4 w-4" />
+        <div className="flex flex-col sm:flex-row gap-4 w-full max-w-sm">
+          <Link href="/" className="w-full">
+            <Button className="w-full h-12 font-bold rounded-full shadow-[0px_1px_0px_0px_#ffffff40_inset,0px_-1px_0px_0px_#ffffff40_inset]" size="lg">
+              <Home className="mr-2 h-4 w-4" />
               Kembali ke Beranda
             </Button>
           </Link>
-          <Button
-            variant="outline"
-            size="lg"
-            className="gap-2"
-            onClick={() => window.history.back()}
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Halaman Sebelumnya
-          </Button>
-        </div>
-
-        {/* Quick Links */}
-        <div className="pt-8 border-t">
-          <p className="text-sm text-muted-foreground mb-4">Atau kunjungi:</p>
-          <div className="flex flex-wrap justify-center gap-4 text-sm">
-            <Link href="/spmb" className="text-primary hover:underline">
-              Pendaftaran SPMB
-            </Link>
-            <Link href="/berita" className="text-primary hover:underline">
-              Berita Terbaru
-            </Link>
-            <Link href="/kontak" className="text-primary hover:underline">
-              Hubungi Kami
-            </Link>
-          </div>
+          
+          <Link href="#" onClick={() => window.history.back()} className="w-full">
+            <Button variant="outline" className="w-full h-12 rounded-full bg-white/5 border-white/10 hover:bg-white/10 hover:text-white" size="lg">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Kembali
+            </Button>
+          </Link>
         </div>
       </motion.div>
-    </div>
+    </AuroraBackground>
   );
 }

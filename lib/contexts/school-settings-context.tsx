@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { getSchoolSettings } from "@/lib/pocketbase";
+import useSWR from "swr";
 import type { SchoolSettings } from "@/types";
 
 // Default fallback values
@@ -23,25 +23,30 @@ const SchoolSettingsContext = createContext<SchoolSettingsContextType>({
 });
 
 export function SchoolSettingsProvider({ children }: { children: ReactNode }) {
-    const [settings, setSettings] = useState<SchoolSettings | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-
-    useEffect(() => {
-        async function fetchSettings() {
-            try {
-                const data = await getSchoolSettings();
-                setSettings(data);
-            } catch (error) {
-                console.error("Failed to fetch school settings:", error);
-            } finally {
-                setIsLoading(false);
+    const fetcher = async (url: string) => {
+        try {
+            const res = await fetch(url);
+            if (!res.ok) {
+                const error = new Error('An error occurred while fetching the data.');
+                // Attach extra info to the error object.
+                (error as any).info = await res.json().catch(() => ({}));
+                (error as any).status = res.status;
+                throw error;
             }
+            return res.json();
+        } catch (error) {
+            console.error(`SchoolSettingsContext fetcher error for ${url}:`, error);
+            throw error;
         }
-        fetchSettings();
-    }, []);
+    };
+    
+    const { data, isLoading } = useSWR<SchoolSettings>("/api/school-settings", fetcher, {
+        revalidateOnFocus: false, // Don't revalidate on window focus (settings rarely change)
+        dedupingInterval: 60000, // Dedup requests within 1 minute
+    });
 
     return (
-        <SchoolSettingsContext.Provider value={{ settings, isLoading }}>
+        <SchoolSettingsContext.Provider value={{ settings: data || null, isLoading }}>
             {children}
         </SchoolSettingsContext.Provider>
     );

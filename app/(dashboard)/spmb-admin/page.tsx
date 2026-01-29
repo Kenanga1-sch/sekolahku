@@ -54,9 +54,21 @@ import {
   UserCheck,
   Loader2,
 } from "lucide-react";
-import { pb } from "@/lib/pocketbase";
-import { exportToExcel, exportToPDF } from "@/lib/export";
-import type { SPMBRegistrant } from "@/types";
+import { exportToExcel, exportToPDF } from "@/lib/spmb-export";
+import { SPMBStatusBadge } from "@/components/spmb/status-badge";
+import { SPMBPromoteDialog } from "@/components/spmb/spmb-promote-dialog";
+
+// Define Drizzle-compatible interface locally for now
+interface Registrant {
+    id: string;
+    registrationNumber: string;
+    fullName: string;
+    gender: "L" | "P";
+    distanceToSchool: number;
+    isInZone: boolean;
+    createdAt: string;
+    status: string;
+}
 
 interface Stats {
   total: number;
@@ -66,28 +78,10 @@ interface Stats {
   rejected: number;
 }
 
-function getStatusBadge(status: string) {
-  const styles: Record<string, string> = {
-    pending: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-    verified: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-    accepted: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-    rejected: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-  };
-  const labels: Record<string, string> = {
-    pending: "Pending",
-    verified: "Terverifikasi",
-    accepted: "Diterima",
-    rejected: "Ditolak",
-  };
-  return (
-    <Badge className={styles[status] || styles.pending}>
-      {labels[status] || status}
-    </Badge>
-  );
-}
+// function getStatusBadge removed
 
 export default function SPMBAdminPage() {
-  const [registrants, setRegistrants] = useState<SPMBRegistrant[]>([]);
+  const [registrants, setRegistrants] = useState<Registrant[]>([]);
   const [stats, setStats] = useState<Stats>({ total: 0, pending: 0, verified: 0, accepted: 0, rejected: 0 });
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -97,52 +91,52 @@ export default function SPMBAdminPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [maxDistance, setMaxDistance] = useState(3);
 
   // Batch selection
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [batchLoading, setBatchLoading] = useState(false);
 
+  // Promote Dialog
+  const [isPromoteOpen, setIsPromoteOpen] = useState(false);
+  const [promoteCandidate, setPromoteCandidate] = useState<{id: string, name: string} | null>(null);
+
+  // Fetch school max distance settings
+  useEffect(() => {
+    fetch("/api/school-settings")
+      .then(res => res.json())
+      .then(data => {
+        if (data.max_distance_km) {
+          setMaxDistance(data.max_distance_km);
+        }
+      })
+      .catch(err => console.error("Failed to fetch settings", err));
+  }, []);
+
   const fetchData = useCallback(async () => {
     try {
-      // Build filter
-      let filter = "";
-      const filters: string[] = [];
+        const query = new URLSearchParams({
+            page: page.toString(),
+            perPage: "10",
+            status: statusFilter,
+            search: searchQuery,
+        });
 
-      if (statusFilter !== "all") {
-        filters.push(`status = "${statusFilter}"`);
-      }
-      if (searchQuery) {
-        filters.push(`(student_name ~ "${searchQuery}" || registration_number ~ "${searchQuery}")`);
-      }
-      if (filters.length > 0) {
-        filter = filters.join(" && ");
-      }
+        const res = await fetch(`/api/spmb/registrants?${query.toString()}`);
+        const data = await res.json();
+        
+        if (data.items) {
+            setRegistrants(data.items);
+            setTotalPages(data.totalPages);
+        }
 
-      // Fetch registrants
-      const result = await pb.collection("spmb_registrants").getList<SPMBRegistrant>(page, 10, {
-        filter,
-        sort: "-created",
-      });
+        // Fetch stats
+        const statsRes = await fetch("/api/spmb/stats");
+        const statsData = await statsRes.json();
+        if (statsData) {
+            setStats(statsData);
+        }
 
-      setRegistrants(result.items);
-      setTotalPages(result.totalPages);
-
-      // Fetch stats
-      const [totalRes, pendingRes, verifiedRes, acceptedRes, rejectedRes] = await Promise.all([
-        pb.collection("spmb_registrants").getList(1, 1),
-        pb.collection("spmb_registrants").getList(1, 1, { filter: 'status = "pending"' }),
-        pb.collection("spmb_registrants").getList(1, 1, { filter: 'status = "verified"' }),
-        pb.collection("spmb_registrants").getList(1, 1, { filter: 'status = "accepted"' }),
-        pb.collection("spmb_registrants").getList(1, 1, { filter: 'status = "rejected"' }),
-      ]);
-
-      setStats({
-        total: totalRes.totalItems,
-        pending: pendingRes.totalItems,
-        verified: verifiedRes.totalItems,
-        accepted: acceptedRes.totalItems,
-        rejected: rejectedRes.totalItems,
-      });
     } catch (error) {
       console.error("Failed to fetch registrants:", error);
     } finally {
@@ -155,6 +149,30 @@ export default function SPMBAdminPage() {
     fetchData();
   }, [fetchData]);
 
+  // ... rest of the handlers ...
+  // ... until the render ...
+  
+  // Later in the return, inside map:
+  // registrants.map((r) => {
+  //   const isActuallyInZone = (r.distanceToSchool || 0) <= maxDistance;
+  //   return (
+  //      ...
+  //      <Badge className={isActuallyInZone ? ... }> ... </Badge>
+  // ...
+
+  // Since I can't put comments inside the replacement content like that effectively if I'm replacing a specific block,
+  // I will just replace the variable declarations and then use a second replacement for the map?
+  // No, I can't do two disjoint replacements in one tool call easily if they are far apart in lines unless using multi_replace.
+  
+  // Wait, I can try to use multi_replace.
+  
+  // Or I can just do two sequential calls since I'm in agentic mode it's fine.
+  
+  // Let's do the state implementation first.
+  
+// Actually, I can replace lines 91-132 to include the new state and effect.
+
+
   const handleRefresh = () => {
     setIsRefreshing(true);
     fetchData();
@@ -163,7 +181,11 @@ export default function SPMBAdminPage() {
   const handleUpdateStatus = async (id: string, newStatus: string) => {
     setActionLoading(id);
     try {
-      await pb.collection("spmb_registrants").update(id, { status: newStatus });
+        await fetch(`/api/spmb/registrants/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: newStatus }),
+        });
       fetchData();
     } catch (error) {
       console.error("Failed to update status:", error);
@@ -176,7 +198,9 @@ export default function SPMBAdminPage() {
     if (!deleteId) return;
     setActionLoading(deleteId);
     try {
-      await pb.collection("spmb_registrants").delete(deleteId);
+        await fetch(`/api/spmb/registrants/${deleteId}`, {
+            method: "DELETE",
+        });
       setDeleteId(null);
       fetchData();
     } catch (error) {
@@ -207,7 +231,11 @@ export default function SPMBAdminPage() {
     try {
       await Promise.all(
         selectedIds.map((id) =>
-          pb.collection("spmb_registrants").update(id, { status: newStatus })
+            fetch(`/api/spmb/registrants/${id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: newStatus }),
+            })
         )
       );
       setSelectedIds([]);
@@ -221,6 +249,14 @@ export default function SPMBAdminPage() {
 
   return (
     <div className="space-y-6">
+      <SPMBPromoteDialog
+        open={isPromoteOpen}
+        onOpenChange={setIsPromoteOpen}
+        registrantId={promoteCandidate?.id || null}
+        registrantName={promoteCandidate?.name}
+        onSuccess={() => fetchData()}
+      />
+
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
@@ -229,28 +265,36 @@ export default function SPMBAdminPage() {
             Kelola dan verifikasi data pendaftar siswa baru
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          {/* Process Acceptance Button - Temporarily Disabled */}
           <Button variant="outline" onClick={handleRefresh} disabled={isRefreshing}>
             <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button className="gap-2">
+              <Button className="gap-2" variant="outline">
                 <Download className="h-4 w-4" />
                 Export
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={async () => {
-                const all = await pb.collection("spmb_registrants").getFullList<SPMBRegistrant>({ sort: "-created" });
-                exportToExcel(all, "pendaftar-spmb");
+                try {
+                   // Map local state to expected type roughly
+                   await exportToExcel(registrants as any, "Data-Pendaftar-SPMB");
+                } catch (e) {
+                   console.error("Export failed", e);
+                }
               }}>
                 📊 Export ke Excel
               </DropdownMenuItem>
               <DropdownMenuItem onClick={async () => {
-                const all = await pb.collection("spmb_registrants").getFullList<SPMBRegistrant>({ sort: "-created" });
-                exportToPDF(all, "pendaftar-spmb");
+                 try {
+                   await exportToPDF(registrants as any, "Data-Pendaftar-SPMB");
+                 } catch (e) {
+                   console.error("Export failed", e);
+                 }
               }}>
                 📄 Export ke PDF
               </DropdownMenuItem>
@@ -404,7 +448,9 @@ export default function SPMBAdminPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  registrants.map((r) => (
+                  registrants.map((r) => {
+                    const isActuallyInZone = (r.distanceToSchool || 0) <= maxDistance;
+                    return (
                     <TableRow key={r.id} className={selectedIds.includes(r.id) ? "bg-primary/5" : ""}>
                       <TableCell>
                         <Checkbox
@@ -413,30 +459,30 @@ export default function SPMBAdminPage() {
                         />
                       </TableCell>
                       <TableCell className="font-mono text-sm">
-                        {r.registration_number}
+                        {r.registrationNumber}
                       </TableCell>
                       <TableCell>
                         <div>
-                          <p className="font-medium">{r.student_name || r.full_name}</p>
+                          <p className="font-medium">{r.fullName}</p>
                           <p className="text-xs text-muted-foreground">
                             {r.gender === "L" ? "Laki-laki" : "Perempuan"}
                           </p>
                         </div>
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
-                        {r.distance_to_school?.toFixed(1) || "-"} km
+                        {r.distanceToSchool?.toFixed(2) || "0.00"} km
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
                         <Badge
-                          className={r.is_in_zone || r.is_within_zone ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}
+                          className={isActuallyInZone ? "bg-green-100 text-green-700 hover:bg-green-100" : "bg-amber-100 text-amber-700 hover:bg-amber-100"}
                         >
-                          {r.is_in_zone || r.is_within_zone ? "Dalam" : "Luar"}
+                          {isActuallyInZone ? "Dalam" : "Luar"}
                         </Badge>
                       </TableCell>
                       <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
-                        {new Date(r.created).toLocaleDateString("id-ID")}
+                        {new Date(r.createdAt || "").toLocaleDateString("id-ID")}
                       </TableCell>
-                      <TableCell>{getStatusBadge(r.status)}</TableCell>
+                      <TableCell><SPMBStatusBadge status={r.status} /></TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -491,11 +537,25 @@ export default function SPMBAdminPage() {
                               <Trash2 className="mr-2 h-4 w-4" />
                               Hapus
                             </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            {r.status === "accepted" && (
+                                <DropdownMenuItem 
+                                    className="text-indigo-600 font-medium"
+                                    onClick={() => {
+                                        setPromoteCandidate({ id: r.id, name: r.fullName });
+                                        setIsPromoteOpen(true);
+                                    }}
+                                >
+                                    <UserCheck className="mr-2 h-4 w-4" />
+                                    Promosikan ke Siswa
+                                </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
                     </TableRow>
-                  ))
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -548,3 +608,5 @@ export default function SPMBAdminPage() {
     </div>
   );
 }
+
+

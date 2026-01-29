@@ -51,15 +51,20 @@ import {
   RefreshCw,
   Loader2,
 } from "lucide-react";
-import { pb } from "@/lib/pocketbase";
-import type { SPMBPeriod } from "@/types";
 
-interface PeriodWithCount extends SPMBPeriod {
-  registered?: number;
+// Local interface since we are migrating away from types/index.ts eventually
+interface Period {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  quota: number;
+  isActive: boolean;
+  registered: number;
 }
 
 export default function SPMBPeriodsPage() {
-  const [periods, setPeriods] = useState<PeriodWithCount[]>([]);
+  const [periods, setPeriods] = useState<Period[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -68,33 +73,19 @@ export default function SPMBPeriodsPage() {
 
   const [formData, setFormData] = useState({
     name: "",
-    start_date: "",
-    end_date: "",
+    startDate: "",
+    endDate: "",
     quota: "",
-    is_active: false,
+    isActive: false,
   });
 
   const fetchPeriods = useCallback(async () => {
     try {
-      const result = await pb.collection("spmb_periods").getFullList<SPMBPeriod>({
-        sort: "-created",
-      });
-
-      // Get registered count for each period
-      const periodsWithCount = await Promise.all(
-        result.map(async (period) => {
-          try {
-            const count = await pb.collection("spmb_registrants").getList(1, 1, {
-              filter: `period_id = "${period.id}"`,
-            });
-            return { ...period, registered: count.totalItems };
-          } catch {
-            return { ...period, registered: 0 };
-          }
-        })
-      );
-
-      setPeriods(periodsWithCount);
+      const res = await fetch("/api/spmb/periods");
+      const data = await res.json();
+      if (data.success) {
+          setPeriods(data.data);
+      }
     } catch (error) {
       console.error("Failed to fetch periods:", error);
     } finally {
@@ -109,26 +100,26 @@ export default function SPMBPeriodsPage() {
   const handleSubmit = async () => {
     setIsSaving(true);
     try {
-      const data = {
+      const payload = {
         name: formData.name,
-        start_date: formData.start_date,
-        end_date: formData.end_date,
+        startDate: formData.startDate,
+        endDate: formData.endDate,
         quota: parseInt(formData.quota) || 100,
-        is_active: formData.is_active,
+        isActive: formData.isActive,
       };
 
       if (editingId) {
-        await pb.collection("spmb_periods").update(editingId, data);
+        await fetch(`/api/spmb/periods/${editingId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
       } else {
-        await pb.collection("spmb_periods").create(data);
-      }
-
-      // If setting as active, deactivate others
-      if (formData.is_active) {
-        const others = periods.filter(p => p.id !== editingId && p.is_active);
-        for (const p of others) {
-          await pb.collection("spmb_periods").update(p.id, { is_active: false });
-        }
+        await fetch("/api/spmb/periods", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
       }
 
       fetchPeriods();
@@ -140,14 +131,14 @@ export default function SPMBPeriodsPage() {
     }
   };
 
-  const handleEdit = (item: PeriodWithCount) => {
+  const handleEdit = (item: Period) => {
     setEditingId(item.id);
     setFormData({
       name: item.name,
-      start_date: item.start_date?.split("T")[0] || "",
-      end_date: item.end_date?.split("T")[0] || "",
+      startDate: item.startDate ? new Date(item.startDate).toISOString().split("T")[0] : "",
+      endDate: item.endDate ? new Date(item.endDate).toISOString().split("T")[0] : "",
       quota: (item.quota || 100).toString(),
-      is_active: item.is_active,
+      isActive: item.isActive,
     });
     setIsDialogOpen(true);
   };
@@ -155,7 +146,12 @@ export default function SPMBPeriodsPage() {
   const handleDelete = async () => {
     if (!deleteId) return;
     try {
-      await pb.collection("spmb_periods").delete(deleteId);
+      const res = await fetch(`/api/spmb/periods/${deleteId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!data.success) {
+          alert(data.error || "Gagal menghapus periode");
+          return;
+      }
       setDeleteId(null);
       fetchPeriods();
     } catch (error) {
@@ -165,29 +161,26 @@ export default function SPMBPeriodsPage() {
 
   const toggleActive = async (id: string, currentState: boolean) => {
     try {
-      // Deactivate all first
-      for (const p of periods) {
-        if (p.is_active) {
-          await pb.collection("spmb_periods").update(p.id, { is_active: false });
-        }
-      }
-      // Activate selected if it was inactive
-      if (!currentState) {
-        await pb.collection("spmb_periods").update(id, { is_active: true });
-      }
-      fetchPeriods();
+        // If we actiavte a period, the backend handles deactivating others
+        // If we deactivate, we just update this one.
+        await fetch(`/api/spmb/periods/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ isActive: !currentState })
+        });
+        fetchPeriods();
     } catch (error) {
       console.error("Failed to toggle:", error);
     }
   };
 
   const resetForm = () => {
-    setFormData({ name: "", start_date: "", end_date: "", quota: "", is_active: false });
+    setFormData({ name: "", startDate: "", endDate: "", quota: "", isActive: false });
     setEditingId(null);
     setIsDialogOpen(false);
   };
 
-  const activePeriod = periods.find(p => p.is_active);
+  const activePeriod = periods.find(p => p.isActive);
 
   return (
     <div className="space-y-8">
@@ -232,8 +225,8 @@ export default function SPMBPeriodsPage() {
                     <Input
                       id="startDate"
                       type="date"
-                      value={formData.start_date}
-                      onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                      value={formData.startDate}
+                      onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
@@ -241,8 +234,8 @@ export default function SPMBPeriodsPage() {
                     <Input
                       id="endDate"
                       type="date"
-                      value={formData.end_date}
-                      onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                      value={formData.endDate}
+                      onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                     />
                   </div>
                 </div>
@@ -264,8 +257,8 @@ export default function SPMBPeriodsPage() {
                     </p>
                   </div>
                   <Switch
-                    checked={formData.is_active}
-                    onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                    checked={formData.isActive}
+                    onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
                   />
                 </div>
               </div>
@@ -309,7 +302,7 @@ export default function SPMBPeriodsPage() {
               <div>
                 <p className="text-sm text-muted-foreground">Mulai</p>
                 <p className="font-medium">
-                  {activePeriod.start_date ? new Date(activePeriod.start_date).toLocaleDateString("id-ID", {
+                  {activePeriod.startDate ? new Date(activePeriod.startDate).toLocaleDateString("id-ID", {
                     day: "numeric", month: "short", year: "numeric"
                   }) : "-"}
                 </p>
@@ -317,7 +310,7 @@ export default function SPMBPeriodsPage() {
               <div>
                 <p className="text-sm text-muted-foreground">Selesai</p>
                 <p className="font-medium">
-                  {activePeriod.end_date ? new Date(activePeriod.end_date).toLocaleDateString("id-ID", {
+                  {activePeriod.endDate ? new Date(activePeriod.endDate).toLocaleDateString("id-ID", {
                     day: "numeric", month: "short", year: "numeric"
                   }) : "-"}
                 </p>
@@ -395,7 +388,7 @@ export default function SPMBPeriodsPage() {
                   <TableRow key={period.id}>
                     <TableCell className="font-medium">{period.name}</TableCell>
                     <TableCell className="text-muted-foreground">
-                      {period.start_date ? new Date(period.start_date).toLocaleDateString("id-ID", { day: "numeric", month: "short" }) : "-"} - {period.end_date ? new Date(period.end_date).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "-"}
+                      {period.startDate ? new Date(period.startDate).toLocaleDateString("id-ID", { day: "numeric", month: "short" }) : "-"} - {period.endDate ? new Date(period.endDate).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "-"}
                     </TableCell>
                     <TableCell>{period.quota || 100}</TableCell>
                     <TableCell>
@@ -409,9 +402,9 @@ export default function SPMBPeriodsPage() {
                     <TableCell>
                       <Badge
                         variant="secondary"
-                        className={period.is_active ? "bg-green-100 text-green-700" : "bg-zinc-100 text-zinc-700"}
+                        className={period.isActive ? "bg-green-100 text-green-700" : "bg-zinc-100 text-zinc-700"}
                       >
-                        {period.is_active ? (
+                        {period.isActive ? (
                           <span className="flex items-center gap-1">
                             <CheckCircle className="h-3 w-3" />
                             Aktif
@@ -436,8 +429,8 @@ export default function SPMBPeriodsPage() {
                             <Pencil className="h-4 w-4 mr-2" />
                             Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => toggleActive(period.id, period.is_active)}>
-                            {period.is_active ? (
+                          <DropdownMenuItem onClick={() => toggleActive(period.id, period.isActive)}>
+                            {period.isActive ? (
                               <>
                                 <XCircle className="h-4 w-4 mr-2" />
                                 Nonaktifkan

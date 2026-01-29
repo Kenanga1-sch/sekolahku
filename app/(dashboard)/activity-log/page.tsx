@@ -33,7 +33,22 @@ import {
     Eye,
     CheckSquare,
 } from "lucide-react";
-import { getAuditLogs, type AuditLogEntry, type AuditAction, type AuditResource } from "@/lib/audit";
+import type { AuditAction, AuditResource } from "@/lib/audit";
+
+interface AuditLogEntry {
+    id?: string;
+    action: AuditAction;
+    resource: AuditResource;
+    resource_id?: string;
+    user_id?: string;
+    user_email?: string;
+    user_name?: string;
+    details?: Record<string, unknown>;
+    ip_address?: string;
+    user_agent?: string;
+    created?: Date | null;
+}
+
 
 const actionIcons: Record<AuditAction, React.ReactNode> = {
     create: <Plus className="h-4 w-4" />,
@@ -112,12 +127,18 @@ export default function ActivityLogPage() {
 
     const fetchLogs = useCallback(async () => {
         try {
-            const result = await getAuditLogs({
-                page,
-                perPage: 20,
-                action: filterAction !== "all" ? filterAction as AuditAction : undefined,
-                resource: filterResource !== "all" ? filterResource as AuditResource : undefined,
+            const queryParams = new URLSearchParams({
+                page: page.toString(),
+                perPage: "20",
             });
+            
+            if (filterAction !== "all") queryParams.append("action", filterAction);
+            if (filterResource !== "all") queryParams.append("resource", filterResource);
+
+            const res = await fetch(`/api/audit-logs?${queryParams.toString()}`);
+            if (!res.ok) throw new Error("Failed to fetch logs");
+            
+            const result = await res.json();
             setLogs(result.items);
             setTotalPages(result.totalPages);
         } catch {

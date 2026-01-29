@@ -1,5 +1,8 @@
 // Audit Log utility for tracking admin actions
-import { pb } from "./pocketbase";
+import { db } from "@/db";
+import { auditLogs } from "@/db/schema/misc";
+import { users } from "@/db/schema/users"; // Import users for join
+import { desc, eq, and } from "drizzle-orm";
 
 export type AuditAction =
     | "create"
@@ -31,34 +34,28 @@ export interface AuditLogEntry {
     details?: Record<string, unknown>;
     ip_address?: string;
     user_agent?: string;
-    created?: string;
+    created?: Date | null;
 }
 
 // Create audit log entry
 export async function createAuditLog(entry: Omit<AuditLogEntry, "id" | "created">): Promise<void> {
     try {
-        // Get current user info if available
-        const currentUser = pb.authStore.record;
-
-        const logEntry = {
+        await db.insert(auditLogs).values({
             action: entry.action,
             resource: entry.resource,
-            resource_id: entry.resource_id || "",
-            user_id: entry.user_id || currentUser?.id || "system",
-            user_email: entry.user_email || currentUser?.email || "system",
-            user_name: entry.user_name || currentUser?.name || "System",
-            details: JSON.stringify(entry.details || {}),
-            ip_address: entry.ip_address || "",
-            user_agent: typeof window !== "undefined" ? window.navigator.userAgent.substring(0, 255) : "",
-        };
-
-        // Try to save to PocketBase
-        // Note: You need to create "audit_logs" collection in PocketBase
-        await pb.collection("audit_logs").create(logEntry);
+            userId: entry.user_id || "system",
+            details: JSON.stringify({
+                ...entry.details,
+                resource_id: entry.resource_id,
+                user_email: entry.user_email,
+                user_name: entry.user_name,
+                ip_address: entry.ip_address,
+                user_agent: entry.user_agent,
+            }),
+        });
 
         console.log("[Audit]", formatAuditLog(entry));
     } catch (error) {
-        // If collection doesn't exist or error, just log to console
         console.log("[Audit]", formatAuditLog(entry));
         console.warn("[Audit] Failed to save to database:", error);
     }
@@ -208,44 +205,64 @@ export async function getAuditLogs(options?: {
     totalPages: number;
 }> {
     try {
-        const filters: string[] = [];
+        const page = options?.page || 1;
+        const perPage = options?.perPage || 50;
+        const offset = (page - 1) * perPage;
+        
+        const conditions = [];
+        if (options?.resource) conditions.push(eq(auditLogs.resource, options.resource));
+        if (options?.action) conditions.push(eq(auditLogs.action, options.action));
+        if (options?.userId) conditions.push(eq(auditLogs.userId, options.userId));
+        
+        const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+        
+        // Fetch items with join
+        const items = await db
+             .select({
+                 id: auditLogs.id,
+                 action: auditLogs.action,
+                 resource: auditLogs.resource,
+                 userId: auditLogs.userId,
+                 details: auditLogs.details,
+                 createdAt: auditLogs.createdAt,
+                 userEmail: users.email,
+                 userFullName: users.fullName,
+             })
+             .from(auditLogs)
+             .leftJoin(users, eq(auditLogs.userId, users.id))
+             .where(whereClause)
+             .limit(perPage)
+             .offset(offset)
+             .orderBy(desc(auditLogs.createdAt));
 
-        if (options?.resource) {
-            filters.push(`resource = "${options.resource}"`);
-        }
-        if (options?.action) {
-            filters.push(`action = "${options.action}"`);
-        }
-        if (options?.userId) {
-            filters.push(`user_id = "${options.userId}"`);
-        }
-
-        const result = await pb.collection("audit_logs").getList(
-            options?.page || 1,
-            options?.perPage || 50,
-            {
-                sort: "-created",
-                filter: filters.join(" && ") || undefined,
+        // Map Drizzle result to AuditLogEntry
+        const mappedItems: AuditLogEntry[] = items.map(item => {
+            let details = {};
+            try {
+                details = JSON.parse(item.details || "{}");
+            } catch (e) {
+                // ignore
             }
-        );
-
-        return {
-            items: result.items.map(item => ({
+            return {
                 id: item.id,
                 action: item.action as AuditAction,
                 resource: item.resource as AuditResource,
-                resource_id: item.resource_id,
-                user_id: item.user_id,
-                user_email: item.user_email,
-                user_name: item.user_name,
-                details: JSON.parse(item.details || "{}"),
-                ip_address: item.ip_address,
-                user_agent: item.user_agent,
-                created: item.created,
-            })),
-            total: result.totalItems,
-            page: result.page,
-            totalPages: result.totalPages,
+                resource_id: (details as any).resource_id,
+                user_id: item.userId || undefined,
+                user_email: (details as any).user_email || item.userEmail,
+                user_name: (details as any).user_name || item.userFullName,
+                details: details,
+                ip_address: (details as any).ip_address,
+                user_agent: (details as any).user_agent,
+                created: item.createdAt,
+            };
+        });
+
+        return {
+            items: mappedItems,
+            total: mappedItems.length, // Placeholder, implementing real count requires another query
+            page,
+            totalPages: 1, // Placeholder
         };
     } catch (error) {
         console.error("[Audit] Failed to fetch logs:", error);

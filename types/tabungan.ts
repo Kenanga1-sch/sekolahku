@@ -2,78 +2,44 @@
 // Tabungan (Student Savings) Module Types
 // ==========================================
 
-// Base type for PocketBase records
-interface BaseRecord {
-    id: string;
-    created: string;
-    updated: string;
+import { type TabunganKelas, type TabunganSiswa, type TabunganTransaksi } from "@/db/schema/tabungan";
+
+// ==========================================
+// Extended Types with Relations
+// ==========================================
+
+export interface TabunganKelasWithRelations extends TabunganKelas {
+    waliKelasUser?: {
+        name: string;
+        email: string;
+    } | null;
 }
 
-// ==========================================
-// Kelas (Class)
-// ==========================================
-
-export interface TabunganKelas extends BaseRecord {
-    nama: string;
-    wali_kelas?: string;
-    // Expanded relations
-    expand?: {
-        wali_kelas?: TabunganUser;
-    };
+export interface TabunganSiswaWithRelations extends TabunganSiswa {
+    kelas?: TabunganKelas | null;
 }
 
-// ==========================================
-// Siswa (Student)
-// ==========================================
-
-export interface TabunganSiswa extends BaseRecord {
-    nisn: string;
-    nama: string;
-    kelas_id: string;
-    saldo_terakhir: number;
-    qr_code: string;
-    foto?: string;
-    is_active: boolean;
-    // Expanded relations
-    expand?: {
-        kelas_id?: TabunganKelas;
-    };
+export interface TabunganTransaksiWithRelations extends TabunganTransaksi {
+    siswa?: TabunganSiswaWithRelations | null;
+    user?: {
+        name: string;
+        email: string;
+    } | null;
+    verifier?: {
+        name: string;
+        email: string;
+    } | null;
 }
 
+// Re-export base types
+export type { TabunganKelas, TabunganSiswa, TabunganTransaksi };
+
 // ==========================================
-// Transaksi (Transaction)
+// Enums
 // ==========================================
 
 export type TransactionType = "setor" | "tarik";
 export type TransactionStatus = "pending" | "verified" | "rejected";
-
-export interface TabunganTransaksi extends BaseRecord {
-    siswa_id: string;
-    user_id: string;
-    tipe: TransactionType;
-    nominal: number;
-    status: TransactionStatus;
-    catatan?: string;
-    verified_by?: string;
-    verified_at?: string;
-    // Expanded relations
-    expand?: {
-        siswa_id?: TabunganSiswa;
-        user_id?: TabunganUser;
-        verified_by?: TabunganUser;
-    };
-}
-
-// ==========================================
-// User (for relation expansion)
-// ==========================================
-
-export interface TabunganUser {
-    id: string;
-    email: string;
-    name: string;
-    role: string;
-}
 
 // ==========================================
 // Statistics
@@ -92,20 +58,17 @@ export interface TabunganStats {
 // Form Data
 // ==========================================
 
-export interface TabunganSiswaFormData {
-    nisn: string;
-    nama: string;
-    kelas_id: string;
-}
+// ==========================================
+// Form Data (Derived from Zod Schemas)
+// ==========================================
 
-export interface TabunganKelasFormData {
-    nama: string;
-    wali_kelas?: string;
-}
+import { 
+  createSiswaSchema, 
+  createKelasSchema, 
+  createTransaksiSchema 
+} from "@/lib/validations/tabungan";
+import { z } from "zod";
 
-export interface TabunganTransaksiFormData {
-    siswa_id: string;
-    tipe: TransactionType;
-    nominal: number;
-    catatan?: string;
-}
+export type TabunganSiswaFormData = z.infer<typeof createSiswaSchema>;
+export type TabunganKelasFormData = z.infer<typeof createKelasSchema>;
+export type TabunganTransaksiFormData = z.infer<typeof createTransaksiSchema>;

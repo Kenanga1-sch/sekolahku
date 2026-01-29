@@ -7,7 +7,9 @@ import {
     Download,
     Filter,
     History,
+    ArrowLeft,
 } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -33,7 +35,6 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { getPocketBase } from "@/lib/pocketbase";
 import type { InventoryAudit, AuditAction, AuditEntity } from "@/types/inventory";
 
 const ACTION_COLORS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -54,26 +55,20 @@ export default function AuditLogPage() {
     const loadLogs = useCallback(async () => {
         setLoading(true);
         try {
-            const pb = getPocketBase();
-            let filter = "";
-
-            if (actionFilter !== "all") {
-                filter = `action = "${actionFilter}"`;
-            }
-            if (entityFilter !== "all") {
-                filter = filter
-                    ? `${filter} && entity = "${entityFilter}"`
-                    : `entity = "${entityFilter}"`;
-            }
-
-            const result = await pb.collection("inventory_audit").getList<InventoryAudit>(page, 20, {
-                filter,
-                sort: "-created",
-                expand: "user",
+            const queryParams = new URLSearchParams({
+                page: page.toString(),
+                limit: "20",
             });
+            
+            if (actionFilter !== "all") queryParams.append("action", actionFilter);
+            if (entityFilter !== "all") queryParams.append("entity", entityFilter);
 
-            setLogs(result.items);
-            setTotalPages(result.totalPages);
+            const res = await fetch(`/api/inventory/audit?${queryParams.toString()}`);
+            if (res.ok) {
+                const result = await res.json();
+                setLogs(result.items);
+                setTotalPages(result.totalPages);
+            }
         } catch (error) {
             console.error("Failed to load audit logs:", error);
         } finally {
@@ -100,11 +95,18 @@ export default function AuditLogPage() {
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Riwayat Audit</h1>
-                    <p className="text-muted-foreground">
-                        Log aktivitas perubahan data inventaris
-                    </p>
+                <div className="flex items-center gap-4">
+                    <Link href="/inventaris">
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <ArrowLeft className="h-4 w-4" />
+                        </Button>
+                    </Link>
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight">Riwayat Audit</h1>
+                        <p className="text-muted-foreground">
+                            Log aktivitas perubahan data inventaris
+                        </p>
+                    </div>
                 </div>
                 <Button variant="outline" className="gap-2">
                     <Download className="h-4 w-4" />

@@ -1,14 +1,12 @@
 // ==========================================
-// Library Module Types
+// Library Module Types (Drizzle)
 // ==========================================
 
-import { RecordModel } from "pocketbase";
-
-// Base record
-export interface BaseRecord extends RecordModel {
+// Base record (Removed PocketBase dependency)
+export interface BaseRecord {
     id: string;
-    created: string;
-    updated: string;
+    createdAt: Date;
+    updatedAt: Date;
 }
 
 // ==========================================
@@ -27,16 +25,16 @@ export type ItemStatus = "AVAILABLE" | "BORROWED";
 
 export interface LibraryItem extends BaseRecord {
     title: string;
-    author?: string;
-    isbn?: string;
-    publisher?: string;
-    year?: number;
+    author: string | null;
+    isbn: string | null;
+    publisher: string | null;
+    year: number | null;
     category: ItemCategory;
-    location?: string;
-    description?: string;
-    qr_code: string;
+    location: string | null;
+    description: string | null;
+    qrCode: string; // camelCase
     status: ItemStatus;
-    cover?: string;
+    cover: string | null;
 }
 
 // ==========================================
@@ -44,14 +42,14 @@ export interface LibraryItem extends BaseRecord {
 // ==========================================
 
 export interface LibraryMember extends BaseRecord {
-    user?: string; // relation to users (optional)
+    userId: string | null; // camelCase
     name: string;
-    class_name?: string;
-    student_id?: string;
-    qr_code: string;
-    max_borrow_limit: number;
-    photo?: string;
-    is_active: boolean;
+    className: string | null; // camelCase
+    studentId: string | null; // camelCase
+    qrCode: string; // camelCase
+    maxBorrowLimit: number; // camelCase
+    photo: string | null;
+    isActive: boolean; // camelCase
 }
 
 // ==========================================
@@ -59,20 +57,19 @@ export interface LibraryMember extends BaseRecord {
 // ==========================================
 
 export interface LibraryLoan extends BaseRecord {
-    member: string; // relation to library_members
-    item: string; // relation to library_items
-    borrow_date: string;
-    due_date: string;
-    return_date?: string;
-    is_returned: boolean;
-    fine_amount: number;
-    fine_paid: boolean;
-    notes?: string;
-    // Expanded relations
-    expand?: {
-        member?: LibraryMember;
-        item?: LibraryItem;
-    };
+    memberId: string; // camelCase
+    itemId: string; // camelCase
+    borrowDate: Date; // Date object
+    dueDate: Date; // Date object
+    returnDate: Date | null; // Date object
+    isReturned: boolean; // camelCase
+    fineAmount: number; // camelCase
+    finePaid: boolean; // camelCase
+    notes: string | null;
+    
+    // Expanded relations (manual join or with)
+    member?: LibraryMember | null;
+    item?: LibraryItem | null;
 }
 
 // ==========================================
@@ -80,42 +77,27 @@ export interface LibraryLoan extends BaseRecord {
 // ==========================================
 
 export interface LibraryVisit extends BaseRecord {
-    member: string; // relation to library_members
-    date: string;
-    timestamp: string;
-    expand?: {
-        member?: LibraryMember;
-    };
+    memberId: string; // camelCase
+    date: string; // YYYY-MM-DD
+    timestamp: Date; // Date object
+    
+    member?: LibraryMember | null;
 }
 
 // ==========================================
-// Form Types
+// Form Data (Derived from Zod Schemas)
 // ==========================================
 
-export interface LibraryItemFormData {
-    title: string;
-    author?: string;
-    isbn?: string;
-    publisher?: string;
-    year?: number;
-    category: ItemCategory;
-    location?: string;
-    description?: string;
-}
+import {
+  createItemSchema,
+  createMemberSchema,
+  createLoanSchema
+} from "@/lib/validations/library";
+import { z } from "zod";
 
-export interface LibraryMemberFormData {
-    name: string;
-    class_name?: string;
-    student_id?: string;
-    user?: string;
-    max_borrow_limit?: number;
-}
-
-export interface LoanFormData {
-    member: string;
-    item: string;
-    loan_days?: number;
-}
+export type LibraryItemFormData = z.infer<typeof createItemSchema>;
+export type LibraryMemberFormData = z.infer<typeof createMemberSchema>;
+export type LoanFormData = z.infer<typeof createLoanSchema>;
 
 // ==========================================
 // Stats Types
@@ -144,5 +126,30 @@ export const ITEM_CATEGORIES: { value: ItemCategory; label: string }[] = [
     { value: "OTHER", label: "Lainnya" },
 ];
 
+
 export const DEFAULT_LOAN_DAYS = 7;
 export const FINE_PER_DAY = 1000; // Rp 1.000 per hari
+
+// ==========================================
+// Report Types
+// ==========================================
+
+export interface LoanReportItem {
+    id: string;
+    memberName: string;
+    memberClass?: string | null;
+    itemTitle: string;
+    borrowDate: string; // ISO string
+    dueDate: string; // ISO string
+    returnDate?: string | null; // ISO string
+    isReturned: boolean;
+    fineAmount: number;
+}
+
+export interface VisitReportItem {
+    id: string;
+    memberName: string;
+    memberClass?: string | null;
+    date: string;
+    timestamp: string; // ISO string
+}

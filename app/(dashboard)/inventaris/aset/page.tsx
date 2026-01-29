@@ -9,7 +9,9 @@ import {
     Pencil,
     Trash2,
     Filter,
+    ArrowLeft,
 } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -53,6 +55,7 @@ import {
     getAllRooms,
 } from "@/lib/inventory";
 import type { InventoryAsset, InventoryRoom } from "@/types/inventory";
+import { useAuthStore } from "@/lib/stores/auth-store";
 
 const CATEGORIES = [
     "Elektronik",
@@ -64,6 +67,7 @@ const CATEGORIES = [
 ];
 
 export default function AsetPage() {
+    const { user } = useAuthStore();
     const [assets, setAssets] = useState<InventoryAsset[]>([]);
     const [rooms, setRooms] = useState<InventoryRoom[]>([]);
     const [loading, setLoading] = useState(true);
@@ -200,18 +204,18 @@ export default function AsetPage() {
     const openEditDialog = (asset: InventoryAsset) => {
         setEditingAsset(asset);
         setFormData({
-            name: asset.name,
-            code: asset.code,
+            name: asset.name || "",
+            code: asset.code || "",
             category: asset.category,
             purchase_date: asset.purchase_date ? asset.purchase_date.split('T')[0] : "",
-            price: asset.price.toString(),
-            quantity: asset.quantity.toString(),
+            price: (asset.price || 0).toString(),
+            quantity: (asset.quantity || 0).toString(),
             room: asset.room,
             notes: asset.notes || "",
-            condition_good: asset.condition_good.toString(),
-            condition_light_damaged: asset.condition_light_damaged.toString(),
-            condition_heavy_damaged: asset.condition_heavy_damaged.toString(),
-            condition_lost: asset.condition_lost.toString(),
+            condition_good: (asset.condition_good || 0).toString(),
+            condition_light_damaged: (asset.condition_light_damaged || 0).toString(),
+            condition_heavy_damaged: (asset.condition_heavy_damaged || 0).toString(),
+            condition_lost: (asset.condition_lost || 0).toString(),
         });
         setIsAddDialogOpen(true);
     };
@@ -220,11 +224,18 @@ export default function AsetPage() {
         <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Data Aset</h1>
-                    <p className="text-muted-foreground">
-                        Kelola daftar aset, kondisi, dan lokasi
-                    </p>
+                <div className="flex items-center gap-4">
+                    <Link href="/inventaris">
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <ArrowLeft className="h-4 w-4" />
+                        </Button>
+                    </Link>
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight">Data Aset</h1>
+                        <p className="text-muted-foreground">
+                            Kelola daftar aset, kondisi, dan lokasi
+                        </p>
+                    </div>
                 </div>
                 <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
                     setIsAddDialogOpen(open);
@@ -255,18 +266,17 @@ export default function AsetPage() {
                                         <Label htmlFor="name">Nama Aset *</Label>
                                         <Input
                                             id="name"
-                                            value={formData.name}
+                                            value={formData.name ?? ""}
                                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                             required
                                         />
                                     </div>
                                     <div className="grid gap-2">
-                                        <Label htmlFor="code">Kode Inventaris *</Label>
+                                        <Label htmlFor="code">Kode Inventaris</Label>
                                         <Input
                                             id="code"
-                                            value={formData.code}
+                                            value={formData.code ?? ""}
                                             onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                                            required
                                             placeholder="INV/2026/001"
                                         />
                                     </div>
@@ -300,7 +310,11 @@ export default function AsetPage() {
                                                 <SelectValue placeholder="Pilih Ruangan" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {rooms.map((room) => (
+                                                {rooms.filter(r => {
+                                                    const isAdmin = ["superadmin", "admin"].includes(user?.role || "");
+                                                    if (isAdmin) return true;
+                                                    return (r as any).picId === user?.id || r.expand?.pic?.id === user?.id;
+                                                }).map((room) => (
                                                     <SelectItem key={room.id} value={room.id}>{room.name}</SelectItem>
                                                 ))}
                                             </SelectContent>
@@ -314,7 +328,7 @@ export default function AsetPage() {
                                         <Input
                                             id="purchase_date"
                                             type="date"
-                                            value={formData.purchase_date}
+                                            value={formData.purchase_date ?? ""}
                                             onChange={(e) => setFormData({ ...formData, purchase_date: e.target.value })}
                                         />
                                     </div>
@@ -323,7 +337,7 @@ export default function AsetPage() {
                                         <Input
                                             id="price"
                                             type="number"
-                                            value={formData.price}
+                                            value={formData.price ?? ""}
                                             onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                                         />
                                     </div>
@@ -471,6 +485,7 @@ export default function AsetPage() {
                                                 {asset.condition_good > 0 && <span className="text-green-600 bg-green-100 px-2 py-0.5 rounded">{asset.condition_good} B</span>}
                                                 {asset.condition_light_damaged > 0 && <span className="text-yellow-600 bg-yellow-100 px-2 py-0.5 rounded">{asset.condition_light_damaged} RR</span>}
                                                 {asset.condition_heavy_damaged > 0 && <span className="text-red-600 bg-red-100 px-2 py-0.5 rounded">{asset.condition_heavy_damaged} RB</span>}
+                                                {asset.condition_lost > 0 && <span className="text-gray-600 bg-gray-100 px-2 py-0.5 rounded">{asset.condition_lost} H</span>}
                                             </div>
                                         </TableCell>
                                         <TableCell>

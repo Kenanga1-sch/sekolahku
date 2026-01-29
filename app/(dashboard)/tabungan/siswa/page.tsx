@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -56,17 +56,12 @@ import {
     Loader2,
     QrCode,
     Wallet,
+    ArrowLeft,
+    RefreshCw, // Added RefreshCw icon
 } from "lucide-react";
-import {
-    getSiswa,
-    createSiswa,
-    updateSiswa,
-    deleteSiswa,
-    getAllKelas,
-    createKelas,
-} from "@/lib/tabungan";
+import Link from "next/link";
 import { showSuccess, showError } from "@/lib/toast";
-import type { TabunganSiswa, TabunganKelas, TabunganSiswaFormData } from "@/types/tabungan";
+import type { TabunganSiswaWithRelations, TabunganKelasWithRelations, TabunganSiswaFormData } from "@/types/tabungan";
 
 function formatRupiah(amount: number): string {
     return new Intl.NumberFormat("id-ID", {
@@ -77,8 +72,8 @@ function formatRupiah(amount: number): string {
 }
 
 export default function TabunganSiswaPage() {
-    const [siswa, setSiswa] = useState<TabunganSiswa[]>([]);
-    const [kelasList, setKelasList] = useState<TabunganKelas[]>([]);
+    const [siswa, setSiswa] = useState<TabunganSiswaWithRelations[]>([]);
+    const [kelasList, setKelasList] = useState<TabunganKelasWithRelations[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [kelasFilter, setKelasFilter] = useState("all");
@@ -93,33 +88,36 @@ export default function TabunganSiswaPage() {
     const [formData, setFormData] = useState<TabunganSiswaFormData>({
         nisn: "",
         nama: "",
-        kelas_id: "",
+        kelasId: "", // Restore kelasId
     });
+    
+    // Sync state
+    const [isSyncing, setIsSyncing] = useState(false);
 
-    // Kelas form
-    const [isKelasDialogOpen, setIsKelasDialogOpen] = useState(false);
-    const [newKelasNama, setNewKelasNama] = useState("");
+
 
     const fetchData = useCallback(async () => {
         try {
-            // Build filter
-            const filters: string[] = ["is_active = true"];
-            if (searchQuery) {
-                filters.push(`(nama ~ "${searchQuery}" || nisn ~ "${searchQuery}")`);
-            }
-            if (kelasFilter !== "all") {
-                filters.push(`kelas_id = "${kelasFilter}"`);
-            }
-            const filter = filters.join(" && ");
+            // Build query params
+            const params = new URLSearchParams({
+                page: page.toString(),
+                perPage: "20",
+            });
+            
+            if (searchQuery) params.set("search", searchQuery);
+            if (kelasFilter !== "all") params.set("kelasId", kelasFilter);
 
-            const [siswaResult, kelasResult] = await Promise.all([
-                getSiswa(page, 20, filter),
-                getAllKelas(),
+            const [siswaRes, kelasRes] = await Promise.all([
+                fetch(`/api/tabungan/siswa?${params.toString()}`).then(r => r.json()),
+                fetch("/api/tabungan/kelas").then(r => r.json()),
             ]);
 
-            setSiswa(siswaResult.items);
-            setTotalPages(siswaResult.totalPages);
-            setKelasList(kelasResult);
+            if (siswaRes.error) throw new Error(siswaRes.error);
+            if (kelasRes.error) throw new Error(kelasRes.error);
+
+            setSiswa(siswaRes.items || []);
+            setTotalPages(siswaRes.totalPages || 1);
+            setKelasList(Array.isArray(kelasRes) ? kelasRes : []);
         } catch (error) {
             console.error("Failed to fetch data:", error);
             showError("Gagal memuat data");
@@ -133,7 +131,7 @@ export default function TabunganSiswaPage() {
     }, [fetchData]);
 
     const handleSubmit = async () => {
-        if (!formData.nisn || !formData.nama || !formData.kelas_id) {
+        if (!formData.nisn || !formData.nama || !formData.kelasId) {
             showError("Lengkapi semua field");
             return;
         }
@@ -141,10 +139,20 @@ export default function TabunganSiswaPage() {
         setIsSaving(true);
         try {
             if (editingId) {
-                await updateSiswa(editingId, formData);
+                const res = await fetch(`/api/tabungan/siswa/${editingId}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(formData),
+                });
+                if (!res.ok) throw new Error("Failed to update");
                 showSuccess("Data siswa berhasil diperbarui");
             } else {
-                await createSiswa(formData);
+                const res = await fetch("/api/tabungan/siswa", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(formData),
+                });
+                if (!res.ok) throw new Error("Failed to create");
                 showSuccess("Siswa baru berhasil ditambahkan");
             }
             resetForm();
@@ -157,12 +165,12 @@ export default function TabunganSiswaPage() {
         }
     };
 
-    const handleEdit = (item: TabunganSiswa) => {
+    const handleEdit = (item: TabunganSiswaWithRelations) => {
         setEditingId(item.id);
         setFormData({
             nisn: item.nisn,
             nama: item.nama,
-            kelas_id: item.kelas_id,
+            kelasId: item.kelasId,
         });
         setIsDialogOpen(true);
     };
@@ -170,7 +178,9 @@ export default function TabunganSiswaPage() {
     const handleDelete = async () => {
         if (!deleteId) return;
         try {
-            await deleteSiswa(deleteId);
+            const res = await fetch(`/api/tabungan/siswa/${deleteId}`, { method: "DELETE" });
+            if (!res.ok) throw new Error("Failed to delete");
+            
             showSuccess("Siswa berhasil dihapus");
             setDeleteId(null);
             fetchData();
@@ -180,22 +190,29 @@ export default function TabunganSiswaPage() {
         }
     };
 
-    const handleCreateKelas = async () => {
-        if (!newKelasNama) return;
+
+
+    const handleSync = async () => {
+        setIsSyncing(true);
         try {
-            await createKelas({ nama: newKelasNama });
-            showSuccess("Kelas berhasil ditambahkan");
-            setNewKelasNama("");
-            setIsKelasDialogOpen(false);
+            showSuccess("Mulai sinkronisasi data siswa..."); // Using toast helper
+            const res = await fetch("/api/sync/savings", { method: "POST" });
+            const result = await res.json();
+            
+            if (!res.ok) throw new Error(result.details || result.error || "Sync failed");
+            
+            showSuccess(result.message);
             fetchData();
         } catch (error) {
-            console.error("Failed to create kelas:", error);
-            showError("Gagal menambahkan kelas");
+            console.error("Sync error:", error);
+            showError(error instanceof Error ? error.message : "Gagal sinkronisasi data");
+        } finally {
+            setIsSyncing(false);
         }
     };
 
     const resetForm = () => {
-        setFormData({ nisn: "", nama: "", kelas_id: "" });
+        setFormData({ nisn: "", nama: "", kelasId: "" });
         setEditingId(null);
         setIsDialogOpen(false);
     };
@@ -204,21 +221,27 @@ export default function TabunganSiswaPage() {
         <div className="space-y-6">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold">Data Siswa</h1>
-                    <p className="text-muted-foreground">Kelola data siswa dan saldo tabungan</p>
+                <div className="flex items-center gap-4">
+                    <Link href="/tabungan">
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <ArrowLeft className="h-4 w-4" />
+                        </Button>
+                    </Link>
+                    <div>
+                        <h1 className="text-2xl font-bold">Data Siswa</h1>
+                        <p className="text-muted-foreground">Kelola data siswa dan saldo tabungan</p>
+                    </div>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => setIsKelasDialogOpen(true)}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Tambah Kelas
+                    <Button variant="outline" onClick={handleSync} disabled={isSyncing}>
+                        <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
+                        Sinkronisasi
                     </Button>
-                    <Button onClick={() => { resetForm(); setIsDialogOpen(true); }}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Tambah Siswa
-                    </Button>
+
                 </div>
             </div>
+
+
 
             {/* Filters */}
             <Card>
@@ -290,13 +313,13 @@ export default function TabunganSiswaPage() {
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <Badge variant="outline">{s.expand?.kelas_id?.nama || "-"}</Badge>
+                                            <Badge variant="outline">{s.kelas?.nama || "-"}</Badge>
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex items-center justify-end gap-1">
                                                 <Wallet className="h-3 w-3 text-green-600" />
                                                 <span className="font-medium text-green-600">
-                                                    {formatRupiah(s.saldo_terakhir)}
+                                                    {formatRupiah(s.saldoTerakhir)}
                                                 </span>
                                             </div>
                                         </TableCell>
@@ -389,8 +412,8 @@ export default function TabunganSiswaPage() {
                         <div className="space-y-2">
                             <Label htmlFor="kelas">Kelas</Label>
                             <Select
-                                value={formData.kelas_id}
-                                onValueChange={(v) => setFormData({ ...formData, kelas_id: v })}
+                                value={formData.kelasId}
+                                onValueChange={(v) => setFormData({ ...formData, kelasId: v })}
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder="Pilih kelas" />
@@ -413,30 +436,7 @@ export default function TabunganSiswaPage() {
                 </DialogContent>
             </Dialog>
 
-            {/* Kelas Form Dialog */}
-            <Dialog open={isKelasDialogOpen} onOpenChange={setIsKelasDialogOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Tambah Kelas</DialogTitle>
-                        <DialogDescription>Buat kelas baru untuk siswa</DialogDescription>
-                    </DialogHeader>
-                    <div className="py-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="kelasNama">Nama Kelas</Label>
-                            <Input
-                                id="kelasNama"
-                                placeholder="Contoh: 1A, 2B, 3C"
-                                value={newKelasNama}
-                                onChange={(e) => setNewKelasNama(e.target.value)}
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsKelasDialogOpen(false)}>Batal</Button>
-                        <Button onClick={handleCreateKelas} disabled={!newKelasNama}>Tambah</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+
 
             {/* Delete Confirmation */}
             <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>

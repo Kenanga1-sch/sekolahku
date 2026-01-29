@@ -1,8 +1,12 @@
 "use client";
 
+// Force HMR update
+
+
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import dynamic from "next/dynamic";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -11,14 +15,52 @@ import {
     Clock,
     TrendingUp,
     TrendingDown,
-    QrCode,
-    ClipboardCheck,
-    BarChart3,
-    CreditCard,
     ArrowRight,
+    RefreshCw,
+    AlertCircle,
 } from "lucide-react";
-import { getTabunganStats } from "@/lib/tabungan";
 import type { TabunganStats } from "@/types/tabungan";
+
+// Lazy load heavy components
+const TransactionTrendChart = dynamic(
+    () => import("@/components/tabungan/charts").then(mod => ({ default: mod.TransactionTrendChart })),
+    {
+        loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[300px] w-full" /></CardContent></Card>,
+        ssr: false
+    }
+);
+
+const ClassBalanceChart = dynamic(
+    () => import("@/components/tabungan/charts").then(mod => ({ default: mod.ClassBalanceChart })),
+    {
+        loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[300px] w-full" /></CardContent></Card>,
+        ssr: false
+    }
+);
+
+const RecentTransactionsFeed = dynamic(
+    () => import("@/components/tabungan/recent-transactions").then(mod => ({ default: mod.RecentTransactionsFeed })),
+    {
+        loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[320px] w-full" /></CardContent></Card>,
+        ssr: false
+    }
+);
+
+const QuickActionsPanel = dynamic(
+    () => import("@/components/tabungan/quick-actions").then(mod => ({ default: mod.QuickActionsPanel })),
+    {
+        loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[100px] w-full" /></CardContent></Card>,
+        ssr: false
+    }
+);
+
+const TopSaversWidget = dynamic(
+    () => import("@/components/tabungan/top-savers").then(mod => ({ default: mod.TopSaversWidget })),
+    {
+        loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[280px] w-full" /></CardContent></Card>,
+        ssr: false
+    }
+);
 
 function formatRupiah(amount: number): string {
     return new Intl.NumberFormat("id-ID", {
@@ -29,157 +71,125 @@ function formatRupiah(amount: number): string {
     }).format(amount);
 }
 
-const menuItems = [
-    {
-        title: "Siswa",
-        description: "Kelola data siswa dan saldo",
-        icon: Users,
-        href: "/tabungan/siswa",
-        color: "bg-blue-500",
-    },
-    {
-        title: "Scan QR",
-        description: "Transaksi setor/tarik",
-        icon: QrCode,
-        href: "/tabungan/scan",
-        color: "bg-green-500",
-    },
-    {
-        title: "Verifikasi",
-        description: "Approve transaksi pending",
-        icon: ClipboardCheck,
-        href: "/tabungan/verifikasi",
-        color: "bg-amber-500",
-    },
-    {
-        title: "Riwayat",
-        description: "Histori transaksi",
-        icon: Clock,
-        href: "/tabungan/riwayat",
-        color: "bg-purple-500",
-    },
-    {
-        title: "Laporan",
-        description: "Statistik dan export",
-        icon: BarChart3,
-        href: "/tabungan/laporan",
-        color: "bg-indigo-500",
-    },
-    {
-        title: "Kartu QR",
-        description: "Cetak kartu siswa",
-        icon: CreditCard,
-        href: "/tabungan/kartu",
-        color: "bg-pink-500",
-    },
-];
-
 export default function TabunganDashboardPage() {
     const [stats, setStats] = useState<TabunganStats | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+
+    async function fetchStats() {
+        try {
+            const res = await fetch("/api/tabungan/data");
+            if (res.ok) {
+                const data = await res.json();
+                setStats(data);
+            }
+        } catch (error) {
+            console.error("Failed to fetch stats:", error);
+        } finally {
+            setIsLoading(false);
+            setRefreshing(false);
+        }
+    }
 
     useEffect(() => {
-        const fetchStats = async () => {
-            try {
-                const data = await getTabunganStats();
-                setStats(data);
-            } catch (error) {
-                console.error("Failed to fetch stats:", error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
         fetchStats();
     }, []);
 
+    const handleRefresh = () => {
+        setRefreshing(true);
+        fetchStats();
+    };
+
+    const statCards = [
+        {
+            title: "Total Siswa",
+            value: stats?.totalSiswa || 0,
+            icon: Users,
+            color: "text-blue-500",
+            bgColor: "bg-blue-500/10",
+            gradient: "from-blue-500 to-cyan-500",
+            desc: "Siswa aktif terdaftar",
+        },
+        {
+            title: "Total Saldo",
+            value: formatRupiah(stats?.totalSaldo || 0),
+            icon: Wallet,
+            color: "text-green-500",
+            bgColor: "bg-green-500/10",
+            gradient: "from-green-500 to-emerald-500",
+            desc: "Akumulasi tabungan",
+        },
+
+        {
+            title: "Transaksi Hari Ini",
+            value: stats?.todayTransactions || 0,
+            icon: TrendingUp,
+            color: "text-purple-500",
+            bgColor: "bg-purple-500/10",
+            gradient: "from-purple-500 to-pink-500",
+            desc: "Terverifikasi hari ini",
+        },
+    ];
+
     return (
-        <div className="space-y-6">
+        <div className="space-y-8">
             {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold">Tabungan Siswa</h1>
-                <p className="text-muted-foreground">
-                    Kelola tabungan siswa dengan mudah dan aman
-                </p>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-green-600 to-emerald-600">
+                        Tabungan Siswa
+                    </h1>
+                    <p className="text-muted-foreground">
+                        Kelola tabungan siswa dengan mudah dan aman
+                    </p>
+                </div>
+                <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                >
+                    <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                </Button>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Total Siswa
-                        </CardTitle>
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        {isLoading ? (
-                            <Skeleton className="h-8 w-20" />
-                        ) : (
-                            <div className="text-2xl font-bold">{stats?.totalSiswa || 0}</div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Total Saldo
-                        </CardTitle>
-                        <Wallet className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        {isLoading ? (
-                            <Skeleton className="h-8 w-32" />
-                        ) : (
-                            <div className="text-2xl font-bold text-green-600">
-                                {formatRupiah(stats?.totalSaldo || 0)}
+            {/* Stats Grid */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                {statCards.map((stat) => (
+                    <Card
+                        key={stat.title}
+                        className={`relative overflow-hidden group hover:shadow-lg transition-all duration-300`}
+                    >
+                        <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
+                        <CardContent className="p-4">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className={`p-2.5 rounded-xl ${stat.bgColor} transition-transform duration-300 group-hover:scale-110`}>
+                                    <stat.icon className={`h-5 w-5 ${stat.color}`} />
+                                </div>
+                                <p className="text-sm font-medium text-muted-foreground">
+                                    {stat.title}
+                                </p>
                             </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Pending
-                        </CardTitle>
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        {isLoading ? (
-                            <Skeleton className="h-8 w-16" />
-                        ) : (
-                            <div className="text-2xl font-bold text-amber-600">
-                                {stats?.pendingTransactions || 0}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Transaksi Hari Ini
-                        </CardTitle>
-                        <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        {isLoading ? (
-                            <Skeleton className="h-8 w-16" />
-                        ) : (
-                            <div className="text-2xl font-bold">{stats?.todayTransactions || 0}</div>
-                        )}
-                    </CardContent>
-                </Card>
+                            <span className={`text-2xl font-bold block`}>
+                                {isLoading ? <Skeleton className="h-7 w-20" /> : stat.value}
+                            </span>
+                            <span className="text-xs text-muted-foreground mt-1 block">
+                                {stat.desc}
+                            </span>
+                        </CardContent>
+                    </Card>
+                ))}
             </div>
+
+            {/* Quick Actions */}
+            <QuickActionsPanel />
 
             {/* Today Summary */}
             <div className="grid md:grid-cols-2 gap-4">
-                <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/50 dark:to-green-900/30 border-green-200 dark:border-green-800">
+                <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/50 dark:to-green-900/30 border-green-200 dark:border-green-800 group hover:shadow-lg transition-all">
                     <CardContent className="pt-6">
                         <div className="flex items-center gap-4">
-                            <div className="p-3 bg-green-500 rounded-xl">
+                            <div className="p-3 bg-green-500 rounded-xl group-hover:scale-110 transition-transform">
                                 <TrendingUp className="h-6 w-6 text-white" />
                             </div>
                             <div>
@@ -196,10 +206,10 @@ export default function TabunganDashboardPage() {
                     </CardContent>
                 </Card>
 
-                <Card className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/50 dark:to-red-900/30 border-red-200 dark:border-red-800">
+                <Card className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/50 dark:to-red-900/30 border-red-200 dark:border-red-800 group hover:shadow-lg transition-all">
                     <CardContent className="pt-6">
                         <div className="flex items-center gap-4">
-                            <div className="p-3 bg-red-500 rounded-xl">
+                            <div className="p-3 bg-red-500 rounded-xl group-hover:scale-110 transition-transform">
                                 <TrendingDown className="h-6 w-6 text-white" />
                             </div>
                             <div>
@@ -217,33 +227,18 @@ export default function TabunganDashboardPage() {
                 </Card>
             </div>
 
-            {/* Menu Grid */}
-            <div>
-                <h2 className="text-lg font-semibold mb-4">Menu</h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {menuItems.map((item) => (
-                        <Link key={item.href} href={item.href}>
-                            <Card className="h-full hover:shadow-md transition-shadow cursor-pointer group">
-                                <CardContent className="pt-6">
-                                    <div className="flex items-start gap-4">
-                                        <div className={`p-3 ${item.color} rounded-xl`}>
-                                            <item.icon className="h-5 w-5 text-white" />
-                                        </div>
-                                        <div className="flex-1">
-                                            <h3 className="font-semibold group-hover:text-primary transition-colors">
-                                                {item.title}
-                                            </h3>
-                                            <p className="text-sm text-muted-foreground">
-                                                {item.description}
-                                            </p>
-                                        </div>
-                                        <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </Link>
-                    ))}
-                </div>
+
+
+            {/* Charts Section */}
+            <div className="grid lg:grid-cols-2 gap-6">
+                <TransactionTrendChart />
+                <ClassBalanceChart />
+            </div>
+
+            {/* Recent Transactions + Top Savers */}
+            <div className="grid lg:grid-cols-2 gap-6">
+                <RecentTransactionsFeed />
+                <TopSaversWidget />
             </div>
         </div>
     );

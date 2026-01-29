@@ -170,6 +170,25 @@ export function isValidNIK(nik: string): boolean {
 
 const requestTimestamps: Map<string, number[]> = new Map();
 
+// Cleanup interval to prevent memory leak
+const CLEANUP_INTERVAL_MS = 300000; // 5 minutes
+let lastCleanup = Date.now();
+
+function cleanupOldEntries() {
+    const now = Date.now();
+    if (now - lastCleanup < CLEANUP_INTERVAL_MS) return;
+    
+    lastCleanup = now;
+    requestTimestamps.forEach((timestamps, key) => {
+        const validTimestamps = timestamps.filter(t => now - t < 60000);
+        if (validTimestamps.length === 0) {
+            requestTimestamps.delete(key);
+        } else {
+            requestTimestamps.set(key, validTimestamps);
+        }
+    });
+}
+
 interface RateLimitOptions {
     windowMs?: number;
     maxRequests?: number;
@@ -189,6 +208,9 @@ export function checkRateLimit(
     key: string,
     options: RateLimitOptions = {}
 ): RateLimitResult {
+    // Cleanup old entries periodically
+    cleanupOldEntries();
+    
     const { maxRequests = 10, windowMs = 60000 } = options;
     const now = Date.now();
     const timestamps = requestTimestamps.get(key) || [];

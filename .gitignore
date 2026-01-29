@@ -45,3 +45,8 @@ next-env.d.ts
 # pocketbase
 /pb_data
 pocketbase
+
+# generated content
+/uploads
+/test-results
+/playwright-report

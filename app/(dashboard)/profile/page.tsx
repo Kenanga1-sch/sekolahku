@@ -21,11 +21,12 @@ import {
     Shield,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import { pb } from "@/lib/pocketbase";
+import { useSession } from "next-auth/react";
 
 export default function ProfilePage() {
+    const { data: session, update } = useSession();
     const router = useRouter();
-    const { user, setUser, isAuthenticated, isLoading: authLoading } = useAuthStore();
+    const { user, isAuthenticated, isLoading: authLoading } = useAuthStore();
     const [isSaving, setIsSaving] = useState(false);
     const [isChangingPassword, setIsChangingPassword] = useState(false);
     const [saved, setSaved] = useState(false);
@@ -52,14 +53,23 @@ export default function ProfilePage() {
     }, [authLoading, isAuthenticated, router]);
 
     useEffect(() => {
-        if (user) {
-            setProfile({
+        if (user?.id) {
+            // Only update if values are different to prevent infinite loop
+            const newProfile = {
                 name: user.name || "",
                 email: user.email || "",
                 phone: user.phone || "",
+            };
+            setProfile((prev) => {
+                if (prev.name !== newProfile.name || 
+                    prev.email !== newProfile.email || 
+                    prev.phone !== newProfile.phone) {
+                    return newProfile;
+                }
+                return prev;
             });
         }
-    }, [user]);
+    }, [user?.id, user?.name, user?.email, user?.phone]);
 
     const handleSaveProfile = async () => {
         if (!user) return;
@@ -67,11 +77,17 @@ export default function ProfilePage() {
         setError(null);
 
         try {
-            const updated = await pb.collection("users").update(user.id, {
-                name: profile.name,
-                phone: profile.phone,
+            const res = await fetch("/api/profile", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: profile.name, phone: profile.phone }),
             });
-            setUser(updated as any);
+            
+            if (!res.ok) throw new Error(await res.text());
+            
+            await update({ name: profile.name }); // Update session
+            
+            // setUser not needed as it comes from session
             setSaved(true);
             setTimeout(() => setSaved(false), 3000);
         } catch (err) {
@@ -100,17 +116,27 @@ export default function ProfilePage() {
         setIsChangingPassword(true);
 
         try {
-            await pb.collection("users").update(user.id, {
-                oldPassword: passwords.current,
-                password: passwords.new,
-                passwordConfirm: passwords.confirm,
+            const res = await fetch("/api/profile", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    oldPassword: passwords.current,
+                    password: passwords.new,
+                    passwordConfirm: passwords.confirm,
+                }),
             });
+
+            if (!res.ok) {
+                 const data = await res.json();
+                 throw new Error(data.error || "Gagal mengubah password");
+            }
+
             setPasswords({ current: "", new: "", confirm: "" });
             setPasswordSuccess(true);
             setTimeout(() => setPasswordSuccess(false), 3000);
-        } catch (err) {
+        } catch (err: any) {
             console.error("Failed to change password:", err);
-            setPasswordError("Gagal mengubah password. Pastikan password lama benar.");
+            setPasswordError(err.message || "Gagal mengubah password.");
         } finally {
             setIsChangingPassword(false);
         }

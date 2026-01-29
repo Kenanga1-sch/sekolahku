@@ -1,195 +1,212 @@
 import { NextRequest, NextResponse } from "next/server";
-import PocketBase from "pocketbase";
 import { checkRateLimit, sanitizeString, sanitizeEmail, sanitizePhone, sanitizeNIK } from "@/lib/security";
-
-const pb = new PocketBase(process.env.NEXT_PUBLIC_POCKETBASE_URL || "http://127.0.0.1:8090");
+import { db } from "@/db";
+import { 
+    getActivePeriod,
+    getRegistrantByNik,
+    generateRegistrationNumber,
+    createRegistrant,
+} from "@/lib/spmb";
+import { 
+    ValidationError, 
+    RateLimitError, 
+    ConflictError, 
+    NotFoundError,
+    createErrorResponse 
+} from "@/lib/errors";
+import { spmbLog, generateRequestId, timeStart, timeEnd } from "@/lib/logger";
+import { broadcastNotification } from "@/lib/notifications";
+import { NewSPMBRegistrant } from "@/db/schema/spmb";
+import { schoolSettings } from "@/db/schema/misc";
+import { siteConfig } from "@/lib/config";
 
 export async function POST(request: NextRequest) {
-  try {
-    // Rate limiting - 10 registrations per IP per hour
-    const clientIp = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
-    const rateCheck = checkRateLimit(`register:${clientIp}`, {
-      windowMs: 60 * 60 * 1000, // 1 hour
-      maxRequests: 10
-    });
-
-    if (!rateCheck.allowed) {
-      return NextResponse.json(
-        { success: false, error: "Terlalu banyak percobaan. Coba lagi nanti." },
-        { status: 429 }
-      );
-    }
-
-    const body = await request.json();
-
-    // Sanitize inputs
-    const sanitizedData = {
-      ...body,
-      student_name: sanitizeString(body.student_name || ""),
-      student_nik: sanitizeNIK(body.student_nik || ""),
-      birth_place: sanitizeString(body.birth_place || ""),
-      parent_name: sanitizeString(body.parent_name || ""),
-      parent_phone: sanitizePhone(body.parent_phone || ""),
-      parent_email: sanitizeEmail(body.parent_email || ""),
-      address: sanitizeString(body.address || ""),
-      previous_school: sanitizeString(body.previous_school || ""),
-    };
-    // Validate required fields
-    const requiredFields = [
-      "student_name",
-      "student_nik",
-      "birth_date",
-      "birth_place",
-      "gender",
-      "parent_name",
-      "parent_phone",
-      "parent_email",
-      "address",
-      "home_lat",
-      "home_lng",
-      "distance_to_school",
-    ];
-
-    for (const field of requiredFields) {
-      if (!body[field]) {
-        return NextResponse.json(
-          { success: false, error: `Field ${field} is required` },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Validate NIK format (16 digits)
-    if (!/^\d{16}$/.test(body.student_nik)) {
-      return NextResponse.json(
-        { success: false, error: "NIK harus 16 digit angka" },
-        { status: 400 }
-      );
-    }
-
-    // Check if NIK already registered
+    const requestId = generateRequestId();
+    const start = timeStart();
+    
     try {
-      const existing = await pb.collection("spmb_registrants").getFirstListItem(
-        `student_nik = "${body.student_nik}"`
-      );
-      if (existing) {
-        return NextResponse.json(
-          { success: false, error: "NIK sudah terdaftar sebelumnya" },
-          { status: 400 }
-        );
-      }
-    } catch {
-      // Not found is expected, continue
+        // Rate limiting - 10 registrations per IP per hour
+        const clientIp = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
+        const rateCheck = checkRateLimit(`register:${clientIp}`, {
+            windowMs: 60 * 60 * 1000, // 1 hour
+            maxRequests: 10
+        });
+
+        if (!rateCheck.allowed) {
+            throw new RateLimitError(Math.ceil(rateCheck.resetIn / 1000));
+        }
+
+        const body = await request.json();
+
+        spmbLog.info("Registration attempt", { 
+            requestId, 
+            action: "registration_start",
+            ip: clientIp.split(",")[0] 
+        });
+
+        // Parse and validate with Zod
+        const parseResult = await import("@/lib/validations/spmb").then(m => m.registerApiSchema.safeParseAsync(body));
+
+        if (!parseResult.success) {
+            const missingFields: Record<string, string> = {};
+            // Defensive: ensure errors array exists
+            const errors = (parseResult.error as any)?.errors || [];
+            if (Array.isArray(errors)) {
+                errors.forEach(err => {
+                    const field = err.path.join(".");
+                    missingFields[field] = err.message;
+                });
+            } else {
+                console.error("Zod Validation Failed but no errors array:", parseResult.error);
+                missingFields["unknown"] = "Data tidak valid (reason unknown)";
+            }
+            
+            console.log("Validation missing fields:", missingFields); // DEBUG LOG
+            throw new ValidationError("Data pendaftaran tidak valid", missingFields);
+        }
+
+        const validData = parseResult.data;
+
+        // Check if NIK already registered
+        const existing = await getRegistrantByNik(sanitizeNIK(validData.student_nik));
+        if (existing) {
+            throw new ConflictError("NIK Siswa sudah terdaftar sebelumnya");
+        }
+
+        // Get active SPMB period
+        const activePeriod = await getActivePeriod();
+        if (!activePeriod) {
+            throw new NotFoundError("Periode SPMB belum dibuka");
+        }
+
+        // Generate registration number
+        const registrationNumber = await generateRegistrationNumber();
+
+        // Fetch max distance from settings
+        let maxDistance: number = siteConfig.location.maxDistanceKm;
+        try {
+            const [settings] = await db.select().from(schoolSettings).limit(1);
+            if (settings?.maxDistanceKm) {
+                maxDistance = settings.maxDistanceKm;
+            }
+        } catch (e) {
+            console.error("Failed to fetch max distance setting, using default", e);
+        }
+        
+        const isInZone = validData.distance_to_school <= maxDistance;
+
+        // Prepare Data for DB Insertion
+        // Map snake_case (validData) to camelCase (Drizzle)
+        
+        // Determine primary parent name for legacy/contact purposes
+        const primaryParentName = validData.father_name || validData.mother_name || validData.guardian_name || validData.parent_name || "-";
+
+        const newRegistrantData: NewSPMBRegistrant = {
+            periodId: activePeriod.id,
+            registrationNumber: registrationNumber,
+            
+            // Student
+            fullName: sanitizeString(validData.full_name), // This will map to full_name col
+            nisn: sanitizeString(validData.nisn || ""),
+            studentNik: sanitizeNIK(validData.student_nik),
+            kkNumber: sanitizeNIK(validData.kk_number),
+            birthCertificateNo: sanitizeString(validData.birth_certificate_no || ""),
+            birthDate: new Date(validData.birth_date),
+            birthPlace: sanitizeString(validData.birth_place),
+            gender: validData.gender,
+            religion: sanitizeString(validData.religion),
+            specialNeeds: sanitizeString(validData.special_needs),
+            livingArrangement: sanitizeString(validData.living_arrangement),
+            transportMode: sanitizeString(validData.transport_mode),
+            childOrder: validData.child_order,
+            hasKpsPkh: validData.has_kps_pkh,
+            hasKip: validData.has_kip,
+            previousSchool: sanitizeString(validData.previous_school || ""),
+
+            // Contact (Legacy & New)
+            parentName: sanitizeString(primaryParentName),
+            parentPhone: sanitizePhone(validData.parent_phone),
+            parentEmail: sanitizeEmail(validData.parent_email || ""),
+
+            // Address Detail
+            addressStreet: sanitizeString(validData.address_street),
+            addressRt: sanitizeString(validData.address_rt),
+            addressRw: sanitizeString(validData.address_rw),
+            addressVillage: sanitizeString(validData.address_village),
+            postalCode: sanitizeString(validData.postal_code || ""),
+            address: sanitizeString(validData.address || `${validData.address_street}, RT ${validData.address_rt}/RW ${validData.address_rw}, ${validData.address_village}`),
+
+            // Parents Detail
+            fatherName: sanitizeString(validData.father_name),
+            fatherNik: sanitizeNIK(validData.father_nik),
+            fatherBirthYear: sanitizeString(validData.father_birth_year),
+            fatherEducation: sanitizeString(validData.father_education),
+            fatherJob: sanitizeString(validData.father_job),
+            fatherIncome: sanitizeString(validData.father_income),
+
+            motherName: sanitizeString(validData.mother_name),
+            motherNik: sanitizeNIK(validData.mother_nik),
+            motherBirthYear: sanitizeString(validData.mother_birth_year),
+            motherEducation: sanitizeString(validData.mother_education),
+            motherJob: sanitizeString(validData.mother_job),
+            motherIncome: sanitizeString(validData.mother_income),
+
+            guardianName: sanitizeString(validData.guardian_name || ""),
+            guardianNik: sanitizeNIK(validData.guardian_nik || ""),
+            guardianBirthYear: sanitizeString(validData.guardian_birth_year || ""),
+            guardianEducation: sanitizeString(validData.guardian_education || ""),
+            guardianJob: sanitizeString(validData.guardian_job || ""),
+            guardianIncome: sanitizeString(validData.guardian_income || ""),
+
+            // Location
+            homeLat: validData.home_lat,
+            homeLng: validData.home_lng,
+            distanceToSchool: validData.distance_to_school,
+            isInZone: isInZone,
+            
+            // Meta
+            status: "pending",
+            studentName: sanitizeString(validData.full_name), // Legacy field
+        };
+
+        // Create registrant record
+        const registrant = await createRegistrant(newRegistrantData);
+
+        // Notify admins
+        await broadcastNotification(["superadmin", "admin"], {
+            title: "Pendaftar Baru SPMB",
+            message: `${newRegistrantData.fullName} telah mendaftar (No: ${registrationNumber})`,
+            type: "success",
+            category: "spmb",
+            targetUrl: `/admin/spmb/pendaftar/${registrant.id}`,
+        });
+
+        const duration = timeEnd(start);
+        spmbLog.info("Registration completed", { 
+            requestId, 
+            action: "registration_success",
+            registrationNumber,
+            registrantId: registrant.id,
+            duration 
+        });
+
+        return NextResponse.json({
+            success: true,
+            data: {
+                registration_number: registrationNumber,
+                id: registrant.id,
+                status: "pending",
+                is_in_zone: isInZone,
+            },
+        });
+    } catch (error) {
+        const duration = timeEnd(start);
+        spmbLog.error("Registration error", { 
+            requestId, 
+            action: "registration_error",
+            duration 
+        }, error as Error);
+        
+        return createErrorResponse(error);
     }
-
-    // Get active SPMB period
-    let activePeriod;
-    try {
-      activePeriod = await pb.collection("spmb_periods").getFirstListItem(
-        "is_active = true"
-      );
-    } catch {
-      return NextResponse.json(
-        { success: false, error: "Tidak ada periode SPMB aktif saat ini" },
-        { status: 400 }
-      );
-    }
-
-    // Generate registration number
-    const year = new Date().getFullYear();
-    const count = await pb.collection("spmb_registrants").getList(1, 1, {
-      filter: `created >= "${year}-01-01"`,
-    });
-    const sequence = (count.totalItems + 1).toString().padStart(4, "0");
-    const registrationNumber = `SPMB${year}${sequence}`;
-
-    // Determine zone status based on distance
-    const maxDistance = 3; // km - should be fetched from school_settings
-    const isInZone = body.distance_to_school <= maxDistance;
-
-    // Create registrant record
-    const registrant = await pb.collection("spmb_registrants").create({
-      period_id: activePeriod.id,
-      registration_number: registrationNumber,
-      student_name: sanitizedData.student_name,
-      student_nik: sanitizedData.student_nik,
-      birth_date: body.birth_date,
-      birth_place: sanitizedData.birth_place,
-      gender: body.gender,
-      previous_school: sanitizedData.previous_school,
-      parent_name: sanitizedData.parent_name,
-      parent_phone: sanitizedData.parent_phone,
-      parent_email: sanitizedData.parent_email,
-      address: sanitizedData.address,
-      home_lat: body.home_lat,
-      home_lng: body.home_lng,
-      distance_to_school: body.distance_to_school,
-      is_in_zone: isInZone,
-      status: "pending",
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        registration_number: registrationNumber,
-        id: registrant.id,
-        status: "pending",
-        is_in_zone: isInZone,
-      },
-    });
-  } catch (error) {
-    console.error("Registration error:", error);
-    return NextResponse.json(
-      { success: false, error: "Terjadi kesalahan saat mendaftar. Silakan coba lagi." },
-      { status: 500 }
-    );
-  }
-}
-
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "10");
-    const status = searchParams.get("status");
-    const search = searchParams.get("search");
-
-    let filter = "";
-    const filters: string[] = [];
-
-    if (status && status !== "all") {
-      filters.push(`status = "${status}"`);
-    }
-
-    if (search) {
-      filters.push(`(student_name ~ "${search}" || registration_number ~ "${search}")`);
-    }
-
-    if (filters.length > 0) {
-      filter = filters.join(" && ");
-    }
-
-    const registrants = await pb.collection("spmb_registrants").getList(page, limit, {
-      filter,
-      sort: "-created",
-      expand: "period_id",
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: registrants.items,
-      pagination: {
-        page: registrants.page,
-        perPage: registrants.perPage,
-        totalItems: registrants.totalItems,
-        totalPages: registrants.totalPages,
-      },
-    });
-  } catch (error) {
-    console.error("Fetch registrants error:", error);
-    return NextResponse.json(
-      { success: false, error: "Gagal mengambil data pendaftar" },
-      { status: 500 }
-    );
-  }
 }

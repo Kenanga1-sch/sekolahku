@@ -10,7 +10,9 @@ import {
     Clock,
     ArrowRight,
     Save,
+    ArrowLeft,
 } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
@@ -282,11 +284,18 @@ export default function OpnamePage() {
         <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Stok Opname</h1>
-                    <p className="text-muted-foreground">
-                        Lakukan audit fisik aset secara berkala
-                    </p>
+                <div className="flex items-center gap-4">
+                    <Link href="/inventaris">
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <ArrowLeft className="h-4 w-4" />
+                        </Button>
+                    </Link>
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight">Stok Opname</h1>
+                        <p className="text-muted-foreground">
+                            Lakukan audit fisik aset secara berkala
+                        </p>
+                    </div>
                 </div>
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                     <DialogTrigger asChild>

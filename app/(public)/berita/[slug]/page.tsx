@@ -20,7 +20,6 @@ import {
     ArrowRight,
     Newspaper,
 } from "lucide-react";
-import { pb } from "@/lib/pocketbase";
 import { sanitizeHTML, sanitizeSlug } from "@/lib/security";
 import type { Announcement } from "@/types";
 
@@ -97,36 +96,39 @@ export default function BeritaDetailPage() {
 
     const fetchArticle = async () => {
         try {
-            // Try to fetch by slug first, then by id
+            const safeSlug = sanitizeSlug(slug);
+            const res = await fetch(`/api/news/${safeSlug}`);
+            
             let record: Announcement | null = null;
-
-            try {
-                const safeSlug = sanitizeSlug(slug);
-                record = await pb.collection("announcements").getFirstListItem<Announcement>(
-                    `slug = "${safeSlug}" || id = "${safeSlug}"`
-                );
-            } catch {
-                // Use mock data if not found
-                record = mockArticle as unknown as Announcement;
+            if (res.ok) {
+                record = await res.json();
+            } else {
+                setArticle(null);
+                setRelatedArticles([]);
+                setIsLoading(false);
+                return;
             }
 
             setArticle(record);
 
-            // Fetch related articles
+            // For related articles, fetch all and filter client-side
             if (record?.category) {
                 try {
-                    const related = await pb.collection("announcements").getList<Announcement>(1, 3, {
-                        filter: `category = "${record.category}" && id != "${record.id}" && is_published = true`,
-                        sort: "-published_at",
-                    });
-                    setRelatedArticles(related.items);
+                    const relatedRes = await fetch("/api/news");
+                    if (relatedRes.ok) {
+                        const all = await relatedRes.json();
+                        const related = all.filter((a: any) => 
+                            a.category === record!.category && a.id !== record!.id
+                        ).slice(0, 3);
+                        setRelatedArticles(related);
+                    }
                 } catch {
                     setRelatedArticles([]);
                 }
             }
         } catch (error) {
             console.error("Failed to fetch article:", error);
-            setArticle(mockArticle as unknown as Announcement);
+            setArticle(null);
         } finally {
             setIsLoading(false);
         }
@@ -251,8 +253,19 @@ export default function BeritaDetailPage() {
                         transition={{ delay: 0.2 }}
                         className="lg:col-span-3"
                     >
-                        {/* Featured Image Placeholder */}
-                        <div className="aspect-video bg-gradient-to-br from-zinc-100 to-zinc-200 dark:from-zinc-800 dark:to-zinc-900 rounded-xl mb-8" />
+
+                        {/* Featured Image */}
+                        {article.thumbnail ? (
+                             <div className="aspect-video relative rounded-xl overflow-hidden mb-8 shadow-md border">
+                                <img 
+                                    src={article.thumbnail} 
+                                    alt={article.title} 
+                                    className="w-full h-full object-cover"
+                                />
+                             </div>
+                        ) : (
+                             <div className="aspect-video bg-gradient-to-br from-zinc-100 to-zinc-200 dark:from-zinc-800 dark:to-zinc-900 rounded-xl mb-8" />
+                        )}
 
                         {/* Excerpt */}
                         {article.excerpt && (

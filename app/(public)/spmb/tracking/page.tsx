@@ -22,11 +22,12 @@ import {
   User,
   MapPin,
   FileText,
+  Printer,
 } from "lucide-react";
 import { trackingFormSchema, type TrackingFormValues } from "@/lib/validations/spmb";
-import { getRegistrationByNumber } from "@/lib/pocketbase";
 import { formatDate, formatDistance, getStatusLabel, getStatusColor, getGenderLabel } from "@/lib/utils";
 import type { SPMBRegistrant } from "@/types";
+import { siteConfig, getSPMBPeriodLabel } from "@/lib/config";
 
 function StatusIcon({ status }: { status: string }) {
   switch (status) {
@@ -59,8 +60,9 @@ export default function TrackingPage() {
     setRegistrant(null);
 
     try {
-      const result = await getRegistrationByNumber(data.registration_number);
-      if (result) {
+      const res = await fetch(`/api/spmb/tracking?registration_number=${encodeURIComponent(data.registration_number)}`);
+      if (res.ok) {
+        const result = await res.json();
         setRegistrant(result);
       } else {
         setNotFound(true);
@@ -91,7 +93,7 @@ export default function TrackingPage() {
               <FileSearch className="h-7 w-7" />
             </div>
             <div>
-              <Badge className="bg-white/20 mb-1">SPMB 2024/2025</Badge>
+              <Badge className="bg-white/20 mb-1">{getSPMBPeriodLabel()}</Badge>
               <h1 className="text-2xl md:text-3xl font-bold">
                 Cek Status Pendaftaran
               </h1>
@@ -124,7 +126,7 @@ export default function TrackingPage() {
                       <FormLabel>Nomor Pendaftaran</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="SPMB-2024-0001"
+                          placeholder={siteConfig.spmb.exampleNumber}
                           className="text-lg font-mono"
                           {...field}
                         />
@@ -204,6 +206,14 @@ export default function TrackingPage() {
                   <p className="text-2xl font-mono font-bold">
                     {registrant.registration_number}
                   </p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-3 gap-2 w-full md:w-auto"
+                    onClick={() => window.open(`/spmb/bukti/${registrant.id}`, '_blank')}
+                  >
+                    <Printer className="h-4 w-4" /> Cetak Bukti Pendaftaran
+                  </Button>
                 </div>
 
                 <Separator />

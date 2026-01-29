@@ -1,225 +1,178 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import useSWR from "swr";
+import Image from "next/image";
+import { Loader2, Image as ImageIcon, ZoomIn, X, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-    Dialog,
-    DialogContent,
-    DialogTitle,
-} from "@/components/ui/dialog";
-import { Camera, X, ChevronLeft, ChevronRight, ZoomIn } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
 
-// Sample gallery data - in production, this would come from PocketBase
-const galleryData = [
-    {
-        id: "1",
-        category: "Upacara",
-        title: "Upacara Bendera",
-        description: "Upacara bendera setiap hari Senin",
-        image: "https://images.unsplash.com/photo-1588072432836-e10032774350?w=800&q=80",
-    },
-    {
-        id: "2",
-        category: "Olahraga",
-        title: "Perlombaan Futsal",
-        description: "Pertandingan futsal antar kelas",
-        image: "https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=800&q=80",
-    },
-    {
-        id: "3",
-        category: "Akademik",
-        title: "Kegiatan Belajar",
-        description: "Suasana belajar di kelas",
-        image: "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=800&q=80",
-    },
-    {
-        id: "4",
-        category: "Kesenian",
-        title: "Pentas Seni",
-        description: "Penampilan tari tradisional",
-        image: "https://images.unsplash.com/photo-1514320291840-2e0a9bf2a9ae?w=800&q=80",
-    },
-    {
-        id: "5",
-        category: "Akademik",
-        title: "Laboratorium Komputer",
-        description: "Praktik komputer",
-        image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&q=80",
-    },
-    {
-        id: "6",
-        category: "Olahraga",
-        title: "Senam Pagi",
-        description: "Senam pagi bersama",
-        image: "https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=800&q=80",
-    },
-    {
-        id: "7",
-        category: "Kesenian",
-        title: "Paduan Suara",
-        description: "Latihan paduan suara",
-        image: "https://images.unsplash.com/photo-1506177820405-87f0e94c9c91?w=800&q=80",
-    },
-    {
-        id: "8",
-        category: "Akademik",
-        title: "Perpustakaan",
-        description: "Membaca di perpustakaan",
-        image: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=800&q=80",
-    },
+interface GalleryItem {
+  id: string;
+  title: string;
+  category: string;
+  imageUrl: string;
+  createdAt: string;
+}
+
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
+const categories = [
+  { id: "all", label: "Semua" },
+  { id: "kegiatan", label: "Kegiatan" },
+  { id: "fasilitas", label: "Fasilitas" },
+  { id: "prestasi", label: "Prestasi" },
+  { id: "lainnya", label: "Lainnya" },
 ];
 
-const categories = ["Semua", "Akademik", "Olahraga", "Kesenian", "Upacara"];
-
 export default function GalleryPage() {
-    const [selectedCategory, setSelectedCategory] = useState("Semua");
-    const [selectedImage, setSelectedImage] = useState<number | null>(null);
+  const [activeCategory, setActiveCategory] = useState("all");
+  const { data, error, isLoading } = useSWR(`/api/gallery?category=${activeCategory}`, fetcher);
+  const galleryItems = (data?.data as GalleryItem[]) || [];
+  const [selectedImage, setSelectedImage] = useState<GalleryItem | null>(null);
 
-    const filteredImages = selectedCategory === "Semua"
-        ? galleryData
-        : galleryData.filter(img => img.category === selectedCategory);
+  // Filter items (redundant if API filters, but good for smooth transition if caching)
+  // Actually we rely on API filter for "all" vs specific
+  // But let's handle "all" client side if we wanted, but sticking to API is better for pagination later.
 
-    const openLightbox = (index: number) => {
-        setSelectedImage(index);
-    };
-
-    const closeLightbox = () => {
-        setSelectedImage(null);
-    };
-
-    const nextImage = () => {
-        if (selectedImage !== null) {
-            setSelectedImage((selectedImage + 1) % filteredImages.length);
-        }
-    };
-
-    const prevImage = () => {
-        if (selectedImage !== null) {
-            setSelectedImage((selectedImage - 1 + filteredImages.length) % filteredImages.length);
-        }
-    };
-
-    return (
-        <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
-            <div className="container mx-auto px-4 py-12">
-                {/* Header */}
-                <div className="text-center mb-12">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 text-primary mb-6">
-                        <Camera className="h-8 w-8" />
-                    </div>
-                    <h1 className="text-4xl font-bold tracking-tight mb-4">
-                        Galeri Foto
-                    </h1>
-                    <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-                        Dokumentasi kegiatan dan momen berharga di sekolah kami
-                    </p>
-                </div>
-
-                {/* Category Filters */}
-                <div className="flex flex-wrap justify-center gap-2 mb-10">
-                    {categories.map((category) => (
-                        <Button
-                            key={category}
-                            variant={selectedCategory === category ? "default" : "outline"}
-                            onClick={() => setSelectedCategory(category)}
-                            className="rounded-full"
-                        >
-                            {category}
-                        </Button>
-                    ))}
-                </div>
-
-                {/* Gallery Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {filteredImages.map((image, index) => (
-                        <Card
-                            key={image.id}
-                            className="overflow-hidden group cursor-pointer border-0 shadow-lg hover:shadow-xl transition-all duration-300"
-                            onClick={() => openLightbox(index)}
-                        >
-                            <div className="relative aspect-[4/3] overflow-hidden">
-                                <img
-                                    src={image.image}
-                                    alt={image.title}
-                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                    <div className="p-3 bg-white/90 rounded-full">
-                                        <ZoomIn className="h-6 w-6 text-primary" />
-                                    </div>
-                                </div>
-                                <Badge className="absolute top-3 left-3 bg-primary/90 text-primary-foreground">
-                                    {image.category}
-                                </Badge>
-                            </div>
-                            <CardContent className="p-4">
-                                <h3 className="font-semibold mb-1">{image.title}</h3>
-                                <p className="text-sm text-muted-foreground line-clamp-1">{image.description}</p>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
-
-                {/* Empty State */}
-                {filteredImages.length === 0 && (
-                    <Card className="p-12 text-center">
-                        <Camera className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-                        <p className="text-lg font-medium mb-2">Tidak ada foto</p>
-                        <p className="text-muted-foreground">
-                            Belum ada foto untuk kategori ini
-                        </p>
-                    </Card>
-                )}
-
-                {/* Lightbox Dialog */}
-                <Dialog open={selectedImage !== null} onOpenChange={closeLightbox}>
-                    <DialogContent className="max-w-5xl p-0 bg-black/95 border-none">
-                        <DialogTitle className="sr-only">
-                            {selectedImage !== null ? filteredImages[selectedImage].title : "Gallery Image"}
-                        </DialogTitle>
-                        {selectedImage !== null && (
-                            <div className="relative">
-                                <img
-                                    src={filteredImages[selectedImage].image}
-                                    alt={filteredImages[selectedImage].title}
-                                    className="w-full max-h-[80vh] object-contain"
-                                />
-                                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/80 to-transparent">
-                                    <h3 className="text-white text-xl font-semibold">{filteredImages[selectedImage].title}</h3>
-                                    <p className="text-white/80">{filteredImages[selectedImage].description}</p>
-                                </div>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="absolute top-4 right-4 text-white hover:bg-white/20"
-                                    onClick={closeLightbox}
-                                >
-                                    <X className="h-6 w-6" />
-                                </Button>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20"
-                                    onClick={prevImage}
-                                >
-                                    <ChevronLeft className="h-8 w-8" />
-                                </Button>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20"
-                                    onClick={nextImage}
-                                >
-                                    <ChevronRight className="h-8 w-8" />
-                                </Button>
-                            </div>
-                        )}
-                    </DialogContent>
-                </Dialog>
-            </div>
+  return (
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-20">
+      {/* Header */}
+      <div className="pt-32 pb-12 bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
+        <div className="container px-4 md:px-6 text-center">
+            <motion.div
+                initial={{ opacity: 0, scale: 0.5 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 text-primary mb-6"
+            >
+                <Camera className="h-8 w-8" />
+            </motion.div>
+            <motion.h1 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-4xl md:text-5xl font-bold tracking-tight mb-4 text-zinc-900 dark:text-white"
+            >
+                Galeri Sekolah
+            </motion.h1>
+            <motion.p 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="text-muted-foreground text-lg max-w-2xl mx-auto"
+            >
+                Dokumentasi kegiatan, fasilitas, dan prestasi siswa kami.
+            </motion.p>
         </div>
-    );
+      </div>
+
+      <div className="container px-4 md:px-6 py-12">
+        {/* Filters */}
+        <div className="flex flex-wrap justify-center gap-2 mb-12">
+          {categories.map((cat) => (
+            <Button
+              key={cat.id}
+              variant={activeCategory === cat.id ? "default" : "outline"}
+              onClick={() => setActiveCategory(cat.id)}
+              className="rounded-full"
+            >
+              {cat.label}
+            </Button>
+          ))}
+        </div>
+
+        {/* Gallery Grid */}
+        {isLoading ? (
+            <div className="flex justify-center py-20">
+                <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+            </div>
+        ) : galleryItems.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground bg-white dark:bg-zinc-900 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800">
+                <ImageIcon className="h-12 w-12 mb-4 opacity-20" />
+                <p>Belum ada foto untuk kategori ini.</p>
+            </div>
+        ) : (
+            <motion.div 
+                layout
+                className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"
+            >
+                <AnimatePresence mode="popLayout">
+                    {galleryItems.map((item) => (
+                        <motion.div
+                            layout
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            transition={{ duration: 0.2 }}
+                            key={item.id}
+                            className="group relative aspect-[4/3] rounded-2xl overflow-hidden bg-zinc-200 dark:bg-zinc-800 cursor-pointer shadow-sm hover:shadow-xl transition-all duration-300 ring-1 ring-black/5 dark:ring-white/10"
+                            onClick={() => setSelectedImage(item)}
+                        >
+                            <Image
+                                src={item.imageUrl}
+                                alt={item.title}
+                                fill
+                                className="object-cover transition-transform duration-500 group-hover:scale-110"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-6">
+                                <p className="text-white font-medium text-lg translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+                                    {item.title}
+                                </p>
+                                <div className="flex items-center justify-between mt-2 translate-y-4 group-hover:translate-y-0 transition-transform duration-300 delay-75">
+                                    <Badge variant="secondary" className="capitalize bg-white/20 text-white hover:bg-white/30 border-none backdrop-blur-sm">
+                                        {item.category}
+                                    </Badge>
+                                </div>
+                            </div>
+                        </motion.div>
+                    ))}
+                </AnimatePresence>
+            </motion.div>
+        )}
+
+        {/* Lightbox */}
+        <Dialog open={!!selectedImage} onOpenChange={(open) => !open && setSelectedImage(null)}>
+            <DialogContent className="max-w-5xl w-full p-0 overflow-hidden bg-black/95 border-none shadow-2xl text-white">
+                <DialogTitle className="sr-only">Detail Foto</DialogTitle>
+                <div className="relative w-full h-[80vh] flex flex-col">
+                     <div className="relative flex-1 w-full bg-black/50 backdrop-blur-sm">
+                        {selectedImage && (
+                            <Image
+                                src={selectedImage.imageUrl}
+                                alt={selectedImage.title}
+                                fill
+                                className="object-contain"
+                            />
+                        )}
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute top-4 right-4 text-white hover:bg-white/20 rounded-full z-50"
+                            onClick={() => setSelectedImage(null)}
+                        >
+                            <X className="h-6 w-6" />
+                        </Button>
+                   </div>
+                   {selectedImage && (
+                       <div className="p-6 bg-zinc-900 border-t border-white/10 shrink-0">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-xl font-bold">{selectedImage.title}</h3>
+                                    <p className="text-zinc-400 capitalize text-sm mt-1">{selectedImage.category}</p>
+                                </div>
+                                <div className="hidden sm:block">
+                                    <p className="text-xs text-zinc-500">
+                                        Diupload pada {new Date(selectedImage.createdAt).toLocaleDateString()}
+                                    </p>
+                                </div>
+                            </div>
+                       </div>
+                   )}
+                </div>
+            </DialogContent>
+        </Dialog>
+      </div>
+    </div>
+  );
 }

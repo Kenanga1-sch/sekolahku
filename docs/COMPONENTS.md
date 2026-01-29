@@ -123,3 +123,36 @@ All Shadcn components are in `components/ui/`:
 - `sheet.tsx`
 - `form.tsx`
 - `label.tsx`
+
+---
+
+## Aceternity UI Components (Premium)
+
+High-end UI components integrated for the modernization phase (`components/ui/`):
+
+### Backgrounds
+
+- **AuroraBackground**: Dynamic aurora borealis effect (Used in: 404, Error Page, Landing Hero).
+- **WavyBackground**: Animated waves (Used in: Auth Layout).
+- **BackgroundBeams**: Shooting laser beams (Used in: SPMB Landing).
+- **Sparkles**: Particle effects (Used in: Footer, Loading Screen).
+- **Meteors**: Shooting stars effect (Used in: Visi Misi Card).
+
+### Layouts & Grids
+
+- **BentoGrid**: Bento-box style grid layout (Used in: Landing Features, Dashboard Overview).
+- **TracingBeam**: Glowing beam that follows scroll (Used in: History Page).
+- **StickyScroll**: Sticky scroll reveal effect (Available for future use).
+
+### Cards & Interactivity
+
+- **BackgroundGradient**: Animated gradient borders for cards/containers (Used in: SPMB Wizard, Library Activity).
+- **HoverEffect**: Card hover highlight effect (Used in: News Page).
+- **3D Card**: Cards with 3D depth effect on hover (Used in: Dashboard Stats).
+- **CardSpotlight**: Spotlight effect on hover (Available).
+
+### Text & Inputs
+
+- **TextGenerateEffect**: Typewriter style text appearance (Used in: Landing Hero).
+- **TypewriterEffect**: Cursor typing effect (Used in: 404/Error Pages).
+- **LabelInputContainer**: Premium input wrapper with `BottomGradient` flow (Used in: Student & Parent Forms).

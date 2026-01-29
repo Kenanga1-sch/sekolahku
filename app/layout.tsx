@@ -6,6 +6,7 @@ import { SchoolSettingsProvider } from "@/lib/contexts/school-settings-context";
 import { SWRProvider } from "@/components/providers/swr-provider";
 import { Toaster } from "@/components/ui/toaster";
 import { SkipToContent } from "@/components/accessibility";
+import { ZXingConfig } from "@/components/zxing-config";
 import "./globals.css";
 
 const inter = Inter({
@@ -17,13 +18,13 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "SD Negeri 1 - Website Sekolah Terpadu",
-    template: "%s | SD Negeri 1",
+    default: "SDN 1 Kenanga",
+    template: "%s | SDN 1 Kenanga",
   },
   description:
-    "Portal utama SD Negeri 1 untuk informasi sekolah, pendaftaran siswa baru (SPMB) dengan sistem zonasi, dan layanan digital terintegrasi.",
+    "Portal utama UPTD SDN 1 Kenanga untuk informasi sekolah, pendaftaran siswa baru (SPMB) dengan sistem zonasi, dan layanan digital terintegrasi.",
   keywords: [
-    "SD Negeri 1",
+    "UPTD SDN 1 Kenanga",
     "sekolah dasar",
     "pendaftaran siswa baru",
     "SPMB",
@@ -31,42 +32,80 @@ export const metadata: Metadata = {
     "pendidikan",
     "Indonesia",
   ],
-  authors: [{ name: "SD Negeri 1" }],
+  authors: [{ name: "UPTD SDN 1 Kenanga" }],
   creator: "Website Sekolah Terpadu",
   manifest: "/manifest.json",
   icons: {
     icon: [
-      { url: "/favicon.ico", sizes: "any" },
-      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/logo.png?v=2", sizes: "any" },
     ],
-    apple: "/apple-touch-icon.png",
+    apple: "/logo.png?v=2",
   },
   openGraph: {
     type: "website",
     locale: "id_ID",
-    siteName: "SD Negeri 1",
-    title: "SD Negeri 1 - Website Sekolah Terpadu",
+    siteName: "UPTD SDN 1 Kenanga",
+    title: "UPTD SDN 1 Kenanga - Website Sekolah Terpadu",
     description:
-      "Portal utama SD Negeri 1 untuk informasi sekolah, pendaftaran siswa baru (SPMB), dan layanan digital terintegrasi.",
+      "Portal utama UPTD SDN 1 Kenanga untuk informasi sekolah, pendaftaran siswa baru (SPMB), dan layanan digital terintegrasi.",
   },
 };
 
-export default function RootLayout({
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { db } from "@/db";
+import { schoolSettings } from "@/db/schema/misc";
+
+import { auth } from "@/auth";
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Check Maintenance Mode
+  const headersList = await headers();
+  const pathname = headersList.get("x-pathname") || "";
+  
+  // Allow Login, API, and Maintenance page itself
+  const isProtectedPath = !pathname.startsWith("/api") && !pathname.startsWith("/login") && pathname !== "/maintenance";
+
+  if (isProtectedPath) {
+     try {
+         const [settings] = await db.select({ isMaintenance: schoolSettings.isMaintenance }).from(schoolSettings).limit(1);
+         
+         if (settings?.isMaintenance) {
+             // Bypass for Admins
+             const session = await auth();
+             const role = session?.user?.role;
+             const isAdmin = role === "admin" || role === "superadmin";
+             
+             if (!isAdmin) {
+                 redirect("/maintenance");
+             }
+         }
+     } catch (e) {
+         // Ignore DB errors
+     }
+  }
+
   return (
     <html lang="id" suppressHydrationWarning>
       <head>
         <meta name="theme-color" content="#3b82f6" media="(prefers-color-scheme: light)" />
         <meta name="theme-color" content="#1e3a8a" media="(prefers-color-scheme: dark)" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Sekolahku" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
       </head>
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <body className={`${inter.variable} font-sans antialiased`} suppressHydrationWarning>
+        <noscript>
+          <div className="p-4 text-center bg-red-100 text-red-700">
+             JavaScript diperlukan untuk menjalankan aplikasi ini dengan baik. Mohon aktifkan JavaScript di browser Anda.
+          </div>
+        </noscript>
+        <ZXingConfig />
         <SkipToContent />
         <ThemeProvider>
           <SWRProvider>

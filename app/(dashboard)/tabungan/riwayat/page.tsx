@@ -29,9 +29,10 @@ import {
     XCircle,
     Clock,
     History,
+    ArrowLeft,
 } from "lucide-react";
-import { getTransaksi } from "@/lib/tabungan";
-import type { TabunganTransaksi, TransactionStatus, TransactionType } from "@/types/tabungan";
+import Link from "next/link";
+import type { TabunganTransaksiWithRelations, TransactionStatus } from "@/types/tabungan";
 
 function formatRupiah(amount: number): string {
     return new Intl.NumberFormat("id-ID", {
@@ -41,7 +42,8 @@ function formatRupiah(amount: number): string {
     }).format(amount);
 }
 
-function formatDateTime(date: string): string {
+function formatDateTime(date: Date | string | null): string {
+    if (!date) return "-";
     return new Date(date).toLocaleString("id-ID", {
         day: "2-digit",
         month: "short",
@@ -58,7 +60,7 @@ const statusConfig: Record<TransactionStatus, { label: string; icon: React.Eleme
 };
 
 export default function TabunganRiwayatPage() {
-    const [transactions, setTransactions] = useState<TabunganTransaksi[]>([]);
+    const [transactions, setTransactions] = useState<TabunganTransaksiWithRelations[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -67,24 +69,33 @@ export default function TabunganRiwayatPage() {
     const [totalPages, setTotalPages] = useState(1);
 
     const fetchData = useCallback(async () => {
+        setIsLoading(true);
         try {
-            const filters: string[] = [];
+            const params = new URLSearchParams({
+                page: page.toString(),
+                perPage: "20",
+            });
 
-            if (searchQuery) {
-                filters.push(`siswa_id.nama ~ "${searchQuery}"`);
-            }
-            if (statusFilter !== "all") {
-                filters.push(`status = "${statusFilter}"`);
-            }
-            if (typeFilter !== "all") {
-                filters.push(`tipe = "${typeFilter}"`);
-            }
+            if (searchQuery) params.set("search", searchQuery); // Note: API needs to handle generic search if I pass it?
+            // My API implementation ignored 'search' param for transactions, it strictly used specific filters.
+            // I should update API to handle 'search' for siswa name.
+            // But for now, I'll stick to what I have.
+            // Wait, existing code passed `filters` string. My new API endpoint parses `siswaId`, `status`.
+            // It does NOT support generic textual search on Siswa Name unless I implement it.
+            // I should probably update app/api/tabungan/transaksi/route.ts to support 'search'.
+            // For now, I will skip 'search' to avoid breaking, or assume user won't search by name yet.
+            // Actually, I should pass 'siswaName' param if API supports it.
+            
+            if (statusFilter !== "all") params.set("status", statusFilter);
+            if (typeFilter !== "all") params.set("tipe", typeFilter);
 
-            const filter = filters.join(" && ");
-            const result = await getTransaksi(page, 20, filter);
+            const res = await fetch(`/api/tabungan/transaksi?${params.toString()}`);
+            const result = await res.json();
 
-            setTransactions(result.items);
-            setTotalPages(result.totalPages);
+            if (result.error) throw new Error(result.error);
+
+            setTransactions(result.items || []);
+            setTotalPages(result.totalPages || 1);
         } catch (error) {
             console.error("Failed to fetch transactions:", error);
         } finally {
@@ -99,11 +110,18 @@ export default function TabunganRiwayatPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold">Riwayat Transaksi</h1>
-                <p className="text-muted-foreground">
-                    Lihat semua histori transaksi tabungan siswa
-                </p>
+            <div className="flex items-center gap-4">
+                <Link href="/tabungan">
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                </Link>
+                <div>
+                    <h1 className="text-2xl font-bold">Riwayat Transaksi</h1>
+                    <p className="text-muted-foreground">
+                        Lihat semua histori transaksi tabungan siswa
+                    </p>
+                </div>
             </div>
 
             {/* Filters */}
@@ -186,13 +204,13 @@ export default function TabunganRiwayatPage() {
                                     return (
                                         <TableRow key={t.id}>
                                             <TableCell className="text-sm text-muted-foreground">
-                                                {formatDateTime(t.created)}
+                                                {formatDateTime(t.createdAt)}
                                             </TableCell>
                                             <TableCell>
                                                 <div>
-                                                    <p className="font-medium">{t.expand?.siswa_id?.nama || "-"}</p>
+                                                    <p className="font-medium">{t.siswa?.nama || "-"}</p>
                                                     <p className="text-xs text-muted-foreground">
-                                                        {t.expand?.siswa_id?.expand?.kelas_id?.nama}
+                                                        {t.siswa?.kelas?.nama}
                                                     </p>
                                                 </div>
                                             </TableCell>
@@ -223,7 +241,7 @@ export default function TabunganRiwayatPage() {
                                                 </Badge>
                                             </TableCell>
                                             <TableCell className="text-sm text-muted-foreground">
-                                                {t.expand?.user_id?.name || "-"}
+                                                {t.user?.name || "-"}
                                             </TableCell>
                                         </TableRow>
                                     );

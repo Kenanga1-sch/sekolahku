@@ -9,7 +9,9 @@ import {
     Pencil,
     Trash2,
     Package,
+    ArrowLeft,
 } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -43,11 +45,23 @@ import {
     createRoom,
     updateRoom,
     deleteRoom,
+    getUsers, // Import new helper
+    type UserOption
 } from "@/lib/inventory";
 import type { InventoryRoom } from "@/types/inventory";
+import { useAuthStore } from "@/lib/stores/auth-store";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"; // Add Select imports
 
 export default function RuanganPage() {
+    const { user } = useAuthStore();
     const [rooms, setRooms] = useState<InventoryRoom[]>([]);
+    const [users, setUsers] = useState<UserOption[]>([]); // User list state
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [page, setPage] = useState(1);
@@ -55,14 +69,15 @@ export default function RuanganPage() {
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [editingRoom, setEditingRoom] = useState<InventoryRoom | null>(null);
 
-    // Form state
+    // Form state with picId
     const [formData, setFormData] = useState({
         name: "",
         code: "",
         description: "",
+        picId: "", // Add picId
     });
 
-    const loadRooms = useCallback(async () => {
+    const loadData = useCallback(async () => {
         setLoading(true);
         try {
             let filter = "";
@@ -70,19 +85,25 @@ export default function RuanganPage() {
                 filter = `name ~ "${searchQuery}" || code ~ "${searchQuery}"`;
             }
 
-            const result = await getRooms(page, 20, filter);
-            setRooms(result.items);
-            setTotalItems(result.totalItems);
+            // Parallel fetch
+            const [roomsResult, usersResult] = await Promise.all([
+                 getRooms(page, 20, filter),
+                 getUsers()
+            ]);
+
+            setRooms(roomsResult.items);
+            setTotalItems(roomsResult.totalItems);
+            setUsers(usersResult);
         } catch (error) {
-            console.error("Failed to load rooms:", error);
+            console.error("Failed to load data:", error);
         } finally {
             setLoading(false);
         }
     }, [page, searchQuery]);
 
     useEffect(() => {
-        loadRooms();
-    }, [loadRooms]);
+        loadData();
+    }, [loadData]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -96,7 +117,7 @@ export default function RuanganPage() {
             setIsAddDialogOpen(false);
             setEditingRoom(null);
             resetForm();
-            loadRooms();
+            loadData();
         } catch (error) {
             console.error("Failed to save room:", error);
         }
@@ -105,7 +126,7 @@ export default function RuanganPage() {
     const handleDelete = async (id: string) => {
         if (confirm("Yakin ingin menghapus ruangan ini? Aset di dalamnya mungkin menjadi yatim piatu.")) {
             await deleteRoom(id);
-            loadRooms();
+            loadData();
         }
     };
 
@@ -114,15 +135,17 @@ export default function RuanganPage() {
             name: "",
             code: "",
             description: "",
+            picId: "",
         });
     };
 
     const openEditDialog = (room: InventoryRoom) => {
         setEditingRoom(room);
         setFormData({
-            name: room.name,
-            code: room.code,
+            name: room.name || "",
+            code: room.code || "",
             description: room.description || "",
+            picId: (room as any).picId || room.expand?.pic?.id || "",
         });
         setIsAddDialogOpen(true);
     };
@@ -131,11 +154,18 @@ export default function RuanganPage() {
         <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Data Ruangan</h1>
-                    <p className="text-muted-foreground">
-                        Kelola daftar ruangan dan lokasi aset
-                    </p>
+                <div className="flex items-center gap-4">
+                    <Link href="/inventaris">
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <ArrowLeft className="h-4 w-4" />
+                        </Button>
+                    </Link>
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight">Data Ruangan</h1>
+                        <p className="text-muted-foreground">
+                            Kelola daftar ruangan dan lokasi aset
+                        </p>
+                    </div>
                 </div>
                 <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
                     setIsAddDialogOpen(open);
@@ -144,12 +174,14 @@ export default function RuanganPage() {
                         resetForm();
                     }
                 }}>
-                    <DialogTrigger asChild>
-                        <Button className="gap-2">
-                            <Plus className="h-4 w-4" />
-                            Tambah Ruangan
-                        </Button>
-                    </DialogTrigger>
+                    {["admin", "superadmin"].includes(user?.role || "") && (
+                        <DialogTrigger asChild>
+                            <Button className="gap-2">
+                                <Plus className="h-4 w-4" />
+                                Tambah Ruangan
+                            </Button>
+                        </DialogTrigger>
+                    )}
                     <DialogContent>
                         <form onSubmit={handleSubmit}>
                             <DialogHeader>
@@ -179,6 +211,25 @@ export default function RuanganPage() {
                                         required
                                         placeholder="Contoh: R-01"
                                     />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="pic">Penanggung Jawab (PIC)</Label>
+                                    <Select 
+                                        value={formData.picId} 
+                                        onValueChange={(val) => setFormData({...formData, picId: val === "none" ? "" : val})}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Pilih Penanggung Jawab" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">-- Tidak Ada --</SelectItem>
+                                            {users.filter(u => ["guru", "staff", "admin", "superadmin"].includes(u.role)).map((u) => (
+                                                <SelectItem key={u.id} value={u.id}>
+                                                    {u.name} ({u.role})
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                                 <div className="grid gap-2">
                                     <Label htmlFor="description">Deskripsi</Label>
@@ -257,7 +308,7 @@ export default function RuanganPage() {
                                         <TableCell>
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="icon">
+                                                    <Button variant="ghost" size="icon" disabled={!["admin", "superadmin"].includes(user?.role || "")}>
                                                         <MoreHorizontal className="h-4 w-4" />
                                                     </Button>
                                                 </DropdownMenuTrigger>

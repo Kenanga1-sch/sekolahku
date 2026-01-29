@@ -1,18 +1,13 @@
-"use client";
-
-import { useState } from "react";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Download, Eye, X, FileText, Image as ImageIcon, File } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { Download, ExternalLink, FileText, Image as ImageIcon, File } from "lucide-react";
+import { DOCUMENT_LABELS } from "@/lib/spmb";
 
 interface DocumentViewerProps {
     url: string;
-    filename: string;
+    filename: string; // The raw filename/path
+    displayName?: string; // Optional friendly name
+    subtitle?: string;
     trigger?: React.ReactNode;
 }
 
@@ -29,115 +24,110 @@ function getFileType(filename: string): "image" | "pdf" | "other" {
 
 function getFileIcon(filename: string) {
     const type = getFileType(filename);
-    if (type === "image") return <ImageIcon className="h-4 w-4" />;
-    if (type === "pdf") return <FileText className="h-4 w-4" />;
-    return <File className="h-4 w-4" />;
+    if (type === "image") return <ImageIcon className="h-4 w-4 text-purple-600" />;
+    if (type === "pdf") return <FileText className="h-4 w-4 text-orange-600" />;
+    return <File className="h-4 w-4 text-gray-600" />;
 }
 
-export function DocumentViewer({ url, filename, trigger }: DocumentViewerProps) {
-    const [isOpen, setIsOpen] = useState(false);
-    const fileType = getFileType(filename);
+// Helper to clean up filenames (remove /uploads/spmb/ prefix)
+function getCleanFilename(path: string) {
+    if (!path) return "Unknown File";
+    const parts = path.split("/");
+    return parts[parts.length - 1];
+}
 
-    const handleDownload = () => {
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = filename;
-        link.target = "_blank";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
+export function DocumentViewer({ url, filename, displayName, subtitle, trigger }: DocumentViewerProps) {
+    const cleanName = getCleanFilename(filename);
+    const showName = displayName || cleanName;
+
+    if (trigger) {
+        return (
+            <a 
+                href={url} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="cursor-pointer hover:opacity-80 transition-opacity block"
+                title={`Open ${showName} in new tab`}
+            >
+                {trigger}
+            </a>
+        );
+    }
 
     return (
-        <>
-            {trigger ? (
-                <div onClick={() => setIsOpen(true)} className="cursor-pointer">
-                    {trigger}
-                </div>
-            ) : (
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsOpen(true)}
-                    className="gap-2 w-full justify-start"
-                >
-                    {getFileIcon(filename)}
-                    <span className="truncate flex-1 text-left">{filename}</span>
-                    <Eye className="h-4 w-4 text-muted-foreground" />
-                </Button>
+        <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+                buttonVariants({ variant: "outline", size: "sm" }),
+                "group flex w-full items-center justify-start h-auto py-3 px-4 bg-white hover:bg-slate-50 border-slate-200"
             )}
-
-            <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden">
-                    <DialogHeader className="p-4 border-b flex flex-row items-center justify-between">
-                        <DialogTitle className="flex items-center gap-2 text-base font-medium">
-                            {getFileIcon(filename)}
-                            <span className="truncate">{filename}</span>
-                        </DialogTitle>
-                        <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={handleDownload}>
-                                <Download className="h-4 w-4 mr-2" />
-                                Download
-                            </Button>
-                        </div>
-                    </DialogHeader>
-
-                    <div className="p-4 max-h-[calc(90vh-80px)] overflow-auto flex items-center justify-center bg-muted/30">
-                        {fileType === "image" ? (
-                            <img
-                                src={url}
-                                alt={filename}
-                                className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg"
-                            />
-                        ) : fileType === "pdf" ? (
-                            <iframe
-                                src={url}
-                                className="w-full h-[70vh] rounded-lg border"
-                                title={filename}
-                            />
-                        ) : (
-                            <div className="text-center p-8">
-                                <File className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-                                <p className="text-muted-foreground mb-4">
-                                    Preview tidak tersedia untuk file ini
-                                </p>
-                                <Button onClick={handleDownload}>
-                                    <Download className="h-4 w-4 mr-2" />
-                                    Download File
-                                </Button>
-                            </div>
-                        )}
-                    </div>
-                </DialogContent>
-            </Dialog>
-        </>
+            title={`Open ${showName} in new tab`}
+        >
+            <div className="mr-3 bg-slate-100 p-2 rounded-md group-hover:bg-white transition-colors">
+                {getFileIcon(filename)}
+            </div>
+            <div className="flex-1 overflow-hidden text-left">
+                <p className="font-medium text-sm text-slate-900 truncate">{showName}</p>
+                {subtitle && (
+                    <p className="text-xs text-slate-500 truncate">{subtitle}</p>
+                )}
+                {!subtitle && showName !== cleanName && (
+                    <p className="text-xs text-slate-400 truncate font-mono">{cleanName}</p>
+                )}
+            </div>
+            <ExternalLink className="h-3 w-3 text-slate-400 ml-2 flex-shrink-0" />
+        </a>
     );
 }
 
 // Simple document list component with viewer integration
+interface DocumentItem {
+    path: string;
+    type?: string;
+    originalName?: string;
+}
+
 interface DocumentListProps {
-    documents: string[];
-    getUrl: (doc: string) => string;
+    documents: (string | DocumentItem)[];
+    getUrl: (path: string) => string;
 }
 
 export function DocumentList({ documents, getUrl }: DocumentListProps) {
     if (!documents || documents.length === 0) {
         return (
-            <p className="text-sm text-muted-foreground text-center py-4">
-                Tidak ada dokumen
+            <p className="text-sm text-muted-foreground text-center py-8 italic border border-dashed rounded-lg bg-muted/20">
+                Tidak ada dokumen dilampirkan
             </p>
         );
     }
 
     return (
-        <div className="space-y-2">
-            {documents.map((doc, index) => (
-                <DocumentViewer
-                    key={index}
-                    url={getUrl(doc)}
-                    filename={doc}
-                />
-            ))}
+        <div className="grid gap-3 sm:grid-cols-1">
+            {documents.map((doc, index) => {
+                const isString = typeof doc === 'string';
+                const path = isString ? doc : doc.path;
+                const type = !isString ? doc.type : undefined;
+                
+                // Determine label
+                let label = isString ? undefined : (doc.type && DOCUMENT_LABELS[doc.type]);
+                if (!label && !isString && doc.originalName) {
+                    label = doc.originalName;
+                }
+                
+                const subtitle = label ? getCleanFilename(path) : undefined;
+
+                return (
+                    <DocumentViewer
+                        key={index}
+                        url={getUrl(path)}
+                        filename={path}
+                        displayName={label}
+                        subtitle={subtitle}
+                    />
+                );
+            })}
         </div>
     );
 }

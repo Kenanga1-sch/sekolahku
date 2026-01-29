@@ -1,169 +1,61 @@
-import { clsx, type ClassValue } from "clsx";
+import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { format, formatDistanceToNow } from "date-fns";
+import { id } from "date-fns/locale";
 
-/**
- * Merge Tailwind CSS classes with clsx
- */
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/**
- * Format date to Indonesian locale
- */
-export function formatDate(date: string | Date, options?: Intl.DateTimeFormatOptions): string {
-  const d = typeof date === "string" ? new Date(date) : date;
-  return d.toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    ...options,
-  });
+export function formatDate(date: string | Date) {
+  return format(new Date(date), "dd MMMM yyyy", { locale: id });
 }
 
-/**
- * Format date with time to Indonesian locale
- */
-export function formatDateTime(date: string | Date): string {
-  const d = typeof date === "string" ? new Date(date) : date;
-  return d.toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+export function formatDateTime(date: string | Date) {
+  return format(new Date(date), "dd MMMM yyyy HH:mm", { locale: id });
 }
 
-/**
- * Format number as Indonesian currency
- */
-export function formatCurrency(amount: number): string {
+export function formatDistance(km: number) {
+  return `${km.toFixed(2)} km`;
+}
+
+export function formatRupiah(amount: number) {
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
     minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   }).format(amount);
 }
 
-/**
- * Format distance in kilometers
- */
-export function formatDistance(km: number): string {
-  if (km < 1) {
-    return `${Math.round(km * 1000)} meter`;
+export const formatCurrency = formatRupiah;
+
+export function getStatusLabel(status: string) {
+  switch (status) {
+    case "draft": return "Draft";
+    case "submitted": return "Menunggu Verifikasi";
+    case "verified": return "Terverifikasi";
+    case "accepted": return "Diterima";
+    case "rejected": return "Ditolak";
+    case "enrolled": return "Terdaftar Ulang";
+    default: return status;
   }
-  return `${km.toFixed(2)} km`;
 }
 
-/**
- * Get status badge color based on SPMB status
- */
-export function getStatusColor(status: string): string {
-  const colors: Record<string, string> = {
-    draft: "bg-gray-100 text-gray-800",
-    pending: "bg-yellow-100 text-yellow-800",
-    verified: "bg-blue-100 text-blue-800",
-    accepted: "bg-green-100 text-green-800",
-    rejected: "bg-red-100 text-red-800",
-  };
-  return colors[status] || colors.draft;
-}
-
-/**
- * Get status label in Indonesian
- */
-export function getStatusLabel(status: string): string {
-  const labels: Record<string, string> = {
-    draft: "Draft",
-    pending: "Menunggu Verifikasi",
-    verified: "Terverifikasi",
-    accepted: "Diterima",
-    rejected: "Ditolak",
-  };
-  return labels[status] || status;
-}
-
-/**
- * Get gender label in Indonesian
- */
-export function getGenderLabel(gender: string): string {
-  return gender === "L" ? "Laki-laki" : "Perempuan";
-}
-
-/**
- * Slugify text
- */
-export function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .trim();
-}
-
-/**
- * Truncate text with ellipsis
- */
-export function truncate(text: string, length: number): string {
-  if (text.length <= length) return text;
-  return text.slice(0, length) + "...";
-}
-
-/**
- * Validate NIK format (16 digits)
- */
-export function isValidNIK(nik: string): boolean {
-  return /^\d{16}$/.test(nik);
-}
-
-/**
- * Validate Indonesian phone number
- */
-export function isValidPhone(phone: string): boolean {
-  // Accepts 08xx, +628xx, 628xx formats
-  return /^(\+62|62|0)8[1-9][0-9]{7,10}$/.test(phone.replace(/\s|-/g, ""));
-}
-
-/**
- * Validate email format
- */
-export function isValidEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-/**
- * Calculate age from birth date
- */
-export function calculateAge(birthDate: string | Date): number {
-  const today = new Date();
-  const birth = typeof birthDate === "string" ? new Date(birthDate) : birthDate;
-  let age = today.getFullYear() - birth.getFullYear();
-  const monthDiff = today.getMonth() - birth.getMonth();
-
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-    age--;
+export function getStatusColor(status: string) {
+  switch (status) {
+    case "draft": return "bg-gray-100 text-gray-800";
+    case "submitted": return "bg-amber-100 text-amber-800";
+    case "verified": return "bg-blue-100 text-blue-800";
+    case "accepted": return "bg-green-100 text-green-800";
+    case "rejected": return "bg-red-100 text-red-800";
+    case "enrolled": return "bg-purple-100 text-purple-800";
+    default: return "bg-gray-100 text-gray-800";
   }
-
-  return age;
 }
 
-/**
- * Delay execution (for loading states, etc.)
- */
-export function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
- * Generate random string for IDs
- */
-export function generateId(length = 8): string {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let result = "";
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
+export function getGenderLabel(gender: string) {
+    if (gender === "L") return "Laki-laki";
+    if (gender === "P") return "Perempuan";
+    return gender;
 }

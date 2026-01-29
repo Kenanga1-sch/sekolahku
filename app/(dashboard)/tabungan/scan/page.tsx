@@ -5,14 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 import {
     Dialog,
     DialogContent,
@@ -23,19 +15,19 @@ import {
 } from "@/components/ui/dialog";
 import {
     QrCode,
-    Wallet,
     User,
     ArrowDownCircle,
     ArrowUpCircle,
     Loader2,
-    CheckCircle2,
-    XCircle,
     Keyboard,
+    ArrowLeft,
+    Camera,
 } from "lucide-react";
-import { getSiswaByQRCode, createTransaksi } from "@/lib/tabungan";
+import Link from "next/link";
 import { showSuccess, showError } from "@/lib/toast";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import type { TabunganSiswa, TransactionType } from "@/types/tabungan";
+import { QRScanner } from "@/components/ui/qr-scanner";
+import type { TabunganSiswaWithRelations, TransactionType } from "@/types/tabungan";
 
 function formatRupiah(amount: number): string {
     return new Intl.NumberFormat("id-ID", {
@@ -51,7 +43,7 @@ export default function TabunganScanPage() {
     const { user } = useAuthStore();
     const [scanState, setScanState] = useState<ScanState>("idle");
     const [qrInput, setQrInput] = useState("");
-    const [siswa, setSiswa] = useState<TabunganSiswa | null>(null);
+    const [siswa, setSiswa] = useState<TabunganSiswaWithRelations | null>(null);
     const [showTransactionDialog, setShowTransactionDialog] = useState(false);
 
     // Transaction form
@@ -61,18 +53,46 @@ export default function TabunganScanPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const inputRef = useRef<HTMLInputElement>(null);
+    const lastScannedCodeRef = useRef<string | null>(null);
+    const cooldownRef = useRef<NodeJS.Timeout | null>(null);
 
-    // Auto-focus input on mount
+    // Cooldown duration to prevent rapid rescans
+    const SCAN_COOLDOWN_MS = 3000;
+
+    // Scan mode: camera or manual
+    const [scanMode, setScanMode] = useState<"camera" | "manual">("camera");
+
+    // Scanner should be inactive during dialog, processing, or cooldown
+    const isScannerActive = scanMode === "camera" && scanState === "idle" && !showTransactionDialog;
+
+    // Auto-focus input on mount (only for manual mode)
     useEffect(() => {
-        inputRef.current?.focus();
-    }, []);
+        if (scanMode === "manual") {
+            inputRef.current?.focus();
+        }
+    }, [scanMode]);
 
     const handleScan = async (code: string) => {
         if (!code.trim()) return;
 
+        // Prevent duplicate scans of the same code during cooldown
+        if (lastScannedCodeRef.current === code.trim() && cooldownRef.current) {
+            return;
+        }
+
+        // Prevent scanning if already processing or dialog open
+        if (scanState !== "idle" || showTransactionDialog) {
+            return;
+        }
+
         setScanState("scanning");
+        lastScannedCodeRef.current = code.trim();
+
         try {
-            const foundSiswa = await getSiswaByQRCode(code.trim());
+            const res = await fetch(`/api/tabungan/siswa?qrCode=${encodeURIComponent(code.trim())}`);
+            const result = await res.json();
+            
+            const foundSiswa = result.items?.[0];
 
             if (foundSiswa) {
                 setSiswa(foundSiswa);
@@ -94,6 +114,11 @@ export default function TabunganScanPage() {
                 setScanState("idle");
                 setQrInput("");
             }, 2000);
+        } finally {
+            // Set cooldown to prevent rapid rescans
+            cooldownRef.current = setTimeout(() => {
+                cooldownRef.current = null;
+            }, SCAN_COOLDOWN_MS);
         }
     };
 
@@ -116,7 +141,7 @@ export default function TabunganScanPage() {
         }
 
         // Check for withdrawal
-        if (tipe === "tarik" && nominalValue > siswa.saldo_terakhir) {
+        if (tipe === "tarik" && nominalValue > siswa.saldoTerakhir) {
             showError("Saldo tidak mencukupi");
             return;
         }
@@ -125,15 +150,42 @@ export default function TabunganScanPage() {
         setScanState("processing");
 
         try {
-            await createTransaksi(
-                {
-                    siswa_id: siswa.id,
-                    tipe,
-                    nominal: nominalValue,
-                    catatan: catatan || undefined,
-                },
-                user.id
-            );
+            const payload = {
+                siswaId: siswa.id,
+                tipe,
+                nominal: nominalValue,
+                catatan: catatan || undefined,
+                userId: user.id
+            };
+
+            const res = await fetch("/api/tabungan/transaksi", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            const text = await res.text();
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                console.error("Invalid JSON response:", text);
+                throw new Error("Server error: Gagal memproses data (Invalid JSON)");
+            }
+
+            if (!res.ok) {
+                console.error("API Error Data:", data);
+                let msg = data.error?.message || (typeof data.error === 'string' ? data.error : "Gagal memproses transaksi");
+                
+                // Append validation details if available
+                if (data.error?.fields) {
+                    const fields = Object.entries(data.error.fields)
+                        .map(([key, val]) => `${key}: ${val}`)
+                        .join(", ");
+                    msg += ` (${fields})`;
+                }
+                
+                throw new Error(msg);
+            }
 
             setScanState("success");
             showSuccess(
@@ -146,10 +198,10 @@ export default function TabunganScanPage() {
             setTimeout(() => {
                 resetForm();
             }, 2000);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Transaction error:", error);
             setScanState("error");
-            showError("Gagal menyimpan transaksi");
+            showError(error.message || "Gagal menyimpan transaksi");
         } finally {
             setIsSubmitting(false);
         }
@@ -163,6 +215,12 @@ export default function TabunganScanPage() {
         setCatatan("");
         setTipe("setor");
         setShowTransactionDialog(false);
+        // Clear last scanned code to allow rescanning
+        lastScannedCodeRef.current = null;
+        if (cooldownRef.current) {
+            clearTimeout(cooldownRef.current);
+            cooldownRef.current = null;
+        }
         inputRef.current?.focus();
     };
 
@@ -181,73 +239,108 @@ export default function TabunganScanPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold">Scan Transaksi</h1>
-                <p className="text-muted-foreground">
-                    Scan QR Code siswa untuk melakukan setoran atau penarikan
-                </p>
+            <div className="flex items-center gap-4">
+                <Link href="/tabungan">
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                </Link>
+                <div>
+                    <h1 className="text-2xl font-bold">Scan Transaksi</h1>
+                    <p className="text-muted-foreground">
+                        Scan QR Code siswa untuk melakukan setoran atau penarikan
+                    </p>
+                </div>
             </div>
 
             {/* Scanner Card */}
             <Card className="max-w-lg mx-auto">
-                <CardHeader className="text-center">
-                    <div className={`mx-auto p-6 rounded-full ${scanState === "found" || scanState === "success"
-                        ? "bg-green-100 dark:bg-green-900/30"
-                        : scanState === "notfound" || scanState === "error"
-                            ? "bg-red-100 dark:bg-red-900/30"
-                            : "bg-muted"
-                        }`}>
-                        {scanState === "scanning" || scanState === "processing" ? (
-                            <Loader2 className="h-16 w-16 animate-spin text-primary" />
-                        ) : scanState === "found" || scanState === "success" ? (
-                            <CheckCircle2 className="h-16 w-16 text-green-600" />
-                        ) : scanState === "notfound" || scanState === "error" ? (
-                            <XCircle className="h-16 w-16 text-red-600" />
-                        ) : (
-                            <QrCode className="h-16 w-16 text-muted-foreground" />
-                        )}
-                    </div>
-                    <CardTitle className="mt-4">
-                        {scanState === "scanning" && "Mencari siswa..."}
-                        {scanState === "found" && "Siswa ditemukan!"}
-                        {scanState === "notfound" && "Siswa tidak ditemukan"}
-                        {scanState === "processing" && "Memproses transaksi..."}
-                        {scanState === "success" && "Transaksi berhasil!"}
-                        {scanState === "error" && "Terjadi kesalahan"}
-                        {scanState === "idle" && "Scan QR Code"}
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    {/* Manual QR Input */}
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Keyboard className="h-4 w-4" />
-                            <span>Scan atau ketik kode QR</span>
-                        </div>
-                        <div className="flex gap-2">
-                            <Input
-                                ref={inputRef}
-                                placeholder="Kode QR siswa..."
-                                value={qrInput}
-                                onChange={(e) => setQrInput(e.target.value)}
-                                onKeyDown={handleKeyDown}
-                                disabled={scanState !== "idle"}
-                                className="font-mono"
-                            />
+                <CardHeader className="text-center pb-2">
+                    {/* Mode Toggle */}
+                    <div className="flex justify-center mb-6">
+                        <div className="bg-muted p-1 rounded-lg inline-flex">
                             <Button
-                                onClick={() => handleScan(qrInput)}
-                                disabled={!qrInput || scanState !== "idle"}
+                                variant={scanMode === "camera" ? "default" : "ghost"}
+                                size="sm"
+                                onClick={() => setScanMode("camera")}
+                                className="gap-2 rounded-md shadow-none"
                             >
-                                <QrCode className="h-4 w-4 mr-2" />
-                                Cari
+                                <Camera className="h-4 w-4" />
+                                Kamera
+                            </Button>
+                            <Button
+                                variant={scanMode === "manual" ? "default" : "ghost"}
+                                size="sm"
+                                onClick={() => setScanMode("manual")}
+                                className="gap-2 rounded-md shadow-none"
+                            >
+                                <Keyboard className="h-4 w-4" />
+                                Manual
                             </Button>
                         </div>
                     </div>
 
+                    {/* Status Icon - Only show when not in camera mode or when there's a status */}
+                    <div className="text-center space-y-2 mb-4">
+                        <h2 className="text-xl font-semibold tracking-tight">
+                            {scanState === "scanning" && "Mencari siswa..."}
+                            {scanState === "found" && "Siswa ditemukan!"}
+                            {scanState === "notfound" && "Siswa tidak ditemukan"}
+                            {scanState === "processing" && "Memproses transaksi..."}
+                            {scanState === "success" && "Transaksi berhasil!"}
+                            {scanState === "error" && "Terjadi kesalahan"}
+                            {scanState === "idle" && (scanMode === "camera" ? "Scan QR Code" : "Masukkan Kode Manual")}
+                        </h2>
+                        <p className="text-sm text-muted-foreground">
+                            {scanMode === "camera" 
+                                ? "Posisikan kode QR di dalam bingkai" 
+                                : "Masukkan NISN atau kode QR siswa secara manual"}
+                        </p>
+                    </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    {/* Camera Scanner Mode */}
+                    {scanMode === "camera" && (
+                        <QRScanner
+                            onScan={(code) => handleScan(code)}
+                            onError={(err) => showError(err)}
+                            active={isScannerActive}
+                            mirrored={true}
+                        />
+                    )}
+
+                    {/* Manual QR Input Mode */}
+                    {scanMode === "manual" && (
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Keyboard className="h-4 w-4" />
+                                <span>Ketik atau scan dengan barcode scanner</span>
+                            </div>
+                            <div className="flex gap-2">
+                                <Input
+                                    ref={inputRef}
+                                    placeholder="Kode QR siswa..."
+                                    value={qrInput}
+                                    onChange={(e) => setQrInput(e.target.value)}
+                                    onKeyDown={handleKeyDown}
+                                    disabled={scanState !== "idle"}
+                                    className="font-mono"
+                                />
+                                <Button
+                                    onClick={() => handleScan(qrInput)}
+                                    disabled={!qrInput || scanState !== "idle"}
+                                >
+                                    <QrCode className="h-4 w-4 mr-2" />
+                                    Cari
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Status Messages */}
                     {scanState === "notfound" && (
                         <div className="text-center text-red-600">
-                            <p>QR Code tidak valid atau siswa tidak aktif</p>
+                            <p>QR Code tidak valid atau siswa belum terdaftar di tabungan</p>
                         </div>
                     )}
                     {scanState === "success" && (
@@ -280,14 +373,14 @@ export default function TabunganScanPage() {
                                         <div className="flex-1">
                                             <p className="font-semibold">{siswa.nama}</p>
                                             <p className="text-sm text-muted-foreground">
-                                                NISN: {siswa.nisn} • {siswa.expand?.kelas_id?.nama}
+                                                NISN: {siswa.nisn} • {siswa.kelas?.nama}
                                             </p>
                                         </div>
                                     </div>
                                     <div className="mt-4 flex items-center justify-between p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
                                         <span className="text-sm">Saldo Saat Ini</span>
                                         <span className="text-lg font-bold text-green-600">
-                                            {formatRupiah(siswa.saldo_terakhir)}
+                                            {formatRupiah(siswa.saldoTerakhir)}
                                         </span>
                                     </div>
                                 </CardContent>

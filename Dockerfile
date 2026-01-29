@@ -58,5 +58,5 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Run with memory limit for production
-CMD ["node", "--max-old-space-size=512", "server.js"]
+# Run with memory limit for production (Leaves room for OS + Nginx on 4GB server)
+CMD ["node", "--max-old-space-size=384", "server.js"]

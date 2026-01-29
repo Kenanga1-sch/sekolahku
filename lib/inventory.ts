@@ -1,33 +1,49 @@
 // ==========================================
-// Inventory PocketBase Helpers
+// Inventory Helpers (Stubbed - Needs Migration) 
 // ==========================================
+// These functions are stubs. Full inventory module needs API route migration.
+// NOTE: server-only removed because this is used by client components
+// TODO: Migrate to API routes like lib/spmb.ts
 
-import { getPocketBase } from "./pocketbase";
 import type {
     InventoryAsset,
     InventoryRoom,
     InventoryOpname,
-    InventoryAudit,
+    InventoryAudit as InventoryAuditType,
     InventoryStats,
     AuditAction,
     AuditEntity,
 } from "@/types/inventory";
 
-const pb = getPocketBase();
+// Helpers
+export interface UserOption {
+    id: string;
+    name: string;
+    role: string;
+}
+
+export async function getUsers(): Promise<UserOption[]> {
+    try {
+        // Fetch users from API (assuming exists, or use direct DB query if server component only)
+        // Since inventory.ts is seemingly client/server mixed, let's use fetch to a public API or create one.
+        // Checking app/api/users exists.
+        const res = await fetch("/api/users?limit=1000"); 
+        if (!res.ok) return [];
+        const data = await res.json();
+        // API returns { items: [], ... }
+        return (data.items || []).map((u: any) => ({
+            id: u.id,
+            name: u.name,
+            role: u.role
+        }));
+    } catch (e) {
+        console.error("Failed to fetch users", e);
+        return [];
+    }
+}
 
 // ==========================================
-// Collection Accessors
-// ==========================================
-
-export const inventoryCollections = {
-    assets: () => pb.collection("inventory_assets"),
-    rooms: () => pb.collection("inventory_rooms"),
-    opname: () => pb.collection("inventory_opname"),
-    audit: () => pb.collection("inventory_audit"),
-} as const;
-
-// ==========================================
-// Audit Log Helper
+// Audit Log Helper (Stubbed)
 // ==========================================
 
 export async function logAudit(
@@ -37,26 +53,35 @@ export async function logAudit(
     changes?: any,
     note?: string
 ) {
-    try {
-        const user = pb.authStore.model?.id;
-        if (!user) return;
-
-        await inventoryCollections.audit().create({
-            user,
-            action,
-            entity,
-            entity_id: entityId,
-            changes,
-            note,
-        });
-    } catch (error) {
-        console.error("Failed to create audit log:", error);
-    }
+    console.warn("logAudit is stubbed - Inventory migration pending");
 }
 
 // ==========================================
 // Inventory Rooms
 // ==========================================
+
+// ==========================================
+// Inventory Rooms
+// ==========================================
+
+export async function getRoom(id: string): Promise<InventoryRoom | null> {
+    try {
+        const res = await fetch(`/api/inventory/rooms/${id}`);
+        if (!res.ok) return null;
+        
+        const data = await res.json();
+        // Map Drizzle to Type
+        return {
+            ...data,
+            expand: {
+                pic: data.pic
+            }
+        };
+    } catch (error) {
+        console.error("getRoom error:", error);
+        return null;
+    }
+}
 
 export async function getRooms(
     page = 1,
@@ -64,44 +89,78 @@ export async function getRooms(
     filter = "",
     sort = "name"
 ): Promise<{ items: InventoryRoom[]; totalItems: number }> {
-    const result = await inventoryCollections.rooms().getList<InventoryRoom>(page, perPage, {
-        filter,
-        sort,
-        expand: "pic",
-    });
-    return { items: result.items, totalItems: result.totalItems };
+    try {
+        const query = new URLSearchParams({
+            page: page.toString(),
+            limit: perPage.toString(),
+            q: filter.replace('name ~ "', '').replace('"', '').replace(' || code ~ "', '').replace('"', '') // Simple cleanup
+        });
+        
+        const res = await fetch(`/api/inventory/rooms?${query}`);
+        if (!res.ok) throw new Error("Failed to fetch rooms");
+        
+        const data = await res.json();
+        
+        // Map Drizzle result to Type
+        const items = data.items.map((item: any) => ({
+            ...item,
+            expand: {
+                pic: item.pic
+            }
+        }));
+
+        return { items, totalItems: data.totalItems };
+    } catch (error) {
+        console.error("getRooms error:", error);
+        return { items: [], totalItems: 0 };
+    }
 }
 
 export async function getAllRooms(): Promise<InventoryRoom[]> {
-    return await inventoryCollections.rooms().getFullList<InventoryRoom>({
-        sort: "name",
-    });
+    const res = await getRooms(1, 1000);
+    return res.items;
 }
 
 export async function createRoom(data: Partial<InventoryRoom>): Promise<InventoryRoom> {
-    const room = await inventoryCollections.rooms().create<InventoryRoom>(data);
-    await logAudit("CREATE", "ROOM", room.id, data);
-    return room;
+    const res = await fetch("/api/inventory/rooms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+    
+    if (!res.ok) {
+        const err = await res.text();
+        throw new Error(err || "Failed to create room");
+    }
+    
+    return await res.json();
 }
 
-export async function updateRoom(
-    id: string,
-    data: Partial<InventoryRoom>
-): Promise<InventoryRoom> {
-    const room = await inventoryCollections.rooms().update<InventoryRoom>(id, data);
-    await logAudit("UPDATE", "ROOM", room.id, data);
-    return room;
+export async function updateRoom(id: string, data: Partial<InventoryRoom>): Promise<InventoryRoom> {
+    const res = await fetch(`/api/inventory/rooms/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+
+    if (!res.ok) {
+         const err = await res.text();
+         throw new Error(err || "Failed to update room");
+    }
+
+    return await res.json();
 }
 
 export async function deleteRoom(id: string): Promise<boolean> {
-    try {
-        await inventoryCollections.rooms().delete(id);
-        await logAudit("DELETE", "ROOM", id);
-        return true;
-    } catch {
-        return false;
-    }
+    const res = await fetch(`/api/inventory/rooms/${id}`, {
+        method: "DELETE",
+    });
+    return res.ok;
 }
+
+// ==========================================
+// Inventory Assets
+// ==========================================
 
 // ==========================================
 // Inventory Assets
@@ -113,52 +172,105 @@ export async function getAssets(
     filter = "",
     sort = "-created"
 ): Promise<{ items: InventoryAsset[]; totalPages: number; totalItems: number }> {
-    const result = await inventoryCollections.assets().getList<InventoryAsset>(page, perPage, {
-        filter,
-        sort,
-        expand: "room",
-    });
-    return {
-        items: result.items,
-        totalPages: result.totalPages,
-        totalItems: result.totalItems,
-    };
+    try {
+        // filter string: 'room = "xyz"' -> we extract roomId
+        let roomId = "";
+        const matches = filter.match(/room\s*=\s*"([^"]+)"/);
+        if (matches) {
+            roomId = matches[1];
+        }
+        
+        const res = await fetch(`/api/inventory/assets?roomId=${roomId}&page=${page}&limit=${perPage}`);
+        if (!res.ok) throw new Error("Failed to fetch assets");
+        
+        const data = await res.json();
+        
+        // Map Drizzle to Type (camelCase -> snake_case)
+        const items = data.items.map((item: any) => ({
+             ...item,
+             condition_good: item.conditionGood,
+             condition_light_damaged: item.conditionLightDamaged,
+             condition_heavy_damaged: item.conditionHeavyDamaged,
+             condition_lost: item.conditionLost,
+             purchase_date: item.purchaseDate || item.purchase_date,
+             room: item.roomId || item.room, // Map backend roomId to frontend room (ID)
+             expand: {
+                 room: item.room
+             }
+        }));
+
+        const totalItems = data.totalItems || items.length;
+        const totalPages = Math.ceil(totalItems / perPage);
+
+        return { items, totalPages, totalItems };
+    } catch (error) {
+        console.error("getAssets error:", error);
+        return { items: [], totalPages: 0, totalItems: 0 };
+    }
 }
 
 export async function getAsset(id: string): Promise<InventoryAsset | null> {
-    try {
-        return await inventoryCollections.assets().getOne<InventoryAsset>(id, {
-            expand: "room",
-        });
-    } catch {
-        return null;
-    }
+    // Not implemented in API yet, usually needed for Edit logic if not passed directly
+    return null;
 }
 
 export async function createAsset(data: Partial<InventoryAsset>): Promise<InventoryAsset> {
-    const asset = await inventoryCollections.assets().create<InventoryAsset>(data);
-    await logAudit("CREATE", "ASSET", asset.id, data);
-    return asset;
+    const res = await fetch("/api/inventory/assets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // Map types if needed. Assuming API expects camelCase and data is camelCase
+        body: JSON.stringify({
+            ...data,
+            roomId: data.room, // Map 'room' (from type) to 'roomId' (API expectation)
+            conditionGood: data.condition_good,
+            conditionLightDamaged: data.condition_light_damaged,
+            conditionHeavyDamaged: data.condition_heavy_damaged,
+            conditionLost: data.condition_lost,
+            purchaseDate: data.purchase_date,
+        }),
+    });
+
+    if (!res.ok) {
+        const err = await res.text();
+        throw new Error(err || "Failed to create asset");
+    }
+
+    return await res.json();
 }
 
-export async function updateAsset(
-    id: string,
-    data: Partial<InventoryAsset>
-): Promise<InventoryAsset> {
-    const asset = await inventoryCollections.assets().update<InventoryAsset>(id, data);
-    await logAudit("UPDATE", "ASSET", asset.id, data);
-    return asset;
+export async function updateAsset(id: string, data: Partial<InventoryAsset>): Promise<InventoryAsset> {
+    const res = await fetch(`/api/inventory/assets/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            ...data,
+            roomId: data.room,
+            conditionGood: data.condition_good,
+            conditionLightDamaged: data.condition_light_damaged,
+            conditionHeavyDamaged: data.condition_heavy_damaged,
+            conditionLost: data.condition_lost,
+            purchaseDate: data.purchase_date,
+        }),
+    });
+
+    if (!res.ok) {
+        const err = await res.text();
+        throw new Error(err || "Failed to update asset");
+    }
+
+    return await res.json();
 }
 
 export async function deleteAsset(id: string): Promise<boolean> {
-    try {
-        await inventoryCollections.assets().delete(id);
-        await logAudit("DELETE", "ASSET", id);
-        return true;
-    } catch {
-        return false;
-    }
+    const res = await fetch(`/api/inventory/assets/${id}`, {
+        method: "DELETE",
+    });
+    return res.ok;
 }
+
+// ==========================================
+// Stock Opname
+// ==========================================
 
 // ==========================================
 // Stock Opname
@@ -168,54 +280,47 @@ export async function getOpnameSessions(
     page = 1,
     perPage = 20
 ): Promise<{ items: InventoryOpname[]; totalItems: number }> {
-    const result = await inventoryCollections.opname().getList<InventoryOpname>(page, perPage, {
-        sort: "-date",
-        expand: "room,auditor",
-    });
-    return { items: result.items, totalItems: result.totalItems };
-}
-
-export async function createOpnameSession(
-    data: Partial<InventoryOpname>
-): Promise<InventoryOpname> {
-    const session = await inventoryCollections.opname().create<InventoryOpname>(data);
-    await logAudit("CREATE", "OPNAME", session.id, data);
-    return session;
-}
-
-/**
- * Apply opname results to assets
- */
-export async function applyOpnameSession(id: string): Promise<boolean> {
     try {
-        const session = await inventoryCollections.opname().getOne<InventoryOpname>(id);
-        if (session.status !== "PENDING") return false;
+        const res = await fetch(`/api/inventory/opname?page=${page}&limit=${perPage}`);
+        if (!res.ok) throw new Error("Failed to fetch opname sessions");
+        
+        const data = await res.json();
+        
+        // Map Drizzle to Type
+        const items = data.items.map((item: any) => ({
+             ...item,
+             expand: {
+                 room: item.room,
+                 auditor: item.auditor
+             }
+        }));
 
-        // Iterate through items and update asset conditions
-        for (const item of session.items) {
-            await inventoryCollections.assets().update(item.assetId, {
-                condition_good: item.qtyGood,
-                condition_light_damaged: item.qtyLightDamage,
-                condition_heavy_damaged: item.qtyHeavyDamage,
-                condition_lost: item.qtyLost,
-                // Update total quantity based on physical count if needed, or keep as is?
-                // Usually system quantity should be updated to match physical?
-                // For now, let's update quantity to match sum of conditions
-                quantity: item.qtyGood + item.qtyLightDamage + item.qtyHeavyDamage,
-            });
-
-            await logAudit("OPNAME_APPLY", "ASSET", item.assetId, item);
-        }
-
-        // Update session status
-        await inventoryCollections.opname().update(id, { status: "APPLIED" });
-        await logAudit("OPNAME_APPLY", "OPNAME", id);
-
-        return true;
+        return { items, totalItems: data.totalItems };
     } catch (error) {
-        console.error("Failed to apply opname:", error);
-        return false;
+        console.error("getOpnameSessions error:", error);
+         return { items: [], totalItems: 0 };
     }
+}
+
+export async function createOpnameSession(data: Partial<InventoryOpname>): Promise<InventoryOpname> {
+    const res = await fetch("/api/inventory/opname", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+
+    if (!res.ok) {
+        throw new Error("Failed to create opname session");
+    }
+
+    return await res.json();
+}
+
+export async function applyOpnameSession(id: string): Promise<boolean> {
+     const res = await fetch(`/api/inventory/opname/${id}/apply`, {
+        method: "POST",
+    });
+    return res.ok;
 }
 
 // ==========================================
@@ -223,51 +328,80 @@ export async function applyOpnameSession(id: string): Promise<boolean> {
 // ==========================================
 
 export async function getInventoryStats(): Promise<InventoryStats> {
-    // Use efficient count queries instead of fetching all data
-    const [
-        totalAssetsResult,
-        // For condition breakdowns, we need to fetch a limited set
-        // PocketBase doesn't support SUM aggregation natively
-        // So we'll use a batched approach with a reasonable limit
-    ] = await Promise.all([
-        inventoryCollections.assets().getList(1, 1),
-    ]);
-
-    const totalAssets = totalAssetsResult.totalItems;
-
-    // For value calculation, we batch in chunks to avoid memory issues
-    // This is still not ideal but better than fetching ALL at once
-    const BATCH_SIZE = 100;
-    const MAX_BATCHES = 10; // Cap at 1000 items for stats
-
-    let stats: InventoryStats = {
-        totalAssets,
+    return {
+        totalAssets: 0,
         totalValue: 0,
         totalItems: 0,
         itemsGood: 0,
         itemsDamaged: 0,
         itemsLost: 0,
     };
-
-    // If we have assets, fetch in batches
-    if (totalAssets > 0) {
-        const batchCount = Math.min(Math.ceil(totalAssets / BATCH_SIZE), MAX_BATCHES);
-
-        for (let i = 1; i <= batchCount; i++) {
-            const batch = await inventoryCollections.assets().getList<InventoryAsset>(i, BATCH_SIZE, {
-                fields: 'price,quantity,condition_good,condition_light_damaged,condition_heavy_damaged,condition_lost'
-            });
-
-            batch.items.forEach(asset => {
-                stats.totalValue += (asset.price || 0) * (asset.quantity || 0);
-                stats.totalItems += asset.quantity || 0;
-                stats.itemsGood += asset.condition_good || 0;
-                stats.itemsDamaged += (asset.condition_light_damaged || 0) + (asset.condition_heavy_damaged || 0);
-                stats.itemsLost += asset.condition_lost || 0;
-            });
-        }
-    }
-
-    return stats;
 }
 
+// ==========================================
+// Dashboard Data Functions
+// ==========================================
+
+export interface RecentAuditActivity {
+    id: string;
+    action: AuditAction;
+    entity: AuditEntity;
+    entityId: string;
+    userName?: string;
+    time: string;
+    note?: string;
+}
+
+export async function getRecentAudit(limit = 10): Promise<RecentAuditActivity[]> {
+    return [];
+}
+
+export interface CategoryDistributionItem {
+    name: string;
+    value: number;
+    color: string;
+}
+
+export async function getCategoryDistribution(): Promise<CategoryDistributionItem[]> {
+    return [];
+}
+
+export interface ConditionBreakdownItem {
+    name: string;
+    value: number;
+    color: string;
+}
+
+export async function getConditionBreakdown(): Promise<ConditionBreakdownItem[]> {
+    return [];
+}
+
+export interface TopRoom {
+    id: string;
+    name: string;
+    code: string;
+    assetCount: number;
+    totalValue: number;
+}
+
+export async function getTopRoomsByValue(limit = 5): Promise<TopRoom[]> {
+    return [];
+}
+
+export interface AssetReportItem {
+    id: string;
+    name: string;
+    code: string;
+    category: string;
+    roomName: string;
+    quantity: number;
+    conditionGood: number;
+    conditionDamaged: number;
+    conditionLost: number;
+    price: number;
+    totalValue: number;
+}
+
+export async function getAssetReport(category?: string): Promise<AssetReportItem[]> {
+    return [];
+}

@@ -1,0 +1,397 @@
+openapi: 3.0.3
+info:
+  title: Sekolahku API
+  description: API for school management system including SPMB, Library, Tabungan, and Inventory
+  version: 1.0.0
+  contact:
+    name: Support
+servers:
+  - url: http://localhost:3000/api
+    description: Development server
+
+tags:
+  - name: SPMB
+    description: Student registration endpoints
+  - name: Kiosk
+    description: Library self-service kiosk
+  - name: Library
+    description: Library management
+  - name: Tabungan
+    description: Student savings management
+  - name: Inventory
+    description: Asset inventory
+  - name: System
+    description: System endpoints
+
+paths:
+  /health:
+    get:
+      tags: [System]
+      summary: Health check
+      responses:
+        "200":
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /spmb/register:
+    post:
+      tags: [SPMB]
+      summary: Register new student
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegistrationRequest"
+      responses:
+        "200":
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegistrationResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/RateLimitError"
+
+  /spmb/status:
+    get:
+      tags: [SPMB]
+      summary: Check registration status
+      parameters:
+        - name: registration_number
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Status found
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /spmb/registrants:
+    get:
+      tags: [SPMB]
+      summary: List registrants
+      security:
+        - sessionAuth: []
+      parameters:
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/limit"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, verified, accepted, rejected]
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated list of registrants
+
+  /kiosk/scan:
+    post:
+      tags: [Kiosk]
+      summary: Smart scan QR code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [qrCode]
+              properties:
+                qrCode:
+                  type: string
+      responses:
+        "200":
+          description: Scan result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanResponse"
+
+  /kiosk/transaction:
+    post:
+      tags: [Kiosk]
+      summary: Process borrow/return
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransactionRequest"
+      responses:
+        "200":
+          description: Transaction successful
+
+  /perpustakaan/data:
+    get:
+      tags: [Library]
+      summary: Get library data
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [items, members, loans]
+        - $ref: "#/components/parameters/page"
+        - $ref: "#/components/parameters/limit"
+      responses:
+        "200":
+          description: Library data
+
+  /perpustakaan/stats:
+    get:
+      tags: [Library]
+      summary: Get library statistics
+      responses:
+        "200":
+          description: Library stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LibraryStats"
+
+  /tabungan/siswa:
+    get:
+      tags: [Tabungan]
+      summary: List students
+      parameters:
+        - name: kelasId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of students
+
+  /tabungan/transaksi:
+    post:
+      tags: [Tabungan]
+      summary: Create transaction
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TabunganTransaction"
+      responses:
+        "200":
+          description: Transaction created
+
+components:
+  securitySchemes:
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: next-auth.session-token
+
+  parameters:
+    page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 1
+    limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 20
+
+  responses:
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    RateLimitError:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            statusCode:
+              type: integer
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: healthy
+        timestamp:
+          type: string
+          format: date-time
+        uptime:
+          type: integer
+        memory:
+          type: object
+          properties:
+            used:
+              type: integer
+            total:
+              type: integer
+            unit:
+              type: string
+
+    RegistrationRequest:
+      type: object
+      required:
+        - student_name
+        - student_nik
+        - birth_date
+        - birth_place
+        - gender
+        - parent_name
+        - parent_phone
+        - parent_email
+        - address
+        - home_lat
+        - home_lng
+        - distance_to_school
+      properties:
+        student_name:
+          type: string
+        student_nik:
+          type: string
+          pattern: "^\\d{16}$"
+        birth_date:
+          type: string
+          format: date
+        birth_place:
+          type: string
+        gender:
+          type: string
+          enum: [L, P]
+        parent_name:
+          type: string
+        parent_phone:
+          type: string
+        parent_email:
+          type: string
+          format: email
+        address:
+          type: string
+        home_lat:
+          type: number
+        home_lng:
+          type: number
+        distance_to_school:
+          type: number
+        previous_school:
+          type: string
+
+    RegistrationResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            registration_number:
+              type: string
+            id:
+              type: string
+            status:
+              type: string
+            is_in_zone:
+              type: boolean
+
+    ScanResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        type:
+          type: string
+          enum: [member, item, error]
+        data:
+          type: object
+
+    TransactionRequest:
+      type: object
+      required: [memberQr, itemQr, action]
+      properties:
+        memberQr:
+          type: string
+        itemQr:
+          type: string
+        action:
+          type: string
+          enum: [borrow, return]
+        loanDays:
+          type: integer
+          default: 7
+
+    LibraryStats:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            totalBooks:
+              type: integer
+            availableBooks:
+              type: integer
+            borrowedBooks:
+              type: integer
+            totalMembers:
+              type: integer
+            activeLoans:
+              type: integer
+            overdueLoans:
+              type: integer
+            todayVisits:
+              type: integer
+
+    TabunganTransaction:
+      type: object
+      required: [siswaId, tipe, nominal]
+      properties:
+        siswaId:
+          type: string
+        tipe:
+          type: string
+          enum: [setor, tarik]
+        nominal:
+          type: integer
+          minimum: 1000
+        catatan:
+          type: string

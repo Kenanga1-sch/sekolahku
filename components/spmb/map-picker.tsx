@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Polyline, Circle, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet";
 import { point, distance as turfDistance } from "@turf/turf";
 import { Card } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { MapPin, School, AlertTriangle, CheckCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { MapPin, School, AlertTriangle, CheckCircle, Crosshair } from "lucide-react";
 import { formatDistance } from "@/lib/utils";
 import type { MapPickerProps, Coordinates } from "@/types";
+import { BackgroundGradient } from "@/components/ui/background-gradient";
 
 // Import Leaflet CSS
 import "leaflet/dist/leaflet.css";
@@ -32,6 +34,20 @@ const homeIcon = new L.Icon({
   popupAnchor: [1, -34],
   shadowSize: [41, 41],
 });
+
+// ==========================================
+// Map Controller Component (Handling View Updates)
+// ==========================================
+
+function MapController({ center }: { center: Coordinates }) {
+  const map = useMap();
+
+  useEffect(() => {
+    map.flyTo([center.lat, center.lng], map.getZoom());
+  }, [center, map]);
+
+  return null;
+}
 
 // ==========================================
 // Draggable Marker Component
@@ -106,9 +122,11 @@ export default function MapPicker({
 }: MapPickerProps) {
   // State for home position
   const [homePosition, setHomePosition] = useState<Coordinates>({
-    lat: initialHomeLat || schoolLat + 0.005, // Slightly offset from school
+    lat: initialHomeLat || schoolLat + 0.005,
     lng: initialHomeLng || schoolLng + 0.005,
   });
+  
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
 
   // Calculate distance
   const calculateDistance = useCallback(
@@ -133,6 +151,33 @@ export default function MapPicker({
     },
     [calculateDistance, maxDistanceKm, onLocationChange]
   );
+  
+  // GPS Handler
+  const handleGetCurrentLocation = () => {
+      if (!navigator.geolocation) {
+          alert("Browser Anda tidak mendukung fitur Geolocation.");
+          return;
+      }
+      
+      setIsGettingLocation(true);
+      navigator.geolocation.getCurrentPosition(
+          (position) => {
+              const { latitude, longitude } = position.coords;
+              handlePositionChange({ lat: latitude, lng: longitude });
+              setIsGettingLocation(false);
+          },
+          (error) => {
+              console.error("Geolocation error:", error);
+              let msg = "Gagal mengambil lokasi.";
+              if (error.code === 1) msg += " Mohon izinkan akses lokasi di browser.";
+              else if (error.code === 2) msg += " Sinyal GPS tidak tersedia.";
+              else if (error.code === 3) msg += " Waktu request habis.";
+              alert(msg);
+              setIsGettingLocation(false);
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+  }
 
   // Initial callback on mount
   useEffect(() => {
@@ -156,99 +201,117 @@ export default function MapPicker({
 
   return (
     <div className="space-y-4">
-      {/* Instructions */}
-      <Alert>
-        <MapPin className="h-4 w-4" />
-        <AlertDescription>
-          <strong>Petunjuk:</strong> Klik pada peta atau geser marker hijau ke lokasi rumah Anda.
-          Jarak akan dihitung otomatis.
-        </AlertDescription>
-      </Alert>
+      {/* Instructions & GPS Button */}
+      <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+          <Alert className="flex-1">
+            <MapPin className="h-4 w-4" />
+            <AlertDescription>
+              Geser marker hijau, klik peta, atau gunakan tombol <strong>Cek Lokasi Saya</strong>.
+            </AlertDescription>
+          </Alert>
+          
+          <Button 
+            variant="default" 
+            size="lg" 
+            className="w-full md:w-auto gap-2 bg-blue-600 hover:bg-blue-700"
+            onClick={handleGetCurrentLocation}
+            disabled={isGettingLocation}
+            type="button"
+          >
+              <Crosshair className={`h-4 w-4 ${isGettingLocation ? "animate-spin" : ""}`} />
+              {isGettingLocation ? "Mencari Lokasi..." : "Cek Lokasi Saya"}
+          </Button>
+      </div>
 
       {/* Map Container */}
-      <Card className="overflow-hidden">
-        <div className="relative">
-          <MapContainer
-            center={schoolPosition}
-            zoom={Number(process.env.NEXT_PUBLIC_DEFAULT_ZOOM) || 14}
-            className="map-container"
-            scrollWheelZoom
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
+      <BackgroundGradient className="rounded-3xl bg-white dark:bg-zinc-900 p-0.5">
+        <Card className="overflow-hidden rounded-3xl border-none shadow-none">
+            <div className="relative">
+            <MapContainer
+                center={[homePosition.lat, homePosition.lng]} 
+                zoom={Number(process.env.NEXT_PUBLIC_DEFAULT_ZOOM) || 14}
+                className="map-container h-[400px] w-full z-0"
+                scrollWheelZoom
+            >
+                {/* Controller specific for view updates */}
+                <MapController center={homePosition} />
 
-            {/* Zone Circle */}
-            <Circle
-              center={schoolPosition}
-              radius={maxDistanceKm * 1000} // Convert km to meters
-              pathOptions={{
-                color: "#3b82f6",
-                fillColor: "#3b82f6",
-                fillOpacity: 0.1,
-                dashArray: "5, 5",
-              }}
-            />
+                <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
 
-            {/* School Marker (Fixed) */}
-            <Marker position={schoolPosition} icon={schoolIcon}>
-              <Popup>
-                <div className="text-center">
-                  <strong>🏫 Lokasi Sekolah</strong>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Radius zonasi: {maxDistanceKm} km
-                  </p>
+                {/* Zone Circle */}
+                <Circle
+                center={schoolPosition}
+                radius={maxDistanceKm * 1000}
+                pathOptions={{
+                    color: "#3b82f6",
+                    fillColor: "#3b82f6",
+                    fillOpacity: 0.1,
+                    dashArray: "5, 5",
+                }}
+                />
+
+                {/* School Marker (Fixed) */}
+                <Marker position={schoolPosition} icon={schoolIcon}>
+                <Popup>
+                    <div className="text-center">
+                    <strong>🏫 Lokasi Sekolah</strong>
+                    <p className="text-xs text-muted-foreground mt-1">
+                        Radius zonasi: {maxDistanceKm} km
+                    </p>
+                    </div>
+                </Popup>
+                </Marker>
+
+                {/* Home Marker (Draggable) */}
+                <DraggableMarker
+                position={homePosition}
+                onPositionChange={handlePositionChange}
+                />
+
+                {/* Distance Line */}
+                <Polyline
+                positions={polylinePositions}
+                pathOptions={{
+                    color: isWithinZone ? "#22c55e" : "#ef4444",
+                    weight: 3,
+                    dashArray: "10, 10",
+                }}
+                />
+
+                {/* Click Handler */}
+                <ClickHandler onMapClick={handlePositionChange} />
+            </MapContainer>
+
+            {/* Distance Display Overlay */}
+            <div
+                className={`distance-display ${
+                isWithinZone ? "within-zone" : "outside-zone"
+                }`}
+            >
+                <div className="flex items-center gap-2">
+                {isWithinZone ? (
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                ) : (
+                    <AlertTriangle className="h-5 w-5 text-red-600" />
+                )}
+                <div>
+                    <p className="text-sm text-muted-foreground">Jarak ke sekolah:</p>
+                    <p
+                    className={`text-lg font-bold ${
+                        isWithinZone ? "text-green-600" : "text-red-600"
+                    }`}
+                    >
+                    {formatDistance(currentDistance)}
+                    </p>
                 </div>
-              </Popup>
-            </Marker>
-
-            {/* Home Marker (Draggable) */}
-            <DraggableMarker
-              position={homePosition}
-              onPositionChange={handlePositionChange}
-            />
-
-            {/* Distance Line */}
-            <Polyline
-              positions={polylinePositions}
-              pathOptions={{
-                color: isWithinZone ? "#22c55e" : "#ef4444",
-                weight: 3,
-                dashArray: "10, 10",
-              }}
-            />
-
-            {/* Click Handler */}
-            <ClickHandler onMapClick={handlePositionChange} />
-          </MapContainer>
-
-          {/* Distance Display Overlay */}
-          <div
-            className={`distance-display ${
-              isWithinZone ? "within-zone" : "outside-zone"
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              {isWithinZone ? (
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              ) : (
-                <AlertTriangle className="h-5 w-5 text-red-600" />
-              )}
-              <div>
-                <p className="text-sm text-muted-foreground">Jarak ke sekolah:</p>
-                <p
-                  className={`text-lg font-bold ${
-                    isWithinZone ? "text-green-600" : "text-red-600"
-                  }`}
-                >
-                  {formatDistance(currentDistance)}
-                </p>
-              </div>
+                </div>
             </div>
-          </div>
-        </div>
-      </Card>
+            </div>
+        </Card>
+      </BackgroundGradient>
 
       {/* Zone Status Alert */}
       {!isWithinZone && (

@@ -1,5 +1,10 @@
 version: '3.8'
 
+# ==========================================
+# Sekolahku - Low-Spec Server Configuration
+# Target: 4GB RAM, 200 concurrent users
+# ==========================================
+
 networks:
   sekolahku-network:
     driver: bridge
@@ -13,7 +18,6 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        - NEXT_PUBLIC_POCKETBASE_URL=${NEXT_PUBLIC_POCKETBASE_URL:-http://localhost:8092}
         - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
         - NEXT_PUBLIC_APP_NAME=${NEXT_PUBLIC_APP_NAME:-Website Sekolah Terpadu}
     container_name: sekolahku-app
@@ -22,19 +26,21 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_POCKETBASE_URL=${NEXT_PUBLIC_POCKETBASE_URL:-http://localhost:8092}
-      - POCKETBASE_URL=http://pocketbase:8090
-    depends_on:
-      pocketbase:
-        condition: service_healthy
+      - NODE_OPTIONS=--max-old-space-size=384
+    volumes:
+      # Persist database and uploads
+      - ./data:/app/data
+      - ./public/uploads:/app/public/uploads
     networks:
       - sekolahku-network
     deploy:
       resources:
         limits:
           memory: 512M
+          cpus: '1.5'
         reservations:
           memory: 256M
+          cpus: '0.5'
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
       interval: 30s
@@ -43,38 +49,48 @@ services:
       start_period: 40s
 
   # ==========================================
-  # PocketBase Backend
+  # NGINX Reverse Proxy (Optional)
+  # Uncomment if running behind NGINX container
   # ==========================================
-  pocketbase:
-    image: ghcr.io/muchobien/pocketbase:latest
-    container_name: sekolahku-pocketbase
-    restart: unless-stopped
-    ports:
-      - "8092:8090"
-    volumes:
-      - ./pb_data:/pb_data
-      - ./pb_migrations:/pb_migrations
-      - ./pb_public:/pb_public
-    environment:
-      - GOMEMLIMIT=128MiB
-    networks:
-      - sekolahku-network
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-        reservations:
-          memory: 64M
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8090/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: sekolahku-nginx
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+  #     - ./certbot/conf:/etc/letsencrypt:ro
+  #     - nginx_cache:/var/cache/nginx
+  #   depends_on:
+  #     - sekolahku
+  #   networks:
+  #     - sekolahku-network
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 64M
+  #       reservations:
+  #         memory: 32M
+
+# volumes:
+#   nginx_cache:
 
 # ==========================================
 # RAM Summary (for 4GB server):
-# - Sekolahku: 256-512MB
-# - PocketBase: 64-256MB
-# - Total: ~350-800MB (leaves room for OS + other services)
+# ==========================================
+# Component              | Reserved | Limit
+# -----------------------|----------|--------
+# OS + System            | ~800MB   | -
+# Next.js App            | 256MB    | 512MB
+# NGINX (optional)       | 32MB     | 64MB
+# -----------------------|----------|--------
+# Total Used             | ~1.1GB   | ~1.5GB
+# Available Buffer       | ~2.5GB   | -
+# ==========================================
+# This leaves plenty of headroom for:
+# - 200+ concurrent connections
+# - File uploads/processing
+# - Peak load handling
 # ==========================================

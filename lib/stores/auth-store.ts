@@ -1,8 +1,16 @@
 "use client";
 
-import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
-import type { User } from "@/types";
+import { useSession, signOut } from "next-auth/react";
+import type { UserRole } from "@/types";
+
+interface User {
+    id: string;
+    email: string;
+    name?: string;
+    role: UserRole;
+    image?: string;
+    phone?: string;
+}
 
 interface AuthState {
     user: User | null;
@@ -17,82 +25,47 @@ interface AuthState {
     hydrate: () => void;
 }
 
-export const useAuthStore = create<AuthState>()(
-    persist(
-        (set, get) => ({
-            user: null,
-            token: null,
-            isLoading: true,
-            isAuthenticated: false,
+export const useAuthStore = <T = AuthState>(selector?: (state: AuthState) => T): T => {
+    const { data: session, status } = useSession();
+    
+    const user = session?.user ? ({
+        id: session.user.id,
+        email: session.user.email!,
+        name: session.user.name ?? undefined,
+        role: (session.user as any).role ?? "user",
+        image: session.user.image ?? undefined,
+        // session.user usually doesn't have phone, unless added to session callback
+    } as User) : null;
 
-            setUser: (user, token) => {
-                set({
-                    user,
-                    token: token || get().token,
-                    isAuthenticated: !!user,
-                    isLoading: false,
-                });
-            },
+    const state: AuthState = {
+        user,
+        token: null, // No accessible token in NextAuth client
+        isLoading: status === "loading",
+        isAuthenticated: status === "authenticated",
+        setUser: () => {
+            console.warn("setUser is deprecated. Use NextAuth session update.");
+        },
+        setLoading: () => {},
+        logout: () => signOut({ callbackUrl: "/login" }),
+        hydrate: () => {},
+    };
 
-            setLoading: (loading) => {
-                set({ isLoading: loading });
-            },
+    if (selector) return selector(state);
+    return state as unknown as T;
+};
 
-            logout: () => {
-                set({
-                    user: null,
-                    token: null,
-                    isAuthenticated: false,
-                    isLoading: false,
-                });
-            },
+// Compatibility hooks
+export const useUser = () => {
+    const { user } = useAuthStore();
+    return user;
+};
 
-            hydrate: () => {
-                // Called after hydration to sync loading state
-                const state = get();
-                set({
-                    isLoading: false,
-                    isAuthenticated: !!state.user,
-                });
-            },
-        }),
-        {
-            name: "sekolahku-auth",
-            storage: createJSONStorage(() => {
-                // Custom storage that syncs to both localStorage and cookie
-                return {
-                    getItem: (name) => {
-                        if (typeof window === 'undefined') return null;
-                        return localStorage.getItem(name);
-                    },
-                    setItem: (name, value) => {
-                        if (typeof window === 'undefined') return;
-                        localStorage.setItem(name, value);
-                        // Also set cookie for middleware access
-                        document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=604800; SameSite=Lax`;
-                    },
-                    removeItem: (name) => {
-                        if (typeof window === 'undefined') return;
-                        localStorage.removeItem(name);
-                        // Also remove cookie
-                        document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
-                    },
-                };
-            }),
-            partialize: (state) => ({
-                user: state.user,
-                token: state.token,
-            }),
-            onRehydrateStorage: () => (state) => {
-                if (state) {
-                    state.hydrate();
-                }
-            },
-        }
-    )
-);
+export const useIsAuthenticated = () => {
+    const { isAuthenticated } = useAuthStore();
+    return isAuthenticated;
+};
 
-// Selector hooks for convenience
-export const useUser = () => useAuthStore((state) => state.user);
-export const useIsAuthenticated = () => useAuthStore((state) => state.isAuthenticated);
-export const useAuthLoading = () => useAuthStore((state) => state.isLoading);
+export const useAuthLoading = () => {
+    const { isLoading } = useAuthStore();
+    return isLoading;
+};

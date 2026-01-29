@@ -1,51 +1,31 @@
-import { Skeleton } from "@/components/ui/skeleton";
+"use client";
+
+import { SparklesCore } from "@/components/ui/sparkles";
+import { Loader2 } from "lucide-react";
 
 export default function Loading() {
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      {/* Hero Skeleton */}
-      <div className="pt-32 pb-20 px-4">
-        <div className="max-w-3xl mx-auto text-center space-y-6">
-          <Skeleton className="h-8 w-48 mx-auto rounded-full" />
-          <Skeleton className="h-16 w-full max-w-xl mx-auto" />
-          <Skeleton className="h-6 w-full max-w-lg mx-auto" />
-          <div className="flex justify-center gap-4 pt-4">
-            <Skeleton className="h-12 w-40 rounded-full" />
-            <Skeleton className="h-12 w-32 rounded-full" />
-          </div>
-        </div>
+    <div className="min-h-screen w-full bg-white dark:bg-black flex flex-col items-center justify-center overflow-hidden relative">
+      <div className="w-full absolute inset-0 h-screen">
+        <SparklesCore
+          id="tsparticlesloading"
+          background="transparent"
+          minSize={0.6}
+          maxSize={1.4}
+          particleDensity={70}
+          className="w-full h-full"
+          particleColor="#A1A1AA"
+          speed={1}
+        />
       </div>
-
-      {/* Stats Skeleton */}
-      <div className="container py-12">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-white dark:bg-zinc-900 rounded-xl p-6 shadow-lg">
-              <div className="flex flex-col items-center space-y-4">
-                <Skeleton className="h-14 w-14 rounded-2xl" />
-                <Skeleton className="h-8 w-16" />
-                <Skeleton className="h-4 w-24" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Content Skeleton */}
-      <div className="container py-16">
-        <div className="grid md:grid-cols-2 gap-12">
-          <div className="space-y-6">
-            <Skeleton className="h-6 w-32" />
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-24 w-full" />
-            <div className="space-y-3">
-              {[...Array(4)].map((_, i) => (
-                <Skeleton key={i} className="h-5 w-3/4" />
-              ))}
-            </div>
-          </div>
-          <Skeleton className="aspect-square rounded-2xl" />
-        </div>
+      <div className="relative z-20 flex flex-col items-center gap-4">
+         <div className="relative">
+            <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
+            <Loader2 className="h-12 w-12 text-primary animate-spin relative z-10" />
+         </div>
+         <p className="text-lg font-medium text-zinc-500 dark:text-zinc-400 animate-pulse tracking-wide">
+            MEMUAT...
+         </p>
       </div>
     </div>
   );

@@ -10,7 +10,9 @@ import {
     Trash2,
     QrCode,
     Filter,
+    ArrowLeft,
 } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,13 +49,9 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-    getLibraryItems,
-    createLibraryItem,
-    updateLibraryItem,
-    deleteLibraryItem,
-} from "@/lib/library";
-import type { LibraryItem, ItemCategory, ITEM_CATEGORIES } from "@/types/library";
+// Server imports removed
+import { showError, showSuccess } from "@/lib/toast";
+import type { LibraryItem, ItemCategory } from "@/types/library";
 
 const CATEGORIES: { value: ItemCategory; label: string }[] = [
     { value: "FICTION", label: "Fiksi" },
@@ -89,21 +87,23 @@ export default function BukuPage() {
     const loadItems = useCallback(async () => {
         setLoading(true);
         try {
-            let filter = "";
-            if (searchQuery) {
-                filter = `title ~ "${searchQuery}" || author ~ "${searchQuery}" || isbn ~ "${searchQuery}"`;
-            }
-            if (categoryFilter && categoryFilter !== "all") {
-                filter = filter
-                    ? `(${filter}) && category = "${categoryFilter}"`
-                    : `category = "${categoryFilter}"`;
-            }
+            const params = new URLSearchParams({
+                page: page.toString(),
+                perPage: "20",
+            });
+            
+            if (searchQuery) params.append("search", searchQuery);
+            if (categoryFilter !== "all") params.append("category", categoryFilter);
 
-            const result = await getLibraryItems(page, 20, filter);
+            const res = await fetch(`/api/library/books?${params}`);
+            if (!res.ok) throw new Error("Failed to fetch books");
+            
+            const result = await res.json();
             setItems(result.items);
             setTotalPages(result.totalPages);
         } catch (error) {
             console.error("Failed to load items:", error);
+            showError("Gagal memuat data buku");
         } finally {
             setLoading(false);
         }
@@ -121,25 +121,49 @@ export default function BukuPage() {
                 year: formData.year ? parseInt(formData.year) : undefined,
             };
 
+            let res;
             if (editingItem) {
-                await updateLibraryItem(editingItem.id, data);
+                res = await fetch(`/api/library/books/${editingItem.id}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data),
+                });
             } else {
-                await createLibraryItem(data);
+                res = await fetch("/api/library/books", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data),
+                });
             }
 
+            if (!res.ok) throw new Error("Failed to save item");
+
+            showSuccess(editingItem ? "Buku berhasil diperbarui" : "Buku berhasil ditambahkan");
             setIsAddDialogOpen(false);
             setEditingItem(null);
             resetForm();
             loadItems();
         } catch (error) {
             console.error("Failed to save item:", error);
+            showError("Gagal menyimpan data buku");
         }
     };
 
     const handleDelete = async (id: string) => {
         if (confirm("Yakin ingin menghapus buku ini?")) {
-            await deleteLibraryItem(id);
-            loadItems();
+            try {
+                const res = await fetch(`/api/perpustakaan/books/${id}`, {
+                    method: "DELETE",
+                });
+                
+                if (!res.ok) throw new Error("Failed to delete item");
+                
+                showSuccess("Buku berhasil dihapus");
+                loadItems();
+            } catch (error) {
+                console.error("Failed to delete item:", error);
+                showError("Gagal menghapus buku");
+            }
         }
     };
 
@@ -175,11 +199,18 @@ export default function BukuPage() {
         <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Kelola Buku</h1>
-                    <p className="text-muted-foreground">
-                        Tambah dan kelola koleksi buku perpustakaan
-                    </p>
+                <div className="flex items-center gap-4">
+                    <Link href="/perpustakaan">
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <ArrowLeft className="h-4 w-4" />
+                        </Button>
+                    </Link>
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight">Kelola Buku</h1>
+                        <p className="text-muted-foreground">
+                            Tambah dan kelola koleksi buku perpustakaan
+                        </p>
+                    </div>
                 </div>
                 <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
                     setIsAddDialogOpen(open);

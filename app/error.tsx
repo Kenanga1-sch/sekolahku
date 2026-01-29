@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
-import Link from "next/link";
-import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Home, RefreshCw, AlertTriangle } from "lucide-react";
+import { AlertTriangle, RefreshCw, Home } from "lucide-react";
+import Link from "next/link";
+import { AuroraBackground } from "@/components/ui/aurora-background";
+import { TypewriterEffect } from "@/components/ui/typewriter-effect";
+import { motion } from "framer-motion";
 
 export default function Error({
   error,
@@ -14,61 +16,61 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("Application error:", error);
+    console.error(error);
   }, [error]);
 
+  const words = [
+    { text: "Terjadi", className: "text-red-500 dark:text-red-500" },
+    { text: "Kesalahan", className: "text-red-500 dark:text-red-500" },
+    { text: "Sistem." },
+  ];
+
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-4">
+    <AuroraBackground>
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="text-center space-y-8 max-w-lg"
+        initial={{ opacity: 0, y: 40 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        transition={{
+          delay: 0.3,
+          duration: 0.8,
+          ease: "easeInOut",
+        }}
+        className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 text-center"
       >
-        {/* Error Icon */}
-        <div className="flex justify-center">
-          <div className="h-24 w-24 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-            <AlertTriangle className="h-12 w-12 text-red-600" />
-          </div>
+        <div className="w-24 h-24 bg-red-500/10 backdrop-blur-md rounded-full flex items-center justify-center mb-8 border border-red-500/20 shadow-2xl">
+          <AlertTriangle className="w-12 h-12 text-red-500" />
         </div>
 
-        {/* Text */}
-        <div className="space-y-4">
-          <h1 className="text-3xl font-bold">Terjadi Kesalahan</h1>
-          <p className="text-muted-foreground">
-            Maaf, terjadi kesalahan saat memuat halaman ini. 
-            Tim kami telah diberitahu dan sedang menangani masalah ini.
-          </p>
-          {error.digest && (
-            <p className="text-xs text-muted-foreground font-mono bg-muted px-3 py-2 rounded-lg inline-block">
-              Error ID: {error.digest}
-            </p>
-          )}
-        </div>
+        <TypewriterEffect words={words} className="mb-8" />
+        
+        <p className="text-zinc-500 dark:text-zinc-300 mb-4 text-lg max-w-md mx-auto leading-relaxed">
+            Maaf, sistem mengalami kendala saat memproses permintaan Anda.
+        </p>
 
-        {/* Actions */}
-        <div className="flex flex-wrap items-center justify-center gap-4">
-          <Button size="lg" className="gap-2" onClick={reset}>
-            <RefreshCw className="h-4 w-4" />
-            Coba Lagi
-          </Button>
-          <Link href="/">
-            <Button variant="outline" size="lg" className="gap-2">
-              <Home className="h-4 w-4" />
-              Kembali ke Beranda
+        {error.digest && (
+             <span className="text-xs font-mono mb-8 block bg-black/10 dark:bg-white/10 p-2 rounded text-muted-foreground">
+                Code: {error.digest}
+            </span>
+        )}
+
+        <div className="flex flex-col sm:flex-row gap-4 w-full max-w-sm">
+          <Button 
+                onClick={reset}
+                className="w-full h-12 font-bold bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg" 
+                size="lg"
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Coba Lagi
             </Button>
-          </Link>
-        </div>
-
-        {/* Help */}
-        <div className="pt-8 border-t">
-          <p className="text-sm text-muted-foreground">
-            Jika masalah berlanjut, silakan{" "}
-            <Link href="/kontak" className="text-primary hover:underline">
-              hubungi kami
+          
+          <Link href="/" className="w-full">
+              <Button variant="outline" className="w-full h-12 rounded-full bg-white/5 border-white/10 hover:bg-white/10 hover:text-white" size="lg">
+                <Home className="mr-2 h-4 w-4" />
+                Kembali ke Beranda
+              </Button>
             </Link>
-          </p>
         </div>
       </motion.div>
-    </div>
+    </AuroraBackground>
   );
 }

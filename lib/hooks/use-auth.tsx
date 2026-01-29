@@ -1,8 +1,8 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { pb, getCurrentUser, logout as pbLogout, isAuthenticated } from "@/lib/pocketbase";
+import { useSession, signOut } from "next-auth/react";
 import type { User } from "@/types";
 
 interface AuthContextType {
@@ -24,43 +24,38 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: session, status, update } = useSession();
   const router = useRouter();
-  const pathname = usePathname();
 
-  const refresh = useCallback(() => {
-    const currentUser = getCurrentUser();
-    setUser(currentUser);
-    setIsLoading(false);
-  }, []);
+  const user = session?.user ? ({
+    id: session.user.id,
+    email: session.user.email!,
+    name: session.user.name ?? undefined,
+    role: (session.user as any).role ?? "user",
+    image: session.user.image,
+  } as unknown as User) : null;
 
-  useEffect(() => {
-    // Initial load
-    refresh();
+  const isLoading = status === "loading";
+  const isAuthenticated = status === "authenticated";
 
-    // Subscribe to auth changes
-    const unsubscribe = pb.authStore.onChange(() => {
-      refresh();
-    });
+  const logout = async () => {
+    await signOut({ callbackUrl: "/login" });
+  };
 
-    return () => {
-      unsubscribe();
-    };
-  }, [refresh]);
+  const refresh = () => {
+    update();
+  };
 
-  const logout = useCallback(() => {
-    pbLogout();
-    setUser(null);
-    router.push("/login");
-  }, [router]);
+  const setUser = () => {
+    console.warn("setUser is deprecated with NextAuth. Use server-side session update.");
+  };
 
   return (
     <AuthContext.Provider
       value={{
         user,
         isLoading,
-        isAuthenticated: !!user && isAuthenticated(),
+        isAuthenticated,
         logout,
         refresh,
         setUser,
