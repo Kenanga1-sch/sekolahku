@@ -704,9 +704,8 @@ describe("Smart Scan", () => {
                     where: vi.fn().mockReturnValue({
                         limit: vi.fn().mockImplementation(() => {
                             callCount++;
-                            if (callCount === 1) {
-                                return Promise.resolve([]); // No member
-                            }
+                            if (callCount === 1) return Promise.resolve([]); // No member
+                            if (callCount === 2) return Promise.resolve([]); // No student
                             return Promise.resolve([mockLibraryItem]); // Found item
                         }),
                     }),
