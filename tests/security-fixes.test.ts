@@ -15,17 +15,19 @@ vi.mock("@/auth", () => ({
 const mockRegistrantOld = { id: "reg1", createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000) }; // 2 hours ago
 const mockRegistrantNew = { id: "reg2", createdAt: new Date(Date.now() - 5 * 60 * 1000) }; // 5 mins ago
 
-const mockDbSelect = {
+const mockDbChain = {
     from: vi.fn().mockReturnThis(),
+    leftJoin: vi.fn().mockReturnThis(),
     where: vi.fn().mockReturnThis(),
-    limit: vi.fn().mockImplementation(() => [mockRegistrantOld]), // Default return
+    limit: vi.fn().mockImplementation(async () => [{ registrant: mockRegistrantOld, period: {} }]),
 };
 
 vi.mock("@/db", () => ({
     db: {
-        select: vi.fn(() => mockDbSelect),
+        select: vi.fn(() => mockDbChain),
         update: vi.fn().mockReturnThis(),
         set: vi.fn().mockReturnThis(),
+        delete: vi.fn().mockReturnThis(),
         where: vi.fn().mockResolvedValue([]),
     },
 }));
@@ -65,7 +67,7 @@ describe("Security Fixes Verification", () => {
              });
              
              // Mock DB returning a registrant
-             mockDbSelect.limit.mockResolvedValueOnce([{ registrant: { id: "123" } }]);
+             mockDbChain.limit.mockResolvedValueOnce([{ registrant: { id: "123" }, period: {} }]);
 
              const req = new Request("http://localhost/api/spmb/registrants/123");
              const res = await getRegistrant(req, { params: Promise.resolve({ id: "123" }) });
@@ -80,7 +82,7 @@ describe("Security Fixes Verification", () => {
             (auth as any).mockResolvedValue(null); 
             
             // Mock DB returning OLD registrant
-            mockDbSelect.limit.mockResolvedValueOnce([mockRegistrantOld]);
+            mockDbChain.limit.mockResolvedValueOnce([mockRegistrantOld]);
 
             const formData = new FormData();
             formData.append("documents", new File(["content"], "test.pdf", { type: "application/pdf" }));
@@ -103,7 +105,7 @@ describe("Security Fixes Verification", () => {
             (auth as any).mockResolvedValue(null); 
             
             // Mock DB returning NEW registrant
-            mockDbSelect.limit.mockResolvedValueOnce([mockRegistrantNew]);
+            mockDbChain.limit.mockResolvedValueOnce([mockRegistrantNew]);
 
             const formData = new FormData();
             formData.append("documents", new File(["content"], "test.pdf", { type: "application/pdf" }));
@@ -114,21 +116,11 @@ describe("Security Fixes Verification", () => {
                 body: formData
             });
 
-            // We expect it to proceed past security check. 
-            // It might fail later due to fs/promises mocks not fully setup, but status won't be 403.
-            // Actually upload logic uses `import("@/lib/file-security")`. We mocked that? No.
-            // Ideally we check if it reaches "savedFiles".
-            // But checking status != 403 is good enough proxy for now given we want to test the GATE content.
-            
             try {
                 await uploadDocument(req);
             } catch (e) {
                 // Ignore downstream structure errors
             }
-            
-            // If it was 403, it would have returned early.
-            // Since we mocked DB update locally, it might 500 or 200.
-            // Let's rely on the FACT that it passed the 403 check.
         });
         
         it("should ALLOW admin upload even for OLD registrants", async () => {
@@ -136,7 +128,7 @@ describe("Security Fixes Verification", () => {
             (auth as any).mockResolvedValue({ user: { role: "admin" } });
             
             // Mock DB returning OLD registrant
-            mockDbSelect.limit.mockResolvedValueOnce([mockRegistrantOld]);
+            mockDbChain.limit.mockResolvedValueOnce([mockRegistrantOld]);
 
             const formData = new FormData();
             formData.append("documents", new File(["content"], "test.pdf", { type: "application/pdf" }));
@@ -146,7 +138,6 @@ describe("Security Fixes Verification", () => {
                 body: formData
             });
 
-            // Should NOT return 403
             const res = await uploadDocument(req);
             expect(res.status).not.toBe(403);
         });
