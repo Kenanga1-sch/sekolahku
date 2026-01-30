@@ -75,7 +75,9 @@ export const tabunganSetoran = sqliteTable(
       .references(() => users.id),
     bendaharaId: text("bendahara_id").references(() => users.id),
     tipe: text("tipe", { enum: setoranTipeEnum }).notNull(),
-    totalNominal: integer("total_nominal").notNull(),
+    totalNominal: integer("total_nominal").notNull(), // System total
+    nominalFisik: integer("nominal_fisik"), // Actual cash received
+    selisih: integer("selisih").default(0), // totalNominal - nominalFisik
     status: text("status", { enum: setoranStatusEnum })
       .default("pending")
       .notNull(),
@@ -112,7 +114,12 @@ export const tabunganBrankas = sqliteTable("tabungan_brankas", {
     .$onUpdate(() => new Date()),
 });
 
-export const brankasTransaksiTipeEnum = ["setor_ke_bank", "tarik_dari_bank"] as const;
+export const brankasTransaksiTipeEnum = [
+  "setor_ke_bank",
+  "tarik_dari_bank",
+  "setor_ke_koperasi",
+  "tarik_dari_koperasi"
+] as const;
 
 export const tabunganBrankasTransaksi = sqliteTable("tabungan_brankas_transaksi", {
   id: text("id")

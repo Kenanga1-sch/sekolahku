@@ -69,6 +69,8 @@ export default function TabunganVerifikasiPage() {
     const [verifyId, setVerifyId] = useState<string | null>(null);
     const [verifyAction, setVerifyAction] = useState<"approve" | "reject" | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [nominalFisikInput, setNominalFisikInput] = useState("");
+    const [catatanInternal, setCatatanInternal] = useState("");
 
     const fetchData = useCallback(async () => {
         try {
@@ -92,13 +94,20 @@ export default function TabunganVerifikasiPage() {
     const handleVerify = async () => {
         if (!verifyId || !user || !verifyAction) return;
 
+        const valNominal = parseInt(nominalFisikInput.replace(/\D/g, ""), 10);
+
         setIsProcessing(true);
         try {
             const status = verifyAction === "approve" ? "verified" : "rejected";
             const res = await fetch(`/api/tabungan/setoran/${verifyId}/verify`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ status, bendaharaId: user.id }),
+                body: JSON.stringify({
+                    status,
+                    bendaharaId: user.id,
+                    nominalFisik: verifyAction === "approve" ? valNominal : undefined,
+                    catatan: catatanInternal || undefined
+                }),
             });
 
             if (!res.ok) {
@@ -123,11 +132,27 @@ export default function TabunganVerifikasiPage() {
     };
 
     const openVerifyDialog = (id: string, action: "approve" | "reject") => {
+        const item = setoranList.find(s => s.id === id);
+        if (item) {
+            setNominalFisikInput(item.totalNominal.toLocaleString("id-ID"));
+            setCatatanInternal(item.catatan || "");
+        }
         setVerifyId(id);
         setVerifyAction(action);
     };
 
     const selectedSetoran = setoranList.find((t) => t.id === verifyId);
+
+    const handleNominalChange = (value: string) => {
+        const numericValue = value.replace(/\D/g, "");
+        if (numericValue) {
+            setNominalFisikInput(parseInt(numericValue, 10).toLocaleString("id-ID"));
+        } else {
+            setNominalFisikInput("");
+        }
+    };
+
+    const diff = selectedSetoran ? (selectedSetoran.totalNominal - parseInt(nominalFisikInput.replace(/\D/g, "") || "0")) : 0;
 
     return (
         <div className="space-y-6">
@@ -264,47 +289,71 @@ export default function TabunganVerifikasiPage() {
                 </CardContent>
             </Card>
 
-            <AlertDialog open={!!verifyId} onOpenChange={() => { setVerifyId(null); setVerifyAction(null); }}>
-                <AlertDialogContent>
+            <AlertDialog open={!!verifyId} onOpenChange={(open) => { if (!open) { setVerifyId(null); setVerifyAction(null); } }}>
+                <AlertDialogContent className="max-w-md">
                     <AlertDialogHeader>
                         <AlertDialogTitle>
-                            {verifyAction === "approve" ? "Terima Setoran?" : "Tolak Setoran?"}
+                            {verifyAction === "approve" ? "Verifikasi & Terima Uang" : "Tolak Setoran?"}
                         </AlertDialogTitle>
-                        <AlertDialogDescription asChild>
-                            <div className="space-y-4">
-                                <p>
-                                    {verifyAction === "approve"
-                                        ? "Setoran akan diverifikasi dan saldo brankas sekolah akan bertambah."
-                                        : "Setoran akan ditolak. Transaksi terkait harus dikoreksi oleh guru."}
-                                </p>
-                                {selectedSetoran && (
-                                    <div className="p-4 bg-muted rounded-lg space-y-2">
-                                        <div className="flex justify-between">
-                                            <span>Penyetor:</span>
-                                            <span className="font-medium">
-                                                {selectedSetoran.guru?.fullName || selectedSetoran.guru?.name}
-                                            </span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span>Tipe:</span>
-                                            <span >
-                                                {selectedSetoran.tipe === "setor_ke_bendahara" ? "Setor Uang Masuk" : "Ambil Uang Keluar"}
-                                            </span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span>Nominal:</span>
-                                            <span className="font-bold">{formatRupiah(selectedSetoran.totalNominal)}</span>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </AlertDialogDescription>
+                        <div className="text-sm text-muted-foreground mt-2">
+                            {verifyAction === "approve"
+                                ? "Pastikan jumlah uang fisik yang diterima sudah sesuai dengan catatan sistem."
+                                : "Setoran akan ditolak. Guru penyetor harus melakukan penyesuaian data."}
+                        </div>
                     </AlertDialogHeader>
+
+                    {selectedSetoran && (
+                        <div className="space-y-4 py-4">
+                            <div className="p-3 bg-muted/50 rounded-lg text-sm space-y-1">
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Penyetor:</span>
+                                    <span className="font-medium">{selectedSetoran.guru?.fullName || selectedSetoran.guru?.name}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Total di Sistem:</span>
+                                    <span className="font-bold">{formatRupiah(selectedSetoran.totalNominal)}</span>
+                                </div>
+                            </div>
+
+                            {verifyAction === "approve" && (
+                                <>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Uang Fisik Diterima</label>
+                                        <div className="relative">
+                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">Rp</span>
+                                            <input
+                                                className="flex h-10 w-full rounded-md border border-input bg-background px-9 py-2 text-lg font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                                value={nominalFisikInput}
+                                                onChange={(e) => handleNominalChange(e.target.value)}
+                                                placeholder="0"
+                                            />
+                                        </div>
+                                        {diff !== 0 && (
+                                            <div className={`text-xs font-medium px-2 py-1 rounded ${diff > 0 ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}>
+                                                {diff > 0 ? `Kurang: ${formatRupiah(diff)}` : `Lebih: ${formatRupiah(Math.abs(diff))}`}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Catatan (jika ada selisih)</label>
+                                        <textarea
+                                            className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                            value={catatanInternal}
+                                            onChange={(e) => setCatatanInternal(e.target.value)}
+                                            placeholder="Contoh: Kurang Rp 10.000 karena salah input data..."
+                                        />
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
+
                     <AlertDialogFooter>
                         <AlertDialogCancel>Batal</AlertDialogCancel>
-                        <AlertDialogAction
+                        <Button
                             onClick={handleVerify}
-                            disabled={isProcessing}
+                            disabled={isProcessing || (verifyAction === "approve" && !nominalFisikInput)}
                             className={
                                 verifyAction === "approve"
                                     ? "bg-green-600 hover:bg-green-700"
@@ -312,8 +361,8 @@ export default function TabunganVerifikasiPage() {
                             }
                         >
                             {isProcessing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                            {verifyAction === "approve" ? "Terima Uang" : "Tolak"}
-                        </AlertDialogAction>
+                            {verifyAction === "approve" ? "Konfirmasi & Terima" : "Ya, Tolak"}
+                        </Button>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

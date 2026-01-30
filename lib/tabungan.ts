@@ -507,39 +507,53 @@ export async function createSetoran(guruId: string, catatan?: string) {
     });
 }
 
-export async function verifySetoran(setoranId: string, status: "verified" | "rejected", bendaharaId: string) {
+export async function verifySetoran(
+    setoranId: string,
+    status: "verified" | "rejected",
+    bendaharaId: string,
+    nominalFisik?: number,
+    catatan?: string
+) {
     return await db.transaction(async (tx) => {
-        // 1. Update Setoran Status
+        // 1. Fetch current setoran
+        const [existing] = await tx.select().from(tabunganSetoran).where(eq(tabunganSetoran.id, setoranId)).limit(1);
+        if (!existing) throw new Error("Setoran not found");
+
+        const fisik = nominalFisik ?? existing.totalNominal;
+        const selisih = existing.totalNominal - fisik;
+
+        // 2. Update Setoran Status & Discrepancy
         const [setoran] = await tx.update(tabunganSetoran)
             .set({ 
                 status, 
                 bendaharaId, 
+                nominalFisik: fisik,
+                selisih: selisih,
+                catatan: catatan ?? existing.catatan,
                 updatedAt: new Date() 
             } as any)
             .where(eq(tabunganSetoran.id, setoranId))
             .returning();
-            
-        if (!setoran) throw new Error("Setoran not found");
 
         if (status === "verified") {
-            // 2. Update Brankas (Ledger)
-            // Default to "Brankas Sekolah" for now
-            // Check if Brankas exists, if not create
-            let [brankas] = await tx.select().from(tabunganBrankas).limit(1);
+            // 3. Update Brankas (Ledger)
+            // We use the Physical Cash (fisik) as the amount entering the treasury
+            let [brankas] = await tx.select().from(tabunganBrankas).where(eq(tabunganBrankas.tipe, "cash")).limit(1);
             
             if (!brankas) {
                 [brankas] = await tx.insert(tabunganBrankas).values({
-                    nama: "Brankas Utama",
+                    nama: "Kas Bendahara (Tunai)",
+                    tipe: "cash",
                     saldo: 0,
                     updatedAt: new Date()
-                }).returning();
+                } as any).returning();
             }
 
             let newSaldo = brankas.saldo;
             if (setoran.tipe === "setor_ke_bendahara") {
-                newSaldo += setoran.totalNominal;
+                newSaldo += fisik;
             } else {
-                newSaldo -= setoran.totalNominal;
+                newSaldo -= fisik;
             }
 
             await tx.update(tabunganBrankas)
@@ -570,7 +584,47 @@ export async function getBrankasStats() {
     return brankas;
 }
 
-export async function createOrUpdateBrankas(data: { id?: string; nama: string; saldo?: number; picId?: string | null }) {
+import { tabunganBrankasTransaksi, type BrankasTransaksiTipe } from "@/db/schema/tabungan";
+
+export async function transferBrankas(
+    fromId: string,
+    toId: string,
+    amount: number,
+    userId: string,
+    tipe: BrankasTransaksiTipe,
+    catatan?: string
+) {
+    return await db.transaction(async (tx) => {
+        // 1. Update Origin
+        const [fromBrankas] = await tx.select().from(tabunganBrankas).where(eq(tabunganBrankas.id, fromId));
+        if (!fromBrankas || fromBrankas.saldo < amount) throw new Error("Saldo tidak cukup");
+
+        await tx.update(tabunganBrankas)
+            .set({ saldo: fromBrankas.saldo - amount, updatedAt: new Date() })
+            .where(eq(tabunganBrankas.id, fromId));
+
+        // 2. Update Destination
+        const [toBrankas] = await tx.select().from(tabunganBrankas).where(eq(tabunganBrankas.id, toId));
+        if (!toBrankas) throw new Error("Brankas tujuan tidak ditemukan");
+
+        await tx.update(tabunganBrankas)
+            .set({ saldo: toBrankas.saldo + amount, updatedAt: new Date() })
+            .where(eq(tabunganBrankas.id, toId));
+
+        // 3. Record Transaction
+        const [trx] = await tx.insert(tabunganBrankasTransaksi).values({
+            tipe,
+            nominal: amount,
+            userId,
+            catatan,
+            createdAt: new Date(),
+        } as any).returning();
+
+        return trx;
+    });
+}
+
+export async function createOrUpdateBrankas(data: { id?: string; nama: string; saldo?: number; picId?: string | null, tipe?: "cash" | "bank" }) {
     if (data.id) {
         // Construct update object dynamically to avoid setting undefined keys
         const updateData: any = {
