@@ -41,12 +41,13 @@ if (!existsSync(dbDir)) {
 // Create SQLite connection
 const sqlite = new Database(dbPath);
 
-// Optimize for HDD Storage (Reduce disk I/O)
+// Optimize for HDD Storage (Reduce disk I/O) & Low RAM (4GB)
 sqlite.pragma("journal_mode = WAL"); // Better concurrency
 sqlite.pragma("synchronous = NORMAL"); // Faster writes, safe for app crashes (not OS crashes)
 sqlite.pragma("temp_store = MEMORY"); // Keep temp tables in RAM
-sqlite.pragma("cache_size = -64000"); // 64MB cache limit (negative = kilobytes)
-sqlite.pragma("mmap_size = 30000000000"); // Enable memory-mapped I/O (fast reads)
+sqlite.pragma("cache_size = -128000"); // 128MB cache limit (increased for slow HDD, still safe for 4GB RAM)
+sqlite.pragma("mmap_size = 2147483648"); // 2GB mmap (Better for 4GB system than 30GB address space)
+sqlite.pragma("page_size = 4096"); // Standard for most file systems
 
 // Combine all schemas into one object explicitly
 const schema = {
