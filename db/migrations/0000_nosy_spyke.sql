@@ -470,6 +470,7 @@ CREATE TABLE `inventory_transactions` (
 CREATE TABLE `generated_letters` (
 	`id` text PRIMARY KEY NOT NULL,
 	`letter_number` text NOT NULL,
+	`classification_code` text,
 	`sequence_number` integer NOT NULL,
 	`recipient` text,
 	`template_id` text,
@@ -1010,10 +1011,10 @@ CREATE INDEX `idx_transaksi_setoran` ON `tabungan_transaksi` (`setoran_id`);--> 
 CREATE INDEX `idx_transaksi_created` ON `tabungan_transaksi` (`created_at`);--> statement-breakpoint
 CREATE TABLE `accounts` (
 	`id` text PRIMARY KEY NOT NULL,
-	`user_id` text NOT NULL,
+	`userId` text NOT NULL,
 	`type` text NOT NULL,
 	`provider` text NOT NULL,
-	`provider_account_id` text NOT NULL,
+	`providerAccountId` text NOT NULL,
 	`refresh_token` text,
 	`access_token` text,
 	`expires_at` integer,
@@ -1021,7 +1022,7 @@ CREATE TABLE `accounts` (
 	`scope` text,
 	`id_token` text,
 	`session_state` text,
-	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
+	FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
 CREATE TABLE `profiles` (
@@ -1038,14 +1039,12 @@ CREATE TABLE `profiles` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `profiles_user_id_unique` ON `profiles` (`user_id`);--> statement-breakpoint
 CREATE TABLE `sessions` (
-	`id` text PRIMARY KEY NOT NULL,
-	`session_token` text NOT NULL,
-	`user_id` text NOT NULL,
+	`sessionToken` text PRIMARY KEY NOT NULL,
+	`userId` text NOT NULL,
 	`expires` integer NOT NULL,
-	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
+	FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `sessions_session_token_unique` ON `sessions` (`session_token`);--> statement-breakpoint
 CREATE TABLE `users` (
 	`id` text PRIMARY KEY NOT NULL,
 	`name` text,
@@ -1057,6 +1056,7 @@ CREATE TABLE `users` (
 	`role` text DEFAULT 'user' NOT NULL,
 	`full_name` text,
 	`phone` text,
+	`is_active` integer DEFAULT true NOT NULL,
 	`created_at` integer,
 	`updated_at` integer
 );
