@@ -46,6 +46,9 @@ next-env.d.ts
 /pb_data
 pocketbase
 
+# database
+data/*.db*
+
 # generated content
 /uploads
 /test-results
