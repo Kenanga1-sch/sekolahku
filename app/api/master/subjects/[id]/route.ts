@@ -4,21 +4,21 @@ import { db, subjects } from "@/db";
 import { auth } from "@/auth";
 import { eq } from "drizzle-orm";
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+    const { id: idFromParams } = await params;
     try {
         const session = await auth();
-        if (!session || !["admin", "superadmin"].includes(session.user.role)) {
+        if (!session || !["admin", "superadmin", "guru", "staff"].includes(session.user.role)) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const { id } = params;
+        const id = idFromParams;
         const body = await req.json();
 
         const updated = await db.update(subjects)
             .set({ 
                 code: body.code, 
                 name: body.name, 
-                category: body.category,
                 description: body.description,
                 updatedAt: new Date()
             })
@@ -32,14 +32,15 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     }
 }
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+    const { id: idFromParams } = await params;
     try {
         const session = await auth();
         if (!session || !["admin", "superadmin"].includes(session.user.role)) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const { id } = params;
+        const id = idFromParams;
         await db.delete(subjects).where(eq(subjects.id, id));
         return NextResponse.json({ success: true });
 

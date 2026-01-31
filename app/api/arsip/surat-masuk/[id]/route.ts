@@ -6,8 +6,9 @@ import { eq, desc } from "drizzle-orm";
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
+    const { id } = await params;
     try {
         const [mail] = await db
             .select({
@@ -16,7 +17,7 @@ export async function GET(
             })
             .from(suratMasuk)
             .leftJoin(klasifikasiSurat, eq(suratMasuk.classificationCode, klasifikasiSurat.code))
-            .where(eq(suratMasuk.id, params.id))
+            .where(eq(suratMasuk.id, id))
             .limit(1);
 
         if (!mail) {
@@ -24,7 +25,7 @@ export async function GET(
         }
 
         const dispositions = await db.query.disposisi.findMany({
-            where: eq(disposisi.suratMasukId, params.id),
+            where: eq(disposisi.suratMasukId, id),
             with: {
                 fromUser: {
                     columns: { fullName: true, role: true },

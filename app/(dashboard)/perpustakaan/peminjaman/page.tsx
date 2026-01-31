@@ -122,7 +122,7 @@ export default function PeminjamanPage() {
     const filteredActiveLoans = activeLoans.filter((loan) => {
         if (!searchQuery) return true;
         const memberName = loan.member?.name?.toLowerCase() || "";
-        const itemTitle = loan.item?.title?.toLowerCase() || "";
+        const itemTitle = loan.item?.catalog?.title?.toLowerCase() || "";
         const query = searchQuery.toLowerCase();
         return memberName.includes(query) || itemTitle.includes(query);
     });
@@ -164,7 +164,10 @@ export default function PeminjamanPage() {
                                     </div>
                                 </TableCell>
                                 <TableCell>
-                                    <p className="font-medium">{loan.item?.title || "-"}</p>
+                                    <div>
+                                        <p className="font-medium">{loan.item?.catalog?.title || "-"}</p>
+                                        <Badge variant="outline" className="text-[10px] h-4 font-mono">{loan.itemId}</Badge>
+                                    </div>
                                 </TableCell>
                                 <TableCell>{formatDate(loan.borrowDate)}</TableCell>
                                 <TableCell>{formatDate(loan.dueDate)}</TableCell>
@@ -345,7 +348,7 @@ export default function PeminjamanPage() {
                                 <>
                                     <p>Kembalikan buku:</p>
                                     <p className="font-medium mt-2">
-                                        {returningLoan.item?.title}
+                                        {returningLoan.item?.catalog?.title}
                                     </p>
                                     <p className="text-sm text-muted-foreground">
                                         Dipinjam oleh: {returningLoan.member?.name}

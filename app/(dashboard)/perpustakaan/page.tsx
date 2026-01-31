@@ -1,310 +1,36 @@
-"use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import dynamic from "next/dynamic";
-import {
-    BookOpen,
-    Users,
-    BookMarked,
-    ArrowRight,
-    TrendingUp,
-    AlertTriangle,
-    UserCheck,
-    RefreshCw,
-} from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Suspense } from "react";
+import { auth } from "@/auth";
+import { getCachedLibraryStats } from "@/lib/data/library";
+import PerpustakaanClient from "@/components/perpustakaan/perpustakaan-client";
+import { redirect } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { LibraryStats } from "@/types/library";
 
-// Lazy load heavy components
-const LoanTrendChart = dynamic(
-    () => import("@/components/perpustakaan/charts").then(mod => ({ default: mod.LoanTrendChart })),
-    { 
-        loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[300px] w-full" /></CardContent></Card>,
-        ssr: false 
-    }
-);
+export const metadata = {
+  title: "Perpustakaan | Sekolahku",
+};
 
-const CategoryChart = dynamic(
-    () => import("@/components/perpustakaan/charts").then(mod => ({ default: mod.CategoryChart })),
-    { 
-        loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[300px] w-full" /></CardContent></Card>,
-        ssr: false 
-    }
-);
+export default async function PerpustakaanPage() {
+    const session = await auth();
+    if (!session?.user) redirect("/login");
 
-const RecentActivityFeed = dynamic(
-    () => import("@/components/perpustakaan/recent-activity").then(mod => ({ default: mod.RecentActivityFeed })),
-    { 
-        loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[320px] w-full" /></CardContent></Card>,
-        ssr: false 
-    }
-);
-
-const QuickActionsPanel = dynamic(
-    () => import("@/components/perpustakaan/quick-actions").then(mod => ({ default: mod.QuickActionsPanel })),
-    { 
-        loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[100px] w-full" /></CardContent></Card>,
-        ssr: false 
-    }
-);
-
-const TopBooksWidget = dynamic(
-    () => import("@/components/perpustakaan/top-widgets").then(mod => ({ default: mod.TopBooksWidget })),
-    { 
-        loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[280px] w-full" /></CardContent></Card>,
-        ssr: false 
-    }
-);
-
-const TopMembersWidget = dynamic(
-    () => import("@/components/perpustakaan/top-widgets").then(mod => ({ default: mod.TopMembersWidget })),
-    { 
-        loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[280px] w-full" /></CardContent></Card>,
-        ssr: false 
-    }
-);
-
-export default function PerpustakaanPage() {
-    const [stats, setStats] = useState<LibraryStats | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
-
-    async function loadStats() {
-        try {
-            const res = await fetch("/api/library/stats");
-            if (res.ok) {
-                const data = await res.json();
-                setStats(data);
-            }
-        } catch {
-            // Fail silently
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
-        }
-    }
-
-    useEffect(() => {
-        loadStats();
-    }, []);
-
-    const handleRefresh = () => {
-        setRefreshing(true);
-        loadStats();
-    };
-
-    const statCards = [
-        {
-            title: "Total Buku",
-            value: stats?.totalBooks || 0,
-            icon: BookOpen,
-            color: "text-blue-500",
-            bgColor: "bg-blue-500/10",
-            gradient: "from-blue-500 to-cyan-500",
-        },
-        {
-            title: "Tersedia",
-            value: stats?.availableBooks || 0,
-            icon: BookMarked,
-            color: "text-green-500",
-            bgColor: "bg-green-500/10",
-            gradient: "from-green-500 to-emerald-500",
-        },
-        {
-            title: "Anggota",
-            value: stats?.totalMembers || 0,
-            icon: Users,
-            color: "text-purple-500",
-            bgColor: "bg-purple-500/10",
-            gradient: "from-purple-500 to-pink-500",
-        },
-        {
-            title: "Dipinjam",
-            value: stats?.borrowedBooks || 0,
-            icon: TrendingUp,
-            color: "text-orange-500",
-            bgColor: "bg-orange-500/10",
-            gradient: "from-orange-500 to-red-500",
-        },
-        {
-            title: "Terlambat",
-            value: stats?.overdueLoans || 0,
-            icon: AlertTriangle,
-            color: stats?.overdueLoans ? "text-red-500" : "text-gray-400",
-            bgColor: stats?.overdueLoans ? "bg-red-500/10" : "bg-gray-500/10",
-            gradient: "from-red-500 to-pink-500",
-            alert: stats?.overdueLoans && stats.overdueLoans > 0,
-        },
-        {
-            title: "Kunjungan Hari Ini",
-            value: stats?.todayVisits || 0,
-            icon: UserCheck,
-            color: "text-cyan-500",
-            bgColor: "bg-cyan-500/10",
-            gradient: "from-cyan-500 to-blue-500",
-        },
-    ];
-
-    const menuItems = [
-        {
-            title: "Kelola Buku",
-            description: "Tambah, edit, dan hapus koleksi buku",
-            href: "/perpustakaan/buku",
-            icon: BookOpen,
-        },
-        {
-            title: "Kelola Anggota",
-            description: "Manajemen anggota perpustakaan",
-            href: "/perpustakaan/anggota",
-            icon: Users,
-        },
-        {
-            title: "Peminjaman",
-            description: "Kelola pinjam dan kembali",
-            href: "/perpustakaan/peminjaman",
-            icon: BookMarked,
-        },
-        {
-            title: "Laporan",
-            description: "Statistik dan export data",
-            href: "/perpustakaan/laporan",
-            icon: TrendingUp,
-        },
-    ];
+    const stats = await getCachedLibraryStats();
 
     return (
-        <div className="space-y-8">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
-                        Perpustakaan
-                    </h1>
-                    <p className="text-muted-foreground">
-                        Kelola perpustakaan sekolah Anda
-                    </p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <Button 
-                        variant="outline" 
-                        size="icon"
-                        onClick={handleRefresh}
-                        disabled={refreshing}
-                    >
-                        <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                    </Button>
-                    <Link href="/kiosk" target="_blank">
-                        <Button variant="outline" className="gap-2">
-                            <BookMarked className="h-4 w-4" />
-                            Buka Kiosk
-                        </Button>
-                    </Link>
-                </div>
-            </div>
+        <Suspense fallback={<PerpustakaanSkeleton />}>
+            <PerpustakaanClient initialStats={stats} />
+        </Suspense>
+    );
+}
 
-            {/* Stats Grid - Modernized */}
+function PerpustakaanSkeleton() {
+    return (
+        <div className="space-y-8 p-4">
+            <Skeleton className="h-10 w-64" />
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-                {statCards.map((stat) => (
-                    <Card 
-                        key={stat.title} 
-                        className={`relative overflow-hidden group hover:shadow-lg transition-all duration-300 ${stat.alert ? 'ring-2 ring-red-500/50' : ''}`}
-                    >
-                        <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
-                        <CardContent className="p-4">
-                            <div className="flex items-center gap-3">
-                                <div className={`p-2.5 rounded-xl ${stat.bgColor} transition-transform duration-300 group-hover:scale-110`}>
-                                    <stat.icon className={`h-5 w-5 ${stat.color}`} />
-                                </div>
-                                <div>
-                                    <span className={`text-2xl font-bold block ${stat.alert ? 'text-red-500 animate-pulse' : ''}`}>
-                                        {loading ? <Skeleton className="h-7 w-10" /> : stat.value}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground block">{stat.title}</span>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                ))}
+                {[1, 2, 3, 4, 5, 6].map(i => <Skeleton key={i} className="h-24 w-full" />)}
             </div>
-
-            {/* Quick Actions */}
-            <QuickActionsPanel />
-
-            {/* Overdue Alert */}
-            {stats?.overdueLoans && stats.overdueLoans > 0 && (
-                <Card className="border-red-200 bg-red-50/50 dark:border-red-900 dark:bg-red-950/20 backdrop-blur-sm">
-                    <CardContent className="p-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2.5 bg-red-500/20 rounded-xl animate-pulse">
-                                <AlertTriangle className="h-5 w-5 text-red-500" />
-                            </div>
-                            <div className="flex-1">
-                                <p className="font-medium text-red-700 dark:text-red-400">
-                                    {stats.overdueLoans} buku terlambat dikembalikan
-                                </p>
-                                <p className="text-sm text-red-600/70 dark:text-red-400/70">
-                                    Segera hubungi peminjam untuk pengembalian
-                                </p>
-                            </div>
-                            <Link href="/perpustakaan/peminjaman?filter=overdue">
-                                <Button variant="outline" size="sm" className="border-red-300 hover:bg-red-100 dark:hover:bg-red-900/20">
-                                    Lihat Detail
-                                </Button>
-                            </Link>
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
-
-            {/* Charts Section */}
-            <div className="grid lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                    <LoanTrendChart />
-                </div>
-                <div>
-                    <CategoryChart />
-                </div>
-            </div>
-
-            {/* Recent Activity + Top Widgets */}
-            <div className="grid lg:grid-cols-3 gap-6">
-                <div>
-                    <RecentActivityFeed />
-                </div>
-                <div>
-                    <TopBooksWidget />
-                </div>
-                <div>
-                    <TopMembersWidget />
-                </div>
-            </div>
-
-            {/* Quick Menu */}
-            <div>
-                <h2 className="text-xl font-bold mb-4">Menu Perpustakaan</h2>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                    {menuItems.map((item) => (
-                        <Link key={item.href} href={item.href}>
-                            <Card className="h-full hover:shadow-lg transition-all hover:border-primary/50 cursor-pointer group">
-                                <CardHeader className="p-6">
-                                    <div className="flex items-center justify-between mb-6">
-                                        <div className="p-2.5 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors group-hover:scale-110 duration-300">
-                                            <item.icon className="h-5 w-5 text-primary" />
-                                        </div>
-                                        <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                                    </div>
-                                    <CardTitle className="text-lg mb-3">{item.title}</CardTitle>
-                                    <CardDescription className="line-clamp-2">{item.description}</CardDescription>
-                                </CardHeader>
-                            </Card>
-                        </Link>
-                    ))}
-                </div>
-            </div>
+            <Skeleton className="h-[400px] w-full" />
         </div>
     );
 }

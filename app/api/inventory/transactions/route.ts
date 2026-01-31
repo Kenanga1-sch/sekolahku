@@ -117,7 +117,6 @@ export async function POST(req: Request) {
             quantity: qty, // Note: For OPNAME, this is the NEW STOCK level, for IN/OUT it's the delta.
             description,
             recipient,
-            recipientImage: proofImage, // proofImage mapping? Schema says recipientImage? Or proofImage? Checking previous files... usually it's proofImage in body but column might be different. 
             // Checking stats/route.ts... doesn't show schema. 
             // Defaulting to schema naming convention or as is. 
             // In original code it was `proofImage` in values object. 

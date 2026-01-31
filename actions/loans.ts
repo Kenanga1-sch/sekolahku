@@ -158,29 +158,31 @@ export async function approveLoan(loanId: string, approvedAmount: number, source
         if (vault.saldo < approvedAmount) return { success: false, error: "Saldo Brankas Tunai tidak mencukupi. Silakan tarik dana dari Bank terlebih dahulu." };
 
         // Transaction
-        await db.transaction(async (tx) => {
+        db.transaction((tx) => {
             // 1. Update Loan Status
-            await tx.update(loans)
+            tx.update(loans)
                 .set({ 
                     status: "APPROVED",
                     amountApproved: approvedAmount,
                     disbursedAt: new Date(), 
                     // Store sourceVaultId if we add a column later, for now we just log in transaction
                 })
-                .where(eq(loans.id, loanId));
+                .where(eq(loans.id, loanId))
+                .run();
             
             // 2. Deduct from Vault
-            await tx.update(tabunganBrankas)
+            tx.update(tabunganBrankas)
                 .set({ saldo: vault.saldo - approvedAmount })
-                .where(eq(tabunganBrankas.id, sourceVaultId));
+                .where(eq(tabunganBrankas.id, sourceVaultId))
+                .run();
 
             // 3. Log Vault Transaction
-            await tx.insert(tabunganBrankasTransaksi).values({
+            tx.insert(tabunganBrankasTransaksi).values({
                 tipe: "tarik_dari_bank", // Context: Money OUT (Disbursement). reusing compatible enum.
                 nominal: approvedAmount,
                 catatan: `Pencairan Pinjaman: ${loanId}`, 
                 userId: session.user?.id || "SYSTEM"
-            });
+            } as any).run();
         });
 
         revalidatePath("/keuangan/tabungan/bendahara");
@@ -207,10 +209,10 @@ export async function addPayment(loanId: string, amount: number, notes?: string,
         if (!vault) return { success: false, error: "Brankas tujuan tidak ditemukan" };
         if (vault.tipe !== "cash") return { success: false, error: "Pembayaran hutang hanya boleh masuk ke Uang Tunai (Kas)" };
 
-        await db.transaction(async (tx) => {
+        db.transaction((tx) => {
              // 1. Record Installment
             const nextInstallmentNum = loan.installments.length + 1;
-            await tx.insert(loanInstallments).values({
+            tx.insert(loanInstallments).values({
                 loanId,
                 installmentNumber: nextInstallmentNum,
                 dueDate: new Date(),
@@ -220,20 +222,21 @@ export async function addPayment(loanId: string, amount: number, notes?: string,
                 paidAt: new Date(),
                 paymentMethod: "CASH",
                 notes
-            });
+            } as any).run();
 
             // 2. Add to Vault
-            await tx.update(tabunganBrankas)
+            tx.update(tabunganBrankas)
                 .set({ saldo: vault.saldo + amount })
-                .where(eq(tabunganBrankas.id, targetVaultId));
+                .where(eq(tabunganBrankas.id, targetVaultId))
+                .run();
 
             // 3. Log Vault Transaction
-            await tx.insert(tabunganBrankasTransaksi).values({
+            tx.insert(tabunganBrankasTransaksi).values({
                 tipe: "setor_ke_bank", // Context: Money IN (Repayment). reusing compatible enum.
                 nominal: amount,
                 catatan: `Pelunasan/Cicilan Hutang: ${loan.description || loan.type} (${loan.id})`,
                 userId: session.user?.id || "SYSTEM"
-            });
+            } as any).run();
         });
         
         revalidatePath("/keuangan/tabungan/bendahara");

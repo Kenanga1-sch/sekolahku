@@ -2,10 +2,8 @@
 // Inventory Module Types
 // ==========================================
 
-import { RecordModel } from "pocketbase";
-
 // Base record
-export interface BaseRecord extends RecordModel {
+export interface BaseRecord {
     id: string;
     created: string;
     updated: string;

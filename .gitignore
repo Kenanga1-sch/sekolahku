@@ -50,3 +50,11 @@ pocketbase
 /uploads
 /test-results
 /playwright-report
+
+# database
+/data/*.db*
+
+# logs and temp
+*.log
+*.txt
+.env.local

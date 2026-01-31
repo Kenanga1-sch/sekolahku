@@ -44,6 +44,7 @@ export const generatedLetters = sqliteTable("generated_letters", {
     .primaryKey()
     .$defaultFn(() => createId()),
   letterNumber: text("letter_number").notNull(), // The full formatted string
+  classificationCode: text("classification_code"), // e.g. "421"
   sequenceNumber: integer("sequence_number").notNull(), // The integer counter
   recipient: text("recipient"), 
   templateId: text("template_id").references(() => letterTemplates.id),

@@ -10,7 +10,7 @@ export async function POST(
     try {
         const { id } = await context.params;
         const body = await request.json();
-        const { status, bendaharaId } = body;
+        const { status, bendaharaId, nominalFisik, catatan } = body;
 
         if (!status || (status !== "verified" && status !== "rejected")) {
             return NextResponse.json({ error: "Invalid status" }, { status: 400 });
@@ -20,7 +20,7 @@ export async function POST(
             return NextResponse.json({ error: "Bendahara ID required" }, { status: 400 });
         }
 
-        const result = await verifySetoran(id, status, bendaharaId);
+        const result = await verifySetoran(id, status, bendaharaId, nominalFisik, catatan);
         return NextResponse.json({ success: true, data: result });
     } catch (error) {
         return createErrorResponse(error);

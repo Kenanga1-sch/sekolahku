@@ -1,7 +1,7 @@
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Download, ExternalLink, FileText, Image as ImageIcon, File } from "lucide-react";
-import { DOCUMENT_LABELS } from "@/lib/spmb";
+import { DOCUMENT_LABELS } from "@/types/spmb";
 
 interface DocumentViewerProps {
     url: string;

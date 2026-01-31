@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
         const validData = parseResult.data;
 
         // RBAC Check for Guru
-        if (currentUser.role === "guru") {
+        if (body.type === "tarik") {
             // Lazy load getSiswaById to avoid circular dep issues if any
             const { getSiswaById } = await import("@/lib/tabungan");
             const student = await getSiswaById(validData.siswaId);
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
         tabunganLog.info("Creating transaksi", { 
             requestId, 
             action: "transaksi_create",
-            tipe: validData.tipe,
+            type: validData.type,
             nominal: validData.nominal,
             siswaId: validData.siswaId,
             userId: currentUser.id
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
         // Use verified data for creation
         const newTx = await createTransaksi({
             siswaId: validData.siswaId,
-            tipe: validData.tipe,
+            type: validData.type,
             nominal: validData.nominal,
             catatan: validData.catatan,
         }, currentUser.id || "system"); // Use logged in user ID

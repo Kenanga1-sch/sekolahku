@@ -1,0 +1,28 @@
+
+> sekolahku@0.1.0 dev
+> next dev
+
+▲ Next.js 16.1.1 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.2:3000
+- Environments: .env.local
+- Experiments (use with caution):
+  · optimizePackageImports
+  ✓ webpackMemoryOptimizations
+
+✓ Starting...
+✓ Ready in 6.7s
+○ Compiling / ...
+ GET / 200 in 8.3s (compile: 6.6s, render: 1686ms)
+ GET / 200 in 238ms (compile: 13ms, render: 226ms)
+ GET / 200 in 400ms (compile: 24ms, render: 376ms)
+○ Compiling /offline ...
+ GET /api/school-settings 200 in 2.9s (compile: 2.9s, render: 26ms)
+ GET /offline 200 in 9.7s (compile: 9.5s, render: 142ms)
+ GET /api/auth/session 200 in 4.7s
+ GET / 200 in 191ms (compile: 10ms, render: 180ms)
+ GET /offline 200 in 370ms (compile: 65ms, render: 305ms)
+ GET / 200 in 381ms (compile: 7ms, render: 374ms)
+ GET /api/school-settings 200 in 12ms (compile: 4ms, render: 8ms)
+ GET /api/auth/session 200 in 69ms (compile: 58ms, render: 11ms)
+ GET /api/auth/session 200 in 118ms (compile: 87ms, render: 30ms)

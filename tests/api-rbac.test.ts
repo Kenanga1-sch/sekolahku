@@ -10,6 +10,12 @@ vi.mock("@/auth", () => ({
 import { auth } from "@/auth";
 
 // 2. Mock Service Layers (to avoid DB calls)
+vi.mock("@/lib/data/inventory", () => ({
+    getCachedInventoryStats: vi.fn().mockResolvedValue({}),
+    getCachedConsumableStats: vi.fn().mockResolvedValue({}),
+    getCategoryDistribution: vi.fn().mockResolvedValue([]),
+}));
+
 vi.mock("@/lib/inventory", () => ({
     getInventoryStats: vi.fn().mockResolvedValue({}),
     getCategoryDistribution: vi.fn().mockResolvedValue([]),

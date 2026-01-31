@@ -58,7 +58,7 @@ export default function LoanRequestDialog({ open, onOpenChange, onSuccess }: Loa
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema) as any,
     defaultValues: {
       employeeDetailId: "",
       type: "KASBON",
@@ -96,8 +96,8 @@ export default function LoanRequestDialog({ open, onOpenChange, onSuccess }: Loa
             // Let's try to hit /api/users/employees-options if I create it, or just use a Server Action.
             // Using Server Action is safer for now.
             const result = await getEmployeeOptions();
-            if(result.success) {
-                setEmployees(result.data);
+            if(result.success && result.data) {
+                setEmployees(result.data as any[]);
             }
         } catch (e) {
             console.error(e);
@@ -110,7 +110,7 @@ export default function LoanRequestDialog({ open, onOpenChange, onSuccess }: Loa
     try {
       const res = await createLoanRequest(values);
       if (res.success) {
-        showSuccess(res.message);
+        showSuccess(res.message || "Pengajuan berhasil dikirim");
         onOpenChange(false);
         form.reset();
         onSuccess();
@@ -136,7 +136,7 @@ export default function LoanRequestDialog({ open, onOpenChange, onSuccess }: Loa
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             
             <FormField
-              control={form.control}
+              control={form.control as any}
               name="employeeDetailId"
               render={({ field }) => (
                 <FormItem>
@@ -162,7 +162,7 @@ export default function LoanRequestDialog({ open, onOpenChange, onSuccess }: Loa
 
             <div className="grid grid-cols-2 gap-4">
                 <FormField
-                control={form.control}
+                control={form.control as any}
                 name="type"
                 render={({ field }) => (
                     <FormItem>
@@ -184,7 +184,7 @@ export default function LoanRequestDialog({ open, onOpenChange, onSuccess }: Loa
                 />
 
                 <FormField
-                control={form.control}
+                control={form.control as any}
                 name="tenorMonths"
                 render={({ field }) => (
                     <FormItem>
@@ -208,7 +208,7 @@ export default function LoanRequestDialog({ open, onOpenChange, onSuccess }: Loa
             </div>
 
             <FormField
-              control={form.control}
+              control={form.control as any}
               name="amountRequested"
               render={({ field }) => (
                 <FormItem>
@@ -222,7 +222,7 @@ export default function LoanRequestDialog({ open, onOpenChange, onSuccess }: Loa
             />
 
             <FormField
-              control={form.control}
+              control={form.control as any}
               name="notes"
               render={({ field }) => (
                 <FormItem>

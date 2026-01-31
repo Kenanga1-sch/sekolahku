@@ -431,6 +431,7 @@ function RegistrationWizardContent({
                 onClick={handlePrev}
                 disabled={currentStep === 1 || isSubmitting}
                 className="gap-2 rounded-full px-6"
+                data-testid="wizard-back-btn"
               >
                 <ChevronLeft className="h-4 w-4" /> Back
               </Button>
@@ -440,6 +441,7 @@ function RegistrationWizardContent({
                 disabled={isSubmitting || (currentStep === 4 && !registrationData.documents)}
                 className="gap-2 rounded-full px-8 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all"
                 size="lg"
+                data-testid="wizard-next-btn"
               >
                 {isSubmitting ? (
                   <>

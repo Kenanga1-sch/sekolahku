@@ -1,4 +1,5 @@
-import { getInventoryStats, getCategoryDistribution, getConditionBreakdown, getTopRoomsByValue, getRecentAudit } from "@/lib/inventory";
+import { getCachedInventoryStats, getCategoryDistribution } from "@/lib/data/inventory";
+import { getRecentAudit, getTopRoomsByValue, getConditionBreakdown } from "@/lib/inventory"; // Keep stubs for now
 import { requireRole } from "@/lib/auth-checks";
 import { NextResponse } from "next/server";
 
@@ -28,8 +29,7 @@ export async function GET(request: Request) {
         return NextResponse.json(audit);
       
       default:
-        // Default to stats
-        const stats = await getInventoryStats();
+        const stats = await getCachedInventoryStats();
         return NextResponse.json(stats);
     }
   } catch (error) {

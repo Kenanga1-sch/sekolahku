@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { attendanceSessions, attendanceRecords } from "@/db/schema/attendance";
 import { students } from "@/db/schema/students";
-import { eq, and, sql, count } from "drizzle-orm";
+import { eq, and, sql, count, inArray } from "drizzle-orm";
 
 // GET /api/attendance/stats - Get attendance statistics
 export async function GET(request: NextRequest) {
@@ -15,7 +15,8 @@ export async function GET(request: NextRequest) {
     let sessionsQuery = db
       .select()
       .from(attendanceSessions)
-      .where(eq(attendanceSessions.date, date));
+      .where(eq(attendanceSessions.date, date))
+      .$dynamic();
 
     if (className) {
       sessionsQuery = sessionsQuery.where(
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
           eq(attendanceSessions.date, date),
           eq(attendanceSessions.className, className)
         )
-      ) as typeof sessionsQuery;
+      );
     }
 
     const sessions = await sessionsQuery;
@@ -32,12 +33,13 @@ export async function GET(request: NextRequest) {
     let studentsQuery = db
       .select({ count: count() })
       .from(students)
-      .where(eq(students.isActive, true));
+      .where(eq(students.isActive, true))
+      .$dynamic();
 
     if (className) {
       studentsQuery = studentsQuery.where(
         and(eq(students.isActive, true), eq(students.className, className))
-      ) as typeof studentsQuery;
+      );
     }
 
     const [{ count: totalStudents }] = await studentsQuery;
@@ -54,7 +56,7 @@ export async function GET(request: NextRequest) {
           count: count(),
         })
         .from(attendanceRecords)
-        .where(sql`${attendanceRecords.sessionId} IN (${sql.join(sessionIds.map(id => sql`${id}`), sql`, `)})`)
+        .where(inArray(attendanceRecords.sessionId, sessionIds))
         .groupBy(attendanceRecords.status);
 
       for (const r of records) {

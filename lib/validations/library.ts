@@ -26,9 +26,25 @@ export const libraryItemSchema = z.object({
 });
 
 export const libraryLoanSchema = z.object({
-  memberId: z.string().uuid("ID Anggota tidak valid"),
-  itemId: z.string().uuid("ID Buku tidak valid"),
+  memberId: z.string().min(1, "ID Anggota tidak valid"),
+  itemId: z.string().min(1, "ID Buku tidak valid"),
   loanDays: z.number().int().positive().default(7),
+});
+
+export const bindAssetSchema = z.object({
+    qrCode: z.string().min(1, "QR Code wajib diisi"),
+    catalog: z.object({
+        id: z.string().optional(),
+        title: z.string().min(1, "Judul wajib diisi"),
+        author: z.string().optional(),
+        isbn: z.string().optional(),
+        publisher: z.string().optional(),
+        year: z.number().optional(),
+        category: z.string().default("OTHER"),
+        description: z.string().optional(),
+        cover: z.string().optional(),
+    }),
+    location: z.string().optional(),
 });
 
 // APIs

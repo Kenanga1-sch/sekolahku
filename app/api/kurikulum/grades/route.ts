@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     const grades = await db.select({
         id: studentGrades.id,
         studentId: studentGrades.studentId,
-        studentName: students.namaLengkap, // Assumes students table has namaLengkap
+        studentName: students.fullName,
         score: studentGrades.score,
         type: studentGrades.type,
         notes: studentGrades.notes

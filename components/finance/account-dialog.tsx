@@ -47,7 +47,7 @@ export default function AccountDialog({ open, onOpenChange, onSuccess, accountTo
   const isEditMode = !!accountToEdit;
 
   const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema) as any,
     defaultValues: {
       name: "",
       accountNumber: "",
@@ -91,7 +91,7 @@ export default function AccountDialog({ open, onOpenChange, onSuccess, accountTo
       }
 
       if (res.success) {
-        showSuccess(res.message);
+        showSuccess(res.message || "Berhasil menyimpan akun");
         onOpenChange(false);
         form.reset();
         onSuccess();
@@ -116,7 +116,7 @@ export default function AccountDialog({ open, onOpenChange, onSuccess, accountTo
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
-              control={form.control}
+              control={form.control as any}
               name="name"
               render={({ field }) => (
                 <FormItem>
@@ -130,7 +130,7 @@ export default function AccountDialog({ open, onOpenChange, onSuccess, accountTo
             />
             <div className="grid grid-cols-2 gap-4">
                 <FormField
-                control={form.control}
+                control={form.control as any}
                 name="accountNumber"
                 render={({ field }) => (
                     <FormItem>
@@ -146,7 +146,7 @@ export default function AccountDialog({ open, onOpenChange, onSuccess, accountTo
                 {/* Only show initial balance for NEW accounts */}
                 {!isEditMode && (
                     <FormField
-                    control={form.control}
+                    control={form.control as any}
                     name="initialBalance"
                     render={({ field }) => (
                         <FormItem>

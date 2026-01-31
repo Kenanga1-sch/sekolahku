@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
           like(students.fullName, `%${search}%`),
           like(students.nisn, `%${search}%`),
           like(students.nis, `%${search}%`)
-        )
+        ) as any
       );
     }
 
@@ -63,13 +63,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       data: results.map(r => ({
           ...r,
-          graduationYear: r.graduationYear || "-", 
+          id: r.id as string,
+          graduationYear: (r.graduationYear as any) || "-",
       })),
       pagination: {
         page,
         limit,
-        total,
-        totalPages: Math.ceil(total / limit),
+        total: Number(total),
+        totalPages: Math.ceil(Number(total) / limit),
       },
     });
   } catch (error) {

@@ -10,6 +10,7 @@ import {
     Trash2,
     QrCode,
     Filter,
+    Loader2,
     ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
@@ -70,7 +71,10 @@ export default function BukuPage() {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+    const [isSwapDialogOpen, setIsSwapDialogOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<LibraryItem | null>(null);
+    const [swappingItem, setSwappingItem] = useState<LibraryItem | null>(null);
+    const [newQrCode, setNewQrCode] = useState("");
 
     // Form state
     const [formData, setFormData] = useState({
@@ -193,6 +197,35 @@ export default function BukuPage() {
             description: item.description || "",
         });
         setIsAddDialogOpen(true);
+    };
+
+    const handleSwapQR = async () => {
+        if (!swappingItem || !newQrCode) return;
+        setLoading(true);
+        try {
+            const res = await fetch("/api/library/assets/swap", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    oldQr: swappingItem.id,
+                    newQr: newQrCode
+                })
+            });
+            const result = await res.json();
+            if (result.success) {
+                showSuccess("QR Code berhasil diganti");
+                setIsSwapDialogOpen(false);
+                setSwappingItem(null);
+                setNewQrCode("");
+                loadItems();
+            } else {
+                showError(result.error || "Gagal mengganti QR Code");
+            }
+        } catch (error) {
+            showError("Terjadi kesalahan sistem");
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -393,17 +426,20 @@ export default function BukuPage() {
                                 items.map((item) => (
                                     <TableRow key={item.id}>
                                         <TableCell>
-                                            <div>
-                                                <p className="font-medium">{item.title}</p>
-                                                {item.isbn && (
-                                                    <p className="text-xs text-muted-foreground">ISBN: {item.isbn}</p>
-                                                )}
+                                            <div className="flex flex-col">
+                                                <p className="font-medium">{item.catalog?.title || "No Title"}</p>
+                                                <div className="flex gap-2 items-center">
+                                                    <Badge variant="outline" className="text-[10px] h-4 font-mono">{item.id}</Badge>
+                                                    {item.catalog?.isbn && (
+                                                        <p className="text-xs text-muted-foreground">ISBN: {item.catalog.isbn}</p>
+                                                    )}
+                                                </div>
                                             </div>
                                         </TableCell>
-                                        <TableCell>{item.author || "-"}</TableCell>
+                                        <TableCell>{item.catalog?.author || "-"}</TableCell>
                                         <TableCell>
                                             <Badge variant="secondary">
-                                                {CATEGORIES.find((c) => c.value === item.category)?.label || item.category}
+                                                {CATEGORIES.find((c) => c.value === item.catalog?.category)?.label || item.catalog?.category || "-"}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>{item.location || "-"}</TableCell>
@@ -424,9 +460,12 @@ export default function BukuPage() {
                                                         <Pencil className="h-4 w-4 mr-2" />
                                                         Edit
                                                     </DropdownMenuItem>
-                                                    <DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => {
+                                                        setSwappingItem(item);
+                                                        setIsSwapDialogOpen(true);
+                                                    }}>
                                                         <QrCode className="h-4 w-4 mr-2" />
-                                                        QR Code
+                                                        Ganti QR Code
                                                     </DropdownMenuItem>
                                                     <DropdownMenuItem
                                                         className="text-red-600"
@@ -445,6 +484,42 @@ export default function BukuPage() {
                     </Table>
                 </CardContent>
             </Card>
+
+            {/* Swap QR Dialog */}
+            <Dialog open={isSwapDialogOpen} onOpenChange={setIsSwapDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Ganti QR Code</DialogTitle>
+                        <DialogDescription>
+                            Gunakan ini jika label QR Code pada buku rusak. Data sejarah peminjaman akan tetap terjaga.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {swappingItem && (
+                        <div className="space-y-4 py-4">
+                            <div className="bg-muted p-3 rounded-md">
+                                <p className="text-sm font-bold">{swappingItem.catalog?.title}</p>
+                                <p className="text-xs text-muted-foreground">QR Lama: {swappingItem.id}</p>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="newQr">QR Code Baru</Label>
+                                <Input
+                                    id="newQr"
+                                    placeholder="Scan atau ketik kode QR baru..."
+                                    value={newQrCode}
+                                    onChange={(e) => setNewQrCode(e.target.value.toUpperCase())}
+                                />
+                            </div>
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsSwapDialogOpen(false)}>Batal</Button>
+                        <Button onClick={handleSwapQR} disabled={loading || !newQrCode}>
+                            {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                            Simpan QR Baru
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Pagination */}
             {totalPages > 1 && (

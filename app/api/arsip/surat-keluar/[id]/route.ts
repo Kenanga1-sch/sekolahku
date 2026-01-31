@@ -9,8 +9,9 @@ import { auth } from "@/auth";
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
+    const { id } = await params;
     try {
         const [mail] = await db
             .select({
@@ -21,7 +22,7 @@ export async function GET(
             .from(suratKeluar)
             .leftJoin(klasifikasiSurat, eq(suratKeluar.classificationCode, klasifikasiSurat.code))
             .leftJoin(users, eq(suratKeluar.createdBy, users.id))
-            .where(eq(suratKeluar.id, params.id))
+            .where(eq(suratKeluar.id, id))
             .limit(1);
 
         if (!mail) {
@@ -42,8 +43,9 @@ export async function GET(
 
 export async function PATCH(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
+    const { id } = await params;
     try {
         const session = await auth();
         if (!session) {
@@ -84,7 +86,7 @@ export async function PATCH(
 
         const [updatedSurat] = await db.update(suratKeluar)
             .set(updates)
-            .where(eq(suratKeluar.id, params.id))
+            .where(eq(suratKeluar.id, id))
             .returning();
 
         return NextResponse.json(updatedSurat);
@@ -100,18 +102,14 @@ export async function PATCH(
 
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
+    const { id } = await params;
     try {
         const session = await auth();
-        if (!session || session.user.role !== "admin") { // Only admin can delete? Or creator?
-             // For now, let's restrict to admin/superadmin or creator logic if complex.
-             // Assuming strict role check here for safety.
-             // If user is not admin, allow if they are creator?
-             // Lets keep it simple: authorized users.
-        }
+        if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-        await db.delete(suratKeluar).where(eq(suratKeluar.id, params.id));
+        await db.delete(suratKeluar).where(eq(suratKeluar.id, id));
         return NextResponse.json({ success: true });
 
     } catch (error) {

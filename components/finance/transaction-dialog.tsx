@@ -60,7 +60,7 @@ export default function TransactionDialog({ open, onOpenChange, onSuccess, accou
   const [activeTab, setActiveTab] = useState<"INCOME" | "EXPENSE" | "TRANSFER">("EXPENSE");
 
   const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema) as any,
     defaultValues: {
       type: "EXPENSE",
       accountIdSource: "",
@@ -90,7 +90,7 @@ export default function TransactionDialog({ open, onOpenChange, onSuccess, accou
       const res = await createTransaction(data);
       
       if (res.success) {
-        showSuccess(res.message);
+        showSuccess(res.message || "Berhasil menyimpan transaksi");
         onOpenChange(false);
         form.reset();
         onSuccess();
@@ -126,7 +126,7 @@ export default function TransactionDialog({ open, onOpenChange, onSuccess, accou
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4">
             
             <FormField
-              control={form.control}
+              control={form.control as any}
               name="dateStr"
               render={({ field }) => (
                 <FormItem>
@@ -140,7 +140,7 @@ export default function TransactionDialog({ open, onOpenChange, onSuccess, accou
             />
 
             <FormField
-              control={form.control}
+              control={form.control as any}
               name="accountIdSource"
               render={({ field }) => (
                 <FormItem>
@@ -164,7 +164,7 @@ export default function TransactionDialog({ open, onOpenChange, onSuccess, accou
 
             {activeTab === "TRANSFER" && (
                 <FormField
-                control={form.control}
+                control={form.control as any}
                 name="accountIdDest"
                 render={({ field }) => (
                     <FormItem>
@@ -189,7 +189,7 @@ export default function TransactionDialog({ open, onOpenChange, onSuccess, accou
 
             {activeTab !== "TRANSFER" && (
                 <FormField
-                control={form.control}
+                control={form.control as any}
                 name="categoryId"
                 render={({ field }) => (
                     <FormItem>
@@ -213,7 +213,7 @@ export default function TransactionDialog({ open, onOpenChange, onSuccess, accou
             )}
 
             <FormField
-              control={form.control}
+              control={form.control as any}
               name="amount"
               render={({ field }) => (
                 <FormItem>
@@ -231,7 +231,7 @@ export default function TransactionDialog({ open, onOpenChange, onSuccess, accou
             />
 
             <FormField
-              control={form.control}
+              control={form.control as any}
               name="description"
               render={({ field }) => (
                 <FormItem>

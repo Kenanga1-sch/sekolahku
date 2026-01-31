@@ -74,7 +74,7 @@ function QueueItem({ item, currentUserId }: { item: any, currentUserId: string }
         setLoading(true);
         try {
             const res = await verifySetoran(item.id, currentUserId);
-            if (res.success) showSuccess(res.message);
+            if (res.success) showSuccess(res.message || "Verifikasi berhasil");
             else showError(res.error || "Gagal verifikasi");
         } catch (error) {
             showError("Error sistem");
@@ -91,7 +91,7 @@ function QueueItem({ item, currentUserId }: { item: any, currentUserId: string }
         setLoading(true);
         try {
             const res = await rejectSetoran(item.id, reason);
-            if (res.success) showSuccess(res.message);
+            if (res.success) showSuccess(res.message || "Penolakan berhasil");
             else showError(res.error || "Gagal menolak");
         } catch (error) {
             showError("Error sistem");
