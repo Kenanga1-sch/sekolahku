@@ -1,177 +1,79 @@
-# 🎓 Website Sekolah Terpadu
+# 🎓 Sitaku & SmartLib (Sekolahku)
 
-Modern school website built with Next.js 16, featuring integrated Library Management, Inventory System, and Online Student Registration (SPMB).
+Sistem Informasi Terpadu Akademik dan Keuangan (Sitaku) & Smart Library (SmartLib). Platform manajemen sekolah modern yang dibangun dengan Next.js 16, mengintegrasikan manajemen Perpustakaan, Tabungan Siswa, Inventaris, dan Registrasi Siswa Baru (SPMB).
 
 ![Next.js](https://img.shields.io/badge/Next.js-16.1-black?logo=next.js)
+![React](https://img.shields.io/badge/React-19.0-blue?logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?logo=typescript)
+![Drizzle ORM](https://img.shields.io/badge/Drizzle-ORM-C5F74F?logo=drizzle)
+![SQLite](https://img.shields.io/badge/SQLite-003B57?logo=sqlite)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-4.0-38bdf8?logo=tailwindcss)
-![PocketBase](https://img.shields.io/badge/PocketBase-0.26-b8dbe4)
 
-## ✨ Features
+## 🚀 Tech Stack
 
-### 🎯 Core Modules
-| Module | Description |
-|--------|-------------|
-| **SPMB** | Online student registration with zonasi map |
-| **Perpustakaan** | Library management with kiosk mode |
-| **Inventaris** | Asset management with stock opname |
-| **Pengumuman** | News and announcements |
+- **Framework**: Next.js 16 (App Router)
+- **Library UI**: React 19, Shadcn UI, Tailwind CSS 4
+- **ORM**: Drizzle ORM
+- **Database**: SQLite (better-sqlite3)
+- **Auth**: NextAuth.js v5
+- **State Management**: Zustand & SWR
+- **Monitoring**: Sentry
 
-### 🔒 Security Features
-- XSS Prevention (DOMPurify)
-- Filter Injection Protection
-- Rate Limiting
-- Input Sanitization
-- Role-Based Access Control
+## 🛠️ Cheat Sheet: Command Penting
 
-### ⚡ Performance Features
-- SWR Caching
-- Pagination
-- Standalone Build (512MB RAM limit)
-- Optimized Docker deployment
-
-## 🚀 Quick Start
-
+### 1. Install Dependencies
+Pastikan Node.js versi terbaru sudah terinstal.
 ```bash
-# Clone repository
-git clone https://github.com/your-username/sekolahku.git
-cd sekolahku
-
-# Install dependencies
 npm install
+```
 
-# Setup environment
-cp .env.example .env.local
-# Edit .env.local with your values
+### 2. Setup Database (PENTING)
+Jika Anda menemui error seperti **"no such table"**, jalankan perintah push untuk mensinkronkan skema ke database SQLite lokal:
+```bash
+# Sinkronisasi Skema (Solusi Error 'no such table')
+npx drizzle-kit push
 
-# Run development server
+# (Opsional) Cek database via Studio
+npx drizzle-kit studio
+```
+
+### 3. Seeding Data (Segera Hadir)
+Untuk mengisi data awal (Admin, Sekolah, Tahun Ajaran), jalankan:
+```bash
+npx tsx scripts/seed.ts
+```
+*Catatan: Gunakan kredensial default `admin@sekolahku.id` / `admin123` setelah seeding.*
+
+### 4. Menjalankan Aplikasi
+
+**Mode Development:**
+```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
-
-## 📁 Project Structure
-
-```
-├── app/
-│   ├── (public)/          # Public pages
-│   ├── (auth)/            # Authentication
-│   ├── (dashboard)/       # Admin dashboard
-│   │   ├── perpustakaan/  # Library module
-│   │   ├── inventaris/    # Inventory module
-│   │   └── spmb-admin/    # SPMB management
-│   └── api/               # API routes
-├── components/
-│   ├── providers/         # Context providers
-│   ├── ui/                # Shadcn UI components
-│   └── ...               # Feature components
-├── hooks/
-│   └── use-data.ts        # SWR data hooks
-├── lib/
-│   ├── pocketbase.ts      # PocketBase client
-│   ├── security.ts        # Security utilities
-│   ├── library.ts         # Library helpers
-│   ├── inventory.ts       # Inventory helpers
-│   └── toast.ts           # Toast notifications
-└── types/                 # TypeScript definitions
-```
-
-## 🔧 Environment Variables
-
-```env
-# PocketBase
-NEXT_PUBLIC_POCKETBASE_URL=http://127.0.0.1:8090
-
-# App
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-NEXT_PUBLIC_APP_NAME="Website Sekolah Terpadu"
-
-# Default Map Center
-NEXT_PUBLIC_DEFAULT_LAT=-6.200000
-NEXT_PUBLIC_DEFAULT_LNG=106.816666
-```
-
-## 🐳 Docker Deployment
-
-### Quick Deploy
-```bash
-docker-compose up -d
-```
-
-### Memory Limits (For 4GB Server)
-| Service | Memory Limit |
-|---------|--------------|
-| Next.js | 512 MB |
-| PocketBase | 256 MB |
-
-### Manual Production
+**Mode Production Build:**
 ```bash
 npm run build
-./start-production.sh
+npm run start:prod
 ```
 
-## 📝 Available Scripts
+## 📁 Struktur Folder Utama
 
-```bash
-npm run dev         # Development server
-npm run build       # Production build
-npm run start       # Production server (default)
-npm run start:prod  # Production with memory limits
-npm run lint        # ESLint
-npm run test        # Vitest unit tests
-npm run test:e2e    # Playwright E2E tests
-```
+- `app/`: Routing, UI Pages, dan Server Actions.
+- `components/`: Komponen UI (Shared & UI Kit Shadcn).
+- `db/`: Skema database dan konfigurasi Drizzle.
+- `lib/`: Utilitas, Helper logika, dan konstanta.
+- `actions/`: Kumpulan Server Actions untuk mutasi data.
+- `scripts/`: Script maintenance dan seeding database.
 
-## 🗺️ Routes
+## 🔒 Aturan Pengembangan (AI & Dev Context)
+Lihat [PROJECT_CONTEXT.md](./PROJECT_CONTEXT.md) untuk panduan teknis mendalam dan aturan penulisan kode.
 
-### Public Routes
-| Route | Description |
-|-------|-------------|
-| `/` | Landing page |
-| `/profil/*` | School profile pages |
-| `/berita` | News listing |
-| `/spmb/daftar` | SPMB registration |
-| `/spmb/tracking` | Status check |
-| `/kiosk` | Library kiosk mode |
+## 📊 Skema Database
+Lihat [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) untuk detail struktur tabel dan relasi.
 
-### Dashboard Routes (Protected)
-| Route | Description |
-|-------|-------------|
-| `/overview` | Dashboard |
-| `/spmb-admin` | Manage registrants |
-| `/perpustakaan` | Library dashboard |
-| `/inventaris` | Inventory dashboard |
-| `/users` | User management |
-
-## 📚 API Documentation
-
-See [docs/API.md](docs/API.md) for detailed API documentation.
-
-## 🧪 Testing
-
-```bash
-# Unit tests
-npm run test
-
-# E2E tests
-npm run test:e2e
-
-# With UI
-npm run test:e2e:ui
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing`)
-5. Open Pull Request
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) for details.
+## 🔄 Alur Bisnis
+Lihat [WORKFLOWS.md](./WORKFLOWS.md) untuk penjelasan logika fitur-fitur kompleks.
 
 ---
-
 Built with ❤️ for Indonesian Education
