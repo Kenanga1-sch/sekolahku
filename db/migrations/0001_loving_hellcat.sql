@@ -1,0 +1,1 @@
+ALTER TABLE `generated_letters` ADD `classification_code` text;

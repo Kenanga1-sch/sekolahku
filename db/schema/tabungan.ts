@@ -141,6 +141,13 @@ export const tabunganBrankasRelations = relations(tabunganBrankas, ({ one }) => 
   }),
 }));
 
+export const tabunganBrankasTransaksiRelations = relations(tabunganBrankasTransaksi, ({ one }) => ({
+  user: one(users, {
+    fields: [tabunganBrankasTransaksi.userId],
+    references: [users.id],
+  }),
+}));
+
 // ==========================================
 // Tabungan Transaksi (Transaction) Table
 // ==========================================

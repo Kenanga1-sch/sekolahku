@@ -7,7 +7,7 @@ import { db } from "@/db";
 import { tabunganKelas, tabunganSiswa, tabunganTransaksi } from "@/db/schema/tabungan";
 import { students } from "@/db/schema/students";
 import { users } from "@/db/schema/users";
-import { eq, like, and, desc, sql, asc } from "drizzle-orm";
+import { eq, like, and, desc, sql, asc, gte, lte } from "drizzle-orm";
 import type {
     TabunganKelasWithRelations,
     TabunganSiswaWithRelations,
@@ -404,18 +404,19 @@ export async function createTransaksi(
     data: TabunganTransaksiFormData,
     userId: string
 ) {
-    return await db.transaction(async (tx) => {
+    return db.transaction((tx) => {
         // 1. Create Transaction (Status Verified)
-        const [newTx] = await tx.insert(tabunganTransaksi).values({
+        const [newTx] = tx.insert(tabunganTransaksi).values({
             ...data,
             userId,
             status: "verified", // Immediate verification by teacher
             createdAt: new Date(),
             updatedAt: new Date(),
-        } as any).returning();
+        } as any).returning().all();
 
         // 2. Update Student Balance Immediately
-        const [siswa] = await tx.select().from(tabunganSiswa).where(eq(tabunganSiswa.id, data.siswaId));
+        const siswaRows = tx.select().from(tabunganSiswa).where(eq(tabunganSiswa.id, data.siswaId)).all();
+        const siswa = siswaRows[0];
         if (!siswa) throw new Error("Siswa not found");
 
         let newSaldo = siswa.saldoTerakhir;
@@ -425,9 +426,10 @@ export async function createTransaksi(
             newSaldo -= data.nominal;
         }
         
-        await tx.update(tabunganSiswa)
+        tx.update(tabunganSiswa)
             .set({ saldoTerakhir: newSaldo, updatedAt: new Date() })
-            .where(eq(tabunganSiswa.id, data.siswaId));
+            .where(eq(tabunganSiswa.id, data.siswaId))
+            .run();
 
         return newTx;
     });
@@ -458,13 +460,13 @@ export async function getSetoranList(options: { status?: SetoranStatus } = {}) {
 }
 
 export async function createSetoran(guruId: string, catatan?: string) {
-    return await db.transaction(async (tx) => {
+    return db.transaction((tx) => {
         // 1. Get all open transactions for this teacher
-        const openTx = await tx.select().from(tabunganTransaksi).where(and(
+        const openTx = tx.select().from(tabunganTransaksi).where(and(
             eq(tabunganTransaksi.userId, guruId),
             sql`${tabunganTransaksi.setoranId} IS NULL`,
             eq(tabunganTransaksi.status, "verified")
-        ));
+        )).all();
 
         if (openTx.length === 0) throw new Error("Tidak ada transaksi untuk disetor");
 
@@ -486,7 +488,7 @@ export async function createSetoran(guruId: string, catatan?: string) {
         }
 
         // 3. Create Setoran Record
-        const [setoran] = await tx.insert(tabunganSetoran).values({
+        const [setoran] = tx.insert(tabunganSetoran).values({
             guruId,
             tipe,
             totalNominal: total,
@@ -494,13 +496,14 @@ export async function createSetoran(guruId: string, catatan?: string) {
             catatan,
             createdAt: new Date(),
             updatedAt: new Date(),
-        } as any).returning();
+        } as any).returning().all();
 
         // 4. Link Transactions to Setoran
         for (const t of openTx) {
-            await tx.update(tabunganTransaksi)
+            tx.update(tabunganTransaksi)
                 .set({ setoranId: setoran.id, updatedAt: new Date() } as any)
-                .where(eq(tabunganTransaksi.id, t.id));
+                .where(eq(tabunganTransaksi.id, t.id))
+                .run();
         }
 
         return setoran;
@@ -514,16 +517,17 @@ export async function verifySetoran(
     nominalFisik?: number,
     catatan?: string
 ) {
-    return await db.transaction(async (tx) => {
+    return db.transaction((tx) => {
         // 1. Fetch current setoran
-        const [existing] = await tx.select().from(tabunganSetoran).where(eq(tabunganSetoran.id, setoranId)).limit(1);
+        const existingRows = tx.select().from(tabunganSetoran).where(eq(tabunganSetoran.id, setoranId)).limit(1).all();
+        const existing = existingRows[0];
         if (!existing) throw new Error("Setoran not found");
 
         const fisik = nominalFisik ?? existing.totalNominal;
         const selisih = existing.totalNominal - fisik;
 
         // 2. Update Setoran Status & Discrepancy
-        const [setoran] = await tx.update(tabunganSetoran)
+        const [setoran] = tx.update(tabunganSetoran)
             .set({ 
                 status, 
                 bendaharaId, 
@@ -533,20 +537,22 @@ export async function verifySetoran(
                 updatedAt: new Date() 
             } as any)
             .where(eq(tabunganSetoran.id, setoranId))
-            .returning();
+            .returning().all();
 
         if (status === "verified") {
             // 3. Update Brankas (Ledger)
             // We use the Physical Cash (fisik) as the amount entering the treasury
-            let [brankas] = await tx.select().from(tabunganBrankas).where(eq(tabunganBrankas.tipe, "cash")).limit(1);
+            let brankasRows = tx.select().from(tabunganBrankas).where(eq(tabunganBrankas.tipe, "cash")).limit(1).all();
+            let brankas = brankasRows[0];
             
             if (!brankas) {
-                [brankas] = await tx.insert(tabunganBrankas).values({
+                const brankasNew = tx.insert(tabunganBrankas).values({
                     nama: "Kas Bendahara (Tunai)",
                     tipe: "cash",
                     saldo: 0,
                     updatedAt: new Date()
-                } as any).returning();
+                } as any).returning().all();
+                brankas = brankasNew[0];
             }
 
             let newSaldo = brankas.saldo;
@@ -556,16 +562,16 @@ export async function verifySetoran(
                 newSaldo -= fisik;
             }
 
-            await tx.update(tabunganBrankas)
+            tx.update(tabunganBrankas)
                 .set({ saldo: newSaldo, updatedAt: new Date() })
-                .where(eq(tabunganBrankas.id, brankas.id));
+                .where(eq(tabunganBrankas.id, brankas.id))
+                .run();
         } else if (status === "rejected") {
-            // Unlink transactions so they can be corrected or re-submitted?
-            // Or just keep them linked but failed? 
-            // Better to unlink so teacher can fix/delete specific ones.
-            await tx.update(tabunganTransaksi)
+            // Unlink transactions
+            tx.update(tabunganTransaksi)
                 .set({ setoranId: null } as any)
-                .where(eq(tabunganTransaksi.setoranId, setoranId));
+                .where(eq(tabunganTransaksi.setoranId, setoranId))
+                .run();
         }
         
         return setoran;
@@ -594,31 +600,35 @@ export async function transferBrankas(
     tipe: BrankasTransaksiTipe,
     catatan?: string
 ) {
-    return await db.transaction(async (tx) => {
+    return db.transaction((tx) => {
         // 1. Update Origin
-        const [fromBrankas] = await tx.select().from(tabunganBrankas).where(eq(tabunganBrankas.id, fromId));
+        const fromRows = tx.select().from(tabunganBrankas).where(eq(tabunganBrankas.id, fromId)).all();
+        const fromBrankas = fromRows[0];
         if (!fromBrankas || fromBrankas.saldo < amount) throw new Error("Saldo tidak cukup");
 
-        await tx.update(tabunganBrankas)
+        tx.update(tabunganBrankas)
             .set({ saldo: fromBrankas.saldo - amount, updatedAt: new Date() })
-            .where(eq(tabunganBrankas.id, fromId));
+            .where(eq(tabunganBrankas.id, fromId))
+            .run();
 
         // 2. Update Destination
-        const [toBrankas] = await tx.select().from(tabunganBrankas).where(eq(tabunganBrankas.id, toId));
+        const toRows = tx.select().from(tabunganBrankas).where(eq(tabunganBrankas.id, toId)).all();
+        const toBrankas = toRows[0];
         if (!toBrankas) throw new Error("Brankas tujuan tidak ditemukan");
 
-        await tx.update(tabunganBrankas)
+        tx.update(tabunganBrankas)
             .set({ saldo: toBrankas.saldo + amount, updatedAt: new Date() })
-            .where(eq(tabunganBrankas.id, toId));
+            .where(eq(tabunganBrankas.id, toId))
+            .run();
 
         // 3. Record Transaction
-        const [trx] = await tx.insert(tabunganBrankasTransaksi).values({
+        const [trx] = tx.insert(tabunganBrankasTransaksi).values({
             tipe,
             nominal: amount,
             userId,
             catatan,
             createdAt: new Date(),
-        } as any).returning();
+        } as any).returning().all();
 
         return trx;
     });
@@ -684,20 +694,20 @@ export async function getTabunganStats(): Promise<TabunganStats> {
             db.select({ count: sql<number>`count(*)` }).from(tabunganTransaksi).where(eq(tabunganTransaksi.status, "pending")),
             // Today Transaksi
             db.select({ count: sql<number>`count(*)` }).from(tabunganTransaksi).where(and(
-                sql`${tabunganTransaksi.createdAt} >= ${startOfDay.getTime()}`,
-                sql`${tabunganTransaksi.createdAt} <= ${endOfDay.getTime()}`
+                gte(tabunganTransaksi.createdAt, startOfDay),
+                lte(tabunganTransaksi.createdAt, endOfDay)
             )),
             // Today Deposit
             db.select({ sum: sql<number>`sum(${tabunganTransaksi.nominal})` }).from(tabunganTransaksi).where(and(
-                sql`${tabunganTransaksi.createdAt} >= ${startOfDay.getTime()}`,
-                sql`${tabunganTransaksi.createdAt} <= ${endOfDay.getTime()}`,
+                gte(tabunganTransaksi.createdAt, startOfDay),
+                lte(tabunganTransaksi.createdAt, endOfDay),
                 eq(tabunganTransaksi.tipe, "setor"),
                 eq(tabunganTransaksi.status, "verified")
             )),
             // Today Withdraw
             db.select({ sum: sql<number>`sum(${tabunganTransaksi.nominal})` }).from(tabunganTransaksi).where(and(
-                sql`${tabunganTransaksi.createdAt} >= ${startOfDay.getTime()}`,
-                sql`${tabunganTransaksi.createdAt} <= ${endOfDay.getTime()}`,
+                gte(tabunganTransaksi.createdAt, startOfDay),
+                lte(tabunganTransaksi.createdAt, endOfDay),
                 eq(tabunganTransaksi.tipe, "tarik"),
                 eq(tabunganTransaksi.status, "verified")
             )),
@@ -744,16 +754,16 @@ export async function getTransactionTrend(days = 7): Promise<{ date: string; set
             db.select({ sum: sql<number>`sum(${tabunganTransaksi.nominal})` })
                 .from(tabunganTransaksi)
                 .where(and(
-                    sql`${tabunganTransaksi.createdAt} >= ${date.getTime()}`,
-                    sql`${tabunganTransaksi.createdAt} <= ${endDate.getTime()}`,
+                    gte(tabunganTransaksi.createdAt, date),
+                    lte(tabunganTransaksi.createdAt, endDate),
                     eq(tabunganTransaksi.tipe, "setor"),
                     eq(tabunganTransaksi.status, "verified")
                 )),
             db.select({ sum: sql<number>`sum(${tabunganTransaksi.nominal})` })
                 .from(tabunganTransaksi)
                 .where(and(
-                    sql`${tabunganTransaksi.createdAt} >= ${date.getTime()}`,
-                    sql`${tabunganTransaksi.createdAt} <= ${endDate.getTime()}`,
+                    gte(tabunganTransaksi.createdAt, date),
+                    lte(tabunganTransaksi.createdAt, endDate),
                     eq(tabunganTransaksi.tipe, "tarik"),
                     eq(tabunganTransaksi.status, "verified")
                 )),

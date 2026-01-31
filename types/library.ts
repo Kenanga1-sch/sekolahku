@@ -2,7 +2,7 @@
 // Library Module Types (Drizzle)
 // ==========================================
 
-// Base record (Removed PocketBase dependency)
+// Base record
 export interface BaseRecord {
     id: string;
     createdAt: Date;
@@ -10,7 +10,7 @@ export interface BaseRecord {
 }
 
 // ==========================================
-// Library Items (Books)
+// Library Catalog (Bibliographic Data)
 // ==========================================
 
 export type ItemCategory =
@@ -21,35 +21,49 @@ export type ItemCategory =
     | "MAGAZINE"
     | "OTHER";
 
-export type ItemStatus = "AVAILABLE" | "BORROWED";
-
-export interface LibraryItem extends BaseRecord {
+export interface LibraryCatalog extends BaseRecord {
+    isbn: string | null;
     title: string;
     author: string | null;
-    isbn: string | null;
     publisher: string | null;
     year: number | null;
     category: ItemCategory;
-    location: string | null;
     description: string | null;
-    qrCode: string; // camelCase
-    status: ItemStatus;
     cover: string | null;
 }
+
+// ==========================================
+// Library Assets (Physical Items)
+// ==========================================
+
+export type ItemStatus = "AVAILABLE" | "BORROWED" | "DAMAGED" | "LOST";
+
+export interface LibraryAsset extends BaseRecord {
+    catalogId: string;
+    status: ItemStatus;
+    location: string | null;
+    condition: string | null;
+
+    // Joined relation
+    catalog?: LibraryCatalog | null;
+}
+
+// Legacy alias for compatibility
+export type LibraryItem = LibraryAsset;
 
 // ==========================================
 // Library Members
 // ==========================================
 
 export interface LibraryMember extends BaseRecord {
-    userId: string | null; // camelCase
+    userId: string | null;
     name: string;
-    className: string | null; // camelCase
-    studentId: string | null; // camelCase
-    qrCode: string; // camelCase
-    maxBorrowLimit: number; // camelCase
+    className: string | null;
+    studentId: string | null;
+    qrCode: string;
+    maxBorrowLimit: number;
     photo: string | null;
-    isActive: boolean; // camelCase
+    isActive: boolean;
 }
 
 // ==========================================
@@ -57,19 +71,19 @@ export interface LibraryMember extends BaseRecord {
 // ==========================================
 
 export interface LibraryLoan extends BaseRecord {
-    memberId: string; // camelCase
-    itemId: string; // camelCase
-    borrowDate: Date; // Date object
-    dueDate: Date; // Date object
-    returnDate: Date | null; // Date object
-    isReturned: boolean; // camelCase
-    fineAmount: number; // camelCase
-    finePaid: boolean; // camelCase
+    memberId: string;
+    itemId: string; // Refers to Asset ID (QR Code)
+    borrowDate: Date;
+    dueDate: Date;
+    returnDate: Date | null;
+    isReturned: boolean;
+    fineAmount: number;
+    finePaid: boolean;
     notes: string | null;
     
-    // Expanded relations (manual join or with)
+    // Expanded relations
     member?: LibraryMember | null;
-    item?: LibraryItem | null;
+    item?: LibraryAsset | null;
 }
 
 // ==========================================
@@ -77,9 +91,9 @@ export interface LibraryLoan extends BaseRecord {
 // ==========================================
 
 export interface LibraryVisit extends BaseRecord {
-    memberId: string; // camelCase
+    memberId: string;
     date: string; // YYYY-MM-DD
-    timestamp: Date; // Date object
+    timestamp: Date;
     
     member?: LibraryMember | null;
 }
@@ -95,6 +109,7 @@ import {
 } from "@/lib/validations/library";
 import { z } from "zod";
 
+// Updated to use Catalog schemas eventually, but for now compat
 export type LibraryItemFormData = z.infer<typeof createItemSchema>;
 export type LibraryMemberFormData = z.infer<typeof createMemberSchema>;
 export type LoanFormData = z.infer<typeof createLoanSchema>;

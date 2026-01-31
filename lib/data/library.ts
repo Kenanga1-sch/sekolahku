@@ -1,6 +1,6 @@
 
 import { db } from "@/db";
-import { libraryItems, libraryMembers, libraryLoans, libraryVisits } from "@/db/schema/library";
+import { libraryAssets, libraryMembers, libraryLoans, libraryVisits } from "@/db/schema/library";
 import { eq, sql, lt, and, count, desc } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 
@@ -20,9 +20,9 @@ export const getCachedLibraryStats = unstable_cache(
                 overdue,
                 todayVisits
             ] = await Promise.all([
-                db.select({ count: count() }).from(libraryItems),
-                db.select({ count: count() }).from(libraryItems).where(eq(libraryItems.status, "AVAILABLE")),
-                db.select({ count: count() }).from(libraryItems).where(eq(libraryItems.status, "BORROWED")),
+                db.select({ count: count() }).from(libraryAssets),
+                db.select({ count: count() }).from(libraryAssets).where(eq(libraryAssets.status, "AVAILABLE")),
+                db.select({ count: count() }).from(libraryAssets).where(eq(libraryAssets.status, "BORROWED")),
                 db.select({ count: count() }).from(libraryMembers).where(eq(libraryMembers.isActive, true)),
                 db.select({ count: count() }).from(libraryLoans).where(eq(libraryLoans.isReturned, false)),
                 db.select({ count: count() }).from(libraryLoans).where(and(eq(libraryLoans.isReturned, false), lt(libraryLoans.dueDate, new Date()))),

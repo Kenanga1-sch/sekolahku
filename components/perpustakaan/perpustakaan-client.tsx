@@ -7,6 +7,7 @@ import {
     BookOpen,
     Users,
     BookMarked,
+    QrCode,
     ArrowRight,
     TrendingUp,
     AlertTriangle,
@@ -136,6 +137,12 @@ export default function PerpustakaanClient({ initialStats }: PerpustakaanClientP
     ];
 
     const menuItems = [
+        {
+            title: "Binding Buku Baru",
+            description: "Hubungkan QR Code fisik dengan data ISBN/Katalog",
+            href: "/perpustakaan/binding",
+            icon: QrCode,
+        },
         {
             title: "Kelola Buku",
             description: "Tambah, edit, dan hapus koleksi buku",
