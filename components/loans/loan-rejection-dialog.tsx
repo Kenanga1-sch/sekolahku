@@ -50,7 +50,7 @@ export default function LoanRejectionDialog({ loan, open, onOpenChange, onSucces
       if (!loan?.id) return;
       const res = await rejectLoan(loan.id, values.reason);
       if (res.success) {
-        showSuccess(res.message);
+        showSuccess(res.message || "Pinjaman ditolak");
         onOpenChange(false);
         onSuccess();
       } else {
@@ -84,7 +84,8 @@ export default function LoanRejectionDialog({ loan, open, onOpenChange, onSucces
             </div>
 
             <FormField
-              control={form.control}
+              control={form.control as any}
+             
               name="reason"
               render={({ field }) => (
                 <FormItem>

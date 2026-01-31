@@ -14,17 +14,7 @@ import type { SPMBPeriod, SPMBRegistrant, NewSPMBRegistrant } from "@/db/schema/
 // Periods
 // ==========================================
 
-export const DOCUMENT_LABELS: Record<string, string> = {
-    kk: "Kartu Keluarga",
-    akte: "Akta Kelahiran",
-    ktp_ayah: "KTP Ayah",
-    ktp_ibu: "KTP Ibu",
-    pas_foto: "Pas Foto",
-    ijazah: "Ijazah / SKL",
-    kip: "Kartu Indonesia Pintar (KIP)",
-    kps: "Kartu Perlindungan Sosial (KPS/PKH)",
-    other: "Dokumen Lainnya"
-};
+import { DOCUMENT_LABELS } from "@/types/spmb";
 
 export async function getActivePeriod(): Promise<SPMBPeriod | null> {
     const [period] = await db.select()

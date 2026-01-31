@@ -6,8 +6,9 @@ import { eq } from "drizzle-orm";
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const session = await auth();
     if (!session) {
@@ -15,7 +16,7 @@ export async function GET(
     }
 
     const item = await db.query.inventoryItems.findFirst({
-      where: eq(inventoryItems.id, params.id),
+      where: eq(inventoryItems.id, id),
       with: {
         transactions: true,
       }
@@ -34,8 +35,9 @@ export async function GET(
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const session = await auth();
     if (!session) {
@@ -57,7 +59,7 @@ export async function PATCH(
         location,
         updatedAt: new Date(),
       })
-      .where(eq(inventoryItems.id, params.id))
+      .where(eq(inventoryItems.id, id))
       .returning();
 
     return NextResponse.json(updatedItem[0]);
@@ -69,8 +71,9 @@ export async function PATCH(
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const session = await auth();
     if (!session) {
@@ -79,7 +82,7 @@ export async function DELETE(
 
     // Check if item has transactions
     const item = await db.query.inventoryItems.findFirst({
-        where: eq(inventoryItems.id, params.id),
+        where: eq(inventoryItems.id, id),
         with: {
             transactions: true
         }
@@ -89,7 +92,7 @@ export async function DELETE(
         return new NextResponse("Cannot delete item with existing transactions. Archive it instead.", { status: 400 });
     }
 
-    await db.delete(inventoryItems).where(eq(inventoryItems.id, params.id));
+    await db.delete(inventoryItems).where(eq(inventoryItems.id, id));
 
     return new NextResponse(null, { status: 204 });
   } catch (error) {

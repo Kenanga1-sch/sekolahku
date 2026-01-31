@@ -386,18 +386,29 @@ export async function getTransaksi(
 // ==========================================
 
 export async function getOpenTransactions(guruId: string): Promise<TabunganTransaksiWithRelations[]> {
-    return await db.query.tabunganTransaksi.findMany({
-        where: and(
+    const rows = await db
+        .select({
+            transaksi: tabunganTransaksi,
+            siswa: tabunganSiswa,
+            kelas: tabunganKelas,
+            user: users,
+        })
+        .from(tabunganTransaksi)
+        .leftJoin(tabunganSiswa, eq(tabunganTransaksi.siswaId, tabunganSiswa.id))
+        .leftJoin(tabunganKelas, eq(tabunganSiswa.kelasId, tabunganKelas.id))
+        .leftJoin(users, eq(tabunganTransaksi.userId, users.id))
+        .where(and(
             eq(tabunganTransaksi.userId, guruId),
             sql`${tabunganTransaksi.setoranId} IS NULL`,
-            eq(tabunganTransaksi.status, "verified") // All successful inputs are 'verified' now
-        ),
-        with: {
-            siswa: { with: { kelas: true } },
-            user: true,
-        },
-        orderBy: [desc(tabunganTransaksi.createdAt)],
-    });
+            eq(tabunganTransaksi.status, "verified")
+        ))
+        .orderBy(desc(tabunganTransaksi.createdAt));
+
+    return rows.map(({ transaksi, siswa, kelas, user }) => ({
+        ...transaksi,
+        siswa: siswa ? { ...siswa, kelas: kelas || null } : null,
+        user: user ? { name: user.fullName || "", email: user.email } : null,
+    })) as TabunganTransaksiWithRelations[];
 }
 
 export async function createTransaksi(
@@ -408,8 +419,9 @@ export async function createTransaksi(
         // 1. Create Transaction (Status Verified)
         const [newTx] = tx.insert(tabunganTransaksi).values({
             ...data,
+            tipe: (data as any).type || (data as any).tipe, // Map type to tipe
             userId,
-            status: "verified", // Immediate verification by teacher
+            status: "verified",
             createdAt: new Date(),
             updatedAt: new Date(),
         } as any).returning().all();
@@ -420,7 +432,8 @@ export async function createTransaksi(
         if (!siswa) throw new Error("Siswa not found");
 
         let newSaldo = siswa.saldoTerakhir;
-        if (data.tipe === "setor") {
+        const currentTipe = (data as any).type || (data as any).tipe;
+        if (currentTipe === "setor") {
             newSaldo += data.nominal;
         } else {
             newSaldo -= data.nominal;

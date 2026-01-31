@@ -46,6 +46,15 @@ export interface LibraryAsset extends BaseRecord {
 
     // Joined relation
     catalog?: LibraryCatalog | null;
+
+    // Flattened properties for convenience (from joined catalog)
+    title: string;
+    author: string | null;
+    isbn: string | null;
+    publisher: string | null;
+    year: number | null;
+    category: ItemCategory;
+    description: string | null;
 }
 
 // Legacy alias for compatibility

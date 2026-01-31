@@ -4,14 +4,15 @@ import { db, academicYears } from "@/db";
 import { auth } from "@/auth";
 import { eq } from "drizzle-orm";
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+    const { id: idFromParams } = await params;
     try {
         const session = await auth();
         if (!session || !["admin", "superadmin"].includes(session.user.role)) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const { id } = params;
+        const id = idFromParams;
         const body = await req.json();
 
         // If setting as active, deactivate others
@@ -38,14 +39,15 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     }
 }
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+    const { id: idFromParams } = await params;
     try {
         const session = await auth();
         if (!session || !["admin", "superadmin"].includes(session.user.role)) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const { id } = params;
+        const id = idFromParams;
         
         // Check if active?
         const check = await db.select().from(academicYears).where(eq(academicYears.id, id));

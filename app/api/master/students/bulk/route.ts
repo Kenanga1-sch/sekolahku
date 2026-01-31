@@ -39,7 +39,7 @@ export async function POST(req: Request) {
                 nis: row.nis ? String(row.nis) : null,
                 nisn: row.nisn ? String(row.nisn) : null,
                 nik: row.nik ? String(row.nik) : null,
-                gender: (row.gender === "L" || row.jk === "L") ? "L" : "P",
+                gender: ((row.gender === "L" || row.jk === "L") ? "L" : "P") as "L" | "P",
                 classId: classId, // Link to real class
                 className: className, // Keep legacy string too
                 status: row.status || "active",

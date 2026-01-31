@@ -99,7 +99,7 @@ export const DesktopSidebar = ({
         onMouseLeave={() => setOpen(false)}
         {...props}
       >
-        {children}
+        {children as any}
       </motion.div>
     </>
   );
@@ -113,7 +113,7 @@ export const MobileSidebar = ({
   const { open, setOpen } = useSidebar();
   return (
     <>
-      <div
+      <motion.div
         className={cn(
           "h-10 px-4 py-4 flex flex-row md:hidden  items-center justify-between bg-neutral-100 dark:bg-neutral-800 w-full"
         )}
@@ -146,11 +146,11 @@ export const MobileSidebar = ({
               >
                 <IconX />
               </div>
-              {children}
+              {children as any}
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+      </motion.div>
     </>
   );
 };

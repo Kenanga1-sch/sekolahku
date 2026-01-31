@@ -9,9 +9,10 @@ interface Params {
 }
 
 // GET /api/tabungan/siswa/[id]
-export async function GET(request: NextRequest, { params }: Params) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     try {
-        const result = await getSiswaById(params.id);
+        const result = await getSiswaById(id);
         if (!result) return NextResponse.json({ error: "Not found" }, { status: 404 });
         return NextResponse.json(result);
     } catch (error) {
@@ -24,11 +25,12 @@ export async function GET(request: NextRequest, { params }: Params) {
 }
 
 // PUT /api/tabungan/siswa/[id]
-export async function PUT(request: NextRequest, { params }: Params) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     try {
         const session = await auth();
         if (session?.user?.role === "guru") {
-            const student = await getSiswaById(params.id);
+            const student = await getSiswaById(id);
             if (!student) return NextResponse.json({ error: "Not found" }, { status: 404 });
             
             // Check if teacher owns the class of this student
@@ -38,7 +40,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
         }
         
         const body = await request.json();
-        const updated = await updateSiswa(params.id, body);
+        const updated = await updateSiswa(id, body);
         return NextResponse.json(updated);
     } catch (error) {
         console.error("Failed to update siswa:", error);
@@ -50,11 +52,12 @@ export async function PUT(request: NextRequest, { params }: Params) {
 }
 
 // DELETE /api/tabungan/siswa/[id]
-export async function DELETE(request: NextRequest, { params }: Params) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     try {
         const session = await auth();
         if (session?.user?.role === "guru") {
-            const student = await getSiswaById(params.id);
+            const student = await getSiswaById(id);
             if (!student) return NextResponse.json({ error: "Not found" }, { status: 404 });
             
             if (student.kelas?.waliKelas !== session.user.id) {
@@ -62,7 +65,7 @@ export async function DELETE(request: NextRequest, { params }: Params) {
             }
         }
 
-        await deleteSiswa(params.id);
+        await deleteSiswa(id);
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error("Failed to delete siswa:", error);

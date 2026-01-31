@@ -9,8 +9,9 @@ import { existsSync, mkdirSync } from "fs";
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const session = await auth();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -18,7 +19,7 @@ export async function GET(
     const docs = await db
         .select()
         .from(studentDocuments)
-        .where(eq(studentDocuments.studentId, params.id))
+        .where(eq(studentDocuments.studentId, id))
         .orderBy(desc(studentDocuments.uploadedAt));
 
     return NextResponse.json(docs);
@@ -29,8 +30,9 @@ export async function GET(
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const session = await auth();
     if (!session || !["admin", "superadmin", "guru"].includes(session.user.role)) {
@@ -55,7 +57,7 @@ export async function POST(
 
     // Generate filename
     const ext = file.name.split('.').pop();
-    const filename = `${params.id}-${Date.now()}.${ext}`;
+    const filename = `${id}-${Date.now()}.${ext}`;
     const filePath = join(uploadDir, filename);
 
     // Write file
@@ -63,7 +65,7 @@ export async function POST(
 
     // Save to DB
     const newDoc = await db.insert(studentDocuments).values({
-        studentId: params.id,
+        studentId: id,
         title: title || file.name,
         type: type || "lainnya",
         fileUrl: `/uploads/documents/students/${filename}`,
@@ -82,7 +84,10 @@ export async function POST(
 
 export async function DELETE(
     req: Request,
-    { params }: { params: { id: string } } // This ID is actually STUDENT ID based on folder structure, wait. 
+    { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+    // This ID is actually STUDENT ID based on folder structure, wait. 
     // Usually DELETE is on /api/resource/[id]. here the route is /api/master/students/[id]/documents.
     // So DELETE here would be deleting ALL? No.
     // I should probably make a separate route /api/master/students/documents/[docId] OR handle DELETE with a query param or body on this route.
@@ -90,7 +95,7 @@ export async function DELETE(
     // FOR NOW, to save time/files, I will accept an 'id' in the body or query param to delete a specific doc? 
     // No, that's messy. I will create a separate route for DELETE if strictly RESTful, 
     // OR I can just use a query param `docId` on DELETE.
-) {
+    // NOID: docId from query param
      // Let's implement DELETE /api/master/documents/[docId] instead?
      // Or just put it here with searchParams.
      const { searchParams } = new URL(req.url);

@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
         const validated = bindAssetSchema.parse(body);
 
         // 1. Get or Create Catalog
-        const catalog = await getOrCreateCatalog(validated.catalog);
+        const catalog = await getOrCreateCatalog(validated.catalog as any);
 
         // 2. Bind Asset
         const asset = await bindAsset(validated.qrCode, catalog.id, validated.location);

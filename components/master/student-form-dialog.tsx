@@ -20,7 +20,7 @@ const studentSchema = z.object({
   nis: z.string().optional(),
   nisn: z.string().optional(),
   nik: z.string().optional(),
-  gender: z.enum(["L", "P"], { required_error: "Pilih jenis kelamin" }),
+  gender: z.enum(["L", "P"]),
   birthPlace: z.string().optional(),
   birthDate: z.string().optional(), // YYYY-MM-DD
   religion: z.string().optional(),
@@ -48,7 +48,7 @@ export function StudentFormDialog({ open, onOpenChange, studentId, onSuccess }: 
   const [classes, setClasses] = useState<{id: string, name: string}[]>([]);
 
   const form = useForm<StudentFormValues>({
-    resolver: zodResolver(studentSchema),
+    resolver: zodResolver(studentSchema) as any,
     defaultValues: {
       fullName: "",
       gender: "L",
@@ -59,7 +59,7 @@ export function StudentFormDialog({ open, onOpenChange, studentId, onSuccess }: 
   useEffect(() => {
       fetch("/api/academic/classes")
           .then(res => res.json())
-          .then(data => setClasses(data))
+          .then(data => setClasses(data as any[]))
           .catch(err => console.error("Failed to load classes", err));
   }, []);
 
@@ -129,7 +129,7 @@ export function StudentFormDialog({ open, onOpenChange, studentId, onSuccess }: 
                 {/* TAB 1: IDENTITY */}
                 <TabsContent value="identity" className="space-y-4">
                     <FormField
-                        control={form.control}
+                        control={form.control as any}
                         name="fullName"
                         render={({ field }) => (
                             <FormItem>
@@ -141,7 +141,7 @@ export function StudentFormDialog({ open, onOpenChange, studentId, onSuccess }: 
                     />
                     <div className="grid grid-cols-2 gap-4">
                         <FormField
-                            control={form.control}
+                            control={form.control as any}
                             name="nisn"
                             render={({ field }) => (
                                 <FormItem>
@@ -152,7 +152,7 @@ export function StudentFormDialog({ open, onOpenChange, studentId, onSuccess }: 
                             )}
                         />
                          <FormField
-                            control={form.control}
+                            control={form.control as any}
                             name="nis"
                             render={({ field }) => (
                                 <FormItem>
@@ -165,7 +165,7 @@ export function StudentFormDialog({ open, onOpenChange, studentId, onSuccess }: 
                     </div>
                      <div className="grid grid-cols-2 gap-4">
                          <FormField
-                            control={form.control}
+                            control={form.control as any}
                             name="nik"
                             render={({ field }) => (
                                 <FormItem>
@@ -176,7 +176,7 @@ export function StudentFormDialog({ open, onOpenChange, studentId, onSuccess }: 
                             )}
                         />
                         <FormField
-                            control={form.control}
+                            control={form.control as any}
                             name="gender"
                             render={({ field }) => (
                                 <FormItem>
@@ -198,7 +198,7 @@ export function StudentFormDialog({ open, onOpenChange, studentId, onSuccess }: 
                         />
                     </div>
                      <FormField
-                        control={form.control}
+                        control={form.control as any}
                         name="birthDate"
                         render={({ field }) => (
                             <FormItem>
@@ -213,7 +213,7 @@ export function StudentFormDialog({ open, onOpenChange, studentId, onSuccess }: 
                 {/* TAB 2: ACADEMIC */}
                 <TabsContent value="academic" className="space-y-4">
                     <FormField
-                        control={form.control}
+                        control={form.control as any}
                         name="classId"
                         render={({ field }) => (
                             <FormItem>
@@ -240,7 +240,7 @@ export function StudentFormDialog({ open, onOpenChange, studentId, onSuccess }: 
                 <TabsContent value="parents" className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                         <FormField
-                            control={form.control}
+                            control={form.control as any}
                             name="fatherName"
                             render={({ field }) => (
                                 <FormItem>
@@ -251,7 +251,7 @@ export function StudentFormDialog({ open, onOpenChange, studentId, onSuccess }: 
                             )}
                         />
                         <FormField
-                            control={form.control}
+                            control={form.control as any}
                             name="motherName"
                             render={({ field }) => (
                                 <FormItem>
@@ -263,7 +263,7 @@ export function StudentFormDialog({ open, onOpenChange, studentId, onSuccess }: 
                         />
                     </div>
                     <FormField
-                        control={form.control}
+                        control={form.control as any}
                         name="parentPhone"
                         render={({ field }) => (
                             <FormItem>

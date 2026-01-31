@@ -4,12 +4,13 @@ import { db, students, studentClasses } from "@/db";
 import { auth } from "@/auth";
 import { eq } from "drizzle-orm";
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+    const { id: idFromParams } = await params;
     try {
         const session = await auth();
         if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-        const { id } = params;
+        const id = idFromParams;
 
         const data = await db.select({
             student: students,
@@ -36,14 +37,15 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     }
 }
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
+    const { id: idFromParams } = await params;
     try {
         const session = await auth();
         if (!session || !["admin", "superadmin"].includes(session.user.role)) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const { id } = params;
+        const id = idFromParams;
         const body = await req.json();
 
         // Prevent modifying ID or critical system fields if any
@@ -73,14 +75,15 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     }
 }
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+    const { id: idFromParams } = await params;
     try {
         const session = await auth();
         if (!session || !["admin", "superadmin"].includes(session.user.role)) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const { id } = params;
+        const id = idFromParams;
         
         // Hard Delete
         // In real world, maybe check for related data (Tabungan etc) before deleting?

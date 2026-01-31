@@ -6,8 +6,9 @@ import { auth } from "@/auth";
 
 export async function PATCH(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
+    const { id } = await params;
     try {
         const session = await auth();
         if (!session) {
@@ -40,7 +41,7 @@ export async function PATCH(
 
         const [updated] = await db.update(disposisi)
             .set(updates)
-            .where(eq(disposisi.id, params.id))
+            .where(eq(disposisi.id, id))
             .returning();
             
         // Check if all dispositions for this surat are complete?
@@ -60,15 +61,16 @@ export async function PATCH(
 
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
+    const { id } = await params;
     try {
         const session = await auth();
         if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
         // Logic: Only creator can delete?
         
-        await db.delete(disposisi).where(eq(disposisi.id, params.id));
+        await db.delete(disposisi).where(eq(disposisi.id, id));
         return NextResponse.json({ success: true });
 
     } catch (error) {

@@ -182,7 +182,15 @@ export async function getLibraryAssets(
 
     const items = rows.map(r => ({
         ...r.asset,
-        catalog: r.catalog
+        catalog: r.catalog,
+        // Flattened properties for UI compatibility
+        title: r.catalog?.title,
+        author: r.catalog?.author,
+        isbn: r.catalog?.isbn,
+        publisher: r.catalog?.publisher,
+        year: r.catalog?.year,
+        category: r.catalog?.category,
+        description: r.catalog?.description,
     }));
 
     return { items, totalPages, totalItems };
@@ -202,7 +210,18 @@ export async function getAssetByQRCode(qrCode: string): Promise<any | null> {
     .limit(1);
 
     if (!row) return null;
-    return { ...row.asset, catalog: row.catalog };
+    return { 
+        ...row.asset, 
+        catalog: row.catalog,
+        // Flattened properties
+        title: row.catalog?.title,
+        author: row.catalog?.author,
+        isbn: row.catalog?.isbn,
+        publisher: row.catalog?.publisher,
+        year: row.catalog?.year,
+        category: row.catalog?.category,
+        description: row.catalog?.description,
+    };
 }
 
 // Legacy aliases for compatibility
@@ -307,6 +326,26 @@ export async function createLibraryMember(data: Partial<LibraryMember>): Promise
         updatedAt: new Date(),
     } as any).returning();
     return newMember as LibraryMember;
+}
+
+export async function updateLibraryMember(id: string, data: Partial<LibraryMember>): Promise<LibraryMember> {
+    const [updated] = await db.update(libraryMembers)
+        .set({
+            ...data,
+            updatedAt: new Date(),
+        } as any)
+        .where(eq(libraryMembers.id, id))
+        .returning();
+    return updated as LibraryMember;
+}
+
+export async function deleteLibraryMember(id: string): Promise<boolean> {
+    // Soft delete by setting isActive to false
+    const [result] = await db.update(libraryMembers)
+        .set({ isActive: false, updatedAt: new Date() } as any)
+        .where(eq(libraryMembers.id, id))
+        .returning();
+    return !!result;
 }
 
 // ==========================================
@@ -605,4 +644,95 @@ export async function findLoanByItemId(itemId: string) {
         ...row.loan,
         member: row.member
     };
+}
+
+// ==========================================
+// Dashboard & Stats Helpers
+// ==========================================
+
+export async function getRecentActivity(limit = 10) {
+    const rows = await db.select({
+        loan: libraryLoans,
+        member: libraryMembers,
+        catalog: libraryCatalog,
+        asset: libraryAssets
+    })
+    .from(libraryLoans)
+    .leftJoin(libraryMembers, eq(libraryLoans.memberId, libraryMembers.id))
+    .leftJoin(libraryAssets, eq(libraryLoans.itemId, libraryAssets.id))
+    .leftJoin(libraryCatalog, eq(libraryAssets.catalogId, libraryCatalog.id))
+    .orderBy(desc(libraryLoans.createdAt))
+    .limit(limit);
+
+    return rows.map(r => ({
+        id: r.loan.id,
+        type: r.loan.isReturned ? "RETURN" : "BORROW",
+        date: r.loan.createdAt,
+        memberName: r.member?.name || "Unknown",
+        bookTitle: r.catalog?.title || "Unknown Book",
+    }));
+}
+
+export async function getLoanTrend(days = 7) {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    const rows = await db.select({
+        date: sql<string>`DATE(${libraryLoans.borrowDate})`,
+        count: sql<number>`count(*)`
+    })
+    .from(libraryLoans)
+    .where(gte(libraryLoans.borrowDate, startDate))
+    .groupBy(sql`DATE(${libraryLoans.borrowDate})`)
+    .orderBy(asc(sql`DATE(${libraryLoans.borrowDate})`));
+
+    return rows;
+}
+
+export async function getCategoryDistribution() {
+    const rows = await db.select({
+        category: libraryCatalog.category,
+        count: sql<number>`count(*)`
+    })
+    .from(libraryCatalog)
+    .groupBy(libraryCatalog.category);
+
+    return rows;
+}
+
+export async function getTopBorrowedBooks(limit = 5) {
+    const rows = await db.select({
+        title: libraryCatalog.title,
+        count: sql<number>`count(*)`
+    })
+    .from(libraryLoans)
+    .leftJoin(libraryAssets, eq(libraryLoans.itemId, libraryAssets.id))
+    .leftJoin(libraryCatalog, eq(libraryAssets.catalogId, libraryCatalog.id))
+    .groupBy(libraryCatalog.title)
+    .orderBy(desc(sql`count(*)`))
+    .limit(limit);
+
+    return rows;
+}
+
+export async function getTopActiveMembers(limit = 5) {
+    const rows = await db.select({
+        name: libraryMembers.name,
+        count: sql<number>`count(*)`
+    })
+    .from(libraryLoans)
+    .leftJoin(libraryMembers, eq(libraryLoans.memberId, libraryMembers.id))
+    .groupBy(libraryMembers.name)
+    .orderBy(desc(sql`count(*)`))
+    .limit(limit);
+
+    return rows;
+}
+
+export async function hasVisitedToday(memberId: string): Promise<boolean> {
+    const todayStr = new Date().toISOString().split("T")[0];
+    const [existing] = await db.select().from(libraryVisits)
+        .where(and(eq(libraryVisits.memberId, memberId), eq(libraryVisits.date, todayStr)))
+        .limit(1);
+    return !!existing;
 }
