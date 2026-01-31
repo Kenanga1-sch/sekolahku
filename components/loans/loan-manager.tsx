@@ -51,7 +51,7 @@ export default function LoanManager() {
     const fetchLoans = async () => {
         setIsLoading(true);
         try {
-            const res = await getLoans();
+            const res = await getLoans("RECEIVABLE");
             if (res.success && res.data) {
                  setLoans(res.data);
             }

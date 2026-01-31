@@ -110,97 +110,97 @@ export async function DELETE(
     }
 
     // Manual cleanup of related records to avoid FK constraints
-    await db.transaction(async (tx) => {
+    db.transaction((tx) => {
       // 1. MISC: Nullify author in announcements
-      await tx.update(announcements)
+      tx.update(announcements)
         .set({ authorId: null })
-        .where(eq(announcements.authorId, params.id));
+        .where(eq(announcements.authorId, params.id))
+        .run();
 
       // 2. MISC: Delete audit logs
-      await tx.delete(auditLogs).where(eq(auditLogs.userId, params.id));
+      tx.delete(auditLogs).where(eq(auditLogs.userId, params.id)).run();
 
       // 3. TABUNGAN: Nullify waliKelas in classes
-      await tx.update(tabunganKelas)
+      tx.update(tabunganKelas)
         .set({ waliKelas: null })
-        .where(eq(tabunganKelas.waliKelas, params.id));
+        .where(eq(tabunganKelas.waliKelas, params.id))
+        .run();
       
       // DELETE transactions created by this user (Staff) instead of nullifying
       // because userId is NOT NULL in schema
-      await tx.delete(tabunganTransaksi)
-        .where(eq(tabunganTransaksi.userId, params.id));
+      tx.delete(tabunganTransaksi)
+        .where(eq(tabunganTransaksi.userId, params.id))
+        .run();
         
       // Also nullify verifier if exists (verifiedBy is nullable)
-      await tx.update(tabunganTransaksi)
+      tx.update(tabunganTransaksi)
         .set({ verifiedBy: null })
-        .where(eq(tabunganTransaksi.verifiedBy, params.id));
+        .where(eq(tabunganTransaksi.verifiedBy, params.id))
+        .run();
 
       // 4. SPMB: Nullify verifiedBy in registrants
-      await tx.update(spmbRegistrants)
+      tx.update(spmbRegistrants)
         .set({ verifiedBy: null })
-        .where(eq(spmbRegistrants.verifiedBy, params.id));
+        .where(eq(spmbRegistrants.verifiedBy, params.id))
+        .run();
 
       // 5. INVENTORY: Nullify userId in audit (inventory)
-      // userId is nullable in schema
-      await tx.update(inventoryAudit)
+      tx.update(inventoryAudit)
         .set({ userId: null })
-        .where(eq(inventoryAudit.userId, params.id));
+        .where(eq(inventoryAudit.userId, params.id))
+        .run();
         
-      // Inventory Transactions: userId is nullable? Check schema.
-      // Schema says: userId: text("user_id").references(() => users.id) -- default strictness? 
-      // Usually drizzle references are nullable by default unless .notNull() is called.
-      // Let's assume nullable.
-
       // 6. LIBRARY: Nullify userId in library members (if linked)
-      await tx.update(libraryMembers)
+      tx.update(libraryMembers)
         .set({ userId: null })
-        .where(eq(libraryMembers.userId, params.id));
+        .where(eq(libraryMembers.userId, params.id))
+        .run();
       
       // 7. ALUMNI: Nullify verifiedBy, uploadedBy, handedOverBy in docs
-      await tx.update(alumniDocuments)
+      tx.update(alumniDocuments)
         .set({ uploadedBy: null })
-        .where(eq(alumniDocuments.uploadedBy, params.id));
+        .where(eq(alumniDocuments.uploadedBy, params.id))
+        .run();
       
-      await tx.update(alumniDocuments)
+      tx.update(alumniDocuments)
         .set({ verifiedBy: null })
-        .where(eq(alumniDocuments.verifiedBy, params.id));  
+        .where(eq(alumniDocuments.verifiedBy, params.id))
+        .run();
         
-      await tx.update(documentPickups)
+      tx.update(documentPickups)
         .set({ handedOverBy: null })
-        .where(eq(documentPickups.handedOverBy, params.id));
+        .where(eq(documentPickups.handedOverBy, params.id))
+        .run();
         
       // 8. CURRICULUM (Teacher Data) - Cascade Delete
-      // Delete TPs (will confuse logic but necessary for strict delete)
-      await tx.delete(teacherTp).where(eq(teacherTp.teacherId, params.id));
-      
-      // Delete Journals
-      await tx.delete(classJournals).where(eq(classJournals.teacherId, params.id));
+      tx.delete(teacherTp).where(eq(teacherTp.teacherId, params.id)).run();
+      tx.delete(classJournals).where(eq(classJournals.teacherId, params.id)).run();
 
       // 8.5 ARSIP & INVENTORY (Additional Fix)
-      // Disposisi (NOT NULL fields -> Must delete)
-      await tx.delete(disposisi).where(
+      tx.delete(disposisi).where(
         or(
             eq(disposisi.fromUserId, params.id),
             eq(disposisi.toUserId, params.id)
         )
-      );
+      ).run();
       
-      // Surat Keluar (Nullable)
-      await tx.update(suratKeluar)
+      tx.update(suratKeluar)
         .set({ createdBy: null })
-        .where(eq(suratKeluar.createdBy, params.id));
+        .where(eq(suratKeluar.createdBy, params.id))
+        .run();
         
-      // Inventory Transactions (Nullable)
-      await tx.update(inventoryTransactions)
+      tx.update(inventoryTransactions)
         .set({ userId: null })
-        .where(eq(inventoryTransactions.userId, params.id));
+        .where(eq(inventoryTransactions.userId, params.id))
+        .run();
 
       // 9. AUTH: Delete sessions & accounts & profiles
-      await tx.delete(sessions).where(eq(sessions.userId, params.id));
-      await tx.delete(accounts).where(eq(accounts.userId, params.id));
-      await tx.delete(profiles).where(eq(profiles.userId, params.id));
+      tx.delete(sessions).where(eq(sessions.userId, params.id)).run();
+      tx.delete(accounts).where(eq(accounts.userId, params.id)).run();
+      tx.delete(profiles).where(eq(profiles.userId, params.id)).run();
 
       // 9. Finally delete the user
-      await tx.delete(users).where(eq(users.id, params.id));
+      tx.delete(users).where(eq(users.id, params.id)).run();
     });
 
     return NextResponse.json({ success: true });

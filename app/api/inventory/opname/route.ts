@@ -61,15 +61,15 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { date, room, items, note, auditor } = body;
+    const { date, items, note } = body;
 
     // TODO: Validate items array if needed
 
     const newOpname = await db.insert(inventoryOpname).values({
       id: createId(),
       date: date ? new Date(date) : new Date(),
-      room: room, // roomId
-      auditor: auditor || session.user?.id,
+      roomId: body.roomId,
+      auditorId: body.auditorId || session.user?.id,
       items: items, // JSON
       status: "PENDING",
       note: note,

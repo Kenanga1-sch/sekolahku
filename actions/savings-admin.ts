@@ -131,10 +131,18 @@ export async function verifySetoran(setoranId: string, bendaharaId: string) {
 
 export async function rejectSetoran(setoranId: string, reason?: string) {
   try {
+    const existing = await db.query.tabunganSetoran.findFirst({
+        where: eq(tabunganSetoran.id, setoranId),
+        columns: { catatan: true }
+    });
+
+    const oldCatatan = existing?.catatan || "";
+    const newCatatan = reason ? `${oldCatatan} [REJECTED: ${reason}]`.trim() : oldCatatan;
+
     await db.update(tabunganSetoran)
       .set({ 
         status: "rejected",
-        catatan: reason ? sql`catatan || ' [REJECTED: ' || ${reason} || ']'` : undefined,
+        catatan: newCatatan,
         updatedAt: new Date()
       })
       .where(eq(tabunganSetoran.id, setoranId));
@@ -199,23 +207,23 @@ export async function transferVaultFunds(tipe: "setor_ke_bank" | "tarik_dari_ban
     }
 
     // Perform Transfer
-    await db.transaction(async (tx) => {
+    db.transaction((tx) => {
       // 1. Update Vaults
       if (tipe === "setor_ke_bank") {
-        await tx.update(tabunganBrankas).set({ saldo: cashVault.saldo - nominal }).where(eq(tabunganBrankas.id, cashVault.id));
-        await tx.update(tabunganBrankas).set({ saldo: bankVault.saldo + nominal }).where(eq(tabunganBrankas.id, bankVault.id));
+        tx.update(tabunganBrankas).set({ saldo: cashVault.saldo - nominal }).where(eq(tabunganBrankas.id, cashVault.id)).run();
+        tx.update(tabunganBrankas).set({ saldo: bankVault.saldo + nominal }).where(eq(tabunganBrankas.id, bankVault.id)).run();
       } else {
-        await tx.update(tabunganBrankas).set({ saldo: cashVault.saldo + nominal }).where(eq(tabunganBrankas.id, cashVault.id));
-        await tx.update(tabunganBrankas).set({ saldo: bankVault.saldo - nominal }).where(eq(tabunganBrankas.id, bankVault.id));
+        tx.update(tabunganBrankas).set({ saldo: cashVault.saldo + nominal }).where(eq(tabunganBrankas.id, cashVault.id)).run();
+        tx.update(tabunganBrankas).set({ saldo: bankVault.saldo - nominal }).where(eq(tabunganBrankas.id, bankVault.id)).run();
       }
 
       // 2. Log Transaction
-      await tx.insert(tabunganBrankasTransaksi).values({
+      tx.insert(tabunganBrankasTransaksi).values({
         tipe,
         nominal,
         userId,
         catatan: tipe === "setor_ke_bank" ? "Setor Tunai ke Bank" : "Tarik Tunai dari Bank",
-      });
+      } as any).run();
     });
 
     revalidatePath("/keuangan/tabungan/bendahara");

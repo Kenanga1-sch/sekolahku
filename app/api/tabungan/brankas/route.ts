@@ -12,6 +12,25 @@ export async function GET(request: NextRequest) {
     }
 }
 
+// PATCH /api/tabungan/brankas (Transfer)
+export async function PATCH(request: NextRequest) {
+    try {
+        const body = await request.json();
+        const { fromId, toId, amount, userId, tipe, catatan } = body;
+
+        if (!fromId || !toId || !amount || !tipe) {
+             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+        }
+
+        const { transferBrankas } = await import("@/lib/tabungan");
+        const res = await transferBrankas(fromId, toId, amount, userId, tipe, catatan);
+
+        return NextResponse.json({ success: true, data: res });
+    } catch (error) {
+        return createErrorResponse(error);
+    }
+}
+
 // POST /api/tabungan/brankas
 export async function POST(request: NextRequest) {
     try {

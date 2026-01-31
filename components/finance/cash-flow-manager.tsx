@@ -83,7 +83,7 @@ export default function CashFlowManager() {
         if (!confirm(`Yakin ingin menghapus akun "${name}"?`)) return;
         const res = await deleteAccount(id);
         if (res.success) {
-            showSuccess(res.message);
+            showSuccess(res.message || "Akun berhasil dihapus");
             fetchData();
         } else {
             showError(res.error || "Gagal menghapus akun");
@@ -99,7 +99,7 @@ export default function CashFlowManager() {
         if (!confirm(`Yakin ingin menghapus kategori "${name}"?`)) return;
         const res = await deleteCategory(id);
         if (res.success) {
-            showSuccess(res.message);
+            showSuccess(res.message || "Kategori berhasil dihapus");
             fetchData();
         } else {
             showError(res.error || "Gagal menghapus kategori");
@@ -110,7 +110,7 @@ export default function CashFlowManager() {
         if (!confirm("Hapus transaksi ini?")) return;
         const res = await deleteTransaction(id);
         if (res.success) {
-            showSuccess(res.message);
+            showSuccess(res.message || "Transaksi berhasil dihapus");
             fetchData();
         } else {
             showError(res.error || "Gagal menghapus transaksi");

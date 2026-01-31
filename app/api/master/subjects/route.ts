@@ -25,14 +25,13 @@ export async function POST(req: Request) {
 
         const body = await req.json();
         
-        const newSubject = await db.insert(subjects).values({
-            code: body.code, 
-            name: body.name, 
-            category: body.category || "UMUM", // MUATAN_NASIONAL, MUATAN_KEWILAYAHAN, etc.
-            description: body.description
+        const [subject] = await db.insert(subjects).values({
+            name: body.name,
+            code: body.code,
+            description: body.description,
         }).returning();
 
-        return NextResponse.json(newSubject[0]);
+        return NextResponse.json(subject);
 
     } catch (error: any) {
         console.error(error);

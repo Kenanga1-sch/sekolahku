@@ -5,7 +5,7 @@ import { users } from "./users";
 import { students } from "./students";
 
 // ==========================================
-// Library Items (Books) Table
+// Library Catalog (Bibliographic Data)
 // ==========================================
 
 export const itemCategoryEnum = [
@@ -17,28 +17,21 @@ export const itemCategoryEnum = [
   "OTHER",
 ] as const;
 
-export const itemStatusEnum = ["AVAILABLE", "BORROWED"] as const;
-
-export const libraryItems = sqliteTable(
-  "library_items",
+export const libraryCatalog = sqliteTable(
+  "library_catalog",
   {
     id: text("id")
       .primaryKey()
       .$defaultFn(() => createId()),
+    isbn: text("isbn").unique(),
     title: text("title").notNull(),
     author: text("author"),
-    isbn: text("isbn"),
     publisher: text("publisher"),
     year: integer("year"),
     category: text("category", { enum: itemCategoryEnum })
       .default("OTHER")
       .notNull(),
-    location: text("location"),
     description: text("description"),
-    qrCode: text("qr_code").unique().notNull(),
-    status: text("status", { enum: itemStatusEnum })
-      .default("AVAILABLE")
-      .notNull(),
     cover: text("cover"), // file path
     createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(
       () => new Date()
@@ -48,8 +41,39 @@ export const libraryItems = sqliteTable(
       .$onUpdate(() => new Date()),
   },
   (table) => ({
-    statusIdx: index("idx_item_status").on(table.status),
-    qrCodeIdx: index("idx_item_qr_code").on(table.qrCode),
+    isbnIdx: index("idx_catalog_isbn").on(table.isbn),
+    titleIdx: index("idx_catalog_title").on(table.title),
+  })
+);
+
+// ==========================================
+// Library Assets (Physical Items)
+// ==========================================
+
+export const itemStatusEnum = ["AVAILABLE", "BORROWED", "DAMAGED", "LOST"] as const;
+
+export const libraryAssets = sqliteTable(
+  "library_assets",
+  {
+    id: text("id").primaryKey(), // QR Code is the PK
+    catalogId: text("catalog_id")
+      .notNull()
+      .references(() => libraryCatalog.id, { onDelete: "cascade" }),
+    status: text("status", { enum: itemStatusEnum })
+      .default("AVAILABLE")
+      .notNull(),
+    location: text("location"),
+    condition: text("condition").default("Baik"),
+    createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(
+      () => new Date()
+    ),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .$defaultFn(() => new Date())
+      .$onUpdate(() => new Date()),
+  },
+  (table) => ({
+    catalogIdx: index("idx_asset_catalog").on(table.catalogId),
+    statusIdx: index("idx_asset_status").on(table.status),
   })
 );
 
@@ -99,7 +123,7 @@ export const libraryLoans = sqliteTable(
       .references(() => libraryMembers.id),
     itemId: text("item_id")
       .notNull()
-      .references(() => libraryItems.id),
+      .references(() => libraryAssets.id), // Now references libraryAssets(id) which is QR Code
     borrowDate: integer("borrow_date", { mode: "timestamp" }).notNull(),
     dueDate: integer("due_date", { mode: "timestamp" }).notNull(),
     returnDate: integer("return_date", { mode: "timestamp" }),
@@ -151,7 +175,15 @@ export const libraryVisits = sqliteTable(
 // Relations
 // ==========================================
 
-export const libraryItemsRelations = relations(libraryItems, ({ many }) => ({
+export const libraryCatalogRelations = relations(libraryCatalog, ({ many }) => ({
+  assets: many(libraryAssets),
+}));
+
+export const libraryAssetsRelations = relations(libraryAssets, ({ one, many }) => ({
+  catalog: one(libraryCatalog, {
+    fields: [libraryAssets.catalogId],
+    references: [libraryCatalog.id],
+  }),
   loans: many(libraryLoans),
 }));
 
@@ -172,9 +204,9 @@ export const libraryLoansRelations = relations(libraryLoans, ({ one }) => ({
     fields: [libraryLoans.memberId],
     references: [libraryMembers.id],
   }),
-  item: one(libraryItems, {
+  item: one(libraryAssets, {
     fields: [libraryLoans.itemId],
-    references: [libraryItems.id],
+    references: [libraryAssets.id],
   }),
 }));
 
@@ -189,8 +221,10 @@ export const libraryVisitsRelations = relations(libraryVisits, ({ one }) => ({
 // Types
 // ==========================================
 
-export type LibraryItem = typeof libraryItems.$inferSelect;
-export type NewLibraryItem = typeof libraryItems.$inferInsert;
+export type LibraryCatalog = typeof libraryCatalog.$inferSelect;
+export type NewLibraryCatalog = typeof libraryCatalog.$inferInsert;
+export type LibraryAsset = typeof libraryAssets.$inferSelect;
+export type NewLibraryAsset = typeof libraryAssets.$inferInsert;
 export type LibraryMember = typeof libraryMembers.$inferSelect;
 export type NewLibraryMember = typeof libraryMembers.$inferInsert;
 export type LibraryLoan = typeof libraryLoans.$inferSelect;

@@ -10,6 +10,7 @@ export const userRoleEnum = [
   "superadmin",
   "admin",
   "staff",
+  "librarian",
   "guru",
   "siswa",
   "calon_siswa",
@@ -32,6 +33,7 @@ export const users = sqliteTable("users", {
   role: text("role", { enum: userRoleEnum }).default("user").notNull(),
   fullName: text("full_name"),
   phone: text("phone"),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
   createdAt: integer("created_at", { mode: "timestamp" })
     .$defaultFn(() => new Date()),
   updatedAt: integer("updated_at", { mode: "timestamp" })
@@ -70,27 +72,24 @@ export const accounts = sqliteTable("accounts", {
   id: text("id")
     .primaryKey()
     .$defaultFn(() => createId()),
-  userId: text("user_id")
+  userId: text("userId") // NextAuth expects userId in camelCase in the table if not specified otherwise, but the DB column is text("userId")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   type: text("type").notNull(),
   provider: text("provider").notNull(),
-  providerAccountId: text("provider_account_id").notNull(),
-  refreshToken: text("refresh_token"),
-  accessToken: text("access_token"),
-  expiresAt: integer("expires_at"),
-  tokenType: text("token_type"),
+  providerAccountId: text("providerAccountId").notNull(),
+  refresh_token: text("refresh_token"),
+  access_token: text("access_token"),
+  expires_at: integer("expires_at"),
+  token_type: text("token_type"),
   scope: text("scope"),
-  idToken: text("id_token"),
-  sessionState: text("session_state"),
+  id_token: text("id_token"),
+  session_state: text("session_state"),
 });
 
 export const sessions = sqliteTable("sessions", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => createId()),
-  sessionToken: text("session_token").unique().notNull(),
-  userId: text("user_id")
+  sessionToken: text("sessionToken").primaryKey(),
+  userId: text("userId")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   expires: integer("expires", { mode: "timestamp" }).notNull(),

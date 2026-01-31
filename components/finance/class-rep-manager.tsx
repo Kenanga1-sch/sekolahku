@@ -90,7 +90,7 @@ function ClassRepSelector({ classId, currentRepId, employees }: { classId: strin
       try {
         const res = await assignClassRep(classId, userId);
         if (res.success) {
-          showSuccess(res.message);
+          showSuccess(res.message || "PJ berhasil diperbarui");
           setValue(userId);
           setOpen(false);
         } else {

@@ -95,8 +95,10 @@ const resourceLabels: Record<AuditResource, string> = {
     document: "Dokumen",
 };
 
-function formatDate(dateStr: string): string {
-    return new Date(dateStr).toLocaleString("id-ID", {
+function formatDate(date: string | Date | null | undefined): string {
+    if (!date) return "-";
+    const d = typeof date === "string" ? new Date(date) : date;
+    return d.toLocaleString("id-ID", {
         day: "2-digit",
         month: "short",
         year: "numeric",
@@ -235,7 +237,7 @@ export default function ActivityLogPage() {
                                 </TableRow>
                             ) : logs.map((log) => (
                                 <TableRow key={log.id}>
-                                    <TableCell className="text-sm text-muted-foreground">{log.created ? formatDate(log.created) : "-"}</TableCell>
+                                    <TableCell className="text-sm text-muted-foreground">{formatDate(log.created)}</TableCell>
                                     <TableCell>
                                         <Badge className={`gap-1 ${actionColors[log.action]}`}>
                                             {actionIcons[log.action]}

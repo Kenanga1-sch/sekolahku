@@ -3,11 +3,12 @@ import { db } from "@/db";
 import { teachingModules, teacherTp } from "@/db/schema/curriculum";
 import { eq } from "drizzle-orm";
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
     const data = await db.select()
         .from(teachingModules)
-        .where(eq(teachingModules.id, params.id))
+        .where(eq(teachingModules.id, id))
         .limit(1);
 
     if (data.length === 0) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
@@ -21,7 +22,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     try {
         const body = await req.json();
         const updated = await db.update(teachingModules)
@@ -34,7 +36,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
                 status: body.status,
                 updatedAt: new Date()
             })
-            .where(eq(teachingModules.id, params.id))
+            .where(eq(teachingModules.id, id))
             .returning();
             
         return NextResponse.json({ success: true, data: updated[0] });
@@ -43,9 +45,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
     }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     try {
-        await db.delete(teachingModules).where(eq(teachingModules.id, params.id));
+        await db.delete(teachingModules).where(eq(teachingModules.id, id));
         return NextResponse.json({ success: true });
     } catch (error) {
         return NextResponse.json({ success: false, error: "Delete failed" }, { status: 500 });

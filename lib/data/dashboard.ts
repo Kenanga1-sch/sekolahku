@@ -1,7 +1,7 @@
 
 import { db } from "@/db";
 import { spmbRegistrants, spmbPeriods } from "@/db/schema/spmb";
-import { libraryItems, libraryLoans, libraryMembers } from "@/db/schema/library";
+import { libraryAssets, libraryLoans, libraryMembers } from "@/db/schema/library";
 import { inventoryAssets, inventoryRooms } from "@/db/schema/inventory";
 import { tabunganSiswa, tabunganTransaksi } from "@/db/schema/tabungan";
 import { teacherTp, teachingModules, studentGrades, classJournals } from "@/db/schema/curriculum";
@@ -73,7 +73,7 @@ const getCachedStats = unstable_cache(
     try {
       const today = new Date().toISOString().split("T")[0];
       const [books, loans, overdue, members] = await Promise.all([
-        db.select({ count: sql<number>`count(*)` }).from(libraryItems),
+        db.select({ count: sql<number>`count(*)` }).from(libraryAssets),
         db.select({ count: sql<number>`count(*)` }).from(libraryLoans).where(eq(libraryLoans.isReturned, false)),
         db.select({ count: sql<number>`count(*)` }).from(libraryLoans).where(and(eq(libraryLoans.isReturned, false), lt(libraryLoans.dueDate, new Date(today)))),
         db.select({ count: sql<number>`count(*)` }).from(libraryMembers),

@@ -56,9 +56,17 @@ export default function TabunganBrankasPage() {
     const [brankasList, setBrankasList] = useState<Brankas[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<Brankas | null>(null);
     const [formData, setFormData] = useState({ nama: "", saldo: 0 });
     const [isSaving, setIsSaving] = useState(false);
+
+    const [transferData, setTransferData] = useState({
+        fromId: "",
+        toId: "",
+        amount: "",
+        catatan: ""
+    });
 
     // Placeholder data for debt/accounting
     // In future this will be fetched from API
@@ -102,8 +110,6 @@ export default function TabunganBrankasPage() {
             const payload = {
                 id: editingItem?.id,
                 nama: formData.nama,
-                // Only allow setting saldo on creation or separate adjustment? 
-                // For now allow initial saldo.
                 saldo: editingItem ? undefined : formData.saldo 
             };
 
@@ -115,7 +121,6 @@ export default function TabunganBrankasPage() {
 
             if(!res.ok) {
                 const errData = await res.json().catch(() => ({}));
-                console.error("Save Error:", errData);
                 throw new Error(errData.error || "Gagal menyimpan data");
             }
             
@@ -124,6 +129,39 @@ export default function TabunganBrankasPage() {
             fetchData();
         } catch (error: any) {
             showError(error.message || "Gagal menyimpan data");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleTransfer = async () => {
+        setIsSaving(true);
+        try {
+            const amount = parseInt(transferData.amount.replace(/\D/g, ""), 10);
+
+            const res = await fetch("/api/tabungan/brankas", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    ...transferData,
+                    amount,
+                    tipe: brankasList.find(b => b.id === transferData.toId)?.nama.toLowerCase().includes("koperasi")
+                        ? "setor_ke_koperasi"
+                        : "setor_ke_bank"
+                }),
+            });
+
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || "Gagal melakukan transfer");
+            }
+
+            showSuccess("Transfer dana berhasil dilakukan");
+            setIsTransferDialogOpen(false);
+            setTransferData({ fromId: "", toId: "", amount: "", catatan: "" });
+            fetchData();
+        } catch (error: any) {
+            showError(error.message);
         } finally {
             setIsSaving(false);
         }
@@ -151,10 +189,16 @@ export default function TabunganBrankasPage() {
                         Refresh Data
                     </Button>
                     {activeTab === "overview" && (
-                        <Button onClick={() => handleOpenDialog()}>
-                            <Plus className="h-4 w-4 mr-2" />
-                            Tambah Akun/Brankas
-                        </Button>
+                        <>
+                            <Button variant="outline" onClick={() => setIsTransferDialogOpen(true)} disabled={brankasList.length < 2}>
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                Transfer Dana
+                            </Button>
+                            <Button onClick={() => handleOpenDialog()}>
+                                <Plus className="h-4 w-4 mr-2" />
+                                Tambah Akun
+                            </Button>
+                        </>
                     )}
                 </div>
             </div>
@@ -298,6 +342,86 @@ export default function TabunganBrankasPage() {
                         <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Batal</Button>
                         <Button onClick={handleSubmit} disabled={isSaving || !formData.nama}>
                             {isSaving ? "Menyimpan..." : "Simpan"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isTransferDialogOpen} onOpenChange={setIsTransferDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Transfer Dana Antar Brankas</DialogTitle>
+                        <DialogDescription>
+                            Pindahkan saldo antar akun keuangan (misal: Kas Tunai ke Koperasi).
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Label>Dari Akun</Label>
+                            <Select
+                                value={transferData.fromId}
+                                onValueChange={(val) => setTransferData({...transferData, fromId: val})}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Pilih akun asal" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {brankasList.map(b => (
+                                        <SelectItem key={b.id} value={b.id}>
+                                            {b.nama} (Saldo: {formatRupiah(b.saldo)})
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>Ke Akun Tujuan</Label>
+                            <Select
+                                value={transferData.toId}
+                                onValueChange={(val) => setTransferData({...transferData, toId: val})}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Pilih akun tujuan" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {brankasList.filter(b => b.id !== transferData.fromId).map(b => (
+                                        <SelectItem key={b.id} value={b.id}>{b.nama}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>Nominal Transfer</Label>
+                            <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">Rp</span>
+                                <Input
+                                    className="pl-9"
+                                    type="text"
+                                    value={transferData.amount}
+                                    onChange={(e) => {
+                                        const val = e.target.value.replace(/\D/g, "");
+                                        setTransferData({...transferData, amount: val ? parseInt(val).toLocaleString("id-ID") : ""});
+                                    }}
+                                    placeholder="0"
+                                />
+                            </div>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>Catatan</Label>
+                            <Input
+                                value={transferData.catatan}
+                                onChange={(e) => setTransferData({...transferData, catatan: e.target.value})}
+                                placeholder="Contoh: Setoran harian ke Koperasi"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsTransferDialogOpen(false)}>Batal</Button>
+                        <Button
+                            onClick={handleTransfer}
+                            disabled={isSaving || !transferData.fromId || !transferData.toId || !transferData.amount}
+                        >
+                            {isSaving ? "Memproses..." : "Konfirmasi Transfer"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

@@ -17,9 +17,7 @@ export const tabunganKelasSchema = z.object({
 
 export const tabunganTransaksiSchema = z.object({
   siswaId: z.string().min(1, "Siswa wajib dipilih"),
-  tipe: z.enum(["setor", "tarik"], {
-    errorMap: () => ({ message: "Tipe harus 'setor' atau 'tarik'" }),
-  }),
+  type: z.enum(["setor", "tarik"]),
   nominal: z.number().min(1000, "Nominal minimal Rp 1.000"),
   catatan: z.string().max(255).optional(),
   userId: z.string().optional(), // For internal use/override

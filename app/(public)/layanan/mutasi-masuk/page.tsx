@@ -29,9 +29,7 @@ import { Loader2 } from "lucide-react";
 const formSchema = z.object({
   studentName: z.string().min(3, "Nama siswa minimal 3 karakter"),
   nisn: z.string().min(10, "NISN harus 10 digit"),
-  gender: z.enum(["L", "P"], {
-    errorMap: () => ({ message: "Pilih jenis kelamin" }),
-  }),
+  gender: z.enum(["L", "P"]),
   originSchool: z.string().min(3, "Nama sekolah asal minimal 3 karakter"),
   originSchoolAddress: z.string().min(10, "Alamat lengkap sekolah asal wajib diisi"),
   targetGrade: z.coerce.number().min(1).max(6),
@@ -44,7 +42,7 @@ export default function MutasiMasukPage() {
   const [isSuccess, setIsSuccess] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema) as any,
     defaultValues: {
       studentName: "",
       nisn: "",
@@ -131,7 +129,7 @@ export default function MutasiMasukPage() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-6">
               
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="studentName"
                 render={({ field }) => (
                   <FormItem>
@@ -145,7 +143,7 @@ export default function MutasiMasukPage() {
               />
 
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="nisn"
                 render={({ field }) => (
                   <FormItem>
@@ -159,7 +157,7 @@ export default function MutasiMasukPage() {
               />
 
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="gender"
                 render={({ field }) => (
                   <FormItem>
@@ -181,7 +179,7 @@ export default function MutasiMasukPage() {
               />
 
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="targetGrade"
                 render={({ field }) => (
                   <FormItem>
@@ -209,7 +207,7 @@ export default function MutasiMasukPage() {
               />
 
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="originSchool"
                 render={({ field }) => (
                   <FormItem>
@@ -223,7 +221,7 @@ export default function MutasiMasukPage() {
               />
 
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="originSchoolAddress"
                 render={({ field }) => (
                   <FormItem>
@@ -237,7 +235,7 @@ export default function MutasiMasukPage() {
               />
 
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="parentName"
                 render={({ field }) => (
                   <FormItem>
@@ -251,7 +249,7 @@ export default function MutasiMasukPage() {
               />
 
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="whatsappNumber"
                 render={({ field }) => (
                   <FormItem>

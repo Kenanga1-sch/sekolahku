@@ -1,5 +1,6 @@
 import { db, users } from "@/db";
 import { hash } from "bcryptjs";
+import { eq } from "drizzle-orm";
 
 async function seed() {
     console.log("Seeding superadmin...");
@@ -16,7 +17,7 @@ async function seed() {
         const passwordHash = await hash("admin123", 10);
         await db.update(users)
             .set({ passwordHash })
-            .where({ email: "admin@sekolahku.id" });
+            .where(eq(users.email, "admin@sekolahku.id"));
             
         console.log("Password reset to: admin123");
         return;
@@ -31,6 +32,7 @@ async function seed() {
         passwordHash,
         role: "superadmin",
         emailVerified: new Date(),
+        isActive: true,
     });
     
     console.log("Superadmin created.");

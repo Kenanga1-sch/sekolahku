@@ -38,16 +38,16 @@ export function validateSchema<T>(
     } catch (error) {
         if (error instanceof ZodError) {
             const fields: Record<string, string> = {};
-            error.errors.forEach((err) => {
-                const path = err.path.join(".");
-                fields[path] = err.message;
+            error.issues.forEach((issue) => {
+                const path = issue.path.join(".");
+                fields[path] = issue.message;
             });
             
             return {
                 success: false,
                 error: {
                     code: "VALIDATION_ERROR",
-                    message: error.errors[0]?.message || "Input tidak valid",
+                    message: error.issues[0]?.message || "Input tidak valid",
                     fields,
                 },
             };
@@ -179,22 +179,6 @@ interface ValidationConfig<TBody, TQuery, TParams> {
 
 /**
  * Create a validated API route handler
- * 
- * @example
- * ```ts
- * const createUserSchema = z.object({
- *   email: z.string().email(),
- *   name: z.string().min(2),
- * });
- * 
- * export const POST = withValidation(
- *   async (req, { body }) => {
- *     // body is typed as { email: string, name: string }
- *     return NextResponse.json({ success: true });
- *   },
- *   { bodySchema: createUserSchema }
- * );
- * ```
  */
 export function withValidation<
     TBody = unknown,

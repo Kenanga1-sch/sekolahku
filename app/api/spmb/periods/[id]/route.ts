@@ -6,10 +6,11 @@ import { eq, sql } from "drizzle-orm";
 
 export async function PATCH(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
+    const { id: idFromParams } = await params;
     try {
-        const id = params.id;
+        const id = idFromParams;
         const body = await request.json();
 
         // Update the period
@@ -49,10 +50,11 @@ export async function PATCH(
 
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
+    const { id: idFromParams } = await params;
     try {
-        const id = params.id;
+        const id = idFromParams;
         
         // Check if there are registrants
         // Can be done via foreign key constraint handling or manual check

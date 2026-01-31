@@ -67,7 +67,7 @@ export default function LoanApprovalDialog({ loan, open, onOpenChange, onSuccess
       if (!loan?.id) return;
       const res = await approveLoan(loan.id, values.approvedAmount, values.sourceVaultId);
       if (res.success) {
-        showSuccess(res.message);
+        showSuccess(res.message || "Pinjaman disetujui");
         onOpenChange(false);
         onSuccess();
       } else {
@@ -107,7 +107,7 @@ export default function LoanApprovalDialog({ loan, open, onOpenChange, onSuccess
             </div>
 
               <FormField
-                control={form.control}
+                control={form.control as any}
                 name="sourceVaultId"
                 render={({ field }) => (
                   <FormItem>

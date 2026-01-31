@@ -88,7 +88,7 @@ export default function CategoryDialog({ open, onOpenChange, onSuccess, category
       }
 
       if (res.success) {
-        showSuccess(res.message);
+        showSuccess(res.message || "Kategori berhasil disimpan");
         onOpenChange(false);
         form.reset();
         onSuccess();
