@@ -1,5 +1,18 @@
 import type { NextConfig } from "next";
 
+// Detect environment for Adaptive Build Output
+const isWindows = process.platform === "win32";
+const skipStandalone = process.env.SKIP_STANDALONE === "true" || process.env.SKIP_STANDALONE === "1";
+
+const useStandalone = !isWindows && !skipStandalone;
+
+if (useStandalone) {
+  console.log("\x1b[36m%s\x1b[0m", "[Next.config] ℹ️ Build Mode: STANDALONE (Linux/Server detected)");
+} else {
+  const reason = isWindows ? "Windows OS" : "SKIP_STANDALONE env";
+  console.log("\x1b[33m%s\x1b[0m", `[Next.config] ℹ️ Build Mode: DEFAULT (${reason} detected)`);
+}
+
 const nextConfig: NextConfig = {
   // Disable source maps in production for faster builds
   productionBrowserSourceMaps: false,
@@ -59,7 +72,7 @@ const nextConfig: NextConfig = {
   // allowedDevOrigins: ['http://100.108.127.74:3001'],
 
   // Create standalone folder which copies only the necessary files for a production deployment
-  output: "standalone",
+  output: useStandalone ? "standalone" : undefined,
 
   async headers() {
     return [
