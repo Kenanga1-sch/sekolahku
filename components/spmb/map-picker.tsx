@@ -120,10 +120,15 @@ export default function MapPicker({
   initialHomeLng,
   onLocationChange,
 }: MapPickerProps) {
+  const safeSchoolLat = typeof schoolLat === "number" && Number.isFinite(schoolLat) ? schoolLat : -2.072254;
+  const safeSchoolLng = typeof schoolLng === "number" && Number.isFinite(schoolLng) ? schoolLng : 101.395614;
+  const safeInitialHomeLat = typeof initialHomeLat === "number" && Number.isFinite(initialHomeLat) ? initialHomeLat : safeSchoolLat + 0.005;
+  const safeInitialHomeLng = typeof initialHomeLng === "number" && Number.isFinite(initialHomeLng) ? initialHomeLng : safeSchoolLng + 0.005;
+
   // State for home position
   const [homePosition, setHomePosition] = useState<Coordinates>({
-    lat: initialHomeLat || schoolLat + 0.005,
-    lng: initialHomeLng || schoolLng + 0.005,
+    lat: safeInitialHomeLat,
+    lng: safeInitialHomeLng,
   });
   
   const [isGettingLocation, setIsGettingLocation] = useState(false);
@@ -131,11 +136,11 @@ export default function MapPicker({
   // Calculate distance
   const calculateDistance = useCallback(
     (homeLat: number, homeLng: number): number => {
-      const schoolPoint = point([schoolLng, schoolLat]);
+      const schoolPoint = point([safeSchoolLng, safeSchoolLat]);
       const homePoint = point([homeLng, homeLat]);
       return turfDistance(schoolPoint, homePoint, { units: "kilometers" });
     },
-    [schoolLat, schoolLng]
+    [safeSchoolLat, safeSchoolLng]
   );
 
   // Current distance
@@ -191,7 +196,7 @@ export default function MapPicker({
   }, []);
 
   // School position
-  const schoolPosition: [number, number] = [schoolLat, schoolLng];
+  const schoolPosition: [number, number] = [safeSchoolLat, safeSchoolLng];
 
   // Line between school and home
   const polylinePositions: [number, number][] = [

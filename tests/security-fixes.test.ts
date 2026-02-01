@@ -90,10 +90,12 @@ describe("Security Fixes Verification", () => {
             
             const req = new Request("http://localhost/api/spmb/upload?id=reg1", {
                 method: "POST",
-                body: formData
             });
+            
+            // Mock formData to avoid hanging
+            req.formData = async () => formData;
 
-            const res = await uploadDocument(req);
+            const res = await uploadDocument(req as any);
             
             expect(res.status).toBe(403);
             const json = await res.json();
@@ -113,11 +115,13 @@ describe("Security Fixes Verification", () => {
             
             const req = new Request("http://localhost/api/spmb/upload?id=reg2", {
                 method: "POST",
-                body: formData
             });
+            
+            // Mock formData to avoid hanging
+            req.formData = async () => formData;
 
             try {
-                await uploadDocument(req);
+                await uploadDocument(req as any);
             } catch (e) {
                 // Ignore downstream structure errors
             }
@@ -135,10 +139,12 @@ describe("Security Fixes Verification", () => {
             
             const req = new Request("http://localhost/api/spmb/upload?id=reg1", {
                 method: "POST",
-                body: formData
             });
+            
+            // Mock formData to avoid hanging
+            req.formData = async () => formData;
 
-            const res = await uploadDocument(req);
+            const res = await uploadDocument(req as any);
             expect(res.status).not.toBe(403);
         });
     });
