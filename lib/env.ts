@@ -5,9 +5,6 @@ import { z } from "zod";
  * Validates required environment variables at build time
  */
 const envSchema = z.object({
-  // PocketBase
-  NEXT_PUBLIC_POCKETBASE_URL: z.string().url().default("http://127.0.0.1:8090"),
-  
   // App
   NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
   NEXT_PUBLIC_APP_NAME: z.string().default("Website Sekolah Terpadu"),
@@ -25,7 +22,6 @@ const envSchema = z.object({
  * Parsed and validated environment variables
  */
 export const env = envSchema.parse({
-  NEXT_PUBLIC_POCKETBASE_URL: process.env.NEXT_PUBLIC_POCKETBASE_URL,
   NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
   NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
   NEXT_PUBLIC_DEFAULT_LAT: process.env.NEXT_PUBLIC_DEFAULT_LAT,
