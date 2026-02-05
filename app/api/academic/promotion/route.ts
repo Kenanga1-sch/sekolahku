@@ -4,6 +4,8 @@ import { db, students, studentClasses, studentClassHistory } from "@/db"; // Ass
 import { auth } from "@/auth";
 import { inArray, eq } from "drizzle-orm";
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: Request) {
     try {
         const session = await auth();

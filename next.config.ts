@@ -17,10 +17,6 @@ if (useStandalone) {
     typescript: {
       ignoreBuildErrors: true,
     },
-    // @ts-expect-error - eslint is a valid config but missing in NextConfig type for this version
-    eslint: {
-      ignoreDuringBuilds: true,
-    },
     // Disable source maps in production for faster builds
   productionBrowserSourceMaps: false,
   
