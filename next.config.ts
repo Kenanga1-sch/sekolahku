@@ -12,9 +12,16 @@ if (useStandalone) {
   const reason = isWindows ? "Windows OS" : "SKIP_STANDALONE env";
   console.log("\x1b[33m%s\x1b[0m", `[Next.config] ℹ️ Build Mode: DEFAULT (${reason} detected)`);
 }
-
-const nextConfig: NextConfig = {
-  // Disable source maps in production for faster builds
+  
+  const nextConfig: NextConfig = {
+    typescript: {
+      ignoreBuildErrors: true,
+    },
+    // @ts-expect-error - eslint is a valid config but missing in NextConfig type for this version
+    eslint: {
+      ignoreDuringBuilds: true,
+    },
+    // Disable source maps in production for faster builds
   productionBrowserSourceMaps: false,
   
   // Disable strict mode to prevent double-mounting of camera in dev

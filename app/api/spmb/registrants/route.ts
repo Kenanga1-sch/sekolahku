@@ -42,7 +42,8 @@ export async function GET(request: NextRequest) {
             .select()
             .from(spmbRegistrants)
             .where(whereClause)
-            .orderBy(sql`${spmbRegistrants.createdAt} DESC`);
+            .orderBy(sql`${spmbRegistrants.createdAt} DESC`)
+            .$dynamic();
         
         if (perPage !== -1) {
             query = query.limit(perPage).offset(offset);
