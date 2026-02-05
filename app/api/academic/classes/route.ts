@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { db, studentClasses } from "@/db";
 import { auth } from "@/auth";
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/academic/classes
 export async function GET() {
     try {

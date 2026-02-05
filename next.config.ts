@@ -25,6 +25,9 @@ if (useStandalone) {
 
   // Optimize for low-memory environments
   experimental: {
+    // Limit to 1 CPU/Worker to prevent SQLite locking during build
+    cpus: 1,
+    workerThreads: false,
     // Reduce memory usage during build
     webpackMemoryOptimizations: true,
     // Optimize package imports
