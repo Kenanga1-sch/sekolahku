@@ -231,6 +231,14 @@
   @apply backdrop-blur-3xl bg-white/90 dark:bg-zinc-950/80 border-r border-zinc-200/50 dark:border-white/5;
 }
 
+@utility no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 /* Container utility with proper padding */
 .container {
   width: 100%;

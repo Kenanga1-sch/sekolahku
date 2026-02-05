@@ -152,7 +152,7 @@ export default function TabunganScanPage() {
         try {
             const payload = {
                 siswaId: siswa.id,
-                tipe,
+                type: tipe,
                 nominal: nominalValue,
                 catatan: catatan || undefined,
                 userId: user.id

@@ -9,11 +9,13 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Phone, Home } from "lucide-react";
 import type { ParentFormValues } from "@/lib/validations/spmb";
 import { LabelInputContainer, BottomGradient } from "@/components/ui/label-input-container";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { EDUCATION_OPTIONS, JOB_OPTIONS, INCOME_OPTIONS } from "./form-constants";
 
 interface ParentFormProps {
   form: UseFormReturn<ParentFormValues>;
@@ -22,9 +24,7 @@ interface ParentFormProps {
 }
 
 // Common options
-const EDUCATION_OPTIONS = ["SD", "SMP", "SMA/SMK", "D1", "D2", "D3", "S1", "S2", "S3", "Tidak Sekolah"];
-const JOB_OPTIONS = ["PNS", "TNI/Polri", "Pegawai Swasta", "Wiraswasta", "Petani", "Nelayan", "Buruh", "Pedagang", "Ibu Rumah Tangga", "Tidak Bekerja", "Lainnya"];
-const INCOME_OPTIONS = ["< 500.000", "500.000 - 999.999", "1.000.000 - 1.999.999", "2.000.000 - 4.999.999", "5.000.000 - 20.000.000", "> 20.000.000", "Tidak Berpenghasilan"];
+// Common options imported from form-constants
 
 const inputClass = "h-11 bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 focus-visible:ring-0 focus-visible:border-amber-500 transition-all duration-300 placeholder:text-zinc-400";
 const selectTriggerClass = "h-11 bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 focus:ring-0 focus:border-amber-500 transition-all duration-300";
@@ -116,16 +116,15 @@ export default function ParentForm({ form, activeTab, onTabChange }: ParentFormP
               <FormItem>
                 <LabelInputContainer>
                   <FormLabel>Pendidikan Terakhir</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                      <SelectTrigger className={selectTriggerClass}>
-                        <SelectValue placeholder="Pilih..." />
-                      </SelectTrigger>
+                        <SearchableSelect 
+                            items={EDUCATION_OPTIONS}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Pilih pendidikan..."
+                            className={selectTriggerClass}
+                        />
                     </FormControl>
-                    <SelectContent>
-                      {EDUCATION_OPTIONS.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
                   <FormMessage />
                 </LabelInputContainer>
               </FormItem>
@@ -139,16 +138,15 @@ export default function ParentForm({ form, activeTab, onTabChange }: ParentFormP
               <FormItem>
                 <LabelInputContainer>
                     <FormLabel>Pekerjaan Utama</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                        <SelectTrigger className={selectTriggerClass}>
-                        <SelectValue placeholder="Pilih..." />
-                        </SelectTrigger>
+                        <SearchableSelect 
+                            items={JOB_OPTIONS}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Pilih pekerjaan..."
+                            className={selectTriggerClass}
+                        />
                     </FormControl>
-                    <SelectContent>
-                        {JOB_OPTIONS.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
-                    </SelectContent>
-                    </Select>
                     <FormMessage />
                 </LabelInputContainer>
               </FormItem>
@@ -162,16 +160,15 @@ export default function ParentForm({ form, activeTab, onTabChange }: ParentFormP
               <FormItem>
                <LabelInputContainer>
                     <FormLabel>Penghasilan Bulanan</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                        <SelectTrigger className={selectTriggerClass}>
-                        <SelectValue placeholder="Pilih..." />
-                        </SelectTrigger>
+                        <SearchableSelect 
+                            items={INCOME_OPTIONS}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Pilih penghasilan..."
+                            className={selectTriggerClass}
+                        />
                     </FormControl>
-                    <SelectContent>
-                        {INCOME_OPTIONS.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
-                    </SelectContent>
-                    </Select>
                     <FormMessage />
                 </LabelInputContainer>
               </FormItem>
@@ -255,16 +252,15 @@ export default function ParentForm({ form, activeTab, onTabChange }: ParentFormP
               <FormItem>
                 <LabelInputContainer>
                     <FormLabel>Pendidikan Terakhir</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                        <SelectTrigger className={selectTriggerClass}>
-                        <SelectValue placeholder="Pilih..." />
-                        </SelectTrigger>
+                        <SearchableSelect 
+                            items={EDUCATION_OPTIONS}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Pilih pendidikan..."
+                            className={selectTriggerClass}
+                        />
                     </FormControl>
-                    <SelectContent>
-                        {EDUCATION_OPTIONS.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
-                    </SelectContent>
-                    </Select>
                     <FormMessage />
                 </LabelInputContainer>
               </FormItem>
@@ -278,16 +274,15 @@ export default function ParentForm({ form, activeTab, onTabChange }: ParentFormP
               <FormItem>
                 <LabelInputContainer>
                     <FormLabel>Pekerjaan Utama</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                        <SelectTrigger className={selectTriggerClass}>
-                        <SelectValue placeholder="Pilih..." />
-                        </SelectTrigger>
+                        <SearchableSelect 
+                            items={JOB_OPTIONS}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Pilih pekerjaan..."
+                            className={selectTriggerClass}
+                        />
                     </FormControl>
-                    <SelectContent>
-                        {JOB_OPTIONS.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
-                    </SelectContent>
-                    </Select>
                     <FormMessage />
                 </LabelInputContainer>
               </FormItem>
@@ -301,16 +296,15 @@ export default function ParentForm({ form, activeTab, onTabChange }: ParentFormP
               <FormItem>
                 <LabelInputContainer>
                     <FormLabel>Penghasilan Bulanan</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                        <SelectTrigger className={selectTriggerClass}>
-                        <SelectValue placeholder="Pilih..." />
-                        </SelectTrigger>
+                        <SearchableSelect 
+                            items={INCOME_OPTIONS}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Pilih penghasilan..."
+                            className={selectTriggerClass}
+                        />
                     </FormControl>
-                    <SelectContent>
-                        {INCOME_OPTIONS.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
-                    </SelectContent>
-                    </Select>
                     <FormMessage />
                 </LabelInputContainer>
               </FormItem>
@@ -394,16 +388,15 @@ export default function ParentForm({ form, activeTab, onTabChange }: ParentFormP
               <FormItem>
                 <LabelInputContainer>
                     <FormLabel>Pendidikan Terakhir</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
                     <FormControl>
-                        <SelectTrigger className={selectTriggerClass}>
-                        <SelectValue placeholder="Pilih..." />
-                        </SelectTrigger>
+                        <SearchableSelect 
+                            items={EDUCATION_OPTIONS}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Pilih pendidikan..."
+                            className={selectTriggerClass}
+                        />
                     </FormControl>
-                    <SelectContent>
-                        {EDUCATION_OPTIONS.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
-                    </SelectContent>
-                    </Select>
                     <FormMessage />
                 </LabelInputContainer>
               </FormItem>
@@ -417,16 +410,15 @@ export default function ParentForm({ form, activeTab, onTabChange }: ParentFormP
               <FormItem>
                 <LabelInputContainer>
                     <FormLabel>Pekerjaan Utama</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
                     <FormControl>
-                        <SelectTrigger className={selectTriggerClass}>
-                        <SelectValue placeholder="Pilih..." />
-                        </SelectTrigger>
+                        <SearchableSelect 
+                            items={JOB_OPTIONS}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Pilih pekerjaan..."
+                            className={selectTriggerClass}
+                        />
                     </FormControl>
-                    <SelectContent>
-                        {JOB_OPTIONS.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
-                    </SelectContent>
-                    </Select>
                     <FormMessage />
                 </LabelInputContainer>
               </FormItem>
@@ -440,16 +432,15 @@ export default function ParentForm({ form, activeTab, onTabChange }: ParentFormP
               <FormItem>
                 <LabelInputContainer>
                     <FormLabel>Penghasilan Bulanan</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value || ""}>
                     <FormControl>
-                        <SelectTrigger className={selectTriggerClass}>
-                        <SelectValue placeholder="Pilih..." />
-                        </SelectTrigger>
+                        <SearchableSelect 
+                            items={INCOME_OPTIONS}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Pilih penghasilan..."
+                            className={selectTriggerClass}
+                        />
                     </FormControl>
-                    <SelectContent>
-                        {INCOME_OPTIONS.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
-                    </SelectContent>
-                    </Select>
                     <FormMessage />
                 </LabelInputContainer>
               </FormItem>

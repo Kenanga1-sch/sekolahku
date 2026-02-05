@@ -74,8 +74,48 @@ export function StudentImportDialog({ open, onOpenChange, onSuccess }: StudentIm
     const downloadTemplate = () => {
         // Create dummy data
         const ws = XLSX.utils.json_to_sheet([
-            { fullName: "Budi Santoso", nis: "1001", nisn: "0012345678", nik: "3201234567890001", gender: "L", className: "1A", status: "active" },
-            { fullName: "Siti Aminah", nis: "1002", nisn: "0012345679", nik: "3201234567890002", gender: "P", className: "1B", status: "active" },
+            { 
+                fullName: "Budi Santoso", 
+                nis: "1001", 
+                nisn: "0012345678", 
+                nik: "3201234567890001", 
+                gender: "L", 
+                className: "1A", 
+                status: "active",
+                birthPlace: "Jakarta",
+                birthDate: "2015-05-20",
+                religion: "Islam",
+                address: "Jl. Merdeka No. 1",
+                fatherName: "Agus Santoso",
+                fatherNik: "3201000000000001",
+                motherName: "Siti Rahma",
+                motherNik: "3201000000000002",
+                guardianName: "",
+                guardianNik: "",
+                guardianJob: "",
+                parentPhone: "081234567890"
+            },
+            { 
+                fullName: "Siti Aminah", 
+                nis: "1002", 
+                nisn: "0012345679", 
+                nik: "3201234567890002", 
+                gender: "P", 
+                className: "1B", 
+                status: "active",
+                birthPlace: "Bandung",
+                birthDate: "2015-08-15",
+                religion: "Islam",
+                address: "Jl. Sudirman No. 5",
+                fatherName: "Bambang",
+                fatherNik: "3201000000000011",
+                motherName: "Ratna",
+                motherNik: "3201000000000012",
+                guardianName: "",
+                guardianNik: "",
+                guardianJob: "",
+                parentPhone: "081234567891"
+            },
         ]);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Template");
@@ -124,9 +164,10 @@ export function StudentImportDialog({ open, onOpenChange, onSuccess }: StudentIm
                                         <TableRow>
                                             <TableHead>Nama</TableHead>
                                             <TableHead>NISN</TableHead>
-                                            <TableHead>NIK</TableHead>
                                             <TableHead>JK</TableHead>
                                             <TableHead>Kelas</TableHead>
+                                            <TableHead>Tgl Lahir</TableHead>
+                                            <TableHead>Nama Ayah</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -134,9 +175,10 @@ export function StudentImportDialog({ open, onOpenChange, onSuccess }: StudentIm
                                             <TableRow key={i}>
                                                 <TableCell>{row.fullName || row.nama || "-"}</TableCell>
                                                 <TableCell>{row.nisn || "-"}</TableCell>
-                                                <TableCell>{row.nik || "-"}</TableCell>
                                                 <TableCell>{row.gender || row.jk || "-"}</TableCell>
                                                 <TableCell>{row.className || row.kelas || "-"}</TableCell>
+                                                <TableCell>{row.birthDate || row.tanggal_lahir || "-"}</TableCell>
+                                                <TableCell>{row.fatherName || row.nama_ayah || "-"}</TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>

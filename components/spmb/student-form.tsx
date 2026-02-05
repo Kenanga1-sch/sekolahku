@@ -1,4 +1,3 @@
-"use client";
 
 import { UseFormReturn } from "react-hook-form";
 import {
@@ -10,7 +9,6 @@ import {
   FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { 
@@ -28,6 +26,17 @@ import {
 } from "lucide-react";
 import type { StudentFormValues } from "@/lib/validations/spmb";
 import { LabelInputContainer, BottomGradient } from "@/components/ui/label-input-container";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import {
+  GENDER_OPTIONS,
+  RELIGION_OPTIONS,
+  LIVING_ARRANGEMENT_OPTIONS,
+  TRANSPORT_OPTIONS,
+  TRAVEL_TIME_OPTIONS,
+  SPECIAL_NEEDS_OPTIONS,
+  HOBBIES,
+  AMBITIONS
+} from "./form-constants";
 
 interface StudentFormProps {
   form: UseFormReturn<StudentFormValues>;
@@ -74,17 +83,15 @@ export default function StudentForm({ form }: StudentFormProps) {
               <FormItem>
                 <LabelInputContainer>
                   <FormLabel>Jenis Kelamin</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger className={selectTriggerClass}>
-                        <SelectValue placeholder="Pilih..." />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="L">Laki-laki</SelectItem>
-                      <SelectItem value="P">Perempuan</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                      <SearchableSelect
+                        items={GENDER_OPTIONS}
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Pilih..."
+                        className={selectTriggerClass}
+                      />
+                  </FormControl>
                   <FormMessage />
                 </LabelInputContainer>
               </FormItem>
@@ -99,21 +106,15 @@ export default function StudentForm({ form }: StudentFormProps) {
               <FormItem>
                 <LabelInputContainer>
                   <FormLabel>Agama</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger className={selectTriggerClass}>
-                        <SelectValue placeholder="Pilih Agama" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="Islam">Islam</SelectItem>
-                      <SelectItem value="Kristen Protestan">Kristen Protestan</SelectItem>
-                      <SelectItem value="Kristen Katolik">Kristen Katolik</SelectItem>
-                      <SelectItem value="Hindu">Hindu</SelectItem>
-                      <SelectItem value="Buddha">Buddha</SelectItem>
-                      <SelectItem value="Khonghucu">Khonghucu</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                      <SearchableSelect
+                        items={RELIGION_OPTIONS}
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Pilih Agama"
+                        className={selectTriggerClass}
+                      />
+                  </FormControl>
                   <FormMessage />
                 </LabelInputContainer>
               </FormItem>
@@ -262,7 +263,7 @@ export default function StudentForm({ form }: StudentFormProps) {
           <BookOpen className="h-5 w-5" /> Data Pelengkap
         </h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
            {/* Anak Ke */}
            <FormField
             control={form.control}
@@ -273,7 +274,42 @@ export default function StudentForm({ form }: StudentFormProps) {
                   <FormLabel>Anak ke-</FormLabel>
                   <FormControl>
                     <div className="relative group/btn">
-                      <Input type="number" min={1} {...field} onChange={(e) => field.onChange(parseInt(e.target.value))} className={inputClass} />
+                      <Input 
+                        type="number" 
+                        min={1} 
+                        {...field} 
+                        value={field.value ?? ""} 
+                        onChange={(e) => field.onChange(e.target.value === "" ? undefined : parseInt(e.target.value))} 
+                        className={inputClass} 
+                      />
+                      <BottomGradient />
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </LabelInputContainer>
+              </FormItem>
+            )}
+          />
+
+          {/* Sibling Count */}
+          <FormField
+            control={form.control}
+            name="sibling_count"
+            render={({ field }) => (
+              <FormItem>
+                 <LabelInputContainer>
+                  <FormLabel>Jumlah Saudara Kandung</FormLabel>
+                  <FormControl>
+                    <div className="relative group/btn">
+                      <Input 
+                        type="number" 
+                        min={0} 
+                        placeholder="Jml" 
+                        {...field} 
+                        value={field.value ?? ""}
+                        onChange={(e) => field.onChange(e.target.value === "" ? undefined : parseInt(e.target.value))} 
+                        className={inputClass} 
+                      />
                       <BottomGradient />
                     </div>
                   </FormControl>
@@ -291,21 +327,15 @@ export default function StudentForm({ form }: StudentFormProps) {
               <FormItem>
                 <LabelInputContainer>
                   <FormLabel>Tempat Tinggal</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                      <SelectTrigger className={selectTriggerClass}>
-                        <SelectValue placeholder="Pilih..." />
-                      </SelectTrigger>
+                      <SearchableSelect
+                        items={LIVING_ARRANGEMENT_OPTIONS}
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Pilih..."
+                        className={selectTriggerClass}
+                      />
                     </FormControl>
-                    <SelectContent>
-                      <SelectItem value="Bersama Orang Tua">Bersama Orang Tua</SelectItem>
-                      <SelectItem value="Wali">Wali</SelectItem>
-                      <SelectItem value="Kos">Kos</SelectItem>
-                      <SelectItem value="Asrama">Asrama</SelectItem>
-                      <SelectItem value="Panti Asuhan">Panti Asuhan</SelectItem>
-                      <SelectItem value="Lainnya">Lainnya</SelectItem>
-                    </SelectContent>
-                  </Select>
                   <FormMessage />
                 </LabelInputContainer>
               </FormItem>
@@ -320,27 +350,151 @@ export default function StudentForm({ form }: StudentFormProps) {
               <FormItem>
                 <LabelInputContainer>
                   <FormLabel>Moda Transportasi</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                      <SelectTrigger className={selectTriggerClass}>
-                        <SelectValue placeholder="Pilih..." />
-                      </SelectTrigger>
+                      <SearchableSelect
+                        items={TRANSPORT_OPTIONS}
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Pilih..."
+                        className={selectTriggerClass}
+                      />
                     </FormControl>
-                    <SelectContent>
-                      <SelectItem value="Jalan Kaki">Jalan Kaki</SelectItem>
-                      <SelectItem value="Antar Jemput">Antar Jemput Sekolah</SelectItem>
-                      <SelectItem value="Kendaraan Pribadi">Kendaraan Pribadi</SelectItem>
-                      <SelectItem value="Angkutan Umum">Angkutan Umum</SelectItem>
-                      <SelectItem value="Ojek">Ojek</SelectItem>
-                      <SelectItem value="Sepeda">Sepeda</SelectItem>
-                      <SelectItem value="Lainnya">Lainnya</SelectItem>
-                    </SelectContent>
-                  </Select>
                   <FormMessage />
                 </LabelInputContainer>
               </FormItem>
             )}
           />
+        </div>
+
+        {/* Dapodik Extra Fields */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+             {/* Waktu Tempuh */}
+            <FormField
+              control={form.control}
+              name="travel_time"
+              render={({ field }) => (
+                <FormItem>
+                  <LabelInputContainer>
+                  <FormLabel>Waktu Tempuh</FormLabel>
+                      <FormControl>
+                      <SearchableSelect
+                        items={TRAVEL_TIME_OPTIONS}
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Pilih..."
+                        className={selectTriggerClass}
+                      />
+                      </FormControl>
+                    <FormMessage />
+                  </LabelInputContainer>
+                </FormItem>
+              )}
+            />
+
+             {/* Hobi */}
+             <FormField
+              control={form.control}
+              name="hobby"
+              render={({ field }) => (
+                <FormItem>
+                  <LabelInputContainer>
+                  <FormLabel>Hobi</FormLabel>
+                    <FormControl>
+                      <SearchableSelect
+                        items={HOBBIES}
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Pilih hobi..."
+                        className={selectTriggerClass}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </LabelInputContainer>
+                </FormItem>
+              )}
+            />
+
+            {/* Cita-cita */}
+            <FormField
+              control={form.control}
+              name="ambition"
+              render={({ field }) => (
+                <FormItem>
+                  <LabelInputContainer>
+                  <FormLabel>Cita-cita</FormLabel>
+                     <FormControl>
+                       <SearchableSelect
+                        items={AMBITIONS}
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Pilih cita-cita..."
+                        className={selectTriggerClass}
+                      />
+                     </FormControl>
+                    <FormMessage />
+                  </LabelInputContainer>
+                </FormItem>
+              )}
+            />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+           {/* Physical Data */}
+           <FormField
+            control={form.control}
+            name="height"
+            render={({ field }) => (
+              <FormItem>
+                 <LabelInputContainer>
+                  <FormLabel>Tinggi (cm)</FormLabel>
+                  <FormControl>
+                    <div className="relative group/btn">
+                      <Input type="number" min={0} {...field} onChange={(e) => field.onChange(e.target.value === "" ? 0 : parseInt(e.target.value))} className={inputClass} />
+                      <BottomGradient />
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </LabelInputContainer>
+              </FormItem>
+            )}
+          />
+           <FormField
+            control={form.control}
+            name="weight"
+            render={({ field }) => (
+              <FormItem>
+                 <LabelInputContainer>
+                  <FormLabel>Berat (kg)</FormLabel>
+                  <FormControl>
+                    <div className="relative group/btn">
+                      <Input type="number" min={0} {...field} onChange={(e) => field.onChange(e.target.value === "" ? 0 : parseInt(e.target.value))} className={inputClass} />
+                      <BottomGradient />
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </LabelInputContainer>
+              </FormItem>
+            )}
+          />
+           <FormField
+            control={form.control}
+            name="head_circumference"
+            render={({ field }) => (
+              <FormItem>
+                 <LabelInputContainer>
+                  <FormLabel>Lingkar Kepala (cm)</FormLabel>
+                  <FormControl>
+                    <div className="relative group/btn">
+                      <Input type="number" min={0} {...field} onChange={(e) => field.onChange(e.target.value === "" ? 0 : parseInt(e.target.value))} className={inputClass} />
+                      <BottomGradient />
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </LabelInputContainer>
+              </FormItem>
+            )}
+          />
+
         </div>
 
          {/* Berkebutuhan Khusus */}
@@ -351,29 +505,15 @@ export default function StudentForm({ form }: StudentFormProps) {
               <FormItem>
                 <LabelInputContainer>
                   <FormLabel>Berkebutuhan Khusus</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value || "Tidak"}>
                     <FormControl>
-                      <SelectTrigger className={selectTriggerClass}>
-                        <SelectValue placeholder="Pilih..." />
-                      </SelectTrigger>
+                        <SearchableSelect
+                            items={SPECIAL_NEEDS_OPTIONS}
+                            value={field.value}
+                            onChange={field.onChange}
+                            placeholder="Pilih..."
+                            className={selectTriggerClass}
+                        />
                     </FormControl>
-                    <SelectContent>
-                      <SelectItem value="Tidak">Tidak</SelectItem>
-                      <SelectItem value="Netra">Netra</SelectItem>
-                      <SelectItem value="Rungu">Rungu</SelectItem>
-                      <SelectItem value="Grahita Ringan">Grahita Ringan</SelectItem>
-                      <SelectItem value="Grahita Sedang">Grahita Sedang</SelectItem>
-                      <SelectItem value="Daksa Ringan">Daksa Ringan</SelectItem>
-                      <SelectItem value="Daksa Sedang">Daksa Sedang</SelectItem>
-                      <SelectItem value="Laras">Laras</SelectItem>
-                      <SelectItem value="Wicara">Wicara</SelectItem>
-                      <SelectItem value="Hiperaktif">Hiperaktif</SelectItem>
-                      <SelectItem value="Cerdas Istimewa">Cerdas Istimewa</SelectItem>
-                      <SelectItem value="Bakat Istimewa">Bakat Istimewa</SelectItem>
-                      <SelectItem value="Kesulitan Belajar">Kesulitan Belajar</SelectItem>
-                      <SelectItem value="Lainnya">Lainnya</SelectItem>
-                    </SelectContent>
-                  </Select>
                   <FormMessage />
                 </LabelInputContainer>
               </FormItem>

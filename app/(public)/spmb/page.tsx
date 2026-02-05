@@ -35,7 +35,7 @@ const timelineSteps = [
   {
     step: 3,
     title: "Pengumuman Hasil",
-    description: "Cek status penerimaan melalui halaman tracking.",
+    description: "Cek status kelulusan melalui halaman Pengumuman Resmi.",
     icon: CheckCircle,
   },
   {
@@ -165,14 +165,23 @@ export default async function SPMBPage() {
                   Pendaftaran Ditutup
                 </Button>
               )}
+
               <Link href="/spmb/tracking">
                 <Button
                   size="lg"
-                  variant="outline"
-                  className="h-12 px-8 text-base bg-transparent border-neutral-700 text-white hover:bg-neutral-800"
+                  className="h-12 px-8 text-base bg-zinc-800 hover:bg-zinc-700 text-white font-medium border border-zinc-700"
                 >
                   <Search className="h-4 w-4 mr-2" />
                   Cek Status
+                </Button>
+              </Link>
+              <Link href="/spmb/pengumuman">
+                 <Button
+                  size="lg"
+                  className="h-12 px-8 text-base bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-[0_0_20px_-5px_rgba(37,99,235,0.5)] border-0"
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Pengumuman SPMB
                 </Button>
               </Link>
             </div>
@@ -385,6 +394,17 @@ export default async function SPMBPage() {
                                 <Link href="/spmb/tracking" className="w-full block">
                                     <Button variant="outline" className="w-full py-6">
                                         Sudah Daftar? Cek Status
+                                    </Button>
+                                </Link>
+                            </CardItem>
+                             <CardItem
+                                translateZ={20}
+                                className="w-full"
+                            >
+                                <Link href="/spmb/pengumuman" className="w-full block">
+                                    <Button variant="ghost" className="w-full py-6 text-muted-foreground hover:text-primary">
+                                        <CheckCircle className="h-4 w-4 mr-2" />
+                                        Cek Pengumuman Hasil
                                     </Button>
                                 </Link>
                             </CardItem>

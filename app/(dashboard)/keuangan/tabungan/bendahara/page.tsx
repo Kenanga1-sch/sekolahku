@@ -43,24 +43,71 @@ export default async function SavingsTreasurerPage() {
     const isAdmin = session.user?.role === "admin" || session.user?.role === "superadmin";
 
     return (
-        <div className="p-6 space-y-6">
-            <div>
+        <div className="space-y-6">
+            <div className="flex flex-col gap-2">
                 <h1 className="text-3xl font-bold tracking-tight">Manajemen Bendahara Tabungan</h1>
                 <p className="text-muted-foreground">
                     Kelola struktur bendahara, penanggung jawab kelas, dan verifikasi setoran harian.
                 </p>
             </div>
 
-            <Tabs defaultValue="structure" className="w-full">
-                <TabsList className="grid w-full grid-cols-4 lg:w-[800px]">
-                    <TabsTrigger value="structure">Struktur & PJ</TabsTrigger>
-                    <TabsTrigger value="verification">Verifikasi Setoran</TabsTrigger>
+            <Tabs defaultValue="brankas" className="space-y-4">
+                <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
                     <TabsTrigger value="brankas">Brankas & Saldo</TabsTrigger>
-                    <TabsTrigger value="debt">Manajemen Hutang</TabsTrigger>
+                    <TabsTrigger value="verifikasi">Verifikasi Setoran</TabsTrigger>
+                    <TabsTrigger value="hutang">Manajemen Hutang</TabsTrigger>
+                    <TabsTrigger value="struktur">Struktur & PJ</TabsTrigger>
                 </TabsList>
+                
+                <TabsContent value="brankas" className="space-y-4">
+                    {(isTreasurer || isAdmin) ? (
+                        <BrankasManager 
+                            vaults={brankasData.vaults} 
+                            recentTransactions={brankasData.recentTransactions} 
+                            currentUserId={session.user?.id || ""} 
+                        />
+                    ) : (
+                        <Card className="border-red-200 bg-red-50 dark:bg-red-900/10">
+                            <CardContent className="p-8 text-center text-red-600 dark:text-red-400">
+                                <p className="font-semibold">Akses Ditolak</p>
+                                <p className="text-sm mt-1">Hanya Bendahara Utama yang dapat mengakses Brankas.</p>
+                            </CardContent>
+                        </Card>
+                    )}
+                </TabsContent>
 
-                <TabsContent value="structure" className="space-y-6 mt-6">
-                    {/* Only Admin can likely change this? Assuming yes for safety */}
+                <TabsContent value="verifikasi" className="space-y-4">
+                    {(isTreasurer || isAdmin) ? (
+                        <VerificationQueue pendingSetoran={pendingSetoran} currentUserId={session.user?.id || ""} />
+                    ) : (
+                        <Card className="border-red-200 bg-red-50 dark:bg-red-900/10">
+                            <CardContent className="p-8 text-center text-red-600 dark:text-red-400">
+                                <p className="font-semibold">Akses Ditolak</p>
+                                <p className="text-sm mt-1">Anda tidak memiliki akses untuk melakukan verifikasi. Hanya Bendahara Utama yang dapat melakukan ini.</p>
+                            </CardContent>
+                        </Card>
+                    )}
+                </TabsContent>
+
+                <TabsContent value="hutang" className="space-y-4">
+                    {(isTreasurer || isAdmin) ? (
+                        <DebtManager 
+                            receivables={receivables} 
+                            payables={payables} 
+                            employees={employees}
+                            currentUserId={session.user?.id || ""} 
+                        />
+                    ) : (
+                        <Card className="border-red-200 bg-red-50 dark:bg-red-900/10">
+                            <CardContent className="p-8 text-center text-red-600 dark:text-red-400">
+                                <p className="font-semibold">Akses Ditolak</p>
+                                <p className="text-sm mt-1">Hanya Bendahara Utama yang dapat mengakses fitur Hutang.</p>
+                            </CardContent>
+                        </Card>
+                    )}
+                </TabsContent>
+
+                <TabsContent value="struktur" className="space-y-4">
                     {isAdmin ? (
                     <TreasurerSelector currentTreasurer={treasurer} employees={employees} />
                     ) : (
@@ -78,54 +125,6 @@ export default async function SavingsTreasurerPage() {
                     )}
 
                     <ClassRepManager classes={classes} employees={employees} />
-                </TabsContent>
-
-                <TabsContent value="verification" className="mt-6">
-                        {(isTreasurer || isAdmin) ? (
-                            <VerificationQueue pendingSetoran={pendingSetoran} currentUserId={session.user?.id || ""} />
-                        ) : (
-                            <Card className="border-red-200 bg-red-50 dark:bg-red-900/10">
-                                <CardContent className="p-8 text-center text-red-600 dark:text-red-400">
-                                    <p className="font-semibold">Akses Ditolak</p>
-                                    <p className="text-sm mt-1">Anda tidak memiliki akses untuk melakukan verifikasi. Hanya Bendahara Utama yang dapat melakukan ini.</p>
-                                </CardContent>
-                            </Card>
-                        )}
-                </TabsContent>
-
-                <TabsContent value="brankas" className="mt-6">
-                    {(isTreasurer || isAdmin) ? (
-                        <BrankasManager 
-                            vaults={brankasData.vaults} 
-                            recentTransactions={brankasData.recentTransactions} 
-                            currentUserId={session.user?.id || ""} 
-                        />
-                    ) : (
-                        <Card className="border-red-200 bg-red-50 dark:bg-red-900/10">
-                            <CardContent className="p-8 text-center text-red-600 dark:text-red-400">
-                                <p className="font-semibold">Akses Ditolak</p>
-                                <p className="text-sm mt-1">Hanya Bendahara Utama yang dapat mengakses Brankas.</p>
-                            </CardContent>
-                        </Card>
-                    )}
-                </TabsContent>
-
-                <TabsContent value="debt" className="mt-6">
-                    {(isTreasurer || isAdmin) ? (
-                        <DebtManager 
-                            receivables={receivables} 
-                            payables={payables} 
-                            employees={employees}
-                            currentUserId={session.user?.id || ""} 
-                        />
-                    ) : (
-                        <Card className="border-red-200 bg-red-50 dark:bg-red-900/10">
-                            <CardContent className="p-8 text-center text-red-600 dark:text-red-400">
-                                <p className="font-semibold">Akses Ditolak</p>
-                                <p className="text-sm mt-1">Hanya Bendahara Utama yang dapat mengakses fitur Hutang.</p>
-                            </CardContent>
-                        </Card>
-                    )}
                 </TabsContent>
             </Tabs>
         </div>

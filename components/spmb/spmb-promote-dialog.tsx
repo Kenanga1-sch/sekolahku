@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Loader2 } from "lucide-react";
 import { showSuccess, showError } from "@/lib/toast";
 
@@ -85,18 +85,12 @@ export function SPMBPromoteDialog({
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label>Pilih Kelas Tujuan</Label>
-            <Select value={selectedClassId} onValueChange={setSelectedClassId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Pilih Kelas..." />
-              </SelectTrigger>
-              <SelectContent>
-                {classes.map((cls) => (
-                  <SelectItem key={cls.id} value={cls.id}>
-                    {cls.name} ({cls.academicYear})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              items={classes.map((cls: any) => ({ value: cls.id, label: `${cls.name} (${cls.academicYear})` }))}
+              value={selectedClassId}
+              onChange={setSelectedClassId}
+              placeholder="Pilih Kelas..."
+            />
           </div>
         </div>
 

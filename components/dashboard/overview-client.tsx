@@ -13,9 +13,7 @@ import {
   BookOpen, Package, Wallet, AlertTriangle, CheckCircle2, ArrowUpRight,
   DollarSign, BookMarked, Boxes, Bell, Activity, Info
 } from "lucide-react";
-import { TeacherRoadmap } from "@/components/dashboard/teacher/teacher-roadmap";
-import { QuickAccessCards } from "@/components/dashboard/teacher/quick-access-cards";
-import { TeacherAssistantPanel } from "@/components/dashboard/teacher/teacher-assistant-panel";
+
 import { formatCurrency } from "@/lib/utils";
 import { SPMBStatusBadge } from "@/components/spmb/status-badge";
 import { BentoGrid, BentoGridItem } from "@/components/ui/bento-grid";
@@ -41,7 +39,6 @@ const StatusDistributionChart = dynamic(
 interface OverviewClientProps {
   stats: any;
   moduleStats: any;
-  teacherStats: any;
   recentRegistrants: any[];
   activePeriod: any;
   serverHealth: any;
@@ -50,7 +47,6 @@ interface OverviewClientProps {
 export function OverviewClient({ 
   stats, 
   moduleStats, 
-  teacherStats, 
   recentRegistrants, 
   activePeriod,
   serverHealth 
@@ -120,7 +116,6 @@ export function OverviewClient({
       description: "Total keseluruhan pendaftar masuk",
       icon: <Users className="h-4 w-4 text-neutral-500" />,
       header: <div className="flex flex-1 w-full h-full min-h-[6rem] rounded-xl bg-gradient-to-br from-neutral-200 dark:from-neutral-900 dark:to-neutral-800 to-neutral-100 items-center justify-center text-4xl font-bold text-neutral-700 dark:text-neutral-200">{stats.total}</div>,
-      className: "md:col-span-2", 
     },
     {
       title: "Menunggu Verifikasi", 
@@ -179,21 +174,7 @@ export function OverviewClient({
 
   return (
     <div className="space-y-8">
-      {/* Teacher Dashboard Section */}
-      <div className="flex flex-col xl:flex-row gap-6">
-        <div className="flex-1 space-y-6">
-          <TeacherRoadmap stats={teacherStats} />
-          
-           <div>
-             <h2 className="text-xl font-bold mb-4">Akses Cepat</h2>
-             <QuickAccessCards />
-           </div>
-        </div>
-        
-        <div className="xl:w-80 shrink-0">
-           <TeacherAssistantPanel stats={teacherStats} />
-        </div>
-      </div>
+
 
       {/* Module Stats Cards - 3D Effect */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -248,7 +229,6 @@ export function OverviewClient({
                     description={item.description}
                     header={item.header}
                     icon={item.icon}
-                    className={item.className}
                 />
             ))}
             {/* Adding an extra chart item to the bento grid or keeping it separate? Keeping standard stats here. */}

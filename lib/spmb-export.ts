@@ -6,30 +6,77 @@ export async function exportToExcel(data: SPMBRegistrant[], filename: string = "
 
     const exportData = data.map((item, index) => ({
         "No": index + 1,
-        "No. Pendaftaran": item.registration_number,
-        "Nama Siswa": item.student_name || item.full_name,
-        "NIK": item.student_nik || item.nik,
-        "Tempat Lahir": item.birth_place,
-        "Tanggal Lahir": item.birth_date
-            ? new Date(item.birth_date).toLocaleDateString("id-ID")
+        "No. Pendaftaran": item.registrationNumber,
+        "Nama Siswa": item.fullName,
+        "NIK Siswa": item.studentNik,
+        "JK": item.gender === "L" ? "Laki-laki" : "Perempuan",
+        "Tempat Lahir": item.birthPlace,
+        "Tanggal Lahir": item.birthDate
+            ? new Date(item.birthDate).toLocaleDateString("id-ID")
             : "",
-        "Jenis Kelamin": item.gender === "L" ? "Laki-laki" : "Perempuan",
-        "Nama Orang Tua": item.parent_name,
-        "No. HP": item.parent_phone,
-        "Email": item.parent_email,
-        "Alamat": item.address || item.home_address,
-        "Jarak (km)": item.distance_to_school?.toFixed(2),
-        "Zonasi": (item.is_in_zone || item.is_within_zone) ? "Dalam Zona" : "Luar Zona",
+        "Agama": item.religion,
+        "Sekolah Asal": item.previousSchool,
+        
+        // Dapodik
+        "Hobi": item.hobby,
+        "Cita-cita": item.ambition,
+        "Anak Ke": item.childOrder,
+        "Jumlah Saudara": item.siblingCount,
+        "Tinggi (cm)": item.height,
+        "Berat (kg)": item.weight,
+        "Lingkar Kepala": item.headCircumference,
+        "Waktu Tempuh": item.travelTime,
+        "Jarak (km)": item.distanceToSchool?.toFixed(2),
+        "Zonasi": (item.isInZone) ? "Dalam" : "Luar",
+
+        // Alamat
+        "Alamat Lengkap": item.address,
+        "RT": item.addressRt,
+        "RW": item.addressRw,
+        "Desa/Kelurahan": item.addressVillage,
+        "Kode Pos": item.postalCode,
+        "Tempat Tinggal": item.livingArrangement,
+        "Moda Transportasi": item.transportMode,
+
+        // Kesejahteraan
+        "Penerima KIP": item.hasKip ? "Ya" : "Tidak",
+        "Penerima PKH/KPS": item.hasKpsPkh ? "Ya" : "Tidak",
+
+        // Orang Tua - Ayah
+        "Nama Ayah": item.fatherName,
+        "NIK Ayah": item.fatherNik,
+        "Tahun Lahir Ayah": item.fatherBirthYear,
+        "Pendidikan Ayah": item.fatherEducation,
+        "Pekerjaan Ayah": item.fatherJob,
+        "Penghasilan Ayah": item.fatherIncome,
+
+        // Orang Tua - Ibu
+        "Nama Ibu": item.motherName,
+        "NIK Ibu": item.motherNik,
+        "Tahun Lahir Ibu": item.motherBirthYear,
+        "Pendidikan Ibu": item.motherEducation,
+        "Pekerjaan Ibu": item.motherJob,
+        "Penghasilan Ibu": item.motherIncome,
+
+        // Wali
+        "Nama Wali": item.guardianName,
+        "NIK Wali": item.guardianNik,
+        "Pekerjaan Wali": item.guardianJob,
+
+        // Kontak
+        "No. HP Ortu": item.parentPhone,
+        "Email": item.parentEmail,
+        
         "Status": getStatusLabel(item.status),
-        "Tanggal Daftar": new Date(item.created).toLocaleDateString("id-ID"),
+        "Tanggal Daftar": new Date(item.createdAt).toLocaleDateString("id-ID"),
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Pendaftar");
 
-    // Auto-fit columns
-    const cols = Object.keys(exportData[0] || {}).map(() => ({ wch: 15 }));
+    // Auto-fit columns (simple approximation)
+    const cols = Object.keys(exportData[0] || {}).map(() => ({ wch: 20 }));
     worksheet["!cols"] = cols;
 
     XLSX.writeFile(workbook, `${filename}-${getDateString()}.xlsx`);
@@ -58,13 +105,13 @@ export async function exportToPDF(data: SPMBRegistrant[], filename: string = "pe
     // Table data
     const tableData = data.map((item, index) => [
         index + 1,
-        item.registration_number,
-        item.student_name || item.full_name,
+        item.registrationNumber,
+        item.fullName,
         item.gender === "L" ? "L" : "P",
-        item.parent_name?.substring(0, 20),
-        item.parent_phone,
-        item.distance_to_school?.toFixed(1) + " km",
-        (item.is_in_zone || item.is_within_zone) ? "✓" : "-",
+        item.fatherName?.substring(0, 20) || item.motherName?.substring(0, 20),
+        item.parentPhone,
+        item.distanceToSchool?.toFixed(1) + " km",
+        item.isInZone ? "✓" : "-",
         getStatusLabel(item.status),
     ]);
 

@@ -65,6 +65,15 @@ export const spmbRegistrants = sqliteTable(
     hasKip: integer("has_kip", { mode: "boolean" }).default(false),
     previousSchool: text("previous_school"),
     
+    // Dapodik Critical Fields (Optional at registration)
+    hobby: text("hobby"),
+    ambition: text("ambition"),
+    height: integer("height"), // cm
+    weight: integer("weight"), // kg
+    headCircumference: integer("head_circumference"), // cm
+    siblingCount: integer("sibling_count"),
+    travelTime: text("travel_time"), // Free text or enum later
+    
     // Detailed Address
     addressStreet: text("address_street").notNull(),
     addressRt: text("address_rt").notNull(),

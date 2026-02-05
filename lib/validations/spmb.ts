@@ -69,6 +69,15 @@ export const studentFormSchema = z.object({
     .string()
     .max(100, "Nama sekolah asal maksimal 100 karakter")
     .optional(),
+  
+  // Dapodik Fields (Mandatory now)
+  hobby: z.string().min(1, "Hobi wajib dipilih"),
+  ambition: z.string().min(1, "Cita-cita wajib dipilih"),
+  height: z.coerce.number().min(1, "Tinggi badan wajib diisi"),
+  weight: z.coerce.number().min(1, "Berat badan wajib diisi"),
+  head_circumference: z.coerce.number().min(1, "Lingkar kepala wajib diisi"),
+  sibling_count: z.coerce.number().min(0, "Jumlah saudara wajib diisi"), // 0 is valid for single child? "Dari X bersaudara" usually means X>=1 if child_order is 1. If single child: child_order=1, sibling_count=1 (himself). Or siblings=0? Let's assume simple number input.
+  travel_time: z.string().min(1, "Waktu tempuh wajib dipilih"),
 });
 
 export type StudentFormValues = z.infer<typeof studentFormSchema>;
@@ -236,6 +245,15 @@ export const registerApiSchema = z.object({
   has_kps_pkh: z.boolean(),
   has_kip: z.boolean(),
   previous_school: z.string().optional(),
+  
+  // Dapodik Fields
+  hobby: z.string(),
+  ambition: z.string(),
+  height: z.number(),
+  weight: z.number(),
+  head_circumference: z.number(),
+  sibling_count: z.number(),
+  travel_time: z.string(),
 
   // Address
   address_street: z.string(),

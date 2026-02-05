@@ -68,6 +68,7 @@ export async function GET(request: NextRequest) {
             success: true,
             data: {
                 registration_number: registrant.registrationNumber,
+                id: registrant.id,
                 student_name: registrant.fullName,
                 status: registrant.status,
                 status_label: statusMap[registrant.status || "pending"] || registrant.status,

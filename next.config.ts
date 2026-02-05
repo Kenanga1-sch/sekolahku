@@ -16,6 +16,9 @@ if (useStandalone) {
 const nextConfig: NextConfig = {
   // Disable source maps in production for faster builds
   productionBrowserSourceMaps: false,
+  
+  // Disable strict mode to prevent double-mounting of camera in dev
+  reactStrictMode: false,
 
   // Optimize for low-memory environments
   experimental: {

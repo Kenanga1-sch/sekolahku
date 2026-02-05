@@ -95,8 +95,21 @@ export default async function ProofPage(props: { params: Promise<{ id: string }>
                 
                 {/* Judul Dokumen */}
                 <div className="text-center mt-6 mb-8">
-                    <h2 className="text-xl font-bold uppercase tracking-wider text-black border-b-2 border-black inline-block pb-1">Tanda Bukti Pendaftaran</h2>
+                    <h2 className="text-xl font-bold uppercase tracking-wider text-black border-b-2 border-black inline-block pb-1">
+                        {registrant.status === "accepted" ? "SURAT KEPUTUSAN PENERIMAAN SISWA BARU" : "Tanda Bukti Pendaftaran"}
+                    </h2>
                 </div>
+
+                {/* Acceptance Decision Text */}
+                {registrant.status === "accepted" && (
+                     <div className="mb-8 px-4">
+                        <div className="bg-blue-50 border border-blue-100 p-6 rounded-lg text-justify leading-relaxed">
+                            <p className="mb-4">
+                                Berdasarkan hasil seleksi administrasi dan akademik Penerimaan Peserta Didik Baru (PPDB) Tahun Pelajaran {new Date().getFullYear()}/{new Date().getFullYear() + 1}, Kepala Sekolah UPTD SDN 1 Kenanga dengan ini memutuskan bahwa:
+                            </p>
+                        </div>
+                     </div>
+                )}
 
                 <div className="flex flex-col md:flex-row gap-6 mb-8">
                     {/* Main Data Column */}
@@ -190,6 +203,17 @@ export default async function ProofPage(props: { params: Promise<{ id: string }>
                     </div>
                 </div>
 
+                {registrant.status === "accepted" && (
+                    <div className="mt-8 mb-4 px-4 text-center">
+                        <p className="text-lg font-bold">
+                             Dinyatakan: <span className="text-xl uppercase border-b-2 border-green-600 text-green-700">DITERIMA / LULUS SELEKSI</span>
+                        </p>
+                        <p className="mt-2 text-sm italic text-gray-600">
+                            Sebagai Peserta Didik Baru Kelas 1 di UPTD SDN 1 Kenanga.
+                        </p>
+                    </div>
+                )}
+
                  {/* Disclaimer / Footer Notice */}
                 <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg text-sm text-blue-900 mb-8">
                      <p><strong>Catatan Penting:</strong></p>
@@ -211,7 +235,9 @@ export default async function ProofPage(props: { params: Promise<{ id: string }>
                         <p className="text-[10pt] font-semibold text-gray-600">Panitia PPDB,</p>
                         <div className="h-20"></div> {/* Space for sign */}
                         <div className="border-b border-black w-48 mx-auto mb-1"></div>
-                        <p className="text-[10pt] font-bold">Panitia Penerimaan</p>
+                        <p className="text-[10pt] font-bold">
+                            {registrant.status === "accepted" ? "Kepala Sekolah" : "Panitia Penerimaan"}
+                        </p>
                     </div>
                 </div>
             </div>

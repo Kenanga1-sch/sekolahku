@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
         
         const validData = parseResult.data;
 
-        // RBAC Check for Guru
+        // RBAC Check for Guru (Admins can bypass)
         if (body.type === "tarik") {
             // Lazy load getSiswaById to avoid circular dep issues if any
             const { getSiswaById } = await import("@/lib/tabungan");
@@ -112,8 +112,10 @@ export async function POST(request: NextRequest) {
             }
 
             const siswaKelasWali = student.kelas?.waliKelas;
+            const userRole = (currentUser as any).role; // Safe cast based on auth config
+            const isAdmin = userRole === "admin" || userRole === "superadmin";
             
-            if (siswaKelasWali !== currentUser.id) {
+            if (!isAdmin && siswaKelasWali !== currentUser.id) {
                 return NextResponse.json({ 
                     error: "Akses Ditolak: Anda hanya boleh menginput transaksi untuk kelas bimbingan Anda." 
                 }, { status: 403 });

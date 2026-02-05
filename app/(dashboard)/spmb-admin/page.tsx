@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { differenceInYears, differenceInMonths } from "date-fns";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +42,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Search,
   Filter,
   MoreHorizontal,
@@ -53,6 +60,7 @@ import {
   Trash2,
   UserCheck,
   Loader2,
+  HelpCircle,
 } from "lucide-react";
 import { exportToExcel, exportToPDF } from "@/lib/spmb-export";
 import { SPMBStatusBadge } from "@/components/spmb/status-badge";
@@ -67,8 +75,32 @@ interface Registrant {
     distanceToSchool: number;
     isInZone: boolean;
     createdAt: string;
+    birthDate: string; // Added birthDate
     status: string;
+    score?: number; // Added score
 }
+
+// Calculate Weighted Score
+// Age Score: 10 points per month of age
+// Distance Bonus: < 1km = +30, 1-2km = +10, >2km = 0
+const calculateScore = (dobString: string | null, distance: number | null) => {
+    if (!dobString) return 0;
+    const dob = new Date(dobString);
+    // Standardize Age Calculation to July 1st of current year
+    const today = new Date();
+    const referenceDate = new Date(today.getFullYear(), 6, 1); // Month 6 is July (0-indexed)
+    
+    // Age in months
+    const ageMonths = differenceInMonths(referenceDate, dob);
+    const ageScore = ageMonths * 10;
+    
+    let distanceBonus = 0;
+    const dist = distance || 0;
+    if (dist < 1) distanceBonus = 30; // ~3 months advantage
+    else if (dist < 2) distanceBonus = 10; // ~1 month advantage
+    
+    return ageScore + distanceBonus;
+};
 
 interface Stats {
   total: number;
@@ -126,7 +158,13 @@ export default function SPMBAdminPage() {
         const data = await res.json();
         
         if (data.items) {
-            setRegistrants(data.items);
+            // Calculate scores and sort by Score DESC
+            const itemsWithScore = data.items.map((r: any) => ({
+                ...r,
+                score: calculateScore(r.birthDate, r.distanceToSchool)
+            })).sort((a: any, b: any) => (b.score || 0) - (a.score || 0));
+
+            setRegistrants(itemsWithScore);
             setTotalPages(data.totalPages);
         }
 
@@ -273,30 +311,58 @@ export default function SPMBAdminPage() {
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button className="gap-2" variant="outline">
-                <Download className="h-4 w-4" />
-                Export
+              <Button className="gap-2" variant="outline" disabled={actionLoading === "export"}>
+                 {actionLoading === "export" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                Export Data
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={async () => {
+                setActionLoading("export");
                 try {
-                   // Map local state to expected type roughly
-                   await exportToExcel(registrants as any, "Data-Pendaftar-SPMB");
+                   // Fetch ALL data
+                   const query = new URLSearchParams({
+                      page: "1",
+                      perPage: "-1", // Fetch all
+                      status: statusFilter,
+                      search: searchQuery,
+                   });
+                   const res = await fetch(`/api/spmb/registrants?${query.toString()}`);
+                   const result = await res.json();
+                   
+                   if (result.items) {
+                       await exportToExcel(result.items, "Data-Lengkap-PPDB");
+                   }
                 } catch (e) {
                    console.error("Export failed", e);
+                } finally {
+                    setActionLoading(null);
                 }
               }}>
-                📊 Export ke Excel
+                📊 Export Excel (Lengkap)
               </DropdownMenuItem>
               <DropdownMenuItem onClick={async () => {
+                 setActionLoading("export");
                  try {
-                   await exportToPDF(registrants as any, "Data-Pendaftar-SPMB");
+                    const query = new URLSearchParams({
+                      page: "1",
+                      perPage: "-1",
+                      status: statusFilter,
+                      search: searchQuery,
+                   });
+                   const res = await fetch(`/api/spmb/registrants?${query.toString()}`);
+                   const result = await res.json();
+
+                   if (result.items) {
+                     await exportToPDF(result.items, "Data-Ringkas-PPDB");
+                   }
                  } catch (e) {
                    console.error("Export failed", e);
+                 } finally {
+                    setActionLoading(null);
                  }
               }}>
-                📄 Export ke PDF
+                📄 Export PDF (Ringkas)
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -304,25 +370,40 @@ export default function SPMBAdminPage() {
       </div>
 
       {/* Stats Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Card className="p-4">
-          <div className="text-sm text-muted-foreground">Total</div>
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+        <Card className="p-4 flex flex-col justify-between space-y-2">
+          <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <div className="text-sm font-medium text-muted-foreground">Total Pendaftar</div>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </div>
           <div className="text-2xl font-bold">{isLoading ? <Skeleton className="h-8 w-12" /> : stats.total}</div>
         </Card>
-        <Card className="p-4">
-          <div className="text-sm text-muted-foreground">Pending</div>
+        <Card className="p-4 flex flex-col justify-between space-y-2">
+          <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+             <div className="text-sm font-medium text-muted-foreground">Menunggu</div>
+             <RefreshCw className="h-4 w-4 text-amber-600" />
+          </div>
           <div className="text-2xl font-bold text-amber-600">{isLoading ? <Skeleton className="h-8 w-12" /> : stats.pending}</div>
         </Card>
-        <Card className="p-4">
-          <div className="text-sm text-muted-foreground">Terverifikasi</div>
+        <Card className="p-4 flex flex-col justify-between space-y-2">
+          <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+             <div className="text-sm font-medium text-muted-foreground">Terverifikasi</div>
+             <CheckCircle className="h-4 w-4 text-blue-600" />
+          </div>
           <div className="text-2xl font-bold text-blue-600">{isLoading ? <Skeleton className="h-8 w-12" /> : stats.verified}</div>
         </Card>
-        <Card className="p-4">
-          <div className="text-sm text-muted-foreground">Diterima</div>
+        <Card className="p-4 flex flex-col justify-between space-y-2">
+          <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+             <div className="text-sm font-medium text-muted-foreground">Diterima</div>
+             <UserCheck className="h-4 w-4 text-green-600" />
+          </div>
           <div className="text-2xl font-bold text-green-600">{isLoading ? <Skeleton className="h-8 w-12" /> : stats.accepted}</div>
         </Card>
-        <Card className="p-4">
-          <div className="text-sm text-muted-foreground">Ditolak</div>
+        <Card className="p-4 flex flex-col justify-between space-y-2">
+          <div className="flex flex-row items-center justify-between space-y-0 pb-2">
+             <div className="text-sm font-medium text-muted-foreground">Ditolak</div>
+             <XCircle className="h-4 w-4 text-red-600" />
+          </div>
           <div className="text-2xl font-bold text-red-600">{isLoading ? <Skeleton className="h-8 w-12" /> : stats.rejected}</div>
         </Card>
       </div>
@@ -419,6 +500,29 @@ export default function SPMBAdminPage() {
                   </TableHead>
                   <TableHead>No. Pendaftaran</TableHead>
                   <TableHead>Nama Lengkap</TableHead>
+                  <TableHead>
+                    <div className="flex items-center gap-1">
+                        Skor
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger>
+                                    <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p className="not-italic text-xs max-w-[200px]">
+                                        <strong>Skor Prioritas:</strong><br/>
+                                        (Usia per 1 Juli x 10) + Bonus Jarak<br/>
+                                        <br/>
+                                        Bonus Jarak:<br/>
+                                        &lt; 1km: +30 poin<br/>
+                                        1-2km: +10 poin
+                                    </p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    </div>
+                  </TableHead>
+                  <TableHead>Usia</TableHead>
                   <TableHead className="hidden md:table-cell">Jarak</TableHead>
                   <TableHead className="hidden lg:table-cell">Zonasi</TableHead>
                   <TableHead className="hidden md:table-cell">Tanggal</TableHead>
@@ -468,6 +572,26 @@ export default function SPMBAdminPage() {
                             {r.gender === "L" ? "Laki-laki" : "Perempuan"}
                           </p>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="font-mono bg-slate-50">
+                            {r.score ?? 0}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {(() => {
+                            if (!r.birthDate) return <span className="text-muted-foreground">-</span>;
+                            const dob = new Date(r.birthDate);
+                            const today = new Date();
+                            const referenceDate = new Date(today.getFullYear(), 6, 1); // July 1st
+                            const years = differenceInYears(referenceDate, dob);
+                            const months = differenceInMonths(referenceDate, dob) % 12;
+                            return (
+                                <span className={years >= 7 ? "text-green-600 font-medium" : "text-amber-600"}>
+                                    {years} Thn {months} Bln
+                                </span>
+                            );
+                        })()}
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
                         {r.distanceToSchool?.toFixed(2) || "0.00"} km

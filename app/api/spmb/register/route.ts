@@ -122,6 +122,15 @@ export async function POST(request: NextRequest) {
             hasKpsPkh: validData.has_kps_pkh,
             hasKip: validData.has_kip,
             previousSchool: sanitizeString(validData.previous_school || ""),
+            
+            // Dapodik Fields
+            hobby: sanitizeString(validData.hobby),
+            ambition: sanitizeString(validData.ambition),
+            height: validData.height,
+            weight: validData.weight,
+            headCircumference: validData.head_circumference,
+            siblingCount: validData.sibling_count,
+            travelTime: sanitizeString(validData.travel_time),
 
             // Contact (Legacy & New)
             parentName: sanitizeString(primaryParentName),

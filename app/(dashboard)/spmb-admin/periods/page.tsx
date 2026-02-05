@@ -50,6 +50,10 @@ import {
   XCircle,
   RefreshCw,
   Loader2,
+  Lock,
+  Unlock,
+  Power,
+  Settings as SettingsIcon,
 } from "lucide-react";
 
 // Local interface since we are migrating away from types/index.ts eventually
@@ -79,6 +83,42 @@ export default function SPMBPeriodsPage() {
     isActive: false,
   });
 
+  const [globalSettings, setGlobalSettings] = useState<any>(null);
+  const [isGlobalLoading, setIsGlobalLoading] = useState(true);
+
+  const fetchGlobalSettings = useCallback(async () => {
+      try {
+        const res = await fetch("/api/school-settings");
+        const data = await res.json();
+        setGlobalSettings(data);
+      } catch (e) {
+        console.error("Failed to fetch global settings", e);
+      } finally {
+        setIsGlobalLoading(false);
+      }
+  }, []);
+
+  const toggleGlobalSPMB = async (checked: boolean) => {
+      if (!globalSettings) return;
+      
+      const prev = { ...globalSettings };
+      const next = { ...globalSettings, spmb_is_open: checked };
+      setGlobalSettings(next); // Optimistic update
+      
+      try {
+        const res = await fetch("/api/school-settings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(next)
+        });
+        if (!res.ok) throw new Error("Correction needed");
+      } catch (e) {
+          console.error("Failed to save global setting", e);
+          setGlobalSettings(prev); // Revert
+          alert("Gagal mengubah status pendaftaran");
+      }
+  };
+
   const fetchPeriods = useCallback(async () => {
     try {
       const res = await fetch("/api/spmb/periods");
@@ -95,7 +135,8 @@ export default function SPMBPeriodsPage() {
 
   useEffect(() => {
     fetchPeriods();
-  }, [fetchPeriods]);
+    fetchGlobalSettings();
+  }, [fetchPeriods, fetchGlobalSettings]);
 
   const handleSubmit = async () => {
     setIsSaving(true);
@@ -273,6 +314,55 @@ export default function SPMBPeriodsPage() {
           </Dialog>
         </div>
       </div>
+
+      {/* Global Status Card */}
+      <Card className={`${
+          globalSettings?.spmb_is_open 
+            ? "bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-200 dark:border-green-800" 
+            : "bg-gradient-to-br from-zinc-50 to-zinc-100 dark:from-zinc-900/50 dark:to-zinc-900 border-zinc-200 dark:border-zinc-800"
+      }`}>
+        <CardContent className="p-6">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                <div className="flex items-center gap-4">
+                    <div className={`p-3 rounded-full ${
+                        globalSettings?.spmb_is_open 
+                            ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400" 
+                            : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400"
+                    }`}>
+                        {globalSettings?.spmb_is_open ? <Unlock className="h-6 w-6" /> : <Lock className="h-6 w-6" />}
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-semibold flex items-center gap-2">
+                            Status Pendaftaran (Global)
+                            {globalSettings?.spmb_is_open 
+                                ? <Badge className="bg-green-600 hover:bg-green-700">Terbuka</Badge>
+                                : <Badge variant="secondary">Tertutup</Badge>
+                            }
+                        </h3>
+                        <p className="text-muted-foreground">
+                            {globalSettings?.spmb_is_open 
+                                ? "Sistem menerima pendaftaran untuk periode aktif." 
+                                : "Pendaftaran ditutup sepenuhnya. Calon siswa tidak bisa mendaftar meskipun ada periode aktif."}
+                        </p>
+                    </div>
+                </div>
+                
+                {isGlobalLoading ? (
+                    <Skeleton className="h-10 w-32" />
+                ) : (
+                    <div className="flex items-center gap-3 bg-background/50 p-2 rounded-lg border border-border/50">
+                        <span className={`text-sm font-medium ${!globalSettings?.spmb_is_open ? "text-muted-foreground" : ""}`}>Tutup</span>
+                        <Switch 
+                            checked={globalSettings?.spmb_is_open || false}
+                            onCheckedChange={toggleGlobalSPMB}
+                            className="data-[state=checked]:bg-green-600"
+                        />
+                        <span className={`text-sm font-medium ${globalSettings?.spmb_is_open ? "" : "text-muted-foreground"}`}>Buka</span>
+                    </div>
+                )}
+            </div>
+        </CardContent>
+      </Card>
 
       {/* Active Period Card */}
       {isLoading ? (

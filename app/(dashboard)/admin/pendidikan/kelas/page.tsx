@@ -32,6 +32,7 @@ import {
 import { Plus, Pencil, Trash2, ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { showSuccess, showError } from "@/lib/toast";
+import { getActiveAcademicYear } from "@/actions/academic";
 
 interface AcademicClass {
     id: string;
@@ -44,6 +45,7 @@ interface AcademicClass {
 
 export default function AcademicClassesPage() {
     const [classes, setClasses] = useState<AcademicClass[]>([]);
+    const [academicYear, setAcademicYear] = useState<string>("...");
     const [isLoading, setIsLoading] = useState(true);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<AcademicClass | null>(null);
@@ -59,10 +61,19 @@ export default function AcademicClassesPage() {
     const fetchData = async () => {
         setIsLoading(true);
         try {
-            const res = await fetch("/api/academic/classes");
-            if (!res.ok) throw new Error("Gagal load data");
-            const data = await res.json();
-            setClasses(Array.isArray(data) ? data : []);
+            // Parallel fetch: classes and active academic year
+            const [resClasses, resYear] = await Promise.all([
+                fetch("/api/academic/classes"),
+                getActiveAcademicYear()
+            ]);
+
+            if (!resClasses.ok) throw new Error("Gagal load data");
+            const dataClasses = await resClasses.json();
+            setClasses(Array.isArray(dataClasses) ? dataClasses : []);
+
+            if (resYear.success && resYear.data) {
+                setAcademicYear(resYear.data);
+            }
         } catch (error) {
             console.error(error);
             showError("Gagal memuat data kelas");
@@ -102,7 +113,7 @@ export default function AcademicClassesPage() {
                 name: formData.name,
                 grade: formData.grade,
                 capacity: formData.capacity,
-                academicYear: "2024/2025" // Hardcoded for now, or dynamic later
+                academicYear: academicYear // Now dynamic
             };
 
             let res;
@@ -162,7 +173,7 @@ export default function AcademicClassesPage() {
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                         <CardTitle>Daftar Kelas</CardTitle>
-                        <CardDescription>Tahun Ajaran 2024/2025</CardDescription>
+                        <CardDescription>Tahun Ajaran {academicYear}</CardDescription>
                     </div>
                     <Button onClick={() => handleOpenDialog()}>
                         <Plus className="h-4 w-4 mr-2" />

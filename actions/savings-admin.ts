@@ -107,23 +107,19 @@ export async function getPendingSetoran() {
 
 export async function verifySetoran(setoranId: string, bendaharaId: string) {
   try {
-    // 1. Update Setoran Status
-    await db.update(tabunganSetoran)
-      .set({ 
-        status: "verified",
-        bendaharaId: bendaharaId,
-        updatedAt: new Date()
-      })
-      .where(eq(tabunganSetoran.id, setoranId));
-
-    // 2. Update all linked Transactions to "verified" (if they aren't already)
-    // tabunganTransaksi has a status column too. When Setoran is verified, the transactions inside should surely be verified.
-    await db.update(tabunganTransaksi)
-      .set({ status: "verified" })
-      .where(eq(tabunganTransaksi.setoranId, setoranId));
+    // Determine strict mode for Next.js is not the issue here, but logic flow.
+    // Use core logic to ensure Brankas is updated
+    const { verifySetoran: verifySetoranCore } = await import("@/lib/tabungan");
+    
+    await verifySetoranCore(
+        setoranId,
+        "verified",
+        bendaharaId
+        // nominalFisik defaults to totalNominal if undefined, which is correct for this quick verify button
+    );
 
     revalidatePath("/keuangan/tabungan/bendahara");
-    return { success: true, message: "Setoran berhasil diverifikasi/disahkan" };
+    return { success: true, message: "Setoran berhasil diverifikasi dan masuk kas" };
   } catch (error: any) {
     return { success: false, error: error.message };
   }

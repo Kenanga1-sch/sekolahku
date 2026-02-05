@@ -4,7 +4,7 @@ import { spmbRegistrants, spmbPeriods } from "@/db/schema/spmb";
 import { libraryAssets, libraryLoans, libraryMembers } from "@/db/schema/library";
 import { inventoryAssets, inventoryRooms } from "@/db/schema/inventory";
 import { tabunganSiswa, tabunganTransaksi } from "@/db/schema/tabungan";
-import { teacherTp, teachingModules, studentGrades, classJournals } from "@/db/schema/curriculum";
+
 import { eq, sql, and, lt, gte, or } from "drizzle-orm";
 import { statSync, existsSync } from "fs";
 import { join } from "path";
@@ -151,13 +151,8 @@ export async function getDashboardStats(userId: string) {
   try {
     const cachedData = await getCachedStats();
     
-    // Teacher stats are user-specific, so we don't cache them globally with the main dashboard stats
-    // We could cache them per-user if needed, but for now we fetch fresh
-    const teacherStats = await getTeacherStats(userId);
-
     return {
       ...cachedData,
-      teacherStats,
     };
   } catch (error) {
     console.error("Failed to fetch dashboard stats:", error);
@@ -171,7 +166,6 @@ export async function getDashboardStats(userId: string) {
           inventaris: { totalAssets: 0, needsMaintenance: 0, totalRooms: 0 },
           tabungan: { totalSaldo: 0, todayTransactions: 0, totalStudents: 0 }
       },
-      teacherStats: { tpCount: 0, moduleCount: 0, gradeCount: 0, journalCount: 0 }
     };
   }
 }
@@ -238,26 +232,4 @@ export async function getSystemHealth(): Promise<SystemHealth | null> {
   }
 }
 
-async function getTeacherStats(userId: string) {
-  try {
-    const [tp, mod, grades, journals] = await Promise.all([
-      db.select({ count: sql<number>`count(*)` }).from(teacherTp).where(eq(teacherTp.teacherId, userId)),
-      db.select({ count: sql<number>`count(*)` }).from(teachingModules)
-        .leftJoin(teacherTp, eq(teachingModules.tpId, teacherTp.id))
-        .where(eq(teacherTp.teacherId, userId)),
-      db.select({ count: sql<number>`count(*)` }).from(studentGrades)
-        .leftJoin(teacherTp, eq(studentGrades.tpId, teacherTp.id))
-        .where(eq(teacherTp.teacherId, userId)),
-       db.select({ count: sql<number>`count(*)` }).from(classJournals).where(eq(classJournals.teacherId, userId)) 
-    ]);
 
-    return {
-      tpCount: tp[0]?.count || 0,
-      moduleCount: mod[0]?.count || 0,
-      gradeCount: grades[0]?.count || 0,
-      journalCount: journals[0]?.count || 0
-    };
-  } catch (e) {
-    return { tpCount: 0, moduleCount: 0, gradeCount: 0, journalCount: 0 };
-  }
-}

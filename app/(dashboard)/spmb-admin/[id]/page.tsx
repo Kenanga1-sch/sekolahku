@@ -44,7 +44,7 @@ import {
     GraduationCap,
     Home,
 } from "lucide-react";
-import { PrintRegistrationCard } from "@/components/print-registration";
+
 import { DocumentList } from "@/components/document-viewer";
 import { SPMBStatusBadge } from "@/components/spmb/status-badge";
 
@@ -299,7 +299,7 @@ export default function RegistrantDetailPage() {
                     </div>
                 </div>
                 <div className="flex gap-2">
-                     <PrintRegistrationCard registrant={registrant as any} />
+
                     <Button variant="destructive" onClick={() => setShowDelete(true)}>
                         <Trash2 className="h-4 w-4 mr-2" />
                         Hapus

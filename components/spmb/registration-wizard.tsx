@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronRight, ChevronLeft, Check, Loader2, Send, Printer } from "lucide-react";
+import { ChevronRight, ChevronLeft, Check, Loader2, Send, Printer, UserPlus, RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -80,7 +80,10 @@ function RegistrationWizardContent({
       full_name: "", nik: "", kk_number: "", birth_place: "", birth_date: "",
       gender: undefined, religion: undefined, special_needs: "Tidak",
       living_arrangement: undefined, transport_mode: undefined, child_order: 1,
-      has_kps_pkh: false, has_kip: false, previous_school: "", nisn: "", birth_certificate_no: ""
+      has_kps_pkh: false, has_kip: false, previous_school: "", nisn: "", birth_certificate_no: "",
+      // Dapodik defaults
+      hobby: undefined, ambition: undefined, height: undefined, weight: undefined, 
+      head_circumference: undefined, sibling_count: undefined, travel_time: undefined
     } as any, // Cast to any because undefined is not assignable to enum types in strictly typed forms
   });
 
@@ -114,8 +117,8 @@ function RegistrationWizardContent({
   const locationValues = locationForm.watch();
 
   useEffect(() => {
-    // Only save if NOT submitting
-    if (isSubmitting) return;
+    // Only save if NOT submitting and NOT successfully submitted
+    if (isSubmitting || submitResult?.success) return;
 
     const timer = setTimeout(() => {
       const currentData = {
@@ -136,7 +139,54 @@ function RegistrationWizardContent({
     }, 800);
 
     return () => clearTimeout(timer);
-  }, [studentValues, parentValues, locationValues, currentStep, isSubmitting]);
+  }, [studentValues, parentValues, locationValues, currentStep, isSubmitting, submitResult?.success]);
+
+  const performReset = () => {
+    localStorage.removeItem("spmb_registration_progress");
+    
+    studentForm.reset({
+      full_name: "", nik: "", kk_number: "", birth_place: "", birth_date: "",
+      gender: undefined, religion: undefined, special_needs: "Tidak",
+      living_arrangement: undefined, transport_mode: undefined, child_order: 1,
+      has_kps_pkh: false, has_kip: false, previous_school: "", nisn: "", birth_certificate_no: ""
+    } as any);
+
+    parentForm.reset({
+      parent_phone: "", parent_email: "", address_street: "", address_rt: "",
+      address_rw: "", address_village: "", postal_code: "",
+      father_name: "", father_nik: "", father_birth_year: "", father_education: undefined,
+      father_job: undefined, father_income: undefined,
+      mother_name: "", mother_nik: "", mother_birth_year: "", mother_education: undefined,
+      mother_job: undefined, mother_income: undefined,
+      guardian_name: "", guardian_nik: "", guardian_birth_year: "", guardian_education: "",
+      guardian_job: "", guardian_income: "",
+    });
+
+    locationForm.reset({
+      home_lat: schoolLat + 0.005,
+      home_lng: schoolLng + 0.005,
+      distance_to_school: 0,
+      is_within_zone: true,
+    });
+
+    setRegistrationData({
+      student: null, parent: null, location: null, documents: null
+    });
+    setCurrentStep(1);
+    setActiveParentTab("father");
+    setSubmitResult(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleReset = () => {
+    if (confirm("Apakah Anda yakin ingin menghapus semua data formulir dan memulainya dari awal? Tindakan ini tidak dapat dibatalkan.")) {
+      performReset();
+    }
+  };
+
+  const handleRegisterAnother = () => {
+    performReset();
+  };
 
   // Tab Validation Fields
   const PARENT_TAB_FIELDS: Record<string, (keyof ParentFormValues)[]> = {
@@ -325,6 +375,14 @@ function RegistrationWizardContent({
                   <Printer className="h-4 w-4" /> Cetak Bukti Pendaftaran
                 </Button>
             )}
+
+            <Button 
+                variant="ghost"
+                className="mt-4 text-muted-foreground hover:text-primary"
+                onClick={handleRegisterAnother}
+            >
+                <UserPlus className="h-4 w-4 mr-2" /> Daftarkan Siswa Lain
+            </Button>
           </CardContent>
         </Card>
       </motion.div>
@@ -385,9 +443,23 @@ function RegistrationWizardContent({
              <div className="h-1.5 w-full bg-gradient-to-r from-primary to-blue-400" />
              
             <CardContent className="p-6 md:p-8 space-y-6 flex-1">
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold">{STEPS[currentStep - 1].title}</h2>
-                <p className="text-muted-foreground">{STEPS[currentStep - 1].description}</p>
+              <div className="mb-6 flex justify-between items-start">
+                <div>
+                    <h2 className="text-2xl font-bold">{STEPS[currentStep - 1].title}</h2>
+                    <p className="text-muted-foreground">{STEPS[currentStep - 1].description}</p>
+                </div>
+                {currentStep < 5 && (
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={handleReset}
+                        className="text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10"
+                        title="Reset Formulir (Hapus Data)"
+                    >
+                        <RotateCcw className="h-4 w-4" />
+                        <span className="sr-only sm:not-sr-only sm:ml-2">Reset</span>
+                    </Button>
+                )}
               </div>
 
               {currentStep === 1 && <Form {...studentForm}><StudentForm form={studentForm as any} /></Form>}

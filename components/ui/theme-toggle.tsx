@@ -12,7 +12,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useTheme } from "@/components/providers/theme-provider";
 
-export function ThemeToggle() {
+interface ThemeToggleProps {
+  align?: "center" | "start" | "end";
+  side?: "top" | "right" | "bottom" | "left";
+  onOpenChange?: (open: boolean) => void;
+}
+
+export function ThemeToggle({ align = "end", side = "bottom", onOpenChange }: ThemeToggleProps) {
   const { theme, setTheme, resolvedTheme } = useTheme();
 
   /* Fix hydration mismatch by waiting for mount */
@@ -32,7 +38,7 @@ export function ThemeToggle() {
   }
 
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={onOpenChange}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="rounded-full">
           {resolvedTheme === "dark" ? (
@@ -43,7 +49,7 @@ export function ThemeToggle() {
           <span className="sr-only">Toggle theme</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align={align} side={side}>
         <DropdownMenuItem onClick={() => setTheme("light")}>
           <Sun className="mr-2 h-4 w-4" />
           Terang

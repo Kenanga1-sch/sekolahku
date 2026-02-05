@@ -25,12 +25,29 @@ interface AdminNotification {
   createdAt: string;
 }
 
-export function NotificationPopover() {
+export function NotificationPopover({ className }: { className?: string }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+
+  // ... (fetchStats and fetchNotifications remain same)
+
+  // ... (useEffect hooks remain same)
+
+  // ... (handlers remain same)
+
+  // ... (helpers remain same)
+  
+  // Note: I need to preserve the function body or use replace carefully. 
+  // I'll just change the signature and the Button usage.
+  // Actually, replace_file_content needs exact target.
+  // I will replace the start of function and the Button trigger.
+  
+  // Wait, I can't split the replacement easily if lines are far apart without multi_replace.
+  // Let's use multi_replace.
+
 
   const fetchStats = async () => {
     try {
@@ -135,7 +152,7 @@ export function NotificationPopover() {
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
-          className="relative h-10 w-10 rounded-full"
+          className={cn("relative h-10 w-10 rounded-full", className)}
           size="icon"
         >
           <Bell className="h-5 w-5" />

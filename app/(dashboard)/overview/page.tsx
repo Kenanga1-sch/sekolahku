@@ -24,7 +24,6 @@ export default async function OverviewPage() {
     <OverviewClient
       stats={statsData.spmb}
       moduleStats={statsData.moduleStats}
-      teacherStats={statsData.teacherStats}
       recentRegistrants={statsData.recentRegistrants}
       activePeriod={statsData.activePeriod}
       serverHealth={healthData}

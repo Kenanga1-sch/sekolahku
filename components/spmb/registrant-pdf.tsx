@@ -7,7 +7,7 @@ import { id as idLocale } from 'date-fns/locale';
 const styles = StyleSheet.create({
   page: {
     fontFamily: 'Times-Roman',
-    padding: 40,
+    padding: 30,
     fontSize: 11,
     lineHeight: 1.3,
     backgroundColor: '#fff',
@@ -17,7 +17,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginBottom: 5,
     position: 'relative',
-    height: 90, // Fixed height to contain logo
+    height: 70, // Reduced from 80
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -25,8 +25,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 10,
     top: 5,
-    width: 65,
-    height: 65,
+    width: 50, // Reduced from 60
+    height: 50,
   },
   logoImg: {
     width: '100%',
@@ -84,13 +84,13 @@ const styles = StyleSheet.create({
   lineThin: {
     height: 1,
     backgroundColor: '#000',
-    marginBottom: 20,
+    marginBottom: 10,
   },
 
   // Document Title
   docTitleBox: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 10,
     marginTop: 10,
   },
   docTitleText: { // Renamed from docTitle to match usage if needed, or use inline style
@@ -140,11 +140,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderBottomWidth: 1,
     borderBottomColor: '#f3f4f6', // gray-100
-    paddingVertical: 4,
+    paddingVertical: 2, // Reduced from 4
   },
   tableRowPlain: {
      flexDirection: 'row',
-     paddingVertical: 4,
+     paddingVertical: 2, // Reduced from 4
   },
   
   // Cell Widths
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9fafb', // gray-50
     padding: 10,
     alignItems: 'center',
-    height: 480, // min-h equivalent
+    // height removed to wrap content
   },
   photoFrame: {
     width: 85, // 3cm
@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#dbeafe', // blue-100
     padding: 10,
-    marginBottom: 20,
+    marginBottom: 10,
     borderRadius: 4,
   },
   disclaimerTitle: {
@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   signGap: {
-    height: 50,
+    height: 40,
   },
   signLine: {
     borderBottomWidth: 1,
@@ -268,6 +268,7 @@ type RegistrantData = {
   createdAt: Date;
   qrCodeUrl: string;
   distanceToSchool?: number | null;
+  status: string | null;
 };
 
 export const RegistrantDocument = ({ data }: { data: RegistrantData }) => {
@@ -296,8 +297,20 @@ export const RegistrantDocument = ({ data }: { data: RegistrantData }) => {
 
         {/* Title */}
         <View style={styles.docTitleBox}>
-            <Text style={styles.docTitleText}>TANDA BUKTI PENDAFTARAN</Text>
+            <Text style={styles.docTitleText}>
+                {data.status === "accepted" ? "SURAT KEPUTUSAN PENERIMAAN" : "TANDA BUKTI PENDAFTARAN"}
+            </Text>
         </View>
+
+        {/* SK Text */}
+        {/* SK Text - More spacing and formal look */}
+        {data.status === "accepted" && (
+             <View style={{ marginBottom: 10, paddingHorizontal: 20 }}>
+                <Text style={{ fontFamily: 'Times-Roman', fontSize: 11, textAlign: 'justify', lineHeight: 1.4, marginBottom: 5 }}>
+                    Berdasarkan hasil seleksi administrasi dan akademik Penerimaan Peserta Didik Baru (PPDB) Tahun Pelajaran {new Date().getFullYear()}/{new Date().getFullYear() + 1}, Kepala Sekolah UPTD SDN 1 Kenanga dengan ini memutuskan bahwa:
+                </Text>
+             </View>
+        )}
 
         {/* content split */}
         <View style={styles.rowContainer}>
@@ -395,6 +408,17 @@ export const RegistrantDocument = ({ data }: { data: RegistrantData }) => {
             <Text style={styles.disclaimerText}>• Data yang tidak sesuai dengan dokumen asli dapat menggugurkan status penerimaan.</Text>
         </View>
 
+        {/* SK Status */}
+        {/* SK Status - CENTER AND BIG */}
+        {/* SK Status - CENTER AND BIG */}
+        {data.status === "accepted" && (
+             <View style={{ marginTop: 5, marginBottom: 10, alignItems: 'center', padding: 5, borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#000', marginHorizontal: 40 }}>
+                <Text style={{ fontFamily: 'Times-Bold', fontSize: 13, marginBottom: 2 }}>Dinyatakan :</Text>
+                <Text style={{ fontFamily: 'Times-Bold', fontSize: 16, textTransform: 'uppercase', color: '#000' }}>DITERIMA / LULUS SELEKSI</Text>
+                <Text style={{ fontFamily: 'Times-Roman', fontSize: 10, fontStyle: 'italic', color: '#4b5563', marginTop: 2 }}>Sebagai Peserta Didik Baru Kelas 1</Text>
+             </View>
+        )}
+
         {/* Signatures */}
         <View style={styles.signatureRow}>
             <View>
@@ -406,7 +430,10 @@ export const RegistrantDocument = ({ data }: { data: RegistrantData }) => {
                 <Text style={{ fontSize: 11, color: '#4b5563', fontFamily: 'Helvetica-Bold' }}>Panitia PPDB,</Text>
                 <View style={styles.signGap} />
                 <View style={styles.signLine} />
-                <Text style={{ fontSize: 11, fontFamily: 'Helvetica-Bold' }}>Panitia Penerimaan</Text>
+                <View style={styles.signLine} />
+                <Text style={{ fontSize: 11, fontFamily: 'Helvetica-Bold' }}>
+                    {data.status === "accepted" ? "Kepala Sekolah" : "Panitia Penerimaan"}
+                </Text>
             </View>
         </View>
 

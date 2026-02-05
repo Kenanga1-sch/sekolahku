@@ -38,13 +38,17 @@ export async function GET(request: NextRequest) {
         const totalPages = Math.ceil(totalItems / perPage);
 
         // Fetch items
-        const items = await db
+        let query = db
             .select()
             .from(spmbRegistrants)
             .where(whereClause)
-            .limit(perPage)
-            .offset(offset)
             .orderBy(sql`${spmbRegistrants.createdAt} DESC`);
+        
+        if (perPage !== -1) {
+            query = query.limit(perPage).offset(offset);
+        }
+
+        const items = await query;
 
         return NextResponse.json({
             items,

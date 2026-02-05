@@ -41,6 +41,14 @@ const QUICK_ACTIONS = [
         bgColor: "bg-purple-500/10 hover:bg-purple-500/20",
     },
     {
+        title: "Setoran",
+        description: "Setor ke Bendahara",
+        icon: Landmark,
+        href: "/tabungan/setoran",
+        color: "text-orange-500",
+        bgColor: "bg-orange-500/10 hover:bg-orange-500/20",
+    },
+    {
         title: "Laporan",
         description: "Export data",
         icon: BarChart3,

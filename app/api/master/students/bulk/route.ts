@@ -43,6 +43,23 @@ export async function POST(req: Request) {
                 classId: classId, // Link to real class
                 className: className, // Keep legacy string too
                 status: row.status || "active",
+                
+                // Detailed Info
+                birthPlace: row.birthPlace || row.tempat_lahir || null,
+                birthDate: row.birthDate || row.tanggal_lahir || null,
+                religion: row.religion || row.agama || null,
+                address: row.address || row.alamat || null,
+
+                // Parent Info
+                fatherName: row.fatherName || row.nama_ayah || null,
+                fatherNik: row.fatherNik ? String(row.fatherNik) : null,
+                motherName: row.motherName || row.nama_ibu || null,
+                motherNik: row.motherNik ? String(row.motherNik) : null,
+                guardianName: row.guardianName || row.nama_wali || null,
+                guardianNik: row.guardianNik ? String(row.guardianNik) : null,
+                guardianJob: row.guardianJob || row.pekerjaan_wali || null,
+                parentPhone: row.parentPhone ? String(row.parentPhone) : null,
+
                 createdAt: new Date(),
                 updatedAt: new Date(),
                 // Generate QR Code if missing?

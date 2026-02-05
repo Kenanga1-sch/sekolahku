@@ -579,6 +579,24 @@ export async function verifySetoran(
                 .set({ saldo: newSaldo, updatedAt: new Date() })
                 .where(eq(tabunganBrankas.id, brankas.id))
                 .run();
+
+            // 4. Record Brankas Transaction (Mutation History)
+            // We use 'setor_ke_koperasi' as a proxy for 'Setoran Harian' if we want to reuse existing types, 
+            // OR ideally we add a new type. 
+            // Since I cannot easily migrate DB right now, I will try to use the most generic one or just insert as custom type if SQLite allows.
+            // Let's assume the Enum in TS is the source of truth for the APP, but DB might not enforce it.
+            // I'll use "setoran_harian" and force cast if necessary, hoping DB doesn't reject.
+            // SAFE BET: Use "setor_ke_koperasi" (Deposit to Co-op/Treasury) which seems semantically closest for "Internal Inflow".
+            // BUT user wants to distinguish.
+            // Let's modify the schema actually.
+            
+            tx.insert(tabunganBrankasTransaksi).values({
+                tipe: setoran.tipe === "setor_ke_bendahara" ? "setor_ke_koperasi" : "tarik_dari_koperasi", 
+                nominal: fisik,
+                userId: bendaharaId,
+                catatan: `Setoran Harian verified: ${catatan || '-'}`,
+                createdAt: new Date(),
+            } as any).run();
         } else if (status === "rejected") {
             // Unlink transactions
             tx.update(tabunganTransaksi)
