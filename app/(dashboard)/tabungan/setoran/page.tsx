@@ -19,17 +19,27 @@ import {
     AlertTitle,
 } from "@/components/ui/alert";
 import {
+    Tabs,
+    TabsContent,
+    TabsList,
+    TabsTrigger,
+} from "@/components/ui/tabs";
+import {
     ArrowDownCircle,
     ArrowUpCircle,
     Loader2,
     RefreshCw,
     Wallet,
     AlertCircle,
-    CheckCircle2
+    CheckCircle2,
+    ArrowLeft,
+    Clock,
+    XCircle
 } from "lucide-react";
+import Link from "next/link";
 import { showSuccess, showError } from "@/lib/toast";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import type { TabunganTransaksiWithRelations } from "@/types/tabungan";
+import type { TabunganTransaksiWithRelations, TabunganSetoranWithRelations } from "@/types/tabungan";
 
 function formatRupiah(amount: number): string {
     return new Intl.NumberFormat("id-ID", {
@@ -53,14 +63,19 @@ function formatDateTime(date: string | Date | null): string {
 export default function TabunganSetoranPage() {
     const { user } = useAuthStore();
     const [transactions, setTransactions] = useState<TabunganTransaksiWithRelations[]>([]);
+    const [history, setHistory] = useState<TabunganSetoranWithRelations[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isHistoryLoading, setIsHistoryLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    // Stable user ID to avoid infinite loops
+    const userId = user?.id;
 
     const fetchData = useCallback(async () => {
-        if (!user) return;
+        if (!userId) return;
         setIsLoading(true);
         try {
-            const res = await fetch(`/api/tabungan/setoran/pending?guruId=${user.id}`);
+            const res = await fetch(`/api/tabungan/setoran/pending?guruId=${userId}`);
             const data = await res.json();
             if (data.items) {
                 setTransactions(data.items);
@@ -71,11 +86,40 @@ export default function TabunganSetoranPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [user]);
+    }, [userId]);
+
+    const fetchHistory = useCallback(async () => {
+        if (!userId) return;
+        setIsHistoryLoading(true);
+        try {
+            const res = await fetch(`/api/tabungan/setoran/history?guruId=${userId}`);
+            const data = await res.json();
+            if (data.items) {
+                setHistory(data.items);
+            }
+        } catch (error) {
+            console.error("Failed to fetch history:", error);
+            showError("Gagal memuat riwayat setoran");
+        } finally {
+            setIsHistoryLoading(false);
+        }
+    }, [userId]);
 
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        if (userId) {
+            fetchData();
+        }
+    }, [fetchData, userId]);
+    
+    // Fetch history when tab changes to history - handled by Tabs onValueChange wrapper or just fetch once user load?
+    // Let's fetch both or fetch history only when tab is active. 
+    // Simplest: Fetch history once on mount too, or rely on tab click.
+    // Let's use useEffect to fetch history once userId is available, so it's ready.
+    useEffect(() => {
+        if (userId) {
+            fetchHistory();
+        }
+    }, [fetchHistory, userId]);
 
     const totalSetor = transactions
         .filter(t => t.tipe === "setor")
@@ -109,7 +153,8 @@ export default function TabunganSetoranPage() {
 
             showSuccess("Setoran berhasil diajukan ke bendahara");
             setTransactions([]); // Clear list
-            // Optionally redirect to history page
+            fetchHistory(); // Refresh history
+            // Optionally redirect or switch tab
         } catch (error: any) {
             showError(error.message);
         } finally {
@@ -122,122 +167,227 @@ export default function TabunganSetoranPage() {
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold">Setoran Harian</h1>
-                    <p className="text-muted-foreground">
-                        Rekapitulasi transaksi hari ini untuk disetor ke Bendahara
-                    </p>
-                </div>
-                <Button variant="outline" onClick={fetchData} disabled={isLoading}>
-                    <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
-                    Refresh
-                </Button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">Total Masuk (Setor)</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-green-600">
-                            + {formatRupiah(totalSetor)}
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">Total Keluar (Tarik)</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-red-600">
-                            - {formatRupiah(totalTarik)}
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className={isNegative ? "bg-red-50 border-red-200" : "bg-blue-50 border-blue-200"}>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-blue-900">
-                            {isNegative ? "Uang Harus Diambil (Reimburse)" : "Uang Fisik Disetor"}
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className={`text-2xl font-bold ${isNegative ? "text-red-700" : "text-blue-700"}`}>
-                            {formatRupiah(absAmount)}
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {transactions.length > 0 ? (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Rincian Transaksi Belum Disetor</CardTitle>
-                        <CardDescription>Pastikan jumlah uang fisik sesuai dengan total di atas sebelum mengajukan setoran.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Waktu</TableHead>
-                                    <TableHead>Siswa</TableHead>
-                                    <TableHead>Tipe</TableHead>
-                                    <TableHead className="text-right">Nominal</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {transactions.map((t) => (
-                                    <TableRow key={t.id}>
-                                        <TableCell>{formatDateTime(t.createdAt)}</TableCell>
-                                        <TableCell>
-                                            <div className="font-medium">{t.siswa?.nama}</div>
-                                            <div className="text-xs text-muted-foreground">{t.siswa?.nisn}</div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant={t.tipe === "setor" ? "outline" : "destructive"} className={t.tipe === "setor" ? "text-green-600 border-green-600" : ""}>
-                                                {t.tipe === "setor" ? "Setor" : "Tarik"}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right font-mono">
-                                            {formatRupiah(t.nominal)}
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-
-                        <div className="bg-muted/50 p-4 rounded-lg flex items-start gap-4 border">
-                            <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5" />
-                            <div className="space-y-1">
-                                <h4 className="font-medium">Konfirmasi Setoran</h4>
-                                <p className="text-sm text-muted-foreground">
-                                    Dengan menekan tombol di bawah, Anda menyatakan bahwa uang fisik senilai 
-                                    <span className="font-bold text-foreground"> {formatRupiah(absAmount)} </span>
-                                    {isNegative ? "telah Anda siapkan untuk diambil" : "telah siap diserahkan"} ke Bendahara.
-                                </p>
-                            </div>
-                        </div>
-
-                        <Button 
-                            className="w-full" 
-                            size="lg" 
-                            onClick={handleSubmitSetoran}
-                            disabled={isSubmitting}
-                        >
-                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {isNegative ? "Ajukan Pengambilan Dana" : "Ajukan Setoran ke Bendahara"}
+                <div className="flex items-center gap-4">
+                    <Link href="/tabungan">
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <ArrowLeft className="h-4 w-4" />
                         </Button>
-                    </CardContent>
-                </Card>
-            ) : (
-                <Card>
-                     <CardContent className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
-                        <Wallet className="h-16 w-16 mb-4 opacity-20" />
-                        <h3 className="text-lg font-medium text-foreground">Tidak ada transaksi baru</h3>
-                        <p>Belum ada transaksi yang perlu disetor hari ini.</p>
-                     </CardContent>
-                </Card>
-            )}
+                    </Link>
+                    <div>
+                        <h1 className="text-2xl font-bold">Setoran Harian</h1>
+                        <p className="text-muted-foreground">
+                            Kelola setoran tabungan ke bendahara
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <Tabs defaultValue="new" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 mb-4">
+                    <TabsTrigger value="new">Setoran Baru</TabsTrigger>
+                    <TabsTrigger value="history">Riwayat Setoran</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="new" className="space-y-6">
+                     <div className="flex justify-end mb-2">
+                        <Button variant="outline" size="sm" onClick={fetchData} disabled={isLoading}>
+                            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+                            Refresh Transaksi
+                        </Button>
+                     </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium text-muted-foreground">Total Masuk (Setor)</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold text-green-600">
+                                    + {formatRupiah(totalSetor)}
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium text-muted-foreground">Total Keluar (Tarik)</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold text-red-600">
+                                    - {formatRupiah(totalTarik)}
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card className={isNegative ? "bg-red-50 border-red-200 text-red-900" : "bg-blue-50 border-blue-200 text-blue-900"}>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-medium">
+                                    {isNegative ? "Uang Harus Diambil (Reimburse)" : "Uang Fisik Disetor"}
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className={`text-2xl font-bold ${isNegative ? "text-red-700" : "text-blue-700"}`}>
+                                    {formatRupiah(absAmount)}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {transactions.length > 0 ? (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Rincian Transaksi Belum Disetor</CardTitle>
+                                <CardDescription>Pastikan jumlah uang fisik sesuai dengan total di atas sebelum mengajukan setoran.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Waktu</TableHead>
+                                            <TableHead>Siswa</TableHead>
+                                            <TableHead>Tipe</TableHead>
+                                            <TableHead className="text-right">Nominal</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {transactions.map((t) => (
+                                            <TableRow key={t.id}>
+                                                <TableCell>{formatDateTime(t.createdAt)}</TableCell>
+                                                <TableCell>
+                                                    <div className="font-medium">{t.siswa?.nama}</div>
+                                                    <div className="text-xs text-muted-foreground">{t.siswa?.nisn}</div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge variant={t.tipe === "setor" ? "outline" : "destructive"} className={t.tipe === "setor" ? "text-green-600 border-green-600" : ""}>
+                                                        {t.tipe === "setor" ? "Setor" : "Tarik"}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono">
+                                                    {formatRupiah(t.nominal)}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+
+                                <div className="bg-muted/50 p-4 rounded-lg flex items-start gap-4 border">
+                                    <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5" />
+                                    <div className="space-y-1">
+                                        <h4 className="font-medium">Konfirmasi Setoran</h4>
+                                        <p className="text-sm text-muted-foreground">
+                                            Dengan menekan tombol di bawah, Anda menyatakan bahwa uang fisik senilai 
+                                            <span className="font-bold text-foreground"> {formatRupiah(absAmount)} </span>
+                                            {isNegative ? "telah Anda siapkan untuk diambil" : "telah siap diserahkan"} ke Bendahara.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <Button 
+                                    className="w-full" 
+                                    size="lg" 
+                                    onClick={handleSubmitSetoran}
+                                    disabled={isSubmitting}
+                                >
+                                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    {isNegative ? "Ajukan Pengambilan Dana" : "Ajukan Setoran ke Bendahara"}
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    ) : (
+                        <Card>
+                             <CardContent className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                                <Wallet className="h-16 w-16 mb-4 opacity-20" />
+                                <h3 className="text-lg font-medium text-foreground">Tidak ada transaksi baru</h3>
+                                <p>Belum ada transaksi yang perlu disetor hari ini.</p>
+                             </CardContent>
+                        </Card>
+                    )}
+                </TabsContent>
+
+                <TabsContent value="history">
+                     <div className="flex justify-end mb-4">
+                        <Button variant="outline" size="sm" onClick={fetchHistory} disabled={isHistoryLoading}>
+                            <RefreshCw className={`h-4 w-4 mr-2 ${isHistoryLoading ? "animate-spin" : ""}`} />
+                            Refresh Riwayat
+                        </Button>
+                     </div>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Riwayat Setoran</CardTitle>
+                            <CardDescription>Daftar setoran yang pernah diajukan ke bendahara</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Tanggal</TableHead>
+                                        <TableHead>Status</TableHead>
+                                        <TableHead>Total</TableHead>
+                                        <TableHead>Catatan</TableHead>
+                                        <TableHead className="w-[100px]">Aksi</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {history.length > 0 ? (
+                                        history.map((h) => (
+                                            <TableRow key={h.id}>
+                                                <TableCell className="font-medium">
+                                                    {formatDateTime(h.createdAt)}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge 
+                                                        variant={
+                                                            h.status === "verified" ? "default" : 
+                                                            h.status === "rejected" ? "destructive" : "secondary"
+                                                        }
+                                                        className={h.status === "verified" ? "bg-green-600 hover:bg-green-700" : ""}
+                                                    >
+                                                        {h.status === "verified" && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                                                        {h.status === "rejected" && <XCircle className="h-3 w-3 mr-1" />}
+                                                        {h.status === "pending" && <Clock className="h-3 w-3 mr-1" />}
+                                                        {h.status === "verified" ? "Diterima" : 
+                                                         h.status === "rejected" ? "Ditolak" : "Menunggu"}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="font-mono">
+                                                    {formatRupiah(h.totalNominal)}
+                                                    {!!h.selisih && (
+                                                        <div className="text-xs text-red-500">
+                                                            Selisih: {formatRupiah(h.selisih)}
+                                                        </div>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="text-sm">
+                                                        {h.catatan || "-"}
+                                                        {h.status === "rejected" && (
+                                                            <div className="text-xs text-red-600 font-medium mt-1">
+                                                                Perlu diperbaiki
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Button variant="ghost" size="sm" asChild>
+                                                        <Link href={`/tabungan/setoran/${h.id}`}>
+                                                            Detail
+                                                        </Link>
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                                                Belum ada riwayat setoran
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+            </Tabs>
         </div>
     );
 }

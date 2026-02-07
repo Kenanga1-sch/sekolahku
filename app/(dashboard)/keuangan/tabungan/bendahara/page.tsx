@@ -9,8 +9,10 @@ import { DebtManager } from "@/components/finance/debt-manager";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { auth } from "@/auth"; // Assuming auth setup
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ShieldCheck, Users, Banknote, Landmark } from "lucide-react";
+import { ShieldCheck, Users, Banknote, Landmark, ArrowLeft } from "lucide-react";
 
 export const metadata = {
   title: "Bendahara Tabungan | SekolahKu",
@@ -44,11 +46,18 @@ export default async function SavingsTreasurerPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col gap-2">
-                <h1 className="text-3xl font-bold tracking-tight">Manajemen Bendahara Tabungan</h1>
-                <p className="text-muted-foreground">
-                    Kelola struktur bendahara, penanggung jawab kelas, dan verifikasi setoran harian.
-                </p>
+            <div className="flex items-center gap-4">
+                <Link href="/tabungan">
+                    <Button variant="ghost" size="icon">
+                        <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                </Link>
+                <div className="flex flex-col gap-2">
+                    <h1 className="text-3xl font-bold tracking-tight">Manajemen Bendahara Tabungan</h1>
+                    <p className="text-muted-foreground">
+                        Kelola struktur bendahara, penanggung jawab kelas, dan verifikasi setoran harian.
+                    </p>
+                </div>
             </div>
 
             <Tabs defaultValue="brankas" className="space-y-4">

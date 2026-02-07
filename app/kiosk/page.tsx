@@ -14,9 +14,6 @@ import {
     RefreshCw,
     LogOut,
     Clock,
-    ShoppingCart,
-    Trash2,
-    BookCheck,
     Camera,
     CameraOff,
     LayoutDashboard,
@@ -24,6 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { getDDCLabel } from "@/lib/library/ddc-mapping";
 import type { LibraryMember, LibraryItem, LibraryLoan } from "@/types/library";
 
 // Dynamic import QR Scanner to prevent SSR issues
@@ -66,7 +64,16 @@ async function apiBorrowBook(memberId: string, itemId: string) {
         method: "POST",
         body: JSON.stringify({ type: "borrow", memberId, itemId }),
     });
-    if (!res.ok) throw new Error("Failed to borrow");
+    if (!res.ok) {
+        const text = await res.text();
+        console.error("Borrow API Error:", res.status, text);
+        try {
+            const json = JSON.parse(text);
+            throw new Error(json.error || "Failed to borrow");
+        } catch (e) {
+            throw new Error(`Failed to borrow: ${res.status} ${res.statusText}`);
+        }
+    }
     return res.json();
 }
 
@@ -91,16 +98,13 @@ async function apiFindLoanByItemId(itemId: string) {
 // Types
 // ==========================================
 
-interface CartItem {
-    item: LibraryItem;
-    addedAt: Date;
-}
+
 
 type KioskState =
     | { type: "idle" }
     | { type: "scanning" }
     | { type: "welcome"; member: LibraryMember; isFirstVisit: boolean }
-    | { type: "borrow_mode"; member: LibraryMember; loans: LibraryLoan[]; cart: CartItem[] }
+    | { type: "borrow_mode"; member: LibraryMember; loans: LibraryLoan[] }
     | { type: "processing_borrow" }
     | { type: "success"; message: string; details?: string; subDetails?: string }
     | { type: "error"; message: string };
@@ -109,11 +113,11 @@ type KioskState =
 // Constants
 // ==========================================
 
-const SESSION_TIMEOUT = 30000; // 30 seconds
+const SESSION_TIMEOUT = 10000; // 10 seconds
 const WELCOME_TIMEOUT = 3000; // 3 seconds for welcome screen
 const SUCCESS_TIMEOUT = 5000; // 5 seconds for success screen
 const SCAN_COOLDOWN = 3000; // 3 seconds between any scans
-const SAME_CODE_BLOCK_MS = 15000; // 15 seconds block for same QR code
+const SAME_CODE_BLOCK_MS = 3000; // 3 seconds block for same QR code
 
 // ==========================================
 // Main Component
@@ -315,7 +319,7 @@ export default function KioskPage() {
                     playSound("success");
                 } else {
                     // ALREADY VISITED - Open borrow mode
-                    setState({ type: "borrow_mode", member, loans: activeLoans, cart: [] });
+                    setState({ type: "borrow_mode", member, loans: activeLoans });
                     playSound("success");
                     startSessionTimer();
                 }
@@ -331,20 +335,13 @@ export default function KioskPage() {
                 // -----------------------------------
                 // SCENARIO 1: BORROW MODE (User Logged In)
                 // -----------------------------------
+                // -----------------------------------
+                // SCENARIO 1: BORROW MODE (User Logged In)
+                // -----------------------------------
                 if (state.type === "borrow_mode") {
-                    const { member, loans, cart } = state;
-
-                    // Check if item is already in cart
-                    if (cart.some(c => c.item.id === item.id)) {
-                        setState({ type: "error", message: "Buku sudah ada di keranjang" });
-                        playSound("error");
-                        startSessionTimer();
-                        return;
-                    }
+                    const { member, loans } = state;
 
                     // Check if this is user's own borrowed book - return it
-                    // 'loans' are LibraryLoan objects. using 'item' relation or 'itemId'.
-                    // LibraryLoan objects from getMemberActiveLoans have 'itemId'.
                     const ownLoan = loans.find(l => l.itemId === item.id && !l.isReturned);
                     if (ownLoan) {
                         await apiReturnBook(ownLoan.id);
@@ -366,7 +363,7 @@ export default function KioskPage() {
                     }
 
                     // Check borrow limit
-                    const totalItems = loans.length + cart.length;
+                    const totalItems = loans.length;
                     if (totalItems >= member.maxBorrowLimit) {
                         setState({
                             type: "error",
@@ -377,11 +374,23 @@ export default function KioskPage() {
                         return;
                     }
 
-                    // Add to cart
-                    const newCart = [...cart, { item, addedAt: new Date() }];
-                    setState({ ...state, cart: newCart });
-                    playSound("success");
-                    resetSessionTimer();
+                    // INSTANT BORROW LOGIC
+                    setState({ type: "processing_borrow" });
+                    try {
+                        await apiBorrowBook(member.id, item.id);
+                        setState({
+                            type: "success",
+                            message: "Peminjaman Berhasil!",
+                            details: item.title,
+                            subDetails: `Peminjam: ${member.name}`,
+                        });
+                        playSound("success");
+                        // Auto-reset handled by success state useEffect
+                    } catch (error) {
+                         console.error("Borrow error:", error);
+                         setState({ type: "error", message: "Gagal memproses peminjaman" });
+                         playSound("error");
+                    }
                     return;
                 }
 
@@ -406,11 +415,15 @@ export default function KioskPage() {
                             playSound("error");
                         }
                     } else {
+                        // SHELF GUIDE LOGIC: Show where the book should be placed
+                        const categoryLabel = getDDCLabel(item.category || "UNSORTED");
                         setState({
-                            type: "error",
-                            message: "Buku tersedia. Scan kartu anggota untuk meminjam.",
+                            type: "success",
+                            message: "Informasi Rak Buku",
+                            details: item.title,
+                            subDetails: `Kategori: ${categoryLabel} | Lokasi: ${item.location || "-"}`,
                         });
-                        playSound("error");
+                        playSound("success");
                     }
                     startSessionTimer(5000);
                     return;
@@ -428,44 +441,7 @@ export default function KioskPage() {
     // Finalize Borrow (Process Cart)
     // ==========================================
     
-    const finalizeBorrow = async () => {
-        if (state.type !== "borrow_mode" || state.cart.length === 0) return;
-
-        setState({ type: "processing_borrow" });
-        const { member, cart } = state;
-
-        try {
-            const borrowedTitles: string[] = [];
-            for (const cartItem of cart) {
-                await apiBorrowBook(member.id, cartItem.item.id);
-                borrowedTitles.push(cartItem.item.title);
-            }
-
-            setState({
-                type: "success",
-                message: `${cart.length} Buku Dipinjam!`,
-                details: borrowedTitles.join(", "),
-                subDetails: `Peminjam: ${member.name}`,
-            });
-            playSound("success");
-            clearTimers();
-        } catch (error) {
-            console.error("Borrow error:", error);
-            setState({ type: "error", message: "Gagal memproses peminjaman" });
-            playSound("error");
-        }
-    };
-
-    // ==========================================
-    // Remove from Cart
-    // ==========================================
-    
-    const removeFromCart = (itemId: string) => {
-        if (state.type !== "borrow_mode") return;
-        const newCart = state.cart.filter(c => c.item.id !== itemId);
-        setState({ ...state, cart: newCart });
-        resetSessionTimer();
-    };
+    // Finalize and Remove Cart functions removed for Instant Borrow mode
 
     // ==========================================
     // Reset to Idle
@@ -683,65 +659,26 @@ export default function KioskPage() {
                                 </CardContent>
                             </Card>
 
-                            {/* Cart */}
+                            {/* Instant Borrow Prompt */}
                             <Card className="bg-white/10 backdrop-blur border-white/20">
-                                <CardContent className="p-4">
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <ShoppingCart className="h-4 w-4 text-blue-400" />
-                                        <span className="text-white font-medium text-sm">
-                                            Keranjang ({state.cart.length})
-                                        </span>
+                                <CardContent className="p-6 text-center">
+                                    <div className="h-16 w-16 rounded-full bg-blue-500/20 flex items-center justify-center mx-auto mb-4 animate-pulse">
+                                        <BookOpen className="h-8 w-8 text-blue-400" />
                                     </div>
-
-                                    {state.cart.length === 0 ? (
-                                        <div className="text-center py-6 text-blue-200 text-sm">
-                                            <QrCode className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                                            <p>Scan buku untuk menambahkan</p>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-2 mb-4 max-h-[200px] overflow-y-auto">
-                                            {state.cart.map((cartItem) => (
-                                                <div
-                                                    key={cartItem.item.id}
-                                                    className="flex items-center justify-between p-2 bg-white/5 rounded-lg"
-                                                >
-                                                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                        <BookOpen className="h-4 w-4 text-blue-400 flex-shrink-0" />
-                                                        <p className="text-white text-xs truncate">{cartItem.item.title}</p>
-                                                    </div>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="text-red-400 hover:text-red-300 h-6 w-6 p-0"
-                                                        onClick={() => removeFromCart(cartItem.item.id)}
-                                                    >
-                                                        <Trash2 className="h-3 w-3" />
-                                                    </Button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    <div className="flex gap-2">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="flex-1 border-white/20 text-white text-xs"
-                                            onClick={reset}
-                                        >
-                                            <LogOut className="h-3 w-3 mr-1" />
-                                            Batal
-                                        </Button>
-                                        <Button
-                                            size="sm"
-                                            className="flex-1 bg-green-500 hover:bg-green-600 text-xs"
-                                            onClick={finalizeBorrow}
-                                            disabled={state.cart.length === 0}
-                                        >
-                                            <BookCheck className="h-3 w-3 mr-1" />
-                                            Pinjam ({state.cart.length})
-                                        </Button>
-                                    </div>
+                                    <h3 className="text-lg font-bold text-white mb-2">Siap Meminjam</h3>
+                                    <p className="text-blue-200 text-sm mb-6">
+                                        Scan kode QR buku untuk langsung meminjam.
+                                    </p>
+                                    
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="border-white/20 text-white text-xs hover:bg-white/10"
+                                        onClick={reset}
+                                    >
+                                        <LogOut className="h-4 w-4 mr-2" />
+                                        Selesai / Ganti Orang
+                                    </Button>
                                 </CardContent>
                             </Card>
 

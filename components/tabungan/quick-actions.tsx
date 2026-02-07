@@ -11,7 +11,7 @@ import {
     BarChart3,
     CreditCard,
     Landmark,
-    Settings2,
+    FileText,
 } from "lucide-react";
 
 const QUICK_ACTIONS = [
@@ -56,7 +56,30 @@ const QUICK_ACTIONS = [
         color: "text-indigo-500",
         bgColor: "bg-indigo-500/10 hover:bg-indigo-500/20",
     },
-
+    {
+        title: "Hutang",
+        description: "Catat kewajiban",
+        icon: CreditCard,
+        href: "/tabungan/hutang",
+        color: "text-red-500",
+        bgColor: "bg-red-500/10 hover:bg-red-500/20",
+    },
+    {
+        title: "Laporan Akhir",
+        description: "Cetak rekapitulasi",
+        icon: ClipboardCheck,
+        href: "/tabungan/laporan/akhir-tahun",
+        color: "text-amber-500",
+        bgColor: "bg-amber-500/10 hover:bg-amber-500/20",
+    },
+    {
+        title: "Rekening Koran",
+        description: "Cetak mutasi",
+        icon: FileText,
+        href: "/tabungan/rekening-koran",
+        color: "text-teal-500",
+        bgColor: "bg-teal-500/10 hover:bg-teal-500/20",
+    },
 
 ];
 

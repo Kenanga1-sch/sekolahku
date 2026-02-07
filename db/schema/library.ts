@@ -15,6 +15,17 @@ export const itemCategoryEnum = [
   "TEXTBOOK",
   "MAGAZINE",
   "OTHER",
+  "000_COMPUTER",
+  "100_PHILOSOPHY",
+  "200_RELIGION",
+  "300_SOCIAL",
+  "400_LANGUAGE",
+  "500_SCIENCE",
+  "600_TECHNOLOGY",
+  "700_ART",
+  "800_LITERATURE",
+  "900_HISTORY",
+  "UNSORTED",
 ] as const;
 
 export const libraryCatalog = sqliteTable(
@@ -158,11 +169,13 @@ export const libraryVisits = sqliteTable(
       .primaryKey()
       .$defaultFn(() => createId()),
     memberId: text("member_id")
-      .notNull()
-      .references(() => libraryMembers.id),
+      .references(() => libraryMembers.id), // Made nullable (removed .notNull())
+    guestName: text("guest_name"), // Added guestName
+    institution: text("institution"), // Added institution (optional but good for guests)
+    purpose: text("purpose"), // Added purpose
     date: text("date").notNull(), // YYYY-MM-DD format
     timestamp: integer("timestamp", { mode: "timestamp" }).notNull(),
-    createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(
       () => new Date()
     ),
   },
@@ -221,6 +234,32 @@ export const libraryVisitsRelations = relations(libraryVisits, ({ one }) => ({
 // Types
 // ==========================================
 
+// ==========================================
+// Library QR Batches (Sequence Tracking)
+// ==========================================
+
+export const libraryQrBatches = sqliteTable(
+  "library_qr_batches",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    prefix: text("prefix").notNull(),
+    date: text("date").notNull(), // YYYY-MM-DD
+    startSequence: integer("start_sequence").notNull(),
+    endSequence: integer("end_sequence").notNull(),
+    batchSize: integer("batch_size").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(
+      () => new Date()
+    ),
+    createdBy: text("created_by"), // user id
+  },
+  (table) => ({
+    prefixDateIdx: index("idx_qr_batch_prefix_date").on(table.prefix, table.date),
+  })
+);
+
+// Types
 export type LibraryCatalog = typeof libraryCatalog.$inferSelect;
 export type NewLibraryCatalog = typeof libraryCatalog.$inferInsert;
 export type LibraryAsset = typeof libraryAssets.$inferSelect;
@@ -231,6 +270,8 @@ export type LibraryLoan = typeof libraryLoans.$inferSelect;
 export type NewLibraryLoan = typeof libraryLoans.$inferInsert;
 export type LibraryVisit = typeof libraryVisits.$inferSelect;
 export type NewLibraryVisit = typeof libraryVisits.$inferInsert;
+export type LibraryQrBatch = typeof libraryQrBatches.$inferSelect;
+export type NewLibraryQrBatch = typeof libraryQrBatches.$inferInsert;
 export type ItemCategory = (typeof itemCategoryEnum)[number];
 export type ItemStatus = (typeof itemStatusEnum)[number];
 
@@ -242,6 +283,16 @@ export const ITEM_CATEGORIES: { value: ItemCategory; label: string }[] = [
   { value: "TEXTBOOK", label: "Buku Pelajaran" },
   { value: "MAGAZINE", label: "Majalah" },
   { value: "OTHER", label: "Lainnya" },
+  { value: "000_COMPUTER", label: "000 - Komputer & Informasi" },
+  { value: "100_PHILOSOPHY", label: "100 - Filsafat & Psikologi" },
+  { value: "200_RELIGION", label: "200 - Agama" },
+  { value: "300_SOCIAL", label: "300 - Ilmu Sosial" },
+  { value: "400_LANGUAGE", label: "400 - Bahasa" },
+  { value: "500_SCIENCE", label: "500 - Sains & Matematika" },
+  { value: "600_TECHNOLOGY", label: "600 - Teknologi & Kesehatan" },
+  { value: "700_ART", label: "700 - Seni & Olahraga" },
+  { value: "800_LITERATURE", label: "800 - Sastra" },
+  { value: "900_HISTORY", label: "900 - Sejarah & Geografi" },
 ];
 
 export const DEFAULT_LOAN_DAYS = 7;

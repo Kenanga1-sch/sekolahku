@@ -10,6 +10,8 @@ import {
     Plus,
     QrCode,
     ExternalLink,
+    Printer,
+    ScanBarcode,
 } from "lucide-react";
 
 const QUICK_ACTIONS = [
@@ -17,26 +19,17 @@ const QUICK_ACTIONS = [
         title: "Pinjam Buku",
         description: "Catat peminjaman baru",
         icon: BookMarked,
-        href: "/perpustakaan/peminjaman?action=borrow",
+        href: "/perpustakaan/peminjaman",
         color: "text-blue-500",
         bgColor: "bg-blue-500/10 hover:bg-blue-500/20",
-    },
-    {
-        title: "Kembalikan Buku",
-        description: "Proses pengembalian",
-        icon: RotateCcw,
-        href: "/perpustakaan/peminjaman?action=return",
-        color: "text-green-500",
-        bgColor: "bg-green-500/10 hover:bg-green-500/20",
     },
     {
         title: "Catat Kunjungan",
         description: "Rekap kunjungan harian",
         icon: UserCheck,
-        href: "/kiosk",
+        href: "/perpustakaan/kunjungan/manual",
         color: "text-purple-500",
         bgColor: "bg-purple-500/10 hover:bg-purple-500/20",
-        external: true,
     },
     {
         title: "Tambah Buku",
@@ -54,6 +47,22 @@ const QUICK_ACTIONS = [
         color: "text-cyan-500",
         bgColor: "bg-cyan-500/10 hover:bg-cyan-500/20",
         external: true,
+    },
+    {
+        title: "Binding Buku",
+        description: "Scan QR & ISBN",
+        icon: ScanBarcode,
+        href: "/perpustakaan/binding",
+        color: "text-indigo-500",
+        bgColor: "bg-indigo-500/10 hover:bg-indigo-500/20",
+    },
+    {
+        title: "Generator QR",
+        description: "Cetak label massal",
+        icon: Printer,
+        href: "/perpustakaan/qr-generator",
+        color: "text-pink-500",
+        bgColor: "bg-pink-500/10 hover:bg-pink-500/20",
     },
 ];
 

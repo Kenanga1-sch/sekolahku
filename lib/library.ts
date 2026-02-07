@@ -8,6 +8,11 @@ import { students } from "@/db/schema/students";
 import { users } from "@/db/schema/users";
 import { eq, like, and, or, desc, asc, gte, lte, lt, sql, inArray } from "drizzle-orm";
 import { sanitizeFilter, sanitizeId } from "./security";
+import { revalidateLibraryStats } from "./data/library";
+import fs from "fs";
+import path from "path";
+import { promisify } from "util";
+import { pipeline } from "stream";
 import type {
     LibraryCatalog,
     LibraryAsset,
@@ -21,28 +26,90 @@ import type {
 // Library Catalog & Assets (Binding Logic)
 // ==========================================
 
+const streamPipeline = promisify(pipeline);
+
 /**
- * Get or create a catalog entry by ISBN
+ * Downloads an image from a URL and saves it to the local covers directory.
+ * Returns the local path relative to public/ or null if failed.
+ */
+async function downloadCoverImage(url: string, isbn: string): Promise<string | null> {
+    if (!url || !isbn) return null;
+
+    try {
+        const directory = path.join(process.cwd(), "public/uploads/library/covers");
+        if (!fs.existsSync(directory)) {
+            fs.mkdirSync(directory, { recursive: true });
+        }
+
+        const extension = url.split(".").pop()?.split("?")[0] || "jpg";
+        const filename = `${isbn}.${extension}`;
+        const filePath = path.join(directory, filename);
+        const publicPath = `/uploads/library/covers/${filename}`;
+
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
+        if (!response.body) throw new Error("Response body is empty");
+
+        // Use any to bypass type issues with web stream vs node stream
+        await streamPipeline(response.body as any, fs.createWriteStream(filePath));
+
+        return publicPath;
+    } catch (error) {
+        console.error("Error downloading cover image:", error);
+        return null;
+    }
+}
+
+/**
+ * Get or create a catalog entry by ISBN.
+ * If it exists, it updates the record if the new data is more complete (e.g. non-UNSORTED category).
  */
 export async function getOrCreateCatalog(data: Partial<LibraryCatalog>): Promise<LibraryCatalog> {
     if (data.isbn) {
         const [existing] = await db.select().from(libraryCatalog).where(eq(libraryCatalog.isbn, data.isbn)).limit(1);
-        if (existing) return existing as LibraryCatalog;
+        
+        if (existing) {
+            // Memory Logic: If user provides a specific category and current is UNSORTED or different, update it.
+            if (data.category && data.category !== "UNSORTED" && existing.category !== data.category) {
+                const [updated] = await db.update(libraryCatalog)
+                    .set({ 
+                        category: data.category,
+                        updatedAt: new Date() 
+                    } as any)
+                    .where(eq(libraryCatalog.id, existing.id))
+                    .returning();
+                return updated as LibraryCatalog;
+            }
+            return existing as LibraryCatalog;
+        }
     }
 
     const [newCatalog] = await db.insert(libraryCatalog).values({
         title: data.title || "Tanpa Judul",
-        author: data.author,
+        author: data.author || "Unknown",
         isbn: data.isbn,
         publisher: data.publisher,
         year: data.year,
-        category: data.category || "OTHER",
+        category: data.category || "UNSORTED",
         description: data.description,
-        cover: data.cover,
+        cover: data.cover || "/images/placeholder-book.png", // Use default placeholder if no cover
         createdAt: new Date(),
         updatedAt: new Date(),
     } as any).returning();
 
+    // If there's a remote cover URL, try to download it locally
+    if (newCatalog && data.cover && data.cover.startsWith("http") && data.isbn) {
+        const localPath = await downloadCoverImage(data.cover, data.isbn);
+        if (localPath) {
+            const [updated] = await db.update(libraryCatalog)
+                .set({ cover: localPath, updatedAt: new Date() } as any)
+                .where(eq(libraryCatalog.id, newCatalog.id))
+                .returning();
+            return updated as LibraryCatalog;
+        }
+    }
+
+    await revalidateLibraryStats();
     return newCatalog as LibraryCatalog;
 }
 
@@ -60,6 +127,7 @@ export async function bindAsset(qrCode: string, catalogId: string, location?: st
         updatedAt: new Date(),
     } as any).returning();
 
+    await revalidateLibraryStats();
     return asset as LibraryAsset;
 }
 
@@ -95,28 +163,113 @@ export async function swapAssetCode(oldQr: string, newQr: string): Promise<Libra
 
 /**
  * Lookup book metadata by ISBN
+ * Fetches from OpenLibrary API and auto-maps to DDC category
  */
 export async function lookupISBN(isbn: string) {
-    try {
-        // Try OpenLibrary API first
-        const response = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`);
-        const data = await response.json();
-        const bookKey = `ISBN:${isbn}`;
+    // 1. Try local database first
+    const [local] = await db.select().from(libraryCatalog).where(eq(libraryCatalog.isbn, isbn)).limit(1);
+    
+    // Import DDC mapping dynamically to avoid circular imports
+    const { mapToDDC } = await import("@/lib/library/ddc-mapping");
 
-        if (data[bookKey]) {
-            const b = data[bookKey];
+    if (local) {
+        // Count existing physical copies (assets)
+        const [countResult] = await db.select({ count: sql<number>`count(*)` })
+            .from(libraryAssets)
+            .where(eq(libraryAssets.catalogId, local.id));
+            
+        return {
+            title: local.title,
+            author: local.author,
+            publisher: local.publisher,
+            year: local.year,
+            cover: local.cover,
+            isbn: local.isbn,
+            ddcCategory: local.category,
+            localFound: true,
+            totalExemplars: countResult.count,
+            description: local.description,
+        };
+    }
+
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout
+
+        // 2. Try Google Books API (Great for both International and Indonesian books)
+        const googleRes = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`, { signal: controller.signal });
+        const googleData = await googleRes.json();
+        clearTimeout(timeoutId);
+
+        if (googleData.totalItems > 0) {
+            const b = googleData.items[0].volumeInfo;
+            const subjects = b.categories || [];
+            const ddcCategory = mapToDDC(subjects);
+
+            // Zoom Trick & Better Resolution
+            let coverUrl = b.imageLinks?.extraLarge || b.imageLinks?.large || b.imageLinks?.medium || b.imageLinks?.thumbnail;
+            if (coverUrl && coverUrl.includes("zoom=1")) {
+                coverUrl = coverUrl.replace("zoom=1", "zoom=2"); // Try to get higher res
+            } else if (coverUrl && !coverUrl.includes("zoom=")) {
+                coverUrl += coverUrl.includes("?") ? "&zoom=2" : "?zoom=2";
+            }
+
             return {
                 title: b.title,
-                author: b.authors?.[0]?.name,
+                author: b.authors?.[0] || "Unknown",
+                publisher: b.publisher,
+                year: b.publishedDate ? parseInt(b.publishedDate.substring(0, 4)) : undefined,
+                cover: coverUrl,
+                isbn: isbn,
+                subjects,
+                ddcCategory,
+                localFound: false,
+                totalExemplars: 0,
+                source: "Google Books",
+                description: b.description,
+            };
+        }
+
+        // 3. Try OpenLibrary API as fallback
+        const olController = new AbortController();
+        const olTimeoutId = setTimeout(() => olController.abort(), 6000);
+
+        const olRes = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`, { signal: olController.signal });
+        const olData = await olRes.json();
+        clearTimeout(olTimeoutId);
+        
+        const bookKey = `ISBN:${isbn}`;
+
+        if (olData[bookKey]) {
+            const b = olData[bookKey];
+            const subjects: string[] = [];
+            if (b.subjects) subjects.push(...b.subjects.map((s: any) => s.name || s));
+            if (b.subject_places) subjects.push(...b.subject_places.map((s: any) => s.name || s));
+            
+            const ddcCategory = mapToDDC(subjects);
+
+            return {
+                title: b.title,
+                author: b.authors?.[0]?.name || "Unknown",
                 publisher: b.publishers?.[0]?.name,
                 year: b.publish_date ? parseInt(b.publish_date.match(/\d{4}/)?.[0] || "0") : undefined,
                 cover: b.cover?.large || b.cover?.medium,
-                isbn: isbn
+                isbn: isbn,
+                subjects,
+                ddcCategory,
+                localFound: false,
+                totalExemplars: 0,
+                source: "OpenLibrary",
             };
         }
+
         return null;
-    } catch (e) {
-        console.error("ISBN lookup failed", e);
+    } catch (e: any) {
+        if (e.name === "AbortError") {
+            console.warn(`ISBN lookup for ${isbn} timed out`);
+        } else {
+            console.error("ISBN lookup failed", e);
+        }
         return null;
     }
 }
@@ -236,7 +389,7 @@ export const updateLibraryItem = async (id: string, data: any) => {
     const asset = await getAssetByQRCode(id);
     if (!asset) throw new Error("Asset not found");
 
-    return db.transaction((tx) => {
+    const result = await db.transaction(async (tx) => {
         // Update Catalog
         tx.update(libraryCatalog)
             .set({
@@ -264,6 +417,9 @@ export const updateLibraryItem = async (id: string, data: any) => {
 
         return updatedAsset;
     });
+
+    await revalidateLibraryStats();
+    return result;
 };
 
 export const deleteLibraryItem = async (id: string) => {
@@ -271,6 +427,7 @@ export const deleteLibraryItem = async (id: string) => {
     if (loan) throw new Error("Buku sedang dipinjam, tidak bisa dihapus");
 
     const [result] = await db.delete(libraryAssets).where(eq(libraryAssets.id, id)).returning();
+    if (result) await revalidateLibraryStats();
     return !!result;
 };
 
@@ -406,6 +563,44 @@ export async function getOverdueLoans() {
     }));
 }
 
+export async function getInventoryStats() {
+    // Get all assets with their catalog info
+    const assets = await db.select({
+        status: libraryAssets.status,
+        category: libraryCatalog.category,
+    })
+    .from(libraryAssets)
+    .leftJoin(libraryCatalog, eq(libraryAssets.catalogId, libraryCatalog.id));
+
+    // Aggregate by status
+    const byStatus: Record<string, number> = {
+        AVAILABLE: 0,
+        BORROWED: 0,
+        DAMAGED: 0,
+        LOST: 0,
+    };
+    
+    // Aggregate by category
+    const byCategory: Record<string, number> = {};
+    
+    for (const asset of assets) {
+        // Count by status
+        if (asset.status && byStatus[asset.status] !== undefined) {
+            byStatus[asset.status]++;
+        }
+        
+        // Count by category
+        const cat = asset.category || "UNSORTED";
+        byCategory[cat] = (byCategory[cat] || 0) + 1;
+    }
+
+    return {
+        total: assets.length,
+        byStatus,
+        byCategory,
+    };
+}
+
 export async function getMemberActiveLoans(memberId: string) {
     const rows = await db.select({
         loan: libraryLoans,
@@ -428,10 +623,12 @@ export async function getMemberActiveLoans(memberId: string) {
 }
 
 export async function borrowBook(memberId: string, assetId: string, loanDays = 7): Promise<LibraryLoan> {
+    console.log(`[Library] borrowBook called for member ${memberId}, asset ${assetId}`);
     const now = new Date();
     const dueDate = new Date(now.getTime() + loanDays * 24 * 60 * 60 * 1000);
 
     return db.transaction((tx) => {
+        console.log(`[Library] Inserting loan: member=${memberId}, item=${assetId}, due=${dueDate}`);
         // 1. Create loan
         const [loan] = tx.insert(libraryLoans).values({
             memberId,
@@ -451,11 +648,14 @@ export async function borrowBook(memberId: string, assetId: string, loanDays = 7
             .where(eq(libraryAssets.id, assetId))
             .run();
 
+        console.log(`[Library] borrow successful, triggering non-blocking revalidation`);
+        revalidateLibraryStats().catch(err => console.error("[Library] Revalidation error:", err));
         return loan as LibraryLoan;
     });
 }
 
 export async function returnBook(loanId: string): Promise<LibraryLoan> {
+    console.log(`[Library] returnBook called for loan ${loanId}`);
     const rows = db.select().from(libraryLoans).where(eq(libraryLoans.id, loanId)).limit(1).all();
     const loan = rows[0];
     if (!loan) throw new Error("Loan not found");
@@ -478,6 +678,8 @@ export async function returnBook(loanId: string): Promise<LibraryLoan> {
             .where(eq(libraryAssets.id, loan.itemId))
             .run();
 
+        console.log(`[Library] return successful, triggering non-blocking revalidation`);
+        revalidateLibraryStats().catch(err => console.error("[Library] Revalidation error:", err));
         return updated as LibraryLoan;
     });
 }
@@ -487,9 +689,13 @@ export async function returnBook(loanId: string): Promise<LibraryLoan> {
 // ==========================================
 
 export async function recordVisit(memberId: string): Promise<LibraryVisit> {
+    console.log(`[Library] recordVisit called for ${memberId}`);
     const todayStr = new Date().toISOString().split("T")[0];
     const [existing] = await db.select().from(libraryVisits).where(and(eq(libraryVisits.memberId, memberId), eq(libraryVisits.date, todayStr))).limit(1);
-    if (existing) return existing as LibraryVisit;
+    if (existing) {
+        console.log(`[Library] existing visit found for today`);
+        return existing as LibraryVisit;
+    }
 
     const [visit] = await db.insert(libraryVisits).values({
         memberId,
@@ -497,6 +703,11 @@ export async function recordVisit(memberId: string): Promise<LibraryVisit> {
         timestamp: new Date(),
         createdAt: new Date(),
     } as any).returning();
+    
+    console.log(`[Library] new visit recorded, calling revalidation`);
+    // Non-blocking revalidation
+    revalidateLibraryStats().catch(err => console.error("[Library] Revalidation error:", err));
+    
     return visit as LibraryVisit;
 }
 
@@ -550,10 +761,10 @@ export async function getVisitReport(startDate: string, endDate: string) {
 
     return rows.map(r => ({
         id: r.visit.id,
-        memberName: r.member?.name || "Unknown",
-        memberClass: r.member?.className,
+        memberName: r.member?.name || r.visit.guestName || "Tamu",
+        memberClass: r.member?.className || r.visit.institution || "-",
         date: r.visit.date,
-        timestamp: r.visit.timestamp
+        timestamp: r.visit.timestamp.toISOString()
     }));
 }
 
@@ -587,35 +798,56 @@ function count() { return sql<number>`count(*)` }
 
 // QR Scanning Logic
 export async function smartScan(qrCode: string) {
+    console.log(`[smartScan] Starting scan for code: ${qrCode.slice(0, 8)}...`);
+    
     // Member first
+    console.log(`[smartScan] Checking member...`);
     const member = await getMemberByQRCode(qrCode);
-    if (member) return { type: "member", data: member };
+    if (member) {
+        console.log(`[smartScan] Found member: ${member.name}`);
+        return { type: "member", data: member };
+    }
 
     // Then asset
+    console.log(`[smartScan] Checking asset...`);
     const asset = await getAssetByQRCode(qrCode);
-    if (asset) return { type: "item", data: asset };
+    if (asset) {
+        console.log(`[smartScan] Found asset: ${asset.id}`);
+        return { type: "item", data: asset };
+    }
 
+    console.log(`[smartScan] QR code not recognized`);
     return { type: "error", message: "QR code tidak dikenali" };
 }
 
 export async function smartScanComplete(qrCode: string) {
+    console.log(`[smartScanComplete] Starting for code: ${qrCode.slice(0, 8)}...`);
+    
     const scan = await smartScan(qrCode);
+    console.log(`[smartScanComplete] smartScan returned type: ${scan.type}`);
     
     if (scan.type === "member") {
         const member = scan.data;
         const todayStr = new Date().toISOString().split("T")[0];
 
         // Check if first visit today
+        console.log(`[smartScanComplete] Checking existing visit...`);
         const [existingVisit] = await db.select().from(libraryVisits)
             .where(and(eq(libraryVisits.memberId, member.id), eq(libraryVisits.date, todayStr)))
             .limit(1);
+        console.log(`[smartScanComplete] Existing visit: ${!!existingVisit}`);
 
         if (!existingVisit) {
+            console.log(`[smartScanComplete] Recording new visit...`);
             await recordVisit(member.id);
+            console.log(`[smartScanComplete] Visit recorded`);
         }
 
+        console.log(`[smartScanComplete] Fetching active loans...`);
         const activeLoans = await getMemberActiveLoans(member.id);
+        console.log(`[smartScanComplete] Found ${activeLoans.length} active loans`);
 
+        console.log(`[smartScanComplete] Returning member result`);
         return {
             ...scan,
             visitStatus: { isFirstVisit: !existingVisit },
@@ -623,6 +855,7 @@ export async function smartScanComplete(qrCode: string) {
         };
     }
 
+    console.log(`[smartScanComplete] Returning non-member result`);
     return scan;
 }
 

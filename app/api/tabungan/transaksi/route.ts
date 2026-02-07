@@ -124,6 +124,28 @@ export async function POST(request: NextRequest) {
         
         // Similarly, restrict editing other class students if this was an edit endpoint (but this is create).
 
+        // Verify that the current user exists in the database before creating transaction
+        // This prevents FOREIGN KEY constraint failures
+        const { users } = await import("@/db/schema/users");
+        const { db } = await import("@/db");
+        const { eq } = await import("drizzle-orm");
+        
+        const [existingUser] = await db.select({ id: users.id })
+            .from(users)
+            .where(eq(users.id, currentUser.id))
+            .limit(1);
+        
+        if (!existingUser) {
+            tabunganLog.error("User not found in database", { 
+                requestId, 
+                action: "transaksi_create_error",
+                userId: currentUser.id
+            });
+            return NextResponse.json({ 
+                error: "Sesi tidak valid. Silakan logout dan login kembali." 
+            }, { status: 401 });
+        }
+
         tabunganLog.info("Creating transaksi", { 
             requestId, 
             action: "transaksi_create",

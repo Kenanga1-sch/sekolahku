@@ -153,7 +153,7 @@ export const tabunganBrankasTransaksiRelations = relations(tabunganBrankasTransa
 // ==========================================
 
 export const transactionTypeEnum = ["setor", "tarik"] as const;
-export const transactionStatusEnum = ["pending", "verified", "rejected"] as const;
+export const transactionStatusEnum = ["pending", "collected", "verified", "rejected"] as const;
 
 export const tabunganTransaksi = sqliteTable(
   "tabungan_transaksi",
@@ -256,6 +256,74 @@ export const tabunganTransaksiRelations = relations(
 );
 
 // ==========================================
+// Tabungan Hutang Siswa (Student Debts) Table
+// ==========================================
+
+export const hutangKategoriEnum = ["atribut", "buku", "lks", "seragam", "lainnya"] as const;
+export const hutangStatusEnum = ["aktif", "lunas", "dibatalkan"] as const;
+
+export const tabunganHutang = sqliteTable(
+  "tabungan_hutang",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    siswaId: text("siswa_id")
+      .notNull()
+      .references(() => tabunganSiswa.id),
+
+    // Detail Barang/Kewajiban
+    namaBarang: text("nama_barang").notNull(),
+    kategori: text("kategori", { enum: hutangKategoriEnum }).default("lainnya").notNull(),
+    nominal: integer("nominal").notNull(),
+    jumlah: integer("jumlah").default(1).notNull(),
+
+    // Pencatatan
+    dicatatOleh: text("dicatat_oleh")
+      .notNull()
+      .references(() => users.id),
+    tanggalAmbil: integer("tanggal_ambil", { mode: "timestamp" }).$defaultFn(() => new Date()),
+    catatan: text("catatan"),
+
+    // Status Pelunasan
+    status: text("status", { enum: hutangStatusEnum }).default("aktif").notNull(),
+    dilunaskanDari: text("dilunaskan_dari"), // "tabungan" | "cash" | null
+    tanggalLunas: integer("tanggal_lunas", { mode: "timestamp" }),
+    dilunaskanOleh: text("dilunaskan_oleh").references(() => users.id),
+
+    // Tahun Ajaran (untuk filtering laporan)
+    tahunAjaran: text("tahun_ajaran"), // e.g., "2025/2026"
+
+    createdAt: integer("created_at", { mode: "timestamp" }).$defaultFn(() => new Date()),
+    updatedAt: integer("updated_at", { mode: "timestamp" })
+      .$defaultFn(() => new Date())
+      .$onUpdate(() => new Date()),
+  },
+  (table) => ({
+    siswaIdx: index("idx_hutang_siswa").on(table.siswaId),
+    statusIdx: index("idx_hutang_status").on(table.status),
+    tahunIdx: index("idx_hutang_tahun").on(table.tahunAjaran),
+  })
+);
+
+export const tabunganHutangRelations = relations(tabunganHutang, ({ one }) => ({
+  siswa: one(tabunganSiswa, {
+    fields: [tabunganHutang.siswaId],
+    references: [tabunganSiswa.id],
+  }),
+  pencatat: one(users, {
+    fields: [tabunganHutang.dicatatOleh],
+    references: [users.id],
+    relationName: "pencatatHutang",
+  }),
+  pelunasan: one(users, {
+    fields: [tabunganHutang.dilunaskanOleh],
+    references: [users.id],
+    relationName: "pelunasHutang",
+  }),
+}));
+
+// ==========================================
 // Types
 // ==========================================
 
@@ -277,3 +345,7 @@ export type BrankasTipe = (typeof brankasTipeEnum)[number];
 export type BrankasTransaksiTipe = (typeof brankasTransaksiTipeEnum)[number];
 export type TabunganBrankasTransaksi = typeof tabunganBrankasTransaksi.$inferSelect;
 export type NewTabunganBrankasTransaksi = typeof tabunganBrankasTransaksi.$inferInsert;
+export type TabunganHutang = typeof tabunganHutang.$inferSelect;
+export type NewTabunganHutang = typeof tabunganHutang.$inferInsert;
+export type HutangKategori = (typeof hutangKategoriEnum)[number];
+export type HutangStatus = (typeof hutangStatusEnum)[number];

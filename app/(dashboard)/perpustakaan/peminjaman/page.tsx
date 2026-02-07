@@ -11,10 +11,13 @@ import {
     ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import AsyncSelect from "react-select/async";
 import {
     Table,
     TableBody,
@@ -29,6 +32,15 @@ import {
     TabsList,
     TabsTrigger,
 } from "@/components/ui/tabs";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -49,6 +61,16 @@ export default function PeminjamanPage() {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [returningLoan, setReturningLoan] = useState<LibraryLoan | null>(null);
+
+    // New Loan States
+    const [isNewLoanOpen, setIsNewLoanOpen] = useState(false);
+    const [selectedMember, setSelectedMember] = useState<any>(null);
+    const [selectedBook, setSelectedBook] = useState<any>(null);
+    const [loanDays, setLoanDays] = useState(7);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // URL Params for Action
+    const router = useRouter();
 
     const loadLoans = useCallback(async () => {
         setLoading(true);
@@ -94,6 +116,66 @@ export default function PeminjamanPage() {
             console.error("Failed to return book:", error);
             showError("Gagal mengembalikan buku");
         }
+    };
+
+    const handleCreateLoan = async () => {
+        if (!selectedMember || !selectedBook) {
+            showError("Pilih anggota dan buku terlebih dahulu");
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            const res = await fetch("/api/library/loans", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    memberId: selectedMember.value,
+                    itemId: selectedBook.value,
+                    loanDays,
+                })
+            });
+
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.error || "Gagal meminjam buku");
+
+            showSuccess("Peminjaman berhasil dicatat");
+            setIsNewLoanOpen(false);
+            
+            // Clean URL params without refresh
+            router.replace("/perpustakaan/peminjaman");
+            
+            // Reset form
+            setSelectedMember(null);
+            setSelectedBook(null);
+            setLoanDays(7);
+            
+            loadLoans();
+        } catch (error: any) {
+            console.error("Create loan error:", error);
+            showError(error.message || "Gagal meminjam buku");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const loadMemberOptions = async (inputValue: string) => {
+        if (!inputValue) return [];
+        const res = await fetch(`/api/library/members?search=${inputValue}`);
+        const data = await res.json();
+        return data.items.map((m: any) => ({ value: m.id, label: `${m.name} (${m.className})` }));
+    };
+
+    const loadBookOptions = async (inputValue: string) => {
+        if (!inputValue) return [];
+        const res = await fetch(`/api/library/books?search=${inputValue}&perPage=10`);
+        const data = await res.json();
+        return data.items
+            .filter((item: any) => item.status === "AVAILABLE")
+            .map((item: any) => ({ 
+                value: item.id, // QR Code as ID
+                label: `${item.title} (${item.id})` 
+            }));
     };
 
     const formatDate = (date: Date | string) => {
@@ -222,18 +304,24 @@ export default function PeminjamanPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center gap-4">
-                <Link href="/perpustakaan">
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <ArrowLeft className="h-4 w-4" />
-                    </Button>
-                </Link>
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Peminjaman</h1>
-                    <p className="text-muted-foreground">
-                        Kelola peminjaman dan pengembalian buku
-                    </p>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <Link href="/perpustakaan">
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <ArrowLeft className="h-4 w-4" />
+                        </Button>
+                    </Link>
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight">Peminjaman</h1>
+                        <p className="text-muted-foreground">
+                            Kelola peminjaman dan pengembalian buku
+                        </p>
+                    </div>
                 </div>
+                <Button onClick={() => setIsNewLoanOpen(true)} className="gap-2">
+                    <BookMarked className="h-4 w-4" />
+                    Pinjam Baru
+                </Button>
             </div>
 
             {/* Stats */}
@@ -337,6 +425,73 @@ export default function PeminjamanPage() {
                     </Card>
                 </TabsContent>
             </Tabs>
+
+            {/* New Loan Dialog */}
+            <Dialog open={isNewLoanOpen} onOpenChange={setIsNewLoanOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Catat Peminjaman Baru</DialogTitle>
+                        <DialogDescription>
+                            Pilih anggota dan scan/cari buku yang akan dipinjam.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Label>Anggota</Label>
+                            <AsyncSelect
+                                cacheOptions
+                                loadOptions={loadMemberOptions}
+                                defaultOptions
+                                placeholder="Cari nama anggota..."
+                                onChange={setSelectedMember}
+                                value={selectedMember}
+                                classNames={{
+                                    control: () => "border border-input bg-background rounded-md px-1",
+                                    input: () => "text-sm",
+                                    option: () => "text-sm"
+                                }}
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>Buku (Scan QR / Cari Judul)</Label>
+                            <AsyncSelect
+                                cacheOptions
+                                loadOptions={loadBookOptions}
+                                defaultOptions
+                                placeholder="Scan QR atau cari judul..."
+                                onChange={setSelectedBook}
+                                value={selectedBook}
+                                classNames={{
+                                    control: () => "border border-input bg-background rounded-md px-1",
+                                    input: () => "text-sm",
+                                    option: () => "text-sm"
+                                }}
+                            />
+                            {selectedBook && (
+                                <p className="text-[10px] text-muted-foreground">
+                                    Pastikan buku berstatus TERSEDIA.
+                                </p>
+                            )}
+                        </div>
+                        <div className="grid gap-2">
+                            <Label>Durasi Pinjam (Hari)</Label>
+                            <Input 
+                                type="number" 
+                                min={1} 
+                                value={loanDays}
+                                onChange={(e) => setLoanDays(parseInt(e.target.value) || 7)} 
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsNewLoanOpen(false)}>Batal</Button>
+                        <Button onClick={handleCreateLoan} disabled={isSubmitting}>
+                            {isSubmitting && <Clock className="mr-2 h-4 w-4 animate-spin" />}
+                            Simpan Peminjaman
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Return Confirmation Dialog */}
             <AlertDialog open={!!returningLoan} onOpenChange={() => setReturningLoan(null)}>

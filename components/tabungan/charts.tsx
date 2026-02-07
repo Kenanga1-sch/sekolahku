@@ -161,6 +161,12 @@ export function ClassBalanceChart() {
     const [data, setData] = useState<SaldoByKelasItem[]>([]);
     const [loading, setLoading] = useState(true);
 
+    // Fallback colors if API doesn't return them or they fail to render
+    const COLORS = [
+        "#22c55e", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", 
+        "#ec4899", "#14b8a6", "#6366f1", "#84cc16", "#06b6d4"
+    ];
+
     useEffect(() => {
         async function loadData() {
             try {
@@ -201,24 +207,28 @@ export function ClassBalanceChart() {
             </CardHeader>
             <CardContent>
                 {!hasData ? (
-                    <div className="h-[250px] flex items-center justify-center text-muted-foreground">
+                    <div className="h-[300px] flex items-center justify-center text-muted-foreground">
                         <p>Belum ada data saldo</p>
                     </div>
                 ) : (
                     <div className="relative">
-                        <ResponsiveContainer width="100%" height={250}>
+                        <ResponsiveContainer width="100%" height={350}>
                             <PieChart>
                                 <Pie
                                     data={data as any}
                                     cx="50%"
-                                    cy="50%"
-                                    innerRadius={65}
-                                    outerRadius={90}
-                                    paddingAngle={2}
+                                    cy="45%"
+                                    innerRadius={70}
+                                    outerRadius={95}
+                                    paddingAngle={3}
                                     dataKey="value"
                                 >
                                     {data.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                        <Cell 
+                                            key={`cell-${index}`} 
+                                            fill={entry.color || COLORS[index % COLORS.length]} 
+                                            strokeWidth={0}
+                                        />
                                     ))}
                                 </Pie>
                                 <Tooltip
@@ -230,12 +240,18 @@ export function ClassBalanceChart() {
                                     }}
                                     formatter={(value: any) => [formatRupiah(value), 'Saldo']}
                                 />
-                                <Legend />
+                                <Legend 
+                                    iconType="circle"
+                                    layout="horizontal" 
+                                    verticalAlign="bottom" 
+                                    align="center"
+                                    wrapperStyle={{ fontSize: '12px', paddingTop: '20px' }}
+                                />
                             </PieChart>
                         </ResponsiveContainer>
-                        {/* Center text */}
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className="text-center">
+                        {/* Center text - Positioned at cy="45%" */}
+                        <div className="absolute top-[45%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+                             <div className="text-center">
                                 <p className="text-lg font-bold">{formatRupiah(total)}</p>
                                 <p className="text-xs text-muted-foreground">Total</p>
                             </div>

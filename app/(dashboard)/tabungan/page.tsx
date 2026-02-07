@@ -22,29 +22,9 @@ import {
 import type { TabunganStats } from "@/types/tabungan";
 
 // Lazy load heavy components
-const TransactionTrendChart = dynamic(
-    () => import("@/components/tabungan/charts").then(mod => ({ default: mod.TransactionTrendChart })),
-    {
-        loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[300px] w-full" /></CardContent></Card>,
-        ssr: false
-    }
-);
 
-const ClassBalanceChart = dynamic(
-    () => import("@/components/tabungan/charts").then(mod => ({ default: mod.ClassBalanceChart })),
-    {
-        loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[300px] w-full" /></CardContent></Card>,
-        ssr: false
-    }
-);
 
-const RecentTransactionsFeed = dynamic(
-    () => import("@/components/tabungan/recent-transactions").then(mod => ({ default: mod.RecentTransactionsFeed })),
-    {
-        loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[320px] w-full" /></CardContent></Card>,
-        ssr: false
-    }
-);
+
 
 const QuickActionsPanel = dynamic(
     () => import("@/components/tabungan/quick-actions").then(mod => ({ default: mod.QuickActionsPanel })),
@@ -54,13 +34,7 @@ const QuickActionsPanel = dynamic(
     }
 );
 
-const TopSaversWidget = dynamic(
-    () => import("@/components/tabungan/top-savers").then(mod => ({ default: mod.TopSaversWidget })),
-    {
-        loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[280px] w-full" /></CardContent></Card>,
-        ssr: false
-    }
-);
+
 
 function formatRupiah(amount: number): string {
     return new Intl.NumberFormat("id-ID", {
@@ -153,37 +127,6 @@ export default function TabunganDashboardPage() {
                 </Button>
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid gap-4 md:grid-cols-3">
-                {statCards.map((stat) => (
-                    <Card
-                        key={stat.title}
-                        className={`relative overflow-hidden group hover:shadow-lg transition-all duration-300`}
-                    >
-                        <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
-                        <CardContent className="p-4">
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className={`p-2.5 rounded-xl ${stat.bgColor} transition-transform duration-300 group-hover:scale-110`}>
-                                    <stat.icon className={`h-5 w-5 ${stat.color}`} />
-                                </div>
-                                <p className="text-sm font-medium text-muted-foreground">
-                                    {stat.title}
-                                </p>
-                            </div>
-                            <span className={`text-2xl font-bold block`}>
-                                {isLoading ? <Skeleton className="h-7 w-20" /> : stat.value}
-                            </span>
-                            <span className="text-xs text-muted-foreground mt-1 block">
-                                {stat.desc}
-                            </span>
-                        </CardContent>
-                    </Card>
-                ))}
-            </div>
-
-            {/* Quick Actions */}
-            <QuickActionsPanel />
-
             {/* Today Summary */}
             <div className="grid md:grid-cols-2 gap-4">
                 <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/50 dark:to-green-900/30 border-green-200 dark:border-green-800 group hover:shadow-lg transition-all">
@@ -229,17 +172,38 @@ export default function TabunganDashboardPage() {
 
 
 
-            {/* Charts Section */}
-            <div className="grid lg:grid-cols-2 gap-6">
-                <TransactionTrendChart />
-                <ClassBalanceChart />
+            {/* Stats Grid */}
+            <div className="grid gap-4 md:grid-cols-3">
+                {statCards.map((stat) => (
+                    <Card
+                        key={stat.title}
+                        className={`relative overflow-hidden group hover:shadow-lg transition-all duration-300`}
+                    >
+                        <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
+                        <CardContent className="p-4">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className={`p-2.5 rounded-xl ${stat.bgColor} transition-transform duration-300 group-hover:scale-110`}>
+                                    <stat.icon className={`h-5 w-5 ${stat.color}`} />
+                                </div>
+                                <p className="text-sm font-medium text-muted-foreground">
+                                    {stat.title}
+                                </p>
+                            </div>
+                            <span className={`text-2xl font-bold block`}>
+                                {isLoading ? <Skeleton className="h-7 w-20" /> : stat.value}
+                            </span>
+                            <span className="text-xs text-muted-foreground mt-1 block">
+                                {stat.desc}
+                            </span>
+                        </CardContent>
+                    </Card>
+                ))}
             </div>
 
-            {/* Recent Transactions + Top Savers */}
-            <div className="grid lg:grid-cols-2 gap-6">
-                <RecentTransactionsFeed />
-                <TopSaversWidget />
-            </div>
+            {/* Quick Actions */}
+            <QuickActionsPanel />
+
+
         </div>
     );
 }

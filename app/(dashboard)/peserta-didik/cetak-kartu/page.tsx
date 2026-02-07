@@ -320,22 +320,31 @@ export default function CetakKartuPage() {
           }
         `}</style>
         <div
-          className="grid gap-4"
+          className="grid gap-6 p-4"
           style={{
             gridTemplateColumns: `repeat(${cardsPerRow}, minmax(0, 1fr))`,
           }}
         >
           {cards.map((student) => (
-            <StudentCardPreview
-              key={student.id}
-              student={student}
-              schoolName={schoolName}
-              schoolAddress={schoolAddress}
-              schoolLogo={schoolLogo}
-              showPhoto={showPhoto}
-              showNIS={showNIS}
-              forPrint
-            />
+            <div key={student.id} className="flex gap-1 break-inside-avoid page-break-inside-avoid">
+              <StudentCardPreview
+                student={student}
+                schoolName={schoolName}
+                schoolAddress={schoolAddress}
+                schoolLogo={schoolLogo}
+                showPhoto={showPhoto}
+                showNIS={showNIS}
+                forPrint
+              />
+              {showBackSide && (
+                <StudentCardBack
+                  student={student}
+                  schoolName={schoolName}
+                  schoolAddress={schoolAddress}
+                  forPrint
+                />
+              )}
+            </div>
           ))}
         </div>
       </div>
@@ -374,13 +383,11 @@ function StudentCardPreview({
 
   return (
     <div
-      className="student-card relative overflow-hidden bg-white"
+      className="student-card relative overflow-hidden bg-white flex-shrink-0"
       style={{
-        aspectRatio: "85.6/54",
-        width: forPrint ? "85.6mm" : "100%",
-        minWidth: forPrint ? "85.6mm" : "320px",
-        maxWidth: forPrint ? "85.6mm" : "420px",
-        borderRadius: "10px",
+        width: forPrint ? "85.6mm" : "380px",
+        height: forPrint ? "54mm" : "240px",
+        borderRadius: forPrint ? "2mm" : "10px",
         boxShadow: forPrint 
           ? "none" 
           : "0 4px 20px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.1)",
@@ -696,12 +703,14 @@ interface StudentCardBackProps {
   student: StudentCard;
   schoolName: string;
   schoolAddress: string;
+  forPrint?: boolean;
 }
 
 function StudentCardBack({
   student,
   schoolName,
   schoolAddress,
+  forPrint,
 }: StudentCardBackProps) {
   const currentYear = new Date().getFullYear();
   const academicYear = `${currentYear}/${currentYear + 1}`;
@@ -715,14 +724,14 @@ function StudentCardBack({
 
   return (
     <div
-      className="student-card relative overflow-hidden bg-white"
+      className="student-card relative overflow-hidden bg-white flex-shrink-0"
       style={{
-        aspectRatio: "85.6/54",
-        width: "100%",
-        minWidth: "320px",
-        maxWidth: "420px",
-        borderRadius: "10px",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.1)",
+        width: forPrint ? "85.6mm" : "380px",
+        height: forPrint ? "54mm" : "240px",
+        borderRadius: forPrint ? "2mm" : "10px",
+        boxShadow: forPrint 
+          ? "none" 
+          : "0 4px 20px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.1)",
         border: "1px solid #e2e8f0",
       }}
     >

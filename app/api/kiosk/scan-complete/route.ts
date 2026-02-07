@@ -15,8 +15,11 @@ export async function POST(req: Request) {
     const requestId = generateRequestId();
     const start = timeStart();
     
+    console.log(`[API scan-complete] Request started: ${requestId}`);
+    
     try {
         const { code } = await req.json();
+        console.log(`[API scan-complete] Received code: ${code?.slice(0, 8)}...`);
 
         libLog.info("Kiosk scan-complete request", { 
             requestId, 
@@ -28,8 +31,10 @@ export async function POST(req: Request) {
             throw new ValidationError("Kode QR wajib diisi", { code: "Kode QR tidak boleh kosong" });
         }
 
+        console.log(`[API scan-complete] Calling smartScanComplete...`);
         const result = await smartScanComplete(code);
         const duration = timeEnd(start);
+        console.log(`[API scan-complete] smartScanComplete returned: ${result.type}, duration: ${duration}ms`);
         
         libLog.info("Kiosk scan-complete finished", { 
             requestId, 
@@ -38,9 +43,11 @@ export async function POST(req: Request) {
             duration 
         });
         
+        console.log(`[API scan-complete] Sending response...`);
         return NextResponse.json(result);
     } catch (error) {
         const duration = timeEnd(start);
+        console.error(`[API scan-complete] ERROR:`, error);
         
         libLog.error("Kiosk scan-complete error", { 
             requestId, 

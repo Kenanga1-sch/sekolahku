@@ -15,12 +15,10 @@ export const libraryMemberSchema = z.object({
 export const libraryItemSchema = z.object({
   title: z.string().min(3, "Judul minimal 3 karakter"),
   author: z.string().optional(),
-  isbn: z.string().optional(),
+  isbn: z.string().optional().transform(e => e === "" ? undefined : e),
   publisher: z.string().optional(),
   year: z.number().int().min(1900).max(new Date().getFullYear() + 1).optional(),
-  category: z.enum(
-    ["FICTION", "NON_FICTION", "REFERENCE", "TEXTBOOK", "MAGAZINE", "OTHER"]
-  ),
+  category: z.string().default("OTHER"), // Changed from Enum to String to support DDC
   location: z.string().optional(),
   description: z.string().optional(),
 });
@@ -37,7 +35,7 @@ export const bindAssetSchema = z.object({
         id: z.string().optional(),
         title: z.string().min(1, "Judul wajib diisi"),
         author: z.string().optional(),
-        isbn: z.string().optional(),
+        isbn: z.string().optional().transform(e => e === "" ? undefined : e),
         publisher: z.string().optional(),
         year: z.number().optional(),
         category: z.string().default("OTHER"),

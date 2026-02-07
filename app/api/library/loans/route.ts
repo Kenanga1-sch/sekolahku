@@ -33,3 +33,26 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
+
+export async function POST(request: Request) {
+    try {
+        const auth = await requireRole(["admin", "librarian"]);
+        if (!auth.authorized) return auth.response;
+
+        const body = await request.json();
+        
+        // Validate
+        const parseResult = await import("@/lib/validations/library").then(m => m.createLoanSchema.safeParseAsync(body));
+        if (!parseResult.success) {
+            return NextResponse.json({ error: "Validation Error", details: parseResult.error.flatten().fieldErrors }, { status: 400 });
+        }
+
+        const { memberId, itemId, loanDays } = parseResult.data;
+        const loan = await import("@/lib/library").then(m => m.borrowBook(memberId, itemId, loanDays));
+        
+        return NextResponse.json({ success: true, data: loan });
+    } catch (error: any) {
+        console.error("Create loan error:", error);
+        return NextResponse.json({ error: error.message || "Failed to create loan" }, { status: 500 });
+    }
+}

@@ -52,5 +52,15 @@ export const getCachedLibraryStats = unstable_cache(
         }
     },
     ["library-stats"],
-    { revalidate: 300 }
+    { revalidate: 3600, tags: ["library-stats"] }
 );
+
+export async function revalidateLibraryStats() {
+    try {
+        const { revalidatePath } = await import("next/cache");
+        revalidatePath("/perpustakaan", "page");
+        revalidatePath("/", "page");
+    } catch (err) {
+        console.error("[Library] Revalidation implementation error:", err);
+    }
+}

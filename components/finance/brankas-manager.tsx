@@ -179,9 +179,20 @@ export function BrankasManager({ vaults, recentTransactions, currentUserId }: Br
                                         <TableRow key={tx.id}>
                                             <TableCell>{new Date(tx.createdAt).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</TableCell>
                                             <TableCell>
-                                                <Badge variant={tx.tipe === 'setor_ke_bank' ? 'default' : 'outline'} className={tx.tipe === 'setor_ke_bank' ? 'bg-blue-100 text-blue-700 hover:bg-blue-200 border-none' : 'text-orange-600 border-orange-200'}>
-                                                    {tx.tipe === 'setor_ke_bank' ? 'Setor ke Bank' : 'Tarik dari Bank'}
-                                                </Badge>
+                                                {(() => {
+                                                    const badgeProps = {
+                                                        "setor_ke_bank": { label: "Setor ke Bank", className: "bg-blue-100 text-blue-700 hover:bg-blue-200 border-none" },
+                                                        "tarik_dari_bank": { label: "Tarik dari Bank", className: "bg-orange-100 text-orange-700 hover:bg-orange-200 border-none" },
+                                                        "setor_ke_koperasi": { label: "Setoran Masuk", className: "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-none" },
+                                                        "tarik_dari_koperasi": { label: "Penarikan Keluar", className: "bg-red-100 text-red-700 hover:bg-red-200 border-none" },
+                                                    }[tx.tipe as string] || { label: tx.tipe, className: "bg-gray-100 text-gray-700 border-none" };
+
+                                                    return (
+                                                        <Badge variant="outline" className={badgeProps.className}>
+                                                            {badgeProps.label}
+                                                        </Badge>
+                                                    );
+                                                })()}
                                             </TableCell>
                                             <TableCell className="font-medium">{formatCurrency(tx.nominal)}</TableCell>
                                             <TableCell className="text-muted-foreground">{tx.user?.name || "System"}</TableCell>

@@ -14,12 +14,25 @@ export interface BaseRecord {
 // ==========================================
 
 export type ItemCategory =
+    // Legacy categories (kept for backward compatibility)
     | "FICTION"
     | "NON_FICTION"
     | "REFERENCE"
     | "TEXTBOOK"
     | "MAGAZINE"
-    | "OTHER";
+    | "OTHER"
+    // DDC-based categories
+    | "000_COMPUTER"
+    | "100_PHILOSOPHY"
+    | "200_RELIGION"
+    | "300_SOCIAL"
+    | "400_LANGUAGE"
+    | "500_SCIENCE"
+    | "600_TECHNOLOGY"
+    | "700_ART"
+    | "800_LITERATURE"
+    | "900_HISTORY"
+    | "UNSORTED";
 
 export interface LibraryCatalog extends BaseRecord {
     isbn: string | null;
@@ -99,10 +112,15 @@ export interface LibraryLoan extends BaseRecord {
 // Library Visits
 // ==========================================
 
-export interface LibraryVisit extends BaseRecord {
-    memberId: string;
+export interface LibraryVisit {
+    id: string;
+    memberId: string | null;
+    guestName: string | null;
+    institution: string | null;
+    purpose: string | null;
     date: string; // YYYY-MM-DD
     timestamp: Date;
+    createdAt: Date;
     
     member?: LibraryMember | null;
 }

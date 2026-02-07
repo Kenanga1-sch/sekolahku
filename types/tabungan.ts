@@ -2,7 +2,7 @@
 // Tabungan (Student Savings) Module Types
 // ==========================================
 
-import { type TabunganKelas, type TabunganSiswa, type TabunganTransaksi } from "@/db/schema/tabungan";
+import { type TabunganKelas, type TabunganSiswa, type TabunganTransaksi, type TabunganSetoran } from "@/db/schema/tabungan";
 
 // ==========================================
 // Extended Types with Relations
@@ -31,8 +31,20 @@ export interface TabunganTransaksiWithRelations extends TabunganTransaksi {
     } | null;
 }
 
+export interface TabunganSetoranWithRelations extends TabunganSetoran {
+    guru?: {
+        name: string;
+        email: string;
+    } | null;
+    bendahara?: {
+        name: string;
+        email: string;
+    } | null;
+    transaksi?: TabunganTransaksi[];
+}
+
 // Re-export base types
-export type { TabunganKelas, TabunganSiswa, TabunganTransaksi };
+export type { TabunganKelas, TabunganSiswa, TabunganTransaksi, TabunganSetoran };
 
 // ==========================================
 // Enums

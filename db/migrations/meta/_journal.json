@@ -15,6 +15,20 @@
       "when": 1770114223265,
       "tag": "0001_silent_iron_lad",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1770349057231,
+      "tag": "0002_yielding_the_captain",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1770453702929,
+      "tag": "0003_light_northstar",
+      "breakpoints": true
     }
   ]
 }

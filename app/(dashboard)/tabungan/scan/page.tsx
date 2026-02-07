@@ -190,8 +190,8 @@ export default function TabunganScanPage() {
             setScanState("success");
             showSuccess(
                 tipe === "setor"
-                    ? `Setoran ${formatRupiah(nominalValue)} berhasil dicatat`
-                    : `Penarikan ${formatRupiah(nominalValue)} berhasil dicatat`
+                    ? `Setoran ${formatRupiah(nominalValue)} berhasil dicatat (Saldo akan diperbarui setelah verifikasi bendahara)`
+                    : `Penarikan ${formatRupiah(nominalValue)} berhasil dicatat (Saldo akan diperbarui setelah verifikasi bendahara)`
             );
 
             // Reset after success

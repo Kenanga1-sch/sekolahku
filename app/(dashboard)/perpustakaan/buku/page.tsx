@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import {
+    Book,
     BookOpen,
     Plus,
     Search,
@@ -156,17 +157,20 @@ export default function BukuPage() {
     const handleDelete = async (id: string) => {
         if (confirm("Yakin ingin menghapus buku ini?")) {
             try {
-                const res = await fetch(`/api/perpustakaan/books/${id}`, {
+                const res = await fetch(`/api/library/books/${id}`, {
                     method: "DELETE",
                 });
                 
-                if (!res.ok) throw new Error("Failed to delete item");
+                if (!res.ok) {
+                    const data = await res.json();
+                    throw new Error(data.error || "Gagal menghapus buku");
+                }
                 
                 showSuccess("Buku berhasil dihapus");
                 loadItems();
-            } catch (error) {
+            } catch (error: any) {
                 console.error("Failed to delete item:", error);
-                showError("Gagal menghapus buku");
+                showError(error.message || "Gagal menghapus buku");
             }
         }
     };
@@ -401,6 +405,7 @@ export default function BukuPage() {
                     <Table>
                         <TableHeader>
                             <TableRow>
+                                <TableHead className="w-[80px]">Sampul</TableHead>
                                 <TableHead>Judul</TableHead>
                                 <TableHead>Penulis</TableHead>
                                 <TableHead>Kategori</TableHead>
@@ -412,19 +417,35 @@ export default function BukuPage() {
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-8">
+                                    <TableCell colSpan={7} className="text-center py-8">
                                         Memuat...
                                     </TableCell>
                                 </TableRow>
                             ) : items.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                                         Belum ada buku. Klik "Tambah Buku" untuk menambahkan.
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 items.map((item) => (
                                     <TableRow key={item.id}>
+                                        <TableCell>
+                                            <div className="w-12 h-16 rounded overflow-hidden border bg-muted flex items-center justify-center">
+                                                {item.catalog?.cover ? (
+                                                    <img 
+                                                        src={item.catalog.cover} 
+                                                        alt={item.catalog.title} 
+                                                        className="w-full h-full object-cover"
+                                                        onError={(e) => {
+                                                            (e.target as HTMLImageElement).src = "/images/placeholder-book.png";
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <Book className="h-6 w-6 text-muted-foreground/40" />
+                                                )}
+                                            </div>
+                                        </TableCell>
                                         <TableCell>
                                             <div className="flex flex-col">
                                                 <p className="font-medium">{item.catalog?.title || "No Title"}</p>

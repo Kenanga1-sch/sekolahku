@@ -40,8 +40,9 @@ export async function DELETE(
     }
     
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Failed to display book:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  } catch (error: any) {
+    console.error("Failed to delete book:", error);
+    const message = error instanceof Error ? error.message : "Internal Server Error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

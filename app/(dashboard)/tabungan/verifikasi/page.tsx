@@ -43,6 +43,9 @@ type SetoranWithRelations = TabunganSetoran & {
     guru: User;
 };
 
+// Add import for Tabs
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 function formatRupiah(amount: number): string {
     return new Intl.NumberFormat("id-ID", {
         style: "currency",
@@ -65,7 +68,9 @@ function formatDateTime(date: string | Date | null): string {
 export default function TabunganVerifikasiPage() {
     const { user } = useAuthStore();
     const [setoranList, setSetoranList] = useState<SetoranWithRelations[]>([]);
+    const [historyList, setHistoryList] = useState<SetoranWithRelations[]>([]); // New state for history
     const [isLoading, setIsLoading] = useState(true);
+    const [isHistoryLoading, setIsHistoryLoading] = useState(false); // New state for history loading
     const [verifyId, setVerifyId] = useState<string | null>(null);
     const [verifyAction, setVerifyAction] = useState<"approve" | "reject" | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -73,6 +78,7 @@ export default function TabunganVerifikasiPage() {
     const [catatanInternal, setCatatanInternal] = useState("");
 
     const fetchData = useCallback(async () => {
+        setIsLoading(true);
         try {
             const res = await fetch("/api/tabungan/setoran?status=pending");
             const data = await res.json();
@@ -87,9 +93,32 @@ export default function TabunganVerifikasiPage() {
         }
     }, []);
 
+    const fetchHistory = useCallback(async () => {
+        setIsHistoryLoading(true);
+        try {
+            // Fetch all and filter client side, or if API supports exclude status
+            // For now, let's fetch all and filter client-side for "verified" or "rejected"
+            // Actually, we can just fetch without status to get all, then filter
+            const res = await fetch("/api/tabungan/setoran"); 
+            const data = await res.json();
+            if (data.items) {
+                // Filter out pending
+                const history = data.items.filter((item: any) => item.status !== "pending");
+                setHistoryList(history);
+            }
+        } catch (error) {
+            console.error("Failed to fetch history:", error);
+            showError("Gagal memuat riwayat verificasi");
+        } finally {
+            setIsHistoryLoading(false);
+        }
+    }, []);
+
     useEffect(() => {
         fetchData();
-    }, [fetchData]);
+        // optionally fetch history on mount or on tab change
+        fetchHistory();
+    }, [fetchData, fetchHistory]);
 
     const handleVerify = async () => {
         if (!verifyId || !user || !verifyAction) return;
@@ -155,139 +184,193 @@ export default function TabunganVerifikasiPage() {
     const diff = selectedSetoran ? (selectedSetoran.totalNominal - parseInt(nominalFisikInput.replace(/\D/g, "") || "0")) : 0;
 
     return (
-        <div className="space-y-6">
+        <div className="container mx-auto p-6 space-y-6">
             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Link href="/tabungan">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <ArrowLeft className="h-4 w-4" />
-                        </Button>
-                    </Link>
-                    <div>
-                        <h1 className="text-2xl font-bold">Verifikasi Setoran</h1>
-                        <p className="text-muted-foreground">
-                            Verifikasi setoran harian dari guru kelas
-                        </p>
-                    </div>
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight">Verifikasi Setoran</h1>
+                    <p className="text-muted-foreground">
+                        Kelola setoran tabungan dari para guru
+                    </p>
                 </div>
-                <Button variant="outline" onClick={() => { setIsLoading(true); fetchData(); }}>
-                    <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+                <Button variant="outline" onClick={() => { fetchData(); fetchHistory(); }} disabled={isLoading || isHistoryLoading}>
+                    <RefreshCw className={`mr-2 h-4 w-4 ${isLoading || isHistoryLoading ? "animate-spin" : ""}`} />
                     Refresh
                 </Button>
             </div>
 
-            <Card className="bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
-                <CardContent className="pt-6">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-amber-500 rounded-xl">
-                            <Clock className="h-6 w-6 text-white" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-muted-foreground">Menunggu Verifikasi</p>
-                            <div className="text-2xl font-bold text-amber-700 dark:text-amber-400">
-                                {isLoading ? <Skeleton className="h-8 w-12" /> : setoranList.length}
-                            </div>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+            <Tabs defaultValue="pending" className="space-y-4">
+                <TabsList>
+                    <TabsTrigger value="pending" className="relative">
+                        Perlu Verifikasi
+                        {setoranList.length > 0 && (
+                            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
+                                {setoranList.length}
+                            </span>
+                        )}
+                    </TabsTrigger>
+                    <TabsTrigger value="history">Riwayat Verifikasi</TabsTrigger>
+                </TabsList>
 
-            <Card>
-                <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Waktu</TableHead>
-                                <TableHead>Guru / Penyetor</TableHead>
-                                <TableHead>Tipe</TableHead>
-                                <TableHead className="text-right">Total Nominal</TableHead>
-                                <TableHead>Catatan</TableHead>
-                                <TableHead className="text-center">Aksi</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {isLoading ? (
-                                Array.from({ length: 3 }).map((_, i) => (
-                                    <TableRow key={i}>
-                                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                                        <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                                        <TableCell><Skeleton className="h-6 w-16" /></TableCell>
-                                        <TableCell><Skeleton className="h-4 w-24 ml-auto" /></TableCell>
-                                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                                        <TableCell><Skeleton className="h-8 w-32 mx-auto" /></TableCell>
+                <TabsContent value="pending">
+                    <Card>
+                        <CardContent className="p-0">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Tanggal</TableHead>
+                                        <TableHead>Guru</TableHead>
+                                        <TableHead>Total Sistem</TableHead>
+                                        <TableHead>Catatan</TableHead>
+                                        <TableHead className="text-right">Aksi</TableHead>
                                     </TableRow>
-                                ))
-                            ) : setoranList.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-12">
-                                        <CheckCircle2 className="h-16 w-16 mx-auto text-green-500/50 mb-4" />
-                                        <p className="text-lg font-medium text-muted-foreground">
-                                            Semua setoran sudah diverifikasi
-                                        </p>
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                setoranList.map((t) => (
-                                    <TableRow key={t.id}>
-                                        <TableCell className="text-sm text-muted-foreground">
-                                            {formatDateTime(t.createdAt)}
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="font-medium">{t.guru?.fullName || t.guru?.name || "-"}</div>
-                                            <div className="text-xs text-muted-foreground">{t.guru?.email}</div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge
-                                                variant="outline"
-                                                className={
-                                                    t.tipe === "setor_ke_bendahara"
-                                                        ? "border-green-500 text-green-600"
-                                                        : "border-red-500 text-red-600"
-                                                }
-                                            >
-                                                {t.tipe === "setor_ke_bendahara" ? (
-                                                    <ArrowDownCircle className="h-3 w-3 mr-1" />
-                                                ) : (
-                                                    <ArrowUpCircle className="h-3 w-3 mr-1" />
-                                                )}
-                                                {t.tipe === "setor_ke_bendahara" ? "Setor Masuk" : "Tarik Keluar"}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right font-mono font-semibold">
-                                            {formatRupiah(t.totalNominal)}
-                                        </TableCell>
-                                        <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
-                                            {t.catatan || "-"}
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex justify-center gap-2">
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="border-green-500 text-green-600 hover:bg-green-50"
-                                                    onClick={() => openVerifyDialog(t.id, "approve")}
-                                                >
-                                                    <CheckCircle2 className="h-4 w-4 mr-1" />
-                                                    Terima
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="border-red-500 text-red-600 hover:bg-red-50"
-                                                    onClick={() => openVerifyDialog(t.id, "reject")}
-                                                >
-                                                    <XCircle className="h-4 w-4 mr-1" />
-                                                    Tolak
-                                                </Button>
-                                            </div>
-                                        </TableCell>
+                                </TableHeader>
+                                <TableBody>
+                                    {isLoading ? (
+                                        <TableRow>
+                                            <TableCell colSpan={5} className="h-24 text-center">
+                                                <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : setoranList.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                                                <div className="flex flex-col items-center gap-2">
+                                                    <CheckCircle2 className="h-8 w-8 text-green-500/50" />
+                                                    <p>Semua setoran telah diverifikasi</p>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        setoranList.map((item) => (
+                                            <TableRow key={item.id}>
+                                                <TableCell className="font-medium">
+                                                    {formatDateTime(item.createdAt)}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex flex-col">
+                                                        <span className="font-medium">{item.guru?.fullName || item.guru?.name}</span>
+                                                        <span className="text-xs text-muted-foreground">Guru Wali</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="font-mono font-medium">
+                                                        {formatRupiah(item.totalNominal)}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="max-w-[200px]">
+                                                    <p className="truncate text-sm text-muted-foreground">
+                                                        {item.catatan || "-"}
+                                                    </p>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <div className="flex justify-end gap-2">
+                                                        <Button variant="outline" size="sm" asChild>
+                                                            <Link href={`/tabungan/setoran/${item.id}`}>
+                                                                Detail
+                                                            </Link>
+                                                        </Button>
+                                                        <Button 
+                                                            variant="default" 
+                                                            size="sm"
+                                                            className="bg-green-600 hover:bg-green-700"
+                                                            onClick={() => {
+                                                                setVerifyId(item.id);
+                                                                setVerifyAction("approve");
+                                                                setNominalFisikInput(item.totalNominal.toString());
+                                                            }}
+                                                        >
+                                                            Terima
+                                                        </Button>
+                                                        <Button 
+                                                            variant="destructive" 
+                                                            size="sm"
+                                                            onClick={() => {
+                                                                setVerifyId(item.id);
+                                                                setVerifyAction("reject");
+                                                                setCatatanInternal("");
+                                                            }}
+                                                        >
+                                                            Tolak
+                                                        </Button>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="history">
+                    <Card>
+                        <CardContent className="p-0">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Tanggal</TableHead>
+                                        <TableHead>Guru</TableHead>
+                                        <TableHead>Status</TableHead>
+                                        <TableHead>Total</TableHead>
+                                        <TableHead>Selisih</TableHead>
+                                        <TableHead className="text-right">Aksi</TableHead>
                                     </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+                                </TableHeader>
+                                <TableBody>
+                                    {isHistoryLoading ? (
+                                        <TableRow>
+                                            <TableCell colSpan={6} className="h-24 text-center">
+                                                <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : historyList.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                                                Belum ada riwayat verifikasi
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        historyList.map((item) => (
+                                            <TableRow key={item.id}>
+                                                <TableCell className="font-medium">
+                                                    {formatDateTime(item.createdAt)}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {item.guru?.fullName || item.guru?.name}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge 
+                                                        variant={item.status === "verified" ? "default" : "destructive"}
+                                                        className={item.status === "verified" ? "bg-green-600" : ""}
+                                                    >
+                                                        {item.status === "verified" ? "Diterima" : "Ditolak"}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="font-mono">
+                                                    {formatRupiah(item.totalNominal)}
+                                                </TableCell>
+                                                <TableCell className="font-mono">
+                                                    {item.selisih && item.selisih !== 0 ? (
+                                                        <span className="text-red-500">{formatRupiah(item.selisih)}</span>
+                                                    ) : "-"}
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <Button variant="outline" size="sm" asChild>
+                                                        <Link href={`/tabungan/setoran/${item.id}`}>
+                                                            Detail
+                                                        </Link>
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+            </Tabs>
 
             <AlertDialog open={!!verifyId} onOpenChange={(open) => { if (!open) { setVerifyId(null); setVerifyAction(null); } }}>
                 <AlertDialogContent className="max-w-md">
@@ -307,11 +390,11 @@ export default function TabunganVerifikasiPage() {
                             <div className="p-3 bg-muted/50 rounded-lg text-sm space-y-1">
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Penyetor:</span>
-                                    <span className="font-medium">{selectedSetoran.guru?.fullName || selectedSetoran.guru?.name}</span>
+                                    <span className="font-medium">{selectedSetoran?.guru?.fullName || selectedSetoran?.guru?.name}</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Total di Sistem:</span>
-                                    <span className="font-bold">{formatRupiah(selectedSetoran.totalNominal)}</span>
+                                    <span className="font-bold">{formatRupiah(selectedSetoran?.totalNominal || 0)}</span>
                                 </div>
                             </div>
 
