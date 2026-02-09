@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
         const search = searchParams.get("search")?.toUpperCase();
         const dateParam = searchParams.get("date"); // YYYY-MM-DD
 
-        let query = db.select().from(libraryQrBatches);
+        const query = db.select().from(libraryQrBatches);
         const conditions = [];
 
         if (dateParam) {

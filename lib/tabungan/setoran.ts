@@ -148,7 +148,7 @@ export async function verifySetoran(
             }
 
             // 5. Update Brankas (Ledger)
-            let brankasRows = tx.select().from(tabunganBrankas).where(eq(tabunganBrankas.tipe, "cash")).limit(1).all();
+            const brankasRows = tx.select().from(tabunganBrankas).where(eq(tabunganBrankas.tipe, "cash")).limit(1).all();
             let brankas = brankasRows[0];
             
             if (!brankas) {
