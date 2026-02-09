@@ -4,7 +4,7 @@ import { bindAssetSchema } from "@/lib/validations/library";
 import { requireRole } from "@/lib/auth-checks";
 
 export async function POST(request: NextRequest) {
-    const auth = await requireRole(["admin", "librarian"]);
+    const auth = await requireRole(["superadmin", "admin", "librarian"]);
     if (!auth.authorized) return auth.response;
 
     try {

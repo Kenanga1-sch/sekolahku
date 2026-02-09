@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { lookupISBN } from "@/lib/library";
+import { requireAuth } from "@/lib/auth-checks";
 
 export async function GET(
     request: NextRequest,
     context: { params: Promise<{ isbn: string }> }
 ) {
     try {
+        const auth = await requireAuth();
+        if (!auth.authorized) return auth.response;
+
         const { isbn } = await context.params;
         const data = await lookupISBN(isbn);
 

@@ -26,11 +26,16 @@ interface AdminNotification {
 }
 
 export function NotificationPopover({ className }: { className?: string }) {
+  const [mounted, setMounted] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // ... (fetchStats and fetchNotifications remain same)
 

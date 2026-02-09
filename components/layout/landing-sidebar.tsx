@@ -114,7 +114,7 @@ function SidebarContent({ setIsDropdownOpen }: { setIsDropdownOpen: (v: boolean)
   };
 
   return (
-    <div className="flex flex-col flex-1 overflow-hidden">
+    <div className="flex flex-col flex-1 overflow-hidden" suppressHydrationWarning>
       {/* Header / Logo */}
       <div className="flex flex-col mb-6">
          <Link href="#" className="font-normal flex space-x-2 items-center text-sm text-black py-1 relative z-20">
@@ -152,89 +152,6 @@ function SidebarContent({ setIsDropdownOpen }: { setIsDropdownOpen: (v: boolean)
             )}
           </div>
         ))}
-      </div>
-
-      <div className="mt-4 border-t border-neutral-200 dark:border-neutral-700 pt-4 flex flex-col gap-4">
-         
-         {/* Theme Toggle Area */}
-         <div className={cn("flex items-center group/sidebar", open ? "justify-between px-2" : "justify-center")}>
-             <motion.span
-                animate={{
-                    display: animate ? (open ? "block" : "none") : "block",
-                    opacity: animate ? (open ? 1 : 0) : 1,
-                }}
-                className="text-xs font-medium text-neutral-500"
-             >
-                Tema
-             </motion.span>
-             <ThemeToggle side="right" align="start" onOpenChange={setIsDropdownOpen} />
-         </div>
-
-         {isAuthenticated && user ? (
-            <div className="flex items-center gap-2">
-                 <DropdownMenu onOpenChange={setIsDropdownOpen}>
-                    <DropdownMenuTrigger asChild>
-                        <div className="flex items-center gap-2 cursor-pointer group/sidebar w-full">
-                            <div className="h-7 w-7 flex-shrink-0 rounded-full bg-neutral-200 dark:bg-neutral-700 overflow-hidden flex items-center justify-center">
-                                <User className="h-4 w-4 text-neutral-500" />
-                            </div>
-                            <motion.div
-                                animate={{
-                                    display: animate ? (open ? "flex" : "none") : "flex",
-                                    opacity: animate ? (open ? 1 : 0) : 1,
-                                }}
-                                className="flex flex-col overflow-hidden text-left"
-                            >
-                                <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200 truncate">
-                                    {user.name}
-                                </span>
-                                <span className="text-[10px] text-neutral-500 truncate">
-                                    {user.email}
-                                </span>
-                            </motion.div>
-                        </div>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" side="right" className="w-56" sideOffset={10}>
-                         {(user.role === "admin" || user.role === "superadmin") && (
-                            <DropdownMenuItem asChild>
-                                <Link href="/overview" className="cursor-pointer">
-                                    <LayoutDashboard className="mr-2 h-4 w-4" />
-                                    <span>Dashboard</span>
-                                </Link>
-                            </DropdownMenuItem>
-                         )}
-                         <DropdownMenuItem asChild>
-                            <Link href="/admin/master/sekolah" className="cursor-pointer">
-                                <Settings className="mr-2 h-4 w-4" />
-                                <span>Pengaturan</span>
-                            </Link>
-                         </DropdownMenuItem>
-                         <DropdownMenuSeparator />
-                         <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-600">
-                             <LogOut className="mr-2 h-4 w-4" />
-                             <span>Keluar</span>
-                         </DropdownMenuItem>
-                    </DropdownMenuContent>
-                 </DropdownMenu>
-            </div>
-         ) : (
-            <div className="flex flex-col gap-2">
-                 <Link href="/login" className="flex items-center gap-2 group/sidebar">
-                    <div className="h-7 w-7 flex-shrink-0 rounded-md bg-black dark:bg-white flex items-center justify-center text-white dark:text-black">
-                        <User className="h-4 w-4" />
-                    </div>
-                     <motion.span
-                        animate={{
-                            display: animate ? (open ? "inline-block" : "none") : "inline-block",
-                            opacity: animate ? (open ? 1 : 0) : 1,
-                        }}
-                        className="text-neutral-700 dark:text-neutral-200 text-sm font-medium"
-                    >
-                        Masuk
-                    </motion.span>
-                 </Link>
-            </div>
-         )}
       </div>
     </div>
   );

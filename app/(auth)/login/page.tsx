@@ -117,7 +117,7 @@ export default function LoginPage() {
               control={form.control}
               name="identity"
               render={({ field }) => (
-                <FormItem>
+                <FormItem id="login-identity">
                   <LabelInputContainer>
                     <FormLabel className="text-stone-600 dark:text-stone-300">Username / Email</FormLabel>
                     <FormControl>
@@ -142,7 +142,7 @@ export default function LoginPage() {
               control={form.control}
               name="password"
               render={({ field }) => (
-                <FormItem>
+                <FormItem id="login-password">
                   <LabelInputContainer>
                     <FormLabel className="text-stone-600 dark:text-stone-300">Password</FormLabel>
                     <FormControl>

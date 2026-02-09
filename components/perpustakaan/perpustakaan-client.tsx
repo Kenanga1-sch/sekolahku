@@ -8,7 +8,6 @@ import {
     Users,
     BookMarked,
     QrCode,
-    ArrowRight,
     TrendingUp,
     AlertTriangle,
     UserCheck,
@@ -21,51 +20,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { LibraryStats } from "@/types/library";
 import { useRouter } from "next/navigation";
 
-// Lazy load heavy components
-const LoanTrendChart = dynamic(
-    () => import("@/components/perpustakaan/charts").then(mod => ({ default: mod.LoanTrendChart })),
-    {
-        loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[300px] w-full" /></CardContent></Card>,
-        ssr: false
-    }
-);
-
-const CategoryChart = dynamic(
-    () => import("@/components/perpustakaan/charts").then(mod => ({ default: mod.CategoryChart })),
-    {
-        loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[300px] w-full" /></CardContent></Card>,
-        ssr: false
-    }
-);
-
-const RecentActivityFeed = dynamic(
-    () => import("@/components/perpustakaan/recent-activity").then(mod => ({ default: mod.RecentActivityFeed })),
-    {
-        loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[320px] w-full" /></CardContent></Card>,
-        ssr: false
-    }
-);
-
 const QuickActionsPanel = dynamic(
     () => import("@/components/perpustakaan/quick-actions").then(mod => ({ default: mod.QuickActionsPanel })),
     {
         loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[100px] w-full" /></CardContent></Card>,
-        ssr: false
-    }
-);
-
-const TopBooksWidget = dynamic(
-    () => import("@/components/perpustakaan/top-widgets").then(mod => ({ default: mod.TopBooksWidget })),
-    {
-        loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[280px] w-full" /></CardContent></Card>,
-        ssr: false
-    }
-);
-
-const TopMembersWidget = dynamic(
-    () => import("@/components/perpustakaan/top-widgets").then(mod => ({ default: mod.TopMembersWidget })),
-    {
-        loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[280px] w-full" /></CardContent></Card>,
         ssr: false
     }
 );
@@ -136,48 +94,17 @@ export default function PerpustakaanClient({ initialStats }: PerpustakaanClientP
         },
     ];
 
-    const menuItems = [
-        {
-            title: "Binding Buku Baru",
-            description: "Hubungkan QR Code fisik dengan data ISBN/Katalog",
-            href: "/perpustakaan/binding",
-            icon: QrCode,
-        },
-        {
-            title: "Kelola Buku",
-            description: "Tambah, edit, dan hapus koleksi buku",
-            href: "/perpustakaan/buku",
-            icon: BookOpen,
-        },
-        {
-            title: "Kelola Anggota",
-            description: "Manajemen anggota perpustakaan",
-            href: "/perpustakaan/anggota",
-            icon: Users,
-        },
-        {
-            title: "Peminjaman",
-            description: "Kelola pinjam dan kembali",
-            href: "/perpustakaan/peminjaman",
-            icon: BookMarked,
-        },
-        {
-            title: "Laporan",
-            description: "Statistik dan export data",
-            href: "/perpustakaan/laporan",
-            icon: TrendingUp,
-        },
-    ];
+
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-6 md:space-y-8">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
+                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
                         Perpustakaan
                     </h1>
-                    <p className="text-muted-foreground">
+                    <p className="text-sm sm:text-base text-muted-foreground">
                         Kelola perpustakaan sekolah Anda
                     </p>
                 </div>
@@ -187,11 +114,12 @@ export default function PerpustakaanClient({ initialStats }: PerpustakaanClientP
                         size="icon"
                         onClick={handleRefresh}
                         disabled={refreshing}
+                        className="shrink-0"
                     >
                         <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
                     </Button>
-                    <Link href="/kiosk" target="_blank">
-                        <Button variant="outline" className="gap-2">
+                    <Link href="/kiosk" target="_blank" className="flex-1 sm:flex-none">
+                        <Button variant="outline" className="gap-2 w-full">
                             <BookMarked className="h-4 w-4" />
                             Buka Kiosk
                         </Button>
@@ -200,15 +128,15 @@ export default function PerpustakaanClient({ initialStats }: PerpustakaanClientP
             </div>
 
             {/* Stats Grid */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            <div className="grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
                 {statCards.map((stat) => (
                     <Card
                         key={stat.title}
                         className={`relative overflow-hidden group hover:shadow-lg transition-all duration-300 ${stat.alert ? 'ring-2 ring-red-500/50' : ''}`}
                     >
                         <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`} />
-                        <CardContent className="p-4">
-                            <div className="flex items-center gap-3">
+                        <CardContent className="p-3 sm:p-4">
+                            <div className="flex items-center gap-2 sm:gap-3">
                                 <div className={`p-2.5 rounded-xl ${stat.bgColor} transition-transform duration-300 group-hover:scale-110`}>
                                     <stat.icon className={`h-5 w-5 ${stat.color}`} />
                                 </div>
@@ -227,7 +155,7 @@ export default function PerpustakaanClient({ initialStats }: PerpustakaanClientP
             <QuickActionsPanel />
 
             {/* Overdue Alert */}
-            {initialStats?.overdueLoans && initialStats.overdueLoans > 0 && (
+            {initialStats && initialStats.overdueLoans > 0 && (
                 <Card className="border-red-200 bg-red-50/50 dark:border-red-900 dark:bg-red-950/20 backdrop-blur-sm">
                     <CardContent className="p-4">
                         <div className="flex items-center gap-3">
@@ -252,48 +180,8 @@ export default function PerpustakaanClient({ initialStats }: PerpustakaanClientP
                 </Card>
             )}
 
-            <div className="grid lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                    <LoanTrendChart />
-                </div>
-                <div>
-                    <CategoryChart />
-                </div>
-            </div>
 
-            <div className="grid lg:grid-cols-3 gap-6">
-                <div>
-                    <RecentActivityFeed />
-                </div>
-                <div>
-                    <TopBooksWidget />
-                </div>
-                <div>
-                    <TopMembersWidget />
-                </div>
-            </div>
 
-            <div>
-                <h2 className="text-xl font-bold mb-4">Menu Perpustakaan</h2>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                    {menuItems.map((item) => (
-                        <Link key={item.href} href={item.href}>
-                            <Card className="h-full hover:shadow-lg transition-all hover:border-primary/50 cursor-pointer group">
-                                <CardHeader className="p-6">
-                                    <div className="flex items-center justify-between mb-6">
-                                        <div className="p-2.5 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors group-hover:scale-110 duration-300">
-                                            <item.icon className="h-5 w-5 text-primary" />
-                                        </div>
-                                        <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                                    </div>
-                                    <CardTitle className="text-lg mb-3">{item.title}</CardTitle>
-                                    <CardDescription className="line-clamp-2">{item.description}</CardDescription>
-                                </CardHeader>
-                            </Card>
-                        </Link>
-                    ))}
-                </div>
-            </div>
         </div>
     );
 }

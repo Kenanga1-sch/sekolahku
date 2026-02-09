@@ -284,8 +284,8 @@ export default function QRGeneratorPage() {
                                     <Input 
                                         id="count" 
                                         type="number" 
-                                        value={count} 
-                                        onChange={(e) => setCount(parseInt(e.target.value))}
+                                        value={count || ""} 
+                                        onChange={(e) => setCount(parseInt(e.target.value) || 0)}
                                         min={1} 
                                         max={100} 
                                     />
@@ -295,8 +295,8 @@ export default function QRGeneratorPage() {
                                     <Input 
                                         id="size" 
                                         type="number" 
-                                        value={sizeMm} 
-                                        onChange={(e) => setSizeMm(parseInt(e.target.value))}
+                                        value={sizeMm || ""} 
+                                        onChange={(e) => setSizeMm(parseInt(e.target.value) || 0)}
                                         min={10} 
                                         max={300} 
                                         step={5}
@@ -375,8 +375,8 @@ export default function QRGeneratorPage() {
                                                 id="hist-size"
                                                 type="number"
                                                 className="h-7 w-16 text-xs"
-                                                value={sizeMm}
-                                                onChange={(e) => setSizeMm(Number(e.target.value))}
+                                                value={sizeMm || ""}
+                                                onChange={(e) => setSizeMm(Number(e.target.value) || 0)}
                                                 min={10}
                                                 max={300}
                                             />

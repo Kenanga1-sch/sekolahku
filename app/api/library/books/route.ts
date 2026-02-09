@@ -23,7 +23,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const auth = await requireRole(["admin", "librarian"]);
+    const auth = await requireRole(["superadmin", "admin", "librarian"]);
     if (!auth.authorized) return auth.response;
 
     const body = await request.json();

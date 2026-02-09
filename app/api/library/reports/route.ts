@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
   try {
-    const auth = await requireRole(["admin", "librarian"]);
+    const auth = await requireRole(["superadmin", "admin", "librarian"]);
     if (!auth.authorized) return auth.response;
 
     const { searchParams } = new URL(request.url);

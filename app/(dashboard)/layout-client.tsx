@@ -40,7 +40,14 @@ import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types";
 import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/sidebar";
 import { ThemeToggle } from "@/components/ui/theme-toggle"; // Keep theme toggle access
-import { NotificationPopover } from "@/components/notification-popover";
+import dynamic from "next/dynamic";
+const NotificationPopover = dynamic(
+  () => import("@/components/notification-popover").then((mod) => mod.NotificationPopover),
+  {
+    ssr: false,
+    loading: () => <Bell className="h-5 w-5 text-neutral-700 dark:text-neutral-200" />,
+  }
+);
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -161,6 +168,11 @@ function filterNavByRole(groups: NavGroup[], userRole?: UserRole): NavGroup[] {
     .filter((group) => group.items.length > 0);
 }
 
+function ThemeToggleIcons() {
+  const { resolvedTheme } = useTheme();
+  return resolvedTheme === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />;
+}
+
 export default function DashboardLayoutClient({
   children,
   schoolSettings,
@@ -209,8 +221,8 @@ export default function DashboardLayoutClient({
 
   return (
     <div className={cn(
-      "flex flex-col md:flex-row bg-gray-100 dark:bg-neutral-800 w-full flex-1 overflow-hidden",
-      "h-screen" // Enforce full height
+      "flex flex-col md:flex-row bg-gray-100 dark:bg-neutral-800 w-full flex-1 md:overflow-hidden",
+      "min-h-screen md:h-screen" // Adjusted height for mobile
     )}>
       <Sidebar open={open} setOpen={handleSetOpen}>
         <SidebarBody className="justify-between gap-10">
@@ -249,86 +261,84 @@ export default function DashboardLayoutClient({
               ))}
             </div>
           </div>
-          
-          {/* Footer User Profile */}
-          <div className="mt-2 flex flex-col gap-1">
-            <div className={cn("flex items-center justify-start gap-2 group/sidebar py-2 pl-1")}>
-               <NotificationPopover className="h-5 w-5 text-neutral-700 dark:text-neutral-200 hover:bg-transparent p-0" />
-               {open && (
-                  <span className="text-neutral-700 dark:text-neutral-200 text-sm transition duration-150 whitespace-pre inline-block">
-                    Notifikasi
-                  </span>
-               )}
-            </div>
-            <DropdownMenu onOpenChange={setIsDropdownOpen}>
-              <DropdownMenuTrigger asChild>
-                <div className="cursor-pointer">
-                  <SidebarLink
-                    link={{
-                      label: displayName,
-                      href: "#",
-                      icon: (
-                        <div className="h-7 w-7 flex-shrink-0 rounded-full bg-neutral-200 dark:bg-neutral-700 overflow-hidden">
-                          <Avatar className="h-full w-full">
-                            <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${displayName}`} />
-                            <AvatarFallback>{displayInitials}</AvatarFallback>
-                          </Avatar>
-                        </div>
-                      ),
-                    }}
-                  />
-                </div>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" side="right" className="w-56" sideOffset={10}>
-                <DropdownMenuLabel>Akun Saya</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => router.push("/profile")}>
-                  <User className="mr-2 h-4 w-4" />
-                  <span>Profil</span>
-                </DropdownMenuItem>
-                
-                <DropdownMenuItem onClick={() => router.push("/")}>
-                  <Globe className="mr-2 h-4 w-4" />
-                  <span>Halaman Depan</span>
-                </DropdownMenuItem>
-                
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    <div className="flex items-center">
-                       <ThemeToggleIcons />
-                       <span className="ml-2">Tema</span>
-                    </div>
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuPortal>
-                    <DropdownMenuSubContent>
-                      <DropdownMenuItem onClick={() => setTheme("light")}>
-                        <Sun className="mr-2 h-4 w-4" />
-                        <span>Terang</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setTheme("dark")}>
-                        <Moon className="mr-2 h-4 w-4" />
-                        <span>Gelap</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setTheme("system")}>
-                         <Monitor className="mr-2 h-4 w-4" />
-                        <span>Sistem</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuSubContent>
-                  </DropdownMenuPortal>
-                </DropdownMenuSub>
-
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/10" onClick={() => { logout(); router.push("/login");}}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Keluar</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
         </SidebarBody>
       </Sidebar>
-      <div className="flex flex-1">
-         <div className="p-2 md:p-10 rounded-tl-2xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 flex flex-col gap-2 flex-1 w-full h-full overflow-y-auto">
+      <div className="flex flex-1 flex-col overflow-hidden">
+          {/* Top Navigation Bar */}
+          <header className="sticky top-0 flex h-16 items-center justify-end gap-4 px-6 bg-white/30 dark:bg-neutral-900/30 backdrop-blur-md z-50">
+             {/* Notification */}
+             <div className={cn("flex items-center justify-center")}>
+                <NotificationPopover className="h-5 w-5 text-neutral-700 dark:text-neutral-200 hover:text-neutral-900 dark:hover:text-white transition-colors" />
+             </div>
+
+             {/* Profile Dropdown */}
+            {mounted ? (
+              <DropdownMenu onOpenChange={setIsDropdownOpen}>
+                <DropdownMenuTrigger asChild>
+                  <div className="cursor-pointer flex items-center gap-2 outline-none">
+                     <div className="h-8 w-8 flex-shrink-0 rounded-full bg-neutral-200 dark:bg-neutral-700 overflow-hidden">
+                        <Avatar className="h-full w-full">
+                           <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${displayName}`} />
+                           <AvatarFallback>{displayInitials}</AvatarFallback>
+                        </Avatar>
+                     </div>
+                     <div className="hidden md:flex flex-col items-start">
+                        <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200">{displayName}</span>
+                        <span className="text-xs text-neutral-500 dark:text-neutral-400 capitalize">{forcedRole}</span>
+                     </div>
+                  </div>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" side="bottom" className="w-56" sideOffset={8}>
+                  <DropdownMenuLabel>Akun Saya</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => router.push("/profile")}>
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Profil</span>
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuItem onClick={() => router.push("/")}>
+                    <Globe className="mr-2 h-4 w-4" />
+                    <span>Halaman Depan</span>
+                  </DropdownMenuItem>
+                  
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <div className="flex items-center">
+                         <ThemeToggleIcons />
+                         <span className="ml-2">Tema</span>
+                      </div>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuPortal>
+                      <DropdownMenuSubContent>
+                        <DropdownMenuItem onClick={() => setTheme("light")}>
+                          <Sun className="mr-2 h-4 w-4" />
+                          <span>Terang</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTheme("dark")}>
+                          <Moon className="mr-2 h-4 w-4" />
+                          <span>Gelap</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTheme("system")}>
+                           <Monitor className="mr-2 h-4 w-4" />
+                          <span>Sistem</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
+                  </DropdownMenuSub>
+
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/10" onClick={() => { logout(); router.push("/login");}}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Keluar</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <div className="h-8 w-32 animate-pulse bg-neutral-200 dark:bg-neutral-800 rounded-md" />
+            )}
+          </header>
+
+         <div className="p-2 md:p-10 rounded-tl-2xl flex flex-col gap-2 flex-1 w-full h-auto md:h-full md:overflow-y-auto">
             {children}
          </div>
       </div>
@@ -336,7 +346,4 @@ export default function DashboardLayoutClient({
   );
 }
 
-function ThemeToggleIcons() {
-  const { resolvedTheme } = useTheme();
-  return resolvedTheme === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />;
-}
+

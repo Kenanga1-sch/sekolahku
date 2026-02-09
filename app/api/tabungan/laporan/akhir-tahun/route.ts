@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
 
         const { searchParams } = new URL(request.url);
         const siswaId = searchParams.get("siswaId");
+        const yearParam = searchParams.get("year");
 
         if (!siswaId) {
             return NextResponse.json(
@@ -20,7 +21,8 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        const report = await getStudentFinalReport(siswaId);
+        const year = yearParam ? parseInt(yearParam, 10) : undefined;
+        const report = await getStudentFinalReport(siswaId, year);
 
         return NextResponse.json({ success: true, report });
     } catch (error) {

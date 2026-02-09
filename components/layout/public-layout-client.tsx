@@ -1,12 +1,42 @@
+"use client";
+
 import { LandingSidebar } from "@/components/layout/landing-sidebar";
 import Footer from "@/components/layout/footer";
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { useAuthStore } from "@/lib/stores/auth-store";
+import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { Settings, LogOut, User, LayoutDashboard } from "lucide-react";
+import { signOut } from "next-auth/react";
+import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
 
 export default function PublicLayoutClient({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { user, isAuthenticated, logout: storeLogout } = useAuthStore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const handleLogout = async () => {
+    await signOut({ callbackUrl: "/" });
+    storeLogout();
+  };
+
   return (
     <div
       className={cn(
@@ -15,7 +45,63 @@ export default function PublicLayoutClient({
       )}
     >
       <LandingSidebar />
-      <div className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden">
+      <div className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden relative">
+         {/* Top Navigation Bar */}
+         <header 
+            className="sticky top-0 flex h-16 items-center justify-end gap-4 px-6 bg-white/50 dark:bg-neutral-900/50 backdrop-blur-md z-50"
+            suppressHydrationWarning
+         >
+            <div className="flex items-center gap-2">
+               <span className="text-xs font-medium text-neutral-500 hidden md:block">Tema</span>
+               <ThemeToggle />
+            </div>
+
+            {mounted && isAuthenticated && user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="flex items-center gap-2 pl-0 hover:bg-transparent"
+                  >
+                    <div className="h-8 w-8 rounded-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center overflow-hidden">
+                       <User className="h-4 w-4 text-neutral-500" />
+                    </div>
+                    <div className="hidden md:flex flex-col items-start text-left">
+                       <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200">{user.name}</span>
+                    </div>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" side="bottom" className="w-56" sideOffset={8}>
+                  {(user.role === "admin" || user.role === "superadmin") && (
+                    <DropdownMenuItem asChild>
+                      <Link href="/overview" className="cursor-pointer gap-2">
+                        <LayoutDashboard className="h-4 w-4" />
+                        Dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/master/sekolah" className="cursor-pointer gap-2">
+                      <Settings className="h-4 w-4" />
+                      Pengaturan
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-600 cursor-pointer gap-2">
+                    <LogOut className="h-4 w-4" />
+                    Keluar
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+               <Link href="/login">
+                  <Button size="sm" className="rounded-full px-4">
+                     Masuk
+                  </Button>
+               </Link>
+            )}
+         </header>
+
          <main className="flex-1 w-full min-h-full">
             {children}
          </main>

@@ -27,29 +27,7 @@ import type { InventoryStats } from "@/types/inventory";
 import { useRouter } from "next/navigation";
 
 // Lazy load heavy components
-const CategoryChart = dynamic(
-    () => import("@/components/inventaris/charts").then(mod => ({ default: mod.CategoryChart })),
-    {
-        loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[300px] w-full" /></CardContent></Card>,
-        ssr: false
-    }
-);
 
-const ConditionChart = dynamic(
-    () => import("@/components/inventaris/charts").then(mod => ({ default: mod.ConditionChart })),
-    {
-        loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[300px] w-full" /></CardContent></Card>,
-        ssr: false
-    }
-);
-
-const RecentAuditFeed = dynamic(
-    () => import("@/components/inventaris/recent-audit").then(mod => ({ default: mod.RecentAuditFeed })),
-    {
-        loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[320px] w-full" /></CardContent></Card>,
-        ssr: false
-    }
-);
 
 const QuickActionsPanel = dynamic(
     () => import("@/components/inventaris/quick-actions").then(mod => ({ default: mod.QuickActionsPanel })),
@@ -59,13 +37,7 @@ const QuickActionsPanel = dynamic(
     }
 );
 
-const TopRoomsWidget = dynamic(
-    () => import("@/components/inventaris/top-rooms").then(mod => ({ default: mod.TopRoomsWidget })),
-    {
-        loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[280px] w-full" /></CardContent></Card>,
-        ssr: false
-    }
-);
+
 
 interface InventarisClientProps {
     initialStats: InventoryStats | null;
@@ -134,32 +106,6 @@ export default function InventarisClient({ initialStats, initialConsumableStats,
         },
     ];
 
-    const menuItems = [
-        {
-            title: "Data Aset",
-            description: "Kelola daftar inventaris, kondisi, dan lokasi aset",
-            href: "/inventaris/aset",
-            icon: Package,
-        },
-        {
-            title: "Data Ruangan",
-            description: "Kelola daftar ruangan dan penanggung jawab",
-            href: "/inventaris/ruangan",
-            icon: Home,
-        },
-        {
-            title: "Stok Opname",
-            description: "Lakukan audit fisik aset berkala",
-            href: "/inventaris/opname",
-            icon: ClipboardList,
-        },
-        {
-            title: "Riwayat Audit",
-            description: "Log aktivitas perubahan data inventaris",
-            href: "/inventaris/audit",
-            icon: TrendingUp,
-        },
-    ];
 
     return (
         <div className="space-y-8">
@@ -245,39 +191,8 @@ export default function InventarisClient({ initialStats, initialConsumableStats,
                         </Card>
                     )}
 
-                    <div className="grid lg:grid-cols-2 gap-6">
-                        <CategoryChart />
-                        <ConditionChart />
-                    </div>
 
-                    <div className="grid lg:grid-cols-2 gap-6">
-                        <RecentAuditFeed />
-                        <TopRoomsWidget />
-                    </div>
 
-                    {isAdmin && (
-                        <div>
-                            <h2 className="text-xl font-bold mb-4">Menu Aset</h2>
-                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                                {menuItems.map((item) => (
-                                    <Link key={item.href} href={item.href}>
-                                        <Card className="h-full hover:shadow-lg transition-all hover:border-primary/50 cursor-pointer group">
-                                            <CardHeader>
-                                                <div className="flex items-center justify-between">
-                                                    <div className="p-2.5 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors group-hover:scale-110 duration-300">
-                                                        <item.icon className="h-5 w-5 text-primary" />
-                                                    </div>
-                                                    <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                                                </div>
-                                                <CardTitle className="text-lg mt-2">{item.title}</CardTitle>
-                                                <CardDescription>{item.description}</CardDescription>
-                                            </CardHeader>
-                                        </Card>
-                                    </Link>
-                                ))}
-                            </div>
-                        </div>
-                    )}
                 </TabsContent>
 
                 {/* === TAB BARANG HABIS PAKAI === */}

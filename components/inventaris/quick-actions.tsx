@@ -9,6 +9,7 @@ import {
     ClipboardList, 
     Plus,
     FileText,
+    History,
 } from "lucide-react";
 
 const QUICK_ACTIONS = [
@@ -52,6 +53,14 @@ const QUICK_ACTIONS = [
         color: "text-cyan-500",
         bgColor: "bg-cyan-500/10 hover:bg-cyan-500/20",
     },
+    {
+        title: "Riwayat Audit",
+        description: "Log aktivitas aset",
+        icon: History,
+        href: "/inventaris/audit",
+        color: "text-amber-500",
+        bgColor: "bg-amber-500/10 hover:bg-amber-500/20",
+    },
 ];
 
 import { useAuthStore } from "@/lib/stores/auth-store";
@@ -70,17 +79,17 @@ export function QuickActionsPanel() {
     return (
         <Card>
             <CardHeader className="pb-2">
-                <CardTitle className="text-lg font-semibold">Aksi Cepat</CardTitle>
+                <CardTitle className="text-lg font-semibold">Menu</CardTitle>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {QUICK_ACTIONS.map((action) => {
                         // Logic: Hide strict Admin features from non-admins
                         // Restricted: Data Ruangan (/ruangan), Stok Opname (/opname)
                         // Laporan (/laporan) - maybe keep visible or restrict? User didn't explicitly ask context for Laporan but safe to keep unless asked.
                         // Actually, user said: "data ruangan dan stok opname masih muncul... Sembunyikan juga menu aset"
                         // Implementation: Filter strict paths
-                        if (!isAdmin && (action.href.includes("ruangan") || action.href.includes("opname"))) {
+                        if (!isAdmin && (action.href.includes("ruangan") || action.href.includes("opname") || action.href.includes("audit"))) {
                             return null;
                         }
 

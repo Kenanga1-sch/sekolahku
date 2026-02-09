@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    const auth = await requireRole(["admin", "librarian"]);
+    const auth = await requireRole(["superadmin", "admin", "librarian"]);
     if (!auth.authorized) return auth.response;
 
     // Use the existing library helper function

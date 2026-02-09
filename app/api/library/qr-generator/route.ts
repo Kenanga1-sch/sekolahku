@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
     try {
         const session = await auth();
-        if (!session || !["admin", "superadmin", "pustakawan", "staff"].includes(session.user.role)) {
+        if (!session || !["superadmin", "admin", "librarian"].includes(session.user.role)) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
     try {
         const session = await auth();
-        if (!session || !["admin", "superadmin", "pustakawan", "staff"].includes(session.user.role)) {
+        if (!session || !["superadmin", "admin", "librarian"].includes(session.user.role)) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 

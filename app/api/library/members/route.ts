@@ -7,7 +7,7 @@ export async function GET(request: Request) {
     const session = await auth();
     
     // Auth check
-    if (!session || !["admin", "superadmin"].includes(session.user.role)) {
+    if (!session || !["superadmin", "admin", "librarian"].includes(session.user.role)) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     const session = await auth();
     
     // Auth check
-    if (!session || !["admin", "superadmin"].includes(session.user.role)) {
+    if (!session || !["superadmin", "admin", "librarian"].includes(session.user.role)) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

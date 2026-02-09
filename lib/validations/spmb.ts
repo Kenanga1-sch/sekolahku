@@ -30,6 +30,62 @@ export const phoneSchema = z
 export const emailSchema = z.string().email("Format email tidak valid");
 
 // ==========================================
+// Reusable File Validators
+// ==========================================
+
+const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
+const DOCUMENT_TYPES = ["image/jpeg", "image/png", "application/pdf"];
+const IMAGE_TYPES = ["image/jpeg", "image/png"];
+
+/**
+ * Create a file schema with customizable options
+ */
+export function fileSchema(options: {
+  required?: boolean;
+  maxSize?: number;
+  allowedTypes?: string[];
+  requiredMessage?: string;
+  sizeMessage?: string;
+  formatMessage?: string;
+} = {}) {
+  const {
+    required = true,
+    maxSize = MAX_FILE_SIZE,
+    allowedTypes = DOCUMENT_TYPES,
+    requiredMessage = "File wajib diupload",
+    sizeMessage = "Maksimal 2MB",
+    formatMessage = "Format JPG/PNG/PDF",
+  } = options;
+
+  const base = z
+    .instanceof(File, { message: requiredMessage })
+    .refine((f) => f.size <= maxSize, sizeMessage)
+    .refine((f) => allowedTypes.includes(f.type), formatMessage);
+
+  return required ? base : base.optional();
+}
+
+/**
+ * Image-only schema (JPG/PNG)
+ */
+export function imageSchema(options: {
+  required?: boolean;
+  maxSize?: number;
+  requiredMessage?: string;
+} = {}) {
+  return fileSchema({
+    ...options,
+    allowedTypes: IMAGE_TYPES,
+    formatMessage: "Format JPG/PNG",
+  });
+}
+
+// Pre-configured schemas for common use cases
+export const documentFileSchema = fileSchema({ required: true });
+export const optionalDocumentSchema = fileSchema({ required: false });
+export const photoSchema = imageSchema({ required: false });
+
+// ==========================================
 // SPMB Form Schemas
 // ==========================================
 
@@ -148,66 +204,14 @@ export type LocationFormValues = z.infer<typeof locationFormSchema>;
  * Step 4: Documents
  */
 export const documentFormSchema = z.object({
-  kk: z
-    .instanceof(File, { message: "Kartu Keluarga wajib diupload" })
-    .refine((f) => f.size <= 2 * 1024 * 1024, "Maksimal 2MB")
-    .refine(
-      (f) => ["image/jpeg", "image/png", "application/pdf"].includes(f.type),
-      "Format JPG/PNG/PDF"
-    ),
-  akte: z
-    .instanceof(File, { message: "Akta Kelahiran wajib diupload" })
-    .refine((f) => f.size <= 2 * 1024 * 1024, "Maksimal 2MB")
-    .refine(
-      (f) => ["image/jpeg", "image/png", "application/pdf"].includes(f.type),
-      "Format JPG/PNG/PDF"
-    ),
-  ktp_ayah: z
-    .instanceof(File, { message: "KTP Ayah wajib diupload" })
-    .refine((f) => f.size <= 2 * 1024 * 1024, "Maksimal 2MB")
-    .refine(
-      (f) => ["image/jpeg", "image/png", "application/pdf"].includes(f.type),
-      "Format JPG/PNG/PDF"
-    ),
-  ktp_ibu: z
-    .instanceof(File, { message: "KTP Ibu wajib diupload" })
-    .refine((f) => f.size <= 2 * 1024 * 1024, "Maksimal 2MB")
-    .refine(
-      (f) => ["image/jpeg", "image/png", "application/pdf"].includes(f.type),
-      "Format JPG/PNG/PDF"
-    ),
-  pas_foto: z
-    .instanceof(File)
-    .refine((f) => f.size <= 2 * 1024 * 1024, "Maksimal 2MB")
-    .refine(
-      (f) => ["image/jpeg", "image/png"].includes(f.type),
-      "Format JPG/PNG"
-    )
-    .optional(),
-  ijazah: z
-    .instanceof(File)
-    .refine((f) => f.size <= 2 * 1024 * 1024, "Maksimal 2MB")
-    .refine(
-      (f) => ["image/jpeg", "image/png", "application/pdf"].includes(f.type),
-      "Format JPG/PNG/PDF"
-    )
-    .optional(),
-  kip: z
-    .instanceof(File)
-    .refine((f) => f.size <= 2 * 1024 * 1024, "Maksimal 2MB")
-    .refine(
-      (f) => ["image/jpeg", "image/png", "application/pdf"].includes(f.type),
-      "Format JPG/PNG/PDF"
-    )
-    .optional(),
-  kps: z
-    .instanceof(File)
-    .refine((f) => f.size <= 2 * 1024 * 1024, "Maksimal 2MB")
-    .refine(
-      (f) => ["image/jpeg", "image/png", "application/pdf"].includes(f.type),
-      "Format JPG/PNG/PDF"
-    )
-    .optional(),
+  kk: fileSchema({ requiredMessage: "Kartu Keluarga wajib diupload" }),
+  akte: fileSchema({ requiredMessage: "Akta Kelahiran wajib diupload" }),
+  ktp_ayah: fileSchema({ requiredMessage: "KTP Ayah wajib diupload" }),
+  ktp_ibu: fileSchema({ requiredMessage: "KTP Ibu wajib diupload" }),
+  pas_foto: imageSchema({ required: false }),
+  ijazah: fileSchema({ required: false }),
+  kip: fileSchema({ required: false }),
+  kps: fileSchema({ required: false }),
 });
 
 export type DocumentFormValues = z.infer<typeof documentFormSchema>;

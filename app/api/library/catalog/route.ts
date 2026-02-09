@@ -5,7 +5,7 @@ import { sql, eq, or, like } from "drizzle-orm";
 import { requireRole } from "@/lib/auth-checks";
 
 export async function GET(request: NextRequest) {
-    const auth = await requireRole(["admin", "librarian"]);
+    const auth = await requireRole(["superadmin", "admin", "librarian"]);
     if (!auth.authorized) return auth.response;
 
     const searchParams = request.nextUrl.searchParams;
