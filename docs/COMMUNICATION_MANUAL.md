@@ -7,6 +7,7 @@ Modul ini digunakan untuk menyebarkan informasi kepada seluruh warga sekolah (Si
 Fitur ini mirip dengan blog/news portal. Pengumuman yang dibuat di sini akan muncul di halaman depan website sekolah.
 
 ### Membuat Pengumuman Baru
+
 1. Masuk ke menu **Pengumuman** (Announcements).
 2. Klik tombol **+ Tambah Baru**.
 3. Isi formulir:
@@ -21,11 +22,12 @@ Fitur ini mirip dengan blog/news portal. Pengumuman yang dibuat di sini akan mun
    - **Foto Sampul (Thumbnail)**: Upload gambar utama (Max 5MB).
    - **Konten**: Tulis isi lengkap berita. Gunakan editor teks untuk memformat (Bold, Italic, List).
 4. **Pengaturan Publikasi**:
-   - **Terbitkan (Publish)**: Aktifkan toggle ini agar berita langsung muncul di website. Jika mati, berita hanya tersimpan sebagai *Draft*.
-   - **Featured**: Aktifkan toggle ini agar berita muncul di *Slider Utama* halaman depan (Highlight).
+   - **Terbitkan (Publish)**: Aktifkan toggle ini agar berita langsung muncul di website. Jika mati, berita hanya tersimpan sebagai _Draft_.
+   - **Featured**: Aktifkan toggle ini agar berita muncul di _Slider Utama_ halaman depan (Highlight).
 5. Klik **Simpan** atau **Buat**.
 
 ### Mengelola Pengumuman
+
 - **Edit**: Klik menu titik tiga di sebelah kanan judul -> **Edit**.
 - **Hapus**: Klik menu titik tiga -> **Hapus** (Permanen).
 - **Unpublish**: Ubah status menjadi Draft untuk menyembunyikan sementara.
@@ -33,25 +35,23 @@ Fitur ini mirip dengan blog/news portal. Pengumuman yang dibuat di sini akan mun
 
 ---
 
-## 2. Pesan Internal (Messages)
+## 2. Pesan Masuk (Website Contact Form)
 
-Fitur ini digunakan untuk komunikasi pribadi antar pengguna di dalam sistem (seperti Email/Chat internal).
+Fitur ini digunakan untuk melihat pesan yang dikirim oleh pengunjung atau calon siswa melalui formulir "Hubungi Kami" di halaman depan website.
 
-### Mengirim Pesan Baru
+### Membaca Pesan
+
 1. Masuk ke menu **Pesan** (Messages) di dashboard.
-2. Klik tombol **+ Tulis Pesan** (Compose).
-3. **Penerima**: Ketik nama user (Guru, Staff, atau Siswa). Sistem akan memunculkan sugesti nama.
-4. **Subjek**: Judul pesan.
-5. **Isi Pesan**: Tulis pesan Anda.
-6. Klik **Kirim**.
+2. Anda akan melihat daftar pesan masuk yang berisi:
+   - **Tanggal**: Waktu pesan dikirim.
+   - **Nama**: Nama pengirim.
+   - **Email**: Alamat email pengirim.
+   - **Subjek**: Topik pesan.
+   - **Isi Pesan**: Detail pertanyaan atau masukan.
 
-### Kotak Masuk (Inbox)
-- Pesan masuk akan muncul di daftar **Inbox**.
-- Klik judul pesan untuk membaca.
-- **Balas (Reply)**: Klik tombol Balas di bawah pesan untuk merespons pengirim.
+### Menindaklanjuti Pesan
 
-### Notifikasi Pesan
-- Saat ada pesan baru, ikon **Lonceng** atau **Amplop** di pojok kanan atas dashboard akan memiliki tanda merah (badge).
-- Klik notifikasi tersebut untuk langsung membuka pesan.
+- Untuk membalas pesan, silakan hubungi pengirim melalui **Email** yang tertera menggunakan aplikasi email sekolah (Gmail/Outlook).
+- Saat ini sistem **belum mendukung** fitur membalas pesan (Reply) secara langsung dari dashboard.
 
-> **Catatan:** Pesan ini bersifat internal dan **RAHASIA**. Hanya pengirim dan penerima yang bisa melihat isinya. Admin Super mungkin memiliki akses untuk audit jika diperlukan.
+> **Catatan:** Fitur _Pesan Internal (Chat)_ antar pengguna sekolah sedang dalam tahap pengembangan (Coming Soon).
