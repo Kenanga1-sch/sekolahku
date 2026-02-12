@@ -28,6 +28,7 @@ import dynamic from 'next/dynamic';
 import { AuroraBackground } from "@/components/ui/aurora-background";
 import { TextGenerateEffect } from "@/components/ui/text-generate-effect";
 import { BentoGrid, BentoGridItem } from "@/components/ui/bento-grid";
+import { StarsBackground } from "@/components/ui/stars-background";
 
 const SchoolMap = dynamic(() => import('@/components/landing/school-map'), {
   ssr: false,
@@ -96,10 +97,13 @@ export function HomeClient({ settings, news, activePeriod, studentCount }: HomeC
   ];
 
   return (
-    <div className="flex flex-col min-h-screen bg-zinc-50 dark:bg-zinc-950/50">
+    <div className="flex flex-col min-h-screen bg-white dark:bg-black">
       
-      {/* 1. ACETERNITY HERO: Aurora Background */}
+      {/* 1. ACETERNITY HERO: Aurora Background with Stars */}
       <AuroraBackground className="h-screen">
+        {/* Stars Animation - visible in both modes via CSS variables */}
+        <StarsBackground className="z-0" />
+        
         <motion.div
           initial={{ opacity: 0.0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -108,7 +112,7 @@ export function HomeClient({ settings, news, activePeriod, studentCount }: HomeC
             duration: 0.8,
             ease: "easeInOut",
           }}
-          className="relative flex flex-col gap-4 items-center justify-center px-4"
+          className="relative z-10 flex flex-col gap-4 items-center justify-center px-4"
         >
           <div className="text-3xl md:text-7xl font-bold dark:text-white text-center">
              Mewujudkan Generasi <br />
@@ -127,11 +131,11 @@ export function HomeClient({ settings, news, activePeriod, studentCount }: HomeC
                     </Button>
                 </Link>
              )}
-             <Link href="/profil/visi-misi">
-                <Button variant="outline" size="lg" className="rounded-full px-8 py-6 text-lg border-2 bg-transparent hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+              <Link href="/profil/visi-misi">
+                <Button variant="outline" size="lg" className="rounded-full px-8 py-6 text-lg font-semibold border-2 border-zinc-900/10 dark:border-white/20 bg-white/10 dark:bg-white/5 backdrop-blur-sm text-zinc-900 dark:text-white hover:bg-white/20 dark:hover:bg-white/10 transition-all hover:scale-105 shadow-sm">
                      Tentang Kami
                 </Button>
-             </Link>
+              </Link>
           </div>
         </motion.div>
       </AuroraBackground>

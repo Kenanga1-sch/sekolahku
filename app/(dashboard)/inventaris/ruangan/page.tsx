@@ -288,7 +288,7 @@ export default function RuanganPage() {
                             ) : rooms.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                                        Belum ada ruangan. Klik "Tambah Ruangan" untuk menambahkan.
+                                        Belum ada ruangan. Klik &quot;Tambah Ruangan&quot; untuk menambahkan.
                                     </TableCell>
                                 </TableRow>
                             ) : (

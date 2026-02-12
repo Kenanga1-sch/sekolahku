@@ -253,7 +253,7 @@ export default function SuratMasukDetailPage() {
                                     </div>
                                     {data.notes && (
                                         <div className="bg-muted p-3 rounded-lg text-sm italic">
-                                            "{data.notes}"
+                                            &quot;{data.notes}&quot;
                                         </div>
                                     )}
                                 </CardContent>
@@ -290,7 +290,7 @@ export default function SuratMasukDetailPage() {
                                                 </div>
                                                 
                                                 <div className="bg-muted/50 p-3 rounded text-sm mb-3">
-                                                    "{disp.instruction}"
+                                                    &quot;{disp.instruction}&quot;
                                                 </div>
 
                                                 {disp.isCompleted ? (
@@ -298,7 +298,7 @@ export default function SuratMasukDetailPage() {
                                                         <CheckCircle2 className="h-4 w-4 mt-0.5" />
                                                         <div>
                                                             <p className="font-medium">Selesai dikerjakan</p>
-                                                            {disp.completedNote && <p className="text-xs mt-1">"{disp.completedNote}"</p>}
+                                                            {disp.completedNote && <p className="text-xs mt-1">&quot;{disp.completedNote}&quot;</p>}
                                                             <p className="text-[10px] opacity-70 mt-1">{formatDate(disp.completedAt!)}</p>
                                                         </div>
                                                     </div>

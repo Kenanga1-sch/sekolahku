@@ -465,7 +465,7 @@ export default function AsetPage() {
                             ) : assets.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                                        Belum ada aset. Klik "Tambah Aset" untuk menambahkan.
+                                        Belum ada aset. Klik &quot;Tambah Aset&quot; untuk menambahkan.
                                     </TableCell>
                                 </TableRow>
                             ) : (

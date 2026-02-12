@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { schoolSettings, users, tabunganKelas, tabunganSetoran, tabunganTransaksi, tabunganSiswa, tabunganBrankas, tabunganBrankasTransaksi } from "@/db";
-import { eq, and, desc, sql, or } from "drizzle-orm";
+import { eq, and, desc, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 // --- Users ---
@@ -14,8 +14,9 @@ export async function getEmployees() {
       orderBy: [desc(users.name)],
     });
     return { success: true, data };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to get employees";
+    return { success: false, error: message };
   }
 }
 
@@ -31,8 +32,9 @@ export async function getSavingsTreasurer() {
     });
 
     return { success: true, data: treasurer };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to get savings treasurer";
+    return { success: false, error: message };
   }
 }
 
@@ -54,8 +56,9 @@ export async function assignSavingsTreasurer(userId: string) {
 
     revalidatePath("/keuangan/tabungan/bendahara");
     return { success: true, message: "Bendahara Tabungan berhasil ditunjuk" };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to assign savings treasurer";
+    return { success: false, error: message };
   }
 }
 
@@ -70,8 +73,9 @@ export async function getClassesWithReps() {
       orderBy: [desc(tabunganKelas.nama)],
     });
     return { success: true, data };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to get classes with reps";
+    return { success: false, error: message };
   }
 }
 
@@ -83,8 +87,9 @@ export async function assignClassRep(classId: string, userId: string) {
     
     revalidatePath("/keuangan/tabungan/bendahara");
     return { success: true, message: "Penanggung Jawab Kelas berhasil diupdate" };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to assign class rep";
+    return { success: false, error: message };
   }
 }
 
@@ -100,8 +105,9 @@ export async function getPendingSetoran() {
       orderBy: [desc(tabunganSetoran.createdAt)],
     });
     return { success: true, data };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to get pending setoran";
+    return { success: false, error: message };
   }
 }
 
@@ -120,8 +126,9 @@ export async function verifySetoran(setoranId: string, bendaharaId: string) {
 
     revalidatePath("/keuangan/tabungan/bendahara");
     return { success: true, message: "Setoran berhasil diverifikasi dan masuk kas" };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to verify setoran";
+    return { success: false, error: message };
   }
 }
 
@@ -152,8 +159,9 @@ export async function rejectSetoran(setoranId: string, reason?: string) {
 
     revalidatePath("/keuangan/tabungan/bendahara");
     return { success: true, message: "Setoran ditolak" };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to reject setoran";
+    return { success: false, error: message };
   }
 }
 // --- Brankas Management ---
@@ -174,8 +182,9 @@ export async function getBrankasSummary() {
     });
 
     return { success: true, data: { vaults, recentTransactions } };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to get brankas summary";
+    return { success: false, error: message };
   }
 }
 
@@ -219,12 +228,13 @@ export async function transferVaultFunds(tipe: "setor_ke_bank" | "tarik_dari_ban
         nominal,
         userId,
         catatan: tipe === "setor_ke_bank" ? "Setor Tunai ke Bank" : "Tarik Tunai dari Bank",
-      } as any).run();
+      }).run();
     });
 
     revalidatePath("/keuangan/tabungan/bendahara");
     return { success: true, message: "Transfer berhasil." };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to transfer vault funds";
+    return { success: false, error: message };
   }
 }

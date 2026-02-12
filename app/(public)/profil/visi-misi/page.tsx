@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Target, Eye, Heart, Lightbulb, Users, Award, BookOpen, Sparkles, Leaf, Globe, HandHeart, Smile } from "lucide-react";
+import { Target, Eye, Heart, Lightbulb, Users, Award, BookOpen, Sparkles, Leaf, Globe, Smile } from "lucide-react";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { Meteors } from "@/components/ui/meteors";
 
@@ -124,7 +124,7 @@ export default function VisiMisiPage() {
                   <h2 className="text-2xl font-bold">Visi</h2>
                 </div>
                 <p className="text-2xl md:text-4xl font-bold leading-relaxed text-white drop-shadow-sm">
-                  "{visiMisi.visi}"
+                  &quot;{visiMisi.visi}&quot;
                 </p>
               </CardContent>
             </Card>

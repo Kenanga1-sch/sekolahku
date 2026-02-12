@@ -470,7 +470,7 @@ export default function SPMBPeriodsPage() {
               ) : periods.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                    Belum ada periode. Klik "Tambah Periode" untuk membuat baru.
+                    Belum ada periode. Klik &quot;Tambah Periode&quot; untuk membuat baru.
                   </TableCell>
                 </TableRow>
               ) : (

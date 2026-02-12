@@ -48,11 +48,10 @@ export default function PublicLayoutClient({
       <div className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden relative">
          {/* Top Navigation Bar */}
          <header 
-            className="sticky top-0 flex h-16 items-center justify-end gap-4 px-6 bg-white/50 dark:bg-neutral-900/50 backdrop-blur-md z-50"
+            className="absolute top-0 right-0 flex items-center justify-end gap-4 p-4 z-50 bg-transparent"
             suppressHydrationWarning
          >
             <div className="flex items-center gap-2">
-               <span className="text-xs font-medium text-neutral-500 hidden md:block">Tema</span>
                <ThemeToggle />
             </div>
 

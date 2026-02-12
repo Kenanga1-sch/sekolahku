@@ -30,9 +30,23 @@ import {
 import { assignClassRep } from "@/actions/savings-admin";
 import { showSuccess, showError } from "@/lib/toast";
 
+interface ClassData {
+    id: string;
+    nama: string;
+    waliKelasUser?: {
+        id: string;
+        name: string;
+    };
+}
+
+interface EmployeeData {
+    id: string;
+    name: string | null;
+}
+
 interface ClassRepManagerProps {
-  classes: any[];
-  employees: any[];
+  classes: ClassData[];
+  employees: EmployeeData[];
 }
 
 export function ClassRepManager({ classes, employees }: ClassRepManagerProps) {
@@ -80,7 +94,7 @@ export function ClassRepManager({ classes, employees }: ClassRepManagerProps) {
     );
 }
 
-function ClassRepSelector({ classId, currentRepId, employees }: { classId: string, currentRepId?: string, employees: any[] }) {
+function ClassRepSelector({ classId, currentRepId, employees }: { classId: string, currentRepId?: string, employees: EmployeeData[] }) {
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [value, setValue] = useState(currentRepId || "");

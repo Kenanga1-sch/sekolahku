@@ -53,18 +53,18 @@ export default function Error({
             </span>
         )}
 
-        <div className="flex flex-col sm:flex-row gap-4 w-full max-w-sm">
+        <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
           <Button 
                 onClick={reset}
-                className="w-full h-12 font-bold bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg" 
+                className="w-full sm:w-auto h-12 px-8 font-bold bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg" 
                 size="lg"
             >
               <RefreshCw className="mr-2 h-4 w-4" />
               Coba Lagi
             </Button>
           
-          <Link href="/" className="w-full">
-              <Button variant="outline" className="w-full h-12 rounded-full bg-white/5 border-white/10 hover:bg-white/10 hover:text-white" size="lg">
+          <Link href="/" className="w-full sm:w-auto">
+              <Button variant="outline" className="w-full sm:w-auto h-12 px-8 rounded-full bg-white/5 border-white/10 hover:bg-white/10 hover:text-white" size="lg">
                 <Home className="mr-2 h-4 w-4" />
                 Kembali ke Beranda
               </Button>

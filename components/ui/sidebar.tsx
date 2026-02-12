@@ -115,13 +115,13 @@ export const MobileSidebar = ({
     <>
       <motion.div
         className={cn(
-          "h-10 px-4 py-4 flex flex-row md:hidden  items-center justify-between bg-neutral-100 dark:bg-neutral-800 w-full"
+          "h-16 px-4 py-4 flex flex-row md:hidden items-center justify-start fixed top-0 left-0 z-[100] w-auto pointer-events-none"
         )}
         {...props}
       >
-        <div className="flex justify-end z-20 w-full">
+        <div className="flex justify-start z-50 w-auto pointer-events-auto pl-2">
           <IconMenu2
-            className="text-neutral-800 dark:text-neutral-200"
+            className="text-neutral-800 dark:text-neutral-200 cursor-pointer pointer-events-auto"
             onClick={() => setOpen(!open)}
           />
         </div>
@@ -136,7 +136,7 @@ export const MobileSidebar = ({
                 ease: "easeInOut",
               }}
               className={cn(
-                "fixed h-full w-full inset-0 bg-white dark:bg-neutral-900 p-10 z-[100] flex flex-col justify-between",
+                "fixed h-full w-full inset-0 bg-white dark:bg-neutral-900 p-10 z-[100] flex flex-col justify-between pointer-events-auto",
                 className
               )}
             >
@@ -163,6 +163,7 @@ export const SidebarLink = ({
   link: Links;
   className?: string;
   props?: LinkProps;
+  onClick?: () => void;
 }) => {
   const { open, animate } = useSidebar();
   return (
@@ -172,6 +173,7 @@ export const SidebarLink = ({
         "flex items-center justify-start gap-2  group/sidebar py-2",
         className
       )}
+      onClick={props?.onClick || ((props as any)?.onClick)}
       {...props}
     >
       {link.icon}

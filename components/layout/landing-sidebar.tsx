@@ -103,7 +103,7 @@ export function LandingSidebar() {
 }
 
 function SidebarContent({ setIsDropdownOpen }: { setIsDropdownOpen: (v: boolean) => void }) {
-  const { open, animate } = useSidebar(); // Access internal open state provided by SidebarProvider
+  const { open, animate, setOpen } = useSidebar(); // Access internal open state provided by SidebarProvider
   const { settings } = useSchoolSettings();
   const { user, isAuthenticated, logout: storeLogout } = useAuthStore();
   const pathname = usePathname();
@@ -142,13 +142,16 @@ function SidebarContent({ setIsDropdownOpen }: { setIsDropdownOpen: (v: boolean)
         {navLinks.map((link, idx) => (
           <div key={idx}>
             {link.children ? (
-               <NavGroup link={link} open={open} animate={animate} />
+               <NavGroup link={link} open={open} animate={animate} setOpen={setOpen} />
             ) : (
-                <SidebarLink link={{ 
-                    label: link.label, 
-                    href: link.href, 
-                    icon: <link.icon className="text-neutral-700 dark:text-neutral-200 h-5 w-5 flex-shrink-0" /> 
-                }} />
+                <SidebarLink 
+                    link={{ 
+                        label: link.label, 
+                        href: link.href, 
+                        icon: <link.icon className="text-neutral-700 dark:text-neutral-200 h-5 w-5 flex-shrink-0" /> 
+                    }}
+                    onClick={() => setOpen(false)}
+                />
             )}
           </div>
         ))}
@@ -157,7 +160,7 @@ function SidebarContent({ setIsDropdownOpen }: { setIsDropdownOpen: (v: boolean)
   );
 }
 
-function NavGroup({ link, open, animate }: { link: any, open: boolean, animate: boolean }) {
+function NavGroup({ link, open, animate, setOpen }: { link: any, open: boolean, animate: boolean, setOpen: (v: boolean) => void }) {
     // Nested items implementation
     // If closed: show icon in dropdown
     // If open: show collapsible
@@ -175,7 +178,7 @@ function NavGroup({ link, open, animate }: { link: any, open: boolean, animate: 
                         {link.label}
                     </div>
                     {link.children.map((child: any) => (
-                        <DropdownMenuItem key={child.href} asChild>
+                        <DropdownMenuItem key={child.href} asChild onClick={() => setOpen(false)}>
                             <Link href={child.href}>{child.label}</Link>
                         </DropdownMenuItem>
                     ))}
@@ -214,6 +217,7 @@ function NavGroup({ link, open, animate }: { link: any, open: boolean, animate: 
                         <Link 
                             key={child.href} 
                             href={child.href}
+                            onClickCapture={() => setOpen(false)}
                             className="text-neutral-600 dark:text-neutral-400 text-sm py-1 hover:text-black dark:hover:text-white block"
                         >
                             {child.label}

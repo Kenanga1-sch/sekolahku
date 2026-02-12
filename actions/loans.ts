@@ -83,12 +83,13 @@ export async function createLoan(data: CreateLoanParams) {
 
         revalidatePath("/keuangan/tabungan/bendahara");
         return { success: true, message: "Data hutang berhasil dibuat" };
-    } catch (error: any) {
+    } catch (error) {
+        const message = error instanceof Error ? error.message : "An error occurred";
         // Better error message for constraint violation
-        if (error.message.includes("FOREIGN KEY")) {
+        if (message.includes("FOREIGN KEY")) {
              return { success: false, error: "Gagal: Data pegawai tidak valid (FK Error)." };
         }
-        return { success: false, error: error.message };
+        return { success: false, error: message };
     }
 }
 
@@ -125,8 +126,9 @@ export async function getLoans(type: "RECEIVABLE" | "PAYABLE") {
         });
 
         return { success: true, data: enriched };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to get loans";
+        return { success: false, error: message };
     }
 }
 
@@ -137,8 +139,9 @@ export async function getVaults() {
     try {
         const result = await db.query.tabunganBrankas.findMany();
         return { success: true, data: result };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to get loans";
+        return { success: false, error: message };
     }
 }
 
@@ -187,8 +190,9 @@ export async function approveLoan(loanId: string, approvedAmount: number, source
 
         revalidatePath("/keuangan/tabungan/bendahara");
         return { success: true, message: "Hutang disetujui & dana dicairkan dari Kas Tunai" };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to get loans";
+        return { success: false, error: message };
     }
 }
 
@@ -241,8 +245,9 @@ export async function addPayment(loanId: string, amount: number, notes?: string,
         
         revalidatePath("/keuangan/tabungan/bendahara");
         return { success: true, message: "Pembayaran berhasil dicatat & masuk ke Kas Tunai" };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to get loans";
+        return { success: false, error: message };
     }
 }
 // --- Restored/Compat Actions for LoanRequestDialog ---
@@ -263,8 +268,9 @@ export async function getEmployeeOptions() {
         }));
 
         return { success: true, data: options };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to get loans";
+        return { success: false, error: message };
     }
 }
 
@@ -302,8 +308,9 @@ export async function rejectLoan(loanId: string, reason: string) {
 
         revalidatePath("/keuangan/tabungan/bendahara");
         return { success: true, message: "Hutang ditolak" };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to get loans";
+        return { success: false, error: message };
     }
 }
 

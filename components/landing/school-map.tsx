@@ -31,11 +31,20 @@ function MapController({ lat, lng }: { lat: number; lng: number }) {
   useEffect(() => {
     // Invalidate size in case container resized
     map.invalidateSize();
-    // Fly to new coordinates with animation
-    map.flyTo([lat, lng], 15, {
-        animate: true,
-        duration: 1.5
-    });
+
+    // Ensure coordinates are valid numbers and finite
+    const validLat = Number(lat);
+    const validLng = Number(lng);
+
+    if (Number.isFinite(validLat) && Number.isFinite(validLng)) {
+        // Use setView for safer initial positioning or flyTo for updates
+        // flyTo can sometimes be buggy with initial render or rapid updates
+        try {
+           map.setView([validLat, validLng], 15);
+        } catch (e) {
+           console.error("Map view update failed:", e);
+        }
+    }
   }, [map, lat, lng]);
 
   return null;

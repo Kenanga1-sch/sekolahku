@@ -477,7 +477,7 @@ export default function LaporanPage() {
                             <CardContent className="py-12 text-center text-muted-foreground">
                                 <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
                                 <p className="text-lg font-medium mb-1">Pilih Periode Laporan</p>
-                                <p className="text-sm">Pilih rentang tanggal dan klik "Generate Laporan" untuk melihat data</p>
+                                <p className="text-sm">Pilih rentang tanggal dan klik &quot;Generate Laporan&quot; untuk melihat data</p>
                             </CardContent>
                         </Card>
                     )}
@@ -572,7 +572,7 @@ export default function LaporanPage() {
                             <CardContent className="py-12 text-center text-muted-foreground">
                                 <UserCheck className="h-12 w-12 mx-auto mb-4 opacity-50" />
                                 <p className="text-lg font-medium mb-1">Pilih Periode Laporan</p>
-                                <p className="text-sm">Pilih rentang tanggal dan klik "Generate Laporan" untuk melihat data</p>
+                                <p className="text-sm">Pilih rentang tanggal dan klik &quot;Generate Laporan&quot; untuk melihat data</p>
                             </CardContent>
                         </Card>
                     )}
@@ -663,7 +663,7 @@ export default function LaporanPage() {
                             <CardContent className="py-12 text-center text-muted-foreground">
                                 <AlertTriangle className="h-12 w-12 mx-auto mb-4 opacity-50" />
                                 <p className="text-lg font-medium mb-1">Laporan Keterlambatan</p>
-                                <p className="text-sm mb-4">Klik "Generate Laporan" untuk melihat daftar buku yang terlambat dikembalikan</p>
+                                <p className="text-sm mb-4">Klik &quot;Generate Laporan&quot; untuk melihat daftar buku yang terlambat dikembalikan</p>
                                 <Button onClick={handleSearch} disabled={loading}>
                                     {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileText className="h-4 w-4 mr-2" />}
                                     Generate Laporan
@@ -743,7 +743,7 @@ export default function LaporanPage() {
                             <CardContent className="py-12 text-center text-muted-foreground">
                                 <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
                                 <p className="text-lg font-medium mb-1">Laporan Inventaris</p>
-                                <p className="text-sm mb-4">Klik "Generate Laporan" untuk melihat statistik koleksi perpustakaan</p>
+                                <p className="text-sm mb-4">Klik &quot;Generate Laporan&quot; untuk melihat statistik koleksi perpustakaan</p>
                                 <Button onClick={handleSearch} disabled={loading}>
                                     {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileText className="h-4 w-4 mr-2" />}
                                     Generate Laporan

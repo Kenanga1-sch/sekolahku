@@ -21,7 +21,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     accountsTable: accounts,
     sessionsTable: sessions,
     verificationTokensTable: verificationTokens,
-  }) as any, // Cast to avoid strict type checks on schema compatibility
+  }),
   providers: [
     Credentials({
       name: "credentials",
@@ -56,16 +56,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             return null;
         } catch (e) {
             console.error("Auth Debug Error:", e);
-            // Quick and dirty file logging to help debug without access to stdout
-            try {
-                const fs = require('fs');
-                fs.appendFileSync('auth-debug.log', `${new Date().toISOString()} - Auth Error: ${e instanceof Error ? e.message : String(e)}\n`);
-                if (e instanceof Error && e.stack) {
-                     fs.appendFileSync('auth-debug.log', `${e.stack}\n`);
-                }
-            } catch (loggingError) {
-                // Ignore logging errors
-            }
+            console.error("Auth Debug Error:", e);
+            // Removed file logging to satisfy lint rules (no require) and security (no writing to fs in auth)
             return null;
         }
       }

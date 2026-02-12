@@ -32,10 +32,42 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import LoanApprovalDialog from "@/components/loans/loan-approval-dialog";
 import { useEffect } from "react";
 
+interface Loan {
+    id: string;
+    createdAt: Date | string;
+    borrowerType: "EMPLOYEE" | "EXTERNAL";
+    borrowerName?: string | null;
+    employee?: {
+        user?: {
+            name: string;
+        };
+    } | null;
+    description: string | null;
+    tenorMonths: number;
+    amountApproved?: number | null;
+    amountRequested: number;
+    paidAmount: number;
+    remainingAmount: number;
+    status: "APPROVED" | "PENDING" | "REJECTED" | "PAID";
+    type?: string;
+}
+
+interface Employee {
+    id: string;
+    name: string;
+}
+
+interface Vault {
+  id: string;
+  nama: string;
+  saldo: number;
+  tipe: string;
+}
+
 interface DebtManagerProps {
-    receivables: any[]; // Hutang Pegawai (Piutang)
-    payables: any[]; // Hutang Sekolah (Kewajiban)
-    employees: any[];
+    receivables: Loan[]; // Hutang Pegawai (Piutang)
+    payables: Loan[]; // Hutang Sekolah (Kewajiban)
+    employees: Employee[];
     currentUserId: string;
 }
 
@@ -43,9 +75,9 @@ export function DebtManager({ receivables, payables, employees, currentUserId }:
     const [createOpen, setCreateOpen] = useState(false);
     const [payOpen, setPayOpen] = useState(false);
     const [approvalOpen, setApprovalOpen] = useState(false);
-    const [selectedLoan, setSelectedLoan] = useState<any>(null);
+    const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
     const [loading, setLoading] = useState(false);
-    const [vaults, setVaults] = useState<any[]>([]);
+    const [vaults, setVaults] = useState<Vault[]>([]);
 
     useEffect(() => {
         getVaults().then(res => {
@@ -127,7 +159,7 @@ export function DebtManager({ receivables, payables, employees, currentUserId }:
         }
     };
 
-    const openPayDialog = (loan: any) => {
+    const openPayDialog = (loan: Loan) => {
         setSelectedLoan(loan);
         setPayOpen(true);
     };

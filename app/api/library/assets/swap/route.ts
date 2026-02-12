@@ -19,11 +19,12 @@ export async function POST(request: NextRequest) {
         const asset = await swapAssetCode(oldQr, newQr);
 
         return NextResponse.json({ success: true, data: asset });
-    } catch (error: any) {
+    } catch (error) {
         console.error("Swap error", error);
+        const message = error instanceof Error ? error.message : "Internal Server Error";
         return NextResponse.json({
             success: false,
-            error: error.message || "Internal Server Error"
+            error: message
         }, { status: 500 });
     }
 }

@@ -191,7 +191,7 @@ export default async function SPMBPage() {
       </section>
 
       {/* Status Banner */}
-      <section className="py-8 border-b bg-background/50 backdrop-blur-sm supports-[backdrop-filter]:bg-background/50 sticky top-0 z-20">
+      <section className="py-8 border-b bg-background/50 backdrop-blur-sm supports-[backdrop-filter]:bg-background/50">
         <div className="container">
           <div className="flex flex-wrap items-center justify-between gap-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-x-12 gap-y-6 w-full md:w-auto text-sm">

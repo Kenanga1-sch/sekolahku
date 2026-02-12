@@ -3,6 +3,8 @@ import { letterTemplates } from "@/db/schema/letters";
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 import { desc, like, or } from "drizzle-orm";
+import fs from "fs";
+import path from "path";
 
 export async function GET(req: Request) {
   try {
@@ -61,10 +63,9 @@ export async function POST(req: Request) {
         const buffer = Buffer.from(bytes);
         
         // Save file
+        // Save file
         type = "UPLOAD";
         filePath = `/uploads/templates/${Date.now()}-${file.name.replace(/\s/g, "_")}`;
-        const fs = require("fs");
-        const path = require("path");
         const uploadDir = path.join(process.cwd(), "public/uploads/templates");
         
         if (!fs.existsSync(uploadDir)) {

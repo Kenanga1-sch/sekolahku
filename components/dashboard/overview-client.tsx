@@ -36,12 +36,65 @@ const StatusDistributionChart = dynamic(
   }
 );
 
+interface OverviewStats {
+  pending: number;
+  verified: number;
+  accepted: number;
+  rejected: number;
+  total: number;
+}
+
+interface ModuleStats {
+  perpustakaan: {
+    totalBooks: number;
+    activeLoans: number;
+    overdueLoans: number;
+  };
+  inventaris: {
+    totalAssets: number;
+    totalRooms: number;
+    needsMaintenance: number;
+  };
+  tabungan: {
+    totalSaldo: number;
+    totalStudents: number;
+    todayTransactions: number;
+  };
+}
+
+interface Registrant {
+  id: string;
+  student_name: string;
+  registration_number: string;
+  created: string;
+  status: string;
+}
+
+interface ActivePeriod {
+  name: string;
+  quota: number;
+}
+
+interface ServerHealth {
+  database?: {
+    status: string;
+    formatted_size: string;
+  };
+  system?: {
+    uptime_seconds: number;
+    memory_usage_mb: number;
+  };
+  backup?: {
+    last_backup: string | null;
+  };
+}
+
 interface OverviewClientProps {
-  stats: any;
-  moduleStats: any;
-  recentRegistrants: any[];
-  activePeriod: any;
-  serverHealth: any;
+  stats: OverviewStats;
+  moduleStats: ModuleStats;
+  recentRegistrants: Registrant[];
+  activePeriod: ActivePeriod | null;
+  serverHealth: ServerHealth;
 }
 
 export function OverviewClient({ 
@@ -69,7 +122,7 @@ export function OverviewClient({
   });
   
   const trendData = last7Days.map(dateStr => {
-    const count = recentRegistrants.filter((r: any) => r.created?.startsWith(dateStr)).length;
+    const count = recentRegistrants.filter((r) => r.created?.startsWith(dateStr)).length;
     const date = new Date(dateStr);
     return {
       date: date.toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
@@ -406,7 +459,7 @@ export function OverviewClient({
 }
 
 // Internal Component for Server Health (Only in Overview)
-function ServerHealthDisplay({ health }: { health: any }) {
+function ServerHealthDisplay({ health }: { health: ServerHealth }) {
   if (!health) return null;
   return (
     <Card className="col-span-1 md:col-span-2 lg:col-span-3 border-none bg-gradient-to-r from-zinc-900 to-zinc-800 text-white shadow-xl">
@@ -417,18 +470,18 @@ function ServerHealthDisplay({ health }: { health: any }) {
           </div>
           <div>
             <h3 className="font-bold text-lg">System Status: {health.database?.status === 'Online' ? 'Healthy' : 'Degraded'}</h3>
-            <p className="text-zinc-400 text-sm">Uptime: {(health.system?.uptime_seconds / 3600).toFixed(1)} hours</p>
+            <p className="text-zinc-400 text-sm">Uptime: {(health.system?.uptime_seconds ? (health.system.uptime_seconds / 3600).toFixed(1) : '0')} hours</p>
           </div>
         </div>
         
         <div className="flex gap-8 text-sm">
           <div className="text-center">
             <p className="text-zinc-400">Database Size</p>
-            <p className="font-mono font-bold">{health.database?.formatted_size}</p>
+            <p className="font-mono font-bold">{health.database?.formatted_size || 'N/A'}</p>
           </div>
           <div className="text-center">
             <p className="text-zinc-400">RAM Usage</p>
-            <p className="font-mono font-bold">{health.system?.memory_usage_mb} MB</p>
+            <p className="font-mono font-bold">{health.system?.memory_usage_mb || 0} MB</p>
           </div>
           <div className="text-center">
              <p className="text-zinc-400">Last Backup</p>

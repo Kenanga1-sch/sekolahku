@@ -4,6 +4,9 @@ import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 
+import fs from "fs";
+import path from "path";
+
 export async function GET(
   req: Request,
   props: { params: Promise<{ id: string }> }
@@ -32,6 +35,16 @@ export async function GET(
   }
 }
 
+interface UpdateData {
+    name?: string;
+    category?: string;
+    paperSize?: string;
+    orientation?: string;
+    content?: string;
+    filePath?: string | null;
+    type?: string;
+}
+
 export async function PATCH(
   req: Request,
   props: { params: Promise<{ id: string }> }
@@ -44,7 +57,7 @@ export async function PATCH(
     }
 
     const contentType = req.headers.get("content-type") || "";
-    let updateData: any = {};
+    let updateData: UpdateData = {};
 
     if (contentType.includes("multipart/form-data")) {
         const formData = await req.formData();
@@ -61,8 +74,6 @@ export async function PATCH(
             
             // Save file
             const fileName = `/uploads/templates/${Date.now()}-${file.name.replace(/\s/g, "_")}`;
-            const fs = require("fs");
-            const path = require("path");
             const uploadDir = path.join(process.cwd(), "public/uploads/templates");
             
             if (!fs.existsSync(uploadDir)) {

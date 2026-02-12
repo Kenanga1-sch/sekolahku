@@ -1,6 +1,6 @@
 "use server";
 
-import { db, academicYears, schoolSettings } from "@/db";
+import { db, academicYears } from "@/db";
 import { eq } from "drizzle-orm";
 
 export async function getActiveAcademicYear() {
@@ -21,8 +21,9 @@ export async function getActiveAcademicYear() {
     }
 
     return { success: true, data: "2024/2025" }; // Final Fallback
-  } catch (error: any) {
+  } catch (error) {
     console.error("Failed to get academic year:", error);
-    return { success: false, error: error.message };
+    const message = error instanceof Error ? error.message : "Failed to get active academic year";
+    return { success: false, error: message };
   }
 }

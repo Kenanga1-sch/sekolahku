@@ -424,7 +424,7 @@ export default function BukuPage() {
                             ) : items.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                                        Belum ada buku. Klik "Tambah Buku" untuk menambahkan.
+                                        Belum ada buku. Klik &quot;Tambah Buku&quot; untuk menambahkan.
                                     </TableCell>
                                 </TableRow>
                             ) : (

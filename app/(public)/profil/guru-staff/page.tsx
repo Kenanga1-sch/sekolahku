@@ -19,23 +19,34 @@ import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
+interface Staff {
+  id: string;
+  name: string;
+  isActive: boolean;
+  category: string;
+  degree?: string;
+  position?: string;
+  photoUrl?: string;
+  quote?: string;
+}
+
 export default function PublicStaffPage() {
   const { data, isLoading } = useSWR("/api/admin/staff", fetcher);
   const { settings } = useSchoolSettings();
   const [filter, setFilter] = useState<"all" | "guru" | "staff" | "support">("all");
 
-  const allStaff = data?.data || [];
+  const allStaff: Staff[] = data?.data || [];
   
   // Filter active only
-  const activeStaff = allStaff.filter((s: any) => s.isActive);
+  const activeStaff = allStaff.filter((s) => s.isActive);
 
   // Separate Kepsek
-  const kepsek = activeStaff.find((s: any) => s.category === "kepsek");
+  const kepsek = activeStaff.find((s) => s.category === "kepsek");
   
   // Others
   const others = activeStaff
-    .filter((s: any) => s.category !== "kepsek")
-    .filter((s: any) => filter === "all" || s.category === filter);
+    .filter((s) => s.category !== "kepsek")
+    .filter((s) => filter === "all" || s.category === filter);
 
   if (isLoading) {
     return (
@@ -67,7 +78,7 @@ export default function PublicStaffPage() {
             <Button
                 key={item.id}
                 variant={filter === item.id ? "default" : "outline"}
-                onClick={() => setFilter(item.id as any)}
+                onClick={() => setFilter(item.id as "all" | "guru" | "staff" | "support")}
                 className="rounded-full"
             >
                 {item.label}
@@ -100,7 +111,7 @@ export default function PublicStaffPage() {
                     {kepsek.quote && (
                         <div className="mt-4 pt-4 border-t border-white/20 flex gap-2">
                              <Quote className="h-4 w-4 text-blue-400 shrink-0" />
-                             <p className="text-sm italic opacity-80">"{kepsek.quote}"</p>
+                             <p className="text-sm italic opacity-80">&quot;{kepsek.quote}&quot;</p>
                         </div>
                     )}
                 </div>
@@ -112,7 +123,7 @@ export default function PublicStaffPage() {
       {/* Grid Layout */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <AnimatePresence mode="popLayout">
-            {others.map((staff: any) => (
+            {others.map((staff) => (
                 <motion.div
                     key={staff.id}
                     layout
@@ -139,7 +150,7 @@ export default function PublicStaffPage() {
                         <CardContent className="p-4 pt-0">
                             {staff.quote ? (
                                 <p className="text-xs text-muted-foreground italic">
-                                    "{staff.quote}"
+                                    &quot;{staff.quote}&quot;
                                 </p>
                             ) : (
                                 <p className="text-xs text-muted-foreground/50 italic">

@@ -36,7 +36,10 @@ export async function downloadCoverImage(url: string, isbn: string): Promise<str
         if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
         if (!response.body) throw new Error("Response body is empty");
 
-        await streamPipeline(response.body as any, fs.createWriteStream(filePath));
+        if (response.body) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await streamPipeline(response.body as any, fs.createWriteStream(filePath));
+        }
 
         return publicPath;
     } catch (error) {
@@ -58,7 +61,7 @@ export async function getOrCreateCatalog(data: Partial<LibraryCatalog>): Promise
                     .set({ 
                         category: data.category,
                         updatedAt: new Date() 
-                    } as any)
+                    })
                     .where(eq(libraryCatalog.id, existing.id))
                     .returning();
                 return updated as LibraryCatalog;
@@ -76,15 +79,13 @@ export async function getOrCreateCatalog(data: Partial<LibraryCatalog>): Promise
         category: data.category || "UNSORTED",
         description: data.description,
         cover: data.cover || "/images/placeholder-book.png",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-    } as any).returning();
+    }).returning();
 
     if (newCatalog && data.cover && data.cover.startsWith("http") && data.isbn) {
         const localPath = await downloadCoverImage(data.cover, data.isbn);
         if (localPath) {
             const [updated] = await db.update(libraryCatalog)
-                .set({ cover: localPath, updatedAt: new Date() } as any)
+                .set({ cover: localPath, updatedAt: new Date() })
                 .where(eq(libraryCatalog.id, newCatalog.id))
                 .returning();
             return updated as LibraryCatalog;
@@ -105,9 +106,7 @@ export async function bindAsset(qrCode: string, catalogId: string, location?: st
         location,
         status: "AVAILABLE",
         condition: "Baik",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-    } as any).returning();
+    }).returning();
 
     await revalidateLibraryStats();
     return asset as LibraryAsset;
@@ -119,22 +118,20 @@ export async function bindAsset(qrCode: string, catalogId: string, location?: st
 export async function swapAssetCode(oldQr: string, newQr: string): Promise<LibraryAsset> {
     const { libraryLoans } = await import("@/db/schema/library");
     
-    return db.transaction((tx) => {
-        const rows = tx.select().from(libraryAssets).where(eq(libraryAssets.id, oldQr)).limit(1).all();
+    return db.transaction(async (tx) => {
+        const rows = await tx.select().from(libraryAssets).where(eq(libraryAssets.id, oldQr)).limit(1);
         const oldAsset = rows[0];
         if (!oldAsset) throw new Error("Asset lama tidak ditemukan");
 
-        const [newAsset] = tx.insert(libraryAssets).values({
+        const [newAsset] = await tx.insert(libraryAssets).values({
             ...oldAsset,
             id: newQr,
-            createdAt: new Date(),
             updatedAt: new Date(),
-        } as any).returning().all();
+        }).returning();
 
-        tx.update(libraryLoans)
-            .set({ itemId: newQr } as any)
-            .where(eq(libraryLoans.itemId, oldQr))
-            .run();
+        await tx.update(libraryLoans)
+            .set({ itemId: newQr })
+            .where(eq(libraryLoans.itemId, oldQr));
 
         tx.delete(libraryAssets).where(eq(libraryAssets.id, oldQr)).run();
 
@@ -218,8 +215,8 @@ export async function lookupISBN(isbn: string) {
         if (olData[bookKey]) {
             const b = olData[bookKey];
             const subjects: string[] = [];
-            if (b.subjects) subjects.push(...b.subjects.map((s: any) => s.name || s));
-            if (b.subject_places) subjects.push(...b.subject_places.map((s: any) => s.name || s));
+            if (b.subjects) subjects.push(...b.subjects.map((s: { name: string } | string) => (typeof s === 'object' && s !== null && 'name' in s ? s.name : s)));
+            if (b.subject_places) subjects.push(...b.subject_places.map((s: { name: string } | string) => (typeof s === 'object' && s !== null && 'name' in s ? s.name : s)));
             
             const ddcCategory = mapToDDC(subjects);
 
@@ -239,7 +236,7 @@ export async function lookupISBN(isbn: string) {
         }
 
         return null;
-    } catch (e: any) {
+    } catch (e) {
         if (e.name === "AbortError") {
             console.warn(`ISBN lookup for ${isbn} timed out`);
         } else {

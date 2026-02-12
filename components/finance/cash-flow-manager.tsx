@@ -32,10 +32,38 @@ const formatRupiah = (amount: number) => {
     }).format(amount);
 };
 
+interface Transaction {
+    id: string;
+    date: Date | string;
+    description: string | null;
+    type: "INCOME" | "EXPENSE" | "TRANSFER";
+    amount: number;
+    status: "APPROVED" | "PENDING" | "REJECTED";
+    accountIdSource?: string | null;
+    accountIdDest?: string | null;
+    accountSource?: { name: string } | null;
+    accountDest?: { name: string } | null;
+    category?: { name: string } | null;
+}
+
+interface Account {
+    id: string;
+    name: string;
+    accountNumber?: string | null;
+    isSystem?: boolean | null;
+}
+
+interface Category {
+    id: string;
+    name: string;
+    type: "INCOME" | "EXPENSE";
+    isSystem?: boolean | null;
+}
+
 export default function CashFlowManager() {
-    const [transactions, setTransactions] = useState<any[]>([]);
-    const [accounts, setAccounts] = useState<any[]>([]);
-    const [categories, setCategories] = useState<any[]>([]);
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [accounts, setAccounts] = useState<Account[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     
     // Dialog States
@@ -44,9 +72,9 @@ export default function CashFlowManager() {
     const [isCategoryOpen, setIsCategoryOpen] = useState(false);
 
     // Edit States
-    const [accountToEdit, setAccountToEdit] = useState<any>(null);
-    const [categoryToEdit, setCategoryToEdit] = useState<any>(null);
-    const [transactionToEdit, setTransactionToEdit] = useState<any>(null);
+    const [accountToEdit, setAccountToEdit] = useState<Account | null>(null);
+    const [categoryToEdit, setCategoryToEdit] = useState<Category | null>(null);
+    const [transactionToEdit, setTransactionToEdit] = useState<Transaction | null>(null);
     
     const fetchData = async () => {
         setIsLoading(true);
@@ -74,7 +102,7 @@ export default function CashFlowManager() {
 
     // --- Handlers ---
 
-    const handleEditAccount = (acc: any) => {
+    const handleEditAccount = (acc: Account) => {
         setAccountToEdit(acc);
         setIsAccountOpen(true);
     };
@@ -90,7 +118,7 @@ export default function CashFlowManager() {
         }
     };
 
-    const handleEditCategory = (cat: any) => {
+    const handleEditCategory = (cat: Category) => {
         setCategoryToEdit(cat);
         setIsCategoryOpen(true);
     };

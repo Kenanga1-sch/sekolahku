@@ -120,19 +120,21 @@ export async function POST(request: NextRequest) {
         });
 
         results.success++;
-      } catch (error: any) {
+      } catch (error) {
         results.failed++;
         const name = row.fullName || row.nama || row["Nama Lengkap"] || "-";
         
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
         // Check for duplicate errors
-        if (error.message?.includes("UNIQUE constraint failed")) {
-          if (error.message.includes("nisn")) {
+        if (errorMessage.includes("UNIQUE constraint failed")) {
+          if (errorMessage.includes("nisn")) {
             results.errors.push({
               row: rowNum,
               name,
               error: "NISN sudah terdaftar",
             });
-          } else if (error.message.includes("nis")) {
+          } else if (errorMessage.includes("nis")) {
             results.errors.push({
               row: rowNum,
               name,
@@ -149,7 +151,7 @@ export async function POST(request: NextRequest) {
           results.errors.push({
             row: rowNum,
             name,
-            error: error.message || "Gagal menyimpan data",
+            error: errorMessage || "Gagal menyimpan data",
           });
         }
       }
@@ -159,10 +161,10 @@ export async function POST(request: NextRequest) {
       message: `Import selesai: ${results.success} berhasil, ${results.failed} gagal`,
       ...results,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Import error:", error);
     return NextResponse.json(
-      { error: error.message || "Gagal mengimport data" },
+      { error: error instanceof Error ? error.message : "Gagal mengimport data" },
       { status: 500 }
     );
   }

@@ -337,20 +337,7 @@ export default function BeritaDetailPage() {
                         )}
 
                         {/* CTA */}
-                        <Card className="bg-primary text-primary-foreground">
-                            <CardContent className="p-6 text-center">
-                                <h3 className="font-bold mb-2">Daftar Sekarang!</h3>
-                                <p className="text-sm opacity-90 mb-4">
-                                    Pendaftaran SPMB sudah dibuka
-                                </p>
-                                <Link href="/spmb/daftar">
-                                    <Button variant="secondary" className="w-full">
-                                        Daftar SPMB
-                                        <ArrowRight className="h-4 w-4 ml-2" />
-                                    </Button>
-                                </Link>
-                            </CardContent>
-                        </Card>
+
                     </div>
                 </div>
             </div>

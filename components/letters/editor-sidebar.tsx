@@ -67,8 +67,11 @@ export function EditorSidebar({
   const [activeTab, setActiveTab] = useState("format");
 
   useEffect(() => {
-    if (mode === "UPLOAD") setActiveTab("variables");
-    else if (mode === "EDITOR" && activeTab === "variables") setActiveTab("format");
+    if (mode === "UPLOAD") {
+      setActiveTab("variables");
+    } else if (mode === "EDITOR") {
+      setActiveTab((prev) => (prev === "variables" ? "format" : prev));
+    }
   }, [mode]);
 
   if (!editor && mode === "EDITOR") return null;
