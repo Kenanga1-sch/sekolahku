@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Search, MoreHorizontal, Pencil, Trash2, Filter, Upload } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Pencil, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -29,7 +29,7 @@ export default function MasterGTKPage() {
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
-    const [page, setPage] = useState(1);
+    const [page] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
 
     // Modal
@@ -41,6 +41,7 @@ export default function MasterGTKPage() {
 
     useEffect(() => {
         fetchEmployees();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [debouncedSearch, page]);
 
     const fetchEmployees = async () => {
@@ -77,8 +78,8 @@ export default function MasterGTKPage() {
             
             showSuccess("Data GTK berhasil dihapus");
             fetchEmployees();
-        } catch (error: any) {
-            showError(error.message || "Gagal menghapus data");
+        } catch (error) {
+            showError(error instanceof Error ? error.message : "Gagal menghapus data");
         }
     }
 

@@ -54,9 +54,9 @@ export async function PATCH(
 
         const formData = await request.formData();
         const file = formData.get("file") as File | null;
-        const status = formData.get("status") as string | null;
+        const status = formData.get("status") as "Draft" | "Pending" | "Selesai" | "Arsip" | null;
 
-        const updates: any = {
+        const updates: Partial<typeof suratKeluar.$inferInsert> = {
             updatedAt: new Date(),
         };
 

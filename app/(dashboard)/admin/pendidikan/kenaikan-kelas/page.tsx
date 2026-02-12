@@ -2,9 +2,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ArrowRight, CheckCircle2, GraduationCap, Users, Loader2 } from "lucide-react";
+import { ArrowRight, GraduationCap, Users, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -12,9 +12,21 @@ import { Label } from "@/components/ui/label";
 import { showSuccess, showError } from "@/lib/toast";
 import { Badge } from "@/components/ui/badge";
 
+interface ClassOption {
+    id: string;
+    name: string;
+}
+
+interface StudentPromotion {
+    id: string;
+    fullName: string;
+    nisn?: string;
+    nis?: string;
+}
+
 export default function PromotionPage() {
-    const [classes, setClasses] = useState<any[]>([]);
-    const [students, setStudents] = useState<any[]>([]);
+    const [classes, setClasses] = useState<ClassOption[]>([]);
+    const [students, setStudents] = useState<StudentPromotion[]>([]);
     const [isLoadingStudents, setIsLoadingStudents] = useState(false);
     
     // Selection State
@@ -113,8 +125,8 @@ export default function PromotionPage() {
             setTargetClassId("");
             setSelectedStudentIds([]);
             setStudents([]);
-        } catch (error: any) {
-            showError(error.message);
+        } catch (error) {
+            showError(error instanceof Error ? error.message : "Gagal memproses");
         } finally {
             setIsSubmitting(false);
         }
@@ -139,7 +151,7 @@ export default function PromotionPage() {
                                 <SelectValue placeholder="Pilih Kelas..." />
                             </SelectTrigger>
                             <SelectContent>
-                                {classes.map((cls: any) => (
+                                {classes.map((cls: { id: string; name: string }) => (
                                     <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
                                 ))}
                             </SelectContent>
@@ -173,7 +185,7 @@ export default function PromotionPage() {
                                 Pilih kelas asal dulu
                             </div>
                         ) : (
-                            students.map(student => (
+                            students.map((student: { id: string; fullName: string; nisn?: string; nis?: string }) => (
                                 <div key={student.id} className="flex items-center p-2 border rounded-md hover:bg-muted/50 transition-colors bg-card">
                                     <Checkbox 
                                         id={student.id} 
@@ -221,7 +233,7 @@ export default function PromotionPage() {
                                         <SelectValue placeholder="Pilih Kelas..." />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {classes.filter(c => c.id !== sourceClassId).map((cls: any) => (
+                                        {classes.filter((c: { id: string }) => c.id !== sourceClassId).map((cls: { id: string; name: string }) => (
                                             <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
                                         ))}
                                     </SelectContent>

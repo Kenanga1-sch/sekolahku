@@ -100,8 +100,8 @@ export default function BarangKeluarPage() {
       
       toast.success("Barang keluar berhasil dicatat");
       router.push("/inventaris/stok");
-    } catch (error: any) {
-      toast.error(error.message || "Terjadi kesalahan saat menyimpan data");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Terjadi kesalahan saat menyimpan data");
     } finally {
       setSubmitting(false);
     }

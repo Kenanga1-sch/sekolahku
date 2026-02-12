@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { loans, loanInstallments, employeeDetails, users, tabunganBrankas, tabunganBrankasTransaksi } from "@/db"; // Assuming exports
-import { eq, desc, and, ne } from "drizzle-orm";
+import { eq, desc, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 // --- Types ---
@@ -184,8 +184,8 @@ export async function approveLoan(loanId: string, approvedAmount: number, source
                 tipe: "tarik_dari_bank", // Context: Money OUT (Disbursement). reusing compatible enum.
                 nominal: approvedAmount,
                 catatan: `Pencairan Pinjaman: ${loanId}`, 
-                userId: session.user?.id || "SYSTEM"
-            } as any).run();
+                userId: session.user?.id || null
+            }).run();
         });
 
         revalidatePath("/keuangan/tabungan/bendahara");
@@ -226,7 +226,7 @@ export async function addPayment(loanId: string, amount: number, notes?: string,
                 paidAt: new Date(),
                 paymentMethod: "CASH",
                 notes
-            } as any).run();
+            }).run();
 
             // 2. Add to Vault
             tx.update(tabunganBrankas)
@@ -239,8 +239,8 @@ export async function addPayment(loanId: string, amount: number, notes?: string,
                 tipe: "setor_ke_bank", // Context: Money IN (Repayment). reusing compatible enum.
                 nominal: amount,
                 catatan: `Pelunasan/Cicilan Hutang: ${loan.description || loan.type} (${loan.id})`,
-                userId: session.user?.id || "SYSTEM"
-            } as any).run();
+                userId: session.user?.id || null,
+            }).run();
         });
         
         revalidatePath("/keuangan/tabungan/bendahara");

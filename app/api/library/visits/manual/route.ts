@@ -46,12 +46,12 @@ export async function POST(req: NextRequest) {
             purpose: purpose || null,
             date: todayStr,
             timestamp: new Date(),
-        } as any).returning();
+        }).returning();
 
         return NextResponse.json({ success: true, data: visit });
 
-    } catch (error: any) {
+    } catch (error) {
         console.error("Manual visit error:", error);
-        return NextResponse.json({ success: false, error: error.message || "Internal Server Error" }, { status: 500 });
+        return NextResponse.json({ success: false, error: error instanceof Error ? error.message : "Internal Server Error" }, { status: 500 });
     }
 }

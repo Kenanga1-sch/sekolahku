@@ -64,7 +64,6 @@ function useDebouncedValue(value: string, delay: number) {
 
 export default function StokPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -147,8 +146,8 @@ export default function StokPage() {
       }
       toast.success("Barang dihapus");
       fetchItems();
-    } catch (error: any) {
-      toast.error(error.message || "Gagal menghapus");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Gagal menghapus");
     }
   };
 

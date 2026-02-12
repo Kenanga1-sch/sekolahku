@@ -67,7 +67,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const updateData: any = {};
+    const updateData: Partial<typeof spmbRegistrants.$inferInsert> = {};
     if (status) updateData.status = status;
     if (notes !== undefined) updateData.notes = notes;
     

@@ -53,7 +53,7 @@ import {
 } from "@/components/ui/alert-dialog";
 // Removed server imports to fix build error
 import { showError, showSuccess } from "@/lib/toast";
-import type { LibraryLoan } from "@/types/library";
+import type { LibraryLoan, LibraryItem, LibraryMember } from "@/types/library";
 
 export default function PeminjamanPage() {
     const [activeLoans, setActiveLoans] = useState<LibraryLoan[]>([]);
@@ -151,9 +151,9 @@ export default function PeminjamanPage() {
             setLoanDays(7);
             
             loadLoans();
-        } catch (error: any) {
+        } catch (error) {
             console.error("Create loan error:", error);
-            showError(error.message || "Gagal meminjam buku");
+            showError(error instanceof Error ? error.message : "Gagal meminjam buku");
         } finally {
             setIsSubmitting(false);
         }
@@ -163,7 +163,7 @@ export default function PeminjamanPage() {
         if (!inputValue) return [];
         const res = await fetch(`/api/library/members?search=${inputValue}`);
         const data = await res.json();
-        return data.items.map((m: any) => ({ value: m.id, label: `${m.name} (${m.className})` }));
+        return data.items.map((m: LibraryMember) => ({ value: m.id, label: `${m.name} (${m.className})` }));
     };
 
     const loadBookOptions = async (inputValue: string) => {
@@ -171,8 +171,8 @@ export default function PeminjamanPage() {
         const res = await fetch(`/api/library/books?search=${inputValue}&perPage=10`);
         const data = await res.json();
         return data.items
-            .filter((item: any) => item.status === "AVAILABLE")
-            .map((item: any) => ({ 
+            .filter((item: LibraryItem) => item.status === "AVAILABLE")
+            .map((item: LibraryItem) => ({ 
                 value: item.id, // QR Code as ID
                 label: `${item.title} (${item.id})` 
             }));

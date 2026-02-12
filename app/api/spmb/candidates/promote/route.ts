@@ -115,9 +115,9 @@ export async function POST(req: Request) {
         
         return NextResponse.json({ success: true, studentId: newStudent.id });
 
-    } catch (error: any) {
+    } catch (error) {
         console.error("Promote Error:", error);
-        if (error.message?.includes("UNIQUE")) {
+        if (error instanceof Error && error.message?.includes("UNIQUE")) {
              return NextResponse.json({ error: "Data duplikat (NIK/NISN sudah ada)" }, { status: 409 });
         }
         return NextResponse.json({ error: "Gagal memproses siswa" }, { status: 500 });

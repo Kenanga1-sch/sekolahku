@@ -15,7 +15,6 @@ import {
     DialogDescription,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
     DialogFooter
 } from "@/components/ui/dialog";
 import {
@@ -127,8 +126,8 @@ export default function TabunganBrankasPage() {
             showSuccess("Data brankas berhasil disimpan");
             setIsDialogOpen(false);
             fetchData();
-        } catch (error: any) {
-            showError(error.message || "Gagal menyimpan data");
+        } catch (error) {
+            showError(error instanceof Error ? error.message : "Gagal menyimpan data");
         } finally {
             setIsSaving(false);
         }
@@ -160,8 +159,8 @@ export default function TabunganBrankasPage() {
             setIsTransferDialogOpen(false);
             setTransferData({ fromId: "", toId: "", amount: "", catatan: "" });
             fetchData();
-        } catch (error: any) {
-            showError(error.message);
+        } catch (error) {
+            showError(error instanceof Error ? error.message : "Gagal melakukan transfer");
         } finally {
             setIsSaving(false);
         }
@@ -275,10 +274,6 @@ export default function TabunganBrankasPage() {
                     )}
                 </div>
             )}
-
-// LoanManager imported at top level
-
-// ...
 
             {activeTab === "hutang" && (
                 <LoanManager />

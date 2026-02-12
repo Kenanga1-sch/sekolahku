@@ -22,9 +22,7 @@ export async function PATCH(
         // For MVP, we trust the frontend or allow updating if logged in.
         // Ideally: check if session.user.id === disposisi.toUserId
 
-        const updates: any = {
-            updatedAt: new Date(),
-        };
+        const updates: Partial<typeof disposisi.$inferInsert> = {};
 
         if (typeof isCompleted === "boolean") {
             updates.isCompleted = isCompleted;

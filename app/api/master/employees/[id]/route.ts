@@ -140,12 +140,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
         return NextResponse.json({ success: true });
 
-    } catch (error: any) {
+    } catch (error) {
         console.error("PUT Employee Error:", error);
-         if (error.message?.includes("UNIQUE constraint")) {
+         if (error instanceof Error && error.message?.includes("UNIQUE constraint")) {
              return NextResponse.json({ error: "Data unik (Email/NIP) konflik dengan data lain" }, { status: 409 });
         }
-        return NextResponse.json({ error: error.message || "Gagal update" }, { status: 500 });
+        return NextResponse.json({ error: error instanceof Error ? error.message : "Gagal update" }, { status: 500 });
     }
 }
 
@@ -197,9 +197,9 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
         await db.delete(users).where(eq(users.id, id));
 
         return NextResponse.json({ success: true });
-    } catch (error: any) {
+    } catch (error) {
         console.error("Delete Employee Error:", error);
-         if (error.message?.includes("FOREIGN KEY")) {
+         if (error instanceof Error && error.message?.includes("FOREIGN KEY")) {
             return NextResponse.json({ error: "Data terkait (Foreign Key) masih ada. Hapus data terkait dulu." }, { status: 409 });
         }
         return NextResponse.json({ error: "Gagal menghapus" }, { status: 500 });

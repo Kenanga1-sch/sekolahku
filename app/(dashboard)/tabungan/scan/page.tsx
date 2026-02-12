@@ -198,10 +198,10 @@ export default function TabunganScanPage() {
             setTimeout(() => {
                 resetForm();
             }, 2000);
-        } catch (error: any) {
+        } catch (error) {
             console.error("Transaction error:", error);
             setScanState("error");
-            showError(error.message || "Gagal menyimpan transaksi");
+            showError(error instanceof Error ? error.message : "Gagal menyimpan transaksi");
         } finally {
             setIsSubmitting(false);
         }

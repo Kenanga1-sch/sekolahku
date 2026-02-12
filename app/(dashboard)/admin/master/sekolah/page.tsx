@@ -11,20 +11,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
   Save,
+  RefreshCw,
+  Loader2,
+  AlertTriangle,
+  CheckCircle,
+  AlertCircle,
   School,
   MapPin,
   Phone,
   Mail,
   Globe,
-  CheckCircle,
-  Loader2,
-  AlertCircle,
-  RefreshCw,
   User,
   FileText,
-  AlertTriangle,
 } from "lucide-react";
-import type { SchoolSettings } from "@/types";
 
 export default function SchoolProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
@@ -131,9 +130,9 @@ export default function SchoolProfilePage() {
       
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } catch (err: any) {
+    } catch (err) {
       console.error("Failed to save settings:", err);
-      setError(err.message || "Gagal menyimpan pengaturan. Silakan coba lagi.");
+      setError(err instanceof Error ? err.message : "Gagal menyimpan pengaturan. Silakan coba lagi.");
     } finally {
       setIsSaving(false);
     }

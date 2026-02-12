@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { financeAccounts, financeCategories, financeTransactions } from "@/db";
-import { eq, desc, asc, and, sql, between } from "drizzle-orm";
+import { eq, desc, asc, and, sql, between, type SQL } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 // --- Types ---
@@ -39,8 +39,8 @@ export async function getAccounts() {
         orderBy: [desc(financeAccounts.isSystem), desc(financeAccounts.name)],
     });
     return { success: true, data };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
   }
 }
 
@@ -70,8 +70,8 @@ export async function createAccount(data: { name: string; accountNumber?: string
 
     revalidatePath("/keuangan/arus-kas");
     return { success: true, message: "Akun berhasil dibuat" };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
   }
 }
 
@@ -82,8 +82,8 @@ export async function updateAccount(id: string, data: { name: string; accountNum
         await db.update(financeAccounts).set(data).where(eq(financeAccounts.id, id));
         revalidatePath("/keuangan/arus-kas");
         return { success: true, message: "Akun berhasil diperbarui" };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
     }
 }
 
@@ -107,8 +107,8 @@ export async function deleteAccount(id: string) {
         await db.delete(financeAccounts).where(eq(financeAccounts.id, id));
         revalidatePath("/keuangan/arus-kas");
         return { success: true, message: "Akun berhasil dihapus" };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
     }
 }
 
@@ -124,8 +124,8 @@ export async function getCategories(type?: "INCOME" | "EXPENSE") {
         orderBy: [desc(financeCategories.name)],
     });
     return { success: true, data };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
   }
 }
 
@@ -136,8 +136,8 @@ export async function createCategory(data: { name: string; type: "INCOME" | "EXP
     await db.insert(financeCategories).values(data);
     revalidatePath("/keuangan/arus-kas");
     return { success: true, message: "Kategori berhasil dibuat" };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
   }
 }
 
@@ -148,8 +148,8 @@ export async function updateCategory(id: string, data: { name: string; type: "IN
         await db.update(financeCategories).set(data).where(eq(financeCategories.id, id));
         revalidatePath("/keuangan/arus-kas");
         return { success: true, message: "Kategori berhasil diperbarui" };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
     }
 }
 
@@ -169,8 +169,8 @@ export async function deleteCategory(id: string) {
         await db.delete(financeCategories).where(eq(financeCategories.id, id));
         revalidatePath("/keuangan/arus-kas");
         return { success: true, message: "Kategori berhasil dihapus" };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
     }
 }
 
@@ -180,7 +180,7 @@ export async function getTransactions(filters?: { accountId?: string; startDate?
     const session = await auth();
     if (!session) return { success: false, error: "Unauthorized" };
     try {
-        const conditions = [];
+        const conditions: (SQL | undefined)[] = [];
         if (filters?.accountId) {
              conditions.push(sql`${financeTransactions.accountIdSource} = ${filters.accountId} OR ${financeTransactions.accountIdDest} = ${filters.accountId}`);
         }
@@ -199,8 +199,8 @@ export async function getTransactions(filters?: { accountId?: string; startDate?
         });
         
         return { success: true, data };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
     }
 }
 
@@ -236,9 +236,9 @@ export async function createTransaction(data: CreateTransactionData) {
     revalidatePath("/keuangan/arus-kas");
     return { success: true, message: "Transaksi berhasil dicatat" };
 
-  } catch (error: any) {
+  } catch (error) {
     console.error("Create Transaction Error:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
   }
 }
 
@@ -258,8 +258,8 @@ export async function updateTransaction(id: string, data: Partial<CreateTransact
 
         revalidatePath("/keuangan/arus-kas");
         return { success: true, message: "Transaksi diperbarui" };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
     }
 }
 
@@ -270,8 +270,8 @@ export async function deleteTransaction(id: string) {
         await db.delete(financeTransactions).where(eq(financeTransactions.id, id));
         revalidatePath("/keuangan/arus-kas");
         return { success: true, message: "Transaksi dihapus" };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
     }
 }
 
@@ -282,15 +282,16 @@ export async function approveTransaction(transactionId: string) {
         await db.update(financeTransactions).set({ status: "APPROVED" }).where(eq(financeTransactions.id, transactionId));
         revalidatePath("/keuangan/arus-kas");
         return { success: true, message: "Transaksi disetujui" };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
     }
 }
 // --- Reports ---
 
 export async function getReportTransactions(filters: { accountId?: string; startDate: Date; endDate: Date }) {
+// Report Report Transactions
     try {
-        const conditions = [
+        const conditions: (SQL | undefined)[] = [
             // Only approved transactions usually count for reports
             eq(financeTransactions.status, "APPROVED"),
             // Date Range
@@ -313,7 +314,7 @@ export async function getReportTransactions(filters: { accountId?: string; start
         });
         
         return { success: true, data };
-    } catch (error: any) {
-        return { success: false, error: error.message };
+    } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : "Gagal mengambil data laporan" };
     }
 }

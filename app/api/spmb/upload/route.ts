@@ -79,7 +79,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const savedFiles: any[] = [];
+    interface DocumentFile {
+        path: string;
+        type: string;
+        originalName: string;
+    }
+
+    const savedFiles: DocumentFile[] = [];
     const uploadErrors: string[] = [];
 
     // Process uploads
@@ -108,11 +114,11 @@ export async function POST(request: NextRequest) {
        return NextResponse.json(
         { success: false, error: uploadErrors.join(", ") },
         { status: 400 }
-      );
+       );
     }
     
     // Parse existing documents to append new ones
-    let currentDocs: any[] = [];
+    let currentDocs: DocumentFile[] = [];
     try {
       if (existing[0].documents) {
         currentDocs = JSON.parse(existing[0].documents);

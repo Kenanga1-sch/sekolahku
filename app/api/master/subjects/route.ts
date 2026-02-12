@@ -33,9 +33,9 @@ export async function POST(req: Request) {
 
         return NextResponse.json(subject);
 
-    } catch (error: any) {
+    } catch (error) {
         console.error(error);
-        if (error.message?.includes("UNIQUE constraint")) {
+        if (error instanceof Error && error.message?.includes("UNIQUE constraint")) {
              return NextResponse.json({ error: "Kode Mapel sudah ada" }, { status: 409 });
         }
         return NextResponse.json({ error: "Failed to create subject" }, { status: 500 });

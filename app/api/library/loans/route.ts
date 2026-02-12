@@ -51,8 +51,8 @@ export async function POST(request: Request) {
         const loan = await import("@/lib/library").then(m => m.borrowBook(memberId, itemId, loanDays));
         
         return NextResponse.json({ success: true, data: loan });
-    } catch (error: any) {
+    } catch (error) {
         console.error("Create loan error:", error);
-        return NextResponse.json({ error: error.message || "Failed to create loan" }, { status: 500 });
+        return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to create loan" }, { status: 500 });
     }
 }

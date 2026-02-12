@@ -155,8 +155,8 @@ export default function TabunganSetoranPage() {
             setTransactions([]); // Clear list
             fetchHistory(); // Refresh history
             // Optionally redirect or switch tab
-        } catch (error: any) {
-            showError(error.message);
+        } catch (error) {
+            showError(error instanceof Error ? error.message : "Gagal memproses setoran");
         } finally {
             setIsSubmitting(false);
         }

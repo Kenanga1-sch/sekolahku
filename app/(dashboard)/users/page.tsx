@@ -115,7 +115,7 @@ export default function UserManagementPage() {
             if (!res.ok) throw new Error("Failed to fetch");
             
             const result = await res.json();
-            setUsers(result.items.map((u: any) => ({
+            setUsers(result.items.map((u: User) => ({
                 ...u,
                 created: u.createdAt,
             })));
@@ -179,8 +179,8 @@ export default function UserManagementPage() {
             alert(result.message); // Simple feedback
             setIsGenerateOpen(false);
             fetchUsers();
-        } catch (error: any) {
-            alert(error.message || "Gagal generate akun");
+        } catch (error) {
+            alert(error instanceof Error ? error.message : "Gagal generate akun");
         } finally {
             setIsSaving(false);
         }
@@ -253,9 +253,9 @@ export default function UserManagementPage() {
             }
             setDeleteId(null);
             fetchUsers();
-        } catch (error: any) {
+        } catch (error) {
             console.error("Failed to delete user:", error);
-            alert(error.message || "Gagal menghapus user");
+            alert(error instanceof Error ? error.message : "Gagal menghapus user");
         }
     };
 

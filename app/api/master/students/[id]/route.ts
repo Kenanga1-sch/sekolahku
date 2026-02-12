@@ -66,9 +66,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
         return NextResponse.json(updated[0]);
 
-    } catch (error: any) {
+    } catch (error) {
         console.error("Error updating student:", error);
-        if (error.message?.includes("UNIQUE constraint")) {
+        if (error instanceof Error && error.message?.includes("UNIQUE constraint")) {
              return NextResponse.json({ error: "Data unik (NIS/NISN/NIK) konflik dengan siswa lain" }, { status: 409 });
         }
         return NextResponse.json({ error: "Gagal update data" }, { status: 500 });

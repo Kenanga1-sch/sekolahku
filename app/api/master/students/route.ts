@@ -103,10 +103,10 @@ export async function POST(req: Request) {
 
         return NextResponse.json(newStudent[0]);
 
-    } catch (error: any) {
+    } catch (error) {
         console.error("Error creating student:", error);
         // Handle Unique Constraints
-        if (error.message?.includes("UNIQUE constraint")) {
+        if (error instanceof Error && error.message?.includes("UNIQUE constraint")) {
             if (error.message.includes("students.nisn")) return NextResponse.json({ error: "NISN sudah terdaftar" }, { status: 409 });
             if (error.message.includes("students.nis")) return NextResponse.json({ error: "NIS sudah terdaftar" }, { status: 409 });
             if (error.message.includes("students.nik")) return NextResponse.json({ error: "NIK sudah terdaftar" }, { status: 409 });

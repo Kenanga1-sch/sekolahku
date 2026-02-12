@@ -168,9 +168,9 @@ export default function BukuPage() {
                 
                 showSuccess("Buku berhasil dihapus");
                 loadItems();
-            } catch (error: any) {
+            } catch (error) {
                 console.error("Failed to delete item:", error);
-                showError(error.message || "Gagal menghapus buku");
+                showError(error instanceof Error ? error.message : "Gagal menghapus buku");
             }
         }
     };

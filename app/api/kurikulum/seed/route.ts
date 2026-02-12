@@ -232,7 +232,7 @@ export async function POST(req: NextRequest) {
 
     // 3. Bulk insert new items
     const values = newItems.map(item => ({
-        fase: item.fase as any,
+        fase: item.fase as "A" | "B" | "C" | "D" | "E" | "F",
         subject: item.subject,
         element: item.element,
         content: item.content
@@ -245,8 +245,8 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true, count: values.length, message: `Berhasil menambahkan ${values.length} data CP baru.` });
-  } catch (error: any) {
+  } catch (error) {
      console.error("Seed Error:", error);
-     return NextResponse.json({ success: false, error: error.message || "Failed to seed CP" }, { status: 500 });
+     return NextResponse.json({ success: false, error: error instanceof Error ? error.message : "Failed to seed CP" }, { status: 500 });
   }
 }

@@ -24,7 +24,7 @@ import { useAuthStore } from "@/lib/stores/auth-store";
 import { useSession } from "next-auth/react";
 
 export default function ProfilePage() {
-    const { data: session, update } = useSession();
+    const { update } = useSession();
     const router = useRouter();
     const { user, isAuthenticated, isLoading: authLoading } = useAuthStore();
     const [isSaving, setIsSaving] = useState(false);
@@ -134,9 +134,9 @@ export default function ProfilePage() {
             setPasswords({ current: "", new: "", confirm: "" });
             setPasswordSuccess(true);
             setTimeout(() => setPasswordSuccess(false), 3000);
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Failed to change password:", err);
-            setPasswordError(err.message || "Gagal mengubah password.");
+            setPasswordError(err instanceof Error ? err.message : "Gagal mengubah password.");
         } finally {
             setIsChangingPassword(false);
         }

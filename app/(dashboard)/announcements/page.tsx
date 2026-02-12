@@ -49,7 +49,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
+import { 
   Plus,
   MoreHorizontal,
   Pencil,
@@ -61,22 +61,13 @@ import {
   Loader2,
   Newspaper,
   Search,
-  Upload,
-  Image as ImageIcon,
+  ImageIcon,
   X,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import type { Announcement } from "@/types";
 
-// Lazy load heavy Rich Text Editor
-const RichTextEditor = dynamic(
-  () => import("@/components/rich-text-editor").then(mod => mod.RichTextEditor),
-  {
-    loading: () => <div className="border rounded-lg p-4 h-[250px] bg-muted/30 animate-pulse" />,
-    ssr: false
-  }
-);
-
+// Static definitions
 const categories = [
   { value: "spmb", label: "SPMB" },
   { value: "prestasi", label: "Prestasi" },
@@ -100,6 +91,15 @@ function generateSlug(title: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
 }
+
+// Lazy load heavy Rich Text Editor
+const RichTextEditor = dynamic(
+  () => import("@/components/rich-text-editor").then(mod => mod.RichTextEditor),
+  {
+    loading: () => <div className="border rounded-lg p-4 h-[250px] bg-muted/30 animate-pulse" />,
+    ssr: false
+  }
+);
 
 export default function AnnouncementsAdminPage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -261,9 +261,9 @@ export default function AnnouncementsAdminPage() {
       if (!res.ok) throw new Error(data.error || "Upload failed");
 
       setFormData(prev => ({ ...prev, thumbnail: data.url }));
-    } catch (error: any) {
+    } catch (error) {
       console.error("Upload error:", error);
-      alert("Gagal mengupload gambar: " + error.message);
+      alert("Gagal mengupload gambar: " + (error instanceof Error ? error.message : "Unknown error"));
     } finally {
       setIsUploading(false);
     }

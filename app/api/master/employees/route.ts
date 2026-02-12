@@ -111,7 +111,7 @@ export async function POST(req: Request) {
             const userId = newUser.id;
 
             // Helper to convert empty string to null
-            const sanitize = (val: any) => (val === "" || val === undefined ? null : val);
+            const sanitize = (val: string | undefined | null) => (val === "" || val === undefined ? null : val);
 
             // 2. Create Detail
             tx.insert(employeeDetails).values({
@@ -127,9 +127,9 @@ export async function POST(req: Request) {
 
         return NextResponse.json({ success: true, message: "Pegawai berhasil ditambahkan (Password: 123456)" });
 
-    } catch (error: any) {
+    } catch (error) {
         console.error("Error creating employee:", error);
-        if (error.message?.includes("UNIQUE constraint")) {
+        if (error instanceof Error && error.message?.includes("UNIQUE constraint")) {
              return NextResponse.json({ error: "Email atau NIP/NUPTK sudah terdaftar" }, { status: 409 });
         }
         return NextResponse.json({ error: "Gagal menyimpan data" }, { status: 500 });
