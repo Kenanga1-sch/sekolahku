@@ -8,9 +8,14 @@ These guides are intended for end-users (Administrators, Teachers, Staff, and St
 
 - [**User Guide**](docs/USER_GUIDE.md): General overview, login, dashboard navigation, and role-based access.
 - [**SPMB Manual**](docs/SPMB_MANUAL.md): Detailed guide for the Student Admission (SPMB) module.
+- [**Archive Manual**](docs/ARCHIVE_MANUAL.md): Guide for Digital Archive (Letters) and Alumni.
 - [**Library Manual**](docs/LIBRARY_MANUAL.md): Detailed guide for the Library Management module.
 - [**Inventory Manual**](docs/INVENTORY_MANUAL.md): Detailed guide for the Inventory Management module.
-- [**Savings Manual**](docs/TABUNGAN_MANUAL.md): Detailed guide for the Student Savings module.
+- [**Finance Manual**](docs/FINANCE_MANUAL.md): Guide for Cash Flow Management.
+  - [**Savings Manual**](docs/TABUNGAN_MANUAL.md): Specialized guide for Student Savings.
+- [**Attendance Manual**](docs/ATTENDANCE_MANUAL.md): Guide for Student Attendance and Reports.
+- [**Communication Manual**](docs/COMMUNICATION_MANUAL.md): Guide for Announcements and Messages.
+- [**Admin Manual**](docs/ADMIN_MANUAL.md): Guide for Super Admin tasks (Users, Settings, Backups).
 
 ## 🛠️ Technical Documentation
 
