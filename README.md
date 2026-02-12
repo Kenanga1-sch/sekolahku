@@ -143,9 +143,15 @@ npm run test:e2e    # Playwright E2E tests
 | `/inventaris` | Inventory dashboard |
 | `/users` | User management |
 
-## 📚 API Documentation
+## 📚 Documentation
 
-See [docs/API.md](docs/API.md) for detailed API documentation.
+For complete and detailed documentation, please refer to the [**Documentation Index**](DOCS_INDEX.md).
+
+Quick Links:
+- [User Guide](docs/USER_GUIDE.md)
+- [Developer Guide](docs/DEVELOPER_GUIDE.md)
+- [Database Schema](docs/DATABASE.md)
+- [API Documentation](docs/API.md)
 
 ## 🧪 Testing
 
