@@ -85,60 +85,39 @@ export async function getMemberActiveLoans(memberId: string) {
 }
 
 export async function borrowBook(memberId: string, assetId: string, loanDays = 7): Promise<LibraryLoan> {
-    console.log(`[Library] borrowBook called for member ${memberId}, asset ${assetId}`);
-    const now = new Date();
-    const dueDate = new Date(now.getTime() + loanDays * 24 * 60 * 60 * 1000);
-
-    return db.transaction((tx) => {
-        const [loan] = tx.insert(libraryLoans).values({
-            memberId,
-            itemId: assetId,
-            borrowDate: now,
-            dueDate,
-            isReturned: false,
-            fineAmount: 0,
-            finePaid: false,
-            createdAt: now,
-            updatedAt: now,
-        } as any).returning().all();
-
-        tx.update(libraryAssets)
-            .set({ status: "BORROWED", updatedAt: now } as any)
-            .where(eq(libraryAssets.id, assetId))
-            .run();
-
-        revalidateLibraryStats().catch(err => console.error("[Library] Revalidation error:", err));
-        return loan as LibraryLoan;
+    console.log(`[Library] borrowBook proxying to Go for member ${memberId}, asset ${assetId}`);
+    
+    const res = await fetch("http://localhost:8080/api/library/loans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memberId, itemId: assetId, loanDays })
     });
+
+    if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Gagal meminjam buku via Go API");
+    }
+
+    const { data } = await res.json();
+    revalidateLibraryStats().catch(err => console.error("[Library] Revalidation error:", err));
+    return data as LibraryLoan;
 }
 
 export async function returnBook(loanId: string): Promise<LibraryLoan> {
-    console.log(`[Library] returnBook called for loan ${loanId}`);
-    const rows = db.select().from(libraryLoans).where(eq(libraryLoans.id, loanId)).limit(1).all();
-    const loan = rows[0];
-    if (!loan) throw new Error("Loan not found");
+    console.log(`[Library] returnBook proxying to Go for loan ${loanId}`);
+    
+    const res = await fetch(`http://localhost:8080/api/library/loans/${loanId}/return`, {
+        method: "POST"
+    });
 
-    const now = new Date();
-    let fineAmount = 0;
-    if (now > new Date(loan.dueDate)) {
-        const diff = Math.ceil((now.getTime() - new Date(loan.dueDate).getTime()) / (24 * 60 * 60 * 1000));
-        fineAmount = diff * 1000;
+    if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Gagal mengembalikan buku via Go API");
     }
 
-    return db.transaction((tx) => {
-        const [updated] = tx.update(libraryLoans)
-            .set({ returnDate: now, isReturned: true, fineAmount, updatedAt: now } as any)
-            .where(eq(libraryLoans.id, loanId))
-            .returning().all();
-
-        tx.update(libraryAssets)
-            .set({ status: "AVAILABLE", updatedAt: now } as any)
-            .where(eq(libraryAssets.id, loan.itemId))
-            .run();
-
-        revalidateLibraryStats().catch(err => console.error("[Library] Revalidation error:", err));
-        return updated as LibraryLoan;
-    });
+    const { data } = await res.json();
+    revalidateLibraryStats().catch(err => console.error("[Library] Revalidation error:", err));
+    return data as LibraryLoan;
 }
 
 export async function findLoanByItemId(itemId: string) {

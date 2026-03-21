@@ -14,33 +14,19 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ nextSequence: 1 });
         }
 
-        const targetDate = date ? new Date(date) : new Date();
-        const start = startOfMonth(targetDate);
-        const end = endOfMonth(targetDate);
+        const res = await fetch("http://localhost:8080/api/eoffice/letters/numbering", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+        });
 
-        // Count letters with this code in this month
-        // We want the MAX sequence number used, to increment.
-        // OR count? Usually MAX is safer if deletions happen.
-        // But if we reset every month, we need to check MAX for THIS MONTH.
-        
-        // Note: created_at in DB is timestamp.
-        
-        const result = await db.select({
-            maxSeq: sql<number>`MAX(${generatedLetters.sequenceNumber})`
-        })
-        .from(generatedLetters)
-        .where(
-            and(
-                eq(generatedLetters.classificationCode, classificationCode),
-                gte(generatedLetters.createdAt, start),
-                lte(generatedLetters.createdAt, end)
-            )
-        );
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || "Gagal mengkalkulasi nomor via Go API");
+        }
 
-        const currentMax = result[0]?.maxSeq || 0;
-        const nextSequence = currentMax + 1;
-
-        return NextResponse.json({ nextSequence });
+        const data = await res.json();
+        return NextResponse.json({ nextSequence: data.nextSequence });
 
     } catch (error) {
         console.error("Failed to calculate number:", error);

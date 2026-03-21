@@ -34,6 +34,10 @@ func main() {
 	spmbRepo := repository.NewSPMBRepository(db)
 	studentRepo := repository.NewStudentRepository(db)
 	employeeRepo := repository.NewEmployeeRepository(db)
+	savingsRepo := repository.NewSavingsRepository(db)
+	libraryRepo := repository.NewLibraryRepository(db)
+	eofficeRepo := repository.NewEOfficeRepository(db)
+	academicAdvRepo := repository.NewAcademicAdvRepository(db)
 
 	// Handlers
 	authHandler := handlers.NewAuthHandler(userRepo)
@@ -43,6 +47,10 @@ func main() {
 	spmbHandler := handlers.NewSPMBHandler(spmbRepo)
 	studentHandler := handlers.NewStudentHandler(studentRepo)
 	employeeHandler := handlers.NewEmployeeHandler(employeeRepo)
+	savingsHandler := handlers.NewSavingsHandler(savingsRepo)
+	libraryHandler := handlers.NewLibraryHandler(libraryRepo)
+	eofficeHandler := handlers.NewEOfficeHandler(eofficeRepo)
+	academicAdvHandler := handlers.NewAcademicAdvHandler(academicAdvRepo)
 
 	// Routes
 	e.GET("/api/health", func(c echo.Context) error {
@@ -71,6 +79,20 @@ func main() {
 	
 	e.GET("/api/master/employees", employeeHandler.GetEmployees)
 	e.POST("/api/master/employees", employeeHandler.CreateEmployee)
+
+	e.POST("/api/savings/transactions", savingsHandler.CreateTransaksi)
+	e.POST("/api/savings/setoran", savingsHandler.CreateSetoran)
+	e.POST("/api/savings/setoran/verify", savingsHandler.VerifySetoran)
+
+	e.POST("/api/library/loans", libraryHandler.BorrowBook)
+	e.POST("/api/library/loans/:id/return", libraryHandler.ReturnBook)
+
+	e.POST("/api/eoffice/letters/numbering", eofficeHandler.Numbering)
+	e.POST("/api/eoffice/letters/increment", eofficeHandler.Increment)
+	e.GET("/api/public/announcements", eofficeHandler.GetPublicAnnouncements)
+
+	e.POST("/api/academic/attendance/scan", academicAdvHandler.RecordQRScan)
+	e.POST("/api/academic/grades/bulk", academicAdvHandler.BulkGrades)
 
 	e.Logger.Fatal(e.Start(":8080"))
 }

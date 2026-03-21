@@ -41,36 +41,16 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     
-    // Expect body: { tpId, grades: [{ studentId, score, type }] }
-    // Bulk upsert logic
-    
-    const { tpId, grades } = body;
-    
-    // SQLite doesn't have great UPSERT support in Drizzle sometimes, so we might loop
-    // or delete previous for this TP/Student combination and insert new.
-    
-    for (const g of grades) {
-        // Simple check exist
-        const exist = await db.select().from(studentGrades)
-            .where(and(
-                eq(studentGrades.tpId, tpId),
-                eq(studentGrades.studentId, g.studentId),
-                eq(studentGrades.type, g.type)
-            )).limit(1);
-            
-        if (exist.length > 0) {
-            await db.update(studentGrades)
-                .set({ score: g.score, updatedAt: new Date() })
-                .where(eq(studentGrades.id, exist[0].id));
-        } else {
-            await db.insert(studentGrades).values({
-                tpId,
-                studentId: g.studentId,
-                score: g.score,
-                type: g.type,
-                notes: g.notes || ""
-            });
-        }
+    // Relay bulk upserts to Golang
+    const res = await fetch("http://localhost:8080/api/academic/grades/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Gagal menyimpan nilai massal via Go API");
     }
 
     return NextResponse.json({ success: true });

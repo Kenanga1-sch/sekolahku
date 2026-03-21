@@ -14,37 +14,19 @@ export async function POST(request: NextRequest) {
 
     try {
         const body = await request.json();
-        const { letterNumber, sequenceNumber, templateId, recipient, classificationCode } = body;
+        const res = await fetch("http://localhost:8080/api/eoffice/letters/increment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+        });
 
-        // 1. Get current settings ID
-        const settingsList = await db.select().from(schoolSettings).limit(1);
-        const settingsId = settingsList[0].id;
-
-        // 2. Global Counter Update (Only if NO classification code or explicitly requested)
-        // If classificationCode is present, we assume it uses Per-Code numbering, so global counter is separate.
-        // However, some schools use Global Counter + Classification Code.
-        // The prompt asked for "Count by Code". So we don't update Global Counter here.
-        if (!classificationCode) {
-            await db.update(schoolSettings)
-                .set({ 
-                    lastLetterNumber: sequenceNumber,
-                    updatedAt: new Date()
-                })
-                .where(eq(schoolSettings.id, settingsId));
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || "Gagal increment nomor via Go API");
         }
 
-        // 3. Log into generated_letters
-        await db.insert(generatedLetters).values({
-            id: createId(),
-            letterNumber,
-            sequenceNumber,
-            templateId,
-            recipient,
-            classificationCode: classificationCode || null,
-            createdAt: new Date(),
-        });
-        
-        return NextResponse.json({ success: true, newSequence: sequenceNumber });
+        const data = await res.json();
+        return NextResponse.json({ success: true, newSequence: data.newSequence });
 
     } catch (error) {
         console.error("Failed to increment letter number:", error);

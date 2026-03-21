@@ -116,30 +116,27 @@ export async function createTransaksi(
     data: TabunganTransaksiFormData,
     userId: string
 ) {
-    return db.transaction((tx) => {
-        // 1. Validate siswa exists
-        const siswaRows = tx.select().from(tabunganSiswa).where(eq(tabunganSiswa.id, data.siswaId)).all();
-        const siswa = siswaRows[0];
-        if (!siswa) throw new Error("Siswa not found");
+    const currentTipe = (data as any).type || (data as any).tipe;
+    const payload = {
+        siswaId: data.siswaId,
+        tipe: currentTipe,
+        nominal: data.nominal,
+        catatan: data.catatan,
+        userId: userId
+    };
 
-        // For withdrawals, check if student has sufficient pending balance
-        const currentTipe = (data as any).type || (data as any).tipe;
-        if (currentTipe === "tarik" && siswa.saldoTerakhir < data.nominal) {
-            throw new Error("Saldo tidak cukup untuk penarikan");
-        }
-
-        // 2. Create Transaction with 'collected' status
-        const [newTx] = tx.insert(tabunganTransaksi).values({
-            ...data,
-            tipe: currentTipe,
-            userId,
-            status: "collected",
-            createdAt: new Date(),
-            updatedAt: new Date(),
-        } as any).returning().all();
-
-        return newTx;
+    const response = await fetch("http://localhost:8080/api/savings/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
     });
+    
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Gagal mencatat transaksi via Go API");
+    }
+    
+    return await response.json();
 }
 
 export async function getRecentTransactions(limit = 10): Promise<TabunganTransaksiWithRelations[]> {
