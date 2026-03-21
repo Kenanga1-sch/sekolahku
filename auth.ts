@@ -33,31 +33,29 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         try {
             const { email, password } = await loginSchema.parseAsync(credentials);
             
-            // Allow searching in Drizzle
-            const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
-    
-            if (!user) {
-                console.log("Auth Debug: User not found", email);
+            // Forward authentication request to Golang backend
+            const response = await fetch("http://localhost:8080/api/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password }),
+            });
+
+            if (!response.ok) {
+                console.log("Auth Debug: Golang API returned error status", response.status);
                 return null;
             }
 
-            if (!user.passwordHash) {
-                console.log("Auth Debug: User has no password hash", email);
-                return null;
-            }
-    
-            const passwordsMatch = await bcrypt.compare(password, user.passwordHash);
-            if (passwordsMatch) {
-                console.log("Auth Debug: Password match success", email);
-                return user;
+            const data = await response.json();
+            
+            if (data.success && data.user) {
+                console.log("Auth Debug: Login successful via Golang API", email);
+                return data.user;
             }
             
-            console.log("Auth Debug: Password mismatch", email);
+            console.log("Auth Debug: Login failed via Golang API", email);
             return null;
         } catch (e) {
             console.error("Auth Debug Error:", e);
-            console.error("Auth Debug Error:", e);
-            // Removed file logging to satisfy lint rules (no require) and security (no writing to fs in auth)
             return null;
         }
       }

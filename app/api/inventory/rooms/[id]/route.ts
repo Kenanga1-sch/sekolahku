@@ -1,8 +1,5 @@
-import { db } from "@/db";
-import { inventoryRooms } from "@/db/schema/inventory";
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
 
 const ADMIN_ROLES = ["superadmin", "admin"];
 
@@ -19,22 +16,13 @@ export async function GET(
 
     const { id } = await params;
 
-    const room = await db.query.inventoryRooms.findFirst({
-        where: eq(inventoryRooms.id, id),
-        with: {
-            pic: {
-                columns: {
-                    name: true,
-                    email: true,
-                }
-            }
-        }
-    });
-
-    if (!room) {
-        return new NextResponse("Room not found", { status: 404 });
+    const response = await fetch(`http://localhost:8080/api/inventory/rooms/${id}`, { cache: "no-store" });
+    if (!response.ok) {
+        if (response.status === 404) return new NextResponse("Room not found", { status: 404 });
+        throw new Error("Go API Error");
     }
-
+    
+    const room = await response.json();
     return NextResponse.json(room);
   } catch (error) {
     console.error("[INVENTORY_ROOM_GET]", error);
@@ -59,21 +47,20 @@ export async function PUT(
 
     const { id } = await params;
     const body = await req.json();
-    const { name, location, description, code, picId } = body;
 
-    const updated = await db
-      .update(inventoryRooms)
-      .set({
-        name,
-        code,
-        description,
-        location,
-        picId,
-      })
-      .where(eq(inventoryRooms.id, id))
-      .returning();
+    const response = await fetch(`http://localhost:8080/api/inventory/rooms/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+    });
 
-    return NextResponse.json(updated[0]);
+    if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        return new NextResponse(errData.error || "Bad Request", { status: response.status });
+    }
+    
+    const updated = await response.json();
+    return NextResponse.json(updated);
   } catch (error) {
     console.error("[INVENTORY_ROOM_PUT]", error);
     return new NextResponse("Internal Error", { status: 500 });
@@ -97,7 +84,14 @@ export async function DELETE(
 
     const { id } = await params;
 
-    await db.delete(inventoryRooms).where(eq(inventoryRooms.id, id));
+    const response = await fetch(`http://localhost:8080/api/inventory/rooms/${id}`, {
+        method: "DELETE"
+    });
+
+    if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        return new NextResponse(errData.error || "Bad Request", { status: response.status });
+    }
 
     return new NextResponse(null, { status: 204 });
   } catch (error) {

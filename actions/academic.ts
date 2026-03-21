@@ -1,28 +1,19 @@
 "use server";
 
-import { db, academicYears } from "@/db";
-import { eq } from "drizzle-orm";
-
 export async function getActiveAcademicYear() {
   try {
-    // 1. Try to find active academic year in academicYears table
-    const activeYear = await db.query.academicYears.findFirst({
-        where: eq(academicYears.isActive, true)
+    const response = await fetch("http://localhost:8080/api/academic/active-year", {
+        cache: 'no-store' // Ensuring fresh data, can be tuned later
     });
-
-    if (activeYear) {
-        return { success: true, data: activeYear.name };
+    
+    if (!response.ok) {
+        throw new Error("API returned non-OK status");
     }
-
-    // 2. Fallback to School Settings
-    const settings = await db.query.schoolSettings.findFirst();
-    if (settings?.currentAcademicYear) {
-        return { success: true, data: settings.currentAcademicYear };
-    }
-
-    return { success: true, data: "2024/2025" }; // Final Fallback
+    
+    const result = await response.json();
+    return result; // Returns { success: true, data: "..." }
   } catch (error) {
-    console.error("Failed to get academic year:", error);
+    console.error("Failed to get academic year from Go API:", error);
     const message = error instanceof Error ? error.message : "Failed to get active academic year";
     return { success: false, error: message };
   }

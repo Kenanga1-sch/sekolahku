@@ -35,10 +35,9 @@ export async function getAccounts() {
   const session = await auth();
   if (!session) return { success: false, error: "Unauthorized" };
   try {
-    const data = await db.query.financeAccounts.findMany({
-        orderBy: [desc(financeAccounts.isSystem), desc(financeAccounts.name)],
-    });
-    return { success: true, data };
+    const response = await fetch("http://localhost:8080/api/finance/accounts", { cache: 'no-store' });
+    if (!response.ok) throw new Error("Gagal mengambil data dari API Go");
+    return await response.json();
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
   }
@@ -48,28 +47,15 @@ export async function createAccount(data: { name: string; accountNumber?: string
   const session = await auth();
   if (!session) return { success: false, error: "Unauthorized" };
   try {
-    const { initialBalance, ...accountData } = data;
-    
-    // 1. Create Account
-    const [newAccount] = await db.insert(financeAccounts).values(accountData).returning();
-
-    // 2. If Initial Balance is set, create a transaction
-    if (initialBalance && initialBalance > 0) {
-        await db.insert(financeTransactions).values({
-            type: "INCOME",
-            accountIdSource: newAccount.id,
-            amount: initialBalance,
-            description: "Saldo Awal",
-            status: "APPROVED",
-            date: new Date(),
-            categoryId: null,
-            accountIdDest: null,
-            createdBy: session.user?.id || null,
-        });
-    }
-
-    revalidatePath("/keuangan/arus-kas");
-    return { success: true, message: "Akun berhasil dibuat" };
+    const payload = { ...data, createdBy: session.user?.id };
+    const response = await fetch("http://localhost:8080/api/finance/accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    });
+    const result = await response.json();
+    if (result.success) revalidatePath("/keuangan/arus-kas");
+    return result;
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
   }
@@ -79,9 +65,14 @@ export async function updateAccount(id: string, data: { name: string; accountNum
     const session = await auth();
     if (!session) return { success: false, error: "Unauthorized" };
     try {
-        await db.update(financeAccounts).set(data).where(eq(financeAccounts.id, id));
-        revalidatePath("/keuangan/arus-kas");
-        return { success: true, message: "Akun berhasil diperbarui" };
+        const response = await fetch(`http://localhost:8080/api/finance/accounts/${id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        if (result.success) revalidatePath("/keuangan/arus-kas");
+        return result;
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
     }
@@ -91,22 +82,12 @@ export async function deleteAccount(id: string) {
     const session = await auth();
     if (!session) return { success: false, error: "Unauthorized" };
     try {
-        // Prevent if system account
-        const account = await db.query.financeAccounts.findFirst({
-            where: eq(financeAccounts.id, id),
+        const response = await fetch(`http://localhost:8080/api/finance/accounts/${id}`, {
+            method: "DELETE"
         });
-        if (account?.isSystem) return { success: false, error: "Akun sistem tidak dapat dihapus" };
-
-        // Check for transactions
-        const hasTx = await db.query.financeTransactions.findFirst({
-            where: sql`${financeTransactions.accountIdSource} = ${id} OR ${financeTransactions.accountIdDest} = ${id}`
-        });
-
-        if (hasTx) return { success: false, error: "Akun ini memiliki riwayat transaksi, tidak dapat dihapus" };
-
-        await db.delete(financeAccounts).where(eq(financeAccounts.id, id));
-        revalidatePath("/keuangan/arus-kas");
-        return { success: true, message: "Akun berhasil dihapus" };
+        const result = await response.json();
+        if (result.success) revalidatePath("/keuangan/arus-kas");
+        return result;
     } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
     }
