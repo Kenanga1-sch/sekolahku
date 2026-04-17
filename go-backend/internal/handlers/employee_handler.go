@@ -61,3 +61,34 @@ func (h *EmployeeHandler) CreateEmployee(c echo.Context) error {
 		"message": "Pegawai berhasil ditambahkan (Password: 123456)",
 	})
 }
+
+func (h *EmployeeHandler) GetEmployeeByID(c echo.Context) error {
+	id := c.Param("id")
+	e, err := h.Repo.GetEmployeeByID(id)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Pegawai tidak ditemukan"})
+	}
+	return c.JSON(http.StatusOK, e)
+}
+
+func (h *EmployeeHandler) UpdateEmployee(c echo.Context) error {
+	id := c.Param("id")
+	var req models.CreateEmployeeRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid payload"})
+	}
+
+	if err := h.Repo.UpdateEmployee(id, req); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal memperbarui data"})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
+}
+
+func (h *EmployeeHandler) DeleteEmployee(c echo.Context) error {
+	id := c.Param("id")
+	if err := h.Repo.DeleteEmployee(id); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal menghapus data"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
+}

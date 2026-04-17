@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
+import { goPost } from "@/lib/api-client";
 
 export default function CreateSuratKeluarPage() {
     const router = useRouter();
@@ -33,19 +34,14 @@ export default function CreateSuratKeluarPage() {
         setLoading(true);
         
         try {
-            const res = await fetch("/api/arsip/surat-keluar", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(formData),
-            });
+            const result: any = await goPost("/api/arsip/surat-keluar", formData);
 
-            if (!res.ok) throw new Error("Gagal booking nomor surat");
+            if (result.error) throw new Error(result.error || "Gagal booking nomor surat");
 
-            const result = await res.json();
             toast.success(`Nomor Surat Dibooking: ${result.mailNumber}`);
             
             // Redirect to detail page to view number and upload later
-            router.push(`/arsip/surat-keluar/${result.id}`);
+            router.push(`/arsip/surat-keluar/detail?id=${result.id}`);
         } catch (error) {
             console.error(error);
             toast.error("Terjadi kesalahan saat menyimpan");
@@ -153,3 +149,4 @@ export default function CreateSuratKeluarPage() {
         </div>
     );
 }
+

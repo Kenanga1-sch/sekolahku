@@ -1,10 +1,10 @@
 "use client";
-import React, { useId } from "react";
-import { useEffect, useState } from "react";
+import React, { useId, useEffect, useState } from "react";
 import Particles, { initParticlesEngine } from "@tsparticles/react";
-import type { Container, ISourceOptions } from "@tsparticles/engine";
+import type { Container } from "@tsparticles/engine";
 import { loadSlim } from "@tsparticles/slim";
 import { cn } from "@/lib/utils";
+import { motion, useAnimation } from "framer-motion";
 
 type SparklesProps = {
   id?: string;
@@ -29,24 +29,36 @@ export const SparklesCore = (props: SparklesProps) => {
     particleDensity,
   } = props;
   const [init, setInit] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const [isParticlesLoaded, setIsParticlesLoaded] = useState(false);
+  const controls = useAnimation();
+
   useEffect(() => {
+    setIsMounted(true);
     initParticlesEngine(async (engine) => {
       await loadSlim(engine);
     }).then(() => {
       setInit(true);
     });
-  }, []);
-  const controls = useAnimation();
 
-  const particlesLoaded = async (container?: Container) => {
-    if (container) {
-      // console.log(container);
+    return () => setIsMounted(false);
+  }, []);
+
+  // Use useEffect to start animation only after mount and particles are ready
+  useEffect(() => {
+    if (isMounted && isParticlesLoaded) {
       controls.start({
         opacity: 1,
         transition: {
           duration: 1,
         },
       });
+    }
+  }, [isMounted, isParticlesLoaded, controls]);
+
+  const particlesLoaded = async (container?: Container) => {
+    if (container) {
+      setIsParticlesLoaded(true);
     }
   };
 
@@ -138,7 +150,3 @@ export const SparklesCore = (props: SparklesProps) => {
     </motion.div>
   );
 };
-
-// Simple motion wrapper to avoid huge dependency if not needed, 
-// but we already use framer-motion elsewhere.
-import { motion, useAnimation } from "framer-motion";

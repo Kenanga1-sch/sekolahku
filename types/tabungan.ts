@@ -2,7 +2,6 @@
 // Tabungan (Student Savings) Module Types
 // ==========================================
 
-import { type TabunganKelas, type TabunganSiswa, type TabunganTransaksi, type TabunganSetoran } from "@/db/schema/tabungan";
 
 // ==========================================
 // Extended Types with Relations

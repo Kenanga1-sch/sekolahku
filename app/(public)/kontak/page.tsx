@@ -1,5 +1,6 @@
-import { db } from "@/db";
-import { schoolSettings } from "@/db/schema/misc";
+"use client";
+
+import React, { useState, useEffect } from "react";
 import { ContactForm } from "@/components/contact/contact-form";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -11,13 +12,11 @@ import {
   Instagram,
   Youtube,
   MessageSquare,
+  MoveUpRight,
+  Loader2,
 } from "lucide-react";
-import { MoveUpRight } from "lucide-react";
-
-async function getContactData() {
-  const [settings] = await db.select().from(schoolSettings).limit(1);
-  return settings;
-}
+import { siteConfig } from "@/lib/config";
+import { goGet } from "@/lib/api-client";
 
 const socialLinks = [
   { icon: Facebook, href: "#", label: "Facebook" },
@@ -25,16 +24,37 @@ const socialLinks = [
   { icon: Youtube, href: "#", label: "Youtube" },
 ];
 
-export default async function KontakPage() {
-  const settings = await getContactData();
+export default function KontakPage() {
+  const [settings, setSettings] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    goGet(`/api/public/spmb/landing`)
+      .then((json: any) => {
+        if (json.success) {
+          setSettings(json.settings);
+        }
+        setIsLoading(false);
+      })
+      .catch(err => {
+        console.error("Failed to fetch contact settings:", err);
+        setIsLoading(false);
+      });
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   // Default values if no settings found
-  const schoolName = settings?.schoolName || "SD Negeri 1 Kenanga";
-  const schoolAddress = settings?.schoolAddress || "Jl. Pendidikan No. 123, Kel. Sukamaju, Kec. Kota Utara, Jakarta 12345";
-  // Default coordinates (Jakarta) if none set
-  const schoolLat = settings?.schoolLat || -6.2088;
-  const schoolLng = settings?.schoolLng || 106.8456;
-  const maxDistance = settings?.maxDistanceKm || 1;
+  const schoolName = settings?.schoolName || siteConfig.school.name;
+  const schoolAddress = settings?.schoolAddress || siteConfig.school.address;
+  const schoolLat = settings?.schoolLat || siteConfig.location.lat;
+  const schoolLng = settings?.schoolLng || siteConfig.location.lng;
 
   const contactInfo = [
     {
@@ -45,12 +65,12 @@ export default async function KontakPage() {
     {
       icon: Phone,
       title: "Telepon",
-      content: "(021) 1234-5678",
+      content: settings?.schoolPhone || siteConfig.school.phone,
     },
     {
       icon: Mail,
       title: "Email",
-      content: "info@sdnegeri1.sch.id",
+      content: settings?.schoolEmail || siteConfig.school.email,
     },
     {
       icon: Clock,
@@ -60,7 +80,7 @@ export default async function KontakPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+    <div className="bg-zinc-50 dark:bg-zinc-950">
       {/* Hero Section */}
       <section className="relative pt-8 pb-20 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-primary/5" />
@@ -136,7 +156,7 @@ export default async function KontakPage() {
       </section>
 
       {/* Map Section */}
-      <section className="py-16 bg-white dark:bg-zinc-900 border-t border-zinc-100 dark:border-zinc-800">
+      <section className="py-16 bg-white dark:bg-zinc-900">
         <div className="container">
           <div className="flex items-center justify-between mb-8">
              <div>
@@ -171,3 +191,5 @@ export default async function KontakPage() {
     </div>
   );
 }
+
+

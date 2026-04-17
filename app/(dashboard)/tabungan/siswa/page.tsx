@@ -61,6 +61,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { showSuccess, showError } from "@/lib/toast";
+import { goGet, goPost, goPut, goDelete } from "@/lib/api-client";
 import type { TabunganSiswaWithRelations, TabunganKelasWithRelations, TabunganSiswaFormData } from "@/types/tabungan";
 
 function formatRupiah(amount: number): string {
@@ -108,8 +109,8 @@ export default function TabunganSiswaPage() {
             if (kelasFilter !== "all") params.set("kelasId", kelasFilter);
 
             const [siswaRes, kelasRes] = await Promise.all([
-                fetch(`/api/tabungan/siswa?${params.toString()}`).then(r => r.json()),
-                fetch("/api/tabungan/kelas").then(r => r.json()),
+                goGet(`/api/tabungan/siswa?${params.toString()}`),
+                goGet("/api/tabungan/kelas"),
             ]);
 
             if (siswaRes.error) throw new Error(siswaRes.error);
@@ -139,20 +140,10 @@ export default function TabunganSiswaPage() {
         setIsSaving(true);
         try {
             if (editingId) {
-                const res = await fetch(`/api/tabungan/siswa/${editingId}`, {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(formData),
-                });
-                if (!res.ok) throw new Error("Failed to update");
+                await goPut(`/api/tabungan/siswa/${editingId}`, formData);
                 showSuccess("Data siswa berhasil diperbarui");
             } else {
-                const res = await fetch("/api/tabungan/siswa", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(formData),
-                });
-                if (!res.ok) throw new Error("Failed to create");
+                await goPost("/api/tabungan/siswa", formData);
                 showSuccess("Siswa baru berhasil ditambahkan");
             }
             resetForm();
@@ -178,8 +169,7 @@ export default function TabunganSiswaPage() {
     const handleDelete = async () => {
         if (!deleteId) return;
         try {
-            const res = await fetch(`/api/tabungan/siswa/${deleteId}`, { method: "DELETE" });
-            if (!res.ok) throw new Error("Failed to delete");
+            await goDelete(`/api/tabungan/siswa/${deleteId}`);
             
             showSuccess("Siswa berhasil dihapus");
             setDeleteId(null);
@@ -195,9 +185,8 @@ export default function TabunganSiswaPage() {
     const handleSync = async () => {
         setIsSyncing(true);
         try {
-            showSuccess("Mulai sinkronisasi data siswa..."); // Using toast helper
-            const res = await fetch("/api/sync/savings", { method: "POST" });
-            const result = await res.json();
+            showSuccess("Mulai sinkronisasi data siswa..."); 
+            const result: any = await goPost("/api/sync/savings");
             
             if (!res.ok) throw new Error(result.details || result.error || "Sync failed");
             
@@ -458,3 +447,4 @@ export default function TabunganSiswaPage() {
         </div>
     );
 }
+

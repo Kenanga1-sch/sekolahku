@@ -32,6 +32,7 @@ import {
     ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
+import { goGet } from "@/lib/api-client";
 import type { TabunganTransaksiWithRelations, TransactionStatus } from "@/types/tabungan";
 
 function formatRupiah(amount: number): string {
@@ -89,8 +90,7 @@ export default function TabunganRiwayatPage() {
             if (statusFilter !== "all") params.set("status", statusFilter);
             if (typeFilter !== "all") params.set("tipe", typeFilter);
 
-            const res = await fetch(`/api/tabungan/transaksi?${params.toString()}`);
-            const result = await res.json();
+            const result: any = await goGet(`/api/tabungan/transaksi?${params.toString()}`);
 
             if (result.error) throw new Error(result.error);
 
@@ -281,3 +281,4 @@ export default function TabunganRiwayatPage() {
         </div>
     );
 }
+

@@ -31,7 +31,7 @@ interface Staff {
 }
 
 export default function PublicStaffPage() {
-  const { data, isLoading } = useSWR("/api/admin/staff", fetcher);
+  const { data, isLoading } = useSWR("/api/public/staff", fetcher);
   const { settings } = useSchoolSettings();
   const [filter, setFilter] = useState<"all" | "guru" | "staff" | "support">("all");
 
@@ -172,3 +172,4 @@ export default function PublicStaffPage() {
     </div>
   );
 }
+

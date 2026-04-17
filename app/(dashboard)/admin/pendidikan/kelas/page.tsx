@@ -32,7 +32,7 @@ import {
 import { Plus, Pencil, Trash2, ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { showSuccess, showError } from "@/lib/toast";
-import { getActiveAcademicYear } from "@/actions/academic";
+import { goGet, goPost, goPut, goDelete } from "@/lib/api-client";
 
 interface AcademicClass {
     id: string;
@@ -62,13 +62,11 @@ export default function AcademicClassesPage() {
         setIsLoading(true);
         try {
             // Parallel fetch: classes and active academic year
-            const [resClasses, resYear] = await Promise.all([
-                fetch("/api/academic/classes"),
-                getActiveAcademicYear()
+            const [dataClasses, resYear]: [any, any] = await Promise.all([
+                goGet("/api/academic/classes"),
+                goGet("/api/academic/active-year")
             ]);
 
-            if (!resClasses.ok) throw new Error("Gagal load data");
-            const dataClasses = await resClasses.json();
             setClasses(Array.isArray(dataClasses) ? dataClasses : []);
 
             if (resYear.success && resYear.data) {
@@ -116,22 +114,11 @@ export default function AcademicClassesPage() {
                 academicYear: academicYear // Now dynamic
             };
 
-            let res;
             if (editingItem) {
-                res = await fetch(`/api/academic/classes/${editingItem.id}`, {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload)
-                });
+                await goPut(`/api/academic/classes/${editingItem.id}`, payload);
             } else {
-                res = await fetch("/api/academic/classes", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload)
-                });
+                await goPost("/api/academic/classes", payload);
             }
-
-            if (!res.ok) throw new Error("Gagal menyimpan");
             
             showSuccess(editingItem ? "Kelas diperbarui" : "Kelas ditambahkan");
             setIsDialogOpen(false);
@@ -146,8 +133,7 @@ export default function AcademicClassesPage() {
     const handleDelete = async (id: string) => {
         if (!confirm("Hapus kelas ini?")) return;
         try {
-            const res = await fetch(`/api/academic/classes/${id}`, { method: "DELETE" });
-            if (!res.ok) throw new Error("Gagal hapus");
+            await goDelete(`/api/academic/classes/${id}`);
             showSuccess("Kelas dihapus");
             fetchData();
         } catch (e) {
@@ -280,3 +266,4 @@ export default function AcademicClassesPage() {
         </div>
     );
 }
+

@@ -1,32 +1,74 @@
-import { auth } from "@/auth";
+"use client";
+
+import React, { useState, useEffect } from "react";
 import { getDashboardStats, getSystemHealth } from "@/lib/data/dashboard";
 import { OverviewClient } from "@/components/dashboard/overview-client";
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 
-export const metadata = {
-  title: "Dashboard Overview | Sekolahku",
-};
+export default function OverviewPage() {
+  const router = useRouter();
+  const [session, setSession] = useState<any>(null);
+  const [stats, setStats] = useState<any>(null);
+  const [health, setHealth] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-export const revalidate = 0; // Dynamic data
+  useEffect(() => {
+    // Client-side session check
+    const checkAuth = async () => {
+      // In static export, we rely on cookies set by login
+      const cookies = document.cookie.split(";").map(c => c.trim());
+      const sessionCookie = cookies.find(c => c.startsWith("session="));
+      
+      if (!sessionCookie) {
+        router.push("/login");
+        return;
+      }
+      
+      try {
+        const token = sessionCookie.split("=")[1];
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        setSession({ user: payload });
+        
+        // Fetch stats
+        const [statsRes, healthRes] = await Promise.all([
+          getDashboardStats(),
+          getSystemHealth()
+        ]);
+        
+        // Stats can be direct or wrapped in data
+        const statsData = (statsRes as any)?.data || statsRes;
+        const healthData = (healthRes as any)?.data || healthRes;
 
-export default async function OverviewPage() {
-  const session = await auth();
-  if (!session?.user) {
-    redirect("/auth/sign-in");
+        setStats(statsData);
+        setHealth(healthData);
+      } catch (error) {
+        console.error("Dashboard fetch error:", error);
+        // Don't redirect on specific data failure, just show empty
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, [router]);
+
+  if (isLoading || !stats) {
+    return (
+      <div className="flex h-[80vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
   }
-
-  const [statsData, healthData] = await Promise.all([
-    getDashboardStats(session.user.id || ""),
-    getSystemHealth()
-  ]);
 
   return (
     <OverviewClient
-      stats={statsData.spmb}
-      moduleStats={statsData.moduleStats}
-      recentRegistrants={statsData.recentRegistrants}
-      activePeriod={statsData.activePeriod}
-      serverHealth={healthData}
+      stats={stats.spmb}
+      moduleStats={stats.moduleStats}
+      recentRegistrants={stats.recentRegistrants}
+      activePeriod={stats.activePeriod}
+      serverHealth={health}
     />
   );
 }
+

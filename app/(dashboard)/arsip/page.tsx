@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
+import { goGet } from "@/lib/api-client";
 
 export default function ArsipDashboard() {
     const [stats, setStats] = useState({
@@ -23,10 +24,16 @@ export default function ArsipDashboard() {
     });
 
     useEffect(() => {
-        fetch("/api/arsip/stats")
-            .then(res => res.json())
-            .then(data => setStats(data))
-            .catch(err => console.error(err));
+        goGet("/api/arsip/stats")
+            .then((res: any) => {
+                const data = res.data || res;
+                setStats({
+                    suratMasuk: data.suratMasuk || 0,
+                    suratKeluar: data.suratKeluar || 0,
+                    pendingTasks: data.pendingTasks || 0
+                });
+            })
+            .catch(err => console.error("Failed to fetch arsip stats:", err));
     }, []);
 
     return (
@@ -146,3 +153,4 @@ export default function ArsipDashboard() {
         </div>
     );
 }
+

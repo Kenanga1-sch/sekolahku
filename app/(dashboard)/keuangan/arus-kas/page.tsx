@@ -1,11 +1,8 @@
-import { Metadata } from "next";
+"use client";
+
+import React from "react";
 import CashFlowManager from "@/components/finance/cash-flow-manager";
 import { Separator } from "@/components/ui/separator";
-
-export const metadata: Metadata = {
-  title: "Manajemen Arus Kas & Keuangan",
-  description: "Kelola pemasukan, pengeluaran, dan mutasi dana sekolah.",
-};
 
 export default function FinancePage() {
   return (
@@ -21,3 +18,4 @@ export default function FinancePage() {
     </div>
   );
 }
+

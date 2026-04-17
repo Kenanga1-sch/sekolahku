@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { goGet, goPost } from "@/lib/api-client";
 
 export default function BarangKeluarPage() {
   const router = useRouter();
@@ -51,16 +52,17 @@ export default function BarangKeluarPage() {
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]); // YYYY-MM-DD
 
   useEffect(() => {
-    fetch("/api/inventory/items?limit=100")
-      .then((res) => res.json())
-      .then((data) => {
-        setItems(data.data);
-        setLoading(false);
-      })
-      .catch((err) => {
+    const loadItems = async () => {
+      try {
+        const response: any = await goGet("/api/inventory/items?limit=100");
+        setItems(response.data || []);
+      } catch (err) {
         toast.error("Gagal memuat daftar barang");
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+    loadItems();
   }, []);
 
   const selectedItem = items.find((i) => i.id === selectedItemId);
@@ -80,23 +82,16 @@ export default function BarangKeluarPage() {
 
     setSubmitting(true);
     try {
-      const res = await fetch("/api/inventory/transactions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          itemId: selectedItemId,
-          type: "OUT", // OUTGOING
-          quantity: qty,
-          description: description || "Pemakaian Rutin",
-          recipient: recipient,
-          date: date,
-        }),
+      const res: any = await goPost("/api/inventory/transactions", {
+        itemId: selectedItemId,
+        type: "OUT", // OUTGOING
+        quantity: qty,
+        description: description || "Pemakaian Rutin",
+        recipient: recipient,
+        date: date,
       });
 
-      if (!res.ok) {
-         const txt = await res.text();
-         throw new Error(txt);
-      }
+      if (res.error) throw new Error(res.error);
       
       toast.success("Barang keluar berhasil dicatat");
       router.push("/inventaris/stok");
@@ -255,3 +250,4 @@ export default function BarangKeluarPage() {
     </div>
   );
 }
+

@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ArrowLeft, QrCode, Users } from "lucide-react";
+import { goGet } from "@/lib/api-client";
 import { QRScanner } from "@/components/attendance/qr-scanner";
 
 interface Session {
@@ -32,10 +33,9 @@ export default function ScanPresensiPage() {
     const fetchSessions = async () => {
       try {
         const today = new Date().toISOString().split("T")[0];
-        const response = await fetch(
+        const data: any = await goGet(
           `/api/attendance/sessions?date=${today}&status=open`
         );
-        const data = await response.json();
         setSessions(data);
         if (data.length > 0) {
           setSelectedSession(data[0].id);
@@ -138,3 +138,4 @@ export default function ScanPresensiPage() {
     </div>
   );
 }
+

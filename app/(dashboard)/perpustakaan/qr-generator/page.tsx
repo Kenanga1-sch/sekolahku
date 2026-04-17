@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import QRCode from "qrcode";
+import { goGet, goPost } from "@/lib/api-client";
 import { Loader2, Download, RefreshCw, CheckSquare, Square, Archive, FolderArchive, ArrowLeft } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -55,10 +56,9 @@ export default function QRGeneratorPage() {
             if (searchQuery) params.append("search", searchQuery);
             if (searchDate) params.append("date", searchDate);
 
-            const res = await fetch(`/api/library/qr-generator?${params.toString()}`);
-            const data = await res.json();
-            if (data.success) {
-                setHistory(data.batches);
+            const res: any = await goGet(`/api/library/qr-generator?${params.toString()}`);
+            if (res.success) {
+                setHistory(res.batches);
             }
         } catch (error) {
             console.error("Failed to fetch history", error);
@@ -78,12 +78,7 @@ export default function QRGeneratorPage() {
     const handleGenerate = async () => {
         setIsGenerating(true);
         try {
-            const res = await fetch("/api/library/qr-generator", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ count, prefix }),
-            });
-            const data = await res.json();
+            const data: any = await goPost("/api/library/qr-generator", { count, prefix });
             if (data.success) {
                 // Generate preview with small fixed size
                 await processCodes(data.codes, 300); // Preview size in pixels
@@ -442,3 +437,4 @@ export default function QRGeneratorPage() {
         </div>
     );
 }
+

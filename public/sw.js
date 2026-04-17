@@ -111,6 +111,8 @@ self.addEventListener('fetch', (event) => {
                                 cache.put(request, response);
                             });
                         }
+                    }).catch(() => {
+                        // Silent catch to avoid console noise for background updates
                     });
                     return cachedResponse;
                 }

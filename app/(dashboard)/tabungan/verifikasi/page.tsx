@@ -36,6 +36,7 @@ import {
 import Link from "next/link";
 import { showSuccess, showError } from "@/lib/toast";
 import { useAuthStore } from "@/lib/stores/auth-store";
+import { goGet, goPost } from "@/lib/api-client";
 import type { TabunganSetoran } from "@/db/schema/tabungan"; // Use from schema for now
 import type { User } from "@/db/schema/users";
 
@@ -80,8 +81,7 @@ export default function TabunganVerifikasiPage() {
     const fetchData = useCallback(async () => {
         setIsLoading(true);
         try {
-            const res = await fetch("/api/tabungan/setoran?status=pending");
-            const data = await res.json();
+            const data: any = await goGet("/api/tabungan/setoran?status=pending");
             if (data.items) {
                 setSetoranList(data.items);
             }
@@ -96,11 +96,7 @@ export default function TabunganVerifikasiPage() {
     const fetchHistory = useCallback(async () => {
         setIsHistoryLoading(true);
         try {
-            // Fetch all and filter client side, or if API supports exclude status
-            // For now, let's fetch all and filter client-side for "verified" or "rejected"
-            // Actually, we can just fetch without status to get all, then filter
-            const res = await fetch("/api/tabungan/setoran"); 
-            const data = await res.json();
+            const data: any = await goGet("/api/tabungan/setoran"); 
             if (data.items) {
                 // Filter out pending
                 const history = data.items.filter((item: any) => item.status !== "pending");
@@ -128,21 +124,12 @@ export default function TabunganVerifikasiPage() {
         setIsProcessing(true);
         try {
             const status = verifyAction === "approve" ? "verified" : "rejected";
-            const res = await fetch(`/api/tabungan/setoran/${verifyId}/verify`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    status,
-                    bendaharaId: user.id,
-                    nominalFisik: verifyAction === "approve" ? valNominal : undefined,
-                    catatan: catatanInternal || undefined
-                }),
+            await goPost(`/api/tabungan/setoran/detail?id=${verifyId}/verify`, {
+                status,
+                bendaharaId: user.id,
+                nominalFisik: verifyAction === "approve" ? valNominal : undefined,
+                catatan: catatanInternal || undefined
             });
-
-            if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.error || "Gagal memproses verifikasi");
-            }
 
             showSuccess(
                 verifyAction === "approve"
@@ -265,7 +252,7 @@ export default function TabunganVerifikasiPage() {
                                                 <TableCell className="text-right">
                                                     <div className="flex justify-end gap-2">
                                                         <Button variant="outline" size="sm" asChild>
-                                                            <Link href={`/tabungan/setoran/${item.id}`}>
+                                                            <Link href={`/tabungan/setoran/detail?id=${item.id}`}>
                                                                 Detail
                                                             </Link>
                                                         </Button>
@@ -357,7 +344,7 @@ export default function TabunganVerifikasiPage() {
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                     <Button variant="outline" size="sm" asChild>
-                                                        <Link href={`/tabungan/setoran/${item.id}`}>
+                                                        <Link href={`/tabungan/setoran/detail?id=${item.id}`}>
                                                             Detail
                                                         </Link>
                                                     </Button>
@@ -452,3 +439,4 @@ export default function TabunganVerifikasiPage() {
         </div>
     );
 }
+

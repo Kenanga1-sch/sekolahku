@@ -17,7 +17,6 @@ import {
     verifySetoran,
     transferVaultFunds
 } from './savings-admin';
-import { eq } from 'drizzle-orm';
 
 vi.mock('next/cache', () => ({
     revalidatePath: vi.fn(),
@@ -29,7 +28,6 @@ vi.mock('@/db', async () => {
     return { db, ...schema };
 });
 
-import { db } from '@/db';
 
 async function cleanup() {
     await db.delete(tabunganTransaksi);

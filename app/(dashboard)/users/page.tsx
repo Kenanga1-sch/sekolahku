@@ -59,7 +59,10 @@ import {
     UserCog,
     UserPlus,
 } from "lucide-react";
+import { goGet, goPost, goPatch, goDelete } from "@/lib/api-client";
+import { showSuccess, showError } from "@/lib/toast";
 import type { User } from "@/types";
+
 
 interface ClassOption {
     name: string;
@@ -71,7 +74,6 @@ const roles = [
     { value: "guru", label: "Guru", color: "bg-blue-100 text-blue-700" },
     { value: "staff", label: "Staff", color: "bg-cyan-100 text-cyan-700" },
     { value: "admin", label: "Admin", color: "bg-amber-100 text-amber-700" },
-    { value: "superadmin", label: "Super Admin", color: "bg-purple-100 text-purple-700" },
 ];
 
 export default function UserManagementPage() {
@@ -111,11 +113,9 @@ export default function UserManagementPage() {
                 ...(searchQuery && { search: searchQuery }),
             });
 
-            const res = await fetch(`/api/users?${params}`);
-            if (!res.ok) throw new Error("Failed to fetch");
+            const result: any = await goGet(`/api/users?${params}`);
             
-            const result = await res.json();
-            setUsers(result.items.map((u: User) => ({
+            setUsers(result.items.map((u: any) => ({
                 ...u,
                 created: u.createdAt,
             })));
@@ -123,10 +123,12 @@ export default function UserManagementPage() {
             setTotalUsers(result.totalItems);
         } catch (error) {
             console.error("Failed to fetch users:", error);
+            showError("Gagal memuat daftar pengguna");
         } finally {
             setIsLoading(false);
         }
     }, [page, searchQuery]);
+
 
     useEffect(() => {
         fetchUsers();
@@ -153,45 +155,26 @@ export default function UserManagementPage() {
                 body = { type: "staff-auto", mode: mode || "skip" };
             } else if (genType === "student") {
                 body = { type: "student", className: selectedClass };
-            } else {
-                // Manual staff
-                body = { 
-                    type: "staff", 
-                    staffData: {
-                        name: formData.name,
-                        email: formData.email,
-                        role: formData.role,
-                        phone: formData.phone,
-                        password: formData.password
-                    }
-                  };
             }
 
-            const res = await fetch("/api/users/generate", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(body),
-            });
-
-            const result = await res.json();
-            if (!result.success) throw new Error(result.error);
+            const result: any = await goPost("/api/users/generate", body);
             
-            alert(result.message); // Simple feedback
+            showSuccess(result.message || "Berhasil generate akun");
             setIsGenerateOpen(false);
             fetchUsers();
-        } catch (error) {
-            alert(error instanceof Error ? error.message : "Gagal generate akun");
+        } catch (error: any) {
+            showError(error.message || "Gagal generate akun");
         } finally {
             setIsSaving(false);
         }
     };
 
+
     const handleSubmit = async () => {
         setIsSaving(true);
         try {
             if (editingId) {
-                // Update user
-                const updateData: Record<string, string> = {
+                const updateData: any = {
                     name: formData.name,
                     username: formData.username,
                     role: formData.role,
@@ -201,33 +184,23 @@ export default function UserManagementPage() {
                     updateData.password = formData.password;
                 }
 
-                const res = await fetch(`/api/users/${editingId}`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(updateData),
-                });
-                if (!res.ok) throw new Error("Failed to update");
+                await goPatch(`/api/users/${editingId}`, updateData);
+                showSuccess("Pengguna berhasil diperbarui");
             } else {
-                // Create new user
-                const res = await fetch("/api/users", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(formData),
-                });
-                if (!res.ok) {
-                    const data = await res.json();
-                    throw new Error(data.error || "Failed to create");
-                }
+                await goPost("/api/users", formData);
+                showSuccess("Pengguna baru berhasil dibuat");
             }
 
             fetchUsers();
             resetForm();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to save user:", error);
+            showError(error.message || "Gagal menyimpan pengguna");
         } finally {
             setIsSaving(false);
         }
     };
+
 
     const handleEdit = (item: User) => {
         setEditingId(item.id);
@@ -246,18 +219,16 @@ export default function UserManagementPage() {
     const handleDelete = async () => {
         if (!deleteId) return;
         try {
-            const res = await fetch(`/api/users/${deleteId}`, { method: "DELETE" });
-            if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.error || "Failed to delete");
-            }
+            await goDelete(`/api/users/${deleteId}`);
             setDeleteId(null);
+            showSuccess("Pengguna berhasil dihapus");
             fetchUsers();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to delete user:", error);
-            alert(error instanceof Error ? error.message : "Gagal menghapus user");
+            showError(error.message || "Gagal menghapus pengguna");
         }
     };
+
 
     const resetForm = () => {
         setFormData({
@@ -314,7 +285,7 @@ export default function UserManagementPage() {
                 <Card className="p-4">
                     <div className="text-sm text-muted-foreground">Admin</div>
                     <div className="text-2xl font-bold text-amber-600">
-                        {isLoading ? <Skeleton className="h-8 w-12" /> : users.filter((u) => u.role === "admin" || u.role === "superadmin").length}
+                        {isLoading ? <Skeleton className="h-8 w-12" /> : users.filter((u) => u.role === "admin").length}
                     </div>
                 </Card>
                 <Card className="p-4">
@@ -769,3 +740,4 @@ export default function UserManagementPage() {
         </div>
     );
 }
+

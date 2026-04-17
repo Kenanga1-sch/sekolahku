@@ -370,7 +370,7 @@ function RegistrationWizardContent({
                   variant="outline"
                   size="lg" 
                   className="mt-2 gap-2 rounded-full px-8 w-full sm:w-auto"
-                  onClick={() => window.open(`/spmb/bukti/${submitResult.id}`, '_blank')}
+                  onClick={() => window.open(`/spmb/bukti/detail?id=${submitResult.id}`, '_blank')}
                 >
                   <Printer className="h-4 w-4" /> Cetak Bukti Pendaftaran
                 </Button>

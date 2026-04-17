@@ -53,9 +53,11 @@ import {
 } from "@/components/ui/alert-dialog";
 // Removed server imports to fix build error
 import { showError, showSuccess } from "@/lib/toast";
+import { goGet, goPost } from "@/lib/api-client";
 import type { LibraryLoan, LibraryItem, LibraryMember } from "@/types/library";
 
 export default function PeminjamanPage() {
+  const searchParams = useSearchParams();
     const [activeLoans, setActiveLoans] = useState<LibraryLoan[]>([]);
     const [overdueLoans, setOverdueLoans] = useState<LibraryLoan[]>([]);
     const [loading, setLoading] = useState(true);
@@ -75,15 +77,10 @@ export default function PeminjamanPage() {
     const loadLoans = useCallback(async () => {
         setLoading(true);
         try {
-            const [activeRes, overdueRes] = await Promise.all([
-                fetch("/api/library/loans?type=active"),
-                fetch("/api/library/loans?type=overdue"),
+            const [activeData, overdueData]: [any, any] = await Promise.all([
+                goGet("/api/library/loans?type=active"),
+                goGet("/api/library/loans?type=overdue"),
             ]);
-
-            if (!activeRes.ok || !overdueRes.ok) throw new Error("Failed to fetch data");
-
-            const activeData = await activeRes.json();
-            const overdueData = await overdueRes.json();
 
             // activeData uses getActiveLoans structure { items: [], totalItems }
             setActiveLoans(activeData.items || []);
@@ -103,11 +100,7 @@ export default function PeminjamanPage() {
     const handleReturn = async () => {
         if (!returningLoan) return;
         try {
-            const res = await fetch(`/api/library/loans/${returningLoan.id}/return`, {
-                method: "POST"
-            });
-            
-            if (!res.ok) throw new Error("Failed to return book");
+            await goPost(`/api/library/loans/${returningLoan.id}/return`);
             
             setReturningLoan(null);
             showSuccess("Buku berhasil dikembalikan");
@@ -126,18 +119,11 @@ export default function PeminjamanPage() {
 
         setIsSubmitting(true);
         try {
-            const res = await fetch("/api/library/loans", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    memberId: selectedMember.value,
-                    itemId: selectedBook.value,
-                    loanDays,
-                })
+            const result: any = await goPost("/api/library/loans", {
+                memberId: selectedMember.value,
+                itemId: selectedBook.value,
+                loanDays,
             });
-
-            const result = await res.json();
-            if (!res.ok) throw new Error(result.error || "Gagal meminjam buku");
 
             showSuccess("Peminjaman berhasil dicatat");
             setIsNewLoanOpen(false);
@@ -161,15 +147,13 @@ export default function PeminjamanPage() {
 
     const loadMemberOptions = async (inputValue: string) => {
         if (!inputValue) return [];
-        const res = await fetch(`/api/library/members?search=${inputValue}`);
-        const data = await res.json();
+        const data: any = await goGet(`/api/library/members?search=${inputValue}`);
         return data.items.map((m: LibraryMember) => ({ value: m.id, label: `${m.name} (${m.className})` }));
     };
 
     const loadBookOptions = async (inputValue: string) => {
         if (!inputValue) return [];
-        const res = await fetch(`/api/library/books?search=${inputValue}&perPage=10`);
-        const data = await res.json();
+        const data: any = await goGet(`/api/library/books?search=${inputValue}&perPage=10`);
         return data.items
             .filter((item: LibraryItem) => item.status === "AVAILABLE")
             .map((item: LibraryItem) => ({ 
@@ -528,3 +512,4 @@ export default function PeminjamanPage() {
         </div>
     );
 }
+

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
@@ -9,100 +9,42 @@ import {
     AccordionItem,
     AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Search, HelpCircle, GraduationCap, FileText, MapPin, Calendar, Phone } from "lucide-react";
+import { Search, HelpCircle, GraduationCap, FileText, MapPin, Calendar, Phone, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { goGet } from "@/lib/api-client";
 
-const faqCategories = [
-    {
-        id: "spmb",
-        title: "Pendaftaran SPMB",
-        icon: FileText,
-        questions: [
-            {
-                q: "Bagaimana cara mendaftar siswa baru?",
-                a: "Kunjungi halaman SPMB dan klik tombol 'Daftar Sekarang'. Isi formulir pendaftaran dengan lengkap, unggah dokumen yang diperlukan, dan submit. Anda akan mendapatkan nomor pendaftaran untuk tracking status."
-            },
-            {
-                q: "Dokumen apa saja yang diperlukan untuk pendaftaran?",
-                a: "Dokumen yang diperlukan: 1) Scan/foto KK (Kartu Keluarga), 2) Scan/foto Akta Kelahiran, 3) Pas foto terbaru ukuran 3x4, 4) Rapor semester terakhir jika ada. Dokumen harus dalam format JPG, PNG, atau PDF dengan ukuran maksimal 2MB."
-            },
-            {
-                q: "Kapan periode pendaftaran dibuka?",
-                a: "Periode pendaftaran biasanya dibuka sekitar bulan Januari-Maret setiap tahun ajaran baru. Pantau terus website kami atau ikuti akun sosial media sekolah untuk informasi terbaru."
-            },
-            {
-                q: "Bagaimana cara mengecek status pendaftaran?",
-                a: "Buka halaman 'Cek Status' di menu SPMB, masukkan nomor pendaftaran Anda. Status akan ditampilkan: Pending, Terverifikasi, Diterima, atau Ditolak."
-            },
-            {
-                q: "Apakah ada sistem zonasi?",
-                a: "Ya, kami menerapkan sistem zonasi. Calon siswa yang berdomisili dalam radius tertentu dari sekolah akan mendapat prioritas. Jarak dihitung otomatis berdasarkan alamat yang diinput saat pendaftaran."
-            }
-        ]
-    },
-    {
-        id: "akademik",
-        title: "Akademik & Kurikulum",
-        icon: GraduationCap,
-        questions: [
-            {
-                q: "Kurikulum apa yang digunakan?",
-                a: "Kami menggunakan Kurikulum Merdeka yang mengutamakan pembelajaran berbasis proyek, pengembangan karakter, dan keterampilan abad 21."
-            },
-            {
-                q: "Apa saja kegiatan ekstrakurikuler yang tersedia?",
-                a: "Tersedia berbagai ekskul: Pramuka, Seni Tari, Seni Musik, Futsal, Bulu Tangkis, Renang, Robotik, English Club, dan Tahfidz Quran."
-            },
-            {
-                q: "Bagaimana jam belajar di sekolah?",
-                a: "Jam belajar dimulai pukul 07:00 - 14:00 WIB untuk hari Senin-Kamis, dan 07:00 - 11:30 WIB untuk hari Jumat."
-            }
-        ]
-    },
-    {
-        id: "biaya",
-        title: "Biaya & Pembayaran",
-        icon: Calendar,
-        questions: [
-            {
-                q: "Berapa biaya pendaftaran dan sekolah?",
-                a: "Sekolah kami TIDAK MEMUNGUT BIAYA APAPUN (Gratis). Mulai dari pendaftaran hingga biaya pendidikan bulanan (SPP) ditanggung sepenuhnya oleh pemerintah dan dana BOS."
-            },
-            {
-                q: "Bagaimana jika ada permintaan biaya lain?",
-                a: "Jika ada oknum yang meminta biaya atas nama sekolah, mohon segera laporkan kepada pihak sekolah. Segala kebutuhan operasional sekolah sudah tercover."
-            },
-            {
-                q: "Apakah ada program beasiswa?",
-                a: "Saat ini kami belum memiliki program beasiswa internal. Namun, sekolah memfasilitasi pengajuan bantuan Program Indonesia Pintar (PIP) dari pemerintah bagi siswa yang memenuhi syarat."
-            }
-        ]
-    },
-    {
-        id: "lokasi",
-        title: "Lokasi & Kontak",
-        icon: MapPin,
-        questions: [
-            {
-                q: "Dimana lokasi sekolah?",
-                a: "Anda dapat melihat lokasi lengkap di halaman Kontak. Silakan kunjungi untuk melihat peta dan petunjuk arah."
-            },
-            {
-                q: "Bagaimana cara menghubungi sekolah?",
-                a: "Hubungi kami melalui telepon di jam kerja (07:00-15:00), atau kirim email. Informasi kontak lengkap tersedia di halaman Kontak."
-            }
-        ]
-    }
-];
+const iconMap: Record<string, any> = {
+    spmb: FileText,
+    akademik: GraduationCap,
+    biaya: Calendar,
+    lokasi: MapPin,
+};
 
 export default function FAQPage() {
     const [searchQuery, setSearchQuery] = useState("");
+    const [faqCategories, setFaqCategories] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        setIsLoading(true);
+        goGet('/api/public/faqs')
+            .then((json: any) => {
+                if (json.success) {
+                    setFaqCategories(json.data);
+                }
+                setIsLoading(false);
+            })
+            .catch(err => {
+                console.error("Failed to fetch FAQs:", err);
+                setIsLoading(false);
+            });
+    }, []);
 
     const filteredCategories = faqCategories.map(category => ({
         ...category,
         questions: category.questions.filter(
-            faq =>
+            (faq: any) =>
                 faq.q.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 faq.a.toLowerCase().includes(searchQuery.toLowerCase())
         )
@@ -137,7 +79,12 @@ export default function FAQPage() {
 
                 {/* FAQ Categories */}
                 <div className="space-y-8">
-                    {filteredCategories.length === 0 ? (
+                    {isLoading ? (
+                        <div className="flex flex-col items-center justify-center py-20 gap-4">
+                            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                            <p className="text-muted-foreground">Memuat data...</p>
+                        </div>
+                    ) : filteredCategories.length === 0 ? (
                         <Card className="text-center py-12">
                             <CardContent>
                                 <HelpCircle className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
@@ -153,7 +100,10 @@ export default function FAQPage() {
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-3">
                                         <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                                            <category.icon className="h-5 w-5" />
+                                            {(() => {
+                                                const Icon = iconMap[category.id] || HelpCircle;
+                                                return <Icon className="h-5 w-5" />;
+                                            })()}
                                         </div>
                                         {category.title}
                                     </CardTitle>
@@ -207,3 +157,4 @@ export default function FAQPage() {
         </div>
     );
 }
+

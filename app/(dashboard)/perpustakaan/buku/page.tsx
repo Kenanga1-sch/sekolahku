@@ -53,6 +53,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 // Server imports removed
 import { showError, showSuccess } from "@/lib/toast";
+import { goGet, goPost, goPut, goDelete } from "@/lib/api-client";
 import type { LibraryItem, ItemCategory } from "@/types/library";
 
 const CATEGORIES: { value: ItemCategory; label: string }[] = [
@@ -100,10 +101,7 @@ export default function BukuPage() {
             if (searchQuery) params.append("search", searchQuery);
             if (categoryFilter !== "all") params.append("category", categoryFilter);
 
-            const res = await fetch(`/api/library/books?${params}`);
-            if (!res.ok) throw new Error("Failed to fetch books");
-            
-            const result = await res.json();
+            const result: any = await goGet(`/api/library/books?${params}`);
             setItems(result.items);
             setTotalPages(result.totalPages);
         } catch (error) {
@@ -128,20 +126,10 @@ export default function BukuPage() {
 
             let res;
             if (editingItem) {
-                res = await fetch(`/api/library/books/${editingItem.id}`, {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(data),
-                });
+                await goPut(`/api/library/books/${editingItem.id}`, data);
             } else {
-                res = await fetch("/api/library/books", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(data),
-                });
+                await goPost("/api/library/books", data);
             }
-
-            if (!res.ok) throw new Error("Failed to save item");
 
             showSuccess(editingItem ? "Buku berhasil diperbarui" : "Buku berhasil ditambahkan");
             setIsAddDialogOpen(false);
@@ -157,14 +145,7 @@ export default function BukuPage() {
     const handleDelete = async (id: string) => {
         if (confirm("Yakin ingin menghapus buku ini?")) {
             try {
-                const res = await fetch(`/api/library/books/${id}`, {
-                    method: "DELETE",
-                });
-                
-                if (!res.ok) {
-                    const data = await res.json();
-                    throw new Error(data.error || "Gagal menghapus buku");
-                }
+                await goDelete(`/api/library/books/${id}`);
                 
                 showSuccess("Buku berhasil dihapus");
                 loadItems();
@@ -207,15 +188,10 @@ export default function BukuPage() {
         if (!swappingItem || !newQrCode) return;
         setLoading(true);
         try {
-            const res = await fetch("/api/library/assets/swap", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    oldQr: swappingItem.id,
-                    newQr: newQrCode
-                })
+            const result: any = await goPost("/api/library/assets/swap", {
+                oldQr: swappingItem.id,
+                newQr: newQrCode
             });
-            const result = await res.json();
             if (result.success) {
                 showSuccess("QR Code berhasil diganti");
                 setIsSwapDialogOpen(false);
@@ -567,3 +543,4 @@ export default function BukuPage() {
         </div>
     );
 }
+

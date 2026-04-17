@@ -2,11 +2,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { POST } from "@/app/api/master/students/bulk/route";
 
 // Mock Auth
-vi.mock("@/auth", () => ({
+vi.mock("@/lib/auth", () => ({
     auth: vi.fn(),
 }));
 
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth";
 
 // Mock DB
 const { mockInsert, mockInsertValues, mockSelect, mockFrom } = vi.hoisted(() => {

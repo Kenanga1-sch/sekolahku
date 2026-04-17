@@ -12,7 +12,6 @@ import {
     verifySetoran,
     createSetoran
 } from './tabungan';
-import { eq } from 'drizzle-orm';
 
 vi.mock('server-only', () => ({}));
 
@@ -22,7 +21,6 @@ vi.mock('@/db', async () => {
     return { db };
 });
 
-import { db } from '@/db';
 
 async function cleanup() {
     await db.delete(tabunganTransaksi);

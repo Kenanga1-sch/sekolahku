@@ -1,292 +1,217 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Separator } from "@/components/ui/separator";
-import {
-  ArrowLeft,
-  Search,
-  Loader2,
-  CheckCircle,
-  Clock,
+import React, { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { 
+  Search, 
+  MapPin, 
+  Calendar, 
+  User, 
+  CheckCircle2, 
+  Clock, 
   XCircle,
-  FileSearch,
-  User,
-  MapPin,
+  AlertCircle,
   FileText,
-  Printer,
+  Loader2,
+  ArrowRight
 } from "lucide-react";
-import { trackingFormSchema, type TrackingFormValues } from "@/lib/validations/spmb";
-import { formatDate, formatDistance, getStatusLabel, getStatusColor, getGenderLabel } from "@/lib/utils";
-import type { SPMBRegistrant } from "@/types";
-import { siteConfig, getSPMBPeriodLabel } from "@/lib/config";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
+import { format } from "date-fns";
+import { id as idLocale } from "date-fns/locale";
+import { cn } from "@/lib/utils";
+import { siteConfig } from "@/lib/config";
 
-function StatusIcon({ status }: { status: string }) {
-  switch (status) {
-    case "accepted":
-      return <CheckCircle className="h-6 w-6 text-green-600" />;
-    case "rejected":
-      return <XCircle className="h-6 w-6 text-red-600" />;
-    case "verified":
-      return <CheckCircle className="h-6 w-6 text-blue-600" />;
-    default:
-      return <Clock className="h-6 w-6 text-amber-600" />;
-  }
-}
-
-export default function TrackingPage() {
+function TrackingContent() {
+  const searchParams = useSearchParams();
+  const initialId = searchParams.get("id") || "";
+  const [searchId, setSearchId] = useState(initialId);
+  const [registrant, setRegistrant] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [registrant, setRegistrant] = useState<SPMBRegistrant | null>(null);
-  const [notFound, setNotFound] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const form = useForm<TrackingFormValues>({
-    resolver: zodResolver(trackingFormSchema),
-    defaultValues: {
-      registration_number: "",
-    },
-  });
+  const handleSearch = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!searchId) return;
 
-  const onSubmit = async (data: TrackingFormValues) => {
     setIsLoading(true);
-    setNotFound(false);
+    setError(null);
     setRegistrant(null);
 
     try {
-      const res = await fetch(`/api/spmb/tracking?registration_number=${encodeURIComponent(data.registration_number)}`);
-      if (res.ok) {
-        const result = await res.json();
-        setRegistrant(result);
-      } else {
-        setNotFound(true);
-      }
-    } catch (error) {
-      setNotFound(true);
+      const res = await fetch(`/api/public/spmb/registrants/${searchId}`);
+      if (!res.ok) throw new Error("Nomor pendaftaran tidak ditemukan");
+      const data = await res.json();
+      setRegistrant(data);
+    } catch (err: any) {
+      setError(err.message);
     } finally {
       setIsLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-muted/30">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-8">
-        <div className="container">
-          <Link href="/spmb">
-            <Button
-              variant="ghost"
-              className="text-white hover:bg-white/10 mb-4 -ml-4"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Kembali
-            </Button>
-          </Link>
-          <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-lg bg-white/20 flex items-center justify-center">
-              <FileSearch className="h-7 w-7" />
-            </div>
-            <div>
-              <Badge className="bg-white/20 mb-1">{getSPMBPeriodLabel()}</Badge>
-              <h1 className="text-2xl md:text-3xl font-bold">
-                Cek Status Pendaftaran
-              </h1>
-            </div>
-          </div>
-        </div>
-      </div>
+  useEffect(() => {
+    if (initialId) {
+      handleSearch();
+    }
+  }, [initialId]);
 
-      {/* Content */}
-      <div className="container py-8 max-w-2xl">
-        {/* Search Form */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Search className="h-5 w-5" />
-              Masukkan Nomor Pendaftaran
-            </CardTitle>
-            <CardDescription>
-              Gunakan nomor pendaftaran yang Anda terima saat mendaftar
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="registration_number"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nomor Pendaftaran</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder={siteConfig.spmb.exampleNumber}
-                          className="text-lg font-mono"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+  const getStatusConfig = (status: string) => {
+    switch (status) {
+      case "accepted":
+        return { label: "Diterima", icon: CheckCircle2, color: "bg-green-100 text-green-700 border-green-200" };
+      case "rejected":
+        return { label: "Tidak Diterima", icon: XCircle, color: "bg-red-100 text-red-700 border-red-200" };
+      case "pending":
+        return { label: "Menunggu Verifikasi", icon: Clock, color: "bg-yellow-100 text-yellow-700 border-yellow-200" };
+      default:
+        return { label: "Diproses", icon: AlertCircle, color: "bg-blue-100 text-blue-700 border-blue-200" };
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 py-12">
+      <div className="container max-w-4xl">
+        <div className="text-center mb-10 space-y-4">
+          <Badge variant="outline" className="px-4 py-1.5 border-primary/20 text-primary">
+            SPMB Tracking
+          </Badge>
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Cek Status Pendaftaran</h1>
+          <p className="text-muted-foreground max-w-2xl mx-auto">
+            Masukkan nomor pendaftaran Anda untuk melihat status terbaru dan informasi detail pendaftaran.
+          </p>
+        </div>
+
+        <Card className="mb-8 border-primary/10 shadow-lg shadow-primary/5">
+          <CardContent className="pt-6">
+            <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                  placeholder="Contoh: REG-2024-0001" 
+                  className="pl-10 h-12"
+                  value={searchId}
+                  onChange={(e) => setSearchId(e.target.value.toUpperCase())}
                 />
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Mencari...
-                    </>
-                  ) : (
-                    <>
-                      <Search className="h-4 w-4 mr-2" />
-                      Cari Status
-                    </>
-                  )}
-                </Button>
-              </form>
-            </Form>
+              </div>
+              <Button type="submit" size="lg" className="h-12 px-8" disabled={isLoading}>
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : "Cari Sekarang"}
+              </Button>
+            </form>
           </CardContent>
         </Card>
 
-        {/* Not Found */}
-        {notFound && (
-          <Alert variant="destructive">
-            <XCircle className="h-4 w-4" />
-            <AlertDescription>
-              Nomor pendaftaran tidak ditemukan. Pastikan nomor yang Anda masukkan
-              benar.
-            </AlertDescription>
-          </Alert>
+        {error && (
+          <div className="flex items-center gap-3 p-4 text-red-800 border border-red-100 bg-red-50 rounded-xl mb-8 animate-in fade-in slide-in-from-top-2">
+            <AlertCircle className="h-5 w-5" />
+            <p className="text-sm font-medium">{error}</p>
+          </div>
         )}
 
-        {/* Result */}
         {registrant && (
-          <div className="space-y-4">
-            {/* Status Card */}
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-4">
-                  <StatusIcon status={registrant.status} />
-                  <div className="flex-1">
-                    <p className="text-sm text-muted-foreground">Status Pendaftaran</p>
-                    <div className="flex items-center gap-2">
-                      <p className="text-xl font-bold">
-                        {getStatusLabel(registrant.status)}
-                      </p>
-                      <Badge className={getStatusColor(registrant.status)}>
-                        {registrant.status.toUpperCase()}
-                      </Badge>
-                    </div>
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Status Head */}
+            <Card className="border-none shadow-xl bg-white dark:bg-zinc-900 overflow-hidden">
+               <div className={cn("h-2 w-full", getStatusConfig(registrant.status).color.split(' ')[0])} />
+               <CardContent className="p-8">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                     <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground font-medium uppercase tracking-wider">Status Saat Ini</p>
+                        <div className="flex items-center gap-3">
+                           {React.createElement(getStatusConfig(registrant.status).icon, { 
+                              className: cn("h-8 w-8", getStatusConfig(registrant.status).color.split(' ')[1]) 
+                           })}
+                           <h2 className="text-2xl font-bold">{getStatusConfig(registrant.status).label}</h2>
+                        </div>
+                     </div>
+                     <Link 
+                        href={`/spmb/bukti/detail?id=${registrant.registrationNumber}`}
+                        className={cn(buttonVariants({ variant: "outline" }), "group")}
+                     >
+                        Lihat Bukti Pendaftaran
+                        <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                     </Link>
                   </div>
-                </div>
-                {registrant.notes && (
-                  <Alert className="mt-4">
-                    <AlertDescription>
-                      <strong>Catatan:</strong> {registrant.notes}
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </CardContent>
+               </CardContent>
             </Card>
 
-            {/* Details Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Detail Pendaftaran</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Registration Number */}
-                <div className="bg-muted p-4 rounded-lg text-center">
-                  <p className="text-sm text-muted-foreground">Nomor Pendaftaran</p>
-                  <p className="text-2xl font-mono font-bold">
-                    {registrant.registration_number}
-                  </p>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="mt-3 gap-2 w-full md:w-auto"
-                    onClick={() => window.open(`/spmb/bukti/${registrant.id}`, '_blank')}
-                  >
-                    <Printer className="h-4 w-4" /> Cetak Bukti Pendaftaran
-                  </Button>
-                </div>
+            <div className="grid md:grid-cols-2 gap-6">
+               <Card>
+                  <CardHeader>
+                     <CardTitle className="text-lg flex items-center gap-2">
+                        <User className="h-5 w-5 text-primary" />
+                        Informasi Siswa
+                     </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                     <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Nama Lengkap</p>
+                        <p className="font-semibold">{registrant.fullName}</p>
+                     </div>
+                     <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Nomor Pendaftaran</p>
+                        <p className="font-mono font-medium">{registrant.registrationNumber}</p>
+                     </div>
+                     <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Jenis Kelamin</p>
+                        <p className="font-medium">{registrant.gender === "L" ? "Laki-laki" : "Perempuan"}</p>
+                     </div>
+                  </CardContent>
+               </Card>
 
-                <Separator />
-
-                {/* Student Info */}
-                <div>
-                  <h3 className="font-semibold flex items-center gap-2 mb-3">
-                    <User className="h-4 w-4" />
-                    Data Siswa
-                  </h3>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">Nama Lengkap</p>
-                      <p className="font-medium">{registrant.student_name || registrant.full_name}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">NIK</p>
-                      <p className="font-medium">{registrant.student_nik || registrant.nik}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Tempat, Tanggal Lahir</p>
-                      <p className="font-medium">
-                        {registrant.birth_place}, {formatDate(registrant.birth_date || "")}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Jenis Kelamin</p>
-                      <p className="font-medium">{getGenderLabel(registrant.gender || "")}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Location Info */}
-                <div>
-                  <h3 className="font-semibold flex items-center gap-2 mb-3">
-                    <MapPin className="h-4 w-4" />
-                    Lokasi & Zonasi
-                  </h3>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">Jarak ke Sekolah</p>
-                      <p className="font-medium">
-                        {formatDistance(registrant.distance_to_school || 0)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Status Zonasi</p>
-                      <Badge
-                        variant={(registrant.is_in_zone || registrant.is_within_zone) ? "default" : "secondary"}
-                        className={(registrant.is_in_zone || registrant.is_within_zone) ? "bg-green-600" : ""}
-                      >
-                        {(registrant.is_in_zone || registrant.is_within_zone) ? "Dalam Zona" : "Luar Zona"}
-                      </Badge>
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Timestamps */}
-                <div className="text-sm text-muted-foreground">
-                  <p>Didaftarkan: {formatDate(registrant.created)}</p>
-                  {registrant.verified_at && (
-                    <p>Diverifikasi: {formatDate(registrant.verified_at)}</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+               <Card>
+                  <CardHeader>
+                     <CardTitle className="text-lg flex items-center gap-2">
+                        <Calendar className="h-5 w-5 text-primary" />
+                        Detail Pendaftaran
+                     </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                     <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Tanggal Daftar</p>
+                        <p className="font-medium">
+                          {registrant.createdAt ? format(new Date(registrant.createdAt), "dd MMMM yyyy, HH:mm", { locale: idLocale }) : "-"}
+                        </p>
+                     </div>
+                     <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Jarak ke Sekolah</p>
+                        <p className="font-medium">{registrant.distanceToSchool ? `${Number(registrant.distanceToSchool).toFixed(2)} km` : "-"}</p>
+                     </div>
+                     <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Alamat</p>
+                        <p className="text-sm line-clamp-2">{registrant.address}</p>
+                     </div>
+                  </CardContent>
+               </Card>
+            </div>
           </div>
         )}
       </div>
     </div>
   );
 }
+
+export default function TrackingPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    }>
+      <TrackingContent />
+    </Suspense>
+  );
+}
+
+const buttonVariants = ({ variant }: { variant: string }) => {
+    const base = "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 h-9 px-4 py-2";
+    const variants: Record<string, string> = {
+        outline: "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground"
+    };
+    return cn(base, variants[variant] || "");
+};
+
+

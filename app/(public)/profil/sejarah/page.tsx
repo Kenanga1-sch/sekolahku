@@ -3,9 +3,18 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { History, Award, Users, Building, BookOpen, Sparkles } from "lucide-react";
+import React, { useMemo } from "react";
+import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { TracingBeam } from "@/components/ui/tracing-beam";
 
-const timeline = [
+const iconMap: Record<string, any> = {
+  "Award": Award,
+  "Users": Users,
+  "Building": Building,
+  "BookOpen": BookOpen,
+};
+
+const DEFAULT_TIMELINE = [
   {
     year: "1970",
     title: "Pendirian Sekolah",
@@ -38,7 +47,7 @@ const timeline = [
   },
 ];
 
-const achievements = [
+const DEFAULT_ACHIEVEMENTS = [
   { icon: Award, value: "50+", label: "Prestasi Akademik" },
   { icon: Users, value: "5000+", label: "Alumni" },
   { icon: Building, value: "54", label: "Tahun Berdiri" },
@@ -46,6 +55,25 @@ const achievements = [
 ];
 
 export default function SejarahPage() {
+  const { settings } = useSchoolSettings();
+
+  const { timeline, achievements } = useMemo(() => {
+    if (!settings) return { timeline: DEFAULT_TIMELINE, achievements: DEFAULT_ACHIEVEMENTS };
+
+    try {
+      const dbTimeline = settings.school_history_timeline ? JSON.parse(settings.school_history_timeline) : DEFAULT_TIMELINE;
+      const dbAchievements = settings.school_history_achievements ? JSON.parse(settings.school_history_achievements).map((item: any) => ({
+        ...item,
+        icon: iconMap[item.icon] || Award
+      })) : DEFAULT_ACHIEVEMENTS;
+
+      return { timeline: dbTimeline, achievements: dbAchievements };
+    } catch (e) {
+      console.error("Failed to parse history settings:", e);
+      return { timeline: DEFAULT_TIMELINE, achievements: DEFAULT_ACHIEVEMENTS };
+    }
+  }, [settings]);
+
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       {/* Hero Section */}
@@ -149,3 +177,4 @@ export default function SejarahPage() {
     </div>
   );
 }
+

@@ -1,20 +1,28 @@
+"use client";
 
-import { Suspense } from "react";
-import { auth } from "@/auth";
+import React, { useState, useEffect, Suspense } from "react";
 import { getCachedLibraryStats } from "@/lib/data/library";
 import PerpustakaanClient from "@/components/perpustakaan/perpustakaan-client";
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export const metadata = {
-  title: "Perpustakaan | Sekolahku",
-};
+export default function PerpustakaanPage() {
+    const [stats, setStats] = useState<any>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-export default async function PerpustakaanPage() {
-    const session = await auth();
-    if (!session?.user) redirect("/login");
+    useEffect(() => {
+        getCachedLibraryStats()
+            .then(data => {
+                setStats(data);
+                setIsLoading(false);
+            })
+            .catch(err => {
+                console.error(err);
+                setIsLoading(false);
+            });
+    }, []);
 
-    const stats = await getCachedLibraryStats();
+    if (isLoading || !stats) return <PerpustakaanSkeleton />;
 
     return (
         <Suspense fallback={<PerpustakaanSkeleton />}>
@@ -34,3 +42,4 @@ function PerpustakaanSkeleton() {
         </div>
     );
 }
+

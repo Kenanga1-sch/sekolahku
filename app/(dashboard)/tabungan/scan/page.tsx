@@ -26,6 +26,7 @@ import {
 import Link from "next/link";
 import { showSuccess, showError } from "@/lib/toast";
 import { useAuthStore } from "@/lib/stores/auth-store";
+import { goGet, goPost } from "@/lib/api-client";
 import { QRScanner } from "@/components/ui/qr-scanner";
 import type { TabunganSiswaWithRelations, TransactionType } from "@/types/tabungan";
 
@@ -89,8 +90,7 @@ export default function TabunganScanPage() {
         lastScannedCodeRef.current = code.trim();
 
         try {
-            const res = await fetch(`/api/tabungan/siswa?qrCode=${encodeURIComponent(code.trim())}`);
-            const result = await res.json();
+            const result: any = await goGet(`/api/tabungan/siswa?qrCode=${encodeURIComponent(code.trim())}`);
             
             const foundSiswa = result.items?.[0];
 
@@ -158,34 +158,7 @@ export default function TabunganScanPage() {
                 userId: user.id
             };
 
-            const res = await fetch("/api/tabungan/transaksi", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            });
-            const text = await res.text();
-            let data;
-            try {
-                data = JSON.parse(text);
-            } catch (e) {
-                console.error("Invalid JSON response:", text);
-                throw new Error("Server error: Gagal memproses data (Invalid JSON)");
-            }
-
-            if (!res.ok) {
-                console.error("API Error Data:", data);
-                let msg = data.error?.message || (typeof data.error === 'string' ? data.error : "Gagal memproses transaksi");
-                
-                // Append validation details if available
-                if (data.error?.fields) {
-                    const fields = Object.entries(data.error.fields)
-                        .map(([key, val]) => `${key}: ${val}`)
-                        .join(", ");
-                    msg += ` (${fields})`;
-                }
-                
-                throw new Error(msg);
-            }
+            await goPost("/api/tabungan/transaksi", payload);
 
             setScanState("success");
             showSuccess(
@@ -468,3 +441,4 @@ export default function TabunganScanPage() {
         </div>
     );
 }
+

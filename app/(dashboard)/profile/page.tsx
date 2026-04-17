@@ -21,10 +21,10 @@ import {
     Shield,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import { useSession } from "next-auth/react";
+import { goPatch } from "@/lib/api-client";
+
 
 export default function ProfilePage() {
-    const { update } = useSession();
     const router = useRouter();
     const { user, isAuthenticated, isLoading: authLoading } = useAuthStore();
     const [isSaving, setIsSaving] = useState(false);
@@ -77,26 +77,18 @@ export default function ProfilePage() {
         setError(null);
 
         try {
-            const res = await fetch("/api/profile", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name: profile.name, phone: profile.phone }),
-            });
+            await goPatch("/api/profile", { name: profile.name, phone: profile.phone });
             
-            if (!res.ok) throw new Error(await res.text());
-            
-            await update({ name: profile.name }); // Update session
-            
-            // setUser not needed as it comes from session
             setSaved(true);
             setTimeout(() => setSaved(false), 3000);
-        } catch (err) {
+        } catch (err: any) {
             console.error("Failed to update profile:", err);
-            setError("Gagal menyimpan profil. Silakan coba lagi.");
+            setError(err.message || "Gagal menyimpan profil. Silakan coba lagi.");
         } finally {
             setIsSaving(false);
         }
     };
+
 
     const handleChangePassword = async () => {
         if (!user) return;
@@ -116,31 +108,23 @@ export default function ProfilePage() {
         setIsChangingPassword(true);
 
         try {
-            const res = await fetch("/api/profile", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    oldPassword: passwords.current,
-                    password: passwords.new,
-                    passwordConfirm: passwords.confirm,
-                }),
+            await goPatch("/api/profile", {
+                oldPassword: passwords.current,
+                password: passwords.new,
+                passwordConfirm: passwords.confirm,
             });
-
-            if (!res.ok) {
-                 const data = await res.json();
-                 throw new Error(data.error || "Gagal mengubah password");
-            }
 
             setPasswords({ current: "", new: "", confirm: "" });
             setPasswordSuccess(true);
             setTimeout(() => setPasswordSuccess(false), 3000);
-        } catch (err: unknown) {
+        } catch (err: any) {
             console.error("Failed to change password:", err);
-            setPasswordError(err instanceof Error ? err.message : "Gagal mengubah password.");
+            setPasswordError(err.message || "Gagal mengubah password.");
         } finally {
             setIsChangingPassword(false);
         }
     };
+
 
     if (authLoading || !user) {
         return (
@@ -375,3 +359,4 @@ export default function ProfilePage() {
         </div>
     );
 }
+

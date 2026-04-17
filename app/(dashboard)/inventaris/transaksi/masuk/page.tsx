@@ -38,6 +38,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { format } from "date-fns"; // Make sure to use existing date-fns version
 import { id } from "date-fns/locale";
+import { goGet, goPost } from "@/lib/api-client";
 
 export default function BarangMasukPage() {
   const router = useRouter();
@@ -54,16 +55,17 @@ export default function BarangMasukPage() {
   const [proofImage, setProofImage] = useState(""); // Placeholder for file upload path
 
   useEffect(() => {
-    fetch("/api/inventory/items?limit=100")
-      .then((res) => res.json())
-      .then((data) => {
-        setItems(data.data);
-        setLoading(false);
-      })
-      .catch((err) => {
+    const loadItems = async () => {
+      try {
+        const response: any = await goGet("/api/inventory/items?limit=100");
+        setItems(response.data || []);
+      } catch (err) {
         toast.error("Gagal memuat daftar barang");
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+    loadItems();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -75,20 +77,16 @@ export default function BarangMasukPage() {
 
     setSubmitting(true);
     try {
-      const res = await fetch("/api/inventory/transactions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          itemId: selectedItemId,
-          type: "IN", // INCOMING
-          quantity: parseInt(quantity),
-          description: description || "Restock Barang",
-          date: date,
-          // proofImage handled separately if implemented
-        }),
+      const res: any = await goPost("/api/inventory/transactions", {
+        itemId: selectedItemId,
+        type: "IN", // INCOMING
+        quantity: parseInt(quantity),
+        description: description || "Restock Barang",
+        date: date,
+        // proofImage handled separately if implemented
       });
 
-      if (!res.ok) throw new Error("Failed to submit");
+      if (res.error) throw new Error(res.error);
       
       toast.success("Barang masuk berhasil dicatat");
       router.push("/inventaris/stok");
@@ -230,3 +228,4 @@ export default function BarangMasukPage() {
     </div>
   );
 }
+

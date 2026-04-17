@@ -1,34 +1,47 @@
+"use client";
 
-import { Suspense } from "react";
-import { auth } from "@/auth";
+import React, { useState, useEffect, Suspense } from "react";
 import { getCachedInventoryStats, getCachedConsumableStats } from "@/lib/data/inventory";
 import InventarisClient from "@/components/inventaris/inventaris-client";
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getSessionAction } from "@/actions/auth";
 
-export const metadata = {
-  title: "Inventaris & ATK | Sekolahku",
-};
+export default function InventarisPage() {
+    const [data, setData] = useState<any>(null);
+    const [session, setSession] = useState<any>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-export default async function InventarisPage() {
-    const session = await auth();
-    if (!session?.user) redirect("/login");
+    useEffect(() => {
+        const load = async () => {
+            try {
+                const s = await getSessionAction();
+                setSession(s);
+                
+                const isAdmin = ["admin"].includes(s?.user?.role || "");
+                const [stats, consumableStats] = await Promise.all([
+                    getCachedInventoryStats(),
+                    isAdmin ? getCachedConsumableStats() : Promise.resolve(null)
+                ]);
+                
+                setData({ stats, consumableStats });
+            } catch (err) {
+                console.error(err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        load();
+    }, []);
 
-    const isAdmin = ["superadmin", "admin"].includes(session.user.role || "");
-
-    const [stats, consumableStats] = await Promise.all([
-        getCachedInventoryStats(),
-        isAdmin ? getCachedConsumableStats() : Promise.resolve(null)
-    ]);
+    if (isLoading || !data) return <InventarisSkeleton />;
 
     return (
-        <Suspense fallback={<InventarisSkeleton />}>
-            <InventarisClient
-                initialStats={stats}
-                initialConsumableStats={consumableStats}
-                userRole={session.user.role}
-            />
-        </Suspense>
+        <InventarisClient
+            initialStats={data.stats}
+            initialConsumableStats={data.consumableStats}
+            userRole={session?.user?.role}
+        />
     );
 }
 
@@ -43,3 +56,4 @@ function InventarisSkeleton() {
         </div>
     );
 }
+

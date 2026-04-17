@@ -20,6 +20,7 @@ import {
     AlertCircle,
 } from "lucide-react";
 import type { TabunganStats } from "@/types/tabungan";
+import { goGet } from "@/lib/api-client";
 
 // Lazy load heavy components
 
@@ -52,11 +53,8 @@ export default function TabunganDashboardPage() {
 
     async function fetchStats() {
         try {
-            const res = await fetch("/api/tabungan/data");
-            if (res.ok) {
-                const data = await res.json();
-                setStats(data);
-            }
+            const data: any = await goGet("/api/tabungan/data");
+            setStats(data);
         } catch (error) {
             console.error("Failed to fetch stats:", error);
         } finally {
@@ -207,3 +205,4 @@ export default function TabunganDashboardPage() {
         </div>
     );
 }
+

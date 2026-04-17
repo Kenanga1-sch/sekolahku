@@ -64,9 +64,9 @@ interface ModuleStats {
 
 interface Registrant {
   id: string;
-  student_name: string;
-  registration_number: string;
-  created: string;
+  fullName: string;
+  registrationNumber: string;
+  createdAt: number;
   status: string;
 }
 
@@ -100,17 +100,32 @@ interface OverviewClientProps {
 export function OverviewClient({ 
   stats, 
   moduleStats, 
-  recentRegistrants, 
-  activePeriod,
+  recentRegistrants = [], 
+  activePeriod = null,
   serverHealth 
 }: OverviewClientProps) {
   
+  // Defensive checks for stats
+  const safeStats = stats || {
+    pending: 0,
+    verified: 0,
+    accepted: 0,
+    rejected: 0,
+    total: 0
+  };
+
+  const safeModuleStats = moduleStats || {
+    perpustakaan: { totalBooks: 0, activeLoans: 0, overdueLoans: 0 },
+    inventaris: { totalAssets: 0, totalRooms: 0, needsMaintenance: 0 },
+    tabungan: { totalSaldo: 0, totalStudents: 0, todayTransactions: 0 }
+  };
+
   // Prepare Chart Data
   const statusData = [
-    { name: "Pending", value: stats.pending, color: "#f59e0b" },
-    { name: "Terverifikasi", value: stats.verified, color: "#3b82f6" },
-    { name: "Diterima", value: stats.accepted, color: "#22c55e" },
-    { name: "Ditolak", value: stats.rejected, color: "#ef4444" },
+    { name: "Pending", value: safeStats.pending || 0, color: "#f59e0b" },
+    { name: "Terverifikasi", value: safeStats.verified || 0, color: "#3b82f6" },
+    { name: "Diterima", value: safeStats.accepted || 0, color: "#22c55e" },
+    { name: "Ditolak", value: safeStats.rejected || 0, color: "#ef4444" },
   ].filter(item => item.value > 0);
 
   // Generate trend data
@@ -121,8 +136,9 @@ export function OverviewClient({
     return date.toISOString().split("T")[0];
   });
   
+  const safeRegistrants = recentRegistrants || [];
   const trendData = last7Days.map(dateStr => {
-    const count = recentRegistrants.filter((r) => r.created?.startsWith(dateStr)).length;
+    const count = safeRegistrants.filter((r) => r.created?.startsWith(dateStr)).length;
     const date = new Date(dateStr);
     return {
       date: date.toLocaleDateString("id-ID", { day: "numeric", month: "short" }),
@@ -132,31 +148,31 @@ export function OverviewClient({
 
   // Generate activities
   const recentActivities = [];
-  if (moduleStats.perpustakaan.activeLoans > 0) {
+  if (safeModuleStats.perpustakaan?.activeLoans > 0) {
     recentActivities.push({
       id: '1', type: 'library', title: 'Peminjaman Buku Aktif',
-      description: `${moduleStats.perpustakaan.activeLoans} buku sedang dipinjam`,
+      description: `${safeModuleStats.perpustakaan.activeLoans} buku sedang dipinjam`,
       time: 'Hari ini', icon: BookOpen, color: 'text-blue-500'
     });
   }
-  if (moduleStats.inventaris.needsMaintenance > 0) {
+  if (safeModuleStats.inventaris?.needsMaintenance > 0) {
     recentActivities.push({
       id: '2', type: 'inventory', title: 'Aset Perlu Perbaikan',
-      description: `${moduleStats.inventaris.needsMaintenance} aset butuh perhatian`,
+      description: `${safeModuleStats.inventaris.needsMaintenance} aset butuh perhatian`,
       time: 'Perlu tindakan', icon: AlertTriangle, color: 'text-amber-500'
     });
   }
-  if (moduleStats.tabungan.todayTransactions > 0) {
+  if (safeModuleStats.tabungan?.todayTransactions > 0) {
     recentActivities.push({
       id: '3', type: 'savings', title: 'Transaksi Hari Ini',
-      description: `${moduleStats.tabungan.todayTransactions} transaksi tabungan`,
+      description: `${safeModuleStats.tabungan.todayTransactions} transaksi tabungan`,
       time: 'Hari ini', icon: Wallet, color: 'text-emerald-500'
     });
   }
-  if (stats.pending > 0) {
+  if (safeStats.pending > 0) {
     recentActivities.push({
       id: '4', type: 'spmb', title: 'Pendaftar Baru',
-      description: `${stats.pending} menunggu verifikasi`,
+      description: `${safeStats.pending} menunggu verifikasi`,
       time: 'Perlu tindakan', icon: Users, color: 'text-purple-500'
     });
   }
@@ -165,24 +181,24 @@ export function OverviewClient({
   const spmbCards = [
     {
       title: "Total Pendaftar", 
-      value: stats.total.toString(), 
+      value: (safeStats.total || 0).toString(), 
       description: "Total keseluruhan pendaftar masuk",
       icon: <Users className="h-4 w-4 text-neutral-500" />,
-      header: <div className="flex flex-1 w-full h-full min-h-[6rem] rounded-xl bg-gradient-to-br from-neutral-200 dark:from-neutral-900 dark:to-neutral-800 to-neutral-100 items-center justify-center text-4xl font-bold text-neutral-700 dark:text-neutral-200">{stats.total}</div>,
+      header: <div className="flex flex-1 w-full h-full min-h-[6rem] rounded-xl bg-gradient-to-br from-neutral-200 dark:from-neutral-900 dark:to-neutral-800 to-neutral-100 items-center justify-center text-4xl font-bold text-neutral-700 dark:text-neutral-200">{safeStats.total || 0}</div>,
     },
     {
       title: "Menunggu Verifikasi", 
-      value: stats.pending.toString(), 
+      value: (safeStats.pending || 0).toString(), 
       description: "Memerlukan tindakan segera",
       icon: <Clock className="h-4 w-4 text-amber-500" />,
-      header: <div className="flex flex-1 w-full h-full min-h-[6rem] rounded-xl bg-gradient-to-br from-amber-100 dark:from-amber-900/50 dark:to-neutral-900 to-neutral-100 items-center justify-center text-4xl font-bold text-amber-600 dark:text-amber-400">{stats.pending}</div>
+      header: <div className="flex flex-1 w-full h-full min-h-[6rem] rounded-xl bg-gradient-to-br from-amber-100 dark:from-amber-900/50 dark:to-neutral-900 to-neutral-100 items-center justify-center text-4xl font-bold text-amber-600 dark:text-amber-400">{safeStats.pending || 0}</div>
     },
     {
       title: "Verifikasi & Diterima", 
-      value: (stats.verified + stats.accepted).toString(), 
+      value: ((safeStats.verified || 0) + (safeStats.accepted || 0)).toString(), 
       description: "Proses lanjut atau diterima",
       icon: <UserCheck className="h-4 w-4 text-emerald-500" />,
-      header: <div className="flex flex-1 w-full h-full min-h-[6rem] rounded-xl bg-gradient-to-br from-emerald-100 dark:from-emerald-900/50 dark:to-neutral-900 to-neutral-100 items-center justify-center text-4xl font-bold text-emerald-600 dark:text-emerald-400">{stats.verified + stats.accepted}</div>
+      header: <div className="flex flex-1 w-full h-full min-h-[6rem] rounded-xl bg-gradient-to-br from-emerald-100 dark:from-emerald-900/50 dark:to-neutral-900 to-neutral-100 items-center justify-center text-4xl font-bold text-emerald-600 dark:text-emerald-400">{(safeStats.verified || 0) + (safeStats.accepted || 0)}</div>
     },
   ];
 
@@ -190,34 +206,34 @@ export function OverviewClient({
     {
       title: "Perpustakaan", icon: BookOpen, accent: "blue",
       items: [
-        { label: "Total Buku", value: moduleStats.perpustakaan.totalBooks },
-        { label: "Dipinjam", value: moduleStats.perpustakaan.activeLoans },
-        { label: "Terlambat", value: moduleStats.perpustakaan.overdueLoans, alert: moduleStats.perpustakaan.overdueLoans > 0 },
+        { label: "Total Buku", value: safeModuleStats.perpustakaan?.totalBooks || 0 },
+        { label: "Dipinjam", value: safeModuleStats.perpustakaan?.activeLoans || 0 },
+        { label: "Terlambat", value: safeModuleStats.perpustakaan?.overdueLoans || 0, alert: (safeModuleStats.perpustakaan?.overdueLoans || 0) > 0 },
       ],
       link: "/perpustakaan"
     },
     {
       title: "Inventaris", icon: Package, accent: "orange",
       items: [
-        { label: "Total Aset", value: moduleStats.inventaris.totalAssets },
-        { label: "Ruangan", value: moduleStats.inventaris.totalRooms },
-        { label: "Perlu Perbaikan", value: moduleStats.inventaris.needsMaintenance, alert: moduleStats.inventaris.needsMaintenance > 0 },
+        { label: "Total Aset", value: safeModuleStats.inventaris?.totalAssets || 0 },
+        { label: "Ruangan", value: safeModuleStats.inventaris?.totalRooms || 0 },
+        { label: "Perlu Perbaikan", value: safeModuleStats.inventaris?.needsMaintenance || 0, alert: (safeModuleStats.inventaris?.needsMaintenance || 0) > 0 },
       ],
       link: "/inventaris"
     },
     {
       title: "Tabungan", icon: Wallet, accent: "emerald",
       items: [
-        { label: "Total Saldo", value: formatCurrency(moduleStats.tabungan.totalSaldo) },
-        { label: "Siswa", value: moduleStats.tabungan.totalStudents },
-        { label: "Transaksi Hari Ini", value: moduleStats.tabungan.todayTransactions },
+        { label: "Total Saldo", value: formatCurrency(safeModuleStats.tabungan?.totalSaldo || 0) },
+        { label: "Siswa", value: safeModuleStats.tabungan?.totalStudents || 0 },
+        { label: "Transaksi Hari Ini", value: safeModuleStats.tabungan?.todayTransactions || 0 },
       ],
       link: "/tabungan"
     },
   ];
 
   const quickActions = [
-    { label: "Verifikasi SPMB", icon: Clock, href: "/spmb-admin", color: "bg-blue-100 text-blue-600", badge: stats.pending },
+    { label: "Verifikasi SPMB", icon: Clock, href: "/spmb-admin", color: "bg-blue-100 text-blue-600", badge: safeStats.pending || 0 },
     { label: "Kelola Periode", icon: Calendar, href: "/spmb-admin/periods", color: "bg-purple-100 text-purple-600" },
     { label: "Peminjaman Buku", icon: BookMarked, href: "/perpustakaan/peminjaman", color: "bg-indigo-100 text-indigo-600" },
     { label: "Stock Opname", icon: Boxes, href: "/inventaris/opname", color: "bg-amber-100 text-amber-600" },
@@ -336,10 +352,10 @@ export function OverviewClient({
                   ) : (
                     recentRegistrants.map((item) => (
                       <tr key={item.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="px-6 py-4 font-medium">{item.student_name}</td>
-                        <td className="px-6 py-4 font-mono text-muted-foreground">{item.registration_number}</td>
+                        <td className="px-6 py-4 font-medium">{item.fullName}</td>
+                        <td className="px-6 py-4 font-mono text-muted-foreground">{item.registrationNumber}</td>
                         <td className="px-6 py-4 text-muted-foreground">
-                          {new Date(item.created).toLocaleDateString("id-ID")}
+                          {item.createdAt ? new Date(item.createdAt).toLocaleDateString("id-ID") : "-"}
                         </td>
                         <td className="px-6 py-4"><SPMBStatusBadge status={item.status} /></td>
                       </tr>
@@ -434,14 +450,14 @@ export function OverviewClient({
                     <div className="flex justify-between text-sm">
                       <span>Kuota Terisi</span>
                       <span className="font-bold">
-                        {stats.accepted || 0}/{activePeriod.quota || 100}
+                        {safeStats.accepted || 0}/{activePeriod.quota || 100}
                       </span>
                     </div>
                     <div className="h-2 w-full bg-black/20 rounded-full overflow-hidden">
                       <div
                         className="h-full bg-white transition-all"
                         style={{
-                          width: `${Math.min(((stats.accepted || 0) / (activePeriod.quota || 100)) * 100, 100)}%`
+                          width: `${Math.min(((safeStats.accepted || 0) / (activePeriod.quota || 100)) * 100, 100)}%`
                         }}
                       />
                     </div>

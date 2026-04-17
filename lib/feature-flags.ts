@@ -187,3 +187,8 @@ function simpleHash(str: string): number {
 
 // Re-export types
 export type { FeatureName, FeatureConfig };
+
+export async function useFeature(...args: any[]) {
+  console.warn("useFeature: Not yet wired to Go API");
+  return { success: false, error: "Not implemented" };
+}

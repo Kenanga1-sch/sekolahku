@@ -109,7 +109,8 @@ func (r *AcademicAdvRepository) UpsertBulkGrades(req models.BulkGradeRequest) er
 			WHERE tp_id = ? AND student_id = ? AND type = ?
 		`, req.TpID, g.StudentID, g.Type).Scan(&existId)
 
-		if err == sql.ErrNoRows {
+		switch err {
+		case sql.ErrNoRows:
 			// Insert
 			_, err = tx.Exec(`
 				INSERT INTO student_grades (id, tp_id, student_id, score, type, notes, created_at, updated_at)
@@ -118,7 +119,7 @@ func (r *AcademicAdvRepository) UpsertBulkGrades(req models.BulkGradeRequest) er
 			if err != nil {
 				return err
 			}
-		} else if err == nil {
+		case nil:
 			// Update
 			_, err = tx.Exec(`
 				UPDATE student_grades 
@@ -128,7 +129,7 @@ func (r *AcademicAdvRepository) UpsertBulkGrades(req models.BulkGradeRequest) er
 			if err != nil {
 				return err
 			}
-		} else {
+		default:
 			return err
 		}
 	}

@@ -12,6 +12,7 @@ import { Book, QrCode, Search, Check, Loader2, ArrowLeft, ArrowRight, Save, Plus
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getDDCLabel, getAllDDCCategories, getShelfByDDC, getAllShelves, type DDCCategory } from "@/lib/library/ddc-mapping";
+import { goGet, goPost } from "@/lib/api-client";
 
 interface CatalogData {
     title: string;
@@ -69,9 +70,8 @@ export default function LibraryBindingPage() {
         setLoading(true);
         setLookupStatus('loading');
         try {
-            const res = await fetch(`/api/library/isbn/${isbnToLookup}`);
-            if (res.ok) {
-                const response = await res.json();
+            const response: any = await goGet(`/api/library/isbn/${isbnToLookup}`);
+            if (!response.error) {
                 const data = response.data; // Unpack the actual book data
                 
                 setLookupStatus('success');
@@ -135,13 +135,9 @@ export default function LibraryBindingPage() {
         
         setLoading(true);
         try {
-            const res = await fetch("/api/library/catalog/cover", {
-                method: "POST",
-                body: formData
-            });
+            const data: any = await goPost("/api/library/catalog/cover", formData);
 
-            if (res.ok) {
-                const data = await res.json();
+            if (!data.error) {
                 setCatalog({ ...catalog, coverUrl: data.url });
                 toast.success("Sampul berhasil diunggah!");
             } else {
@@ -158,21 +154,16 @@ export default function LibraryBindingPage() {
     const handleSave = async () => {
         setLoading(true);
         try {
-            const res = await fetch("/api/library/assets/bind", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    qrCode,
-                    location,
-                    catalog: {
-                        ...catalog,
-                        cover: catalog.coverUrl, // Map frontend coverUrl to backend cover
-                        category: overrideCategory || catalog.ddcCategory || "UNSORTED",
-                    }
-                })
+            const result: any = await goPost("/api/library/assets/bind", {
+                qrCode,
+                location,
+                catalog: {
+                    ...catalog,
+                    cover: catalog.coverUrl, // Map frontend coverUrl to backend cover
+                    category: overrideCategory || catalog.ddcCategory || "UNSORTED",
+                }
             });
 
-            const result = await res.json();
             if (result.success) {
                 toast.success("Buku berhasil didaftarkan!");
                 
@@ -527,3 +518,4 @@ export default function LibraryBindingPage() {
         </div>
     );
 }
+

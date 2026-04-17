@@ -19,11 +19,10 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
+import { goGet } from "@/lib/api-client";
 
 interface Stats {
-  date: string;
   totalStudents: number;
-  sessions: number;
   openSessions: number;
   stats: {
     hadir: number;
@@ -31,7 +30,6 @@ interface Stats {
     izin: number;
     alpha: number;
     belumAbsen: number;
-    recorded: number;
     persenKehadiran: number;
   };
 }
@@ -42,7 +40,6 @@ interface Session {
   className: string;
   teacherName: string | null;
   status: "open" | "closed";
-  openedAt: string;
   recordCount: number;
 }
 
@@ -54,16 +51,13 @@ export default function PresensiDashboardPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [statsRes, sessionsRes] = await Promise.all([
-          fetch("/api/attendance/stats"),
-          fetch("/api/attendance/sessions?date=" + new Date().toISOString().split("T")[0]),
+        const [statsData, sessionsData] = await Promise.all([
+          goGet("/api/attendance/stats"),
+          goGet("/api/attendance/sessions?date=" + new Date().toISOString().split("T")[0]),
         ]);
 
-        const statsData = await statsRes.json();
-        const sessionsData = await sessionsRes.json();
-
-        setStats(statsData);
-        setSessions(sessionsData);
+        setStats(statsData as any);
+        setSessions(sessionsData as any);
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
@@ -215,7 +209,7 @@ export default function PresensiDashboardPage() {
                 {sessions.map((session) => (
                   <Link
                     key={session.id}
-                    href={`/presensi/sesi/${session.id}`}
+                    href={`/presensi/sesi/detail?id=${session.id}`}
                     className="block"
                   >
                     <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
@@ -289,3 +283,4 @@ export default function PresensiDashboardPage() {
     </div>
   );
 }
+

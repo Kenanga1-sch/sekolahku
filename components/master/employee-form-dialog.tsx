@@ -13,6 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
 import { showSuccess, showError } from "@/lib/toast";
+import { goGet, goPost, goPut } from "@/lib/api-client";
 
 const employeeSchema = z.object({
   fullName: z.string().min(3, "Nama minimal 3 karakter"),
@@ -61,12 +62,8 @@ export function EmployeeFormDialog({ open, onOpenChange, employeeId, onSuccess }
   useEffect(() => {
     if (employeeId && open) {
         setIsLoading(true);
-        fetch(`/api/master/employees/${employeeId}`)
-            .then(async res => {
-                if (!res.ok) throw new Error("Gagal memuat data");
-                return res.json();
-            })
-            .then(data => {
+        goGet(`/api/master/employees/${employeeId}`)
+            .then((data: any) => {
                 // Format Date to YYYY-MM-DD for Input type="date"
                 let formattedDate = "";
                 if (data.joinDate) {
@@ -112,18 +109,11 @@ export function EmployeeFormDialog({ open, onOpenChange, employeeId, onSuccess }
   const onSubmit = async (data: EmployeeFormValues) => {
     setIsLoading(true);
     try {
-        const url = employeeId ? `/api/master/employees/${employeeId}` : "/api/master/employees";
-        const method = employeeId ? "PUT" : "POST";
-
-        const res = await fetch(url, {
-            method,
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data),
-        });
-
-        const json = await res.json();
-        
-        if (!res.ok) throw new Error(json.error || "Gagal menyimpan");
+        if (employeeId) {
+            await goPut(`/api/master/employees/${employeeId}`, data);
+        } else {
+            await goPost("/api/master/employees", data);
+        }
 
         showSuccess(employeeId ? "Data pegawai diperbarui" : "Pegawai baru ditambahkan");
         onSuccess();

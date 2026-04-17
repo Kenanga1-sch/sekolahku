@@ -2,6 +2,22 @@
 // Force rebuild to clear stale pocketbase dependency cache
 
 import { useState, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
+import { 
+  Plus, 
+  Search, 
+  RefreshCw, 
+  Newspaper, 
+  MoreHorizontal, 
+  Pencil, 
+  Trash2, 
+  Eye, 
+  EyeOff, 
+  Star, 
+  ImageIcon, 
+  X,
+  Loader2 
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,28 +26,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
 } from "@/components/ui/table";
 import {
   DropdownMenu,
@@ -39,6 +40,21 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,23 +65,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { 
-  Plus,
-  MoreHorizontal,
-  Pencil,
-  Trash2,
-  Eye,
-  EyeOff,
-  Star,
-  RefreshCw,
-  Loader2,
-  Newspaper,
-  Search,
-  ImageIcon,
-  X,
-} from "lucide-react";
-import dynamic from "next/dynamic";
+import { goGet, goPost, goPatch, goDelete } from "@/lib/api-client";
+import { showSuccess, showError } from "@/lib/toast";
 import type { Announcement } from "@/types";
+
 
 // Static definitions
 const categories = [
@@ -117,23 +120,24 @@ export default function AnnouncementsAdminPage() {
     content: "",
     category: "pengumuman",
     thumbnail: "",
-    is_published: false,
-    is_featured: false,
+    isPublished: false,
+    isFeatured: false,
   });
+
   const [isUploading, setIsUploading] = useState(false);
 
   const fetchAnnouncements = useCallback(async () => {
     try {
-      const res = await fetch("/api/announcements");
-      if (!res.ok) throw new Error("Failed to fetch");
-      const result = await res.json();
-      setAnnouncements(result);
+      const data: any = await goGet("/api/announcements?all=true");
+      setAnnouncements(data.data || []);
     } catch (error) {
       console.error("Failed to fetch announcements:", error);
+      showError("Gagal memuat pengumuman");
     } finally {
       setIsLoading(false);
     }
   }, []);
+
 
   useEffect(() => {
     fetchAnnouncements();
@@ -148,29 +152,23 @@ export default function AnnouncementsAdminPage() {
       };
 
       if (editingId) {
-        const res = await fetch(`/api/announcements/${editingId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
-        });
-        if (!res.ok) throw new Error("Failed to update");
+        await goPatch(`/api/announcements/${editingId}`, data);
+        showSuccess("Pengumuman berhasil diperbarui");
       } else {
-        const res = await fetch("/api/announcements", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
-        });
-        if (!res.ok) throw new Error("Failed to create");
+        await goPost("/api/announcements", data);
+        showSuccess("Pengumuman baru berhasil dibuat");
       }
 
       fetchAnnouncements();
       resetForm();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to save:", error);
+      showError(error.message || "Gagal menyimpan pengumuman");
     } finally {
       setIsSaving(false);
     }
   };
+
 
   const handleEdit = (item: Announcement) => {
     setEditingId(item.id);
@@ -181,66 +179,61 @@ export default function AnnouncementsAdminPage() {
       content: item.content || "",
       category: item.category || "pengumuman",
       thumbnail: item.thumbnail || "",
-      is_published: item.is_published || false,
-      is_featured: item.is_featured || false,
+      isPublished: item.isPublished || false,
+      isFeatured: item.isFeatured || false,
     });
     setIsDialogOpen(true);
   };
 
+
   const handleDelete = async () => {
     if (!deleteId) return;
     try {
-      const res = await fetch(`/api/announcements/${deleteId}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete");
+      await goDelete(`/api/announcements/${deleteId}`);
       setDeleteId(null);
+      showSuccess("Pengumuman berhasil dihapus");
       fetchAnnouncements();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to delete:", error);
+      showError(error.message || "Gagal menghapus pengumuman");
     }
   };
 
+
   const togglePublish = async (id: string, current: boolean) => {
     try {
-      const res = await fetch(`/api/announcements/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_published: !current }),
-      });
-      if (!res.ok) throw new Error("Failed to toggle");
+      await goPatch(`/api/announcements/${id}`, { isPublished: !current });
       fetchAnnouncements();
-    } catch (error) {
-      console.error("Failed to toggle publish:", error);
+    } catch (error: any) {
+      showError("Gagal merubah status terbit");
     }
   };
 
   const toggleFeatured = async (id: string, current: boolean) => {
     try {
-      const res = await fetch(`/api/announcements/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_featured: !current }),
-      });
-      if (!res.ok) throw new Error("Failed to toggle featured");
+      await goPatch(`/api/announcements/${id}`, { isFeatured: !current });
       fetchAnnouncements();
-    } catch (error) {
-      console.error("Failed to toggle featured:", error);
+    } catch (error: any) {
+      showError("Gagal merubah status featured");
     }
   };
+
 
   const resetForm = () => {
     setFormData({
       title: "",
       slug: "",
       excerpt: "",
-    content: "",
-    category: "pengumuman",
-    thumbnail: "",
-    is_published: false,
-    is_featured: false,
-  });
+      content: "",
+      category: "pengumuman",
+      thumbnail: "",
+      isPublished: false,
+      isFeatured: false,
+    });
     setEditingId(null);
     setIsDialogOpen(false);
   };
+
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -252,13 +245,8 @@ export default function AnnouncementsAdminPage() {
     formDataUpload.append("folder", "announcements");
 
     try {
-      const res = await fetch("/api/uploads", {
-        method: "POST",
-        body: formDataUpload,
-      });
-      
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Upload failed");
+      const data: any = await goPost("/api/uploads", formDataUpload);
+      if (data.error) throw new Error(data.error || "Upload failed");
 
       setFormData(prev => ({ ...prev, thumbnail: data.url }));
     } catch (error) {
@@ -355,20 +343,21 @@ export default function AnnouncementsAdminPage() {
                       <div className="flex items-center gap-2">
                         <Badge
                           variant="outline"
-                          className={item.is_published ? "border-green-500 text-green-600" : ""}
+                          className={item.isPublished ? "border-green-500 text-green-600" : ""}
                         >
-                          {item.is_published ? "Terbit" : "Draft"}
+                          {item.isPublished ? "Terbit" : "Draft"}
                         </Badge>
-                        {item.is_featured && (
+                        {item.isFeatured && (
                           <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
                         )}
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
-                      {item.published_at
-                        ? new Date(item.published_at).toLocaleDateString("id-ID")
-                        : new Date(item.created).toLocaleDateString("id-ID")}
+                      {item.publishedAt
+                        ? new Date(item.publishedAt).toLocaleDateString("id-ID")
+                        : item.createdAt ? new Date(item.createdAt).toLocaleDateString("id-ID") : "-"}
                     </TableCell>
+
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -381,8 +370,8 @@ export default function AnnouncementsAdminPage() {
                             <Pencil className="h-4 w-4 mr-2" />
                             Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => togglePublish(item.id, item.is_published ?? false)}>
-                            {item.is_published ? (
+                          <DropdownMenuItem onClick={() => togglePublish(item.id, item.isPublished ?? false)}>
+                            {item.isPublished ? (
                               <>
                                 <EyeOff className="h-4 w-4 mr-2" />
                                 Jadikan Draft
@@ -394,10 +383,11 @@ export default function AnnouncementsAdminPage() {
                               </>
                             )}
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => toggleFeatured(item.id, item.is_featured ?? false)}>
+                          <DropdownMenuItem onClick={() => toggleFeatured(item.id, item.isFeatured ?? false)}>
                             <Star className="h-4 w-4 mr-2" />
-                            {item.is_featured ? "Hapus Featured" : "Jadikan Featured"}
+                            {item.isFeatured ? "Hapus Featured" : "Jadikan Featured"}
                           </DropdownMenuItem>
+
                           <DropdownMenuItem
                             className="text-destructive"
                             onClick={() => setDeleteId(item.id)}
@@ -525,19 +515,20 @@ export default function AnnouncementsAdminPage() {
             <div className="flex gap-6">
               <div className="flex items-center gap-2">
                 <Switch
-                  checked={formData.is_published}
-                  onCheckedChange={(c) => setFormData({ ...formData, is_published: c })}
+                  checked={formData.isPublished}
+                  onCheckedChange={(c) => setFormData({ ...formData, isPublished: c })}
                 />
                 <Label>Terbitkan</Label>
               </div>
               <div className="flex items-center gap-2">
                 <Switch
-                  checked={formData.is_featured}
-                  onCheckedChange={(c) => setFormData({ ...formData, is_featured: c })}
+                  checked={formData.isFeatured}
+                  onCheckedChange={(c) => setFormData({ ...formData, isFeatured: c })}
                 />
                 <Label>Featured</Label>
               </div>
             </div>
+
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={resetForm}>
@@ -574,3 +565,4 @@ export default function AnnouncementsAdminPage() {
     </div>
   );
 }
+

@@ -34,6 +34,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Users, Vault, Plus, Pencil, Trash2, ShieldCheck, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { showSuccess, showError } from "@/lib/toast";
+import { goGet, goPost, goPut, goDelete } from "@/lib/api-client";
 import type { TabunganKelasWithRelations } from "@/types/tabungan";
 
 interface SimpleUser {
@@ -73,20 +74,20 @@ export default function TabunganPenggunaPage() {
         setIsLoading(true);
         try {
             const [kelasRes, brankasRes, usersRes, officialClassesRes] = await Promise.all([
-                fetch("/api/tabungan/kelas").then(r => r.json()),
-                fetch("/api/tabungan/brankas").then(r => r.json()),
-                fetch("/api/users?limit=200").then(r => r.json()),
-                fetch("/api/academic/classes").then(r => r.json()),
+                goGet("/api/tabungan/kelas"),
+                goGet("/api/tabungan/brankas"),
+                goGet("/api/users?limit=200"),
+                goGet("/api/academic/classes"),
             ]);
 
-            setKelasList(Array.isArray(kelasRes) ? kelasRes : []);
-            setBrankasList(brankasRes.data && Array.isArray(brankasRes.data) ? brankasRes.data : []);
-            setOfficialClasses(Array.isArray(officialClassesRes) ? officialClassesRes : []);
+            setKelasList(Array.isArray(kelasRes) ? (kelasRes as any) : []);
+            setBrankasList((brankasRes as any).data && Array.isArray((brankasRes as any).data) ? (brankasRes as any).data : []);
+            setOfficialClasses(Array.isArray(officialClassesRes) ? (officialClassesRes as any) : []);
 
-            if (usersRes.items) {
-                const allUsers = usersRes.items as SimpleUser[];
-                setTeachers(allUsers.filter(u => ["guru", "admin", "superadmin"].includes(u.role)));
-                setStaff(allUsers.filter(u => ["staff", "guru", "admin", "superadmin"].includes(u.role)));
+            if ((usersRes as any).items) {
+                const allUsers = (usersRes as any).items as SimpleUser[];
+                setTeachers(allUsers.filter(u => ["guru", "admin"].includes(u.role)));
+                setStaff(allUsers.filter(u => ["staff", "guru", "admin"].includes(u.role)));
             }
         } catch (error) {
             console.error("Failed to fetch data:", error);
@@ -112,24 +113,13 @@ export default function TabunganPenggunaPage() {
                 waliKelas: classWali === "none" ? null : classWali,
             };
 
-            let res;
             if (editClassId) {
                 // Update
-                 res = await fetch(`/api/tabungan/kelas/${editClassId}`, {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload),
-                });
+                await goPut(`/api/tabungan/kelas/${editClassId}`, payload);
             } else {
                 // Create
-                res = await fetch("/api/tabungan/kelas", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload),
-                });
+                await goPost("/api/tabungan/kelas", payload);
             }
-
-            if (!res.ok) throw new Error("Gagal menyimpan kelas");
 
             showSuccess(editClassId ? "Kelas diperbarui" : "Kelas berhasil ditambahkan");
             setIsClassDialogOpen(false);
@@ -144,8 +134,7 @@ export default function TabunganPenggunaPage() {
     const handleDeleteClass = async (id: string) => {
         if (!confirm("Yakin ingin menghapus kelas ini?")) return;
         try {
-            const res = await fetch(`/api/tabungan/kelas/${id}`, { method: "DELETE" });
-            if (!res.ok) throw new Error("Gagal hapus");
+            await goDelete(`/api/tabungan/kelas/${id}`);
             showSuccess("Kelas dihapus");
             fetchData();
         } catch (error) {
@@ -196,13 +185,7 @@ export default function TabunganPenggunaPage() {
                 // but let's hope the API is smart or we just send what we have.
             };
 
-            const res = await fetch("/api/tabungan/brankas", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            });
-
-            if (!res.ok) throw new Error("Gagal update PIC");
+            await goPost("/api/tabungan/brankas", payload);
             
             showSuccess("PIC Brankas diperbarui");
             fetchData();
@@ -415,3 +398,4 @@ export default function TabunganPenggunaPage() {
         </div>
     );
 }
+

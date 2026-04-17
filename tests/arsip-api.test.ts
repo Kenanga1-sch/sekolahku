@@ -11,7 +11,7 @@ vi.mock('fs/promises', () => ({
     }
 }));
 
-vi.mock('@/auth', () => ({
+vi.mock("@/lib/auth", () => ({
     auth: vi.fn(),
 }));
 
@@ -26,8 +26,8 @@ vi.mock('@/db', async () => {
     };
 });
 
-import { db, suratMasuk, klasifikasiSurat } from '@/db';
-import { auth } from '@/auth';
+
+import { auth } from "@/lib/auth";
 
 describe('Arsip (Surat Masuk) API', () => {
     beforeEach(async () => {

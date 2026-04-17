@@ -1,4 +1,6 @@
-import { Suspense } from "react";
+"use client";
+
+import React, { useState, useEffect, Suspense } from "react";
 import { getSavingsTreasurer, getClassesWithReps, getPendingSetoran, getEmployees, getBrankasSummary } from "@/actions/savings-admin";
 import { getLoans } from "@/actions/loans";
 import { TreasurerSelector } from "@/components/finance/treasurer-selector";
@@ -7,42 +9,73 @@ import { VerificationQueue } from "@/components/finance/verification-queue";
 import { BrankasManager } from "@/components/finance/brankas-manager";
 import { DebtManager } from "@/components/finance/debt-manager";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { auth } from "@/auth"; // Assuming auth setup
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ShieldCheck, Users, Banknote, Landmark, ArrowLeft } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { ShieldCheck, ArrowLeft, Loader2 } from "lucide-react";
 
-export const metadata = {
-  title: "Bendahara Tabungan | SekolahKu",
-};
+export default function SavingsTreasurerPage() {
+    const router = useRouter();
+    const [session, setSession] = useState<any>(null);
+    const [data, setData] = useState<any>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-export default async function SavingsTreasurerPage() {
-    const session = await auth();
-    if (!session) redirect("/login");
+    useEffect(() => {
+        const fetchData = async () => {
+            const cookies = document.cookie.split(";").map(c => c.trim());
+            const sessionCookie = cookies.find(c => c.startsWith("session="));
+            
+            if (!sessionCookie) {
+                router.push("/login");
+                return;
+            }
 
-    // Fetch Data Parallel
-    const [treasurerRes, classesRes, pendingRes, employeesRes, brankasRes, receivablesRes, payablesRes] = await Promise.all([
-        getSavingsTreasurer(),
-        getClassesWithReps(),
-        getPendingSetoran(),
-        getEmployees(),
-        getBrankasSummary(),
-        getLoans("RECEIVABLE"),
-        getLoans("PAYABLE")
-    ]);
+            try {
+                const token = sessionCookie.split("=")[1];
+                const payload = JSON.parse(atob(token.split(".")[1]));
+                setSession({ user: payload });
 
-    const treasurer = treasurerRes.data;
-    const classes = classesRes.data || [];
-    const pendingSetoran = pendingRes.data || [];
-    const employees = employeesRes.data || [];
-    const brankasData = brankasRes.data || { vaults: [], recentTransactions: [] };
-    const receivables = receivablesRes.data || [];
-    const payables = payablesRes.data || [];
+                const [treasurerRes, classesRes, pendingRes, employeesRes, brankasRes, receivablesRes, payablesRes] = await Promise.all([
+                    getSavingsTreasurer(),
+                    getClassesWithReps(),
+                    getPendingSetoran(),
+                    getEmployees(),
+                    getBrankasSummary(),
+                    getLoans("RECEIVABLE"),
+                    getLoans("PAYABLE")
+                ]);
 
+                setData({
+                    treasurer: treasurerRes.data,
+                    classes: classesRes.data || [],
+                    pendingSetoran: pendingRes.data || [],
+                    employees: employeesRes.data || [],
+                    brankasData: brankasRes.data || { vaults: [], recentTransactions: [] },
+                    receivables: receivablesRes.data || [],
+                    payables: payablesRes.data || []
+                });
+            } catch (err) {
+                console.error("Fetch error:", err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchData();
+    }, [router]);
+
+    if (isLoading || !data) {
+        return (
+            <div className="flex h-[80vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+        );
+    }
+
+    const { treasurer, classes, pendingSetoran, employees, brankasData, receivables, payables } = data;
     const isTreasurer = treasurer?.id === session.user?.id;
-    const isAdmin = session.user?.role === "admin" || session.user?.role === "superadmin";
+    const isAdmin = session.user?.role === "admin";
 
     return (
         <div className="space-y-6">
@@ -139,3 +172,4 @@ export default async function SavingsTreasurerPage() {
         </div>
     );
 }
+

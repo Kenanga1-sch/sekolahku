@@ -174,7 +174,7 @@ export default function RuanganPage() {
                         resetForm();
                     }
                 }}>
-                    {["admin", "superadmin"].includes(user?.role || "") && (
+                    {["admin"].includes(user?.role || "") && (
                         <DialogTrigger asChild>
                             <Button className="gap-2">
                                 <Plus className="h-4 w-4" />
@@ -223,7 +223,7 @@ export default function RuanganPage() {
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="none">-- Tidak Ada --</SelectItem>
-                                            {users.filter(u => ["guru", "staff", "admin", "superadmin"].includes(u.role)).map((u) => (
+                                            {users.filter(u => ["guru", "staff", "admin"].includes(u.role)).map((u) => (
                                                 <SelectItem key={u.id} value={u.id}>
                                                     {u.name} ({u.role})
                                                 </SelectItem>
@@ -308,7 +308,7 @@ export default function RuanganPage() {
                                         <TableCell>
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="icon" disabled={!["admin", "superadmin"].includes(user?.role || "")}>
+                                                    <Button variant="ghost" size="icon" disabled={!["admin"].includes(user?.role || "")}>
                                                         <MoreHorizontal className="h-4 w-4" />
                                                     </Button>
                                                 </DropdownMenuTrigger>
@@ -337,3 +337,4 @@ export default function RuanganPage() {
         </div>
     );
 }
+

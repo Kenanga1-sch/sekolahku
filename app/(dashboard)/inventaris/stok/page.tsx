@@ -49,6 +49,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatCurrency } from "@/lib/utils";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { goGet, goPost, goDelete } from "@/lib/api-client";
 
 // Manual debounce if hook helps avoid lookup
 function useDebouncedValue(value: string, delay: number) {
@@ -63,6 +64,7 @@ function useDebouncedValue(value: string, delay: number) {
 }
 
 export default function StokPage() {
+  const searchParams = useSearchParams();
   const router = useRouter();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,10 +92,9 @@ export default function StokPage() {
       if (debouncedSearch) params.set("q", debouncedSearch);
       if (categoryFilter && categoryFilter !== "ALL") params.set("category", categoryFilter);
       
-      const res = await fetch(`/api/inventory/items?${params.toString()}`);
-      if (!res.ok) throw new Error("Failed to fetch");
-      const data = await res.json();
-      setItems(data.data);
+      const res: any = await goGet(`/api/inventory/items?${params.toString()}`);
+      if (res.error) throw new Error(res.error);
+      setItems(res.data);
     } catch (error) {
       toast.error("Gagal memuat data barang");
     } finally {
@@ -109,13 +110,9 @@ export default function StokPage() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const res = await fetch("/api/inventory/items", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
+      const res: any = await goPost("/api/inventory/items", formData);
 
-      if (!res.ok) throw new Error("Failed to create");
+      if (res.error) throw new Error(res.error || "Failed to create");
       
       toast.success("Barang berhasil ditambahkan");
       setIsAddOpen(false);
@@ -139,10 +136,9 @@ export default function StokPage() {
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure?")) return;
     try {
-      const res = await fetch(`/api/inventory/items/${id}`, { method: "DELETE" });
-      if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(txt);
+      const res: any = await goDelete(`/api/inventory/items/${id}`);
+      if (res.error) {
+        throw new Error(res.error);
       }
       toast.success("Barang dihapus");
       fetchItems();
@@ -352,7 +348,7 @@ export default function StokPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => router.push(`/inventaris/stok/${item.id}`)}>
+                          <DropdownMenuItem onClick={() => router.push(`/inventaris/stok/detail?id=${item.id}`)}>
                              <Edit className="mr-2 h-4 w-4" /> Edit Detail
                           </DropdownMenuItem>
                           <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(item.id)}>
@@ -370,3 +366,4 @@ export default function StokPage() {
     </div>
   );
 }
+

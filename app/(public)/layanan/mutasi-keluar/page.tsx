@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
+import { goPost } from "@/lib/api-client";
 import jsPDF from "jspdf";
 import { Loader2, Download, CheckCircle, ArrowRight, FileText } from "lucide-react";
 import { format } from "date-fns";
@@ -82,23 +83,12 @@ export default function MutasiKeluarPage() {
   const onValidate = async (values: z.infer<typeof validationSchema>) => {
     setIsSubmitting(true);
     try {
-      const res = await fetch("/api/mutasi-keluar/validate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || "Validasi gagal");
-      }
-
+      const data = await goPost<{ data: StudentData }>("/api/mutasi-keluar/validate", values);
       setStudent(data.data);
       setStep("form");
       toast.success("Data siswa ditemukan");
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(error.message || "Validasi gagal");
     } finally {
       setIsSubmitting(false);
     }
@@ -108,20 +98,13 @@ export default function MutasiKeluarPage() {
     if (!student) return;
     setIsSubmitting(true);
     try {
-      // 1. Submit Request to API
-      const res = await fetch("/api/mutasi-keluar/request", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          studentId: student.id,
-          destinationSchool: values.destinationSchool,
-          reason: values.reason,
-          reasonDetail: values.reasonDetail,
-        }),
+      // Submit Request to API
+      await goPost<any>("/api/mutasi-keluar/request", {
+        studentId: student.id,
+        destinationSchool: values.destinationSchool,
+        reason: values.reason,
+        reasonDetail: values.reasonDetail,
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Gagal membuat permohonan");
 
       // 2. Generate PDF
       generatePDF(values);
@@ -129,7 +112,7 @@ export default function MutasiKeluarPage() {
       setStep("success");
       toast.success("Surat permohonan berhasil dibuat!");
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(error.message || "Gagal membuat permohonan");
     } finally {
       setIsSubmitting(false);
     }
@@ -392,3 +375,4 @@ export default function MutasiKeluarPage() {
     </div>
   );
 }
+

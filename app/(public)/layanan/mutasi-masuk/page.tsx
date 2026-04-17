@@ -5,6 +5,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Loader2, CheckCircle, ClipboardCheck, Search } from "lucide-react";
+import { goPost } from "@/lib/api-client";
+import Link from "next/link";
 import {
   Form,
   FormControl,
@@ -16,6 +19,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -24,7 +28,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
 
 const formSchema = z.object({
   studentName: z.string().min(3, "Nama siswa minimal 3 karakter"),
@@ -39,7 +42,8 @@ const formSchema = z.object({
 
 export default function MutasiMasukPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [step, setStep] = useState<"form" | "success">("form");
+  const [regNum, setRegNum] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema) as any,
@@ -57,52 +61,80 @@ export default function MutasiMasukPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     try {
-      const response = await fetch("/api/mutasi/request", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Terjadi kesalahan");
+      const response = await goPost<any>("/api/mutasi/request", values);
+      if (response.success) {
+        setRegNum(response.registrationNumber);
+        setStep("success");
+        toast.success("Permohonan berhasil dikirim!");
       }
-
-      setIsSuccess(true);
-      toast.success("Permohonan berhasil dikirim!");
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(error.message || "Terjadi kesalahan saat mengirim permohonan");
     } finally {
       setIsSubmitting(false);
     }
   }
 
-  if (isSuccess) {
+  if (step === "success") {
     return (
       <div className="container max-w-lg py-12">
-        <Card className="border-green-200 bg-green-50 dark:bg-green-900/10 dark:border-green-900">
-          <CardHeader>
-            <CardTitle className="text-green-700 dark:text-green-400">Permohonan Terkirim</CardTitle>
-            <CardDescription className="text-green-600 dark:text-green-500">
-              Terima kasih telah mengajukan permohonan mutasi masuk.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-4">
-              Data Anda telah kami terima. Tim kami akan memeriksa ketersediaan kuota dan kelengkapan data.
-              Jika disetujui, <strong>Surat Keterangan Diterima</strong> akan kami kirimkan melalui WhatsApp ke nomor yang Anda daftarkan.
-            </p>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setIsSuccess(false);
-                form.reset();
-              }}
-            >
-              Kembali ke Form
-            </Button>
-          </CardContent>
+        <Card>
+          <div className="p-8 text-center space-y-6">
+            <div className="bg-green-50 dark:bg-green-950/20 py-8 rounded-3xl">
+              <div className="flex justify-center mb-4">
+                <div className="bg-green-500 text-white p-3 rounded-full shadow-lg shadow-green-500/30">
+                   <CheckCircle className="h-10 w-10" />
+                </div>
+              </div>
+              <div className="space-y-2 px-4">
+                <h3 className="text-2xl font-bold text-green-700 dark:text-green-500">Permohonan Berhasil!</h3>
+                <p className="text-muted-foreground">
+                  Data Anda telah kami terima dan akan segera diproses oleh tim administrasi.
+                </p>
+              </div>
+            </div>
+
+            {regNum && (
+               <div className="bg-zinc-50 dark:bg-zinc-900 border-2 border-dashed border-zinc-200 dark:border-zinc-800 p-6 rounded-2xl space-y-3">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Nomor Registrasi Anda</p>
+                  <div className="flex items-center justify-center gap-3">
+                     <span className="text-3xl font-black text-blue-600 dark:text-blue-400 tracking-tighter">{regNum}</span>
+                     <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="h-8 w-8 text-muted-foreground"
+                        onClick={() => {
+                           navigator.clipboard.writeText(regNum);
+                           toast.success("Nomor registrasi disalin!");
+                        }}
+                     >
+                        <ClipboardCheck className="h-4 w-4" />
+                     </Button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Simpan nomor ini untuk melakukan pengecekan status permohonan.</p>
+               </div>
+            )}
+            
+            <div className="flex flex-col gap-3">
+               <Link href="/layanan/mutasi-masuk/status">
+                  <Button className="w-full h-12 rounded-full text-base font-semibold">
+                    <Search className="mr-2 h-4 w-4" /> Lacak Status Sekarang
+                  </Button>
+               </Link>
+               <Button onClick={() => window.location.reload()} variant="outline" className="h-12 rounded-full border-zinc-200">
+                  Kembali ke Halaman Utama
+               </Button>
+            </div>
+
+            <Separator />
+            
+            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900 rounded-2xl p-4 text-left">
+              <h4 className="font-semibold text-amber-800 dark:text-amber-400 mb-2 text-sm">Informasi Penting:</h4>
+              <ul className="text-xs text-amber-800/80 dark:text-amber-300/80 space-y-1">
+                <li>• Hasil koordinasi akan diinfokan dalam 1-3 hari kerja.</li>
+                <li>• Jika disetujui, kami akan mengirimkan <strong>Surat Keterangan Diterima</strong> melalui WhatsApp.</li>
+              </ul>
+            </div>
+          </div>
         </Card>
       </div>
     );
@@ -282,3 +314,4 @@ export default function MutasiMasukPage() {
     </div>
   );
 }
+

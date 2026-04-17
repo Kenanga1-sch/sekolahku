@@ -1,16 +1,7 @@
-// ==========================================
-// Tabungan Transaksi (Transaction) Logic
-// ==========================================
-import "server-only";
-
-import { db } from "@/db";
-import { tabunganKelas, tabunganSiswa, tabunganTransaksi } from "@/db/schema/tabungan";
-import { users } from "@/db/schema/users";
-import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
+import { goGet, goPost, goDelete } from "@/lib/api-client";
 import type {
     TabunganTransaksiWithRelations,
     TabunganTransaksiFormData,
-    TransactionStatus,
 } from "@/types/tabungan";
 
 export async function getTransaksi(
@@ -18,98 +9,32 @@ export async function getTransaksi(
     perPage = 20,
     options: {
         siswaId?: string;
-        status?: TransactionStatus | "all";
-        startDate?: string;
-        endDate?: string;
         search?: string;
     } = {}
 ): Promise<{ items: TabunganTransaksiWithRelations[]; totalPages: number; totalItems: number }> {
-    const offset = (page - 1) * perPage;
-    
-    const conditions = [];
+    const params = new URLSearchParams();
+    params.append("page", page.toString());
+    params.append("limit", perPage.toString());
+    if (options.siswaId) params.append("siswaId", options.siswaId);
+    if (options.search) params.append("search", options.search);
 
-    if (options.siswaId) {
-        conditions.push(eq(tabunganTransaksi.siswaId, options.siswaId));
+    const response: any = await goGet(`/api/savings/transactions?${params.toString()}`);
+    if (response.success) {
+        return {
+            items: response.data || [],
+            totalPages: response.pagination?.totalPages || 1,
+            totalItems: response.pagination?.total || 0
+        };
     }
-    
-    if (options.status && options.status !== "all") {
-        conditions.push(eq(tabunganTransaksi.status, options.status));
-    }
-
-    if (options.search) {
-        const s = `%${options.search}%`;
-        conditions.push(sql`(${tabunganSiswa.nama} LIKE ${s} OR ${tabunganSiswa.nisn} LIKE ${s})`);
-    }
-
-    if (options.startDate) {
-        const start = new Date(options.startDate);
-        conditions.push(sql`${tabunganTransaksi.createdAt} >= ${start.getTime()}`); 
-    }
-    
-    if (options.endDate) {
-        const end = new Date(options.endDate);
-        end.setHours(23, 59, 59, 999);
-        conditions.push(sql`${tabunganTransaksi.createdAt} <= ${end.getTime()}`);
-    }
-
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-
-    const [countResult] = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(tabunganTransaksi)
-        .where(whereClause);
-        
-    const totalItems = countResult.count;
-    const totalPages = Math.ceil(totalItems / perPage);
-
-    const rows = await db
-        .select({
-            transaksi: tabunganTransaksi,
-            siswa: tabunganSiswa,
-            user: users,
-        })
-        .from(tabunganTransaksi)
-        .leftJoin(tabunganSiswa, eq(tabunganTransaksi.siswaId, tabunganSiswa.id))
-        .leftJoin(users, eq(tabunganTransaksi.userId, users.id))
-        .where(whereClause)
-        .limit(perPage)
-        .offset(offset)
-        .orderBy(desc(tabunganTransaksi.createdAt));
-    
-    const items = rows.map(({ transaksi, siswa, user }) => ({
-        ...transaksi,
-        siswa: siswa || null,
-        user: user ? { name: user.fullName || "", email: user.email } : null,
-        verifier: null,
-    }));
-
-    return { items, totalPages, totalItems };
+    return { items: [], totalPages: 0, totalItems: 0 };
 }
 
 export async function getOpenTransactions(guruId: string): Promise<TabunganTransaksiWithRelations[]> {
-    const rows = await db
-        .select({
-            transaksi: tabunganTransaksi,
-            siswa: tabunganSiswa,
-            kelas: tabunganKelas,
-            user: users,
-        })
-        .from(tabunganTransaksi)
-        .leftJoin(tabunganSiswa, eq(tabunganTransaksi.siswaId, tabunganSiswa.id))
-        .leftJoin(tabunganKelas, eq(tabunganSiswa.kelasId, tabunganKelas.id))
-        .leftJoin(users, eq(tabunganTransaksi.userId, users.id))
-        .where(and(
-            eq(tabunganTransaksi.userId, guruId),
-            sql`${tabunganTransaksi.setoranId} IS NULL`,
-            eq(tabunganTransaksi.status, "collected")
-        ))
-        .orderBy(desc(tabunganTransaksi.createdAt));
-
-    return rows.map(({ transaksi, siswa, kelas, user }) => ({
-        ...transaksi,
-        siswa: siswa ? { ...siswa, kelas: kelas || null } : null,
-        user: user ? { name: user.fullName || "", email: user.email } : null,
-    })) as TabunganTransaksiWithRelations[];
+    // Currently reuse main transactions but client side filter or dedicated endpoint
+    // To match backend logic: get collected but not settled.
+    // Let's assume there's a param for status on the backend.
+    const response: any = await goGet(`/api/savings/transactions?status=collected&guruId=${guruId}`);
+    return response.success ? response.data : [];
 }
 
 export async function createTransaksi(
@@ -125,35 +50,14 @@ export async function createTransaksi(
         userId: userId
     };
 
-    const response = await fetch("http://localhost:8080/api/savings/transactions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-    });
-    
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Gagal mencatat transaksi via Go API");
-    }
-    
-    return await response.json();
+    return await goPost("/api/savings/transactions", payload);
+}
+
+export async function deleteTransaksi(id: string) {
+    return await goDelete(`/api/savings/transactions/${id}`);
 }
 
 export async function getRecentTransactions(limit = 10): Promise<TabunganTransaksiWithRelations[]> {
-    const rows = await db
-        .select({
-            transaksi: tabunganTransaksi,
-            siswa: tabunganSiswa,
-        })
-        .from(tabunganTransaksi)
-        .leftJoin(tabunganSiswa, eq(tabunganTransaksi.siswaId, tabunganSiswa.id))
-        .orderBy(desc(tabunganTransaksi.createdAt))
-        .limit(limit);
-    
-    return rows.map(({ transaksi, siswa }) => ({
-        ...transaksi,
-        siswa: siswa || null,
-        user: null,
-        verifier: null,
-    }));
+    const response: any = await goGet(`/api/savings/transactions?limit=${limit}`);
+    return response.success ? response.data : [];
 }

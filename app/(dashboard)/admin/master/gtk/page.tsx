@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { showSuccess, showError } from "@/lib/toast";
 import { useDebounce } from "@/hooks/use-debounce";
+import { goGet, goDelete } from "@/lib/api-client";
 import { EmployeeFormDialog } from "@/components/master/employee-form-dialog";
 import { EmployeeImportDialog } from "@/components/master/employee-import-dialog";
 
@@ -53,9 +54,7 @@ export default function MasterGTKPage() {
                 q: debouncedSearch,
             });
 
-            const res = await fetch(`/api/master/employees?${params}`);
-            if (!res.ok) throw new Error("Gagal mengambil data");
-            const data = await res.json();
+            const data: any = await goGet(`/api/master/employees?${params}`);
             
             setEmployees(data.data);
             setTotalPages(data.pagination.totalPages);
@@ -71,11 +70,7 @@ export default function MasterGTKPage() {
         if(!confirm("Yakin ingin menghapus GTK ini? Akun login juga akan terhapus.")) return;
 
         try {
-            const res = await fetch(`/api/master/employees/${id}`, { method: "DELETE" });
-            const json = await res.json();
-
-            if (!res.ok) throw new Error(json.error || "Gagal menghapus");
-            
+            await goDelete(`/api/master/employees/${id}`);
             showSuccess("Data GTK berhasil dihapus");
             fetchEmployees();
         } catch (error) {
@@ -212,3 +207,4 @@ export default function MasterGTKPage() {
         </div>
     );
 }
+

@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { Upload, X, Loader2, CheckCircle, AlertCircle, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { goPost } from "@/lib/api-client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -85,30 +86,12 @@ export function EnhancedUploadZone({ onUploadComplete, onClose }: EnhancedUpload
           updateFile(i, { progress: p });
         }
 
-        const res = await fetch("/api/gallery/upload", {
-          method: "POST",
-          body: formData,
-        });
+        const res: any = await goPost("/api/gallery/upload", formData);
 
-        if (res.ok) {
+        if (!res.error) {
           updateFile(i, { status: "success", progress: 100 });
         } else {
-          console.error(`Upload failed with status: ${res.status} ${res.statusText}`);
-          let errorData;
-          try {
-            const text = await res.text();
-            console.error("Raw response text:", text);
-            try {
-              errorData = JSON.parse(text);
-            } catch {
-               errorData = { error: `Server returned non-JSON error: ${text.substring(0, 100)}` };
-            }
-          } catch (e) {
-             errorData = { error: "Could not read response body" };
-          }
-          
-          console.error("Parsed error data:", errorData);
-          throw new Error(errorData.error || `Upload failed: ${res.status}`);
+          throw new Error(res.error || `Upload failed`);
         }
       } catch (error) {
         const msg = error instanceof Error ? error.message : "Upload failed";

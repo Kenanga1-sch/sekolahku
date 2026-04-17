@@ -60,7 +60,7 @@ import {
   DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import { useTheme } from "@/components/providers/theme-provider";
-import type { SchoolSettings } from "@/db/schema/misc";
+import type { SchoolSettings } from "@/types";
 
 // --- Navigation Config (Preserved) ---
 interface NavItem {
@@ -75,18 +75,18 @@ interface NavGroup {
   items: NavItem[];
 }
 
-const ADMIN_ROLES: UserRole[] = ["superadmin", "admin"];
-const SUPERADMIN_ONLY: UserRole[] = ["superadmin"];
-const INVENTARIS_ROLES: UserRole[] = ["superadmin", "admin", "guru", "staff"];
-const GURU_ACCESS_ROLES: UserRole[] = ["superadmin", "admin", "guru"]; 
-const NON_STAFF_ROLES: UserRole[] = ["superadmin", "admin", "guru"];
-const TABUNGAN_ROLES: UserRole[] = ["superadmin", "admin", "guru", "staff"]; 
+const ADMIN_ROLES: UserRole[] = ["admin", "superadmin"];
+const SYSTEM_ADMIN_ROLES: UserRole[] = ["admin", "superadmin"];
+const INVENTARIS_ROLES: UserRole[] = ["admin", "superadmin", "guru", "staff"];
+const GURU_ACCESS_ROLES: UserRole[] = ["admin", "superadmin", "guru"]; 
+const ALL_DASHBOARD_ROLES: UserRole[] = ["admin", "superadmin", "guru", "staff"];
+const TABUNGAN_ROLES: UserRole[] = ["admin", "superadmin", "guru", "staff"]; 
 
 const navGroups: NavGroup[] = [
   {
     label: "Menu Utama",
     items: [
-      { href: "/overview", label: "Beranda", icon: LayoutDashboard, roles: NON_STAFF_ROLES },
+      { href: "/overview", label: "Beranda", icon: LayoutDashboard, roles: ALL_DASHBOARD_ROLES },
       { href: "/perpustakaan", label: "Perpustakaan", icon: Library, roles: ADMIN_ROLES },
       { href: "/inventaris", label: "Inventaris", icon: Package, roles: INVENTARIS_ROLES },
       { href: "/arsip", label: "E-Arsip", icon: FileText, roles: ADMIN_ROLES },
@@ -147,7 +147,7 @@ const navGroups: NavGroup[] = [
   {
     label: "Sistem",
     items: [
-      { href: "/users", label: "Pengguna", icon: User, roles: SUPERADMIN_ONLY },
+      { href: "/users", label: "Pengguna", icon: User, roles: SYSTEM_ADMIN_ROLES },
       { href: "/activity-log", label: "Log Aktivitas", icon: Activity, roles: ADMIN_ROLES },
       { href: "/profile", label: "Profil Saya", icon: User },
       { href: "/admin/master/sekolah", label: "Pengaturan", icon: Settings, roles: ADMIN_ROLES },
@@ -159,9 +159,19 @@ function filterNavByRole(groups: NavGroup[], userRole?: UserRole): NavGroup[] {
   return groups
     .map((group) => ({
       ...group,
-      items: group.items.filter(
-        (item) => !item.roles || (userRole && item.roles.includes(userRole))
-      ),
+      items: group.items.filter((item) => {
+        if (!item.roles) return true;
+        if (!userRole) return false;
+        const normalizedUserRole = userRole.toLowerCase();
+        // Allow BOTH admin and superadmin to access things labeled with either
+        const isUserAdmin = normalizedUserRole === "admin" || normalizedUserRole === "superadmin";
+        
+        return item.roles.some((role) => {
+          const normalizedRole = role.toLowerCase();
+          if (isUserAdmin && (normalizedRole === "admin" || normalizedRole === "superadmin")) return true;
+          return normalizedRole === normalizedUserRole;
+        });
+      }),
     }))
     .filter((group) => group.items.length > 0);
 }
@@ -175,7 +185,7 @@ export default function DashboardLayoutClient({
   children: React.ReactNode;
   schoolSettings?: SchoolSettings;
 }) {
-  const { user, logout } = useAuthStore();
+  const { user, logout, isLoading: authLoading } = useAuthStore();
   const { setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false); // Sidebar open state
@@ -206,10 +216,14 @@ export default function DashboardLayoutClient({
     setMounted(true);
   }, []);
 
-  const forcedRole = mounted ? (user?.role || "user") : "user";
-  const filteredNav = filterNavByRole(navGroups, forcedRole);
-  const displayName = mounted && user?.name ? user.name : "Admin";
-  const displayInitials = mounted && user?.name ? user.name.substring(0, 2).toUpperCase() : "A";
+  const isReallyMounted = mounted && !authLoading;
+  const rawRole = isReallyMounted ? (user?.role || (user as any)?.Role || null) : null;
+  // Normalize role to lowercase
+  const normalizedRaw = typeof rawRole === "string" ? rawRole.toLowerCase() : null;
+  
+  const filteredNav = normalizedRaw ? filterNavByRole(navGroups, normalizedRaw as UserRole) : [];
+  const displayName = isReallyMounted && user?.name ? user.name : "Admin";
+  const displayInitials = isReallyMounted && user?.name ? user.name.substring(0, 2).toUpperCase() : "A";
   
   const schoolName = schoolSettings?.schoolName || "Sekolahku";
   const schoolLogo = schoolSettings?.schoolLogo || "/logo.png";
@@ -239,22 +253,31 @@ export default function DashboardLayoutClient({
                 </Link>
              </div>
              
-             {/* Nav Links */}
+              {/* Nav Links */}
             <div className="mt-8 flex flex-col gap-2 flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
-              {filteredNav.map((group) => (
-                 <div key={group.label} className="flex flex-col gap-1">
-                    <p className="text-[10px] uppercase font-bold text-neutral-500 mb-1 px-1 truncate">
-                        {open ? group.label : "•"}
-                    </p>
-                    {group.items.map((link) => (
-                        <SidebarLink key={link.href} link={{
-                            label: link.label,
-                            href: link.href,
-                            icon: <link.icon className="text-neutral-700 dark:text-neutral-200 h-5 w-5 flex-shrink-0" />
-                        }} />
-                    ))}
-                 </div>
-              ))}
+              {!isReallyMounted ? (
+                // Loading Skeletons for Sidebar
+                <div className="flex flex-col gap-4 px-2">
+                   {[1, 2, 3].map((i) => (
+                      <div key={i} className="h-8 w-full animate-pulse bg-neutral-200 dark:bg-neutral-800 rounded-md" />
+                   ))}
+                </div>
+              ) : (
+                filteredNav.map((group) => (
+                   <div key={group.label} className="flex flex-col gap-1">
+                      <p className="text-[10px] uppercase font-bold text-neutral-500 mb-1 px-1 truncate">
+                          {open ? group.label : "•"}
+                      </p>
+                      {group.items.map((link) => (
+                          <SidebarLink key={link.href} link={{
+                              label: link.label,
+                              href: link.href,
+                              icon: <link.icon className="text-neutral-700 dark:text-neutral-200 h-5 w-5 flex-shrink-0" />
+                          }} />
+                      ))}
+                   </div>
+                ))
+              )}
             </div>
           </div>
         </SidebarBody>
@@ -286,7 +309,7 @@ export default function DashboardLayoutClient({
                      </div>
                      <div className="hidden md:flex flex-col items-start ml-2">
                         <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200">{displayName}</span>
-                        <span className="text-xs text-neutral-500 dark:text-neutral-400 capitalize">{forcedRole}</span>
+                        <span className="text-xs text-neutral-500 dark:text-neutral-400 capitalize">{normalizedRaw}</span>
                      </div>
                   </Button>
                 </DropdownMenuTrigger>

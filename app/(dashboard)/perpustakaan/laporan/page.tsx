@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/table";
 import { showError, showSuccess } from "@/lib/toast";
 import type { LoanReportItem, VisitReportItem } from "@/types/library";
+import { goGet } from "@/lib/api-client";
 import { getDDCLabel } from "@/lib/library/ddc-mapping";
 
 // ==========================================
@@ -141,25 +142,21 @@ export default function LaporanPage() {
         try {
             if (activeTab === "peminjaman") {
                 const params = new URLSearchParams({ type: "loan", startDate, endDate });
-                const res = await fetch(`/api/library/reports?${params}`);
-                if (!res.ok) throw new Error("Failed to fetch loan report");
-                const data = await res.json();
+                const data: any = await goGet(`/api/library/reports?${params}`);
+                if (data.error) throw new Error(data.error);
                 setLoanData(data);
             } else if (activeTab === "kunjungan") {
                 const params = new URLSearchParams({ type: "visit", startDate, endDate });
-                const res = await fetch(`/api/library/reports?${params}`);
-                if (!res.ok) throw new Error("Failed to fetch visit report");
-                const data = await res.json();
+                const data: any = await goGet(`/api/library/reports?${params}`);
+                if (data.error) throw new Error(data.error);
                 setVisitData(data);
             } else if (activeTab === "keterlambatan") {
-                const res = await fetch(`/api/library/reports?type=overdue`);
-                if (!res.ok) throw new Error("Failed to fetch overdue report");
-                const data = await res.json();
+                const data: any = await goGet(`/api/library/reports?type=overdue`);
+                if (data.error) throw new Error(data.error);
                 setOverdueData(data);
             } else if (activeTab === "inventaris") {
-                const res = await fetch(`/api/library/reports?type=inventory`);
-                if (!res.ok) throw new Error("Failed to fetch inventory report");
-                const data = await res.json();
+                const data: any = await goGet(`/api/library/reports?type=inventory`);
+                if (data.error) throw new Error(data.error);
                 setInventoryData(data);
             }
         } catch (error) {
@@ -756,3 +753,4 @@ export default function LaporanPage() {
         </div>
     );
 }
+

@@ -4,7 +4,7 @@ import { POST as sessionPOST, GET as sessionGET } from '@/app/api/attendance/ses
 import { POST as manualPOST } from '@/app/api/attendance/manual/route';
 import { createMockRequest } from './api-test-utils';
 
-vi.mock('@/auth', () => ({
+vi.mock("@/lib/auth", () => ({
     auth: vi.fn(),
 }));
 
@@ -21,7 +21,6 @@ vi.mock('@/db', async () => {
     };
 });
 
-import { db, students, attendanceSessions, attendanceRecords, users } from '@/db';
 
 describe('Attendance API', () => {
     beforeEach(async () => {

@@ -17,6 +17,7 @@ import {
   RotateCcw,
   User,
 } from "lucide-react";
+import { goPost } from "@/lib/api-client";
 
 interface ScanResult {
   success: boolean;
@@ -64,45 +65,35 @@ export function QRScanner({ sessionId, onScanSuccess, onScanError }: QRScannerPr
       setLastResult(null);
 
       try {
-        const response = await fetch("/api/attendance/scan", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            qrCode,
-            sessionId,
-            status: "hadir",
-          }),
+        const data: any = await goPost("/api/attendance/scan", {
+          qrCode,
+          sessionId,
+          status: "hadir",
         });
 
-        const data = await response.json();
-
-        if (response.ok) {
-          const successResult: ScanResult = {
-            success: true,
-            message: "Absensi berhasil dicatat!",
-            student: data.student,
-            status: "hadir",
-          };
-          setLastResult(successResult);
-          setScanCount((prev) => prev + 1);
-          onScanSuccess?.(successResult);
-        } else if (response.status === 409) {
+        const successResult: ScanResult = {
+          success: true,
+          message: "Absensi berhasil dicatat!",
+          student: data.student,
+          status: "hadir",
+        };
+        setLastResult(successResult);
+        setScanCount((prev) => prev + 1);
+        onScanSuccess?.(successResult);
+      } catch (err: any) {
+        if (err.status === 409) {
           // Already recorded
           const alreadyResult: ScanResult = {
             success: false,
             message: "Siswa sudah diabsen",
-            student: data.student,
+            student: err.data?.student,
             alreadyRecorded: true,
           };
           setLastResult(alreadyResult);
         } else {
-          setError(data.error || "Gagal mencatat absensi");
-          onScanError?.(data.error);
+          setError(err.message || "Gagal mencatat absensi");
+          onScanError?.(err.message);
         }
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : "Terjadi kesalahan";
-        setError(errorMsg);
-        onScanError?.(errorMsg);
       } finally {
         setProcessing(false);
         // Auto-reset after 3 seconds

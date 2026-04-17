@@ -39,6 +39,7 @@ import {
 import Link from "next/link";
 import { showSuccess, showError } from "@/lib/toast";
 import { useAuthStore } from "@/lib/stores/auth-store";
+import { goGet, goPost } from "@/lib/api-client";
 import type { TabunganTransaksiWithRelations, TabunganSetoranWithRelations } from "@/types/tabungan";
 
 function formatRupiah(amount: number): string {
@@ -75,8 +76,7 @@ export default function TabunganSetoranPage() {
         if (!userId) return;
         setIsLoading(true);
         try {
-            const res = await fetch(`/api/tabungan/setoran/pending?guruId=${userId}`);
-            const data = await res.json();
+            const data: any = await goGet(`/api/tabungan/setoran/pending?guruId=${userId}`);
             if (data.items) {
                 setTransactions(data.items);
             }
@@ -92,8 +92,7 @@ export default function TabunganSetoranPage() {
         if (!userId) return;
         setIsHistoryLoading(true);
         try {
-            const res = await fetch(`/api/tabungan/setoran/history?guruId=${userId}`);
-            const data = await res.json();
+            const data: any = await goGet(`/api/tabungan/setoran/history?guruId=${userId}`);
             if (data.items) {
                 setHistory(data.items);
             }
@@ -137,19 +136,10 @@ export default function TabunganSetoranPage() {
         if (!user) return;
         setIsSubmitting(true);
         try {
-            const res = await fetch("/api/tabungan/setoran", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    guruId: user.id,
-                    catatan: `Setoran harian ${new Date().toLocaleDateString("id-ID")}`
-                }),
+            await goPost("/api/tabungan/setoran", {
+                guruId: user.id,
+                catatan: `Setoran harian ${new Date().toLocaleDateString("id-ID")}`
             });
-
-            if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.error || "Gagal membuat setoran");
-            }
 
             showSuccess("Setoran berhasil diajukan ke bendahara");
             setTransactions([]); // Clear list
@@ -368,7 +358,7 @@ export default function TabunganSetoranPage() {
                                                 </TableCell>
                                                 <TableCell>
                                                     <Button variant="ghost" size="sm" asChild>
-                                                        <Link href={`/tabungan/setoran/${h.id}`}>
+                                                        <Link href={`/tabungan/setoran/detail?id=${h.id}`}>
                                                             Detail
                                                         </Link>
                                                     </Button>
@@ -391,3 +381,4 @@ export default function TabunganSetoranPage() {
         </div>
     );
 }
+

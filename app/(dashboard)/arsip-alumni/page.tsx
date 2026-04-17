@@ -46,6 +46,7 @@ import {
 import Link from "next/link";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
+import { goGet, goDelete } from "@/lib/api-client";
 
 interface Alumni {
   id: string;
@@ -96,8 +97,7 @@ export default function ArsipAlumniPage() {
       if (search) params.append("search", search);
       if (graduationYear) params.append("graduationYear", graduationYear);
 
-      const response = await fetch(`/api/alumni?${params}`);
-      const data = await response.json();
+      const data: any = await goGet(`/api/alumni?${params}`);
 
       setAlumni(data.data || []);
       setPagination(data.pagination || pagination);
@@ -110,8 +110,7 @@ export default function ArsipAlumniPage() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch("/api/alumni/stats");
-      const data = await response.json();
+      const data: any = await goGet("/api/alumni/stats");
       setStats(data);
     } catch (error) {
       console.error("Error fetching stats:", error);
@@ -133,7 +132,7 @@ export default function ArsipAlumniPage() {
     if (!confirm("Apakah Anda yakin ingin menghapus data alumni ini?")) return;
 
     try {
-      await fetch(`/api/alumni/${id}`, { method: "DELETE" });
+      await goDelete(`/api/alumni/${id}`);
       fetchAlumni();
       fetchStats();
     } catch (error) {
@@ -369,13 +368,13 @@ export default function ArsipAlumniPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem asChild>
-                            <Link href={`/arsip-alumni/${item.id}`}>
+                            <Link href={`/arsip-alumni/detail?id=${item.id}`}>
                               <Eye className="h-4 w-4 mr-2" />
                               Lihat Detail
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
-                            <Link href={`/arsip-alumni/${item.id}/edit`}>
+                            <Link href={`/arsip-alumni/detail?id=${item.id}/edit`}>
                               <Edit className="h-4 w-4 mr-2" />
                               Edit
                             </Link>
@@ -433,3 +432,4 @@ export default function ArsipAlumniPage() {
     </div>
   );
 }
+

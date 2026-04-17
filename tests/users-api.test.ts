@@ -2,9 +2,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { GET, POST } from '@/app/api/users/route';
 import { GET as getById, PATCH, DELETE } from '@/app/api/users/[id]/route';
 import { createMockRequest } from './api-test-utils';
-import { eq } from 'drizzle-orm';
 
-vi.mock('@/auth', () => ({
+vi.mock("@/lib/auth", () => ({
     auth: vi.fn(),
 }));
 
@@ -18,8 +17,8 @@ vi.mock('@/db', async () => {
     };
 });
 
-import { db, users } from '@/db';
-import { auth } from '@/auth';
+
+import { auth } from "@/lib/auth";
 
 describe('Users API', () => {
     beforeEach(async () => {

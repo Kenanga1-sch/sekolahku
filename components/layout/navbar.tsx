@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
 
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import { signOut } from "next-auth/react";
+import { logoutAction } from "@/actions/auth";
 
 const navLinks = [
   { href: "/", label: "Beranda" },
@@ -60,8 +60,9 @@ export default function Navbar() {
   const { settings } = useSchoolSettings();
 
   const handleLogout = async () => {
-    await signOut({ callbackUrl: "/" });
-    storeLogout(); // Keep store sync if needed, though signOut redirects
+    await logoutAction();
+    storeLogout();
+    window.location.href = "/login";
   };
 
   useEffect(() => {

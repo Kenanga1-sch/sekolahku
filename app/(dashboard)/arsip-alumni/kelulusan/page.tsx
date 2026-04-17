@@ -37,6 +37,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import Link from "next/link";
+import { goGet, goPost } from "@/lib/api-client";
 
 interface Student {
   id: string;
@@ -75,8 +76,7 @@ export default function KelulusanPage() {
   useEffect(() => {
     const fetchStudents = async () => {
       try {
-        const response = await fetch("/api/peserta-didik?isActive=true&limit=1000");
-        const data = await response.json();
+        const data: any = await goGet("/api/peserta-didik?isActive=true&limit=1000");
         // Filter only class 6 students (graduating class)
         const class6Students = (data.data || data || []).filter(
           (s: Student) => s.className?.startsWith("6")
@@ -128,23 +128,17 @@ export default function KelulusanPage() {
     setError(null);
 
     try {
-      const response = await fetch("/api/alumni/graduate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          studentIds: selectedStudents,
-          graduationYear,
-          graduationDate,
-          deactivateStudents,
-        }),
+      const data: any = await goPost("/api/alumni/graduate", {
+        studentIds: selectedStudents,
+        graduationYear,
+        graduationDate,
+        deactivateStudents,
       });
 
-      if (!response.ok) {
-        const data = await response.json();
+      if (data.error) {
         throw new Error(data.error || "Gagal memproses kelulusan");
       }
 
-      const data = await response.json();
       setResult(data);
       setSuccess(true);
       setStep(3);
@@ -465,3 +459,4 @@ export default function KelulusanPage() {
     </div>
   );
 }
+

@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 
+import { goGet, goPost, goPatch, goDelete } from "@/lib/api-client";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -62,7 +64,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ImageCropper } from "@/components/ui/image-cropper";
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+const fetcher = (url: string) => goGet(url);
 
 const staffSchema = z.object({
   name: z.string().min(1, "Nama wajib diisi"),
@@ -105,7 +107,7 @@ export default function AdminStaffPage() {
     },
   });
 
-  const staffList = data?.data || [];
+  const staffList = (data as any)?.data || [];
   
   const filteredList = staffList.filter((staff: any) => 
     staff.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -118,15 +120,11 @@ export default function AdminStaffPage() {
         ? `/api/admin/staff/${selectedStaff.id}` 
         : "/api/admin/staff";
       
-      const method = selectedStaff ? "PATCH" : "POST";
-      
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
-      });
+      const res: any = selectedStaff 
+        ? await goPatch(url, values)
+        : await goPost(url, values);
 
-      if (!res.ok) throw new Error("Gagal menyimpan data");
+      if (res.error) throw new Error(res.error || "Gagal menyimpan data");
 
       toast.success(selectedStaff ? "Data diperbarui" : "Staff ditambahkan");
       mutate("/api/admin/staff");
@@ -143,8 +141,8 @@ export default function AdminStaffPage() {
     
     setIsDeleting(true);
     try {
-      const res = await fetch(`/api/admin/staff/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Gagal menghapus");
+      const res: any = await goDelete(`/api/admin/staff/${id}`);
+      if (res.error) throw new Error(res.error || "Gagal menghapus");
       
       toast.success("Data dihapus");
       mutate("/api/admin/staff");
@@ -190,11 +188,7 @@ export default function AdminStaffPage() {
     formData.append("folder", "staff");
 
     try {
-        const res = await fetch("/api/upload", {
-            method: "POST",
-            body: formData
-        });
-        const data = await res.json();
+        const data: any = await goPost("/api/upload", formData);
         if(data.success) {
             form.setValue("photoUrl", data.url);
             toast.success("Foto berhasil diupload");
@@ -494,3 +488,4 @@ export default function AdminStaffPage() {
     </div>
   );
 }
+

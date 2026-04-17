@@ -30,6 +30,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatDate } from "@/lib/utils";
+import { goGet } from "@/lib/api-client";
 
 interface SuratMasuk {
     id: string;
@@ -57,8 +58,7 @@ export default function SuratMasukPage() {
                 search,
                 perPage: "20"
             });
-            const res = await fetch(`/api/arsip/surat-masuk?${params}`);
-            const result = await res.json();
+            const result: any = await goGet(`/api/arsip/surat-masuk?${params}`);
             setData(result.items);
             setTotalPages(result.totalPages);
         } catch (error) {
@@ -150,7 +150,7 @@ export default function SuratMasukPage() {
                             </TableRow>
                         ) : (
                             data.map((item) => (
-                                <TableRow key={item.id} className="hover:bg-muted/50 cursor-pointer" onClick={() => window.location.href = `/arsip/surat-masuk/${item.id}`}>
+                                <TableRow key={item.id} className="hover:bg-muted/50 cursor-pointer" onClick={() => window.location.href = `/arsip/surat-masuk/detail?id=${item.id}`}>
                                     <TableCell className="font-mono text-sm font-medium">
                                         {item.agendaNumber}
                                     </TableCell>
@@ -183,7 +183,7 @@ export default function SuratMasukPage() {
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
                                                 <DropdownMenuItem asChild>
-                                                    <Link href={`/arsip/surat-masuk/${item.id}`}>
+                                                    <Link href={`/arsip/surat-masuk/detail?id=${item.id}`}>
                                                         <FileText className="h-4 w-4 mr-2" />
                                                         Detail & Disposisi
                                                     </Link>
@@ -200,3 +200,4 @@ export default function SuratMasukPage() {
         </div>
     );
 }
+

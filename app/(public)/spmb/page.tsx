@@ -1,6 +1,9 @@
+"use client";
+
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -14,9 +17,10 @@ import {
   Search,
   HelpCircle,
 } from "lucide-react";
-import { siteConfig } from "@/lib/config";
 import { BackgroundBeams } from "@/components/ui/background-beams";
 import { CardContainer, CardBody, CardItem } from "@/components/ui/3d-card";
+import { goGet } from "@/lib/api-client";
+import { siteConfig } from "@/lib/config";
 
 // Timeline steps
 const timelineSteps = [
@@ -55,80 +59,36 @@ const requirements = [
   "Surat Keterangan dari TK/RA (jika ada)",
 ];
 
-// Database imports
-import { db } from "@/db";
-import { spmbPeriods, spmbRegistrants } from "@/db/schema/spmb";
-import { schoolSettings } from "@/db/schema/misc";
-import { eq, sql } from "drizzle-orm";
+export default function SPMBPage() {
+  const [data, setData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-// Fetch data directly from DB
-async function getSPMBData() {
-  try {
-    // 1. Get active period with registrant count
-    const result = await db
-            .select({
-                id: spmbPeriods.id,
-                name: spmbPeriods.name,
-                academicYear: spmbPeriods.academicYear,
-                startDate: spmbPeriods.startDate,
-                endDate: spmbPeriods.endDate,
-                quota: spmbPeriods.quota,
-                isActive: spmbPeriods.isActive,
-                registered: sql<number>`count(${spmbRegistrants.id})`.mapWith(Number),
-            })
-            .from(spmbPeriods)
-            .leftJoin(spmbRegistrants, eq(spmbPeriods.id, spmbRegistrants.periodId))
-            .where(eq(spmbPeriods.isActive, true))
-            .groupBy(spmbPeriods.id)
-            .limit(1);
+  useEffect(() => {
+    goGet(`/api/public/spmb/landing`)
+      .then((json: any) => {
+        if (json.success) {
+          setData(json);
+        }
+        setIsLoading(false);
+      })
+      .catch(err => {
+        console.error("Failed to fetch SPMB landing data:", err);
+        setIsLoading(false);
+      });
+  }, []);
 
-    const period = result[0] || null;
-
-    // 2. Get school settings
-    const [settings] = await db.select().from(schoolSettings).limit(1);
-
-    // 3. Calculate status
-    let isOpen = false;
-    if (period) {
-        const now = new Date();
-        const startDate = new Date(period.startDate);
-        const endDate = new Date(period.endDate);
-        
-        // Open if within dates OR if global setting forces it open.
-        // User expectation: If period is active and global setting is ON, then it's OPEN.
-        // Dates are advisory or for automated scheduling if global setting is "on".
-        // But if global setting is explicitly true, we respect it.
-        const isDateOpen = now >= startDate && now <= endDate;
-        const isGlobalOpen = settings?.spmbIsOpen ?? true; 
-        
-        // Revised Logic: 
-        // If we have an active period (which we do, due to the query), 
-        // and the global switch is ON, we consider it OPEN.
-        // We will still trust the date check IF the global switch was relying on automation, 
-        // but here we simplify: Active Period + Global Open = Open.
-        isOpen = isGlobalOpen;
-    }
-
-    return { period, settings, isOpen };
-  } catch (error) {
-    console.error("Failed to fetch SPMB data:", error);
-    return { period: null, settings: null, isOpen: false };
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
-}
 
-// Google Maps Iframe used for stability
-
-// ... existing code ...
-
-export default async function SPMBPage() {
-  const { period, settings, isOpen } = await getSPMBData();
+  const period = data?.period;
+  const settings = data?.settings;
+  const isOpen = data?.isOpen;
 
   // Fallback for school info
   const schoolName = settings?.schoolName || siteConfig.school.name;
   const schoolAddress = settings?.schoolAddress || siteConfig.school.address;
-  const maxDistance = settings?.maxDistanceKm || 1; // Default 1km
-  
-  // Default coordinates if not set (fallback to Jakarta Monas as example or 0,0)
+  const maxDistance = settings?.maxDistanceKm || 1; 
   const schoolLat = settings?.schoolLat || -6.175392; 
   const schoolLng = settings?.schoolLng || 106.827153;
 
@@ -418,3 +378,5 @@ export default async function SPMBPage() {
     </div>
   );
 }
+
+

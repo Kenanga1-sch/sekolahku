@@ -55,6 +55,7 @@ import { id } from "date-fns/locale";
 import { useSchoolSettings } from "@/lib/hooks/use-settings";
 import { generateDocument, createDocumentBlob } from "@/lib/docx";
 import { LETTER_TYPES } from "@/lib/constants/letter-types";
+import { goGet, goPost } from "@/lib/api-client";
 
 // Helper to extract manual variables {{...}} from content
 const extractVariables = (content: string) => {
@@ -103,9 +104,8 @@ export default function LetterGeneratorPage() {
 
   // Load Templates
   useEffect(() => {
-    fetch("/api/letters/templates?limit=100")
-      .then(res => res.json())
-      .then(data => {
+    goGet("/api/letters/templates?limit=100")
+      .then((data: any) => {
         setTemplates(data.data);
         if (initialTemplateId) {
             const tpl = data.data.find((t: any) => t.id === initialTemplateId);
@@ -128,12 +128,8 @@ export default function LetterGeneratorPage() {
          const year = date.getFullYear();
          
          // Fetch next number for this code
-         fetch("/api/letters/numbering", {
-             method: "POST",
-             body: JSON.stringify({ classificationCode: selectedLetterType.kode_klasifikasi, date: date.toISOString() })
-         })
-         .then(res => res.json())
-         .then(res => {
+         goPost("/api/letters/numbering", { classificationCode: selectedLetterType.kode_klasifikasi, date: date.toISOString() })
+         .then((res: any) => {
              const seq = res.nextSequence || 1;
              setNextSequence(seq);
              
@@ -176,8 +172,7 @@ export default function LetterGeneratorPage() {
 
   // Load Students for Search
   const searchStudents = async (query: string) => {
-      const res = await fetch(`/api/students/simple-search?q=${query}`);
-      const data = await res.json();
+      const data: any = await goGet(`/api/students/simple-search?q=${query}`);
       setStudentsList(data.data);
   };
 
@@ -185,8 +180,7 @@ export default function LetterGeneratorPage() {
       if (!className) return;
       setLoading(true);
       try {
-          const res = await fetch(`/api/students/simple-search?className=${className}`);
-          const data = await res.json();
+          const data: any = await goGet(`/api/students/simple-search?className=${className}`);
           setSelectedStudents(data.data); // Replace selection with class
           toast.success(`Berhasil memuat ${data.data.length} siswa dari Kelas ${className}`);
       } catch (e) {
@@ -199,9 +193,8 @@ export default function LetterGeneratorPage() {
   const handleSelectTemplate = async (tpl: any) => {
       setLoading(true);
       try {
-          const res = await fetch(`/api/letters/templates/${tpl.id}`);
-          if (!res.ok) throw new Error("Failed to load template");
-          const fullTpl = await res.json();
+          const fullTpl: any = await goGet(`/api/letters/templates/${tpl.id}`);
+          if (fullTpl.error) throw new Error(fullTpl.error);
           
           setSelectedTemplate(fullTpl);
           if (fullTpl.category === 'STAFF') setTargetType('STAFF');
@@ -310,15 +303,12 @@ export default function LetterGeneratorPage() {
   };
 
   const logLetterIncrement = async (letterNumber: string, recipient: string) => {
-      await fetch("/api/letters/increment", {
-          method: "POST",
-          body: JSON.stringify({
-              letterNumber,
-              sequenceNumber: nextSequence,
-              templateId: selectedTemplate?.id,
-              recipient,
-              classificationCode: classificationCode || undefined
-          })
+      await goPost("/api/letters/increment", {
+          letterNumber,
+          sequenceNumber: nextSequence,
+          templateId: selectedTemplate?.id,
+          recipient,
+          classificationCode: classificationCode || undefined
       });
       // Refresh global settings just in case, though independent
       refreshSettings();
@@ -740,3 +730,4 @@ export default function LetterGeneratorPage() {
     </div>
   );
 }
+

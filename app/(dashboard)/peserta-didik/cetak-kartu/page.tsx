@@ -26,6 +26,8 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import { goPost } from "@/lib/api-client";
+import { showSuccess, showError } from "@/lib/toast";
 
 interface StudentCard {
   id: string;
@@ -130,22 +132,18 @@ export default function CetakKartuPage() {
       }
 
       try {
-        const response = await fetch("/api/students/print", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ studentIds: ids.split(",") }),
+        const response: any = await goPost("/api/students/print", {
+          studentIds: ids.split(","),
         });
 
-        const data = await response.json();
-
-        if (response.ok) {
-          setCards(data.data);
+        if (response.success) {
+          setCards(response.data);
         } else {
-          toast.error(data.error || "Gagal memuat data");
+          showError(response.error || "Gagal memuat data");
           router.push("/peserta-didik");
         }
       } catch {
-        toast.error("Terjadi kesalahan");
+        showError("Terjadi kesalahan saat memproses data");
       } finally {
         setLoading(false);
       }
@@ -509,7 +507,7 @@ function StudentCardPreview({
                 <div className="w-full h-full overflow-hidden rounded-sm bg-slate-50">
                   {student.photo ? (
                     <img
-                      src={student.photo}
+                      src={student.photo.startsWith('http') || student.photo.startsWith('/') ? student.photo : `/uploads/${student.photo}`}
                       alt={student.fullName}
                       className="w-full h-full object-cover"
                       onError={(e) => {
@@ -857,3 +855,4 @@ function StudentCardBack({
     </div>
   );
 }
+

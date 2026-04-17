@@ -3,11 +3,11 @@ import { NextResponse } from "next/server";
 
 // 1. Mock Auth
 const mockSession = { user: { id: "user1", role: "student" } };
-vi.mock("@/auth", () => ({
+vi.mock("@/lib/auth", () => ({
     auth: vi.fn(),
 }));
 
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth";
 
 // 2. Mock Service Layers (to avoid DB calls)
 vi.mock("@/lib/data/inventory", () => ({

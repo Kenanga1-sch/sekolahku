@@ -62,6 +62,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { goGet, goPost, goPatch, goDelete } from "@/lib/api-client";
 
 import type { LibraryMember } from "@/types/library";
 
@@ -158,10 +159,7 @@ export default function AnggotaPage() {
             });
             if (searchQuery) params.append("search", searchQuery);
             
-            const res = await fetch(`/api/library/members?${params}`);
-            if (!res.ok) throw new Error("Failed to fetch");
-            
-            const result = await res.json();
+            const result: any = await goGet(`/api/library/members?${params}`);
             setMembers(result.items);
             setTotalPages(result.totalPages);
             setTotalItems(result.totalItems);
@@ -186,22 +184,14 @@ export default function AnggotaPage() {
                 maxBorrowLimit: parseInt(formData.maxBorrowLimit) || 3,
             };
 
-            let res;
+            let res: any;
             if (editingMember) {
-                res = await fetch(`/api/library/members/${editingMember.id}`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(data),
-                });
+                res = await goPatch(`/api/library/members/${editingMember.id}`, data);
             } else {
-                res = await fetch("/api/library/members", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(data),
-                });
+                res = await goPost("/api/library/members", data);
             }
 
-            if (!res.ok) throw new Error("Failed to save");
+            if (res.error) throw new Error(res.error);
 
             setIsAddDialogOpen(false);
             setEditingMember(null);
@@ -217,10 +207,7 @@ export default function AnggotaPage() {
     const handleDelete = async () => {
         if (!memberToDelete) return;
         try {
-            const res = await fetch(`/api/library/members/${memberToDelete.id}`, {
-                method: "DELETE",
-            });
-            if (!res.ok) throw new Error("Failed to delete");
+            await goDelete(`/api/library/members/${memberToDelete.id}`);
             
             loadMembers();
             setMemberToDelete(null);
@@ -235,8 +222,7 @@ export default function AnggotaPage() {
         try {
             toast.message("Mempersiapkan data export...");
             // Fetch all members (limit high enough to get all)
-            const res = await fetch(`/api/library/members?perPage=2000`);
-            const result = await res.json();
+            const result: any = await goGet(`/api/library/members?perPage=2000`);
             const items = result.items as LibraryMember[];
 
             // Convert to CSV
@@ -297,11 +283,7 @@ export default function AnggotaPage() {
                 if (!data.name) continue;
 
                 try {
-                    await fetch("/api/library/members", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(data),
-                    });
+                    await goPost("/api/library/members", data);
                     successCount++;
                 } catch (err) {
                     console.error("Failed import row", i);
@@ -323,10 +305,9 @@ export default function AnggotaPage() {
         setIsSyncing(true);
         try {
             toast.message("Mulai sinkronisasi data siswa...");
-            const res = await fetch("/api/sync/library", { method: "POST" });
-            const result = await res.json();
+            const result: any = await goPost("/api/sync/library", {});
             
-            if (!res.ok) throw new Error(result.details || result.error || "Sync failed");
+            if (result.error) throw new Error(result.details || result.error || "Sync failed");
             
             toast.success(result.message);
             loadMembers();
@@ -763,3 +744,4 @@ export default function AnggotaPage() {
         </div>
     );
 }
+

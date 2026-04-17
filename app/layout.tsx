@@ -12,7 +12,7 @@ import "./globals.css";
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
-  display: "swap", // Faster text rendering
+  display: "swap",
   preload: true,
 });
 
@@ -51,43 +51,13 @@ export const metadata: Metadata = {
   },
 };
 
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
-import { db } from "@/db";
-import { schoolSettings } from "@/db/schema/misc";
-
-import { auth } from "@/auth";
-
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Check Maintenance Mode
-  const headersList = await headers();
-  const pathname = headersList.get("x-pathname") || "";
-  
-  // Allow Login, API, and Maintenance page itself
-  const isProtectedPath = !pathname.startsWith("/api") && !pathname.startsWith("/login") && pathname !== "/maintenance";
-
-  if (isProtectedPath) {
-     try {
-         const [settings] = await db.select({ isMaintenance: schoolSettings.isMaintenance }).from(schoolSettings).limit(1);
-         
-         if (settings?.isMaintenance) {
-             // Bypass for Admins
-             const session = await auth();
-             const role = session?.user?.role;
-             const isAdmin = role === "admin" || role === "superadmin";
-             
-             if (!isAdmin) {
-                 redirect("/maintenance");
-             }
-         }
-     } catch (e) {
-         // Ignore DB errors
-     }
-  }
+  // NOTE: Maintenance mode and session checks have been moved to client-side guards
+  // to ensure compatibility with static export (output: "export").
 
   return (
     <html lang="id" suppressHydrationWarning>
@@ -118,18 +88,20 @@ export default async function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              if ('serviceWorker' in navigator) {
-                window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js').then(
-                    function(registration) {
-                      console.log('SW registered: ', registration);
-                    },
-                    function(registrationError) {
-                      console.log('SW registration failed: ', registrationError);
-                    }
-                  );
-                });
-              }
+              (function() {
+                if ('serviceWorker' in navigator) {
+                  window.addEventListener('load', function() {
+                    navigator.serviceWorker.register('/sw.js').then(
+                      function(registration) {
+                        console.log('SW registered: ', registration);
+                      },
+                      function(registrationError) {
+                        console.log('SW registration failed: ', registrationError);
+                      }
+                    );
+                  });
+                }
+              })();
             `,
           }}
         />

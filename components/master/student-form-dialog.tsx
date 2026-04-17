@@ -14,6 +14,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
 import { showSuccess, showError } from "@/lib/toast";
+import { goGet, goPost, goPut } from "@/lib/api-client";
 
 const studentSchema = z.object({
   fullName: z.string().min(3, "Nama minimal 3 karakter"),
@@ -57,9 +58,8 @@ export function StudentFormDialog({ open, onOpenChange, studentId, onSuccess }: 
 
   // Fetch Classes for Dropdown
   useEffect(() => {
-      fetch("/api/academic/classes")
-          .then(res => res.json())
-          .then(data => setClasses(data as any[]))
+      goGet("/api/academic/classes")
+          .then((data: any) => setClasses(data as any[]))
           .catch(err => console.error("Failed to load classes", err));
   }, []);
 
@@ -67,10 +67,9 @@ export function StudentFormDialog({ open, onOpenChange, studentId, onSuccess }: 
   useEffect(() => {
     if (studentId && open) {
         setIsLoading(true);
-        fetch(`/api/master/students/${studentId}`)
-            .then(res => res.json())
+        goGet(`/api/master/students/${studentId}`)
             .then(data => {
-                form.reset(data); // Auto-fill
+                form.reset(data as any); // Auto-fill
             })
             .catch(err => showError("Gagal memuat data siswa"))
             .finally(() => setIsLoading(false));
@@ -82,19 +81,10 @@ export function StudentFormDialog({ open, onOpenChange, studentId, onSuccess }: 
   const onSubmit = async (data: StudentFormValues) => {
     setIsLoading(true);
     try {
-        const url = studentId ? `/api/master/students/${studentId}` : "/api/master/students";
-        const method = studentId ? "PUT" : "POST";
-
-        const res = await fetch(url, {
-            method,
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data),
-        });
-
-        const json = await res.json();
-        
-        if (!res.ok) {
-            throw new Error(json.error || "Gagal menyimpan");
+        if (studentId) {
+            await goPut(`/api/master/students/${studentId}`, data);
+        } else {
+            await goPost("/api/master/students", data);
         }
 
         showSuccess(studentId ? "Data siswa diperbarui" : "Siswa baru ditambahkan");

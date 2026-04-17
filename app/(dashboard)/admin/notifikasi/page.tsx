@@ -13,6 +13,8 @@ import { cn } from "@/lib/utils";
 import { AlertCircle, AlertTriangle, CheckCircle2, Info, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { goGet, goPost, goPatch } from "@/lib/api-client";
+
 
 interface AdminNotification {
   id: string;
@@ -33,12 +35,8 @@ export default function NotificationsPage() {
   const fetchNotifications = async () => {
     setIsLoading(true);
     try {
-      // Fetch more for the full page
-      const res = await fetch("/api/notifications?limit=50");
-      if (res.ok) {
-        const data = await res.json();
-        setNotifications(data);
-      }
+      const data = await goGet<AdminNotification[]>("/api/notifications?limit=50");
+      setNotifications(data);
     } catch (error) {
       toast.error("Gagal memuat notifikasi");
     } finally {
@@ -46,13 +44,14 @@ export default function NotificationsPage() {
     }
   };
 
+
   useEffect(() => {
     fetchNotifications();
   }, []);
 
   const handleMarkAsRead = async (id: string, url?: string) => {
     try {
-      await fetch(`/api/notifications/${id}/read`, { method: "PATCH" });
+      await goPatch(`/api/notifications/${id}/read`);
       
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
@@ -66,15 +65,17 @@ export default function NotificationsPage() {
     }
   };
 
+
   const handleMarkAllAsRead = async () => {
     try {
-      await fetch("/api/notifications/read-all", { method: "POST" });
+      await goPost("/api/notifications/read-all");
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
       toast.success("Semua notifikasi ditandai sudah dibaca");
     } catch (error) {
       toast.error("Gagal memproses permintaan");
     }
   };
+
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -189,3 +190,4 @@ export default function NotificationsPage() {
     </div>
   );
 }
+

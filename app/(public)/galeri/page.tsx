@@ -29,7 +29,7 @@ const categories = [
 
 export default function GalleryPage() {
   const [activeCategory, setActiveCategory] = useState("all");
-  const { data, error, isLoading } = useSWR(`/api/gallery?category=${activeCategory}`, fetcher);
+  const { data, error, isLoading } = useSWR(`/api/public/gallery?category=${activeCategory}`, fetcher);
   const galleryItems = (data?.data as GalleryItem[]) || [];
   const [selectedImage, setSelectedImage] = useState<GalleryItem | null>(null);
 
@@ -176,3 +176,4 @@ export default function GalleryPage() {
     </div>
   );
 }
+

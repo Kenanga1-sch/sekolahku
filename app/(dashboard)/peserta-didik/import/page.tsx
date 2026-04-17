@@ -32,6 +32,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
+import { goPost } from "@/lib/api-client";
 
 interface ImportResult {
   success: number;
@@ -81,18 +82,7 @@ export default function ImportSiswaPage() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch("/api/students/import", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        toast.error(data.error || "Gagal mengimport data");
-        return;
-      }
-
+      const data: any = await goPost("/api/students/import", formData);
       setResult(data);
       
       if (data.success > 0 && data.failed === 0) {
@@ -367,3 +357,4 @@ export default function ImportSiswaPage() {
     </div>
   );
 }
+

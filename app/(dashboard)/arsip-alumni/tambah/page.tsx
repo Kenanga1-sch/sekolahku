@@ -34,6 +34,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { goPost } from "@/lib/api-client";
 
 const alumniFormSchema = z.object({
   fullName: z.string().min(3, "Nama lengkap minimal 3 karakter"),
@@ -80,19 +81,13 @@ export default function TambahAlumniPage() {
     setError(null);
 
     try {
-      const response = await fetch("/api/alumni", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
+      const newAlumni: any = await goPost("/api/alumni", data);
 
-      if (!response.ok) {
-        const result = await response.json();
-        throw new Error(result.error || "Failed to create alumni");
+      if (newAlumni.error) {
+        throw new Error(newAlumni.error || "Failed to create alumni");
       }
 
-      const newAlumni = await response.json();
-      router.push(`/arsip-alumni/${newAlumni.id}`);
+      router.push(`/arsip-alumni/detail?id=${newAlumni.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
     } finally {
@@ -394,3 +389,4 @@ export default function TambahAlumniPage() {
     </div>
   );
 }
+

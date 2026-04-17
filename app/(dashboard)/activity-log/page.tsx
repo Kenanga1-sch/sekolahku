@@ -34,6 +34,9 @@ import {
     CheckSquare,
 } from "lucide-react";
 import type { AuditAction, AuditResource } from "@/lib/audit";
+import { goGet } from "@/lib/api-client";
+import { formatDate } from "@/lib/utils";
+
 
 interface AuditLogEntry {
     id?: string;
@@ -95,17 +98,6 @@ const resourceLabels: Record<AuditResource, string> = {
     document: "Dokumen",
 };
 
-function formatDate(date: string | Date | null | undefined): string {
-    if (!date) return "-";
-    const d = typeof date === "string" ? new Date(date) : date;
-    return d.toLocaleString("id-ID", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-    });
-}
 
 function formatDetails(details: Record<string, unknown>): string {
     const parts: string[] = [];
@@ -137,12 +129,10 @@ export default function ActivityLogPage() {
             if (filterAction !== "all") queryParams.append("action", filterAction);
             if (filterResource !== "all") queryParams.append("resource", filterResource);
 
-            const res = await fetch(`/api/audit-logs?${queryParams.toString()}`);
-            if (!res.ok) throw new Error("Failed to fetch logs");
-            
-            const result = await res.json();
+            const result: any = await goGet(`/api/audit-logs?${queryParams.toString()}`);
             setLogs(result.items);
             setTotalPages(result.totalPages);
+
         } catch {
             setLogs([]);
         } finally {
@@ -265,3 +255,4 @@ export default function ActivityLogPage() {
         </div>
     );
 }
+

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { RefreshCw, Vault, Landmark, Plus, Pencil, UserCircle, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { showSuccess, showError } from "@/lib/toast";
+import { goGet, goPost, goPatch } from "@/lib/api-client";
 import {
     Dialog,
     DialogContent,
@@ -75,8 +76,7 @@ export default function TabunganBrankasPage() {
         setIsLoading(true);
         try {
             // Fetch Brankas
-            const res = await fetch("/api/tabungan/brankas");
-            const data = await res.json();
+            const data: any = await goGet("/api/tabungan/brankas");
             if (data.data) {
                 setBrankasList(Array.isArray(data.data) ? data.data : [data.data]);
             }
@@ -112,16 +112,7 @@ export default function TabunganBrankasPage() {
                 saldo: editingItem ? undefined : formData.saldo 
             };
 
-            const res = await fetch("/api/tabungan/brankas", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            });
-
-            if(!res.ok) {
-                const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.error || "Gagal menyimpan data");
-            }
+            await goPost("/api/tabungan/brankas", payload);
             
             showSuccess("Data brankas berhasil disimpan");
             setIsDialogOpen(false);
@@ -138,22 +129,13 @@ export default function TabunganBrankasPage() {
         try {
             const amount = parseInt(transferData.amount.replace(/\D/g, ""), 10);
 
-            const res = await fetch("/api/tabungan/brankas", {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    ...transferData,
-                    amount,
-                    tipe: brankasList.find(b => b.id === transferData.toId)?.nama.toLowerCase().includes("koperasi")
-                        ? "setor_ke_koperasi"
-                        : "setor_ke_bank"
-                }),
+            await goPatch("/api/tabungan/brankas", {
+                ...transferData,
+                amount,
+                tipe: brankasList.find(b => b.id === transferData.toId)?.nama.toLowerCase().includes("koperasi")
+                    ? "setor_ke_koperasi"
+                    : "setor_ke_bank"
             });
-
-            if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.error || "Gagal melakukan transfer");
-            }
 
             showSuccess("Transfer dana berhasil dilakukan");
             setIsTransferDialogOpen(false);
@@ -424,3 +406,4 @@ export default function TabunganBrankasPage() {
         </div>
     );
 }
+

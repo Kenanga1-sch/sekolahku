@@ -26,6 +26,7 @@ import {
 import { ArrowLeft, Download, FileText, Filter, Loader2, Calendar as CalendarIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { goGet } from "@/lib/api-client";
 
 interface AttendanceRecord {
   id: string;
@@ -64,9 +65,8 @@ export default function LaporanPresensiPage() {
 
   useEffect(() => {
     // Fetch classes
-    fetch("/api/students/classes")
-      .then((res) => res.json())
-      .then((data) => setClasses(data))
+    goGet("/api/students/classes")
+      .then((data: any) => setClasses(data))
       .catch((err) => console.error(err));
   }, []);
 
@@ -198,3 +198,4 @@ export default function LaporanPresensiPage() {
     </div>
   );
 }
+

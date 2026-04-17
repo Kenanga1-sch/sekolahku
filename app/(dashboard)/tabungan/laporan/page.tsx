@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { showSuccess, showError } from "@/lib/toast";
+import { goGet } from "@/lib/api-client";
 import type { TabunganStats, TabunganTransaksiWithRelations, TabunganKelas } from "@/types/tabungan";
 
 function formatRupiah(amount: number): string {
@@ -72,16 +73,16 @@ export default function TabunganLaporanPage() {
             try {
                 const { start, end } = getDateRange(period);
                 
-                const statsPromise = fetch("/api/tabungan/stats").then(r => r.json());
+                const statsPromise = goGet("/api/tabungan/stats");
                 
                 const transParams = new URLSearchParams({
                     startDate: start,
                     endDate: end,
                     perPage: "10000", // Fetch all for report
                 });
-                const transPromise = fetch(`/api/tabungan/transaksi?${transParams.toString()}`).then(r => r.json());
+                const transPromise = goGet(`/api/tabungan/transaksi?${transParams.toString()}`);
                 
-                const kelasPromise = fetch("/api/tabungan/kelas").then(r => r.json());
+                const kelasPromise = goGet("/api/tabungan/kelas");
 
                 const [statsData, transRes, kelasRes] = await Promise.all([
                     statsPromise,
@@ -93,9 +94,9 @@ export default function TabunganLaporanPage() {
                 if (transRes.error) throw new Error(transRes.error);
                 if (kelasRes.error) throw new Error(kelasRes.error);
 
-                setStats(statsData);
-                setTransactions(transRes.items || []);
-                setKelasList(Array.isArray(kelasRes) ? kelasRes : []);
+                setStats(statsData as any);
+                setTransactions((transRes as any).items || []);
+                setKelasList(Array.isArray(kelasRes) ? (kelasRes as any) : []);
             } catch (error) {
                 console.error("Failed to fetch report data:", error);
                 showError("Gagal memuat data laporan");
@@ -352,3 +353,4 @@ export default function TabunganLaporanPage() {
         </div>
     );
 }
+

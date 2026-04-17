@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { GET, POST } from '@/app/api/school-settings/route';
 import { createMockRequest } from './api-test-utils';
 
-vi.mock('@/auth', () => ({
+vi.mock("@/lib/auth", () => ({
     auth: vi.fn(),
 }));
 
@@ -16,8 +16,8 @@ vi.mock('@/db', async () => {
     };
 });
 
-import { db, schoolSettings } from '@/db';
-import { auth } from '@/auth';
+
+import { auth } from "@/lib/auth";
 
 describe('School Settings API', () => {
     beforeEach(async () => {

@@ -12,7 +12,6 @@ vi.mock('@/db', async () => {
     };
 });
 
-import { db, galleries } from '@/db';
 
 describe('Gallery API', () => {
     beforeEach(async () => {

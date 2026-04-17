@@ -1,7 +1,8 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, ReactNode } from "react";
 import useSWR from "swr";
+import { goGet } from "@/lib/api-client";
 import type { SchoolSettings } from "@/types";
 
 // Default fallback values
@@ -23,30 +24,15 @@ const SchoolSettingsContext = createContext<SchoolSettingsContextType>({
 });
 
 export function SchoolSettingsProvider({ children }: { children: ReactNode }) {
-    const fetcher = async (url: string) => {
-        try {
-            const res = await fetch(url);
-            if (!res.ok) {
-                const error = new Error('An error occurred while fetching the data.');
-                // Attach extra info to the error object.
-                (error as any).info = await res.json().catch(() => ({}));
-                (error as any).status = res.status;
-                throw error;
-            }
-            return res.json();
-        } catch (error) {
-            console.error(`SchoolSettingsContext fetcher error for ${url}:`, error);
-            throw error;
-        }
-    };
-    
-    const { data, isLoading } = useSWR<SchoolSettings>("/api/school-settings", fetcher, {
+    const { data: response, isLoading } = useSWR<any>("/api/public/school-settings", goGet, {
         revalidateOnFocus: false, // Don't revalidate on window focus (settings rarely change)
         dedupingInterval: 60000, // Dedup requests within 1 minute
     });
 
+    const settings = response?.success ? response.data : null;
+
     return (
-        <SchoolSettingsContext.Provider value={{ settings: data || null, isLoading }}>
+        <SchoolSettingsContext.Provider value={{ settings, isLoading }}>
             {children}
         </SchoolSettingsContext.Provider>
     );

@@ -13,6 +13,7 @@ import {
   AlertCircle,
   User,
 } from "lucide-react";
+import { goPost, goDelete } from "@/lib/api-client";
 
 interface PhotoUploadProps {
   alumniId: string;
@@ -58,17 +59,12 @@ export function PhotoUpload({
       const formData = new FormData();
       formData.append("photo", file);
 
-      const response = await fetch(`/api/alumni/${alumniId}/photo`, {
-        method: "POST",
-        body: formData,
-      });
+      const result: any = await goPost(`/api/alumni/${alumniId}/photo`, formData);
 
-      if (!response.ok) {
-        const result = await response.json();
+      if (result.error) {
         throw new Error(result.error || "Upload failed");
       }
 
-      const result = await response.json();
       setPhoto(result.photo);
       setSuccess("Foto berhasil diupload");
       onPhotoChange?.(result.photo);
@@ -91,12 +87,9 @@ export function PhotoUpload({
     setError(null);
 
     try {
-      const response = await fetch(`/api/alumni/${alumniId}/photo`, {
-        method: "DELETE",
-      });
+      const result: any = await goDelete(`/api/alumni/${alumniId}/photo`);
 
-      if (!response.ok) {
-        const result = await response.json();
+      if (result.error) {
         throw new Error(result.error || "Failed to remove photo");
       }
 

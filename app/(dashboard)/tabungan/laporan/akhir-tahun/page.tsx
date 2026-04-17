@@ -12,6 +12,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import { YearEndReportPDF } from "@/components/reports/YearEndReportPDF";
+import { goGet } from "@/lib/api-client";
 
 // Dynamically import PDFViewer to avoid SSR issues
 const PDFViewer = dynamic(
@@ -107,8 +108,7 @@ export default function LaporanAkhirTahunPage() {
     useEffect(() => {
         const fetchSiswa = async () => {
             try {
-                const res = await fetch("/api/tabungan/siswa");
-                const data = await res.json();
+                const data: any = await goGet("/api/tabungan/siswa");
                 if (data.items) {
                     setSiswaList(data.items);
                 }
@@ -127,8 +127,7 @@ export default function LaporanAkhirTahunPage() {
 
         setIsLoading(true);
         try {
-            const res = await fetch(`/api/tabungan/laporan/akhir-tahun?siswaId=${selectedSiswaId}&year=${selectedYear}`);
-            const data = await res.json();
+            const data: any = await goGet(`/api/tabungan/laporan/akhir-tahun?siswaId=${selectedSiswaId}&year=${selectedYear}`);
 
             if (data.success) {
                 setReport(data.report);
@@ -505,3 +504,4 @@ function formatMonth(monthKey: string) {
     const date = new Date(parseInt(year), parseInt(month) - 1, 1);
     return date.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
 }
+

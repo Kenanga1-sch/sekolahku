@@ -9,13 +9,12 @@ import {
     createTransaction,
     getTransactions
 } from './finance';
-import { eq } from 'drizzle-orm';
 
 vi.mock('next/cache', () => ({
     revalidatePath: vi.fn(),
 }));
 
-vi.mock('@/auth', () => ({
+vi.mock("@/lib/auth", () => ({
     auth: vi.fn(),
 }));
 
@@ -25,8 +24,7 @@ vi.mock('@/db', async () => {
     return { db, ...schema };
 });
 
-import { auth } from '@/auth';
-import { db } from '@/db';
+import { auth } from "@/lib/auth";
 
 async function cleanup() {
     await db.delete(financeTransactions);

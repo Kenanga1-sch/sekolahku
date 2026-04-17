@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import dynamic from "next/dynamic";
 import { toast } from "sonner";
+import { goPost } from "@/lib/api-client";
 import { Loader2, Search, RefreshCw, Smartphone, CreditCard, CameraOff } from "lucide-react";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
@@ -84,22 +85,11 @@ export default function CekSaldoPage() {
     
     setLoading(true);
     try {
-      const res = await fetch("/api/tabungan/check-balance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identifier, birthDate }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || "Gagal mengecek saldo");
-      }
-
+      const data = await goPost<{ data: BalanceData }>("/api/tabungan/check-balance", { identifier, birthDate });
       setResult(data.data);
       toast.success("Data ditemukan");
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(error.message || "Gagal mengecek saldo");
     } finally {
       setLoading(false);
     }
@@ -278,3 +268,4 @@ export default function CekSaldoPage() {
     </div>
   );
 }
+

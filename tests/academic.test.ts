@@ -3,11 +3,10 @@ import { createMockRequest } from './api-test-utils';
 import { POST as promotePOST } from '../app/api/academic/promotion/route';
 import { POST as candidatePromotePOST } from '../app/api/spmb/candidates/promote/route';
 import { POST as academicYearPOST } from '../app/api/master/academic-years/route';
-import { eq, inArray } from 'drizzle-orm';
 
 vi.mock('server-only', () => ({}));
 
-vi.mock('@/auth', () => ({
+vi.mock("@/lib/auth", () => ({
     auth: vi.fn(),
 }));
 
@@ -25,8 +24,8 @@ vi.mock('@/db', async () => {
     };
 });
 
-import { db, students, studentClasses, studentClassHistory, academicYears, users } from '@/db';
-import { auth } from '@/auth';
+
+import { auth } from "@/lib/auth";
 
 async function cleanup() {
     await db.delete(studentClassHistory);

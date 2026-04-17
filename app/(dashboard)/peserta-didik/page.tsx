@@ -59,6 +59,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { goGet, goDelete } from "@/lib/api-client";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -125,15 +126,16 @@ export default function PesertaDidikPage() {
       if (classFilter !== "all") params.set("className", classFilter);
       if (statusFilter !== "all") params.set("isActive", statusFilter);
 
-      const response = await fetch(`/api/students?${params.toString()}`);
-      const data: StudentsResponse = await response.json();
-
-      if (response.ok) {
-        setStudents(data.data);
-        setPagination(data.pagination);
-        setSummary(data.summary);
+      const response = await goGet(`/api/master/students?${params.toString()}`);
+      
+      if (response.success) {
+        // The list is in response.data.data because the backend wraps the Repo response in 'data'
+        const result = response.data;
+        setStudents(result.data || []);
+        setPagination(result.pagination || { total: 0, totalPages: 0, page: 1, limit: 10 });
+        setSummary(result.summary || { total: 0, active: 0, byClass: [] });
       } else {
-        toast.error("Gagal memuat data peserta didik");
+        toast.error(response.error || "Gagal memuat data peserta didik");
       }
     } catch (error) {
       console.error("Error fetching students:", error);
@@ -151,12 +153,12 @@ export default function PesertaDidikPage() {
     if (!confirm("Apakah Anda yakin ingin menghapus peserta didik ini?")) return;
 
     try {
-      const response = await fetch(`/api/students/${id}`, { method: "DELETE" });
-      if (response.ok) {
+      const response = await goDelete(`/api/master/students/${id}`);
+      if (response.success) {
         toast.success("Peserta didik berhasil dihapus");
         fetchStudents();
       } else {
-        toast.error("Gagal menghapus peserta didik");
+        toast.error(response.error || "Gagal menghapus peserta didik");
       }
     } catch {
       toast.error("Terjadi kesalahan");
@@ -474,7 +476,7 @@ export default function PesertaDidikPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() =>
-                                router.push(`/peserta-didik/${student.id}`)
+                                router.push(`/peserta-didik/detail?id=${student.id}`)
                               }
                             >
                               <Eye className="h-4 w-4 mr-2" />
@@ -482,7 +484,7 @@ export default function PesertaDidikPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() =>
-                                router.push(`/peserta-didik/${student.id}/edit`)
+                                router.push(`/peserta-didik/detail?id=${student.id}/edit`)
                               }
                             >
                               <Pencil className="h-4 w-4 mr-2" />
@@ -575,3 +577,4 @@ export default function PesertaDidikPage() {
     </div>
   );
 }
+

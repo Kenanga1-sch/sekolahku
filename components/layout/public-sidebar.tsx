@@ -55,7 +55,7 @@ import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import { signOut } from "next-auth/react";
+import { logoutAction } from "@/actions/auth";
 
 const navLinks = [
   { href: "/", label: "Beranda", icon: Home },
@@ -118,8 +118,9 @@ function SidebarContent({
   const { settings } = useSchoolSettings();
 
   const handleLogout = async () => {
-    await signOut({ callbackUrl: "/" });
+    await logoutAction();
     storeLogout();
+    window.location.href = "/login";
   };
 
   // If mobile, always expanded

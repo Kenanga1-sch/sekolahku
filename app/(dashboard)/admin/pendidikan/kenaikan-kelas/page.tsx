@@ -11,6 +11,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { showSuccess, showError } from "@/lib/toast";
 import { Badge } from "@/components/ui/badge";
+import { goGet, goPost } from "@/lib/api-client";
 
 interface ClassOption {
     id: string;
@@ -51,15 +52,8 @@ export default function PromotionPage() {
 
     const fetchClasses = async () => {
         try {
-            const res = await fetch("/api/master/academic/classes"); // Ensure this endpoint exists or use api/academic/classes
-            // Based on previous task, it was api/master/academic/classes or similar. 
-            // Wait, previous logs said `api/academic/classes` created in step 11 of task.md but implemented in `admin/pendidikan/kelas`.
-            // Let's try /api/academic/classes based on task.md
-            const res2 = await fetch("/api/academic/classes"); 
-            if (res2.ok) {
-                const data = await res2.json();
-                setClasses(data);
-            }
+            const data: any = await goGet("/api/academic/classes");
+            setClasses(data as any[]);
         } catch (error) {
             console.error(error);
         }
@@ -68,11 +62,8 @@ export default function PromotionPage() {
     const fetchStudents = async (classId: string) => {
         setIsLoadingStudents(true);
         try {
-            const res = await fetch(`/api/master/students?classId=${classId}&limit=100&status=active`);
-            if (res.ok) {
-                const data = await res.json();
-                setStudents(data.data);
-            }
+            const data: any = await goGet(`/api/master/students?classId=${classId}&limit=100&status=active`);
+            setStudents(data.data);
         } catch (error) {
             showError("Gagal memuat data siswa");
         } finally {
@@ -105,18 +96,11 @@ export default function PromotionPage() {
 
         setIsSubmitting(true);
         try {
-            const res = await fetch("/api/academic/promotion", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    studentIds: selectedStudentIds,
-                    targetClassId: actionType === "promotion" ? targetClassId : null,
-                    actionType
-                })
+            const json: any = await goPost("/api/academic/promotion", {
+                studentIds: selectedStudentIds,
+                targetClassId: actionType === "promotion" ? targetClassId : null,
+                actionType
             });
-
-            const json = await res.json();
-            if (!res.ok) throw new Error(json.error || "Gagal memproses");
 
             showSuccess(`Berhasil memproses ${json.count} siswa`);
             
@@ -262,3 +246,4 @@ export default function PromotionPage() {
         </div>
     );
 }
+

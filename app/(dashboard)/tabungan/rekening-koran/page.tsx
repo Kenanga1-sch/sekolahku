@@ -10,6 +10,7 @@ import { ArrowLeft, Printer, Loader2, FileText, Download, Check, ChevronsUpDown 
 import Link from "next/link";
 import { QRCodeSVG } from "qrcode.react";
 import { cn } from "@/lib/utils";
+import { goGet } from "@/lib/api-client";
 import {
     Command,
     CommandEmpty,
@@ -102,8 +103,7 @@ export default function RekeningKoranPage() {
     const fetchSiswa = useCallback(async () => {
         setIsFetching(true);
         try {
-            const res = await fetch("/api/tabungan/siswa?perPage=1000");
-            const data = await res.json();
+            const data: any = await goGet("/api/tabungan/siswa?perPage=1000");
             if (data.items) {
                 setSiswaList(data.items || []);
             }
@@ -131,8 +131,7 @@ export default function RekeningKoranPage() {
                 startDate,
                 endDate,
             });
-            const res = await fetch(`/api/tabungan/rekening-koran?${params}`);
-            const data = await res.json();
+            const data: any = await goGet(`/api/tabungan/rekening-koran?${params}`);
             
             if (data.success) {
                 setStatement(data.data);
@@ -159,7 +158,7 @@ export default function RekeningKoranPage() {
             ed: statement.period.end,
             cb: statement.summary.closingBalance.toString(),
         });
-        return `${typeof window !== "undefined" ? window.location.origin : ""}/api/tabungan/rekening-koran/verify/${statement.verificationHash}?${params}`;
+        return `${typeof window !== "undefined" ? window.location.origin : ""}/api/tabungan/rekening-koran/verify/detail?hash=${statement.verificationHash}?${params}`;
     };
 
     return (
@@ -510,3 +509,4 @@ export default function RekeningKoranPage() {
         </div>
     );
 }
+

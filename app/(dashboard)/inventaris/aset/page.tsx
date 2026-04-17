@@ -311,7 +311,7 @@ export default function AsetPage() {
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {rooms.filter(r => {
-                                                    const isAdmin = ["superadmin", "admin"].includes(user?.role || "");
+                                                    const isAdmin = ["admin"].includes(user?.role || "");
                                                     if (isAdmin) return true;
                                                     return (r as any).picId === user?.id || r.expand?.pic?.id === user?.id;
                                                 }).map((room) => (
@@ -522,3 +522,4 @@ export default function AsetPage() {
         </div>
     );
 }
+

@@ -3,8 +3,6 @@
 // ==========================================
 // Pattern for recoverable deletions
 
-import { sql, eq, isNull, isNotNull, and } from "drizzle-orm";
-import type { SQLiteColumn, SQLiteTableWithColumns } from "drizzle-orm/sqlite-core";
 
 /**
  * Soft delete a record by setting deletedAt timestamp
@@ -94,8 +92,7 @@ export function onlyDeleted(deletedAtColumn: SQLiteColumn) {
 /**
  * Add to your Drizzle schema for soft delete support:
  * 
- * import { integer } from "drizzle-orm/sqlite-core";
- * 
+ *  * 
  * // In your table definition:
  * deletedAt: integer("deleted_at", { mode: "timestamp" }),
  * 

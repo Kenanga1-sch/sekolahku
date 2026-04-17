@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { showSuccess, showError } from "@/lib/toast";
+import { goGet, goPost, goPut, goDelete } from "@/lib/api-client";
 
 export default function MasterAcademicPage() {
     return (
@@ -56,24 +57,23 @@ function AcademicYearsTab() {
     useEffect(() => { fetchData() }, []);
 
     const fetchData = async () => {
-        const res = await fetch("/api/master/academic-years");
-        if(res.ok) setData(await res.json());
+        try {
+            const results: any = await goGet("/api/academic/years");
+            setData(results);
+        } catch (e) {
+            showError("Gagal memuat data");
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
         try {
-            const url = editData ? `/api/master/academic-years/${editData.id}` : "/api/master/academic-years";
-            const method = editData ? "PUT" : "POST";
-            
-            const res = await fetch(url, {
-                method,
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(formData)
-            });
-
-            if(!res.ok) throw new Error("Gagal menyimpan");
+            if (editData) {
+                await goPut(`/api/academic/years/${editData.id}`, formData);
+            } else {
+                await goPost("/api/academic/years", formData);
+            }
             
             showSuccess("Data tersimpan");
             setIsOpen(false);
@@ -105,9 +105,13 @@ function AcademicYearsTab() {
 
      const handleDelete = async (id: string) => {
         if(!confirm("Hapus tahun ajaran ini?")) return;
-        const res = await fetch(`/api/master/academic-years/${id}`, { method: "DELETE" });
-        if(res.ok) { showSuccess("Terhapus"); fetchData(); }
-        else showError("Gagal menghapus (mungkin status Aktif)");
+        try {
+            await goDelete(`/api/academic/years/${id}`);
+            showSuccess("Terhapus");
+            fetchData();
+        } catch (e) {
+            showError("Gagal menghapus (mungkin status Aktif)");
+        }
     };
 
     return (
@@ -207,20 +211,31 @@ function SubjectsTab() {
 
     useEffect(() => { fetchData() }, []);
     const fetchData = async () => {
-        const res = await fetch("/api/master/subjects");
-        if(res.ok) setData(await res.json());
+        try {
+            const results: any = await goGet("/api/academic/subjects");
+            setData(results);
+        } catch (e) {
+            showError("Gagal memuat data");
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
         try {
-            const url = editData ? `/api/master/subjects/${editData.id}` : "/api/master/subjects";
-            const method = editData ? "PUT" : "POST";
-            const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(formData) });
-            if(!res.ok) throw new Error("Gagal menyimpan");
-            showSuccess("Data tersimpan"); setIsOpen(false); fetchData();
-        } catch (err) { showError("Gagal menyimpan data"); } finally { setIsLoading(false); }
+            if (editData) {
+                await goPut(`/api/academic/subjects/${editData.id}`, formData);
+            } else {
+                await goPost("/api/academic/subjects", formData);
+            }
+            showSuccess("Data tersimpan");
+            setIsOpen(false);
+            fetchData();
+        } catch (err) {
+            showError("Gagal menyimpan data");
+        } finally {
+            setIsLoading(false);
+        }
     };
 
      const handleEdit = (item: any) => {
@@ -237,9 +252,13 @@ function SubjectsTab() {
 
     const handleDelete = async (id: string) => {
         if(!confirm("Hapus mata pelajaran ini?")) return;
-        const res = await fetch(`/api/master/subjects/${id}`, { method: "DELETE" });
-        if(res.ok) { showSuccess("Terhapus"); fetchData(); }
-        else showError("Gagal menghapus");
+        try {
+            await goDelete(`/api/academic/subjects/${id}`);
+            showSuccess("Terhapus");
+            fetchData();
+        } catch (e) {
+            showError("Gagal menghapus");
+        }
     };
 
     return (
@@ -315,4 +334,5 @@ function SubjectsTab() {
         </Card>
     );
 }
+
 

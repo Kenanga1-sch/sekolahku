@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { goGet } from "@/lib/api-client";
 import { Home, TrendingUp } from "lucide-react";
 
 // Types for API response
@@ -31,11 +32,8 @@ export function TopRoomsWidget() {
     useEffect(() => {
         async function loadData() {
             try {
-                const res = await fetch("/api/inventaris/data?type=top-rooms");
-                if (res.ok) {
-                    const data = await res.json();
-                    setRooms(data);
-                }
+                const data: any = await goGet("/api/inventaris/data?type=top-rooms");
+                setRooms(data);
             } catch {
                 // Fail silently
             } finally {

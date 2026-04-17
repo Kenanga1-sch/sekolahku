@@ -6,3 +6,8 @@
 // ==========================================
 
 export * from "./tabungan/index";
+
+export async function createOrUpdateBrankas(...args: any[]) {
+  console.warn("createOrUpdateBrankas: Not yet wired to Go API");
+  return { success: false, error: "Not implemented" };
+}

@@ -18,9 +18,10 @@ import {
 } from "@/components/ui/form";
 import { Loader2, ArrowRight, AlertCircle, Mail, Lock } from "lucide-react";
 import { loginFormSchema, type LoginFormValues } from "@/lib/validations/spmb";
-import { signIn, getSession } from "next-auth/react";
+import { loginAction, getSessionAction } from "@/actions/auth";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/lib/stores/auth-store";
 
 const BottomGradient = () => {
   return (
@@ -47,6 +48,7 @@ const LabelInputContainer = ({
 
 export default function LoginPage() {
   const router = useRouter();
+  const { refreshSession } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,23 +65,22 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const res = await signIn("credentials", {
-        email: data.identity,
-        password: data.password,
-        redirect: false,
-      });
+      const res = await loginAction(data.identity, data.password);
 
       if (res?.error) {
-        setError("Username/email atau password salah. Silakan coba lagi.");
+        setError(res.error);
       } else {
+        // Sync the global auth state before redirecting
+        await refreshSession();
+        
         // Fetch session to determine role
-        const session = await getSession();
+        const session = await getSessionAction();
         router.refresh(); 
         
         if (session?.user?.role === "staff") {
-            router.push("/inventaris");
+            window.location.href = "/inventaris";
         } else {
-            router.push("/overview");
+            window.location.href = "/overview";
         }
       }
     } catch (err) {
@@ -198,3 +199,4 @@ export default function LoginPage() {
     </motion.div>
   );
 }
+

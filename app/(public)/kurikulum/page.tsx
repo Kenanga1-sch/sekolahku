@@ -17,8 +17,24 @@ import {
     Users,
     Calendar,
 } from "lucide-react";
+import React, { useMemo } from "react";
+import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 
-const kurikulumData = {
+const iconMap: Record<string, any> = {
+    "BookOpen": BookOpen,
+    "Cpu": Cpu,
+    "Globe": Globe,
+    "BookHeart": BookHeart,
+    "Users": Users,
+    "Palette": Palette,
+    "Footprints": Footprints,
+    "Trophy": Trophy,
+    "Volleyball": Volleyball,
+    "Music": Music,
+    "Mic2": Mic2,
+};
+
+const DEFAULT_KURIKULUM = {
     description: `Kami menerapkan Kurikulum Merdeka yang berfokus pada pengembangan karakter,
   kompetensi, dan keterampilan abad 21. Pembelajaran dirancang untuk mengembangkan
   kreativitas, berpikir kritis, kolaborasi, dan komunikasi siswa.`,
@@ -42,7 +58,7 @@ const kurikulumData = {
     ],
 };
 
-const ekstraData = [
+const DEFAULT_EKSTRA = [
     {
         name: "Pramuka",
         description: "Pengembangan karakter, kepemimpinan, dan keterampilan hidup",
@@ -111,6 +127,37 @@ const categoryColors: Record<string, string> = {
 };
 
 export default function KurikulumPage() {
+    const { settings } = useSchoolSettings();
+
+    const { kurikulumData, ekstraData } = useMemo(() => {
+        if (!settings) return { kurikulumData: DEFAULT_KURIKULUM, ekstraData: DEFAULT_EKSTRA };
+
+        try {
+            const dbKurikulum = settings.school_curriculum ? JSON.parse(settings.school_curriculum) : DEFAULT_KURIKULUM;
+            const dbEkstra = settings.school_extracurriculars ? JSON.parse(settings.school_extracurriculars) : DEFAULT_EKSTRA;
+
+            // Map icons for Kurikulum
+            const mappedKurikulum = {
+                ...dbKurikulum,
+                subjects: (dbKurikulum.subjects || []).map((s: any) => ({
+                    ...s,
+                    icon: iconMap[s.icon] || BookOpen
+                }))
+            };
+
+            // Map icons for Ekstra
+            const mappedEkstra = (dbEkstra || []).map((e: any) => ({
+                ...e,
+                icon: iconMap[e.icon] || Trophy
+            }));
+
+            return { kurikulumData: mappedKurikulum, ekstraData: mappedEkstra };
+        } catch (e) {
+            console.error("Failed to parse curriculum/ekstra settings:", e);
+            return { kurikulumData: DEFAULT_KURIKULUM, ekstraData: DEFAULT_EKSTRA };
+        }
+    }, [settings]);
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
             <div className="container mx-auto px-4 py-12">
@@ -217,3 +264,4 @@ export default function KurikulumPage() {
         </div>
     );
 }
+

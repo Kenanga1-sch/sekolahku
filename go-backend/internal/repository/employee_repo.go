@@ -150,3 +150,101 @@ func (r *EmployeeRepository) CreateEmployee(req models.CreateEmployeeRequest) er
 
 	return tx.Commit()
 }
+
+func (r *EmployeeRepository) GetEmployeeByID(id string) (*models.Employee, error) {
+	query := `
+		SELECT u.id, u.name, u.full_name, u.email, u.role, u.phone,
+		       e.nip, e.nuptk, e.nik, e.employment_status, e.job_type, e.join_date
+		FROM users u
+		LEFT JOIN employee_details e ON u.id = e.user_id
+		WHERE u.id = ?
+	`
+	var e models.Employee
+	var fn, phone, nip, nuptk, nik, empStatus, jobType, joinDate sql.NullString
+
+	err := r.DB.QueryRow(query, id).Scan(
+		&e.ID, &e.Name, &fn, &e.Email, &e.Role, &phone,
+		&nip, &nuptk, &nik, &empStatus, &jobType, &joinDate,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if fn.Valid { e.FullName = &fn.String }
+	if phone.Valid { e.Phone = &phone.String }
+	if nip.Valid { e.NIP = &nip.String }
+	if nuptk.Valid { e.NUPTK = &nuptk.String }
+	if nik.Valid { e.NIK = &nik.String }
+	if empStatus.Valid { e.EmploymentStatus = &empStatus.String }
+	if jobType.Valid { e.JobType = &jobType.String }
+	if joinDate.Valid { e.JoinDate = &joinDate.String }
+
+	return &e, nil
+}
+
+func (r *EmployeeRepository) UpdateEmployee(id string, req models.CreateEmployeeRequest) error {
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	now := time.Now()
+
+	// 1. Update User
+	userQuery := `
+		UPDATE users SET name=?, full_name=?, email=?, role=?, phone=?, updated_at=?
+		WHERE id=?
+	`
+	_, err = tx.Exec(userQuery, req.FullName, req.FullName, req.Email, req.Role, req.Phone, now, id)
+	if err != nil {
+		return err
+	}
+
+	// 2. Update/Insert Employee Detail
+	// Check if detail exists
+	var detailExists bool
+	r.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM employee_details WHERE user_id=?)", id).Scan(&detailExists)
+
+	if detailExists {
+		detailQuery := `
+			UPDATE employee_details SET nip=?, nuptk=?, nik=?, employment_status=?, job_type=?, join_date=?, updated_at=?
+			WHERE user_id=?
+		`
+		_, err = tx.Exec(detailQuery, req.NIP, req.NUPTK, req.NIK, req.EmploymentStatus, req.JobType, req.JoinDate, now, id)
+	} else {
+		detailId := cuid2.Generate()
+		detailQuery := `
+			INSERT INTO employee_details (id, user_id, nip, nuptk, nik, employment_status, job_type, join_date, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`
+		_, err = tx.Exec(detailQuery, detailId, id, req.NIP, req.NUPTK, req.NIK, req.EmploymentStatus, req.JobType, req.JoinDate, now, now)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (r *EmployeeRepository) DeleteEmployee(id string) error {
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Order matters: delete child first or rely on cascade if any
+	_, err = tx.Exec("DELETE FROM employee_details WHERE user_id = ?", id)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec("DELETE FROM users WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}

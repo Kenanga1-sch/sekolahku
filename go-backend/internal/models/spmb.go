@@ -1,24 +1,126 @@
 package models
 
-import "time"
+import (
+	"time"
+)
 
 type SPMBPeriod struct {
 	ID           string     `json:"id"`
+	Year         string     `json:"year"` // Formally school_year or year
+	AcademicYear string     `json:"academic_year"`
 	Name         string     `json:"name"`
-	AcademicYear string     `json:"academicYear"`
 	StartDate    *time.Time `json:"startDate"`
 	EndDate      *time.Time `json:"endDate"`
+	Status       string     `json:"status"` // active, archived, draft
+	IsActive     bool       `json:"is_active"`
 	Quota        int        `json:"quota"`
-	IsActive     bool       `json:"isActive"`
 	CreatedAt    *time.Time `json:"createdAt"`
-	UpdatedAt    *time.Time `json:"updatedAt"`
-	Registered   int        `json:"registered"`
+}
+
+type SPMBRegistrant struct {
+	ID                 string  `json:"id"`
+	RegistrationNumber string  `json:"registrationNumber"`
+	FullName           string  `json:"fullName"`
+	NISN               string  `json:"nisn"`
+	StudentNIK         string  `json:"studentNik"`
+	KKNumber           string  `json:"kkNumber"`
+	BirthCertificateNo string  `json:"birthCertificateNo"`
+	BirthPlace         string  `json:"birthPlace"`
+	BirthDate          string  `json:"birthDate"`
+	Gender             string  `json:"gender"`
+	Religion           string  `json:"religion"`
+	SpecialNeeds       string  `json:"specialNeeds"`
+	LivingArrangement  string  `json:"livingArrangement"`
+	TransportMode      string  `json:"transportMode"`
+	ChildOrder         int     `json:"childOrder"`
+	HasKPS             bool    `json:"hasKpsPkh"`
+	HasKIP             bool    `json:"hasKip"`
+	PreviousSchool     string  `json:"previousSchool"`
+
+	Hobby             string `json:"hobby"`
+	Ambition          string `json:"ambition"`
+	Height            int    `json:"height"`
+	Weight            int    `json:"weight"`
+	HeadCircumference int    `json:"headCircumference"`
+	SiblingCount      int    `json:"siblingCount"`
+	TravelTime        string `json:"travelTime"`
+
+	AddressStreet  string  `json:"addressStreet"`
+	AddressRT      string  `json:"addressRt"`
+	AddressRW      string  `json:"addressRw"`
+	AddressVillage string  `json:"addressVillage"`
+	PostalCode     string  `json:"postalCode"`
+	HomeAddress    string  `json:"address"`
+	HomeLat        float64 `json:"homeLat"`
+	HomeLng        float64 `json:"homeLng"`
+	DistanceKM     float64 `json:"distanceToSchool"`
+	IsInZone       bool    `json:"isWithinZone"`
+
+	ParentPhone   string `json:"parentPhone"`
+	ParentEmail   string `json:"parentEmail"`
+	FatherName    string `json:"fatherName"`
+	FatherNIK     string `json:"fatherNik"`
+	FatherBirth   string `json:"fatherBirthYear"`
+	FatherEdu     string `json:"fatherEducation"`
+	FatherJob     string `json:"fatherJob"`
+	FatherIncome  string `json:"fatherIncome"`
+	MotherName    string `json:"motherName"`
+	MotherNIK     string `json:"motherNik"`
+	MotherBirth   string `json:"motherBirthYear"`
+	MotherEdu     string `json:"motherEducation"`
+	MotherJob     string `json:"motherJob"`
+	MotherIncome  string `json:"motherIncome"`
+	GuardianName  string `json:"guardianName"`
+	GuardianNIK   string `json:"guardianNik"`
+	GuardianBirth string `json:"guardianBirthYear"`
+	GuardianEdu   string `json:"guardianEducation"`
+	GuardianJob   string `json:"guardianJob"`
+	GuardianIncome string `json:"guardianIncome"`
+
+	Status    string `json:"status"`
+	Documents string `json:"documents"`
+	CreatedAt int64  `json:"createdAt"`
+	UpdatedAt int64  `json:"updatedAt"`
+}
+
+type SPMBStats struct {
+	TotalRegistrants    int `json:"total"`
+	VerifiedRegistrants int `json:"verified"`
+	PendingRegistrants  int `json:"pending"`
+	AcceptedRegistrants int `json:"accepted"`
+}
+
+type PublicLandingData struct {
+	SchoolName           string  `json:"school_name"`
+	SchoolAddress        string  `json:"school_address"`
+	SchoolPhone          string  `json:"school_phone"`
+	SchoolEmail          string  `json:"school_email"`
+	SchoolLat            float64 `json:"school_lat"`
+	SchoolLng            float64 `json:"school_lng"`
+	SPMBIsOpen           bool    `json:"spmb_is_open"`
+	CurrentAcademicYear  string  `json:"current_academic_year"`
+	MaxDistanceKM        float64 `json:"max_distance_km"`
 }
 
 type CreateSPMBPeriodRequest struct {
-	Name      string `json:"name"`
-	StartDate string `json:"startDate"`
-	EndDate   string `json:"endDate"`
-	Quota     interface{}    `json:"quota"` // Can be float or string when sent from JS, bind safely
-	IsActive  bool   `json:"isActive"`
+	Year         string    `json:"year"`
+	AcademicYear string    `json:"academic_year"`
+	Name         string    `json:"name"`
+	StartDate    time.Time `json:"startDate"`
+	EndDate      time.Time `json:"endDate"`
+	Quota        int       `json:"quota"`
+}
+
+type UpdateSPMBPeriodRequest struct {
+	Name      string    `json:"name"`
+	StartDate time.Time `json:"startDate"`
+	EndDate   time.Time `json:"endDate"`
+	Status    string    `json:"status"`
+	Quota     int       `json:"quota"`
+}
+
+type SPMBPromoteRequest struct {
+	RegistrantID string `json:"registrant_id"`
+	ClassID      string `json:"class_id"`
+	StudentID    string `json:"student_id"` // Optional, if already exists
 }

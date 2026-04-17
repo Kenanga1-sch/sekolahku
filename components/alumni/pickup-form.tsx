@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { HandMetal, Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { goGet, goPost } from "@/lib/api-client";
 
 interface DocumentType {
   id: string;
@@ -60,8 +61,7 @@ export function PickupForm({ alumniId, onPickupComplete }: PickupFormProps) {
   useEffect(() => {
     const fetchDocumentTypes = async () => {
       try {
-        const response = await fetch("/api/alumni/document-types");
-        const data = await response.json();
+        const data: any = await goGet("/api/alumni/document-types");
         setDocumentTypes(data);
       } catch (err) {
         console.error("Error fetching document types:", err);
@@ -83,22 +83,17 @@ export function PickupForm({ alumniId, onPickupComplete }: PickupFormProps) {
     setError(null);
 
     try {
-      const response = await fetch(`/api/alumni/${alumniId}/pickups`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          documentTypeId: (documentTypeId && documentTypeId !== "unspecified") ? documentTypeId : null,
-          recipientName,
-          recipientRelation,
-          recipientIdNumber,
-          recipientPhone,
-          pickupDate,
-          notes,
-        }),
+      const result: any = await goPost(`/api/alumni/${alumniId}/pickups`, {
+        documentTypeId: (documentTypeId && documentTypeId !== "unspecified") ? documentTypeId : null,
+        recipientName,
+        recipientRelation,
+        recipientIdNumber,
+        recipientPhone,
+        pickupDate,
+        notes,
       });
 
-      if (!response.ok) {
-        const result = await response.json();
+      if (result.error) {
         throw new Error(result.error || "Failed to record pickup");
       }
 

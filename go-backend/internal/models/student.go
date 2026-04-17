@@ -3,16 +3,35 @@ package models
 import "time"
 
 type Student struct {
-	ID        string     `json:"id"`
-	NIK       *string    `json:"nik"`
-	NISN      *string    `json:"nisn"`
-	NIS       *string    `json:"nis"`
-	FullName  string     `json:"fullName"`
-	Gender    *string    `json:"gender"`
-	ClassName *string    `json:"className"`
-	IsActive  bool       `json:"isActive"`
-	Status    string     `json:"status"`
-	CreatedAt *time.Time `json:"createdAt"`
+	ID                 string     `json:"id"`
+	NIK                *string    `json:"nik"`
+	NISN               *string    `json:"nisn"`
+	NIS                *string    `json:"nis"`
+	FullName           string     `json:"fullName"` // Matches frontend expectation
+	Gender             *string    `json:"gender"`
+	BirthPlace         *string    `json:"birthPlace"`
+	BirthDate          *string    `json:"birthDate"`
+	Religion           *string    `json:"religion"`
+	Address            *string    `json:"address"`
+	ParentName         *string    `json:"parentName"`
+	FatherName         *string    `json:"fatherName"`
+	FatherNIK          *string    `json:"fatherNik"`
+	MotherName         *string    `json:"motherName"`
+	MotherNIK          *string    `json:"motherNik"`
+	GuardianName       *string    `json:"guardianName"`
+	GuardianNIK        *string    `json:"guardianNik"`
+	GuardianJob        *string    `json:"guardianJob"`
+	ParentPhone        *string    `json:"parentPhone"`
+	ClassName          *string    `json:"className"`
+	ClassID            *string    `json:"classId"`
+	Status             string     `json:"status"`
+	Photo              *string    `json:"photo"`
+	QRCode             string     `json:"qrCode"`
+	IsActive           bool       `json:"isActive"`
+	MetaData           *string    `json:"metaData"`
+	EnrolledAt         *int64     `json:"enrolledAt"`
+	CreatedAt          *time.Time `json:"createdAt"`
+	UpdatedAt          *time.Time `json:"updatedAt"`
 }
 
 type StudentByClass struct {

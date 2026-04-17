@@ -59,12 +59,19 @@ type LibraryLoan struct {
 	UpdatedAt  *time.Time `json:"updatedAt"`
 }
 
-// Requests
-type BorrowItemRequest struct {
-	MemberQrCode string `json:"memberQrCode"`
-	AssetQrCode  string `json:"assetQrCode"` // Maps to itemId
+// LibraryStats represents summary data for the dashboard
+type LibraryStats struct {
+	TotalBooks     int `json:"totalBooks"`
+	AvailableBooks int `json:"availableBooks"`
+	BorrowedBooks  int `json:"borrowedBooks"`
+	TotalMembers   int `json:"totalMembers"`
+	ActiveLoans    int `json:"activeLoans"`
+	OverdueLoans   int `json:"overdueLoans"`
+	TodayVisits    int `json:"todayVisits"`
 }
 
-type ReturnItemRequest struct {
-	AssetQrCode string `json:"assetQrCode"`
+// StatsResponse matches frontend expectation
+type LibraryStatsResponse struct {
+	Success bool          `json:"success"`
+	Data    *LibraryStats `json:"data"`
 }

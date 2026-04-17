@@ -14,7 +14,7 @@ export function DownloadPdfButton({ registrant }: { registrant: any }) {
   useEffect(() => {
     setIsClient(true);
     // Generate QR Code as Data URL
-    const url = `${window.location.origin}/spmb/verify/${registrant.id}`;
+    const url = `${window.location.origin}/spmb/verify/detail?id=${registrant.id}`;
     QRCode.toDataURL(url, { width: 200, margin: 0 }, (err, url) => {
       if (!err) setQrCodeUrl(url);
     });

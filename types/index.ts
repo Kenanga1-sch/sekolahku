@@ -62,6 +62,13 @@ export interface SchoolSettings extends BaseRecord {
   principal_nip?: string;
   last_letter_number?: number;
   letter_number_format?: string;
+  school_vision?: string;
+  school_mission?: string;
+  school_indicators?: string;
+  school_history_timeline?: string;
+  school_history_achievements?: string;
+  school_curriculum?: string;
+  school_extracurriculars?: string;
 }
 
 // ==========================================

@@ -1,0 +1,195 @@
+package handlers
+
+import (
+	"net/http"
+
+	"github.com/labstack/echo/v4"
+	"github.com/sekolahku/go-backend/internal/models"
+	"github.com/sekolahku/go-backend/internal/repository"
+)
+
+type AttendanceHandler struct {
+	Repo *repository.AttendanceRepository
+}
+
+func NewAttendanceHandler(repo *repository.AttendanceRepository) *AttendanceHandler {
+	return &AttendanceHandler{Repo: repo}
+}
+
+func (h *AttendanceHandler) GetStats(c echo.Context) error {
+	stats, err := h.Repo.GetStats()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, stats)
+}
+
+func (h *AttendanceHandler) GetSessions(c echo.Context) error {
+	date := c.QueryParam("date")
+	status := c.QueryParam("status")
+	
+	sessions, err := h.Repo.GetSessions(date, status)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, sessions)
+}
+
+func (h *AttendanceHandler) CreateSession(c echo.Context) error {
+	var req models.CreateAttendanceSessionRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
+	}
+
+	id, err := h.Repo.CreateSession(req)
+	if err != nil {
+		if err.Error() == "CONFLICT" {
+			return c.JSON(http.StatusConflict, map[string]interface{}{
+				"success": false, 
+				"error": "Sesi untuk kelas ini sudah ada hari ini",
+				"existing": map[string]string{"id": id},
+			})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+	}
+
+	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true, "id": id})
+}
+
+func (h *AttendanceHandler) GetSessionByID(c echo.Context) error {
+	id := c.Param("id")
+	session, err := h.Repo.GetSessionByID(id)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Sesi tidak ditemukan"})
+	}
+	
+	var hadir, sakit, izin, alpha int
+	for _, r := range session.Records {
+		switch r.Status {
+		case "hadir": hadir++
+		case "sakit": sakit++
+		case "izin": izin++
+		case "alpha": alpha++
+		}
+	}
+	
+	belumAbsen := len(session.AllStudents) - len(session.Records)
+	if belumAbsen < 0 { belumAbsen = 0 }
+
+	res := map[string]interface{}{
+		"id":           session.ID,
+		"date":         session.Date,
+		"className":    session.ClassName,
+		"teacherName":  session.TeacherName,
+		"status":       session.Status,
+		"notes":        session.Notes,
+		"records":      session.Records,
+		"allStudents":  session.AllStudents,
+		"stats": map[string]interface{}{
+			"total":      len(session.AllStudents),
+			"hadir":      hadir,
+			"sakit":      sakit,
+			"izin":       izin,
+			"alpha":      alpha,
+			"belumAbsen": belumAbsen,
+		},
+	}
+
+	return c.JSON(http.StatusOK, res)
+}
+
+func (h *AttendanceHandler) UpdateSession(c echo.Context) error {
+	id := c.Param("id")
+	var req struct {
+		Status string `json:"status"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
+	}
+
+	if err := h.Repo.UpdateSessionStatus(id, req.Status); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
+}
+
+func (h *AttendanceHandler) RecordManual(c echo.Context) error {
+	var req models.AttendanceManualRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
+	}
+
+	if err := h.Repo.RecordManual(req); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
+}
+
+func (h *AttendanceHandler) ScanQR(c echo.Context) error {
+	var req models.AttendanceScanRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
+	}
+
+	res, err := h.Repo.RecordQRScan(req)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if err.Error() == "Siswa sudah diabsen" {
+			status = http.StatusConflict
+		} else if err.Error() == "Siswa tidak ditemukan" || err.Error() == "Tidak ada sesi aktif untuk kelas ini" {
+			status = http.StatusNotFound
+		}
+		
+		return c.JSON(status, map[string]interface{}{
+			"success": false, 
+			"error": err.Error(),
+			"student": res["student"],
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"student": res["student"],
+	})
+}
+
+func (h *AttendanceHandler) ExportCSV(c echo.Context) error {
+	startDate := c.QueryParam("startDate")
+	endDate := c.QueryParam("endDate")
+	className := c.QueryParam("class")
+
+	if startDate == "" || endDate == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Tanggal harus diisi"})
+	}
+
+	records, err := h.Repo.ExportAttendance(startDate, endDate, className)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+	}
+
+	// Generate CSV
+	csv := "Tanggal,Kelas,Nama Siswa,NIS/NISN,Status,Waktu Check-In,Metode\n"
+	for _, r := range records {
+		checkIn := "-"
+		if r.CheckInTime != nil {
+			checkIn = r.CheckInTime.Format("15:04:05")
+		}
+		
+		nis := ""
+		if r.Student.NIS != nil { nis = *r.Student.NIS } else if r.Student.NISN != nil { nis = *r.Student.NISN }
+		
+		date := ""
+		if r.Notes != nil { date = *r.Notes }
+
+		className := "-"
+		if r.Student.ClassName != nil { className = *r.Student.ClassName }
+
+		csv += date + "," + className + "," + r.Student.FullName + "," + nis + "," + r.Status + "," + checkIn + "," + r.RecordMethod + "\n"
+	}
+
+	c.Response().Header().Set("Content-Type", "text/csv")
+	c.Response().Header().Set("Content-Disposition", "attachment; filename=laporan-presensi.csv")
+	return c.String(http.StatusOK, csv)
+}

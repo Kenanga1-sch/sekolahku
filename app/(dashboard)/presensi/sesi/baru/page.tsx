@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ArrowLeft, Save, Loader2, CalendarPlus } from "lucide-react";
+import { goGet, goPost } from "@/lib/api-client";
 
 interface ClassOption {
   id: string;
@@ -38,11 +39,8 @@ export default function BuatSesiPresensiPage() {
     // Fetch available classes
     const fetchClasses = async () => {
       try {
-        const response = await fetch("/api/students/classes");
-        if (response.ok) {
-          const data = await response.json();
-          setClasses(data);
-        }
+        const data: any = await goGet("/api/students/classes");
+        setClasses(data);
       } catch (error) {
         console.error("Error fetching classes:", error);
       }
@@ -62,33 +60,25 @@ export default function BuatSesiPresensiPage() {
     setError(null);
 
     try {
-      const response = await fetch("/api/attendance/sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          className,
-          teacherName,
-          notes,
-        }),
+      const data: any = await goPost("/api/attendance/sessions", {
+        className,
+        teacherName,
+        notes,
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        router.push(`/presensi/sesi/${data.id}`);
-      } else if (response.status === 409) {
+      router.push(`/presensi/sesi/detail?id=${data.id}`);
+    } catch (err: any) {
+      if (err.status === 409) {
         // Session already exists
         setError("Sesi untuk kelas ini sudah ada hari ini");
-        if (data.existing) {
+        if (err.data?.existing) {
           setTimeout(() => {
-            router.push(`/presensi/sesi/${data.existing.id}`);
+            router.push(`/presensi/sesi/detail?id=${err.data.existing.id}`);
           }, 2000);
         }
       } else {
-        setError(data.error || "Gagal membuat sesi");
+        setError(err.message || "Terjadi kesalahan");
       }
-    } catch (err) {
-      setError("Terjadi kesalahan");
     } finally {
       setLoading(false);
     }
@@ -198,3 +188,4 @@ export default function BuatSesiPresensiPage() {
     </div>
   );
 }
+

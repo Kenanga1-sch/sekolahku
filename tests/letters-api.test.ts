@@ -12,7 +12,6 @@ vi.mock('@/db', async () => {
     };
 });
 
-import { db, generatedLetters } from '@/db';
 
 describe('Letters Numbering API', () => {
     beforeEach(async () => {

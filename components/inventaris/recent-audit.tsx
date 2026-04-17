@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { goGet } from "@/lib/api-client";
 import { Badge } from "@/components/ui/badge";
 import { 
     Plus, 
@@ -87,11 +88,8 @@ export function RecentAuditFeed() {
     useEffect(() => {
         async function loadData() {
             try {
-                const res = await fetch("/api/inventaris/data?type=recent-audit");
-                if (res.ok) {
-                    const data = await res.json();
-                    setActivities(data);
-                }
+                const data: any = await goGet("/api/inventaris/data?type=recent-audit");
+                setActivities(data);
             } catch {
                 // Fail silently
             } finally {

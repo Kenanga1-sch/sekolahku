@@ -23,6 +23,7 @@ import {
   Shield,
 } from "lucide-react";
 import { DocumentViewer } from "./document-viewer";
+import { goPost, goDelete } from "@/lib/api-client";
 
 interface AlumniDocument {
   id: string;
@@ -69,11 +70,7 @@ export function DocumentGallery({ documents, onRefresh }: DocumentGalleryProps) 
 
   const handleVerify = async (docId: string, status: "verified" | "rejected") => {
     try {
-      await fetch(`/api/alumni/documents/${docId}/verify`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
+      await goPost(`/api/alumni/documents/${docId}/verify`, { status });
       onRefresh?.();
     } catch (error) {
       console.error("Error verifying document:", error);
@@ -83,7 +80,7 @@ export function DocumentGallery({ documents, onRefresh }: DocumentGalleryProps) 
   const handleDelete = async (docId: string) => {
     if (!confirm("Hapus dokumen ini?")) return;
     try {
-      await fetch(`/api/alumni/documents/${docId}`, { method: "DELETE" });
+      await goDelete(`/api/alumni/documents/${docId}`);
       onRefresh?.();
     } catch (error) {
       console.error("Error deleting document:", error);

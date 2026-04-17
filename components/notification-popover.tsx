@@ -13,6 +13,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { goGet, goPost, goPatch } from "@/lib/api-client";
+
 
 interface AdminNotification {
   id: string;
@@ -56,30 +58,26 @@ export function NotificationPopover({ className }: { className?: string }) {
 
   const fetchStats = async () => {
     try {
-      const res = await fetch("/api/notifications/stats");
-      if (res.ok) {
-        const data = await res.json();
-        setUnreadCount(data.unreadCount);
-      }
+      const data = await goGet<{ unreadCount: number }>("/api/notifications/stats");
+      setUnreadCount(data.unreadCount);
     } catch (error) {
       console.error("Failed to fetch notification stats", error);
     }
   };
 
+
   const fetchNotifications = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("/api/notifications?limit=20");
-      if (res.ok) {
-        const data = await res.json();
-        setNotifications(data);
-      }
+      const data = await goGet<AdminNotification[]>("/api/notifications?limit=20");
+      setNotifications(data);
     } catch (error) {
       console.error("Failed to fetch notifications", error);
     } finally {
       setIsLoading(false);
     }
   };
+
 
   useEffect(() => {
     fetchStats();
@@ -96,7 +94,7 @@ export function NotificationPopover({ className }: { className?: string }) {
 
   const handleMarkAsRead = async (id: string, url?: string) => {
     try {
-      await fetch(`/api/notifications/${id}/read`, { method: "PATCH" });
+      await goPatch(`/api/notifications/${id}/read`);
       
       // Update local state
       setNotifications((prev) =>
@@ -113,9 +111,10 @@ export function NotificationPopover({ className }: { className?: string }) {
     }
   };
 
+
   const handleMarkAllAsRead = async () => {
     try {
-      await fetch("/api/notifications/read-all", { method: "POST" });
+      await goPost("/api/notifications/read-all");
       
       // Update local state
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
@@ -125,6 +124,7 @@ export function NotificationPopover({ className }: { className?: string }) {
       toast.error("Gagal memproses permintaan");
     }
   };
+
 
   const getIcon = (type: string) => {
     switch (type) {

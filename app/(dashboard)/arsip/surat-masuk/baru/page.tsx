@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PDFViewer } from "@/components/arsip/pdf-viewer";
 import { toast } from "sonner";
+import { goPost } from "@/lib/api-client";
 
 export default function CreateSuratMasukPage() {
     const router = useRouter();
@@ -61,12 +62,9 @@ export default function CreateSuratMasukPage() {
             if (formData.notes) data.append("notes", formData.notes);
             if (formData.classificationCode) data.append("classificationCode", formData.classificationCode);
 
-            const res = await fetch("/api/arsip/surat-masuk", {
-                method: "POST",
-                body: data,
-            });
+            const res: any = await goPost("/api/arsip/surat-masuk", data);
 
-            if (!res.ok) throw new Error("Gagal menyimpan surat");
+            if (res.error) throw new Error(res.error || "Gagal menyimpan surat");
 
             toast.success("Surat masuk berhasil dicatat");
             router.push("/arsip/surat-masuk");
@@ -219,3 +217,4 @@ export default function CreateSuratMasukPage() {
         </div>
     );
 }
+

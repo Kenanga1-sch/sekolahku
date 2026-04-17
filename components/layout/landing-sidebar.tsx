@@ -23,7 +23,7 @@ import { Sidebar, SidebarBody, SidebarLink, useSidebar } from "@/components/ui/s
 import { cn } from "@/lib/utils";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import { signOut } from "next-auth/react";
+import { logoutAction } from "@/actions/auth";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import {
   DropdownMenu,
@@ -63,6 +63,7 @@ const navLinks = [
     icon: Briefcase,
     children: [
       { href: "/layanan/mutasi-masuk", label: "Mutasi Masuk" },
+      { href: "/layanan/mutasi-masuk/status", label: "Lacak Status Mutasi" },
       { href: "/layanan/mutasi-keluar", label: "Mutasi Keluar" },
       { href: "/layanan/cek-saldo", label: "Cek Saldo Tabungan" },
     ],
@@ -109,8 +110,9 @@ function SidebarContent({ setIsDropdownOpen }: { setIsDropdownOpen: (v: boolean)
   const pathname = usePathname();
 
   const handleLogout = async () => {
-    await signOut({ callbackUrl: "/" });
+    await logoutAction();
     storeLogout();
+    window.location.href = "/login";
   };
 
   return (

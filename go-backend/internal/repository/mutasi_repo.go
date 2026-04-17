@@ -1,0 +1,293 @@
+package repository
+
+import (
+	"database/sql"
+	"fmt"
+	"time"
+
+	"github.com/nrednav/cuid2"
+	"github.com/sekolahku/go-backend/internal/models"
+)
+
+type MutasiRepository struct {
+	DB *sql.DB
+}
+
+func NewMutasiRepository(db *sql.DB) *MutasiRepository {
+	return &MutasiRepository{DB: db}
+}
+
+func (r *MutasiRepository) GetMutasiRequests() ([]models.MutasiRequest, error) {
+	query := `
+		SELECT id, registration_number, student_name, nisn, gender, origin_school, 
+		       origin_school_address, target_grade, target_class_id, parent_name, 
+			   whatsapp_number, status_approval, status_delivery, created_at, updated_at
+		FROM mutasi_requests
+		ORDER BY created_at DESC
+	`
+	rows, err := r.DB.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []models.MutasiRequest
+	for rows.Next() {
+		var m models.MutasiRequest
+		var osa, tcid sql.NullString
+		var crat, upat sql.NullInt64
+
+		err := rows.Scan(
+			&m.ID, &m.RegistrationNumber, &m.StudentName, &m.NISN, &m.Gender, &m.OriginSchool,
+			&osa, &m.TargetGrade, &tcid, &m.ParentName, &m.WhatsappNumber,
+			&m.StatusApproval, &m.StatusDelivery, &crat, &upat,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if osa.Valid { m.OriginSchoolAddress = &osa.String }
+		if tcid.Valid { m.TargetClassID = &tcid.String }
+		
+		cTime := ToTime(crat); m.CreatedAt = &cTime
+		uTime := ToTime(upat); m.UpdatedAt = &uTime
+		
+		results = append(results, m)
+	}
+	return results, nil
+}
+
+func (r *MutasiRepository) CreateMutasiRequest(m models.MutasiRequest) (string, error) {
+	id := cuid2.Generate()
+	regNum := r.GenerateRegistrationNumber()
+	now := time.Now().UnixMilli()
+	
+	query := `
+		INSERT INTO mutasi_requests (
+			id, registration_number, student_name, nisn, gender, origin_school,
+			origin_school_address, target_grade, parent_name, whatsapp_number,
+			status_approval, status_delivery, created_at, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+	_, err := r.DB.Exec(query,
+		id, regNum, m.StudentName, m.NISN, m.Gender, m.OriginSchool,
+		m.OriginSchoolAddress, m.TargetGrade, m.ParentName, m.WhatsappNumber,
+		"pending", "unsent", now, now,
+	)
+	return regNum, err
+}
+
+func (r *MutasiRepository) UpdateMutasiRequestStatus(id string, status string, targetClassID *string) error {
+	now := time.Now().UnixMilli()
+	var query string
+	var args []interface{}
+
+	if targetClassID != nil && *targetClassID != "" {
+		query = "UPDATE mutasi_requests SET status_approval = ?, target_class_id = ?, updated_at = ? WHERE id = ?"
+		args = append(args, status, *targetClassID, now, id)
+	} else {
+		query = "UPDATE mutasi_requests SET status_approval = ?, updated_at = ? WHERE id = ?"
+		args = append(args, status, now, id)
+	}
+
+	_, err := r.DB.Exec(query, args...)
+	return err
+}
+
+func (r *MutasiRepository) GenerateRegistrationNumber() string {
+	now := time.Now()
+	datePart := now.Format("20060102")
+	
+	var count int
+	// Count today's requests to increment
+	// Using a simple count for now, in production might need a more robust sequence
+	r.DB.QueryRow("SELECT COUNT(*) FROM mutasi_requests WHERE date(created_at/1000, 'unixepoch') = date('now')").Scan(&count)
+	
+	return fmt.Sprintf("MUT-%s-%03d", datePart, count+1)
+}
+
+func (r *MutasiRepository) GetMutasiOutRequests() ([]models.MutasiOutRequest, error) {
+	query := `
+		SELECT m.id, m.student_id, s.full_name as student_name, s.nisn, s.class_name,
+		       m.destination_school, m.reason, m.reason_detail, m.status,
+			   m.downloaded_at, m.processed_at, m.completed_at, m.created_at, m.updated_at
+		FROM mutasi_out_requests m
+		JOIN students s ON m.student_id = s.id
+		ORDER BY m.created_at DESC
+	`
+	rows, err := r.DB.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []models.MutasiOutRequest
+	for rows.Next() {
+		var m models.MutasiOutRequest
+		var rd sql.NullString
+		var dat, pat, cat, crat, upat sql.NullInt64
+
+		err := rows.Scan(
+			&m.ID, &m.StudentID, &m.StudentName, &m.NISN, &m.ClassName,
+			&m.DestinationSchool, &m.Reason, &rd, &m.Status,
+			&dat, &pat, &cat, &crat, &upat,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if rd.Valid { m.ReasonDetail = &rd.String }
+		
+		dTime := ToTime(dat); m.DownloadedAt = &dTime
+		pTime := ToTime(pat); m.ProcessedAt = &pTime
+		coTime := ToTime(cat); m.CompletedAt = &coTime
+		crTime := ToTime(crat); m.CreatedAt = &crTime
+		uTime := ToTime(upat); m.UpdatedAt = &uTime
+		
+		results = append(results, m)
+	}
+	return results, nil
+}
+
+func (r *MutasiRepository) GetMutasiOutByID(id string) (*models.MutasiOutRequest, error) {
+	query := `
+		SELECT m.id, m.student_id, s.full_name as student_name, s.nisn, s.class_name,
+		       m.destination_school, m.reason, m.reason_detail, m.status,
+			   m.downloaded_at, m.processed_at, m.completed_at, m.created_at, m.updated_at
+		FROM mutasi_out_requests m
+		JOIN students s ON m.student_id = s.id
+		WHERE m.id = ?
+	`
+	var m models.MutasiOutRequest
+	var rd sql.NullString
+	var dat, pat, cat, crat, upat sql.NullInt64
+
+	err := r.DB.QueryRow(query, id).Scan(
+		&m.ID, &m.StudentID, &m.StudentName, &m.NISN, &m.ClassName,
+		&m.DestinationSchool, &m.Reason, &rd, &m.Status,
+		&dat, &pat, &cat, &crat, &upat,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if rd.Valid { m.ReasonDetail = &rd.String }
+	
+	dTime := ToTime(dat); m.DownloadedAt = &dTime
+	pTime := ToTime(pat); m.ProcessedAt = &pTime
+	coTime := ToTime(cat); m.CompletedAt = &coTime
+	crTime := ToTime(crat); m.CreatedAt = &crTime
+	uTime := ToTime(upat); m.UpdatedAt = &uTime
+	
+	return &m, nil
+}
+
+func (r *MutasiRepository) UpdateMutasiOutStatus(id string, status string) error {
+	now := time.Now().UnixMilli()
+	var query string
+	
+	switch status {
+	case "processed":
+		query = "UPDATE mutasi_out_requests SET status = ?, processed_at = ?, updated_at = ? WHERE id = ?"
+	case "completed":
+		query = "UPDATE mutasi_out_requests SET status = ?, completed_at = ?, updated_at = ? WHERE id = ?"
+	default:
+		query = "UPDATE mutasi_out_requests SET status = ?, updated_at = ? WHERE id = ?"
+	}
+
+	var err error
+	if status == "processed" || status == "completed" {
+		_, err = r.DB.Exec(query, status, now, now, id)
+	} else {
+		_, err = r.DB.Exec(query, status, now, id)
+	}
+	return err
+}
+
+func (r *MutasiRepository) GetMutasiRequestByRegNum(regNum, nisn string) (*models.MutasiRequest, error) {
+	query := `
+		SELECT id, registration_number, student_name, nisn, gender, origin_school, 
+		       origin_school_address, target_grade, target_class_id, parent_name, 
+			   whatsapp_number, status_approval, status_delivery, created_at, updated_at
+		FROM mutasi_requests
+		WHERE registration_number = ? AND nisn = ?
+	`
+	var m models.MutasiRequest
+	var osa, tcid sql.NullString
+	var crat, upat sql.NullInt64
+
+	err := r.DB.QueryRow(query, regNum, nisn).Scan(
+		&m.ID, &m.RegistrationNumber, &m.StudentName, &m.NISN, &m.Gender, &m.OriginSchool,
+		&osa, &m.TargetGrade, &tcid, &m.ParentName, &m.WhatsappNumber,
+		&m.StatusApproval, &m.StatusDelivery, &crat, &upat,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if osa.Valid { m.OriginSchoolAddress = &osa.String }
+	if tcid.Valid { m.TargetClassID = &tcid.String }
+	
+	cTime := ToTime(crat); m.CreatedAt = &cTime
+	uTime := ToTime(upat); m.UpdatedAt = &uTime
+	
+	return &m, nil
+}
+
+func (r *MutasiRepository) GetStudentForPublicValidation(nisn, birthDate string) (*models.Student, error) {
+	query := `
+		SELECT id, nik, nisn, nis, full_name, gender, birth_place, birth_date, 
+		       parent_name, class_name, class_id, status
+		FROM students
+		WHERE nisn = ? AND birth_date = ? AND is_active = 1
+	`
+	var s models.Student
+	var nik, nis, nisn_val, gender, bp, bd, pn, cn, cid sql.NullString
+
+	err := r.DB.QueryRow(query, nisn, birthDate).Scan(
+		&s.ID, &nik, &nisn_val, &nis, &s.FullName, &gender, &bp, &bd,
+		&pn, &cn, &cid, &s.Status,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if nik.Valid { s.NIK = Ptr(nik.String) }
+	if nisn_val.Valid { s.NISN = Ptr(nisn_val.String) }
+	if nis.Valid { s.NIS = Ptr(nis.String) }
+	if gender.Valid { s.Gender = Ptr(gender.String) }
+	if bp.Valid { s.BirthPlace = Ptr(bp.String) }
+	if bd.Valid { s.BirthDate = Ptr(bd.String) }
+	if pn.Valid { s.ParentName = Ptr(pn.String) }
+	if cn.Valid { s.ClassName = Ptr(cn.String) }
+	if cid.Valid { s.ClassID = Ptr(cid.String) }
+
+	return &s, nil
+}
+
+func (r *MutasiRepository) CreateMutasiOutRequest(m models.MutasiOutRequest) error {
+	id := cuid2.Generate()
+	now := time.Now().UnixMilli()
+	
+	query := `
+		INSERT INTO mutasi_out_requests (
+			id, student_id, destination_school, reason, reason_detail, 
+			status, created_at, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	`
+	_, err := r.DB.Exec(query,
+		id, m.StudentID, m.DestinationSchool, m.Reason, m.ReasonDetail,
+		"processed", now, now, // Auto processed as per design
+	)
+	return err
+}
+
+func (r *MutasiRepository) GetSchoolName() string {
+	var name string
+	err := r.DB.QueryRow("SELECT school_name FROM school_settings LIMIT 1").Scan(&name)
+	if err != nil {
+		return "Sekolahku"
+	}
+	return name
+}
+

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { goGet } from "@/lib/api-client";
 
 // Types for API response
 interface CategoryDistributionItem {
@@ -55,11 +56,8 @@ export function CategoryChart() {
     useEffect(() => {
         async function loadData() {
             try {
-                const res = await fetch("/api/inventaris/data?type=category-distribution");
-                if (res.ok) {
-                    const dist = await res.json();
-                    setData(dist);
-                }
+                const dist: any = await goGet("/api/inventaris/data?type=category-distribution");
+                setData(dist);
             } catch {
                 // Fail silently
             } finally {
@@ -140,11 +138,8 @@ export function ConditionChart() {
     useEffect(() => {
         async function loadData() {
             try {
-                const res = await fetch("/api/inventaris/data?type=condition-breakdown");
-                if (res.ok) {
-                    const breakdown = await res.json();
-                    setData(breakdown);
-                }
+                const breakdown: any = await goGet("/api/inventaris/data?type=condition-breakdown");
+                setData(breakdown);
             } catch {
                 // Fail silently
             } finally {

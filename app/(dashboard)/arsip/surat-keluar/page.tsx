@@ -30,6 +30,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatDate } from "@/lib/utils";
+import { goGet } from "@/lib/api-client";
 
 interface SuratKeluar {
     id: string;
@@ -56,8 +57,7 @@ export default function SuratKeluarPage() {
                 search,
                 perPage: "20"
             });
-            const res = await fetch(`/api/arsip/surat-keluar?${params}`);
-            const result = await res.json();
+            const result: any = await goGet(`/api/arsip/surat-keluar?${params}`);
             setData(result.items);
             setTotalPages(result.totalPages);
         } catch (error) {
@@ -149,7 +149,7 @@ export default function SuratKeluarPage() {
                             </TableRow>
                         ) : (
                             data.map((item) => (
-                                <TableRow key={item.id} className="hover:bg-muted/50 cursor-pointer" onClick={() => window.location.href = `/arsip/surat-keluar/${item.id}`}>
+                                <TableRow key={item.id} className="hover:bg-muted/50 cursor-pointer" onClick={() => window.location.href = `/arsip/surat-keluar/detail?id=${item.id}`}>
                                     <TableCell className="font-mono text-sm font-medium text-blue-600">
                                         {item.mailNumber}
                                     </TableCell>
@@ -181,7 +181,7 @@ export default function SuratKeluarPage() {
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
                                                 <DropdownMenuItem asChild>
-                                                    <Link href={`/arsip/surat-keluar/${item.id}`}>
+                                                    <Link href={`/arsip/surat-keluar/detail?id=${item.id}`}>
                                                         <FileText className="h-4 w-4 mr-2" />
                                                         Detail & Upload Arsip
                                                     </Link>
@@ -198,3 +198,4 @@ export default function SuratKeluarPage() {
         </div>
     );
 }
+

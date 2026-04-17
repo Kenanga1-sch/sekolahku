@@ -36,13 +36,13 @@ import {
     CommandShortcut,
 } from "@/components/ui/command";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import { signOut } from "next-auth/react";
+import { logoutAction } from "@/actions/auth";
 
 export function CommandMenu() {
     const [open, setOpen] = React.useState(false);
     const router = useRouter();
     const { setTheme } = useTheme();
-    const { user } = useAuthStore();
+    const { user, logout: storeLogout } = useAuthStore();
 
     React.useEffect(() => {
         const down = (e: KeyboardEvent) => {
@@ -156,7 +156,7 @@ export function CommandMenu() {
                     </CommandGroup>
 
                     <CommandGroup heading="Akun">
-                        <CommandItem onSelect={() => runCommand(() => signOut({ callbackUrl: "/login" }))}>
+                        <CommandItem onSelect={async () => { await logoutAction(); storeLogout(); window.location.href = "/login"; }}>
                             <LogOut className="mr-2 h-4 w-4" />
                             <span>Log out</span>
                         </CommandItem>

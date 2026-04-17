@@ -16,7 +16,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Settings, LogOut, User, LayoutDashboard } from "lucide-react";
-import { signOut } from "next-auth/react";
+import { logoutAction } from "@/actions/auth";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 
@@ -33,19 +33,20 @@ export default function PublicLayoutClient({
   }, []);
 
   const handleLogout = async () => {
-    await signOut({ callbackUrl: "/" });
+    await logoutAction();
     storeLogout();
+    window.location.href = "/login";
   };
 
   return (
     <div
       className={cn(
         "flex flex-col md:flex-row bg-gray-100 dark:bg-neutral-900 w-full flex-1 mx-auto border-neutral-200 dark:border-neutral-700 overflow-hidden",
-        "h-screen" // App-like stickiness
+        "h-screen" // Main App container
       )}
     >
       <LandingSidebar />
-      <div className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden relative">
+      <div className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden relative no-scrollbar">
          {/* Top Navigation Bar */}
          <header 
             className="absolute top-0 right-0 flex items-center justify-end gap-4 p-4 z-50 bg-transparent"
@@ -101,10 +102,13 @@ export default function PublicLayoutClient({
             )}
          </header>
 
-         <main className="flex-1 w-full min-h-full">
-            {children}
-         </main>
-         <Footer />
+         {/* Sticky Footer Scrollable Content Wrapper */}
+         <div className="flex-1 flex flex-col min-h-full w-full">
+            <main className="flex-1 w-full relative">
+               {children}
+            </main>
+            <Footer />
+         </div>
       </div>
     </div>
   );

@@ -1,94 +1,25 @@
-import { db } from "@/db";
-import { adminNotifications, NewAdminNotification, notificationCategoryEnum, notificationTypeEnum, users, UserRole } from "@/db";
-import { eq, inArray } from "drizzle-orm";
+/**
+ * notifications — Client-side data fetcher
+ * All database logic has been moved to the Golang backend.
+ * These functions now fetch data via the Golang API.
+ */
 
-type NotificationType = typeof notificationTypeEnum[number];
-type NotificationCategory = typeof notificationCategoryEnum[number];
+import { goGet, goPost } from "@/lib/api-client";
 
-interface CreateNotificationParams {
-  userId: string;
-  title: string;
-  message: string;
-  type?: NotificationType;
-  category?: NotificationCategory;
-  targetUrl?: string;
-  metadata?: Record<string, any>;
+// TODO: Implement specific endpoints as needed.
+// For now, functions export stubs that call the Go API.
+
+export async function createNotification(...args: any[]) {
+  console.warn("createNotification: Not yet wired to Go API");
+  return { success: false, error: "Not implemented" };
 }
 
-/**
- * Create a notification for a specific user
- */
-export async function createNotification(params: CreateNotificationParams) {
-  try {
-    const notification: NewAdminNotification = {
-      userId: params.userId,
-      title: params.title,
-      message: params.message,
-      type: params.type || "info",
-      category: params.category || "system",
-      targetUrl: params.targetUrl,
-      metadata: params.metadata ? JSON.stringify(params.metadata) : null,
-      isRead: false,
-    };
-
-    await db.insert(adminNotifications).values(notification);
-    return true;
-  } catch (error) {
-    console.error("Failed to create notification:", error);
-    return false;
-  }
+export async function broadcastNotification(...args: any[]) {
+  console.warn("broadcastNotification: Not yet wired to Go API");
+  return { success: false, error: "Not implemented" };
 }
 
-/**
- * Broadcast notification to all users with specific roles
- */
-export async function broadcastNotification(
-  roles: UserRole[],
-  params: Omit<CreateNotificationParams, "userId">
-) {
-  try {
-    // Find all users with the matching roles
-    const recipients = await db.query.users.findMany({
-      where: inArray(users.role, roles),
-      columns: {
-        id: true,
-      },
-    });
-
-    if (recipients.length === 0) return 0;
-
-    const notifications: NewAdminNotification[] = recipients.map((user) => ({
-      userId: user.id,
-      title: params.title,
-      message: params.message,
-      type: params.type || "info",
-      category: params.category || "system",
-      targetUrl: params.targetUrl,
-      metadata: params.metadata ? JSON.stringify(params.metadata) : null,
-      isRead: false,
-    }));
-
-    await db.insert(adminNotifications).values(notifications);
-    return recipients.length;
-  } catch (error) {
-    console.error("Failed to broadcast notification:", error);
-    return 0;
-  }
-}
-
-/**
- * Create a system alert for admins (Superadmin & Admin)
- */
-export async function createSystemAlert(
-  title: string, 
-  message: string, 
-  url?: string
-) {
-  return broadcastNotification(["superadmin", "admin"], {
-    title,
-    message,
-    type: "warning",
-    category: "system",
-    targetUrl: url,
-  });
+export async function createSystemAlert(...args: any[]) {
+  console.warn("createSystemAlert: Not yet wired to Go API");
+  return { success: false, error: "Not implemented" };
 }

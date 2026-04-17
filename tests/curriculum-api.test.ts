@@ -14,7 +14,6 @@ vi.mock('@/db', async () => {
     };
 });
 
-import { db, students, studentGrades, teacherTp } from '@/db';
 
 describe('Curriculum Grades API', () => {
     beforeEach(async () => {

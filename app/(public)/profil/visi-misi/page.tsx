@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import React, { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Target, Eye, Heart, Lightbulb, Users, Award, BookOpen, Sparkles, Leaf, Globe, Smile } from "lucide-react";
@@ -8,7 +9,16 @@ import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { Meteors } from "@/components/ui/meteors";
 
 // Updated data from user
-const visiMisi = {
+const iconMap: Record<string, any> = {
+  "Berakhlak": Heart,
+  "Berkebinekaan Global": Globe,
+  "Bergotong Royong": Users,
+  "Berprestasi": Award,
+  "Ramah Lingkungan Hidup": Leaf,
+};
+
+// Static fallbacks from previous version
+const DEFAULT_VISI_MISI: any = {
   visi: "Terwujudnya peserta didik yang Agamis, Kolaboratif, dan Prestasi.",
   indikator: [
     {
@@ -74,6 +84,27 @@ const itemVariants = {
 export default function VisiMisiPage() {
   const { settings } = useSchoolSettings();
   const schoolName = settings?.school_name || "UPTD SDN 1 Kenanga";
+
+  const visiMisi = useMemo(() => {
+    if (!settings) return DEFAULT_VISI_MISI;
+
+    try {
+      return {
+        visi: settings.school_vision || DEFAULT_VISI_MISI.visi,
+        misi: settings.school_mission ? JSON.parse(settings.school_mission) : DEFAULT_VISI_MISI.misi,
+        indikator: settings.school_indicators ? JSON.parse(settings.school_indicators).map((item: any) => ({
+          ...item,
+          icon: iconMap[item.title] || Target
+        })) : DEFAULT_VISI_MISI.indikator.map((item: any) => ({
+          ...item,
+          icon: iconMap[item.title] || Target
+        }))
+      };
+    } catch (e) {
+      console.error("Failed to parse vision/mission settings:", e);
+      return DEFAULT_VISI_MISI;
+    }
+  }, [settings]);
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
@@ -224,3 +255,4 @@ export default function VisiMisiPage() {
     </div>
   );
 }
+

@@ -14,6 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from "sonner";
 import { RefreshCw, Plus, Trash2, CreditCard, Loader2, ArrowLeft, Search } from "lucide-react";
 import Link from "next/link";
+import { goGet, goPost, goDelete } from "@/lib/api-client";
 
 interface Hutang {
     id: string;
@@ -103,8 +104,7 @@ export default function HutangManagementPage() {
             const params = new URLSearchParams();
             if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
             
-            const res = await fetch(`/api/tabungan/hutang?${params}`);
-            const data = await res.json();
+            const data: any = await goGet(`/api/tabungan/hutang?${params}`);
             if (data.success) {
                 setHutangList(data.items || []);
             }
@@ -117,8 +117,7 @@ export default function HutangManagementPage() {
 
     const fetchSiswa = useCallback(async () => {
         try {
-            const res = await fetch("/api/tabungan/siswa?perPage=1000");
-            const data = await res.json();
+            const data: any = await goGet("/api/tabungan/siswa?perPage=1000");
             if (data.success) {
                 setSiswaList(data.items || []);
             }
@@ -168,20 +167,15 @@ export default function HutangManagementPage() {
 
         setIsSubmitting(true);
         try {
-            const res = await fetch("/api/tabungan/hutang/batch", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    siswaIds: batchSiswaIds,
-                    namaBarang: batchNamaBarang,
-                    kategori: batchKategori,
-                    nominal: parseInt(batchNominal.replace(/\D/g, "")),
-                    jumlah: parseInt(batchJumlah),
-                    catatan: batchCatatan,
-                    tahunAjaran,
-                }),
+            const data: any = await goPost("/api/tabungan/hutang/batch", {
+                siswaIds: batchSiswaIds,
+                namaBarang: batchNamaBarang,
+                kategori: batchKategori,
+                nominal: parseInt(batchNominal.replace(/\D/g, "")),
+                jumlah: parseInt(batchJumlah),
+                catatan: batchCatatan,
+                tahunAjaran,
             });
-            const data = await res.json();
             if (data.success) {
                 toast.success(`Berhasil mencatat hutang untuk ${data.count} siswa`);
                 // Reset batch form
@@ -214,20 +208,15 @@ export default function HutangManagementPage() {
 
         setIsSubmitting(true);
         try {
-            const res = await fetch("/api/tabungan/hutang", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    siswaId: selectedSiswaId,
-                    namaBarang,
-                    kategori,
-                    nominal: parseInt(nominal.replace(/\D/g, "")),
-                    jumlah: parseInt(jumlah),
-                    catatan,
-                    tahunAjaran,
-                }),
+            const data: any = await goPost("/api/tabungan/hutang", {
+                siswaId: selectedSiswaId,
+                namaBarang,
+                kategori,
+                nominal: parseInt(nominal.replace(/\D/g, "")),
+                jumlah: parseInt(jumlah),
+                catatan,
+                tahunAjaran,
             });
-            const data = await res.json();
             if (data.success) {
                 toast.success("Hutang berhasil dicatat");
                 // Reset form
@@ -254,10 +243,7 @@ export default function HutangManagementPage() {
         if (!deleteDialog) return;
         
         try {
-            const res = await fetch(`/api/tabungan/hutang/${deleteDialog.id}?action=${deleteDialog.action}`, {
-                method: "DELETE",
-            });
-            const data = await res.json();
+            const data: any = await goDelete(`/api/tabungan/hutang/${deleteDialog.id}?action=${deleteDialog.action}`);
             if (data.success) {
                 toast.success(deleteDialog.action === "pay_cash" ? "Hutang dilunasi via cash" : "Hutang dibatalkan");
                 fetchHutang();
@@ -798,3 +784,4 @@ export default function HutangManagementPage() {
         </div>
     );
 }
+

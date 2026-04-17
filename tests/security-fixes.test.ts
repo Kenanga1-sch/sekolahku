@@ -7,7 +7,7 @@ vi.mock("@/lib/auth-checks", () => ({
     requireRole: vi.fn(),
 }));
 
-vi.mock("@/auth", () => ({
+vi.mock("@/lib/auth", () => ({
     auth: vi.fn(),
 }));
 
@@ -38,7 +38,7 @@ vi.mock("@/lib/file-security", () => ({
 }));
 
 import { requireRole } from "@/lib/auth-checks";
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth";
 import { GET as getRegistrant } from "@/app/api/spmb/registrants/[id]/route";
 import { POST as uploadDocument } from "@/app/api/spmb/upload/route";
 

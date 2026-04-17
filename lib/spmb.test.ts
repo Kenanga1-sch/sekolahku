@@ -18,7 +18,6 @@ vi.mock('@/db', async () => {
     return { db };
 });
 
-import { db } from '@/db';
 
 async function cleanup() {
     await db.delete(spmbRegistrants);

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { goGet } from "@/lib/api-client";
 import { Input } from "@/components/ui/input";
 import {
     Card,
@@ -63,9 +64,8 @@ export default function AuditLogPage() {
             if (actionFilter !== "all") queryParams.append("action", actionFilter);
             if (entityFilter !== "all") queryParams.append("entity", entityFilter);
 
-            const res = await fetch(`/api/inventory/audit?${queryParams.toString()}`);
-            if (res.ok) {
-                const result = await res.json();
+            const result: any = await goGet(`/api/inventory/audit?${queryParams.toString()}`);
+            if (!result.error) {
                 setLogs(result.items);
                 setTotalPages(result.totalPages);
             }
@@ -236,3 +236,4 @@ export default function AuditLogPage() {
         </div>
     );
 }
+

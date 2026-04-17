@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { goGet, goPost, goPatch } from "@/lib/api-client";
 
 export default function TemplateEditorPage() {
   const router = useRouter();
@@ -69,12 +70,9 @@ export default function TemplateEditorPage() {
   // Load Data
   useEffect(() => {
     if (templateId) {
-      fetch(`/api/letters/templates/${templateId}`)
-        .then(res => {
-            if(!res.ok) throw new Error("Failed");
-            return res.json();
-        })
-        .then(data => {
+      goGet(`/api/letters/templates/${templateId}`)
+        .then((data: any) => {
+            if(data.error) throw new Error(data.error);
             setName(data.name);
             setCategory(data.category);
             setPaperSize(data.paperSize);
@@ -139,16 +137,12 @@ export default function TemplateEditorPage() {
         const url = templateId 
             ? `/api/letters/templates/${templateId}` 
             : `/api/letters/templates`;
-            
-        const method = templateId ? "PATCH" : "POST";
 
-        const res = await fetch(url, {
-            method,
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
+        const res: any = templateId 
+            ? await goPatch(url, payload)
+            : await goPost(url, payload);
 
-        if (!res.ok) throw new Error("Failed to save");
+        if (res.error) throw new Error(res.error || "Failed to save");
 
         toast.success("Template berhasil disimpan");
         router.push("/admin/surat/template");
@@ -245,3 +239,4 @@ export default function TemplateEditorPage() {
     </div>
   );
 }
+

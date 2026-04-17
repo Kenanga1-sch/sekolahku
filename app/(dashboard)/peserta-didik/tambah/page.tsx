@@ -25,6 +25,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
+import { goPost } from "@/lib/api-client";
 
 const CLASS_OPTIONS = [
   "1A", "1B", "2A", "2B", "3A", "3B", "4A", "4B", "5A", "5B", "6A", "6B",
@@ -77,18 +78,12 @@ export default function TambahSiswaPage() {
 
     setLoading(true);
     try {
-      const response = await fetch("/api/students", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          photo: photoPreview, // For demo, using base64. In production, use uploaded URL.
-        }),
+      const response: any = await goPost("/api/students", {
+        ...formData,
+        photo: photoPreview, // For demo, using base64. In production, use uploaded URL.
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
+      if (response.success) {
         toast.success("Peserta didik berhasil ditambahkan");
         router.push("/peserta-didik");
       } else {
@@ -331,3 +326,4 @@ export default function TambahSiswaPage() {
     </div>
   );
 }
+

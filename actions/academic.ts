@@ -1,19 +1,14 @@
-"use server";
+/**
+ * Client-side academic actions — fetches directly from Golang API.
+ */
+
+import { goGet } from "@/lib/api-client";
 
 export async function getActiveAcademicYear() {
   try {
-    const response = await fetch("http://localhost:8080/api/academic/active-year", {
-        cache: 'no-store' // Ensuring fresh data, can be tuned later
-    });
-    
-    if (!response.ok) {
-        throw new Error("API returned non-OK status");
-    }
-    
-    const result = await response.json();
-    return result; // Returns { success: true, data: "..." }
+    return await goGet("/api/academic/active-year");
   } catch (error) {
-    console.error("Failed to get academic year from Go API:", error);
+    console.error("Failed to get academic year:", error);
     const message = error instanceof Error ? error.message : "Failed to get active academic year";
     return { success: false, error: message };
   }

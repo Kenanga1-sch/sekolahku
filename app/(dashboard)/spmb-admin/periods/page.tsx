@@ -41,20 +41,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Plus,
-  MoreHorizontal,
-  Pencil,
-  Trash2,
-  CheckCircle,
-  XCircle,
-  RefreshCw,
-  Loader2,
-  Lock,
-  Unlock,
-  Power,
-  Settings as SettingsIcon,
-} from "lucide-react";
+import { Plus, MoreHorizontal, Pencil, Trash2, CheckCircle, XCircle, RefreshCw, Loader2, Lock, Unlock, Power, Settings as SettingsIcon } from "lucide-react";
+import { goGet, goPost, goPatch, goDelete } from "@/lib/api-client";
+import { showSuccess, showError } from "@/lib/toast";
 
 // Local interface since we are migrating away from types/index.ts eventually
 interface Period {
@@ -88,8 +77,7 @@ export default function SPMBPeriodsPage() {
 
   const fetchGlobalSettings = useCallback(async () => {
       try {
-        const res = await fetch("/api/school-settings");
-        const data = await res.json();
+        const data: any = await goGet("/api/school-settings");
         setGlobalSettings(data);
       } catch (e) {
         console.error("Failed to fetch global settings", e);
@@ -106,25 +94,19 @@ export default function SPMBPeriodsPage() {
       setGlobalSettings(next); // Optimistic update
       
       try {
-        const res = await fetch("/api/school-settings", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(next)
-        });
-        if (!res.ok) throw new Error("Correction needed");
+        await goPost("/api/school-settings", next);
+        showSuccess(`Pendaftaran ${checked ? 'dibuka' : 'ditutup'}`);
       } catch (e) {
-          console.error("Failed to save global setting", e);
+          showError("Gagal mengubah status pendaftaran");
           setGlobalSettings(prev); // Revert
-          alert("Gagal mengubah status pendaftaran");
       }
   };
 
   const fetchPeriods = useCallback(async () => {
     try {
-      const res = await fetch("/api/spmb/periods");
-      const data = await res.json();
-      if (data.success) {
-          setPeriods(data.data);
+      const res: any = await goGet("/api/spmb/periods");
+      if (res.success) {
+          setPeriods(res.data);
       }
     } catch (error) {
       console.error("Failed to fetch periods:", error);
@@ -150,23 +132,17 @@ export default function SPMBPeriodsPage() {
       };
 
       if (editingId) {
-        await fetch(`/api/spmb/periods/${editingId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
+        await goPatch(`/api/spmb/periods/${editingId}`, payload);
+        showSuccess("Periode diperbarui");
       } else {
-        await fetch("/api/spmb/periods", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
+        await goPost("/api/spmb/periods", payload);
+        showSuccess("Periode berhasil dibuat");
       }
 
       fetchPeriods();
       resetForm();
     } catch (error) {
-      console.error("Failed to save period:", error);
+      showError("Gagal menyimpan periode");
     } finally {
       setIsSaving(false);
     }
@@ -187,31 +163,26 @@ export default function SPMBPeriodsPage() {
   const handleDelete = async () => {
     if (!deleteId) return;
     try {
-      const res = await fetch(`/api/spmb/periods/${deleteId}`, { method: "DELETE" });
-      const data = await res.json();
-      if (!data.success) {
-          alert(data.error || "Gagal menghapus periode");
+      const res: any = await goDelete(`/api/spmb/periods/${deleteId}`);
+      if (!res.success) {
+          showError(res.error || "Gagal menghapus periode");
           return;
       }
+      showSuccess("Periode dihapus");
       setDeleteId(null);
       fetchPeriods();
     } catch (error) {
-      console.error("Failed to delete:", error);
+      showError("Gagal menghapus periode");
     }
   };
 
   const toggleActive = async (id: string, currentState: boolean) => {
     try {
-        // If we actiavte a period, the backend handles deactivating others
-        // If we deactivate, we just update this one.
-        await fetch(`/api/spmb/periods/${id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ isActive: !currentState })
-        });
+        await goPatch(`/api/spmb/periods/${id}`, { isActive: !currentState });
+        showSuccess(`Periode ${!currentState ? 'diaktifkan' : 'dinonaktifkan'}`);
         fetchPeriods();
     } catch (error) {
-      console.error("Failed to toggle:", error);
+        showError("Gagal mengubah status periode");
     }
   };
 
@@ -567,3 +538,4 @@ export default function SPMBPeriodsPage() {
     </div>
   );
 }
+

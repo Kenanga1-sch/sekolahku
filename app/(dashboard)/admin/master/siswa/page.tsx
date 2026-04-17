@@ -12,6 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { showSuccess, showError } from "@/lib/toast";
 import { useDebounce } from "@/hooks/use-debounce";
+import { goGet, goDelete } from "@/lib/api-client";
 import { StudentFormDialog } from "@/components/master/student-form-dialog";
 import { StudentImportDialog } from "@/components/master/student-import-dialog";
 import { DataHealthWidget } from "@/components/master/data-health-widget";
@@ -56,9 +57,7 @@ export default function MasterStudentsPage() {
                 ...(statusFilter && { status: statusFilter })
             });
 
-            const res = await fetch(`/api/master/students?${params}`);
-            if (!res.ok) throw new Error("Gagal mengambil data");
-            const data = await res.json();
+            const data: any = await goGet(`/api/master/students?${params}`);
             
             setStudents(data.data);
             setTotalPages(data.pagination.totalPages);
@@ -74,9 +73,7 @@ export default function MasterStudentsPage() {
         if(!confirm("Yakin ingin menghapus data siswa ini secara permanen?")) return;
 
         try {
-            const res = await fetch(`/api/master/students/${id}`, { method: "DELETE" });
-            if (!res.ok) throw new Error("Gagal menghapus");
-            
+            await goDelete(`/api/master/students/${id}`);
             showSuccess("Siswa berhasil dihapus");
             fetchStudents(); // Refresh
         } catch (error) {
@@ -246,3 +243,4 @@ export default function MasterStudentsPage() {
         </div>
     );
 }
+

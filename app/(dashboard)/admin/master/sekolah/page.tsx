@@ -24,6 +24,7 @@ import {
   User,
   FileText,
 } from "lucide-react";
+import { goGet, goPost } from "@/lib/api-client";
 
 export default function SchoolProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
@@ -57,32 +58,10 @@ export default function SchoolProfilePage() {
 
   const fetchSettings = async () => {
     try {
-      const res = await fetch("/api/school-settings");
-      if (!res.ok) throw new Error("Failed to fetch");
+      const record: any = await goGet("/api/school-settings");
       
-      const record = await res.json();
       if (record && record.id) {
         setSettingsId(record.id);
-        setSettings({
-          school_name: record.school_name || "",
-          school_npsn: record.school_npsn || "",
-          school_address: record.school_address || "",
-          school_phone: record.school_phone || "",
-          school_email: record.school_email || "",
-          school_website: record.school_website || "",
-          school_lat: record.school_lat || -6.2,
-          school_lng: record.school_lng || 106.816666,
-          max_distance_km: record.max_distance_km || 3,
-          spmb_is_open: record.spmb_is_open ?? true,
-          current_academic_year: record.current_academic_year || "2025/2026",
-          principal_name: record.principal_name || "",
-          principal_nip: record.principal_nip || "",
-          is_maintenance: record.is_maintenance ?? false,
-          last_letter_number: record.last_letter_number || 0,
-          letter_number_format: record.letter_number_format || "421/{nomor}/SDN1-KNG/{bulan}/{tahun}",
-        });
-      } else if (record) {
-        // Handle defaults when no ID (not saved yet)
         setSettings({
           school_name: record.school_name || "",
           school_npsn: record.school_npsn || "",
@@ -114,18 +93,7 @@ export default function SchoolProfilePage() {
     setError(null);
 
     try {
-      const res = await fetch("/api/school-settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: settingsId, ...settings }),
-      });
-      
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || errorData.details || "Failed to save");
-      }
-      
-      const result = await res.json();
+      const result: any = await goPost("/api/school-settings", { id: settingsId, ...settings });
       if (result.id) setSettingsId(result.id);
       
       setSaved(true);
@@ -505,3 +473,4 @@ export default function SchoolProfilePage() {
     </div>
   );
 }
+

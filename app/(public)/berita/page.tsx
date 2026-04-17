@@ -20,6 +20,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { HoverEffect } from "@/components/ui/card-hover-effect";
+import { goGet } from "@/lib/api-client";
 import type { Announcement } from "@/types";
 
 const categories = [
@@ -76,9 +77,7 @@ export default function BeritaPage() {
 
   const fetchNews = async () => {
     try {
-      const res = await fetch("/api/news");
-      if (!res.ok) throw new Error("Failed to fetch");
-      const result = await res.json();
+      const result = await goGet<Announcement[]>("/api/public/news");
 
       if (result.length > 0) {
         setNews(result);
@@ -210,7 +209,7 @@ export default function BeritaPage() {
                   </CardHeader>
                   <CardContent>
                     <p className="text-muted-foreground line-clamp-2 mb-4">{item.excerpt}</p>
-                    <Link href={`/berita/${item.slug || item.id}`}>
+                    <Link href={`/berita/detail?slug=${item.slug || item.id}`}>
                       <Button variant="link" className="p-0 h-auto gap-2">
                         Baca Selengkapnya
                         <ArrowRight className="h-4 w-4" />
@@ -301,7 +300,7 @@ export default function BeritaPage() {
                             {item.excerpt}
                           </p>
                           <Link
-                            href={`/berita/${item.slug || item.id}`}
+                            href={`/berita/detail?slug=${item.slug || item.id}`}
                             className="inline-flex items-center text-sm font-medium text-primary hover:text-primary/80 gap-1 mt-auto"
                           >
                             Selengkapnya
@@ -319,3 +318,4 @@ export default function BeritaPage() {
     </div>
   );
 }
+

@@ -47,22 +47,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  Search,
-  Filter,
-  MoreHorizontal,
-  Eye,
-  CheckCircle,
-  XCircle,
-  Download,
-  Users,
-  RefreshCw,
-  Trash2,
-  UserCheck,
-  Loader2,
-  HelpCircle,
-} from "lucide-react";
+import { Download, Search, Filter, MoreHorizontal, Eye, CheckCircle, XCircle, Users, RefreshCw, Trash2, UserCheck, Loader2, HelpCircle } from "lucide-react";
 import { exportToExcel, exportToPDF } from "@/lib/spmb-export";
+import { goGet, goPost, goPatch, goDelete } from "@/lib/api-client";
+import { showSuccess, showError } from "@/lib/toast";
 import { SPMBStatusBadge } from "@/components/spmb/status-badge";
 import { SPMBPromoteDialog } from "@/components/spmb/spmb-promote-dialog";
 
@@ -135,10 +123,9 @@ export default function SPMBAdminPage() {
 
   // Fetch school max distance settings
   useEffect(() => {
-    fetch("/api/school-settings")
-      .then(res => res.json())
-      .then(data => {
-        if (data.max_distance_km) {
+    goGet("/api/school-settings")
+      .then((data: any) => {
+        if (data && data.max_distance_km) {
           setMaxDistance(data.max_distance_km);
         }
       })
@@ -154,25 +141,23 @@ export default function SPMBAdminPage() {
             search: searchQuery,
         });
 
-        const res = await fetch(`/api/spmb/registrants?${query.toString()}`);
-        const data = await res.json();
+        const res: any = await goGet(`/api/spmb/registrants?${query.toString()}`);
         
-        if (data.items) {
+        if (res.success && res.items) {
             // Calculate scores and sort by Score DESC
-            const itemsWithScore = data.items.map((r: any) => ({
+            const itemsWithScore = res.items.map((r: any) => ({
                 ...r,
                 score: calculateScore(r.birthDate, r.distanceToSchool)
             })).sort((a: any, b: any) => (b.score || 0) - (a.score || 0));
 
             setRegistrants(itemsWithScore);
-            setTotalPages(data.totalPages);
+            setTotalPages(res.totalPages || 1);
         }
 
         // Fetch stats
-        const statsRes = await fetch("/api/spmb/stats");
-        const statsData = await statsRes.json();
-        if (statsData) {
-            setStats(statsData);
+        const statsRes: any = await goGet("/api/spmb/stats");
+        if (statsRes.success) {
+            setStats(statsRes.data);
         }
 
     } catch (error) {
@@ -219,16 +204,13 @@ export default function SPMBAdminPage() {
   const handleUpdateStatus = async (id: string, newStatus: string) => {
     setActionLoading(id);
     try {
-        await fetch(`/api/spmb/registrants/${id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: newStatus }),
-        });
-      fetchData();
+        await goPatch(`/api/spmb/registrants/${id}`, { status: newStatus });
+        showSuccess("Status diperbarui");
+        fetchData();
     } catch (error) {
-      console.error("Failed to update status:", error);
+        showError("Gagal memperbarui status");
     } finally {
-      setActionLoading(null);
+        setActionLoading(null);
     }
   };
 
@@ -236,15 +218,14 @@ export default function SPMBAdminPage() {
     if (!deleteId) return;
     setActionLoading(deleteId);
     try {
-        await fetch(`/api/spmb/registrants/${deleteId}`, {
-            method: "DELETE",
-        });
-      setDeleteId(null);
-      fetchData();
+        await goDelete(`/api/spmb/registrants/${deleteId}`);
+        showSuccess("Pendaftar dihapus");
+        setDeleteId(null);
+        fetchData();
     } catch (error) {
-      console.error("Failed to delete:", error);
+        showError("Gagal menghapus pendaftar");
     } finally {
-      setActionLoading(null);
+        setActionLoading(null);
     }
   };
 
@@ -269,11 +250,7 @@ export default function SPMBAdminPage() {
     try {
       await Promise.all(
         selectedIds.map((id) =>
-            fetch(`/api/spmb/registrants/${id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ status: newStatus }),
-            })
+            goPatch(`/api/spmb/registrants/${id}`, { status: newStatus })
         )
       );
       setSelectedIds([]);
@@ -327,11 +304,10 @@ export default function SPMBAdminPage() {
                       status: statusFilter,
                       search: searchQuery,
                    });
-                   const res = await fetch(`/api/spmb/registrants?${query.toString()}`);
-                   const result = await res.json();
+                   const res: any = await goGet(`/api/spmb/registrants?${query.toString()}`);
                    
-                   if (result.items) {
-                       await exportToExcel(result.items, "Data-Lengkap-PPDB");
+                   if (res.items) {
+                       await exportToExcel(res.items, "Data-Lengkap-PPDB");
                    }
                 } catch (e) {
                    console.error("Export failed", e);
@@ -344,22 +320,21 @@ export default function SPMBAdminPage() {
               <DropdownMenuItem onClick={async () => {
                  setActionLoading("export");
                  try {
-                    const query = new URLSearchParams({
-                      page: "1",
-                      perPage: "-1",
-                      status: statusFilter,
-                      search: searchQuery,
-                   });
-                   const res = await fetch(`/api/spmb/registrants?${query.toString()}`);
-                   const result = await res.json();
-
-                   if (result.items) {
-                     await exportToPDF(result.items, "Data-Ringkas-PPDB");
-                   }
+                 const query = new URLSearchParams({
+                 page: "1",
+                 perPage: "-1",
+                 status: statusFilter,
+                 search: searchQuery,
+                 });
+                 const res: any = await goGet(`/api/spmb/registrants?${query.toString()}`);
+                 
+                                    if (res.items) {
+                   await exportToPDF(res.items, "Data-Ringkas-PPDB");
+                 }
                  } catch (e) {
                    console.error("Export failed", e);
                  } finally {
-                    setActionLoading(null);
+                   setActionLoading(null);
                  }
               }}>
                 📄 Export PDF (Ringkas)
@@ -620,7 +595,7 @@ export default function SPMBAdminPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem asChild>
-                              <Link href={`/spmb-admin/${r.id}`}>
+                              <Link href={`/spmb-admin/detail?id=${r.id}`}>
                                 <Eye className="mr-2 h-4 w-4" />
                                 Lihat Detail
                               </Link>
@@ -732,5 +707,6 @@ export default function SPMBAdminPage() {
     </div>
   );
 }
+
 
 

@@ -30,6 +30,7 @@ import {
   CheckCircle,
   AlertCircle,
 } from "lucide-react";
+import { goGet, goPost } from "@/lib/api-client";
 
 interface DocumentType {
   id: string;
@@ -60,8 +61,7 @@ export function DocumentUpload({ alumniId, onUploadComplete }: DocumentUploadPro
   useEffect(() => {
     const fetchDocumentTypes = async () => {
       try {
-        const response = await fetch("/api/alumni/document-types");
-        const data = await response.json();
+        const data: any = await goGet("/api/alumni/document-types");
         setDocumentTypes(data);
       } catch (err) {
         console.error("Error fetching document types:", err);
@@ -113,17 +113,13 @@ export function DocumentUpload({ alumniId, onUploadComplete }: DocumentUploadPro
         setUploadProgress((prev) => Math.min(prev + 10, 90));
       }, 200);
 
-      const response = await fetch(`/api/alumni/${alumniId}/documents`, {
-        method: "POST",
-        body: formData,
-      });
+      const response: any = await goPost(`/api/alumni/${alumniId}/documents`, formData);
 
       clearInterval(progressInterval);
       setUploadProgress(100);
 
-      if (!response.ok) {
-        const result = await response.json();
-        throw new Error(result.error || "Upload failed");
+      if (response.error) {
+        throw new Error(response.error || "Upload failed");
       }
 
       setSuccess(true);
