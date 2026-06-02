@@ -31,19 +31,28 @@ import { id as idLocale } from "date-fns/locale";
 
 export default function PengumumanPage() {
   const [registrants, setRegistrants] = useState<any[]>([]);
+  const [landingData, setLandingData] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`/api/public/spmb/registrants`)
-      .then(res => res.json())
-      .then(json => {
-        const items = Array.isArray(json) ? json : (Array.isArray(json?.data) ? json.data : []);
+    Promise.all([
+      fetch(`/api/public/spmb/registrants`).then(res => {
+        if (!res.ok) throw new Error("Gagal memuat hasil seleksi");
+        return res.json();
+      }),
+      fetch(`/api/public/spmb/landing`).then(res => res.ok ? res.json() : null),
+    ])
+      .then(([registrantsJson, landingJson]) => {
+        const items = Array.isArray(registrantsJson) ? registrantsJson : (Array.isArray(registrantsJson?.data) ? registrantsJson.data : []);
         setRegistrants(items);
+        setLandingData(landingJson);
         setIsLoading(false);
       })
       .catch(err => {
         console.error("Failed to fetch public registrants:", err);
+        setError(err?.message || "Gagal memuat hasil seleksi");
         setIsLoading(false);
       });
   }, []);
@@ -54,6 +63,12 @@ export default function PengumumanPage() {
   );
 
   const acceptedCount = registrants.filter(r => r.status === "accepted").length;
+  const rejectedCount = registrants.filter(r => r.status === "rejected").length;
+  const totalRegistered = landingData?.period?.registered ?? landingData?.activePeriod?.registered ?? registrants.length;
+  const lastUpdated = registrants.reduce<number>((latest, reg) => {
+    const value = Number(reg.updatedAt || reg.createdAt || 0);
+    return Number.isFinite(value) && value > latest ? value : latest;
+  }, 0);
 
   if (isLoading) {
     return (
@@ -72,13 +87,13 @@ export default function PengumumanPage() {
           <div className="max-w-3xl mx-auto text-center space-y-6">
             <Badge variant="secondary" className="px-4 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white border-none">
               <Trophy className="h-3 w-3 mr-2" />
-              Hasil Seleksi PPDB {new Date().getFullYear()}
+              Hasil Seleksi SPMB {new Date().getFullYear()}
             </Badge>
             <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
               Selamat Datang, Calon Siswa Baru!
             </h1>
             <p className="text-lg text-primary-foreground/80 leading-relaxed">
-              Berikut adalah daftar hasil seleksi Penerimaan Peserta Didik Baru (PPDB) 
+              Berikut adalah daftar hasil seleksi Sistem Penerimaan Murid Baru (SPMB) 
               UPTD SDN 1 Kenanga Tahun Pelajaran {new Date().getFullYear()}/{new Date().getFullYear() + 1}.
             </p>
           </div>
@@ -110,7 +125,7 @@ export default function PengumumanPage() {
                   </div>
                   <div>
                      <p className="text-sm text-muted-foreground font-medium">Total Pendaftar</p>
-                     <p className="text-2xl font-bold">{registrants.length} Siswa</p>
+                     <p className="text-2xl font-bold">{totalRegistered} Siswa</p>
                   </div>
                </div>
             </CardContent>
@@ -123,8 +138,8 @@ export default function PengumumanPage() {
                      <AlertCircle className="h-6 w-6 text-orange-600" />
                   </div>
                   <div>
-                     <p className="text-sm text-muted-foreground font-medium">Status Update</p>
-                     <p className="text-2xl font-bold">Hari Ini</p>
+                     <p className="text-sm text-muted-foreground font-medium">Tidak Diterima</p>
+                     <p className="text-2xl font-bold">{rejectedCount} Siswa</p>
                   </div>
                </div>
             </CardContent>
@@ -141,6 +156,11 @@ export default function PengumumanPage() {
                 <CardTitle className="text-2xl">Daftar Hasil Seleksi</CardTitle>
                 <CardDescription className="mt-1">
                   Gunakan pencarian untuk menemukan nama atau nomor pendaftaran Anda.
+                  {lastUpdated > 0 && (
+                    <span className="block">
+                      Pembaruan terakhir: {format(new Date(lastUpdated), "dd MMMM yyyy, HH:mm", { locale: idLocale })}.
+                    </span>
+                  )}
                 </CardDescription>
               </div>
               <div className="relative w-full md:w-80">
@@ -168,7 +188,13 @@ export default function PengumumanPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredRegistrants.length > 0 ? (
+                    {error ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="h-32 text-center text-red-600">
+                           {error}
+                        </TableCell>
+                      </TableRow>
+                    ) : filteredRegistrants.length > 0 ? (
                       filteredRegistrants.map((reg, index) => (
                         <TableRow key={reg.registrationNumber} className="hover:bg-zinc-50/50 transition-colors">
                           <TableCell className="font-medium text-center">{index + 1}</TableCell>
@@ -191,7 +217,7 @@ export default function PengumumanPage() {
                           </TableCell>
                           <TableCell className="text-right">
                             <Link 
-                                href={`/spmb/tracking?id=${reg.registrationNumber}`}
+                                href={`/spmb/tracking?id=${encodeURIComponent(reg.registrationNumber)}`}
                                 className="inline-flex items-center gap-1.5 text-sm font-bold text-primary hover:underline group"
                             >
                                 Detail <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-1 transition-transform" />
@@ -202,7 +228,7 @@ export default function PengumumanPage() {
                     ) : (
                       <TableRow>
                         <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
-                           Pendaftar tidak ditemukan.
+                           {searchQuery ? "Pendaftar tidak ditemukan." : "Pengumuman hasil seleksi belum tersedia."}
                         </TableCell>
                       </TableRow>
                     )}

@@ -650,7 +650,7 @@ func (r *SPMBRepository) GetSPMBStats() (models.SPMBStats, error) {
 
 func (r *SPMBRepository) GetPublicRegistrants() ([]models.SPMBRegistrant, error) {
 	rows, err := r.DB.Query(`
-		SELECT registration_number, full_name, COALESCE(status, 'pending'), COALESCE(created_at, 0)
+		SELECT registration_number, full_name, COALESCE(status, 'pending'), COALESCE(created_at, 0), COALESCE(updated_at, 0)
 		FROM spmb_registrants
 		WHERE status IN ('accepted', 'rejected')
 		ORDER BY
@@ -665,7 +665,7 @@ func (r *SPMBRepository) GetPublicRegistrants() ([]models.SPMBRegistrant, error)
 	registrants := make([]models.SPMBRegistrant, 0)
 	for rows.Next() {
 		var reg models.SPMBRegistrant
-		if err := rows.Scan(&reg.RegistrationNumber, &reg.FullName, &reg.Status, &reg.CreatedAt); err != nil {
+		if err := rows.Scan(&reg.RegistrationNumber, &reg.FullName, &reg.Status, &reg.CreatedAt, &reg.UpdatedAt); err != nil {
 			return nil, err
 		}
 		registrants = append(registrants, reg)
