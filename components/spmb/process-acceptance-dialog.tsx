@@ -204,9 +204,7 @@ export function ProcessAcceptanceDialog({
         <Alert>
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            <strong>Urutan Prioritas:</strong> Usia 7-12 tahun → Usia 6 tahun → Usia &lt;6 tahun.
-            Jika usia sama (bulan & tahun), prioritas berdasarkan jarak terdekat.
-            Jika jarak sama, prioritas berdasarkan waktu pendaftaran.
+            <strong>Urutan Prioritas:</strong> Kandidat dalam radius efektif didahulukan. Di dalam radius, skor dihitung seimbang dari usia 50% dan jarak 50%. Jika skor sama, sistem membandingkan usia, jarak, lalu waktu pendaftaran.
           </AlertDescription>
         </Alert>
 

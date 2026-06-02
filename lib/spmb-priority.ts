@@ -1,10 +1,10 @@
 /**
  * SPMB Priority Logic
- * 
+ *
  * Prioritas Penerimaan Peserta Didik:
- * 1. Usia (Tertua → Termuda): 7-12 tahun > 6 tahun > <6 tahun
- * 2. Jarak (Terdekat → Terjauh): Hanya jika tahun + bulan lahir sama
- * 3. Waktu Pendaftaran (Lebih Awal): Hanya jika usia dan jarak sama persis
+ * 1. Radius efektif sekolah menjadi gerbang utama prioritas
+ * 2. Skor seleksi memakai bobot seimbang: usia 50% + jarak 50%
+ * 3. Jika skor sama, urutan dibedakan dari usia, jarak, lalu waktu daftar
  */
 
 import type { SPMBRegistrant } from "@/types";
@@ -31,6 +31,11 @@ export interface RankedRegistrant extends SPMBRegistrant {
   priorityRank: number;
   /** Age priority details */
   agePriority: AgePriority;
+  /** Balanced 0-100 score: 50% age + 50% distance */
+  selectionScore: number;
+  ageScore: number;
+  distanceScore: number;
+  isWithinEffectiveRadius: boolean;
   /** Acceptance recommendation based on quota */
   recommendation: "accepted" | "rejected" | "waitlist";
 }
@@ -148,6 +153,69 @@ export function hasSameBirthYearMonth(
   );
 }
 
+export interface SPMBScoreInput {
+  birthDate?: string | Date | null;
+  distanceKm?: number | null;
+  maxDistanceKm: number;
+  referenceDate?: Date;
+}
+
+export interface SPMBScoreResult {
+  totalScore: number;
+  ageScore: number;
+  distanceScore: number;
+  ageMonths: number;
+  isWithinEffectiveRadius: boolean;
+}
+
+function roundScore(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+/**
+ * Calculate a balanced SPMB selection score.
+ * Radius is the priority gate; age and distance each contribute up to 50 points.
+ */
+export function calculateSPMBSelectionScore({
+  birthDate,
+  distanceKm,
+  maxDistanceKm,
+  referenceDate = getAgeReferenceDate(),
+}: SPMBScoreInput): SPMBScoreResult {
+  const safeMaxDistance = maxDistanceKm > 0 ? maxDistanceKm : 1;
+  const safeDistance = typeof distanceKm === "number" && Number.isFinite(distanceKm)
+    ? Math.max(distanceKm, 0)
+    : Number.POSITIVE_INFINITY;
+  const isWithinEffectiveRadius = safeDistance <= safeMaxDistance;
+
+  let ageMonths = 0;
+  if (birthDate) {
+    ageMonths = calculateAge(birthDate, referenceDate).totalMonths;
+  }
+
+  // 5 years old starts at 0, 7 years and above receives full age score.
+  const ageRatio = clamp((ageMonths - 60) / 24, 0, 1);
+  const ageScore = ageRatio * 50;
+
+  // Within the effective radius, closer homes receive stronger distance score.
+  const distanceRatio = isWithinEffectiveRadius
+    ? clamp(1 - safeDistance / safeMaxDistance, 0, 1)
+    : 0;
+  const distanceScore = distanceRatio * 50;
+
+  return {
+    totalScore: roundScore(ageScore + distanceScore),
+    ageScore: roundScore(ageScore),
+    distanceScore: roundScore(distanceScore),
+    ageMonths,
+    isWithinEffectiveRadius,
+  };
+}
+
 // ==========================================
 // Comparison & Sorting Functions
 // ==========================================
@@ -157,37 +225,47 @@ export function hasSameBirthYearMonth(
  * Returns negative if A has higher priority, positive if B has higher priority
  * 
  * Priority order:
- * 1. Age group (1 > 2 > 3)
- * 2. Within same group: Older (more totalMonths) = higher priority
- * 3. If same birth year+month: Closer distance = higher priority
- * 4. If same distance: Earlier registration = higher priority
+ * 1. Within effective radius
+ * 2. Balanced score: age 50% + distance 50%
+ * 3. Older age when score is tied
+ * 4. Closer distance when age is tied
+ * 5. Earlier registration when distance is tied
  */
 export function compareRegistrants(
   a: SPMBRegistrant,
   b: SPMBRegistrant,
-  referenceDate: Date = new Date()
+  referenceDate: Date = new Date(),
+  maxDistanceKm = 3
 ): number {
-  const ageA = getAgePriorityGroup(a.birth_date || "", referenceDate);
-  const ageB = getAgePriorityGroup(b.birth_date || "", referenceDate);
+  const scoreA = calculateSPMBSelectionScore({
+    birthDate: a.birth_date,
+    distanceKm: a.distance_to_school,
+    maxDistanceKm,
+    referenceDate,
+  });
+  const scoreB = calculateSPMBSelectionScore({
+    birthDate: b.birth_date,
+    distanceKm: b.distance_to_school,
+    maxDistanceKm,
+    referenceDate,
+  });
 
-  // 1. Compare by priority group (lower group number = higher priority)
-  if (ageA.group !== ageB.group) {
-    return ageA.group - ageB.group;
+  // Radius is the main gate: in-radius candidates always rank above out-radius.
+  if (scoreA.isWithinEffectiveRadius !== scoreB.isWithinEffectiveRadius) {
+    return scoreA.isWithinEffectiveRadius ? -1 : 1;
   }
 
-  // 2. Within same group, compare by age (older = higher priority = more totalMonths)
-  // Check if they have the same birth year and month
-  const sameBirthYearMonth = hasSameBirthYearMonth(
-    a.birth_date || "",
-    b.birth_date || ""
-  );
+  if (scoreA.totalScore !== scoreB.totalScore) {
+    return scoreB.totalScore - scoreA.totalScore;
+  }
 
-  if (!sameBirthYearMonth) {
-    // Different birth year/month: older (more months) = higher priority
+  const ageA = getAgePriorityGroup(a.birth_date || "", referenceDate);
+  const ageB = getAgePriorityGroup(b.birth_date || "", referenceDate);
+  if (ageA.totalMonths !== ageB.totalMonths) {
     return ageB.totalMonths - ageA.totalMonths;
   }
 
-  // 3. Same birth year+month: Compare by distance (closer = higher priority)
+  // Same score and age: compare by distance (closer = higher priority)
   const distanceA = a.distance_to_school ?? Infinity;
   const distanceB = b.distance_to_school ?? Infinity;
   
@@ -199,7 +277,7 @@ export function compareRegistrants(
     return roundedDistA - roundedDistB;
   }
 
-  // 4. Same distance: Compare by registration time (earlier = higher priority)
+  // Same distance: Compare by registration time (earlier = higher priority)
   // created is Date in Drizzle
   const timeA = a.created ? new Date(a.created).getTime() : 0;
   const timeB = b.created ? new Date(b.created).getTime() : 0;
@@ -213,18 +291,32 @@ export function compareRegistrants(
  */
 export function rankRegistrants(
   registrants: SPMBRegistrant[],
-  referenceDate: Date = new Date()
+  referenceDate: Date = new Date(),
+  maxDistanceKm = 3
 ): RankedRegistrant[] {
   // Create array with age priority calculated
-  const withPriority = registrants.map((reg) => ({
-    ...reg,
-    agePriority: getAgePriorityGroup(reg.birth_date || "", referenceDate),
-    priorityRank: 0,
-    recommendation: "pending" as const,
-  }));
+  const withPriority = registrants.map((reg) => {
+    const score = calculateSPMBSelectionScore({
+      birthDate: reg.birth_date,
+      distanceKm: reg.distance_to_school,
+      maxDistanceKm,
+      referenceDate,
+    });
+
+    return {
+      ...reg,
+      agePriority: getAgePriorityGroup(reg.birth_date || "", referenceDate),
+      priorityRank: 0,
+      selectionScore: score.totalScore,
+      ageScore: score.ageScore,
+      distanceScore: score.distanceScore,
+      isWithinEffectiveRadius: score.isWithinEffectiveRadius,
+      recommendation: "pending" as const,
+    };
+  });
 
   // Sort by priority rules
-  withPriority.sort((a, b) => compareRegistrants(a, b, referenceDate));
+  withPriority.sort((a, b) => compareRegistrants(a, b, referenceDate, maxDistanceKm));
 
   // Assign rank numbers
   const ranked: RankedRegistrant[] = withPriority.map((reg, index) => ({
@@ -243,9 +335,10 @@ export function rankRegistrants(
 export function processAcceptance(
   registrants: SPMBRegistrant[],
   quota: number,
-  referenceDate: Date = new Date()
+  referenceDate: Date = new Date(),
+  maxDistanceKm = 3
 ): ProcessingResult {
-  const ranked = rankRegistrants(registrants, referenceDate);
+  const ranked = rankRegistrants(registrants, referenceDate, maxDistanceKm);
   
   let accepted = 0;
   let rejected = 0;

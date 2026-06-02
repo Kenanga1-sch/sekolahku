@@ -187,14 +187,14 @@ export type ParentFormValues = z.infer<typeof parentFormSchema>;
  */
 export const locationFormSchema = z.object({
   home_lat: z
-    .number()
+    .number({ message: "Tentukan latitude rumah terlebih dahulu" })
     .min(-90, "Latitude tidak valid")
     .max(90, "Latitude tidak valid"),
   home_lng: z
-    .number()
+    .number({ message: "Tentukan longitude rumah terlebih dahulu" })
     .min(-180, "Longitude tidak valid")
     .max(180, "Longitude tidak valid"),
-  distance_to_school: z.number().nonnegative("Jarak tidak valid"),
+  distance_to_school: z.number({ message: "Klik peta, gunakan GPS, atau hitung dari koordinat manual" }).nonnegative("Jarak tidak valid"),
   is_within_zone: z.boolean(),
 });
 

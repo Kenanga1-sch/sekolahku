@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { UseFormReturn } from "react-hook-form";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { LocationFormValues } from "@/lib/validations/spmb";
 
 // Dynamic import MapPicker to avoid SSR issues with Leaflet
@@ -40,6 +41,7 @@ export default function LocationForm({
   onLocationChange,
 }: LocationFormProps) {
   const values = form.getValues();
+  const errors = form.formState.errors;
 
   return (
     <div className="space-y-4">
@@ -51,6 +53,16 @@ export default function LocationForm({
         initialHomeLng={values.home_lng}
         onLocationChange={onLocationChange}
       />
+      {(errors.home_lat || errors.home_lng || errors.distance_to_school) && (
+        <Alert variant="destructive">
+          <AlertDescription>
+            {errors.distance_to_school?.message ||
+              errors.home_lat?.message ||
+              errors.home_lng?.message ||
+              "Tentukan titik rumah dan hitung jarak terlebih dahulu."}
+          </AlertDescription>
+        </Alert>
+      )}
     </div>
   );
 }

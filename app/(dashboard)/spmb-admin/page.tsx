@@ -53,6 +53,7 @@ import { goGet, goPost, goPatch, goDelete } from "@/lib/api-client";
 import { showSuccess, showError } from "@/lib/toast";
 import { SPMBStatusBadge } from "@/components/spmb/status-badge";
 import { SPMBPromoteDialog } from "@/components/spmb/spmb-promote-dialog";
+import { calculateSPMBSelectionScore } from "@/lib/spmb-priority";
 
 // Define Drizzle-compatible interface locally for now
 interface Registrant {
@@ -67,28 +68,6 @@ interface Registrant {
     status: string;
     score?: number; // Added score
 }
-
-// Calculate Weighted Score
-// Age Score: 10 points per month of age
-// Distance Bonus: < 1km = +30, 1-2km = +10, >2km = 0
-const calculateScore = (dobString: string | null, distance: number | null) => {
-    if (!dobString) return 0;
-    const dob = new Date(dobString);
-    // Standardize Age Calculation to July 1st of current year
-    const today = new Date();
-    const referenceDate = new Date(today.getFullYear(), 6, 1); // Month 6 is July (0-indexed)
-    
-    // Age in months
-    const ageMonths = differenceInMonths(referenceDate, dob);
-    const ageScore = ageMonths * 10;
-    
-    let distanceBonus = 0;
-    const dist = distance || 0;
-    if (dist < 1) distanceBonus = 30; // ~3 months advantage
-    else if (dist < 2) distanceBonus = 10; // ~1 month advantage
-    
-    return ageScore + distanceBonus;
-};
 
 interface Stats {
   total: number;
@@ -148,10 +127,36 @@ export default function SPMBAdminPage() {
 
         if (res.success) {
             const items = Array.isArray(res.items) ? res.items : [];
-            const itemsWithScore = items.map((r: any) => ({
-                ...r,
-                score: calculateScore(r.birthDate, r.distanceToSchool)
-            })).sort((a: any, b: any) => (b.score || 0) - (a.score || 0));
+            const referenceDate = new Date(new Date().getFullYear(), 6, 1);
+            const itemsWithScore = items.map((r: any) => {
+                const score = calculateSPMBSelectionScore({
+                    birthDate: r.birthDate,
+                    distanceKm: r.distanceToSchool,
+                    maxDistanceKm: maxDistance,
+                    referenceDate,
+                });
+
+                return {
+                    ...r,
+                    score: score.totalScore,
+                    ageScore: score.ageScore,
+                    distanceScore: score.distanceScore,
+                    isWithinEffectiveRadius: score.isWithinEffectiveRadius,
+                };
+            }).sort((a: any, b: any) => {
+                if (a.isWithinEffectiveRadius !== b.isWithinEffectiveRadius) {
+                    return a.isWithinEffectiveRadius ? -1 : 1;
+                }
+                if ((b.score || 0) !== (a.score || 0)) {
+                    return (b.score || 0) - (a.score || 0);
+                }
+                const ageA = a.birthDate ? differenceInMonths(referenceDate, new Date(a.birthDate)) : 0;
+                const ageB = b.birthDate ? differenceInMonths(referenceDate, new Date(b.birthDate)) : 0;
+                if (ageA !== ageB) {
+                    return ageB - ageA;
+                }
+                return (a.distanceToSchool ?? Number.POSITIVE_INFINITY) - (b.distanceToSchool ?? Number.POSITIVE_INFINITY);
+            });
 
             setRegistrants(itemsWithScore);
             setSelectedIds([]);
@@ -170,7 +175,7 @@ export default function SPMBAdminPage() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [page, statusFilter, searchQuery]);
+  }, [page, statusFilter, searchQuery, maxDistance]);
 
   useEffect(() => {
     fetchData();
@@ -470,11 +475,9 @@ export default function SPMBAdminPage() {
                                 <TooltipContent>
                                     <p className="not-italic text-xs max-w-[200px]">
                                         <strong>Skor Prioritas:</strong><br/>
-                                        (Usia per 1 Juli x 10) + Bonus Jarak<br/>
+                                        Usia 50 poin + jarak 50 poin.<br/>
                                         <br/>
-                                        Bonus Jarak:<br/>
-                                        &lt; 1km: +30 poin<br/>
-                                        1-2km: +10 poin
+                                        Kandidat dalam radius efektif selalu diprioritaskan sebelum kandidat luar radius.
                                     </p>
                                 </TooltipContent>
                             </Tooltip>

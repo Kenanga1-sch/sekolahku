@@ -106,11 +106,11 @@ function RegistrationWizardContent({
   const locationForm = useForm<LocationFormValues>({
     resolver: zodResolver(locationFormSchema),
     defaultValues: initialData.location || {
-      home_lat: schoolLat + 0.005,
-      home_lng: schoolLng + 0.005,
-      distance_to_school: 0,
-      is_within_zone: true,
-    },
+      home_lat: undefined,
+      home_lng: undefined,
+      distance_to_school: undefined,
+      is_within_zone: false,
+    } as any,
   });
 
   // Real-time Persistence (Watcher)
@@ -165,11 +165,11 @@ function RegistrationWizardContent({
     });
 
     locationForm.reset({
-      home_lat: schoolLat + 0.005,
-      home_lng: schoolLng + 0.005,
-      distance_to_school: 0,
-      is_within_zone: true,
-    });
+      home_lat: undefined,
+      home_lng: undefined,
+      distance_to_school: undefined,
+      is_within_zone: false,
+    } as any);
 
     setRegistrationData({
       student: null, parent: null, location: null, documents: null
@@ -331,10 +331,10 @@ function RegistrationWizardContent({
   };
 
   const handleLocationChange = (lat: number, lng: number, distance: number, isWithinZone: boolean) => {
-    locationForm.setValue("home_lat", lat);
-    locationForm.setValue("home_lng", lng);
-    locationForm.setValue("distance_to_school", distance);
-    locationForm.setValue("is_within_zone", isWithinZone);
+    locationForm.setValue("home_lat", lat, { shouldValidate: true });
+    locationForm.setValue("home_lng", lng, { shouldValidate: true });
+    locationForm.setValue("distance_to_school", distance, { shouldValidate: true });
+    locationForm.setValue("is_within_zone", isWithinZone, { shouldValidate: true });
   };
 
   // Render Success
