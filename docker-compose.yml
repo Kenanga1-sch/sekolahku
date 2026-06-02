@@ -19,7 +19,7 @@ services:
       - ./public/uploads:/app/public/uploads
       - ./uploads:/app/uploads
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8181/api/health"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8181/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
