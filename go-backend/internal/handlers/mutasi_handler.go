@@ -1,7 +1,10 @@
 package handlers
 
 import (
+	"database/sql"
+	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sekolahku/go-backend/internal/models"
@@ -38,6 +41,12 @@ func (h *MutasiHandler) CreateMutasiRequest(c echo.Context) error {
 	if err := c.Bind(&m); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
 	}
+	if strings.TrimSpace(m.StudentName) == "" || strings.TrimSpace(m.NISN) == "" || strings.TrimSpace(m.OriginSchool) == "" || strings.TrimSpace(m.ParentName) == "" || strings.TrimSpace(m.WhatsappNumber) == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Data mutasi masuk belum lengkap"})
+	}
+	if m.TargetGrade < 1 || m.TargetGrade > 6 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Kelas tujuan tidak valid"})
+	}
 
 	regNum, err := h.Repo.CreateMutasiRequest(m)
 	if err != nil {
@@ -56,13 +65,23 @@ func (h *MutasiHandler) UpdateMutasiRequest(c echo.Context) error {
 		StatusApproval string  `json:"statusApproval"`
 		TargetClassID  *string `json:"targetClassId"`
 	}
-	
+
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
+	}
+	req.StatusApproval = strings.TrimSpace(req.StatusApproval)
+	if req.StatusApproval != "pending" && req.StatusApproval != "verified" && req.StatusApproval != "rejected" && req.StatusApproval != "principal_approved" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Status mutasi masuk tidak valid"})
+	}
+	if req.StatusApproval == "principal_approved" && (req.TargetClassID == nil || strings.TrimSpace(*req.TargetClassID) == "") {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Kelas penempatan wajib dipilih sebelum disetujui"})
 	}
 
 	err := h.Repo.UpdateMutasiRequestStatus(id, req.StatusApproval, req.TargetClassID)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "Permohonan tidak ditemukan"})
+		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
@@ -110,9 +129,9 @@ func (h *MutasiHandler) CheckStudentLiability(c echo.Context) error {
 				"status":      map[bool]string{true: "Clear", false: "Uncleared"}[activeLoans == 0],
 			},
 			"financial": map[string]interface{}{
-				"balance":  balance,
-				"debt":     debt,
-				"status":   map[bool]string{true: "Clear", false: "Check Required"}[balance == 0 && debt == 0],
+				"balance": balance,
+				"debt":    debt,
+				"status":  map[bool]string{true: "Clear", false: "Check Required"}[balance == 0 && debt == 0],
 			},
 		},
 	})
@@ -126,9 +145,16 @@ func (h *MutasiHandler) UpdateMutasiOutStatus(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
 	}
+	req.Status = strings.TrimSpace(req.Status)
+	if req.Status != "draft" && req.Status != "processed" && req.Status != "completed" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Status mutasi keluar tidak valid"})
+	}
 
 	err := h.Repo.UpdateMutasiOutStatus(id, req.Status)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "Permohonan tidak ditemukan"})
+		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
@@ -162,6 +188,9 @@ func (h *MutasiHandler) ValidatePublicMutasiOut(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
 	}
+	if strings.TrimSpace(req.NISN) == "" || strings.TrimSpace(req.BirthDate) == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "NISN dan tanggal lahir wajib diisi"})
+	}
 
 	s, err := h.Repo.GetStudentForPublicValidation(req.NISN, req.BirthDate)
 	if err != nil {
@@ -187,6 +216,9 @@ func (h *MutasiHandler) CreatePublicMutasiOutRequest(c echo.Context) error {
 	var m models.MutasiOutRequest
 	if err := c.Bind(&m); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
+	}
+	if strings.TrimSpace(m.StudentID) == "" || strings.TrimSpace(m.DestinationSchool) == "" || strings.TrimSpace(m.Reason) == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Data mutasi keluar belum lengkap"})
 	}
 
 	err := h.Repo.CreateMutasiOutRequest(m)

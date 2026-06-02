@@ -70,7 +70,7 @@ export default function TemplateEditorPage() {
   // Load Data
   useEffect(() => {
     if (templateId) {
-      goGet(`/api/letters/templates/${templateId}`)
+      goGet(`/api/eoffice/letter-templates/${templateId}`)
         .then((data: any) => {
             if(data.error) throw new Error(data.error);
             setName(data.name);
@@ -135,8 +135,8 @@ export default function TemplateEditorPage() {
         };
 
         const url = templateId 
-            ? `/api/letters/templates/${templateId}` 
-            : `/api/letters/templates`;
+            ? `/api/eoffice/letter-templates/${templateId}` 
+            : `/api/eoffice/letter-templates`;
 
         const res: any = templateId 
             ? await goPatch(url, payload)

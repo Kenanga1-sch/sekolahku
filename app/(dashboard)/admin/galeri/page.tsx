@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import useSWR, { mutate } from "swr";
 import {
   Plus,
@@ -47,6 +47,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { goDelete, goGet, goPost, goPut } from "@/lib/api-client";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 
@@ -69,7 +70,7 @@ interface GalleryStats {
   storage: { used: number; unit: string };
 }
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+const fetcher = (url: string) => goGet(url);
 
 const categories = [
   { value: "all", label: "Semua Kategori" },
@@ -166,19 +167,12 @@ export default function AdminGalleryPage() {
     if (!confirm(`Hapus ${selectedItems.length} foto terpilih?`)) return;
 
     try {
-      const res = await fetch("/api/gallery/bulk-delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: selectedItems }),
-      });
-
-      if (!res.ok) throw new Error("Gagal menghapus");
-
+      await goPost("/api/gallery/bulk-delete", { ids: selectedItems });
       toast.success(`${selectedItems.length} foto berhasil dihapus`);
       setSelectedItems([]);
       setIsSelectionMode(false);
       refreshData();
-    } catch (error) {
+    } catch {
       toast.error("Gagal menghapus foto");
     }
   };
@@ -186,10 +180,10 @@ export default function AdminGalleryPage() {
   const handleSingleDelete = async (id: string) => {
     if (!confirm("Hapus foto ini?")) return;
     try {
-      await fetch(`/api/gallery/${id}`, { method: "DELETE" });
+      await goDelete(`/api/gallery/${id}`);
       toast.success("Foto dihapus");
       refreshData();
-    } catch (error) {
+    } catch {
       toast.error("Gagal menghapus");
     }
   };
@@ -203,19 +197,12 @@ export default function AdminGalleryPage() {
     const category = formData.get("category") as string;
 
     try {
-      const res = await fetch(`/api/gallery/${editingItem.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, category }),
-      });
-
-      if (!res.ok) throw new Error("Gagal update");
-
+      await goPut(`/api/gallery/${editingItem.id}`, { title, category });
       toast.success("Foto diperbarui");
       setIsEditOpen(false);
       setEditingItem(null);
       refreshData();
-    } catch (error) {
+    } catch {
       toast.error("Gagal update foto");
     }
   };
@@ -351,7 +338,7 @@ export default function AdminGalleryPage() {
             Pilih Semua ({processedItems.length})
           </Label>
           <span className="text-muted-foreground">
-            • {selectedItems.length} dipilih
+            - {selectedItems.length} dipilih
           </span>
         </div>
       )}

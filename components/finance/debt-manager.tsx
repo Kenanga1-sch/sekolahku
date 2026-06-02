@@ -38,6 +38,7 @@ interface Loan {
     borrowerType: "EMPLOYEE" | "EXTERNAL";
     borrowerName?: string | null;
     employee?: {
+        name?: string;
         user?: {
             name: string;
         };
@@ -55,6 +56,7 @@ interface Loan {
 interface Employee {
     id: string;
     name: string;
+    employeeDetailId?: string;
 }
 
 interface Vault {
@@ -69,9 +71,10 @@ interface DebtManagerProps {
     payables: Loan[]; // Hutang Sekolah (Kewajiban)
     employees: Employee[];
     currentUserId: string;
+    onChanged?: () => void | Promise<void>;
 }
 
-export function DebtManager({ receivables, payables, employees, currentUserId }: DebtManagerProps) {
+export function DebtManager({ receivables = [], payables = [], employees = [], onChanged }: DebtManagerProps) {
     const [createOpen, setCreateOpen] = useState(false);
     const [payOpen, setPayOpen] = useState(false);
     const [approvalOpen, setApprovalOpen] = useState(false);
@@ -106,18 +109,20 @@ export function DebtManager({ receivables, payables, employees, currentUserId }:
 
         setLoading(true);
         try {
+            const selectedEmployee = employees.find((emp) => emp.id === formData.employeeId);
+            const employeeDetailId = selectedEmployee?.employeeDetailId || formData.employeeId;
             const res = await createLoan({
                 borrowerType: formData.borrowerType as any,
-                employeeDetailId: formData.employeeId || undefined,
-                borrowerName: formData.borrowerName,
-                description: formData.description,
+                employeeDetailId: formData.borrowerType === "EMPLOYEE" ? employeeDetailId : undefined,
+                borrowerName: formData.borrowerName || undefined,
+                description: formData.description || undefined,
                 type: Number(formData.tenor) > 1 ? "CICILAN" : "KASBON",
                 amountRequested: Number(formData.amount),
                 tenorMonths: Number(formData.tenor),
             });
 
             if (res.success) {
-                showSuccess("Hutang berhasil dicatat");
+                showSuccess(activeTab === "receivables" ? "Piutang pegawai berhasil dicatat" : "Hutang sekolah berhasil dicatat");
                 setCreateOpen(false);
                 setFormData({
                     borrowerType: activeTab === "receivables" ? "EMPLOYEE" : "EXTERNAL", 
@@ -127,6 +132,7 @@ export function DebtManager({ receivables, payables, employees, currentUserId }:
                     amount: "",
                     tenor: "1",
                 });
+                await onChanged?.();
             } else {
                 showError(res.error || "Gagal");
             }
@@ -149,6 +155,8 @@ export function DebtManager({ receivables, payables, employees, currentUserId }:
                 setSelectedLoan(null);
                 setPaymentAmount("");
                 setPaymentNotes("");
+                setTargetVaultId("");
+                await onChanged?.();
             } else {
                 showError(res.error || "Gagal");
             }
@@ -190,7 +198,10 @@ export function DebtManager({ receivables, payables, employees, currentUserId }:
                         setApprovalOpen(op);
                         if(!op) setSelectedLoan(null);
                     }} 
-                    onSuccess={() => window.location.reload()} // Simple reload needed to refresh data properly
+                    onSuccess={async () => {
+                        setSelectedLoan(null);
+                        await onChanged?.();
+                    }}
                 />
             )}
 
@@ -294,7 +305,7 @@ export function DebtManager({ receivables, payables, employees, currentUserId }:
                         </div>
                         
                         <div className="space-y-2">
-                             <Label>Masuk ke (Sumber Dana Pelunasan)</Label>
+                             <Label>{activeTab === "receivables" ? "Masuk ke Kas" : "Dibayar dari Kas"}</Label>
                              <Select onValueChange={setTargetVaultId}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Pilih Brankas Tunai (Kas)" />
@@ -305,7 +316,11 @@ export function DebtManager({ receivables, payables, employees, currentUserId }:
                                     ))}
                                 </SelectContent>
                              </Select>
-                             <p className="text-xs text-muted-foreground">Pembayaran hutang otomatis masuk ke Kas Tunai.</p>
+                             <p className="text-xs text-muted-foreground">
+                                {activeTab === "receivables"
+                                    ? "Pembayaran piutang pegawai otomatis menambah Kas Tunai."
+                                    : "Pembayaran hutang sekolah otomatis mengurangi Kas Tunai."}
+                             </p>
                         </div>
 
                         <div className="space-y-2">
@@ -356,9 +371,9 @@ export function DebtManager({ receivables, payables, employees, currentUserId }:
                                 (activeTab === "receivables" ? receivables : payables).map((loan) => (
                                     <TableRow key={loan.id}>
                                         <TableCell>{new Date(loan.createdAt).toLocaleDateString("id-ID")}</TableCell>
-                                        <TableCell className="font-medium">
-                                            {loan.borrowerType === "EMPLOYEE" ? loan.employee?.user?.name : loan.borrowerName}
-                                        </TableCell>
+                                            <TableCell className="font-medium">
+                                                {loan.borrowerType === "EMPLOYEE" ? (loan.employee?.name || loan.employee?.user?.name || "-") : loan.borrowerName}
+                                            </TableCell>
                                         <TableCell>{loan.description || "-"}</TableCell>
                                         <TableCell>
                                             <Badge variant="outline">{loan.tenorMonths} Bulan</Badge>
@@ -367,13 +382,16 @@ export function DebtManager({ receivables, payables, employees, currentUserId }:
                                         <TableCell className="text-right text-emerald-600">{formatCurrency(loan.paidAmount)}</TableCell>
                                         <TableCell className="text-right font-bold text-red-600">{formatCurrency(loan.remainingAmount)}</TableCell>
                                         <TableCell className="text-right">
-                                            {loan.status === "PENDING" && (
+                                            {loan.status === "PENDING" && activeTab === "receivables" && (
                                                 <Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700" onClick={() => {
                                                     setSelectedLoan(loan);
                                                     setApprovalOpen(true);
                                                 }}>
                                                     Setujui
                                                 </Button>
+                                            )}
+                                            {loan.status === "PENDING" && activeTab === "payables" && (
+                                                <Badge className="bg-orange-100 text-orange-800 border-none">Menunggu</Badge>
                                             )}
                                             {loan.status === "APPROVED" && loan.remainingAmount > 0 && (
                                                 <Button size="sm" variant="outline" className="h-8 border-green-200 text-green-700 hover:bg-green-50" onClick={() => openPayDialog(loan)}>

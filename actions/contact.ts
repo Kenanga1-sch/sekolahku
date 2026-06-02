@@ -1,41 +1,25 @@
 /**
  * Contact Actions
- * Fetches contact messages from the Go backend.
+ * Optimized with goFetch and handleAction.
  */
 
+import { goGet, goPut, goDelete, CacheTTL } from "@/lib/api-client";
+import { handleAction } from "@/lib/action-utils";
+
 export async function getContactMessagesAction() {
-  try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_GO_API_URL || "http://localhost:8080"}/api/contact/messages`);
-    if (!res.ok) throw new Error("Failed to fetch messages");
-    return await res.json();
-  } catch (error) {
-    console.error("getContactMessagesAction error:", error);
-    return [];
-  }
+  return handleAction(goGet("/api/contact-messages", { ttl: CacheTTL.SHORT }));
 }
 
 export async function markMessageAsReadAction(id: string) {
-  try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_GO_API_URL || "http://localhost:8080"}/api/admin/contact/messages/${id}/read`, {
-      method: "PATCH",
-    });
-    if (!res.ok) throw new Error("Failed to mark as read");
-    return { success: true };
-  } catch (error) {
-    console.error("markMessageAsReadAction error:", error);
-    return { success: false };
-  }
+  return handleAction(
+    goPut(`/api/contact-messages/${id}/read`),
+    "Pesan ditandai sebagai sudah dibaca"
+  );
 }
 
 export async function deleteMessageAction(id: string) {
-  try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_GO_API_URL || "http://localhost:8080"}/api/admin/contact/messages/${id}`, {
-      method: "DELETE",
-    });
-    if (!res.ok) throw new Error("Failed to delete message");
-    return { success: true };
-  } catch (error) {
-    console.error("deleteMessageAction error:", error);
-    return { success: false };
-  }
+  return handleAction(
+    goDelete(`/api/contact-messages/${id}`),
+    "Pesan berhasil dihapus"
+  );
 }

@@ -1,733 +1,333 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  ArrowLeft, 
-  Check, 
-  ChevronsUpDown, 
-  Users, 
-  User, 
-  FileText,
+  ArrowLeft,
   ChevronRight,
-  ArrowRight,
-  X,
-  Download,
 } from "lucide-react";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { useSchoolSettings } from "@/lib/hooks/use-settings";
 import { generateDocument, createDocumentBlob } from "@/lib/docx";
-import { LETTER_TYPES } from "@/lib/constants/letter-types";
 import { goGet, goPost } from "@/lib/api-client";
 
-// Helper to extract manual variables {{...}} from content
-const extractVariables = (content: string) => {
-    if (!content) return [];
-    const regex = /{{(.*?)}}/g;
-    const matches = content.match(regex);
-    if (!matches) return [];
-    
-    // Remove duplicates
-    return [...new Set(matches.map(m => m.replace(/{{|}}/g, '')))];
-};
+// Import Modular Components
+import { TemplateSelector } from "@/components/letters/generator/template-selector";
+import { RecipientSelector } from "@/components/letters/generator/recipient-selector";
+import { VariableForm } from "@/components/letters/generator/variable-form";
+import { PreviewStep } from "@/components/letters/generator/preview-step";
 
-export default function LetterGeneratorPage() {
+const romanMonths = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+
+function formatLetterNumber(formatPattern: string | undefined, sequence: number, date = new Date()) {
+  const padded = String(sequence).padStart(3, "0");
+  const year = String(date.getFullYear());
+  const month = romanMonths[date.getMonth()];
+
+  return (formatPattern || "421/{nomor}/SDN1-KNG/{bulan}/{tahun}")
+    .replaceAll("{nomor}", padded)
+    .replaceAll("{no}", padded)
+    .replaceAll("{bulan}", month)
+    .replaceAll("{bulan_romawi}", month)
+    .replaceAll("{tahun}", year);
+}
+
+function recipientLabel(recipient: any) {
+  return recipient?.name || recipient?.fullName || recipient?.email || "Manual";
+}
+
+function LetterGeneratorContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialTemplateId = searchParams.get("templateId");
 
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(true);
-  
+
   // Data
   const [templates, setTemplates] = useState<any[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
-  
-  // Target
+  const [templateVars, setTemplateVars] = useState<string[]>([]);
+
+  // Target & Recipients
   const [targetType, setTargetType] = useState<"STUDENT" | "STAFF" | "MANUAL">("STUDENT");
   const [recipientMode, setRecipientMode] = useState<"SINGLE" | "MULTIPLE" | "CLASS">("SINGLE");
-  
-  // Student selection
-  const [selectedStudents, setSelectedStudents] = useState<any[]>([]);
-  const [studentsList, setStudentsList] = useState<any[]>([]);
-  const [isStudentSearchOpen, setIsStudentSearchOpen] = useState(false);
-  const [selectedClass, setSelectedClass] = useState<string>("");
+  const [selectedRecipients, setSelectedRecipients] = useState<any[]>([]);
 
-  // Manual Inputs
+  // Inputs
   const [manualInputs, setManualInputs] = useState<Record<string, string>>({});
+  const [generatedPreviewData, setGeneratedPreviewData] = useState<any>(null);
+  const [generatedLetterMeta, setGeneratedLetterMeta] = useState<{ letterNumber: string; nextSequence: number } | null>(null);
 
-  // School Settings
   // School Settings
   const { settings: schoolSettings, refresh: refreshSettings } = useSchoolSettings();
 
-  // Numbering State
-  const [nextSequence, setNextSequence] = useState(0);
-  const [selectedLetterType, setSelectedLetterType] = useState<any>(null);
-  const [classificationCode, setClassificationCode] = useState<string | null>(null);
-
   // Load Templates
   useEffect(() => {
-    goGet("/api/letters/templates?limit=100")
+    goGet("/api/eoffice/letter-templates?limit=100")
       .then((data: any) => {
         setTemplates(data.data);
         if (initialTemplateId) {
-            const tpl = data.data.find((t: any) => t.id === initialTemplateId);
-            if (tpl) handleSelectTemplate(tpl);
+          const tpl = data.data.find((t: any) => t.id === initialTemplateId);
+          if (tpl) handleSelectTemplate(tpl);
         }
       })
       .finally(() => setLoading(false));
   }, [initialTemplateId]);
 
-  // Helper: Roman Numerals for Month
-  const romanMonths = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
-
-  // Logic: When Letter Type Changes
-  useEffect(() => {
-     if (selectedLetterType) {
-         setClassificationCode(selectedLetterType.kode_klasifikasi);
-         
-         const date = new Date();
-         const month = date.getMonth() + 1;
-         const year = date.getFullYear();
-         
-         // Fetch next number for this code
-         goPost("/api/letters/numbering", { classificationCode: selectedLetterType.kode_klasifikasi, date: date.toISOString() })
-         .then((res: any) => {
-             const seq = res.nextSequence || 1;
-             setNextSequence(seq);
-             
-             let fmt = selectedLetterType.format_nomor;
-             fmt = fmt.replace(/{kode_klasifikasi}/g, selectedLetterType.kode_klasifikasi);
-             fmt = fmt.replace(/{nomor_urut}/g, String(seq).padStart(3, '0'));
-             fmt = fmt.replace(/{bulan_romawi}/g, romanMonths[month]);
-             fmt = fmt.replace(/{tahun}/g, String(year));
-             
-             setManualInputs(prev => ({
-                 ...prev,
-                 nomor_surat_otomatis: fmt
-             }));
-         })
-         .catch(err => console.error("Failed to fetch number", err));
-
-     } else if (schoolSettings && schoolSettings.last_letter_number !== undefined) {
-          // Fallback to Global Settings Logic if No Type Selected (Legacy)
-          const next = (schoolSettings.last_letter_number || 0) + 1;
-          setNextSequence(next);
-          setClassificationCode(null);
-          
-          if (schoolSettings.letter_number_format) {
-              const date = new Date();
-              const month = date.getMonth() + 1;
-              const year = date.getFullYear();
-              
-              let fmt = schoolSettings.letter_number_format;
-              fmt = fmt.replace(/{nomor}/g, String(next).padStart(3, '0')); 
-              fmt = fmt.replace(/{bulan}/g, romanMonths[month]);
-              fmt = fmt.replace(/{tahun}/g, String(year));
-              
-              setManualInputs(prev => {
-                  if (!prev.nomor_surat_otomatis) return { ...prev, nomor_surat_otomatis: fmt };
-                  return prev;
-              });
-          }
-      }
-  }, [schoolSettings, selectedLetterType, step]);
-
-  // Load Students for Search
-  const searchStudents = async (query: string) => {
-      const data: any = await goGet(`/api/students/simple-search?q=${query}`);
-      setStudentsList(data.data);
-  };
-
-  const fetchClassStudents = async (className: string) => {
-      if (!className) return;
-      setLoading(true);
-      try {
-          const data: any = await goGet(`/api/students/simple-search?className=${className}`);
-          setSelectedStudents(data.data); // Replace selection with class
-          toast.success(`Berhasil memuat ${data.data.length} siswa dari Kelas ${className}`);
-      } catch (e) {
-          toast.error("Gagal memuat data kelas");
-      } finally {
-          setLoading(false);
-      }
-  };
-
   const handleSelectTemplate = async (tpl: any) => {
-      setLoading(true);
-      try {
-          const fullTpl: any = await goGet(`/api/letters/templates/${tpl.id}`);
-          if (fullTpl.error) throw new Error(fullTpl.error);
-          
-          setSelectedTemplate(fullTpl);
-          if (fullTpl.category === 'STAFF') setTargetType('STAFF');
-          else if (fullTpl.category === 'STUDENT') setTargetType('STUDENT');
-          setStep(2);
-      } catch (error) {
-          console.error(error);
-          toast.error("Gagal memuat detail template");
-      } finally {
-          setLoading(false);
-      }
-  };
-
-  const handleSelectStudent = (id: string) => {
-      const s = studentsList.find((x) => x.id === id);
-      if (!s) return;
-
-      if (recipientMode === 'SINGLE') {
-          setSelectedStudents([s]);
-          setIsStudentSearchOpen(false);
-      } else {
-          // Multiple: toggle
-          setSelectedStudents(prev => {
-              if (prev.find(x => x.id === id)) return prev.filter(x => x.id !== id);
-              return [...prev, s];
-          });
-      }
-  };
-
-  const handleRemoveStudent = (id: string) => {
-      setSelectedStudents(prev => prev.filter(x => x.id !== id));
-  };
-  
-  const [generatedData, setGeneratedData] = useState<any>(null);
-
-  const mergeStudentData = (data: any, student: any) => {
-      data.siswa_nama = student.name || "";
-      data.siswa_nis = student.nis || "-";
-      data.siswa_nisn = student.nisn || "-";
-      data.siswa_kelas = student.className || "";
-      data.siswa_jenis_kelamin = student.gender === 'L' ? 'Laki-laki' : 'Perempuan';
-      data.siswa_tempat_lahir = student.birthPlace || "";
+    setLoading(true);
+    try {
+      const fullTpl: any = await goGet(`/api/eoffice/letter-templates/${tpl.id}`);
+      const varRes: any = await goGet(`/api/eoffice/letter-templates/${tpl.id}/variables`);
       
-      if (student.birthDate) {
-          const birthDate = new Date(student.birthDate);
-          if (!isNaN(birthDate.getTime())) {
-              const formatted = format(birthDate, "d MMMM yyyy", { locale: id });
-              data.siswa_tanggal_lahir = formatted;
-              data.siswa_tanggal_lahir_indo = formatted;
-          } else {
-              data.siswa_tanggal_lahir = student.birthDate;
-              data.siswa_tanggal_lahir_indo = student.birthDate;
-          }
-      } else {
-          data.siswa_tanggal_lahir = "";
-          data.siswa_tanggal_lahir_indo = "";
-      }
-
-      data.siswa_alamat = student.address || "";
-      data.siswa_nama_wali = student.parentName || "";
-      data.siswa_no_hp_wali = student.parentPhone || "";
+      setSelectedTemplate(fullTpl);
+      setTemplateVars(varRes.variables || []);
+      
+      if (fullTpl.category === "STAFF") setTargetType("STAFF");
+      else if (fullTpl.category === "STUDENT") setTargetType("STUDENT");
+      
+      setStep(2);
+    } catch (error) {
+      toast.error("Gagal memuat detail template");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleGeneratePreview = async () => {
-      if (!selectedTemplate) return;
-
-      if (targetType === 'STUDENT' && selectedStudents.length === 0) {
-          toast.error("Mohon pilih minimal satu siswa.");
-          return;
-      }
-
-      // Build Base Data
-      const baseData: any = {};
+  const mergeRecipientData = (data: any, recipient: any) => {
+    if (targetType === "STUDENT") {
+      data.siswa_nama = recipient.name || recipient.fullName || "";
+      data.siswa_nis = recipient.nis || "-";
+      data.siswa_nisn = recipient.nisn || "-";
+      data.siswa_kelas = recipient.className || "";
+      data.siswa_jenis_kelamin = recipient.gender === "L" ? "Laki-laki" : "Perempuan";
+      data.siswa_tempat_lahir = recipient.birthPlace || "";
       
-      // School Variables
-      if (schoolSettings) {
-          baseData.sekolah_nama = schoolSettings.school_name || "";
-          baseData.sekolah_npsn = schoolSettings.school_npsn || "";
-          baseData.sekolah_alamat = schoolSettings.school_address || "";
-          baseData.sekolah_kota = "Sungai Penuh"; 
-          baseData.sekolah_telepon = schoolSettings.school_phone || "";
-          baseData.sekolah_email = schoolSettings.school_email || "";
-          baseData.sekolah_website = schoolSettings.school_website || "";
-          baseData.kepala_sekolah_nama = schoolSettings.principal_name || ""; 
-          baseData.kepala_sekolah_nip = schoolSettings.principal_nip || "";
+      if (recipient.birthDate) {
+        const bDate = new Date(recipient.birthDate);
+        data.siswa_tanggal_lahir = format(bDate, "d MMMM yyyy", { locale: id });
+        data.siswa_tanggal_lahir_indo = data.siswa_tanggal_lahir;
+      }
+      data.siswa_alamat = recipient.address || "";
+      data.siswa_nama_wali = recipient.parentName || recipient.guardianName || "";
+      data.siswa_no_hp_wali = recipient.parentPhone || "";
+    } else {
+      data.penerima_nama = recipient.name || recipient.fullName || "";
+      data.penerima_nip = recipient.nip || "-";
+      data.penerima_jabatan = recipient.position || recipient.jobType || recipient.role || "";
+      data.guru_nama = data.penerima_nama;
+      data.guru_nip = data.penerima_nip;
+      data.guru_jabatan = data.penerima_jabatan;
+    }
+  };
+
+  const shouldUseAutoNumber = () =>
+    templateVars.includes("nomor_surat_otomatis") ||
+    templateVars.includes("nomor_surat") ||
+    Boolean(manualInputs.nomor_surat_otomatis || manualInputs.nomor_surat);
+
+  const handlePreparePreview = async () => {
+    if (targetType !== "MANUAL" && selectedRecipients.length === 0) {
+      toast.error("Mohon pilih minimal satu penerima.");
+      return;
+    }
+
+    setLoading(true);
+    const baseData: any = {
+      sekolah_nama: schoolSettings?.school_name || "",
+      sekolah_npsn: schoolSettings?.school_npsn || "",
+      sekolah_alamat: schoolSettings?.school_address || "",
+      sekolah_telepon: schoolSettings?.school_phone || "",
+      sekolah_email: schoolSettings?.school_email || "",
+      sekolah_website: schoolSettings?.school_website || "",
+      kepala_sekolah_nama: schoolSettings?.principal_name || "",
+      kepala_sekolah_nip: schoolSettings?.principal_nip || "",
+      tanggal_hari_ini: format(new Date(), "d MMMM yyyy", { locale: id }),
+      tanggal_surat: format(new Date(), "d MMMM yyyy", { locale: id }),
+      tahun_ajaran: schoolSettings?.current_academic_year || "",
+      ...manualInputs,
+    };
+
+    try {
+      if (shouldUseAutoNumber()) {
+        const numbering: any = await goPost("/api/eoffice/letter-numbering", {
+          date: new Date().toISOString(),
+        });
+        const nextSequence = Number(numbering?.data || numbering?.nextSequence || 1);
+        const letterNumber = formatLetterNumber(schoolSettings?.letter_number_format, nextSequence);
+        baseData.nomor_surat_otomatis = letterNumber;
+        baseData.nomor_surat = manualInputs.nomor_surat || letterNumber;
+        setGeneratedLetterMeta({ letterNumber, nextSequence });
+      } else {
+        setGeneratedLetterMeta(null);
       }
 
-      // Manual Inputs
-      Object.entries(manualInputs).forEach(([key, val]) => {
-          baseData[key] = val;
-      });
-
-      // System Variables
-      const today = format(new Date(), "d MMMM yyyy", { locale: id });
-      baseData.tanggal_hari_ini = today;
-      baseData.tanggal_surat = today;
-      baseData.tahun_ajaran = schoolSettings?.current_academic_year || "2025/2026";
-
-      // If student target, merge ONE student for preview
-      if (targetType === 'STUDENT' && selectedStudents.length > 0) {
-          mergeStudentData(baseData, selectedStudents[0]);
+      if (selectedRecipients.length > 0) {
+        mergeRecipientData(baseData, selectedRecipients[0]);
       }
 
-      setGeneratedData(baseData);
+      setGeneratedPreviewData(baseData);
       setStep(3);
+    } catch (error) {
+      toast.error("Gagal menyiapkan nomor surat otomatis.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const logLetterIncrement = async (letterNumber: string, recipient: string) => {
-      await goPost("/api/letters/increment", {
-          letterNumber,
-          sequenceNumber: nextSequence,
-          templateId: selectedTemplate?.id,
-          recipient,
-          classificationCode: classificationCode || undefined
-      });
-      // Refresh global settings just in case, though independent
-      refreshSettings();
+  const logGeneratedLetter = async (recipient: any, index: number) => {
+    if (!generatedLetterMeta) return;
+    const sequenceNumber = generatedLetterMeta.nextSequence + index;
+    await goPost("/api/eoffice/letter-increment", {
+      letterNumber: formatLetterNumber(schoolSettings?.letter_number_format, sequenceNumber),
+      sequenceNumber,
+      templateId: selectedTemplate?.id,
+      recipient: recipientLabel(recipient),
+    });
   };
 
-  const handleDownloadDocx = async () => {
-      if (!selectedTemplate?.filePath || !generatedData) {
-          toast.error("Data tidak lengkap.");
-          return;
-      }
-      
-      setLoading(true);
-      try {
-          if (targetType === 'STUDENT' && selectedStudents.length > 1) {
-              const zip = new JSZip();
-              const folder = zip.folder(`Surat_Batch_${format(new Date(), "yyyyMMdd_HHmm")}`);
-              
-              // We need to re-generate data for each student
-              // Base data is current generatedData MINUS overwritten student props
-              // But easiest is to rebuild or just overlay.
-              // Note: generatedData ALREADY contains student[0] data. We must overwrite it clean.
-              
-              // Let's strip student keys? Or just overwriting is sufficient.
-              // mergeStudentData overwrites all 'siswa_' keys. So it should be fine.
-              
-              let loggedOnce = false;
+  const handleDownload = async () => {
+    if (!generatedPreviewData) return;
+    if (!selectedTemplate?.filePath) {
+      toast.error("Template ini belum memiliki file DOCX. Gunakan fitur import template Word terlebih dahulu.");
+      return;
+    }
 
-              for (const student of selectedStudents) {
-                  const studentData = { ...generatedData }; // Start with preview data
-                  mergeStudentData(studentData, student); // Overwrite with current student
-                  
-                  const blob = await createDocumentBlob(selectedTemplate.filePath, studentData);
-                  if (folder) folder.file(`${student.name.replace(/[^a-zA-Z0-9]/g, "_")}.docx`, blob);
-              }
-              
-              const zipBlob = await zip.generateAsync({ type: "blob" });
-              saveAs(zipBlob, `Surat_Batch.zip`);
-              
-              // Log ONE increment for the batch (as discussed)
-              if (generatedData.nomor_surat_otomatis && nextSequence > 0) {
-                  await logLetterIncrement(
-                      generatedData.nomor_surat_otomatis, 
-                      `Batch (${selectedStudents.length} Siswa) - ${selectedStudents[0].className || "Mix"}`
-                  );
-                  refreshSettings();
-              }
-              
-              toast.success(`Berhasil mengunduh ${selectedStudents.length} surat dalam ZIP.`);
-
-          } else {
-             // Single Download
-             const fileName = `Surat-${generatedData.siswa_nama || "Output"}.docx`;
-             await generateDocument(selectedTemplate.filePath, generatedData, fileName);
-             
-             if (generatedData.nomor_surat_otomatis && nextSequence > 0) {
-                  await logLetterIncrement(generatedData.nomor_surat_otomatis, generatedData.siswa_nama || "Siswa");
-                  refreshSettings();
-             }
-             toast.success("Dokumen berhasil diunduh.");
+    setLoading(true);
+    try {
+      if (selectedRecipients.length > 1) {
+        // ZIP Generation
+        const zip = new JSZip();
+        for (const [index, rec] of selectedRecipients.entries()) {
+          const recData = { ...generatedPreviewData };
+          if (generatedLetterMeta) {
+            const sequenceNumber = generatedLetterMeta.nextSequence + index;
+            const letterNumber = formatLetterNumber(schoolSettings?.letter_number_format, sequenceNumber);
+            recData.nomor_surat_otomatis = letterNumber;
+            recData.nomor_surat = manualInputs.nomor_surat || letterNumber;
           }
-      } catch (error) {
-          console.error(error);
-          toast.error("Gagal generate dokumen.");
-      } finally {
-          setLoading(false);
+          mergeRecipientData(recData, rec);
+          const blob = await createDocumentBlob(selectedTemplate.filePath, recData);
+          zip.file(`${recipientLabel(rec).replace(/\s+/g, "_")}.docx`, blob);
+        }
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        saveAs(zipBlob, `Batch_${selectedTemplate.name}_${format(new Date(), "yyyyMMdd")}.zip`);
+        await Promise.all(selectedRecipients.map((rec, index) => logGeneratedLetter(rec, index)));
+        toast.success(`Berhasil mengunduh ${selectedRecipients.length} dokumen.`);
+      } else {
+        // Single Download
+        const fileName = `${selectedTemplate.name}_${generatedPreviewData.siswa_nama || "Output"}.docx`;
+        await generateDocument(selectedTemplate.filePath, generatedPreviewData, fileName);
+        await logGeneratedLetter(selectedRecipients[0], 0);
+        toast.success("Dokumen berhasil diunduh.");
       }
+
+      refreshSettings();
+
+    } catch (error) {
+      toast.error("Gagal membuat dokumen.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Variable extraction logic
-  let templateVars: string[] = [];
-  if (selectedTemplate?.type === "UPLOAD" && selectedTemplate?.content) {
-      try {
-          templateVars = JSON.parse(selectedTemplate.content);
-          if (!Array.isArray(templateVars)) templateVars = [];
-      } catch (e) {
-          console.error("Failed to parse variables", e);
-          templateVars = [];
-      }
-  } else if (selectedTemplate?.content) {
-      templateVars = extractVariables(selectedTemplate.content);
-  }
-  
-  const manualVars = templateVars.filter(v => 
-      !v.startsWith("siswa_") && 
-      !v.startsWith("guru_") && 
-      !v.startsWith("orangtua_") &&
-      !['tanggal_hari_ini', 'tahun_ajaran', 'kepala_sekolah_nama', 'kepala_sekolah_nip'].includes(v)
+  const manualVars = templateVars.filter(
+    (v) =>
+      !v.startsWith("siswa_") &&
+      !v.startsWith("penerima_") &&
+      !["tanggal_hari_ini", "tanggal_surat", "tahun_ajaran", "kepala_sekolah_nama", "kepala_sekolah_nip", "sekolah_nama", "sekolah_npsn", "sekolah_alamat", "sekolah_telepon", "sekolah_email", "sekolah_website", "nomor_surat_otomatis", "nomor_surat"].includes(v)
   );
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-20">
-       <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => router.back()}>
-           <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
-           <h1 className="text-2xl font-bold tracking-tight">Buat Surat Baru</h1>
-           <p className="text-muted-foreground">Generator surat otomatis dari template.</p>
+          <h1 className="text-2xl font-bold tracking-tight">Buat Surat Baru</h1>
+          <p className="text-muted-foreground">Generator surat otomatis dari template.</p>
         </div>
-       </div>
+      </div>
 
-       {/* Stepper */}
-       <div className="flex items-center gap-4 text-sm font-medium text-muted-foreground border-b pb-4">
-          <div className={cn("flex items-center gap-2", step >= 1 && "text-blue-600")}>
-             <div className="w-6 h-6 rounded-full border flex items-center justify-center text-xs">1</div>
-             Pilih Template
+      {/* Stepper */}
+      <div className="flex items-center gap-4 text-sm font-medium text-muted-foreground border-b pb-4 overflow-x-auto whitespace-nowrap">
+        <div className={cn("flex items-center gap-2", step >= 1 && "text-blue-600")}>
+          <div className="w-6 h-6 rounded-full border flex items-center justify-center text-xs">1</div>
+          Pilih Template
+        </div>
+        <ChevronRight className="h-4 w-4 shrink-0" />
+        <div className={cn("flex items-center gap-2", step >= 2 && "text-blue-600")}>
+          <div className="w-6 h-6 rounded-full border flex items-center justify-center text-xs">2</div>
+          Isi Data
+        </div>
+        <ChevronRight className="h-4 w-4 shrink-0" />
+        <div className={cn("flex items-center gap-2", step >= 3 && "text-blue-600")}>
+          <div className="w-6 h-6 rounded-full border flex items-center justify-center text-xs">3</div>
+          Preview & Cetak
+        </div>
+      </div>
+
+      {step === 1 && (
+        <TemplateSelector templates={templates} loading={loading} onSelect={handleSelectTemplate} />
+      )}
+
+      {step === 2 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="md:col-span-2 space-y-6">
+            <RecipientSelector
+              targetType={targetType}
+              setTargetType={setTargetType}
+              recipientMode={recipientMode}
+              setRecipientMode={setRecipientMode}
+              selectedRecipients={selectedRecipients}
+              setSelectedRecipients={setSelectedRecipients}
+            />
+            <VariableForm
+              manualVars={manualVars}
+              manualInputs={manualInputs}
+              setManualInputs={setManualInputs}
+              onBack={() => setStep(1)}
+              onNext={handlePreparePreview}
+            />
           </div>
-          <ChevronRight className="h-4 w-4" />
-          <div className={cn("flex items-center gap-2", step >= 2 && "text-blue-600")}>
-             <div className="w-6 h-6 rounded-full border flex items-center justify-center text-xs">2</div>
-             Isi Data
-          </div>
-          <ChevronRight className="h-4 w-4" />
-          <div className={cn("flex items-center gap-2", step >= 3 && "text-blue-600")}>
-             <div className="w-6 h-6 rounded-full border flex items-center justify-center text-xs">3</div>
-             Preview & Cetak
-          </div>
-       </div>
-
-       {/* Step 1: Template Selection */}
-       {step === 1 && (
-         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {loading ? <div className="col-span-3 text-center py-8">Memuat template...</div> : 
-             templates.map((tpl) => (
-               <Card 
-                  key={tpl.id} 
-                  className="cursor-pointer hover:border-blue-500 transition-colors"
-                  onClick={() => handleSelectTemplate(tpl)}
-               >
-                  <CardHeader>
-                     <div className="w-10 h-10 bg-zinc-100 dark:bg-zinc-800 rounded-lg flex items-center justify-center mb-2">
-                        <FileText className="h-5 w-5 text-zinc-500" />
-                     </div>
-                     <CardTitle className=" text-base">{tpl.name}</CardTitle>
-                     <CardDescription>{tpl.category}</CardDescription>
-                  </CardHeader>
-               </Card>
-             ))
-            }
-         </div>
-       )}
-
-       {/* Step 2: Data Input */}
-       {step === 2 && selectedTemplate && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-             <div className="md:col-span-2 space-y-6">
-                 {/* Classification Selection */}
-                 <Card>
-                    <CardHeader>
-                       <CardTitle>Klasifikasi Surat</CardTitle>
-                       <CardDescription>Pilih jenis surat untuk penomoran otomatis sesuai standar.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                       <div className="space-y-2">
-                          <Label>Jenis Surat</Label>
-                          <Popover>
-                             <PopoverTrigger asChild>
-                                <Button variant="outline" role="combobox" className="w-full justify-between">
-                                   {selectedLetterType ? selectedLetterType.jenis_surat : "Pilih jenis surat..."}
-                                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                             </PopoverTrigger>
-                             <PopoverContent className="w-[400px] p-0">
-                                <Command>
-                                   <CommandInput placeholder="Cari jenis surat..." />
-                                   <CommandList>
-                                      <CommandEmpty>Tidak ditemukan.</CommandEmpty>
-                                      {LETTER_TYPES.map((type) => (
-                                         <CommandItem 
-                                            key={type.id} 
-                                            value={type.jenis_surat}
-                                            onSelect={() => {
-                                                setSelectedLetterType(type);
-                                                // Trigger update handled by useEffect
-                                            }}
-                                         >
-                                            <Check className={cn("mr-2 h-4 w-4", selectedLetterType?.id === type.id ? "opacity-100" : "opacity-0")} />
-                                            <div className="flex flex-col">
-                                                <span>{type.jenis_surat}</span>
-                                                <span className="text-xs text-muted-foreground">{type.kode_klasifikasi} • {type.kategori}</span>
-                                            </div>
-                                         </CommandItem>
-                                      ))}
-                                   </CommandList>
-                                </Command>
-                             </PopoverContent>
-                          </Popover>
-                       </div>
-                    </CardContent>
-                 </Card>
-
-                 {/* Target Selection */}
-                 <Card>
-                    <CardHeader>
-                       <CardTitle>Target Penerima</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                       <div className="space-y-2">
-                          <Label>Jenis Target</Label>
-                          <Select value={targetType} onValueChange={(v: any) => setTargetType(v)}>
-                             <SelectTrigger>
-                                <SelectValue />
-                             </SelectTrigger>
-                             <SelectContent>
-                                <SelectItem value="STUDENT">Siswa</SelectItem>
-                                <SelectItem value="STAFF">Guru / Staff</SelectItem>
-                                <SelectItem value="MANUAL">Manual (Ketik Nama)</SelectItem>
-                             </SelectContent>
-                          </Select>
-                       </div>
-
-                       {targetType === 'STUDENT' && (
-                          <div className="space-y-4">
-                             {/* Mode Selection */}
-                             <div>
-                               <div className="flex rounded-lg border p-1 bg-zinc-100 dark:bg-zinc-800">
-                                  {["SINGLE", "MULTIPLE", "CLASS"].map((m) => (
-                                     <button
-                                        key={m}
-                                        onClick={() => {
-                                            setRecipientMode(m as any);
-                                            setSelectedStudents([]); // Reset on mode change
-                                            if (m === 'CLASS') setSelectedClass("");
-                                        }}
-                                        className={cn(
-                                            "flex-1 text-xs font-medium py-1.5 px-3 rounded-md transition-all",
-                                            recipientMode === m ? "bg-white dark:bg-zinc-700 shadow-sm text-blue-600" : "text-muted-foreground hover:text-foreground"
-                                        )}
-                                     >
-                                         {m === 'SINGLE' && "Perorangan"}
-                                         {m === 'MULTIPLE' && "Pilih Banyak"}
-                                         {m === 'CLASS' && "Satu Kelas"}
-                                     </button>
-                                  ))}
-                               </div>
-                             </div>
-
-                             {recipientMode === 'CLASS' && (
-                                 <div className="space-y-2">
-                                     <Label>Pilih Kelas</Label>
-                                     <Select value={selectedClass} onValueChange={(v) => { setSelectedClass(v); fetchClassStudents(v); }}>
-                                         <SelectTrigger>
-                                             <SelectValue placeholder="Pilih kelas..." />
-                                         </SelectTrigger>
-                                         <SelectContent>
-                                             {[1, 2, 3, 4, 5, 6].map(c => (
-                                                 <SelectItem key={c} value={String(c)}>Kelas {c}</SelectItem>
-                                             ))}
-                                         </SelectContent>
-                                     </Select>
-                                     <p className="text-xs text-muted-foreground">
-                                         {selectedStudents.length} siswa terpilih.
-                                     </p>
-                                 </div>
-                             )}
-
-                             {(recipientMode === 'SINGLE' || recipientMode === 'MULTIPLE') && (
-                                <div className="space-y-2">
-                                    <Label>Cari Siswa</Label>
-                                    <Popover open={isStudentSearchOpen} onOpenChange={(open) => {
-                                        setIsStudentSearchOpen(open);
-                                        if (open && studentsList.length === 0) searchStudents(""); 
-                                    }}>
-                                        <PopoverTrigger asChild>
-                                        <Button variant="outline" role="combobox" className="w-full justify-between">
-                                            {recipientMode === 'SINGLE' && selectedStudents.length > 0
-                                                ? selectedStudents[0].name
-                                                : "Ketik nama siswa..."}
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-[400px] p-0">
-                                        <Command shouldFilter={false}>
-                                            <CommandInput 
-                                                placeholder="Cari siswa..." 
-                                                onValueChange={searchStudents}
-                                            />
-                                            <CommandList>
-                                                {studentsList.length === 0 && <CommandEmpty>Tidak ditemukan.</CommandEmpty>}
-                                                {studentsList.map((student) => (
-                                                    <CommandItem key={student.id} value={student.id} onSelect={() => handleSelectStudent(student.id)}>
-                                                    <Check className={cn("mr-2 h-4 w-4", selectedStudents.find(s => s.id === student.id) ? "opacity-100" : "opacity-0")} />
-                                                    <div className="flex flex-col">
-                                                        <span>{student.name}</span>
-                                                        <span className="text-xs text-muted-foreground">{student.nisn || "-"} • Kelas {student.className}</span>
-                                                    </div>
-                                                    </CommandItem>
-                                                ))}
-                                            </CommandList>
-                                        </Command>
-                                        </PopoverContent>
-                                    </Popover>
-                                </div>
-                             )}
-
-                             {/* Selected Chips */}
-                             {selectedStudents.length > 0 && recipientMode !== 'SINGLE' && (
-                                 <div className="flex flex-wrap gap-2 pt-2">
-                                     {selectedStudents.map(s => (
-                                         <div key={s.id} className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 text-xs px-2 py-1 rounded-full border">
-                                             {s.name}
-                                             {recipientMode === 'MULTIPLE' && (
-                                                 <button onClick={() => handleRemoveStudent(s.id)} className="text-muted-foreground hover:text-red-500">
-                                                     <X className="h-3 w-3" />
-                                                 </button>
-                                             )}
-                                         </div>
-                                     ))}
-                                     {recipientMode === 'CLASS' && selectedStudents.length > 10 && (
-                                         <span className="text-xs text-muted-foreground self-center">...dan lainnya</span>
-                                     )}
-                                 </div>
-                             )}
-                          </div>
-                       )}
-                    </CardContent>
-                 </Card>
-                 
-                 {/* Manual Variables Input */}
-                 <Card>
-                    <CardHeader>
-                       <CardTitle>Isi Variabel Surat</CardTitle>
-                       <CardDescription>Lengkapi data yang kosong di bawah ini.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                       {manualVars.length === 0 ? (
-                           <div className="text-center py-6 space-y-3">
-                               <p className="text-muted-foreground italic text-sm">Tidak ada variabel manual.</p>
-                           </div>
-                       ) : (
-                           manualVars.map((v) => (
-                               <div key={v} className="space-y-2">
-                                   <Label className="capitalize">{v.replace(/_/g, " ")}</Label>
-                                   <Input 
-                                      placeholder={`Masukkan ${v.replace(/_/g, " ")}`}
-                                      value={manualInputs[v] || ""}
-                                      onChange={(e) => setManualInputs({...manualInputs, [v]: e.target.value})}
-                                   />
-                               </div>
-                           ))
-                       )}
-                    </CardContent>
-                    <CardFooter className="justify-end gap-2">
-                        <Button variant="ghost" onClick={() => setStep(1)}>Kembali</Button>
-                        <Button onClick={handleGeneratePreview} className="bg-blue-600">
-                           Lanjut Preview <ArrowRight className="ml-2 h-4 w-4" />
-                        </Button>
-                    </CardFooter>
-                 </Card>
-             </div>
-             
-             {/* Info Sidebar */}
-             <div className="space-y-4">
-                 <Card>
-                    <CardHeader>
-                       <CardTitle>Template Info</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm">
-                       <div className="flex justify-between">
-                          <span className="text-muted-foreground">Nama:</span>
-                          <span className="font-medium">{selectedTemplate.name}</span>
-                       </div>
-                       <div className="flex justify-between">
-                          <span className="text-muted-foreground">Kategori:</span>
-                          <span className="font-medium">{selectedTemplate.category}</span>
-                       </div>
-                       <div className="flex justify-between">
-                          <span className="text-muted-foreground">Penerima:</span>
-                          <span className="font-medium">{selectedStudents.length} Orang</span>
-                       </div>
-                    </CardContent>
-                 </Card>
-             </div>
-          </div>
-       )}
-
-       {/* Step 3: Preview */}
-       {step === 3 && (
-          <div className="space-y-6">
-              <div className="flex items-center justify-between bg-zinc-100 dark:bg-zinc-800 p-4 rounded-lg">
-                  <div className="flex items-center gap-4">
-                      <Button variant="outline" onClick={() => setStep(2)}>
-                         <ArrowLeft className="mr-2 h-4 w-4" /> Edit Data
-                      </Button>
-                      <div className="flex flex-col">
-                          <span className="text-sm font-medium">
-                              {selectedStudents.length > 1 ? `Siap unduh untuk ${selectedStudents.length} siswa` : "Siap diunduh"}
-                          </span>
-                          <span className="text-xs text-muted-foreground">Pastikan data sudah benar.</span>
-                      </div>
-                  </div>
-                  <Button onClick={handleDownloadDocx} size="lg" className="bg-blue-600 hover:bg-blue-700">
-                      <Download className="mr-2 h-4 w-4" /> 
-                      {selectedStudents.length > 1 ? "Download ZIP (Semua)" : "Download Dokumen (.docx)"}
-                  </Button>
+          <div className="space-y-4">
+            <div className="p-4 rounded-lg border bg-zinc-50 dark:bg-zinc-900 space-y-2 text-sm">
+              <h4 className="font-semibold">Info Template</h4>
+              <p className="text-muted-foreground">{selectedTemplate?.name}</p>
+              <div className="pt-2 border-t">
+                <p className="text-xs text-muted-foreground">Penerima terpilih:</p>
+                <p className="font-medium">{selectedRecipients.length} Orang</p>
               </div>
-
-             <div className="flex justify-center bg-zinc-200 dark:bg-zinc-950 p-8 rounded-lg overflow-auto">
-                 <div className="flex flex-col items-center justify-center p-12 bg-white rounded-lg shadow-sm max-w-lg text-center space-y-4">
-                    <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center">
-                        {selectedStudents.length > 1 ? <Users className="h-8 w-8" /> : <Check className="h-8 w-8" />}
-                    </div>
-                    <h3 className="text-xl font-semibold">Dokumen Siap</h3>
-                    {selectedStudents.length > 1 ? (
-                        <p className="text-muted-foreground">
-                            Anda akan mengunduh <strong>{selectedStudents.length} dokumen</strong> sekaligus dalam format ZIP.<br/>
-                            Nomor surat akan dicatat sebagai satu batch.
-                        </p>
-                    ) : (
-                        <p className="text-muted-foreground">
-                            Data <strong>{generatedData?.siswa_nama}</strong> telah digabungkan.<br/>
-                            Silakan unduh file sekarang.
-                        </p>
-                    )}
-                 </div>
-             </div>
+            </div>
           </div>
-       )}
+        </div>
+      )}
+
+      {step === 3 && (
+        <PreviewStep
+          selectedRecipients={selectedRecipients}
+          generatedData={generatedPreviewData}
+          onBack={() => setStep(2)}
+          onDownload={handleDownload}
+          loading={loading}
+        />
+      )}
     </div>
   );
 }
 
+export default function LetterGeneratorPage() {
+  return (
+    <Suspense fallback={<div>Memuat...</div>}>
+      <LetterGeneratorContent />
+    </Suspense>
+  );
+}

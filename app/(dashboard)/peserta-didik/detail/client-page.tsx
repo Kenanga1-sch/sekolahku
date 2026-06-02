@@ -72,7 +72,7 @@ export default function DetailSiswaPage() {
     const fetchStudent = async () => {
       try {
         const response: any = await goGet(`/api/students/${searchParams.get('id')}`);
-        setStudent(response);
+        setStudent(response?.data || response);
       } catch (error: any) {
         toast.error(error.message || "Gagal memuat data");
         router.push("/peserta-didik");
@@ -154,7 +154,7 @@ export default function DetailSiswaPage() {
           </Button>
           <Button
             variant="outline"
-            onClick={() => router.push(`/peserta-didik/detail?id=${student.id}/edit`)}
+            onClick={() => router.push(`/peserta-didik/detail/edit?id=${student.id}`)}
           >
             <Pencil className="h-4 w-4 mr-2" />
             Edit

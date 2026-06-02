@@ -39,7 +39,8 @@ export default function BuatSesiPresensiPage() {
     // Fetch available classes
     const fetchClasses = async () => {
       try {
-        const data: any = await goGet("/api/students/classes");
+        const response: any = await goGet("/api/classes");
+        const data = response?.data || response;
         setClasses(data);
       } catch (error) {
         console.error("Error fetching classes:", error);
@@ -66,7 +67,7 @@ export default function BuatSesiPresensiPage() {
         notes,
       });
 
-      router.push(`/presensi/sesi/detail?id=${data.id}`);
+      router.push(`/presensi/sesi/detail?id=${data.id || data.data?.id}`);
     } catch (err: any) {
       if (err.status === 409) {
         // Session already exists

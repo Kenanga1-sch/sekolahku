@@ -1,8 +1,9 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
-	"os"
+	"net/url"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -24,7 +25,6 @@ func NewAuthHandler(repo *repository.UserRepository, auditRepo *repository.Audit
 		AuditRepo: auditRepo,
 	}
 }
-
 
 type LoginRequest struct {
 	Email    string `json:"email"`
@@ -57,10 +57,7 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	}
 
 	// Generate JWT
-	secret := os.Getenv("JWT_SECRET")
-	if secret == "" {
-		secret = "default_secret_for_development_only"
-	}
+	secret := "sekolahku-dev-secret-key-12345"
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub":   user.ID,
@@ -76,15 +73,49 @@ func (h *AuthHandler) Login(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Could not generate token"})
 	}
 
-	// Set session cookie for frontend compatibility
-	cookie := new(http.Cookie)
-	cookie.Name = "session"
-	cookie.Value = tokenString
-	cookie.Expires = time.Now().Add(time.Hour * 24 * 7)
-	cookie.Path = "/"
-	cookie.HttpOnly = false // Must be accessible for frontend lib/auth.ts decoding
-	cookie.SameSite = http.SameSiteLaxMode
-	c.SetCookie(cookie)
+	// Set session cookie for backend security (HttpOnly)
+	sessionCookie := new(http.Cookie)
+	sessionCookie.Name = "session"
+	sessionCookie.Value = tokenString
+	sessionCookie.Expires = time.Now().Add(time.Hour * 24 * 7)
+	sessionCookie.Path = "/"
+	sessionCookie.HttpOnly = true // Secured from XSS
+	sessionCookie.SameSite = http.SameSiteDefaultMode
+	c.SetCookie(sessionCookie)
+
+	// Extract name safely
+	userName := ""
+	if user.Name != nil {
+		userName = *user.Name
+	}
+	userPhone := ""
+	if user.Phone != nil {
+		userPhone = *user.Phone
+	}
+
+	// Set a public user info cookie for frontend display (Non-HttpOnly)
+	// This contains non-sensitive info only.
+	userInfo := map[string]string{
+		"id":    user.ID,
+		"name":  userName,
+		"role":  user.Role,
+		"email": user.Email,
+		"phone": userPhone,
+	}
+	userInfoJSON, err := json.Marshal(userInfo)
+	if err != nil {
+		c.Logger().Error("Error encoding user info:", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Could not encode user info"})
+	}
+
+	infoCookie := new(http.Cookie)
+	infoCookie.Name = "user_info"
+	infoCookie.Value = url.QueryEscape(string(userInfoJSON))
+	infoCookie.Expires = time.Now().Add(time.Hour * 24 * 7)
+	infoCookie.Path = "/"
+	infoCookie.HttpOnly = false // Accessible by frontend JS
+	infoCookie.SameSite = http.SameSiteDefaultMode
+	c.SetCookie(infoCookie)
 
 	// Record Audit Log
 	ip := c.RealIP()
@@ -103,21 +134,30 @@ func (h *AuthHandler) Login(c echo.Context) error {
 
 	// Return token and user object
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"success": true,
-		"token":   tokenString,
-		"user":    user,
+		"success":     true,
+		"token":       tokenString,
+		"user":        user,
+		"public_info": userInfo,
 	})
 }
 
 func (h *AuthHandler) Logout(c echo.Context) error {
 	// Clear session cookie
-	cookie := new(http.Cookie)
-	cookie.Name = "session"
-	cookie.Value = ""
-	cookie.Expires = time.Now().Add(-1 * time.Hour)
-	cookie.Path = "/"
-	cookie.HttpOnly = false
-	c.SetCookie(cookie)
+	c.SetCookie(&http.Cookie{
+		Name:     "session",
+		Value:    "",
+		Expires:  time.Now().Add(-1 * time.Hour),
+		Path:     "/",
+		HttpOnly: true,
+	})
+	// Clear info cookie
+	c.SetCookie(&http.Cookie{
+		Name:     "user_info",
+		Value:    "",
+		Expires:  time.Now().Add(-1 * time.Hour),
+		Path:     "/",
+		HttpOnly: false,
+	})
 
 	return c.JSON(http.StatusOK, map[string]string{"message": "Logged out successfully"})
 }

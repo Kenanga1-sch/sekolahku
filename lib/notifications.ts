@@ -1,25 +1,38 @@
 /**
- * notifications — Client-side data fetcher
- * All database logic has been moved to the Golang backend.
- * These functions now fetch data via the Golang API.
+ * notifications — Client-side data fetcher for Admin Notifications
  */
 
-import { goGet, goPost } from "@/lib/api-client";
+import { goGet, goPost, goPatch } from "@/lib/api-client";
 
-// TODO: Implement specific endpoints as needed.
-// For now, functions export stubs that call the Go API.
-
-export async function createNotification(...args: any[]) {
-  console.warn("createNotification: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function createNotification(data: any) {
+  return await goPost("/api/notifications", data);
 }
 
-export async function broadcastNotification(...args: any[]) {
-  console.warn("broadcastNotification: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function broadcastNotification(data: any) {
+  return await goPost("/api/notifications/broadcast", data);
 }
 
-export async function createSystemAlert(...args: any[]) {
-  console.warn("createSystemAlert: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function getNotifications(limit = 20) {
+  return await goGet(`/api/notifications?limit=${limit}`);
+}
+
+export async function getNotificationStats() {
+  return await goGet("/api/notifications/stats");
+}
+
+export async function markNotificationAsRead(id: string) {
+  return await goPatch(`/api/notifications/${id}/read`);
+}
+
+export async function markAllNotificationsAsRead() {
+  return await goPost("/api/notifications/read-all", {});
+}
+
+export async function createSystemAlert(message: string, type: "info" | "warning" | "error" = "info") {
+  return await broadcastNotification({
+    title: "Sistem",
+    message,
+    type,
+    category: "SYSTEM"
+  });
 }

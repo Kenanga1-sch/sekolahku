@@ -260,18 +260,33 @@ type RegistrantData = {
   fullName: string;
   studentNik: string;
   birthPlace: string;
-  birthDate: Date;
+  birthDate: Date | string | number;
   gender: string;
   previousSchool?: string | null;
   address: string;
   id: string;
-  createdAt: Date;
+  createdAt: Date | string | number;
   qrCodeUrl: string;
+  logoUrl?: string;
+  photoUrl?: string;
+  committeeName?: string;
+  schoolName?: string;
+  schoolNPSN?: string;
+  schoolAddress?: string;
+  schoolEmail?: string;
   distanceToSchool?: number | null;
   status: string | null;
 };
 
 export const RegistrantDocument = ({ data }: { data: RegistrantData }) => {
+  const birthDate = data.birthDate ? new Date(data.birthDate) : new Date();
+  const createdAt = data.createdAt ? new Date(data.createdAt) : new Date();
+  const schoolName = data.schoolName || "UPTD SDN 1 KENANGA";
+  const schoolNPSN = data.schoolNPSN || "20216609";
+  const schoolAddress = data.schoolAddress || "Jl. Perindustrian Blok Dukuh Desa Kenanga Kec. Sindang Kab. Indramayu 45226";
+  const schoolEmail = data.schoolEmail || "uptdsdn1kenangasindang@gmail.com";
+  const committeeName = data.committeeName || "Panitia SPMB";
+
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -279,15 +294,15 @@ export const RegistrantDocument = ({ data }: { data: RegistrantData }) => {
         {/* Header - Absolute Logo, Center Text */}
         <View style={styles.headerContainer}>
             <View style={styles.logoAbs}>
-                <Image src="/logo.png" style={styles.logoImg} />
+                {data.logoUrl && <Image src={data.logoUrl} style={styles.logoImg} />}
             </View>
             <View style={styles.headerTextCenter}>
                 <Text style={styles.h1_pemda}>PEMERINTAH KABUPATEN INDRAMAYU</Text>
                 <Text style={styles.h2_dinas}>DINAS PENDIDIKAN DAN KEBUDAYAAN</Text>
-                <Text style={styles.h3_school}>UPTD SDN 1 KENANGA</Text>
-                <Text style={styles.p_npsn}>NSS/NPSN : 10.1.02.18.160.15 / 20216609</Text>
-                <Text style={styles.p_addr}>Alamat : Jl. Perindustrian Blok Dukuh Desa Kenanga Kec. Sindang Kab. Indramayu 45226</Text>
-                <Text style={styles.p_email}>Email : <Text style={{ color: '#1d4ed8', textDecoration: 'underline' }}>uptdsdn1kenangasindang@gmail.com</Text></Text>
+                <Text style={styles.h3_school}>{schoolName}</Text>
+                <Text style={styles.p_npsn}>NPSN : {schoolNPSN}</Text>
+                <Text style={styles.p_addr}>Alamat : {schoolAddress}</Text>
+                <Text style={styles.p_email}>Email : <Text style={{ color: '#1d4ed8', textDecoration: 'underline' }}>{schoolEmail}</Text></Text>
             </View>
         </View>
 
@@ -307,7 +322,7 @@ export const RegistrantDocument = ({ data }: { data: RegistrantData }) => {
         {data.status === "accepted" && (
              <View style={{ marginBottom: 10, paddingHorizontal: 20 }}>
                 <Text style={{ fontFamily: 'Times-Roman', fontSize: 11, textAlign: 'justify', lineHeight: 1.4, marginBottom: 5 }}>
-                    Berdasarkan hasil seleksi administrasi dan akademik Penerimaan Peserta Didik Baru (PPDB) Tahun Pelajaran {new Date().getFullYear()}/{new Date().getFullYear() + 1}, Kepala Sekolah UPTD SDN 1 Kenanga dengan ini memutuskan bahwa:
+                    Berdasarkan hasil seleksi administrasi dan akademik Penerimaan Peserta Didik Baru (PPDB) Tahun Pelajaran {new Date().getFullYear()}/{new Date().getFullYear() + 1}, Kepala Sekolah {schoolName} dengan ini memutuskan bahwa:
                 </Text>
              </View>
         )}
@@ -342,7 +357,7 @@ export const RegistrantDocument = ({ data }: { data: RegistrantData }) => {
                         <View style={styles.tableRow}>
                             <Text style={styles.labelCell}>Tempat, Tanggal Lahir</Text>
                             <Text style={styles.colonCell}>:</Text>
-                            <Text style={styles.valueCell}>{data.birthPlace}, {format(data.birthDate, "dd MMMM yyyy", { locale: idLocale })}</Text>
+                            <Text style={styles.valueCell}>{data.birthPlace}, {format(birthDate, "dd MMMM yyyy", { locale: idLocale })}</Text>
                         </View>
                         <View style={styles.tableRow}>
                             <Text style={styles.labelCell}>Jenis Kelamin</Text>
@@ -382,11 +397,11 @@ export const RegistrantDocument = ({ data }: { data: RegistrantData }) => {
             <View style={styles.rightCol}>
                 <View style={styles.sidebarBox}>
                      <View style={styles.photoFrame}>
-                        <Text style={{ fontSize: 8 }}>FOTO 3x4</Text>
+                        {data.photoUrl ? <Image src={data.photoUrl} style={{ width: 85, height: 113, objectFit: 'cover' }} /> : <Text style={{ fontSize: 8 }}>FOTO 3x4</Text>}
                      </View>
-                     <Text style={{ fontSize: 8, fontStyle: 'italic', textAlign: 'center', color: '#6b7280', marginBottom: 20 }}>
+                     {!data.photoUrl && <Text style={{ fontSize: 8, fontStyle: 'italic', textAlign: 'center', color: '#6b7280', marginBottom: 20 }}>
                         Tempel pas foto {'\n'}terbaru di sini
-                     </Text>
+                     </Text>}
                      
                      <View style={{ width: '100%', height: 1, backgroundColor: '#e5e7eb' }} />
 
@@ -426,13 +441,13 @@ export const RegistrantDocument = ({ data }: { data: RegistrantData }) => {
                 <Text style={styles.metaText}>Printed: {format(new Date(), "dd/MM/yyyy HH:mm")}</Text>
             </View>
             <View style={styles.signColumn}>
-                <Text style={{ fontSize: 11, marginBottom: 2, fontFamily: 'Helvetica' }}>Indramayu, {format(data.createdAt || new Date(), "dd MMMM yyyy", { locale: idLocale })}</Text>
-                <Text style={{ fontSize: 11, color: '#4b5563', fontFamily: 'Helvetica-Bold' }}>Panitia PPDB,</Text>
+                <Text style={{ fontSize: 11, marginBottom: 2, fontFamily: 'Helvetica' }}>Indramayu, {format(createdAt, "dd MMMM yyyy", { locale: idLocale })}</Text>
+                <Text style={{ fontSize: 11, color: '#4b5563', fontFamily: 'Helvetica-Bold' }}>Panitia SPMB,</Text>
                 <View style={styles.signGap} />
                 <View style={styles.signLine} />
                 <View style={styles.signLine} />
                 <Text style={{ fontSize: 11, fontFamily: 'Helvetica-Bold' }}>
-                    {data.status === "accepted" ? "Kepala Sekolah" : "Panitia Penerimaan"}
+                    {committeeName}
                 </Text>
             </View>
         </View>

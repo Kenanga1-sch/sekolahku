@@ -1,28 +1,21 @@
 /**
- * reports — Client-side data fetcher
- * All database logic has been moved to the Golang backend.
- * These functions now fetch data via the Golang API.
+ * reports — Client-side data fetcher for Savings Reports
  */
 
-import { goGet, goPost } from "@/lib/api-client";
+import { goGet } from "@/lib/api-client";
 
-// TODO: Implement specific endpoints as needed.
-// For now, functions export stubs that call the Go API.
-
-export async function getStudentFinalReport(...args: any[]) {
-  // TODO: Wire to Golang API endpoint
-  console.warn("getStudentFinalReport: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function getStudentFinalReport(studentId: string) {
+  return await goGet(`/api/savings/reports/final?studentId=${studentId}`);
 }
 
-export async function getStudentStatement(...args: any[]) {
-  // TODO: Wire to Golang API endpoint
-  console.warn("getStudentStatement: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function getStudentStatement(studentId: string, startDate?: string, endDate?: string) {
+  const params = new URLSearchParams({ studentId });
+  if (startDate) params.append("startDate", startDate);
+  if (endDate) params.append("endDate", endDate);
+  
+  return await goGet(`/api/savings/reports/statement?${params.toString()}`);
 }
 
-export async function verifyStatementHash(...args: any[]) {
-  // TODO: Wire to Golang API endpoint
-  console.warn("verifyStatementHash: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function verifyStatementHash(hash: string) {
+  return await goGet(`/api/savings/reports/verify?hash=${hash}`);
 }

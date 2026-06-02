@@ -33,6 +33,7 @@ import { showSuccess, showError } from "@/lib/toast";
 interface ClassData {
     id: string;
     nama: string;
+    waliKelas?: string;
     waliKelasUser?: {
         id: string;
         name: string;
@@ -79,7 +80,7 @@ export function ClassRepManager({ classes, employees }: ClassRepManagerProps) {
                                         <TableCell>
                                             <ClassRepSelector 
                                                 classId={cls.id} 
-                                                currentRepId={cls.waliKelasUser?.id} 
+                                                currentRepId={cls.waliKelas || cls.waliKelasUser?.id} 
                                                 employees={employees} 
                                             />
                                         </TableCell>

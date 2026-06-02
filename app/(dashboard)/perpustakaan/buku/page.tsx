@@ -53,7 +53,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 // Server imports removed
 import { showError, showSuccess } from "@/lib/toast";
-import { goGet, goPost, goPut, goDelete } from "@/lib/api-client";
+import { 
+    getBooks, 
+    createBook, 
+    updateBook, 
+    deleteBook, 
+    swapAssetQR 
+} from "@/lib/library";
 import type { LibraryItem, ItemCategory } from "@/types/library";
 
 const CATEGORIES: { value: ItemCategory; label: string }[] = [
@@ -93,17 +99,14 @@ export default function BukuPage() {
     const loadItems = useCallback(async () => {
         setLoading(true);
         try {
-            const params = new URLSearchParams({
-                page: page.toString(),
-                perPage: "20",
+            const result = await getBooks({
+                page,
+                perPage: 20,
+                search: searchQuery,
+                category: categoryFilter
             });
-            
-            if (searchQuery) params.append("search", searchQuery);
-            if (categoryFilter !== "all") params.append("category", categoryFilter);
-
-            const result: any = await goGet(`/api/library/books?${params}`);
-            setItems(result.items);
-            setTotalPages(result.totalPages);
+            setItems(result.items || []);
+            setTotalPages(result.totalPages || 1);
         } catch (error) {
             console.error("Failed to load items:", error);
             showError("Gagal memuat data buku");
@@ -124,11 +127,10 @@ export default function BukuPage() {
                 year: formData.year ? parseInt(formData.year) : undefined,
             };
 
-            let res;
             if (editingItem) {
-                await goPut(`/api/library/books/${editingItem.id}`, data);
+                await updateBook(editingItem.id, data);
             } else {
-                await goPost("/api/library/books", data);
+                await createBook(data);
             }
 
             showSuccess(editingItem ? "Buku berhasil diperbarui" : "Buku berhasil ditambahkan");
@@ -145,8 +147,7 @@ export default function BukuPage() {
     const handleDelete = async (id: string) => {
         if (confirm("Yakin ingin menghapus buku ini?")) {
             try {
-                await goDelete(`/api/library/books/${id}`);
-                
+                await deleteBook(id);
                 showSuccess("Buku berhasil dihapus");
                 loadItems();
             } catch (error) {
@@ -188,21 +189,14 @@ export default function BukuPage() {
         if (!swappingItem || !newQrCode) return;
         setLoading(true);
         try {
-            const result: any = await goPost("/api/library/assets/swap", {
-                oldQr: swappingItem.id,
-                newQr: newQrCode
-            });
-            if (result.success) {
-                showSuccess("QR Code berhasil diganti");
-                setIsSwapDialogOpen(false);
-                setSwappingItem(null);
-                setNewQrCode("");
-                loadItems();
-            } else {
-                showError(result.error || "Gagal mengganti QR Code");
-            }
+            await swapAssetQR(swappingItem.id, newQrCode);
+            showSuccess("QR Code berhasil diganti");
+            setIsSwapDialogOpen(false);
+            setSwappingItem(null);
+            setNewQrCode("");
+            loadItems();
         } catch (error) {
-            showError("Terjadi kesalahan sistem");
+            showError(error instanceof Error ? error.message : "Gagal mengganti QR Code");
         } finally {
             setLoading(false);
         }

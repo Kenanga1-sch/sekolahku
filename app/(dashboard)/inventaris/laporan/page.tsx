@@ -39,6 +39,7 @@ import {
     ResponsiveContainer,
 } from "recharts";
 import { formatCurrency } from "@/lib/utils";
+import { goGet } from "@/lib/api-client";
 
 export default function LaporanPage() {
     const [stats, setStats] = useState<InventoryStats | null>(null);
@@ -48,18 +49,12 @@ export default function LaporanPage() {
     async function loadStats() {
         setLoading(true);
         try {
-            const res = await fetch("/api/inventory/assets/reports"); // Migrated API
-            if (res.ok) {
-                const data = await res.json();
-                setStats(data);
-            }
+            const res: any = await goGet("/api/inventory/stats");
+            setStats(res.data || res);
             
             // Fetch ATK Items for Report
-            const resAtk = await fetch("/api/inventory/items?limit=1000"); // Fetch all for report
-            if (resAtk.ok) {
-                const data = await resAtk.json();
-                setAtkItems(data.data);
-            }
+            const resAtk: any = await goGet("/api/inventory/items?limit=1000");
+            setAtkItems(resAtk.items || resAtk.data || []);
 
         } catch (error) {
             console.error("Failed to load inventory stats:", error);

@@ -94,9 +94,9 @@ export default function TabunganLaporanPage() {
                 if (transRes.error) throw new Error(transRes.error);
                 if (kelasRes.error) throw new Error(kelasRes.error);
 
-                setStats(statsData as any);
-                setTransactions((transRes as any).items || []);
-                setKelasList(Array.isArray(kelasRes) ? (kelasRes as any) : []);
+                setStats(((statsData as any).data || statsData) as any);
+                setTransactions((transRes as any).items || (transRes as any).data || []);
+                setKelasList(Array.isArray(kelasRes) ? (kelasRes as any) : (kelasRes as any).items || (kelasRes as any).data || []);
             } catch (error) {
                 console.error("Failed to fetch report data:", error);
                 showError("Gagal memuat data laporan");

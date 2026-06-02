@@ -4,12 +4,14 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -25,18 +27,287 @@ func NewSPMBHandler(repo *repository.SPMBRepository) *SPMBHandler {
 	return &SPMBHandler{Repo: repo}
 }
 
+func rawString(raw map[string]interface{}, keys ...string) string {
+	for _, key := range keys {
+		if value, ok := raw[key]; ok {
+			switch v := value.(type) {
+			case string:
+				return v
+			case float64:
+				return strconv.FormatFloat(v, 'f', -1, 64)
+			case bool:
+				if v {
+					return "true"
+				}
+				return "false"
+			}
+		}
+	}
+	return ""
+}
+
+func rawFloat(raw map[string]interface{}, keys ...string) float64 {
+	for _, key := range keys {
+		if value, ok := raw[key]; ok {
+			switch v := value.(type) {
+			case float64:
+				return v
+			case string:
+				parsed, _ := strconv.ParseFloat(v, 64)
+				return parsed
+			}
+		}
+	}
+	return 0
+}
+
+func rawInt(raw map[string]interface{}, keys ...string) int {
+	for _, key := range keys {
+		if value, ok := raw[key]; ok {
+			switch v := value.(type) {
+			case float64:
+				return int(v)
+			case string:
+				parsed, _ := strconv.Atoi(v)
+				return parsed
+			}
+		}
+	}
+	return 0
+}
+
+func rawBool(raw map[string]interface{}, keys ...string) bool {
+	for _, key := range keys {
+		if value, ok := raw[key]; ok {
+			switch v := value.(type) {
+			case bool:
+				return v
+			case float64:
+				return v != 0
+			case string:
+				parsed, _ := strconv.ParseBool(v)
+				return parsed
+			}
+		}
+	}
+	return false
+}
+
+func normalizeSPMBRegistrantPayload(reg *models.SPMBRegistrant, raw map[string]interface{}) {
+	if reg.FullName == "" {
+		reg.FullName = rawString(raw, "full_name", "student_name", "name")
+	}
+	if reg.StudentNIK == "" {
+		reg.StudentNIK = rawString(raw, "student_nik", "nik")
+	}
+	if reg.KKNumber == "" {
+		reg.KKNumber = rawString(raw, "kk_number")
+	}
+	if reg.BirthCertificateNo == "" {
+		reg.BirthCertificateNo = rawString(raw, "birth_certificate_no")
+	}
+	if reg.BirthPlace == "" {
+		reg.BirthPlace = rawString(raw, "birth_place")
+	}
+	if reg.BirthDate == "" {
+		reg.BirthDate = rawString(raw, "birth_date")
+	}
+	if reg.SpecialNeeds == "" {
+		reg.SpecialNeeds = rawString(raw, "special_needs")
+	}
+	if reg.LivingArrangement == "" {
+		reg.LivingArrangement = rawString(raw, "living_arrangement")
+	}
+	if reg.TransportMode == "" {
+		reg.TransportMode = rawString(raw, "transport_mode")
+	}
+	if reg.ChildOrder == 0 {
+		reg.ChildOrder = rawInt(raw, "child_order")
+	}
+	if !reg.HasKPS {
+		reg.HasKPS = rawBool(raw, "has_kps_pkh", "hasKpsPkh")
+	}
+	if !reg.HasKIP {
+		reg.HasKIP = rawBool(raw, "has_kip", "hasKip")
+	}
+	if reg.PreviousSchool == "" {
+		reg.PreviousSchool = rawString(raw, "previous_school")
+	}
+	if reg.HeadCircumference == 0 {
+		reg.HeadCircumference = rawInt(raw, "head_circumference")
+	}
+	if reg.SiblingCount == 0 {
+		reg.SiblingCount = rawInt(raw, "sibling_count")
+	}
+	if reg.TravelTime == "" {
+		reg.TravelTime = rawString(raw, "travel_time")
+	}
+	if reg.AddressStreet == "" {
+		reg.AddressStreet = rawString(raw, "address_street")
+	}
+	if reg.AddressRT == "" {
+		reg.AddressRT = rawString(raw, "address_rt")
+	}
+	if reg.AddressRW == "" {
+		reg.AddressRW = rawString(raw, "address_rw")
+	}
+	if reg.AddressVillage == "" {
+		reg.AddressVillage = rawString(raw, "address_village")
+	}
+	if reg.PostalCode == "" {
+		reg.PostalCode = rawString(raw, "postal_code")
+	}
+	if reg.HomeAddress == "" {
+		reg.HomeAddress = rawString(raw, "home_address", "address")
+	}
+	if reg.HomeAddress == "" {
+		parts := []string{}
+		for _, part := range []string{reg.AddressStreet, reg.AddressRT, reg.AddressRW, reg.AddressVillage, reg.PostalCode} {
+			if part != "" {
+				parts = append(parts, part)
+			}
+		}
+		reg.HomeAddress = strings.Join(parts, ", ")
+	}
+	if reg.HomeLat == 0 {
+		reg.HomeLat = rawFloat(raw, "home_lat")
+	}
+	if reg.HomeLng == 0 {
+		reg.HomeLng = rawFloat(raw, "home_lng")
+	}
+	if reg.DistanceKM == 0 {
+		reg.DistanceKM = rawFloat(raw, "distance_to_school", "distance_km")
+	}
+	if reg.ParentPhone == "" {
+		reg.ParentPhone = rawString(raw, "parent_phone")
+	}
+	if reg.ParentEmail == "" {
+		reg.ParentEmail = rawString(raw, "parent_email")
+	}
+	if reg.FatherName == "" {
+		reg.FatherName = rawString(raw, "father_name")
+	}
+	if reg.FatherNIK == "" {
+		reg.FatherNIK = rawString(raw, "father_nik")
+	}
+	if reg.FatherBirth == "" {
+		reg.FatherBirth = rawString(raw, "father_birth_year")
+	}
+	if reg.FatherEdu == "" {
+		reg.FatherEdu = rawString(raw, "father_education")
+	}
+	if reg.FatherJob == "" {
+		reg.FatherJob = rawString(raw, "father_job")
+	}
+	if reg.FatherIncome == "" {
+		reg.FatherIncome = rawString(raw, "father_income")
+	}
+	if reg.MotherName == "" {
+		reg.MotherName = rawString(raw, "mother_name")
+	}
+	if reg.MotherNIK == "" {
+		reg.MotherNIK = rawString(raw, "mother_nik")
+	}
+	if reg.MotherBirth == "" {
+		reg.MotherBirth = rawString(raw, "mother_birth_year")
+	}
+	if reg.MotherEdu == "" {
+		reg.MotherEdu = rawString(raw, "mother_education")
+	}
+	if reg.MotherJob == "" {
+		reg.MotherJob = rawString(raw, "mother_job")
+	}
+	if reg.MotherIncome == "" {
+		reg.MotherIncome = rawString(raw, "mother_income")
+	}
+	if reg.GuardianName == "" {
+		reg.GuardianName = rawString(raw, "guardian_name")
+	}
+	if reg.GuardianNIK == "" {
+		reg.GuardianNIK = rawString(raw, "guardian_nik")
+	}
+	if reg.GuardianBirth == "" {
+		reg.GuardianBirth = rawString(raw, "guardian_birth_year")
+	}
+	if reg.GuardianEdu == "" {
+		reg.GuardianEdu = rawString(raw, "guardian_education")
+	}
+	if reg.GuardianJob == "" {
+		reg.GuardianJob = rawString(raw, "guardian_job")
+	}
+	if reg.GuardianIncome == "" {
+		reg.GuardianIncome = rawString(raw, "guardian_income")
+	}
+}
+
 func (h *SPMBHandler) Register(c echo.Context) error {
 	var m models.SPMBRegistrant
-	if err := c.Bind(&m); err != nil {
+	body, err := io.ReadAll(c.Request().Body)
+	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{
 			"success": false,
 			"error":   "Format data pendaftaran tidak valid",
 		})
 	}
+	if err := json.Unmarshal(body, &m); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   "Format data pendaftaran tidak valid",
+		})
+	}
+	var raw map[string]interface{}
+	if err := json.Unmarshal(body, &raw); err == nil {
+		normalizeSPMBRegistrantPayload(&m, raw)
+	}
+
+	settings, err := h.Repo.GetSchoolSettings()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal membaca pengaturan SPMB"})
+	}
+	if settings == nil || !settings.SPMBIsOpen {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Pendaftaran SPMB sedang ditutup"})
+	}
+
+	period, err := h.Repo.GetActivePeriod()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal membaca periode SPMB"})
+	}
+	if period == nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Belum ada periode SPMB aktif"})
+	}
+	now := time.Now()
+	if period.StartDate == nil || period.EndDate == nil || now.Before(*period.StartDate) || now.After(*period.EndDate) {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Periode SPMB belum dibuka atau sudah ditutup"})
+	}
+	if period.Quota > 0 {
+		count, err := h.Repo.GetPeriodRegistrantCount(period.ID)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal memeriksa kuota SPMB"})
+		}
+		if count >= period.Quota {
+			return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Kuota periode SPMB sudah terpenuhi"})
+		}
+	}
+	m.PeriodID = period.ID
 
 	// Create registrant
 	id, regNum, err := h.Repo.CreateRegistrant(m)
 	if err != nil {
+		var duplicate *repository.DuplicateSPMBRegistrantError
+		if errors.As(err, &duplicate) {
+			return c.JSON(http.StatusConflict, map[string]interface{}{
+				"success": false,
+				"error": map[string]interface{}{
+					"code":                "duplicate_student_nik",
+					"message":             "NIK calon siswa ini sudah pernah terdaftar. Silakan cek status pendaftaran atau hubungi panitia jika membutuhkan bantuan.",
+					"registration_number": duplicate.RegistrationNumber,
+				},
+				"data": map[string]interface{}{
+					"id":                  duplicate.ID,
+					"registration_number": duplicate.RegistrationNumber,
+				},
+			})
+		}
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
 			"success": false,
 			"error":   "Gagal menyimpan data pendaftaran: " + err.Error(),
@@ -257,16 +528,15 @@ func (h *SPMBHandler) GetLandingData(c echo.Context) error {
 	}
 
 	isOpen := false
-	if settings != nil {
+	if settings != nil && settings.SPMBIsOpen && period != nil {
 		isOpen = settings.SPMBIsOpen
-	}
-	// Also check period dates if settings allow automated opening
-	if period != nil && !isOpen {
 		now := time.Now()
 		if period.StartDate != nil && period.EndDate != nil {
-			if now.After(*period.StartDate) && now.Before(*period.EndDate) {
-				isOpen = true
+			if now.Before(*period.StartDate) || now.After(*period.EndDate) {
+				isOpen = false
 			}
+		} else {
+			isOpen = false
 		}
 	}
 
@@ -309,25 +579,29 @@ func (h *SPMBHandler) GetRegistrant(c echo.Context) error {
 }
 
 func (h *SPMBHandler) GetPublicRegistrants(c echo.Context) error {
-	count, err := h.Repo.GetPublicRegistrants()
+	registrants, err := h.Repo.GetPublicRegistrants()
 	if err != nil {
 		c.Logger().Error("Failed to fetch public registrants:", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
-		"data":    count,
+		"data":    registrants,
 	})
 }
 
 func (h *SPMBHandler) GetRegistrantsAdmin(c echo.Context) error {
 	page, _ := strconv.Atoi(c.QueryParam("page"))
-	if page < 1 { page = 1 }
+	if page < 1 {
+		page = 1
+	}
 	perPage, _ := strconv.Atoi(c.QueryParam("perPage"))
-	if perPage < 1 { perPage = 10 }
-	
+	if perPage < 1 {
+		perPage = 10
+	}
+
 	if c.QueryParam("perPage") == "-1" {
-		perPage = 10000 
+		perPage = 10000
 	}
 
 	status := c.QueryParam("status")
@@ -339,6 +613,9 @@ func (h *SPMBHandler) GetRegistrantsAdmin(c echo.Context) error {
 	}
 
 	totalPages := (total + perPage - 1) / perPage
+	if totalPages < 1 {
+		totalPages = 1
+	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success":    true,
@@ -362,13 +639,15 @@ func (h *SPMBHandler) GetStats(c echo.Context) error {
 func (h *SPMBHandler) UpdateStatus(c echo.Context) error {
 	id := c.Param("id")
 	var req struct {
-		Status string `json:"status"`
+		Status string  `json:"status"`
+		Notes  *string `json:"notes"`
 	}
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
 	}
 
-	if err := h.Repo.UpdateRegistrantStatus(id, req.Status); err != nil {
+	verifiedBy, _ := c.Get("user_id").(string)
+	if err := h.Repo.UpdateRegistrantStatus(id, req.Status, req.Notes, verifiedBy); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
 	}
 

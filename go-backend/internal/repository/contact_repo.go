@@ -53,15 +53,30 @@ func (r *ContactRepository) GetMessages(page, perPage int) ([]models.ContactMess
 		m.CreatedAt = time.UnixMilli(ca)
 		list = append(list, m)
 	}
+	if list == nil {
+		list = []models.ContactMessage{}
+	}
 	return list, total, nil
 }
 
 func (r *ContactRepository) MarkAsRead(id string) error {
-	_, err := r.DB.Exec(`UPDATE contact_messages SET is_read = 1 WHERE id = ?`, id)
+	res, err := r.DB.Exec(`UPDATE contact_messages SET is_read = 1 WHERE id = ?`, id)
+	if err != nil {
+		return err
+	}
+	if affected, _ := res.RowsAffected(); affected == 0 {
+		return sql.ErrNoRows
+	}
 	return err
 }
 
 func (r *ContactRepository) DeleteMessage(id string) error {
-	_, err := r.DB.Exec(`DELETE FROM contact_messages WHERE id = ?`, id)
-	return err
+	res, err := r.DB.Exec(`DELETE FROM contact_messages WHERE id = ?`, id)
+	if err != nil {
+		return err
+	}
+	if affected, _ := res.RowsAffected(); affected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }

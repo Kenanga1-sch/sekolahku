@@ -8,9 +8,9 @@ export default function FinancePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-medium">Arus Kas & Mutasi</h3>
+        <h3 className="text-lg font-medium">Bendahara BOS</h3>
         <p className="text-sm text-muted-foreground">
-          Sistem pencatatan keuangan tersentralisasi (Cash Basis).
+          Pencatatan dana BOS berbasis kas, mutasi bank, dan Buku Kas Umum.
         </p>
       </div>
       <Separator />

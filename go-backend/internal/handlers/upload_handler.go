@@ -35,6 +35,21 @@ func generateSafeFilename(ext string) string {
 	return fmt.Sprintf("%d-%s.%s", time.Now().UnixMilli(), hex.EncodeToString(b), ext)
 }
 
+func resolveSharedPublicUploadsDir() string {
+	candidates := []string{
+		filepath.Join("..", "public", "uploads"),
+		filepath.Join("public", "uploads"),
+	}
+
+	for _, candidate := range candidates {
+		if info, err := os.Stat(filepath.Dir(candidate)); err == nil && info.IsDir() {
+			return candidate
+		}
+	}
+
+	return filepath.Join("public", "uploads")
+}
+
 // GeneralUpload handles POST /api/upload
 func (h *UploadHandler) GeneralUpload(c echo.Context) error {
 	// Auth check via JWT (middleware will handle this)
@@ -83,7 +98,7 @@ func (h *UploadHandler) GeneralUpload(c echo.Context) error {
 	}
 
 	// Create destination
-	uploadDir := filepath.Join("public", "uploads", folder)
+	uploadDir := filepath.Join(resolveSharedPublicUploadsDir(), folder)
 	if err := os.MkdirAll(uploadDir, 0755); err != nil {
 		c.Logger().Error("Failed to create upload directory:", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Cannot create upload directory"})

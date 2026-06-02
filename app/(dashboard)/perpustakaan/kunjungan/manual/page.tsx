@@ -10,7 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, UserCheck, Users, User, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import AsyncSelect from "react-select/async";
-import { goGet, goPost } from "@/lib/api-client";
+import { goGet } from "@/lib/api-client";
+import { recordVisit, getLibraryMembers } from "@/lib/library";
 
 export default function ManualVisitPage() {
     const router = useRouter();
@@ -28,7 +29,7 @@ export default function ManualVisitPage() {
     const loadOptions = async (inputValue: string) => {
         if (!inputValue) return [];
         try {
-            const data: any = await goGet(`/api/library/members?search=${inputValue}`);
+            const data = await getLibraryMembers({ search: inputValue });
             return data.items.map((m: any) => ({
                 value: m.id,
                 label: `${m.name} (${m.className || "Umum"}) - ${m.qrCode}`,
@@ -63,9 +64,9 @@ export default function ManualVisitPage() {
                 payload.purpose = purpose;
             }
 
-            const result: any = await goPost("/api/library/visits/manual", payload);
+            const result: any = await recordVisit(payload);
 
-            if (result.success || !result.error) {
+            if (result.success) {
                 toast.success("Kunjungan berhasil dicatat!");
                 // Reset Forms
                 setSelectedMember(null);

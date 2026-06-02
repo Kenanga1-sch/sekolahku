@@ -50,6 +50,14 @@ export default function SchoolProfilePage() {
     is_maintenance: false,
     last_letter_number: 0,
     letter_number_format: "421/{nomor}/SDN1-KNG/{bulan}/{tahun}",
+    savings_treasurer_id: "",
+    school_vision: "",
+    school_mission: "",
+    school_indicators: "",
+    school_history_timeline: "",
+    school_history_achievements: "",
+    school_curriculum: "",
+    school_extracurriculars: "",
   });
 
   useEffect(() => {
@@ -58,7 +66,8 @@ export default function SchoolProfilePage() {
 
   const fetchSettings = async () => {
     try {
-      const record: any = await goGet("/api/school-settings");
+      const response: any = await goGet("/api/school-settings");
+      const record = response?.data ?? response;
       
       if (record && record.id) {
         setSettingsId(record.id);
@@ -69,9 +78,9 @@ export default function SchoolProfilePage() {
           school_phone: record.school_phone || "",
           school_email: record.school_email || "",
           school_website: record.school_website || "",
-          school_lat: record.school_lat || -6.2,
-          school_lng: record.school_lng || 106.816666,
-          max_distance_km: record.max_distance_km || 3,
+          school_lat: record.school_lat ?? -6.2,
+          school_lng: record.school_lng ?? 106.816666,
+          max_distance_km: record.max_distance_km ?? 3,
           spmb_is_open: record.spmb_is_open ?? true,
           current_academic_year: record.current_academic_year || "2025/2026",
           principal_name: record.principal_name || "",
@@ -79,6 +88,14 @@ export default function SchoolProfilePage() {
           is_maintenance: record.is_maintenance ?? false,
           last_letter_number: record.last_letter_number || 0,
           letter_number_format: record.letter_number_format || "421/{nomor}/SDN1-KNG/{bulan}/{tahun}",
+          savings_treasurer_id: record.savings_treasurer_id || "",
+          school_vision: record.school_vision || "",
+          school_mission: record.school_mission || "",
+          school_indicators: record.school_indicators || "",
+          school_history_timeline: record.school_history_timeline || "",
+          school_history_achievements: record.school_history_achievements || "",
+          school_curriculum: record.school_curriculum || "",
+          school_extracurriculars: record.school_extracurriculars || "",
         });
       }
     } catch (err) {
@@ -93,8 +110,9 @@ export default function SchoolProfilePage() {
     setError(null);
 
     try {
-      const result: any = await goPost("/api/school-settings", { id: settingsId, ...settings });
-      if (result.id) setSettingsId(result.id);
+      const response: any = await goPost("/api/school-settings", { id: settingsId, ...settings });
+      const result = response?.data ?? response;
+      if (result?.id) setSettingsId(result.id);
       
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -413,8 +431,8 @@ export default function SchoolProfilePage() {
                         <Label className="text-base">Status Sistem</Label>
                         <p className="text-sm text-muted-foreground">
                             {settings.is_maintenance 
-                                ? "⛔ SISTEM TERKUNCI (Hanya Admin bisa akses)" 
-                                : "✅ SISTEM ONLINE (Publik bisa akses)"}
+                                ? "SISTEM TERKUNCI (Hanya Admin bisa akses)" 
+                                : "SISTEM ONLINE (Publik bisa akses)"}
                         </p>
                     </div>
                     <Switch

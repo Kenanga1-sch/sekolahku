@@ -6,6 +6,7 @@ import { AlertTriangle, CheckCircle2, FileText, UserMinus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { goGet } from "@/lib/api-client";
 
 interface HealthStats {
   totalStudents: number;
@@ -25,10 +26,8 @@ export function DataHealthWidget() {
 
   const fetchHealth = async () => {
     try {
-      const res = await fetch("/api/master/students/health"); // We need to create this endpoint
-      if (res.ok) {
-        setStats(await res.json());
-      }
+      const response: any = await goGet("/api/master/students/health");
+      setStats(response?.data ?? response);
     } catch (error) {
       console.error(error);
     } finally {

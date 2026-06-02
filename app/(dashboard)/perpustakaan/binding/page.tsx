@@ -70,7 +70,7 @@ export default function LibraryBindingPage() {
         setLoading(true);
         setLookupStatus('loading');
         try {
-            const response: any = await goGet(`/api/library/isbn/${isbnToLookup}`);
+            const response: any = await goGet(`/api/library/isbn/${encodeURIComponent(isbnToLookup)}`);
             if (!response.error) {
                 const data = response.data; // Unpack the actual book data
                 
@@ -95,7 +95,8 @@ export default function LibraryBindingPage() {
                 if (data.localFound) {
                     toast.success(`Data ditemukan di koleksi lokal! (${data.totalExemplars} exemplar sudah ada)`);
                 } else {
-                    toast.success("Data buku ditemukan secara online!");
+                    const sourceText = Array.isArray(data.sources) && data.sources.length > 0 ? ` (${data.sources.join(", ")})` : "";
+                    toast.success(`Data buku ditemukan secara online!${sourceText}`);
                 }
                 // Automatically hide scanner to show results
                 setShowISBNScanner(false);

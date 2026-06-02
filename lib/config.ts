@@ -1,18 +1,17 @@
 // ==========================================
-// Site Configuration
-// ==========================================
-// All configurable values in one place
+ // Site Configuration - Env Driven
+ // ==========================================
 
 export const siteConfig = {
-    // School Information
+    // School Information from ENV
     school: {
-        name: "UPTD SDN 1 Kenanga",
-        shortName: "SDN 1 Kenanga",
-        npsn: "20211091",
-        address: "Jl. Pendidikan No. 1, Kenanga, Sungai Penuh, Jambi",
-        phone: "(0748) 123456",
-        email: "sdn1kenanga@gmail.com",
-        website: "https://sdn1kenanga.sch.id",
+        name: process.env.NEXT_PUBLIC_SCHOOL_NAME || "UPTD SDN 1 Kenanga",
+        shortName: process.env.NEXT_PUBLIC_SCHOOL_SHORT || "SDN 1 Kenanga",
+        npsn: process.env.NEXT_PUBLIC_SCHOOL_NPSN || "20211091",
+        address: process.env.NEXT_PUBLIC_SCHOOL_ADDRESS || "Jl. Pendidikan No. 1, Kenanga, Sungai Penuh, Jambi",
+        phone: process.env.NEXT_PUBLIC_SCHOOL_PHONE || "(0748) 123456",
+        email: process.env.NEXT_PUBLIC_SCHOOL_EMAIL || "sdn1kenanga@gmail.com",
+        website: process.env.NEXT_PUBLIC_SCHOOL_WEBSITE || "https://sdn1kenanga.sch.id",
     },
     
     // Location (for SPMB zonasi)
@@ -22,61 +21,58 @@ export const siteConfig = {
         maxDistanceKm: 3,
     },
     
-    // Current Academic Year
+    // Current Academic Year from ENV
     academicYear: {
-        current: "2025/2026",
+        current: process.env.CURRENT_ACADEMIC_YEAR || "2025/2026",
         startYear: 2025,
         endYear: 2026,
     },
     
     // SPMB Settings
     spmb: {
-        period: "SPMB 2025/2026",
-        registrationFormat: "SPMB-YYYY-XXXX",
+        period: `SPMB ${process.env.CURRENT_ACADEMIC_YEAR || "2025/2026"}`,
+        registrationFormat: process.env.SPMB_REGISTRATION_FORMAT || "SPMB-YYYY-XXXX",
         exampleNumber: "SPMB-2026-0001",
     },
     
     // Site Metadata
     metadata: {
-        title: "UPTD SDN 1 Kenanga - Website Sekolah Terpadu",
-        titleTemplate: "%s | SDN 1 Kenanga",
-        description: "Portal utama UPTD SDN 1 Kenanga untuk informasi sekolah, pendaftaran siswa baru (SPMB) dengan sistem zonasi, dan layanan digital terintegrasi.",
-        keywords: ["SDN 1 Kenanga", "SPMB", "pendaftaran", "sekolah dasar", "Sungai Penuh", "Jambi"],
+        title: `${process.env.NEXT_PUBLIC_SCHOOL_SHORT || "Sekolahku"} - Website Sekolah Terpadu`,
+        titleTemplate: "%s | Website Sekolah Terpadu",
+        description: "Portal utama sekolah untuk informasi, SPMB zonasi, perpustakaan, tabungan, inventaris.",
+        keywords: ["sekolah", "SPMB", "perpustakaan", "tabungan", "inventaris"],
     },
     
-    // Social Links
+    // Social Links (env expandable)
     social: {
-        facebook: "",
-        instagram: "",
-        youtube: "",
+        facebook: process.env.NEXT_PUBLIC_SOCIAL_FACEBOOK || "",
+        instagram: process.env.NEXT_PUBLIC_SOCIAL_INSTAGRAM || "",
+        youtube: process.env.NEXT_PUBLIC_SOCIAL_YOUTUBE || "",
     },
     
-    // Feature Flags
+    // Feature Flags (env toggle)
     features: {
-        spmbEnabled: true,
-        libraryEnabled: true,
-        savingsEnabled: true,
-        inventoryEnabled: true,
+        spmbEnabled: process.env.NEXT_PUBLIC_FEATURE_SPMB === "false" ? false : true,
+        libraryEnabled: process.env.NEXT_PUBLIC_FEATURE_LIBRARY === "false" ? false : true,
+        savingsEnabled: process.env.NEXT_PUBLIC_FEATURE_SAVINGS === "false" ? false : true,
+        inventoryEnabled: process.env.NEXT_PUBLIC_FEATURE_INVENTORY === "false" ? false : true,
         announcementsEnabled: true,
     },
 } as const;
 
-// Helper to get current academic year dynamically
+// Dynamic helpers
 export function getCurrentAcademicYear(): string {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth() + 1; // 0-indexed
-    
-    // Academic year starts in July
-    if (month >= 7) {
-        return `${year}/${year + 1}`;
-    }
-    return `${year - 1}/${year}`;
+    return process.env.CURRENT_ACADEMIC_YEAR || (() => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1;
+        return month >= 7 ? `${year}/${year + 1}` : `${year - 1}/${year}`;
+    })();
 }
 
-// Helper to get SPMB period label
 export function getSPMBPeriodLabel(): string {
     return `SPMB ${getCurrentAcademicYear()}`;
 }
 
 export default siteConfig;
+

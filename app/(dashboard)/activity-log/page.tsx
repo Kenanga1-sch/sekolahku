@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import type { ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,7 +38,6 @@ import type { AuditAction, AuditResource } from "@/lib/audit";
 import { goGet } from "@/lib/api-client";
 import { formatDate } from "@/lib/utils";
 
-
 interface AuditLogEntry {
     id?: string;
     action: AuditAction;
@@ -46,68 +46,167 @@ interface AuditLogEntry {
     user_id?: string;
     user_email?: string;
     user_name?: string;
-    details?: Record<string, unknown>;
+    details?: string | Record<string, unknown>;
     ip_address?: string;
     user_agent?: string;
-    created?: Date | null;
+    created?: Date | string | null;
 }
 
+const actionValues: AuditAction[] = [
+    "CREATE",
+    "UPDATE",
+    "DELETE",
+    "LOGIN",
+    "LOGOUT",
+    "APPROVE",
+    "REJECT",
+    "RESTORE",
+    "EXPORT",
+    "UPLOAD",
+];
 
-const actionIcons: Record<AuditAction, React.ReactNode> = {
-    create: <Plus className="h-4 w-4" />,
-    update: <Edit className="h-4 w-4" />,
-    delete: <Trash2 className="h-4 w-4" />,
-    status_change: <CheckSquare className="h-4 w-4" />,
-    login: <LogIn className="h-4 w-4" />,
-    logout: <LogOut className="h-4 w-4" />,
-    export: <Download className="h-4 w-4" />,
-    view: <Eye className="h-4 w-4" />,
-    bulk_action: <CheckSquare className="h-4 w-4" />,
+const resourceValues: AuditResource[] = [
+    "USER",
+    "STUDENT",
+    "INVENTORY",
+    "SURAT_MASUK",
+    "SURAT_KELUAR",
+    "SYSTEM",
+    "CONFIG",
+    "FINANCE",
+    "TABUNGAN",
+    "SPMB",
+];
+
+const actionIcons: Record<AuditAction, ReactNode> = {
+    CREATE: <Plus className="h-4 w-4" />,
+    UPDATE: <Edit className="h-4 w-4" />,
+    DELETE: <Trash2 className="h-4 w-4" />,
+    LOGIN: <LogIn className="h-4 w-4" />,
+    LOGOUT: <LogOut className="h-4 w-4" />,
+    APPROVE: <CheckSquare className="h-4 w-4" />,
+    REJECT: <Trash2 className="h-4 w-4" />,
+    RESTORE: <RefreshCw className="h-4 w-4" />,
+    EXPORT: <Download className="h-4 w-4" />,
+    UPLOAD: <Eye className="h-4 w-4" />,
 };
 
 const actionColors: Record<AuditAction, string> = {
-    create: "bg-green-100 text-green-700",
-    update: "bg-blue-100 text-blue-700",
-    delete: "bg-red-100 text-red-700",
-    status_change: "bg-purple-100 text-purple-700",
-    login: "bg-emerald-100 text-emerald-700",
-    logout: "bg-gray-100 text-gray-700",
-    export: "bg-amber-100 text-amber-700",
-    view: "bg-sky-100 text-sky-700",
-    bulk_action: "bg-indigo-100 text-indigo-700",
+    CREATE: "bg-green-100 text-green-700",
+    UPDATE: "bg-blue-100 text-blue-700",
+    DELETE: "bg-red-100 text-red-700",
+    LOGIN: "bg-emerald-100 text-emerald-700",
+    LOGOUT: "bg-gray-100 text-gray-700",
+    APPROVE: "bg-purple-100 text-purple-700",
+    REJECT: "bg-red-100 text-red-700",
+    RESTORE: "bg-indigo-100 text-indigo-700",
+    EXPORT: "bg-amber-100 text-amber-700",
+    UPLOAD: "bg-sky-100 text-sky-700",
 };
 
 const actionLabels: Record<AuditAction, string> = {
-    create: "Buat",
-    update: "Update",
-    delete: "Hapus",
-    status_change: "Status",
-    login: "Login",
-    logout: "Logout",
-    export: "Export",
-    view: "Lihat",
-    bulk_action: "Bulk",
+    CREATE: "Buat",
+    UPDATE: "Update",
+    DELETE: "Hapus",
+    LOGIN: "Login",
+    LOGOUT: "Logout",
+    APPROVE: "Setujui",
+    REJECT: "Tolak",
+    RESTORE: "Pulihkan",
+    EXPORT: "Export",
+    UPLOAD: "Upload",
 };
 
 const resourceLabels: Record<AuditResource, string> = {
-    registrant: "Pendaftar",
-    user: "Pengguna",
-    announcement: "Pengumuman",
-    period: "Periode",
-    settings: "Pengaturan",
-    document: "Dokumen",
+    USER: "Pengguna",
+    STUDENT: "Siswa",
+    INVENTORY: "Inventaris",
+    SURAT_MASUK: "Surat Masuk",
+    SURAT_KELUAR: "Surat Keluar",
+    SYSTEM: "Sistem",
+    CONFIG: "Pengaturan",
+    FINANCE: "Keuangan",
+    TABUNGAN: "Tabungan",
+    SPMB: "SPMB",
 };
 
+function normalizeAction(action?: string): AuditAction {
+    const value = (action || "UPDATE").toUpperCase();
+    return actionValues.includes(value as AuditAction) ? (value as AuditAction) : "UPDATE";
+}
 
-function formatDetails(details: Record<string, unknown>): string {
+function normalizeResource(resource?: string): AuditResource {
+    const map: Record<string, AuditResource> = {
+        USER: "USER",
+        USERS: "USER",
+        PENGGUNA: "USER",
+        STUDENT: "STUDENT",
+        STUDENTS: "STUDENT",
+        SISWA: "STUDENT",
+        INVENTORY: "INVENTORY",
+        INVENTARIS: "INVENTORY",
+        SURAT_MASUK: "SURAT_MASUK",
+        SURAT_KELUAR: "SURAT_KELUAR",
+        SETTINGS: "CONFIG",
+        SETTING: "CONFIG",
+        CONFIG: "CONFIG",
+        SCHOOL_SETTINGS: "CONFIG",
+        PROFILE: "SYSTEM",
+        SECURITY: "SYSTEM",
+        SYSTEM: "SYSTEM",
+        FINANCE: "FINANCE",
+        KEUANGAN: "FINANCE",
+        TABUNGAN: "TABUNGAN",
+        SAVINGS: "TABUNGAN",
+        SPMB: "SPMB",
+    };
+    const value = (resource || "SYSTEM").toUpperCase();
+    return map[value] || "SYSTEM";
+}
+
+function normalizeLog(log: any): AuditLogEntry {
+    return {
+        id: log.id,
+        action: normalizeAction(log.action),
+        resource: normalizeResource(log.resource),
+        resource_id: log.resource_id || log.resourceId,
+        user_id: log.user_id || log.userId,
+        user_email: log.user_email || log.userEmail,
+        user_name: log.user_name || log.userName,
+        details: log.details,
+        ip_address: log.ip_address || log.ipAddress,
+        user_agent: log.user_agent || log.userAgent,
+        created: log.created || log.createdAt,
+    };
+}
+
+function formatDetails(details?: string | Record<string, unknown>): string {
+    if (!details) return "-";
+
+    if (typeof details === "string") {
+        const trimmed = details.trim();
+        if (!trimmed) return "-";
+
+        try {
+            const parsed = JSON.parse(trimmed);
+            if (parsed && typeof parsed === "object") {
+                return formatDetails(parsed as Record<string, unknown>);
+            }
+        } catch {
+            return trimmed;
+        }
+
+        return trimmed;
+    }
+
     const parts: string[] = [];
     if (details.registrant_name) parts.push(`"${details.registrant_name}"`);
     if (details.title) parts.push(`"${details.title}"`);
     if (details.email) parts.push(`${details.email}`);
-    if (details.old_status && details.new_status) parts.push(`${details.old_status} → ${details.new_status}`);
+    if (details.old_status && details.new_status) parts.push(`${details.old_status} -> ${details.new_status}`);
     if (details.count) parts.push(`${details.count} item`);
     if (details.export_type) parts.push(`${String(details.export_type).toUpperCase()}`);
-    return parts.join(" • ") || "-";
+    return parts.join(" - ") || "-";
 }
 
 export default function ActivityLogPage() {
@@ -123,16 +222,15 @@ export default function ActivityLogPage() {
         try {
             const queryParams = new URLSearchParams({
                 page: page.toString(),
-                perPage: "20",
+                limit: "20",
             });
-            
+
             if (filterAction !== "all") queryParams.append("action", filterAction);
             if (filterResource !== "all") queryParams.append("resource", filterResource);
 
             const result: any = await goGet(`/api/audit-logs?${queryParams.toString()}`);
-            setLogs(result.items);
-            setTotalPages(result.totalPages);
-
+            setLogs((result.items || []).map(normalizeLog));
+            setTotalPages(result.totalPages || 1);
         } catch {
             setLogs([]);
         } finally {
@@ -141,9 +239,14 @@ export default function ActivityLogPage() {
         }
     }, [page, filterAction, filterResource]);
 
-    useEffect(() => { fetchLogs(); }, [fetchLogs]);
+    useEffect(() => {
+        fetchLogs();
+    }, [fetchLogs]);
 
-    const handleRefresh = () => { setIsRefreshing(true); fetchLogs(); };
+    const handleRefresh = () => {
+        setIsRefreshing(true);
+        fetchLogs();
+    };
 
     return (
         <div className="space-y-6">
@@ -170,25 +273,28 @@ export default function ActivityLogPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="flex flex-wrap gap-4">
-                        <Select value={filterAction} onValueChange={setFilterAction}>
+                        <Select value={filterAction} onValueChange={(value) => { setFilterAction(value); setPage(1); }}>
                             <SelectTrigger className="w-48"><SelectValue placeholder="Semua Aksi" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Semua Aksi</SelectItem>
-                                <SelectItem value="create">Buat</SelectItem>
-                                <SelectItem value="update">Update</SelectItem>
-                                <SelectItem value="delete">Hapus</SelectItem>
-                                <SelectItem value="status_change">Ubah Status</SelectItem>
-                                <SelectItem value="login">Login</SelectItem>
-                                <SelectItem value="export">Export</SelectItem>
+                                <SelectItem value="CREATE">Buat</SelectItem>
+                                <SelectItem value="UPDATE">Update</SelectItem>
+                                <SelectItem value="DELETE">Hapus</SelectItem>
+                                <SelectItem value="APPROVE">Setujui</SelectItem>
+                                <SelectItem value="REJECT">Tolak</SelectItem>
+                                <SelectItem value="LOGIN">Login</SelectItem>
+                                <SelectItem value="EXPORT">Export</SelectItem>
                             </SelectContent>
                         </Select>
-                        <Select value={filterResource} onValueChange={setFilterResource}>
+                        <Select value={filterResource} onValueChange={(value) => { setFilterResource(value); setPage(1); }}>
                             <SelectTrigger className="w-48"><SelectValue placeholder="Semua Resource" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Semua Resource</SelectItem>
-                                <SelectItem value="registrant">Pendaftar</SelectItem>
-                                <SelectItem value="user">Pengguna</SelectItem>
-                                <SelectItem value="announcement">Pengumuman</SelectItem>
+                                {resourceValues.map((resource) => (
+                                    <SelectItem key={resource} value={resource}>
+                                        {resourceLabels[resource]}
+                                    </SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                     </div>
@@ -229,13 +335,13 @@ export default function ActivityLogPage() {
                                 <TableRow key={log.id}>
                                     <TableCell className="text-sm text-muted-foreground">{formatDate(log.created)}</TableCell>
                                     <TableCell>
-                                        <Badge className={`gap-1 ${actionColors[log.action]}`}>
-                                            {actionIcons[log.action]}
-                                            {actionLabels[log.action]}
+                                        <Badge className={`gap-1 ${actionColors[log.action] ?? "bg-gray-100 text-gray-700"}`}>
+                                            {actionIcons[log.action] ?? <Activity className="h-4 w-4" />}
+                                            {actionLabels[log.action] ?? log.action}
                                         </Badge>
                                     </TableCell>
-                                    <TableCell className="font-medium">{resourceLabels[log.resource]}</TableCell>
-                                    <TableCell className="text-sm">{log.details ? formatDetails(log.details) : "-"}</TableCell>
+                                    <TableCell className="font-medium">{resourceLabels[log.resource] ?? log.resource}</TableCell>
+                                    <TableCell className="text-sm">{formatDetails(log.details)}</TableCell>
                                     <TableCell className="text-sm text-muted-foreground">{log.user_name || log.user_email || "-"}</TableCell>
                                 </TableRow>
                             ))}
@@ -245,8 +351,8 @@ export default function ActivityLogPage() {
                         <div className="flex items-center justify-between p-4 border-t">
                             <p className="text-sm text-muted-foreground">Halaman {page} dari {totalPages}</p>
                             <div className="flex gap-2">
-                                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Sebelumnya</Button>
-                                <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Selanjutnya</Button>
+                                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Sebelumnya</Button>
+                                <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Selanjutnya</Button>
                             </div>
                         </div>
                     )}
@@ -255,4 +361,3 @@ export default function ActivityLogPage() {
         </div>
     );
 }
-

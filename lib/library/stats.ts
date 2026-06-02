@@ -1,64 +1,33 @@
 /**
- * stats — Client-side data fetcher
- * All database logic has been moved to the Golang backend.
- * These functions now fetch data via the Golang API.
+ * stats — Client-side data fetcher for Library Statistics
  */
 
-import { goGet, goPost } from "@/lib/api-client";
+import { goGet } from "@/lib/api-client";
+import type { LibraryStats } from "@/types/library";
 
-// TODO: Implement specific endpoints as needed.
-// For now, functions export stubs that call the Go API.
-
-export async function getLibraryStats(...args: any[]) {
-  // TODO: Wire to Golang API endpoint
-  console.warn("getLibraryStats: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function getLibraryStats(): Promise<LibraryStats | null> {
+  try {
+    const res: any = await goGet("/api/library/stats");
+    return res.success ? res.data : null;
+  } catch (error) {
+    console.error("Failed to fetch library stats:", error);
+    return null;
+  }
 }
 
-export async function getLoanReport(...args: any[]) {
-  // TODO: Wire to Golang API endpoint
-  console.warn("getLoanReport: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function getLoanReport() {
+  // Mocking or wiring to generic report endpoint if exists
+  return await goGet("/api/library/reports/loans");
 }
 
-export async function getRecentActivity(...args: any[]) {
-  // TODO: Wire to Golang API endpoint
-  console.warn("getRecentActivity: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function getRecentActivity() {
+  return await goGet("/api/library/activity");
 }
 
-export async function getLoanTrend(...args: any[]) {
-  // TODO: Wire to Golang API endpoint
-  console.warn("getLoanTrend: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function getLoanTrend() {
+  return await goGet("/api/library/reports/trends");
 }
 
-export async function getCategoryDistribution(...args: any[]) {
-  // TODO: Wire to Golang API endpoint
-  console.warn("getCategoryDistribution: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
-}
-
-export async function getTopBorrowedBooks(...args: any[]) {
-  // TODO: Wire to Golang API endpoint
-  console.warn("getTopBorrowedBooks: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
-}
-
-export async function getTopActiveMembers(...args: any[]) {
-  // TODO: Wire to Golang API endpoint
-  console.warn("getTopActiveMembers: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
-}
-
-export async function smartScan(...args: any[]) {
-  // TODO: Wire to Golang API endpoint
-  console.warn("smartScan: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
-}
-
-export async function smartScanComplete(...args: any[]) {
-  // TODO: Wire to Golang API endpoint
-  console.warn("smartScanComplete: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function getCategoryDistribution() {
+  return await goGet("/api/library/reports/categories");
 }

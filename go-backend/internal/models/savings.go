@@ -12,43 +12,51 @@ type TabunganKelas struct {
 
 // TabunganSiswa represents the student's savings account
 type TabunganSiswa struct {
-	ID            string     `json:"id"`
-	StudentID     *string    `json:"studentId"`
-	NISN          string     `json:"nisn"`
-	Nama          string     `json:"nama"`
-	KelasID       string     `json:"kelasId"`
+	ID            string         `json:"id"`
+	StudentID     *string        `json:"studentId"`
+	NISN          string         `json:"nisn"`
+	Nama          string         `json:"nama"`
+	KelasID       string         `json:"kelasId"`
 	Kelas         *TabunganKelas `json:"kelas,omitempty"`
-	SaldoTerakhir int        `json:"saldoTerakhir"`
-	QRCode        string     `json:"qrCode"`
-	Foto          *string    `json:"foto"`
-	IsActive      bool       `json:"isActive"`
-	CreatedAt     *time.Time `json:"createdAt"`
-	UpdatedAt     *time.Time `json:"updatedAt"`
+	SaldoTerakhir int            `json:"saldoTerakhir"`
+	QRCode        string         `json:"qrCode"`
+	Foto          *string        `json:"foto"`
+	IsActive      bool           `json:"isActive"`
+	CreatedAt     *time.Time     `json:"createdAt"`
+	UpdatedAt     *time.Time     `json:"updatedAt"`
 }
 
 // TabunganTransaksi represents a deposit or withdrawal
 type TabunganTransaksi struct {
-	ID         string     `json:"id"`
-	SiswaID    string     `json:"siswaId"`
+	ID         string         `json:"id"`
+	SiswaID    string         `json:"siswaId"`
 	Siswa      *TabunganSiswa `json:"siswa,omitempty"`
-	UserID     string     `json:"userId"`
-	User       *User      `json:"user,omitempty"`
-	SetoranID  *string    `json:"setoranId"`
-	Tipe       string     `json:"tipe"` // "setor", "tarik"
-	Nominal    int        `json:"nominal"`
-	Status     string     `json:"status"` // "pending", "collected", "verified", "rejected"
-	Catatan    *string    `json:"catatan"`
-	VerifiedBy *string    `json:"verifiedBy"`
-	CreatedAt  *time.Time `json:"createdAt"`
-	UpdatedAt  *time.Time `json:"updatedAt"`
+	UserID     string         `json:"userId"`
+	User       *User          `json:"user,omitempty"`
+	SetoranID  *string        `json:"setoranId"`
+	Tipe       string         `json:"tipe"` // "setor", "tarik"
+	Nominal    int            `json:"nominal"`
+	Status     string         `json:"status"` // "pending", "collected", "verified", "rejected"
+	Catatan    *string        `json:"catatan"`
+	VerifiedBy *string        `json:"verifiedBy"`
+	CreatedAt  *time.Time     `json:"createdAt"`
+	UpdatedAt  *time.Time     `json:"updatedAt"`
 }
 
 type CreateTransaksiRequest struct {
 	SiswaID string  `json:"siswaId"`
 	Tipe    string  `json:"tipe"`
+	Type    string  `json:"type"`
 	Nominal int     `json:"nominal"`
 	Catatan *string `json:"catatan"`
 	UserID  string  `json:"userId"`
+}
+
+type CreateSiswaRequest struct {
+	NISN    string  `json:"nisn"`
+	Nama    string  `json:"nama"`
+	KelasID string  `json:"kelasId"`
+	QRCode  *string `json:"qrCode"`
 }
 
 // TabunganSetoran represents a batch settlement
@@ -87,6 +95,7 @@ type TabunganBrankas struct {
 	Tipe      string     `json:"tipe"` // cash, bank
 	Saldo     int        `json:"saldo"`
 	PicID     *string    `json:"picId"`
+	Pic       *User      `json:"pic,omitempty"`
 	UpdatedAt *time.Time `json:"updatedAt"`
 }
 
@@ -101,30 +110,75 @@ type TabunganBrankasTransaksi struct {
 }
 
 type TransferBrankasRequest struct {
-	Tipe    string `json:"tipe"`
-	Nominal int    `json:"nominal"`
-	UserID  string `json:"userId"`
+	FromID  string  `json:"fromId"`
+	ToID    string  `json:"toId"`
+	Tipe    string  `json:"tipe"`
+	Nominal int     `json:"nominal"`
+	Amount  int     `json:"amount"`
+	UserID  string  `json:"userId"`
+	Catatan *string `json:"catatan"`
 }
 
 // Hutang
 type TabunganHutang struct {
-	ID            string     `json:"id"`
-	SiswaID       string     `json:"siswaId"`
-	Siswa         *TabunganSiswa `json:"siswa,omitempty"`
-	NamaBarang    string     `json:"namaBarang"`
-	Kategori      string     `json:"kategori"`
-	Nominal       int        `json:"nominal"`
-	Jumlah        int        `json:"jumlah"`
-	DicatatOleh   string     `json:"dicatatOleh"`
-	Status        string     `json:"status"` // aktif, lunas
-	TanggalLunas  *time.Time `json:"tanggalLunas"`
-	DilunaskanDari *string    `json:"dilunaskanDari"` // saldo_tabungan, tunai
-	CreatedAt     *time.Time `json:"createdAt"`
+	ID             string         `json:"id"`
+	SiswaID        string         `json:"siswaId"`
+	Siswa          *TabunganSiswa `json:"siswa,omitempty"`
+	NamaBarang     string         `json:"namaBarang"`
+	Kategori       string         `json:"kategori"`
+	Nominal        int            `json:"nominal"`
+	Jumlah         int            `json:"jumlah"`
+	DicatatOleh    string         `json:"dicatatOleh"`
+	Status         string         `json:"status"` // aktif, lunas
+	TanggalLunas   *time.Time     `json:"tanggalLunas"`
+	DilunaskanDari *string        `json:"dilunaskanDari"` // saldo_tabungan, tunai
+	CreatedAt      *time.Time     `json:"createdAt"`
+}
+
+// CreateBrankasRequest represents request to create/update a vault
+type CreateBrankasRequest struct {
+	Nama  string  `json:"nama"`
+	Tipe  string  `json:"tipe"`
+	Saldo int     `json:"saldo"`
+	PicID *string `json:"picId"`
+}
+
+// TabunganSetoranDetail includes the settlement with its transactions
+type TabunganSetoranDetail struct {
+	ID            string               `json:"id"`
+	GuruID        string               `json:"guruId"`
+	Guru          *User                `json:"guru,omitempty"`
+	BendaharaID   *string              `json:"bendaharaId"`
+	BendaharaName *string              `json:"bendaharaName"`
+	Tipe          string               `json:"tipe"`
+	TotalNominal  int                  `json:"totalNominal"`
+	NominalFisik  *int                 `json:"nominalFisik"`
+	Selisih       int                  `json:"selisih"`
+	Status        string               `json:"status"`
+	Catatan       *string              `json:"catatan"`
+	CreatedAt     *time.Time           `json:"createdAt"`
+	Transactions  []SetoranTransaction `json:"transactions"`
+}
+
+// SetoranTransaction is a single transaction within a setoran batch
+type SetoranTransaction struct {
+	ID        string  `json:"id"`
+	SiswaID   string  `json:"siswaId"`
+	SiswaName string  `json:"siswaName"`
+	Tipe      string  `json:"tipe"`
+	Nominal   int     `json:"nominal"`
+	Catatan   *string `json:"catatan"`
 }
 
 type SavingsStats struct {
-	TotalSaldoSiswa int `json:"totalSaldoSiswa"`
-	TotalBrankas    int `json:"totalBrankas"`
-	TotalPiutang    int `json:"totalPiutang"`
-	PendingSetoran  int `json:"pendingSetoran"`
+	TotalSiswa          int `json:"totalSiswa"`
+	TotalSaldo          int `json:"totalSaldo"`
+	PendingTransactions int `json:"pendingTransactions"`
+	TodayTransactions   int `json:"todayTransactions"`
+	TodayDeposit        int `json:"todayDeposit"`
+	TodayWithdraw       int `json:"todayWithdraw"`
+	TotalSaldoSiswa     int `json:"totalSaldoSiswa"`
+	TotalBrankas        int `json:"totalBrankas"`
+	TotalPiutang        int `json:"totalPiutang"`
+	PendingSetoran      int `json:"pendingSetoran"`
 }

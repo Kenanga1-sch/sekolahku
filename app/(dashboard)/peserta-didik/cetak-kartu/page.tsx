@@ -132,7 +132,7 @@ export default function CetakKartuPage() {
       }
 
       try {
-        const response: any = await goPost("/api/students/print", {
+        const response: any = await goPost("/api/master/students/print", {
           studentIds: ids.split(","),
         });
 
@@ -423,7 +423,7 @@ function StudentCardPreview({
           {schoolLogo ? (
             <img src={schoolLogo} alt="Logo" className="w-8 h-8 object-contain" />
           ) : (
-            <span className="text-xl">🎓</span>
+            <span className="text-sm font-bold text-slate-700">SD</span>
           )}
         </div>
 
@@ -480,7 +480,7 @@ function StudentCardPreview({
           
           {/* Watermark */}
           <div className="absolute -right-6 -bottom-6 opacity-[0.03] pointer-events-none">
-            <span style={{ fontSize: "100px" }}>🎓</span>
+            <span style={{ fontSize: "72px", fontWeight: 800, color: "#0f172a" }}>SD</span>
           </div>
 
           {/* Photo with Premium Frame */}
@@ -564,7 +564,7 @@ function StudentCardPreview({
                   className="font-mono font-semibold"
                   style={{ fontSize: "9px", color: "#1e293b" }}
                 >
-                  {student.nisn || "—"}
+                  {student.nisn || "-"}
                 </p>
               </div>
               
@@ -579,7 +579,7 @@ function StudentCardPreview({
                   className="font-bold"
                   style={{ fontSize: "11px", color: "#1e293b" }}
                 >
-                  {student.className || "—"}
+                  {student.className || "-"}
                 </p>
               </div>
 
@@ -595,7 +595,7 @@ function StudentCardPreview({
                   className="font-mono"
                   style={{ fontSize: "11px", color: "#1e293b" }}
                 >
-                  {student.nis || "—"}
+                  {student.nis || "-"}
                 </p>
                 </div>
               )}
@@ -608,7 +608,7 @@ function StudentCardPreview({
                   L / P
                 </p>
                 <p style={{ fontSize: "9px", color: "#1e293b" }}>
-                  {student.gender === "L" ? "Laki-laki" : student.gender === "P" ? "Perempuan" : "—"}
+                  {student.gender === "L" ? "Laki-laki" : student.gender === "P" ? "Perempuan" : "-"}
                 </p>
               </div>
             </div>
@@ -772,7 +772,7 @@ function StudentCardBack({
                 className="flex items-start gap-1"
                 style={{ fontSize: "8px", color: "#475569" }}
               >
-                <span className="text-amber-500 font-bold">•</span>
+                <span className="text-amber-500 font-bold">-</span>
                 <span>{rule}</span>
               </li>
             ))}

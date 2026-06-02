@@ -73,11 +73,10 @@ export default function LoginPage() {
         // Sync the global auth state before redirecting
         await refreshSession();
         
-        // Fetch session to determine role
-        const session = await getSessionAction();
-        router.refresh(); 
+        // Use the returned data to determine role immediately
+        const userRole = (res as any).user?.role || "user";
         
-        if (session?.user?.role === "staff") {
+        if (userRole === "staff") {
             window.location.href = "/inventaris";
         } else {
             window.location.href = "/overview";

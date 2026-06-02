@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -79,7 +79,6 @@ const STATUS_CONFIG = {
 
 export default function SesiDetailPage() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const [session, setSession] = useState<SessionDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [closing, setClosing] = useState(false);
@@ -87,7 +86,8 @@ export default function SesiDetailPage() {
 
   const fetchSession = async () => {
     try {
-      const data: any = await goGet(`/api/attendance/sessions/${searchParams.get('id')}`);
+      const response: any = await goGet(`/api/attendance/sessions/${searchParams.get('id')}`);
+      const data = response?.data || response;
       setSession(data);
     } catch (err) {
       setError("Gagal memuat data sesi");
@@ -107,28 +107,10 @@ export default function SesiDetailPage() {
 
     setClosing(true);
     try {
-      // Mark remaining students as Alpha
-      if (session) {
-        const recordedIds = session.records.map((r) => r.student.id);
-        const notRecorded = session.allStudents.filter(
-          (s) => !recordedIds.includes(s.id)
-        );
-
-        for (const student of notRecorded) {
-          await goPost("/api/attendance/scan", {
-            qrCode: student.id, // Use student ID as fallback
-            sessionId: session.id,
-            status: "alpha",
-          });
-        }
-      }
-
-      // Close session
       await goPut(`/api/attendance/sessions/${searchParams.get('id')}`, { status: "closed" });
-
-      fetchSession();
-    } catch (err) {
-      setError("Gagal menutup sesi");
+      await fetchSession();
+    } catch (err: any) {
+      setError(err.message || "Gagal menutup sesi");
     } finally {
       setClosing(false);
     }
@@ -142,9 +124,10 @@ export default function SesiDetailPage() {
         status,
       });
 
-      fetchSession();
-    } catch (err) {
+      await fetchSession();
+    } catch (err: any) {
       console.error("Error recording attendance:", err);
+      setError(err.message || "Gagal mencatat presensi");
     }
   };
 
@@ -216,7 +199,7 @@ export default function SesiDetailPage() {
           </Badge>
           {session.status === "open" && (
             <>
-              <Link href="/presensi/scan">
+              <Link href={`/presensi/scan?sessionId=${session.id}`}>
                 <Button variant="outline" size="sm">
                   <QrCode className="h-4 w-4 mr-1" />
                   Scan

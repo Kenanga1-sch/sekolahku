@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
@@ -32,7 +32,6 @@ import {
   Banknote,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import { useLayoutStore } from "@/lib/stores/layout-store";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types";
 import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/sidebar";
@@ -54,12 +53,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuPortal,
-  DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
-import { useTheme } from "@/components/providers/theme-provider";
 import type { SchoolSettings } from "@/types";
 
 // --- Navigation Config (Preserved) ---
@@ -186,7 +180,6 @@ export default function DashboardLayoutClient({
   schoolSettings?: SchoolSettings;
 }) {
   const { user, logout, isLoading: authLoading } = useAuthStore();
-  const { setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false); // Sidebar open state
   const [isDropdownOpen, setIsDropdownOpen] = useState(false); // Track dropdown state
@@ -231,10 +224,10 @@ export default function DashboardLayoutClient({
 
   return (
     <div className={cn(
-      "flex flex-col md:flex-row bg-gray-100 dark:bg-neutral-800 w-full flex-1 md:overflow-hidden",
-      "min-h-screen md:h-screen" // Adjusted height for mobile
+      "flex min-w-0 flex-col md:flex-row bg-gray-100 dark:bg-neutral-800 w-full flex-1 overflow-x-hidden md:overflow-hidden",
+      "min-h-dvh md:h-dvh"
     )}>
-      <Sidebar open={open} setOpen={handleSetOpen}>
+      <Sidebar open={open} setOpen={handleSetOpen} animate={false}>
         <SidebarBody className="justify-between gap-10">
           <div className="flex flex-col flex-1 overflow-hidden">
             {/* Logo */}
@@ -254,7 +247,7 @@ export default function DashboardLayoutClient({
              </div>
              
               {/* Nav Links */}
-            <div className="mt-8 flex flex-col gap-2 flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
+            <div className="mt-6 md:mt-8 flex flex-col gap-2 flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
               {!isReallyMounted ? (
                 // Loading Skeletons for Sidebar
                 <div className="flex flex-col gap-4 px-2">
@@ -266,13 +259,13 @@ export default function DashboardLayoutClient({
                 filteredNav.map((group) => (
                    <div key={group.label} className="flex flex-col gap-1">
                       <p className="text-[10px] uppercase font-bold text-neutral-500 mb-1 px-1 truncate">
-                          {open ? group.label : "•"}
+                          {group.label}
                       </p>
                       {group.items.map((link) => (
                           <SidebarLink key={link.href} link={{
                               label: link.label,
                               href: link.href,
-                              icon: <link.icon className="text-neutral-700 dark:text-neutral-200 h-5 w-5 flex-shrink-0" />
+                              icon: <link.icon className="text-neutral-700 dark:text-neutral-200 h-[18px] w-[18px] md:h-5 md:w-5 flex-shrink-0" />
                           }} />
                       ))}
                    </div>
@@ -282,10 +275,10 @@ export default function DashboardLayoutClient({
           </div>
         </SidebarBody>
       </Sidebar>
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           {/* Top Navigation Bar - Static/Relative */}
-          <header className="flex items-center justify-end gap-3 p-3 md:p-4 w-full z-40">
-            <div className="flex items-center gap-3 md:gap-4 p-1.5 md:p-2">
+          <header className="sticky top-0 md:static flex items-center justify-end gap-2 p-2.5 sm:p-3 md:p-4 w-full z-40 bg-gray-100/80 dark:bg-neutral-800/80 backdrop-blur md:bg-transparent md:dark:bg-transparent">
+            <div className="flex items-center gap-2 sm:gap-3 md:gap-4 p-1 md:p-2">
              {/* Theme Toggle */}
              <div className="flex items-center justify-center">
                 <ThemeToggle />
@@ -300,7 +293,7 @@ export default function DashboardLayoutClient({
             {mounted ? (
               <DropdownMenu onOpenChange={setIsDropdownOpen}>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-10 w-10 md:h-auto md:w-auto rounded-full md:rounded-xl p-0 md:px-3 md:py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:ring-0 focus-visible:ring-offset-0">
+                  <Button variant="ghost" className="relative h-9 w-9 sm:h-10 sm:w-10 md:h-auto md:w-auto rounded-full md:rounded-xl p-0 md:px-3 md:py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:ring-0 focus-visible:ring-offset-0">
                      <div className="h-9 w-9 md:h-8 md:w-8 flex-shrink-0 rounded-full bg-neutral-200 dark:bg-neutral-700 overflow-hidden ring-2 ring-transparent transition-all">
                         <Avatar className="h-full w-full">
                            <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${displayName}`} />
@@ -339,9 +332,9 @@ export default function DashboardLayoutClient({
             </div>
           </header>
 
-         <div className="p-2 md:p-10 pt-0 md:pt-4 rounded-tl-2xl flex flex-col gap-2 flex-1 w-full h-auto md:h-full md:overflow-y-auto">
+         <main id="main-content" className="flex min-w-0 flex-1 flex-col gap-2 overflow-x-hidden px-3 pb-4 pt-2 sm:px-4 md:h-full md:overflow-y-auto md:rounded-tl-2xl md:px-5 md:pb-6 md:pt-4 lg:px-6 xl:px-8">
             {children}
-         </div>
+         </main>
       </div>
     </div>
   );

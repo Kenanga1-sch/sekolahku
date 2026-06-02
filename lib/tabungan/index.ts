@@ -19,14 +19,10 @@ export {
     getSiswa,
     getSiswaById,
     getSiswaByQr,
-    getSiswaByStudentId,
-    getSiswaByStudentQRCode,
-    linkSiswaToStudent,
     createSiswa,
     updateSiswa,
     deleteSiswa,
     getSiswaWithBalance,
-    type GetSiswaOptions,
 } from "./siswa";
 
 // Transaksi Logic
@@ -43,8 +39,6 @@ export {
     getSetoranByGuru,
     createSetoran,
     verifySetoran,
-    updateTransaksiInBatch,
-    resubmitSetoran,
     getSetoranDetail,
 } from "./setoran";
 
@@ -61,15 +55,11 @@ export {
     getHutangBySiswa,
     getHutangAktifBySiswa,
     getTotalHutangAktif,
-    getSaldoEfektif,
     updateHutang,
     cancelHutang,
     payHutangCash,
     settleHutangFromTabungan,
     getHutangList,
-    createHutangBatch,
-    type HutangFormData,
-    type TabunganHutangWithRelations,
 } from "./hutang";
 
 // Stats & Charts

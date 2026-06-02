@@ -49,11 +49,31 @@ import { showSuccess, showError } from "@/lib/toast";
 interface Period {
   id: string;
   name: string;
+  academicYear?: string;
   startDate: string;
   endDate: string;
+  status?: string;
   quota: number;
   isActive: boolean;
   registered: number;
+}
+
+function unwrapSettingsResponse(data: any) {
+  return data?.data ?? data ?? null;
+}
+
+function normalizePeriod(item: any): Period {
+  return {
+    id: item.id,
+    name: item.name || "-",
+    academicYear: item.academicYear || item.academic_year,
+    startDate: item.startDate,
+    endDate: item.endDate,
+    status: item.status,
+    quota: item.quota || 100,
+    isActive: Boolean(item.isActive ?? item.is_active ?? item.status === "active"),
+    registered: item.registered || 0,
+  };
 }
 
 export default function SPMBPeriodsPage() {
@@ -78,7 +98,7 @@ export default function SPMBPeriodsPage() {
   const fetchGlobalSettings = useCallback(async () => {
       try {
         const data: any = await goGet("/api/school-settings");
-        setGlobalSettings(data);
+        setGlobalSettings(unwrapSettingsResponse(data));
       } catch (e) {
         console.error("Failed to fetch global settings", e);
       } finally {
@@ -94,7 +114,8 @@ export default function SPMBPeriodsPage() {
       setGlobalSettings(next); // Optimistic update
       
       try {
-        await goPost("/api/school-settings", next);
+        const saved: any = await goPost("/api/school-settings", next);
+        setGlobalSettings(unwrapSettingsResponse(saved));
         showSuccess(`Pendaftaran ${checked ? 'dibuka' : 'ditutup'}`);
       } catch (e) {
           showError("Gagal mengubah status pendaftaran");
@@ -106,7 +127,8 @@ export default function SPMBPeriodsPage() {
     try {
       const res: any = await goGet("/api/spmb/periods");
       if (res.success) {
-          setPeriods(res.data);
+          const items = Array.isArray(res.data) ? res.data : [];
+          setPeriods(items.map(normalizePeriod));
       }
     } catch (error) {
       console.error("Failed to fetch periods:", error);
@@ -123,8 +145,21 @@ export default function SPMBPeriodsPage() {
   const handleSubmit = async () => {
     setIsSaving(true);
     try {
+      if (!formData.name.trim()) {
+        showError("Nama periode wajib diisi");
+        return;
+      }
+      if (!formData.startDate || !formData.endDate) {
+        showError("Tanggal mulai dan selesai wajib diisi");
+        return;
+      }
+      if (new Date(formData.endDate) < new Date(formData.startDate)) {
+        showError("Tanggal selesai tidak boleh sebelum tanggal mulai");
+        return;
+      }
+
       const payload = {
-        name: formData.name,
+        name: formData.name.trim(),
         startDate: formData.startDate,
         endDate: formData.endDate,
         quota: parseInt(formData.quota) || 100,
@@ -203,7 +238,7 @@ export default function SPMBPeriodsPage() {
           <p className="text-muted-foreground">Kelola periode penerimaan siswa baru</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => { setIsLoading(true); fetchPeriods(); }}>
+          <Button variant="outline" onClick={() => { setIsLoading(true); setIsGlobalLoading(true); fetchPeriods(); fetchGlobalSettings(); }}>
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
@@ -447,7 +482,12 @@ export default function SPMBPeriodsPage() {
               ) : (
                 periods.map((period) => (
                   <TableRow key={period.id}>
-                    <TableCell className="font-medium">{period.name}</TableCell>
+                    <TableCell>
+                      <div className="font-medium">{period.name}</div>
+                      {period.academicYear && (
+                        <div className="text-xs text-muted-foreground">Tahun ajaran {period.academicYear}</div>
+                      )}
+                    </TableCell>
                     <TableCell className="text-muted-foreground">
                       {period.startDate ? new Date(period.startDate).toLocaleDateString("id-ID", { day: "numeric", month: "short" }) : "-"} - {period.endDate ? new Date(period.endDate).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "-"}
                     </TableCell>

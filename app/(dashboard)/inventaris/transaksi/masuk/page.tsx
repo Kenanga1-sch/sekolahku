@@ -58,7 +58,7 @@ export default function BarangMasukPage() {
     const loadItems = async () => {
       try {
         const response: any = await goGet("/api/inventory/items?limit=100");
-        setItems(response.data || []);
+        setItems(response.items || response.data || []);
       } catch (err) {
         toast.error("Gagal memuat daftar barang");
       } finally {
@@ -91,7 +91,7 @@ export default function BarangMasukPage() {
       toast.success("Barang masuk berhasil dicatat");
       router.push("/inventaris/stok");
     } catch (error) {
-      toast.error("Terjadi kesalahan saat menyimpan data");
+      toast.error(error instanceof Error ? error.message : "Terjadi kesalahan saat menyimpan data");
     } finally {
       setSubmitting(false);
     }

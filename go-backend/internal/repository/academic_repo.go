@@ -24,11 +24,11 @@ func (r *AcademicRepository) GetActiveAcademicYear() (string, error) {
 	query := `SELECT name FROM academic_years WHERE is_active = 1 LIMIT 1`
 	var activeYearName string
 	err := r.DB.QueryRow(query).Scan(&activeYearName)
-	
+
 	if err == nil {
 		return activeYearName, nil
 	}
-	
+
 	// If the error is not "no rows in result set", something went wrong with DB
 	if !errors.Is(err, sql.ErrNoRows) {
 		return "", err
@@ -38,11 +38,11 @@ func (r *AcademicRepository) GetActiveAcademicYear() (string, error) {
 	queryFallback := `SELECT current_academic_year FROM school_settings LIMIT 1`
 	var currentAcademicYear sql.NullString
 	err = r.DB.QueryRow(queryFallback).Scan(&currentAcademicYear)
-	
+
 	if err == nil && currentAcademicYear.Valid {
 		return currentAcademicYear.String, nil
 	}
-	
+
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return "", err
 	}
@@ -84,6 +84,9 @@ func (r *AcademicRepository) GetClassByID(id string) (*models.AcademicClass, err
 	var teacherName sql.NullString
 	err := r.DB.QueryRow(query, id).Scan(&c.ID, &c.Name, &c.Grade, &c.AcademicYear, &teacherName, &c.Capacity, &c.IsActive)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	if teacherName.Valid {
@@ -107,6 +110,14 @@ func (r *AcademicRepository) UpdateClass(id string, c models.AcademicClass) erro
 }
 
 func (r *AcademicRepository) DeleteClass(id string) error {
+	var activeStudents int
+	if err := r.DB.QueryRow(`SELECT COUNT(*) FROM students WHERE class_id = ? AND status = 'active'`, id).Scan(&activeStudents); err != nil {
+		return err
+	}
+	if activeStudents > 0 {
+		return fmt.Errorf("kelas masih memiliki %d siswa aktif", activeStudents)
+	}
+
 	query := `DELETE FROM student_classes WHERE id = ?`
 	_, err := r.DB.Exec(query, id)
 	return err
@@ -131,48 +142,82 @@ func (r *AcademicRepository) GetAcademicYears() ([]models.AcademicYear, error) {
 		if err != nil {
 			return nil, err
 		}
-		if start.Valid { y.StartDate = &start.String }
-		if end.Valid { y.EndDate = &end.String }
-		if created.Valid { t := time.Unix(created.Int64, 0); y.CreatedAt = &t }
-		if updated.Valid { t := time.Unix(updated.Int64, 0); y.UpdatedAt = &t }
+		if start.Valid {
+			y.StartDate = &start.String
+		}
+		if end.Valid {
+			y.EndDate = &end.String
+		}
+		if created.Valid {
+			t := time.Unix(created.Int64, 0)
+			y.CreatedAt = &t
+		}
+		if updated.Valid {
+			t := time.Unix(updated.Int64, 0)
+			y.UpdatedAt = &t
+		}
 		results = append(results, y)
 	}
-	if results == nil { results = []models.AcademicYear{} }
+	if results == nil {
+		results = []models.AcademicYear{}
+	}
 	return results, nil
 }
 
 func (r *AcademicRepository) CreateAcademicYear(y models.AcademicYear) error {
 	tx, err := r.DB.Begin()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer tx.Rollback()
 
 	if y.IsActive {
 		_, err = tx.Exec(`UPDATE academic_years SET is_active = 0`)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 	}
 
 	now := time.Now().Unix()
 	query := `INSERT INTO academic_years (id, name, semester, is_active, start_date, end_date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
 	_, err = tx.Exec(query, y.ID, y.Name, y.Semester, y.IsActive, y.StartDate, y.EndDate, now, now)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
+	if y.IsActive {
+		if _, err = tx.Exec(`UPDATE school_settings SET current_academic_year = ?`, y.Name); err != nil {
+			return err
+		}
+	}
 
 	return tx.Commit()
 }
 
 func (r *AcademicRepository) UpdateAcademicYear(id string, y models.AcademicYear) error {
 	tx, err := r.DB.Begin()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	defer tx.Rollback()
 
 	if y.IsActive {
 		_, err = tx.Exec(`UPDATE academic_years SET is_active = 0`)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 	}
 
 	now := time.Now().Unix()
 	query := `UPDATE academic_years SET name = ?, semester = ?, is_active = ?, start_date = ?, end_date = ?, updated_at = ? WHERE id = ?`
 	_, err = tx.Exec(query, y.Name, y.Semester, y.IsActive, y.StartDate, y.EndDate, now, id)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
+	if y.IsActive {
+		if _, err = tx.Exec(`UPDATE school_settings SET current_academic_year = ?`, y.Name); err != nil {
+			return err
+		}
+	}
 
 	return tx.Commit()
 }
@@ -181,8 +226,15 @@ func (r *AcademicRepository) DeleteAcademicYear(id string) error {
 	// Don't delete active year
 	var isActive bool
 	err := r.DB.QueryRow(`SELECT is_active FROM academic_years WHERE id = ?`, id).Scan(&isActive)
-	if err != nil { return err }
-	if isActive { return fmt.Errorf("Cannot delete active academic year") }
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil // Already deleted or not found
+		}
+		return err
+	}
+	if isActive {
+		return fmt.Errorf("Cannot delete active academic year")
+	}
 
 	_, err = r.DB.Exec(`DELETE FROM academic_years WHERE id = ?`, id)
 	return err
@@ -193,7 +245,9 @@ func (r *AcademicRepository) DeleteAcademicYear(id string) error {
 func (r *AcademicRepository) GetSubjects() ([]models.Subject, error) {
 	query := `SELECT id, code, name, category, description, created_at, updated_at FROM subjects ORDER BY code ASC`
 	rows, err := r.DB.Query(query)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	defer rows.Close()
 
 	var results []models.Subject
@@ -202,13 +256,25 @@ func (r *AcademicRepository) GetSubjects() ([]models.Subject, error) {
 		var desc sql.NullString
 		var created, updated sql.NullInt64
 		err := rows.Scan(&s.ID, &s.Code, &s.Name, &s.Category, &desc, &created, &updated)
-		if err != nil { return nil, err }
-		if desc.Valid { s.Description = desc.String }
-		if created.Valid { t := time.Unix(created.Int64, 0); s.CreatedAt = &t }
-		if updated.Valid { t := time.Unix(updated.Int64, 0); s.UpdatedAt = &t }
+		if err != nil {
+			return nil, err
+		}
+		if desc.Valid {
+			s.Description = desc.String
+		}
+		if created.Valid {
+			t := time.Unix(created.Int64, 0)
+			s.CreatedAt = &t
+		}
+		if updated.Valid {
+			t := time.Unix(updated.Int64, 0)
+			s.UpdatedAt = &t
+		}
 		results = append(results, s)
 	}
-	if results == nil { results = []models.Subject{} }
+	if results == nil {
+		results = []models.Subject{}
+	}
 	return results, nil
 }
 
@@ -232,6 +298,13 @@ func (r *AcademicRepository) DeleteSubject(id string) error {
 }
 
 func (r *AcademicRepository) ProcessPromotion(req models.PromotionRequest) (int, error) {
+	if req.ActionType != "promotion" && req.ActionType != "graduation" {
+		return 0, fmt.Errorf("aksi kenaikan kelas tidak valid")
+	}
+	if req.ActionType == "promotion" && (req.TargetClassId == nil || *req.TargetClassId == "") {
+		return 0, fmt.Errorf("kelas tujuan wajib dipilih")
+	}
+
 	tx, err := r.DB.Begin()
 	if err != nil {
 		return 0, err
@@ -245,10 +318,19 @@ func (r *AcademicRepository) ProcessPromotion(req models.PromotionRequest) (int,
 	var targetClassName string
 	var targetGrade int
 	var targetAcademicYear string
+	var targetCapacity int
 	if req.ActionType == "promotion" && req.TargetClassId != nil {
-		err := tx.QueryRow(`SELECT name, grade, academic_year FROM student_classes WHERE id = ?`, *req.TargetClassId).Scan(&targetClassName, &targetGrade, &targetAcademicYear)
+		err := tx.QueryRow(`SELECT name, grade, academic_year, capacity FROM student_classes WHERE id = ?`, *req.TargetClassId).Scan(&targetClassName, &targetGrade, &targetAcademicYear, &targetCapacity)
 		if err != nil {
 			return 0, fmt.Errorf("Target class not found")
+		}
+
+		var currentCount int
+		if err := tx.QueryRow(`SELECT COUNT(*) FROM students WHERE class_id = ? AND status = 'active'`, *req.TargetClassId).Scan(&currentCount); err != nil {
+			return 0, err
+		}
+		if targetCapacity > 0 && currentCount+len(req.StudentIds) > targetCapacity {
+			return 0, fmt.Errorf("kapasitas kelas tujuan tidak mencukupi")
 		}
 	}
 
@@ -272,7 +354,7 @@ func (r *AcademicRepository) ProcessPromotion(req models.PromotionRequest) (int,
 			}
 		case "graduation":
 			// Update student
-			_, err = tx.Exec(`UPDATE students SET status = 'alumni', class_id = NULL, class_name = NULL, updated_at = ? WHERE id = ?`, now, studentId)
+			_, err = tx.Exec(`UPDATE students SET status = 'graduated', is_active = 0, class_id = NULL, class_name = NULL, updated_at = ? WHERE id = ?`, now, studentId)
 			if err != nil {
 				return count, err
 			}

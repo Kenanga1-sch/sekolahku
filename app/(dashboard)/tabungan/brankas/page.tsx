@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { RefreshCw, Vault, Landmark, Plus, Pencil, UserCircle, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { showSuccess, showError } from "@/lib/toast";
-import { goGet, goPost, goPatch } from "@/lib/api-client";
+import { goGet, goPost, goPut, goPatch } from "@/lib/api-client";
+import { useAuthStore } from "@/lib/stores/auth-store";
 import {
     Dialog,
     DialogContent,
@@ -53,6 +54,7 @@ interface UserOption {
 }
 
 export default function TabunganBrankasPage() {
+    const { user } = useAuthStore();
     const [brankasList, setBrankasList] = useState<Brankas[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -77,9 +79,8 @@ export default function TabunganBrankasPage() {
         try {
             // Fetch Brankas
             const data: any = await goGet("/api/tabungan/brankas");
-            if (data.data) {
-                setBrankasList(Array.isArray(data.data) ? data.data : [data.data]);
-            }
+            const vaults = data.vaults || data.items || data.data?.vaults || data.data || [];
+            setBrankasList(Array.isArray(vaults) ? vaults : []);
         } catch (error) {
             console.error("Failed to fetch data:", error);
             showError("Gagal memuat data");
@@ -109,10 +110,15 @@ export default function TabunganBrankasPage() {
             const payload = {
                 id: editingItem?.id,
                 nama: formData.nama,
+                tipe: formData.nama.toLowerCase().includes("bank") || formData.nama.toLowerCase().includes("koperasi") ? "bank" : "cash",
                 saldo: editingItem ? undefined : formData.saldo 
             };
 
-            await goPost("/api/tabungan/brankas", payload);
+            if (editingItem) {
+                await goPut(`/api/tabungan/brankas/${editingItem.id}`, payload);
+            } else {
+                await goPost("/api/tabungan/brankas", payload);
+            }
             
             showSuccess("Data brankas berhasil disimpan");
             setIsDialogOpen(false);
@@ -132,6 +138,8 @@ export default function TabunganBrankasPage() {
             await goPatch("/api/tabungan/brankas", {
                 ...transferData,
                 amount,
+                nominal: amount,
+                userId: user?.id || "",
                 tipe: brankasList.find(b => b.id === transferData.toId)?.nama.toLowerCase().includes("koperasi")
                     ? "setor_ke_koperasi"
                     : "setor_ke_bank"

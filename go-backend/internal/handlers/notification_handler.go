@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sekolahku/go-backend/internal/models"
 	"github.com/sekolahku/go-backend/internal/repository"
 )
 
@@ -57,4 +58,26 @@ func (h *NotificationHandler) MarkAllAsRead(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
+}
+
+func (h *NotificationHandler) CreateNotification(c echo.Context) error {
+	var n models.Notification
+	if err := c.Bind(&n); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
+	}
+	if err := h.Repo.CreateNotification(n); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true})
+}
+
+func (h *NotificationHandler) BroadcastNotification(c echo.Context) error {
+	var n models.Notification
+	if err := c.Bind(&n); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
+	}
+	if err := h.Repo.BroadcastNotification(n); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true})
 }

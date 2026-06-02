@@ -1,15 +1,14 @@
 /**
  * Client-side academic actions — fetches directly from Golang API.
+ * Optimized with handleAction and caching.
  */
 
-import { goGet } from "@/lib/api-client";
+import { goGet, CacheTTL } from "@/lib/api-client";
+import { handleAction } from "@/lib/action-utils";
 
 export async function getActiveAcademicYear() {
-  try {
-    return await goGet("/api/academic/active-year");
-  } catch (error) {
-    console.error("Failed to get academic year:", error);
-    const message = error instanceof Error ? error.message : "Failed to get active academic year";
-    return { success: false, error: message };
-  }
+  return handleAction(
+    goGet("/api/academic/active-year", { ttl: CacheTTL.LONG }),
+    "Tahun akademik aktif berhasil dimuat"
+  );
 }

@@ -50,8 +50,8 @@ export function RecentTransactionsFeed() {
             try {
                 const res = await fetch("/api/tabungan/data?type=recent");
                 if (res.ok) {
-                    const data = await res.json();
-                    setTransactions(data);
+                    const payload = await res.json();
+                    setTransactions(Array.isArray(payload) ? payload : payload.data ?? payload.items ?? []);
                 }
             } catch {
                 // Fail silently

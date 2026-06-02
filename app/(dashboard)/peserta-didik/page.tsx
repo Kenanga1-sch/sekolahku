@@ -122,9 +122,9 @@ export default function PesertaDidikPage() {
       const params = new URLSearchParams();
       params.set("page", page.toString());
       params.set("limit", "10");
-      if (search) params.set("search", search);
-      if (classFilter !== "all") params.set("className", classFilter);
-      if (statusFilter !== "all") params.set("isActive", statusFilter);
+      if (search) params.set("q", search);
+      if (classFilter !== "all") params.set("classId", classFilter);
+      if (statusFilter !== "all") params.set("status", statusFilter);
 
       const response = await goGet(`/api/master/students?${params.toString()}`);
       
@@ -354,8 +354,8 @@ export default function PesertaDidikPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Semua Status</SelectItem>
-                <SelectItem value="true">Aktif</SelectItem>
-                <SelectItem value="false">Non-Aktif</SelectItem>
+                <SelectItem value="active">Aktif</SelectItem>
+                <SelectItem value="inactive">Non-Aktif</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -484,7 +484,7 @@ export default function PesertaDidikPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() =>
-                                router.push(`/peserta-didik/detail?id=${student.id}/edit`)
+                                router.push(`/peserta-didik/detail/edit?id=${student.id}`)
                               }
                             >
                               <Pencil className="h-4 w-4 mr-2" />

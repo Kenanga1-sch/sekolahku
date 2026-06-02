@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { 
     checkRateLimit, 
     RateLimitPresets,
-} from "./rate-limit";
+} from "./security";
 
 describe("Rate Limiting", () => {
     beforeEach(() => {

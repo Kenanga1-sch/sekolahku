@@ -4,6 +4,55 @@
 
 
 // ==========================================
+// Base Types
+// ==========================================
+
+export interface TabunganKelas {
+    id: string;
+    nama: string;
+    waliKelas?: string;
+    createdAt?: number;
+    updatedAt?: number;
+}
+
+export interface TabunganSiswa {
+    id: string;
+    nisn?: string;
+    nama: string;
+    kelasId?: string;
+    qrCode?: string;
+    saldoTerakhir?: number;
+    createdAt?: number;
+    updatedAt?: number;
+}
+
+export interface TabunganTransaksi {
+    id: string;
+    siswaId: string;
+    tipe: "setor" | "tarik";
+    type?: "setor" | "tarik";
+    nominal: number;
+    status: "pending" | "collected" | "verified" | "rejected";
+    catatan?: string;
+    userId?: string;
+    createdAt?: number;
+    updatedAt?: number;
+}
+
+export interface TabunganSetoran {
+    id: string;
+    guruId?: string;
+    bendaharaId?: string;
+    jumlah?: number;
+    amount?: number;
+    status: "pending" | "verified" | "rejected";
+    date?: string;
+    catatan?: string;
+    createdAt?: number;
+    updatedAt?: number;
+}
+
+// ==========================================
 // Extended Types with Relations
 // ==========================================
 
@@ -40,17 +89,18 @@ export interface TabunganSetoranWithRelations extends TabunganSetoran {
         email: string;
     } | null;
     transaksi?: TabunganTransaksi[];
+    totalNominal?: number;
+    selisih?: number;
 }
 
-// Re-export base types
-export type { TabunganKelas, TabunganSiswa, TabunganTransaksi, TabunganSetoran };
+// Base types are already exported above
 
 // ==========================================
 // Enums
 // ==========================================
 
 export type TransactionType = "setor" | "tarik";
-export type TransactionStatus = "pending" | "verified" | "rejected";
+export type TransactionStatus = "pending" | "collected" | "verified" | "rejected";
 
 // ==========================================
 // Statistics

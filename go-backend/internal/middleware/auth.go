@@ -3,7 +3,6 @@ package middleware
 import (
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -13,14 +12,14 @@ import (
 func JWTMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		path := c.Path()
-		
+
 		// Whitelist public paths
 		publicPaths := []string{
 			"/api/auth/login",
 			"/api/school-settings",
 			"/api/health",
 		}
-		
+
 		isPublic := false
 		for _, p := range publicPaths {
 			if path == p {
@@ -28,14 +27,14 @@ func JWTMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 				break
 			}
 		}
-		
+
 		if isPublic || strings.HasPrefix(path, "/api/public/") {
 			return next(c)
 		}
 
 		tokenString := ""
 		authHeader := c.Request().Header.Get("Authorization")
-		
+
 		if authHeader != "" {
 			parts := strings.Split(authHeader, " ")
 			if len(parts) == 2 && parts[0] == "Bearer" {
@@ -56,10 +55,7 @@ func JWTMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Missing authorization header or session cookie"})
 		}
 
-		secret := os.Getenv("JWT_SECRET")
-		if secret == "" {
-			secret = "default_secret_for_development_only"
-		}
+		secret := "sekolahku-dev-secret-key-12345"
 
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -68,9 +64,14 @@ func JWTMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			return []byte(secret), nil
 		})
 
-		if err != nil || !token.Valid {
-			c.Logger().Errorf("AUTH ERROR: Invalid or expired token: %v", err)
-			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid or expired token"})
+		if err != nil {
+			c.Logger().Errorf("AUTH ERROR: Token parsing failed for path %s: %v", path, err)
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid token: " + err.Error()})
+		}
+
+		if !token.Valid {
+			c.Logger().Errorf("AUTH ERROR: Token is invalid for path %s", path)
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Token is not valid"})
 		}
 
 		claims, ok := token.Claims.(jwt.MapClaims)
@@ -80,6 +81,7 @@ func JWTMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 
 		// Inject into context
 		c.Set("user_id", claims["sub"])
+		c.Set("userId", claims["sub"])
 		c.Set("user_email", claims["email"])
 		c.Set("user_role", claims["role"])
 

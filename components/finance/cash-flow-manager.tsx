@@ -1,63 +1,78 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
-import { 
-    Card, CardContent, CardHeader, CardTitle, CardDescription 
+
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
 } from "@/components/ui/card";
-import { 
-    Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, ArrowRight, Wallet, Building2, TrendingUp, TrendingDown, RefreshCcw, Loader2, Settings, Pencil, Trash2 } from "lucide-react";
+import { 
+    Loader2, Plus, RefreshCw, Building2, Wallet, 
+    ArrowRight, Trash2, Pencil
+} from "lucide-react";
+
 import { 
     getTransactions, getAccounts, getCategories, 
     deleteAccount, deleteCategory, deleteTransaction 
 } from "@/actions/finance";
-import TransactionDialog from "./transaction-dialog";
-import AccountDialog from "./account-dialog";
-import CategoryDialog from "./category-dialog";
-import FinanceReports from "./finance-reports";
-import { showSuccess, showError } from "@/lib/toast";
 
-// Helper for currency
-const formatRupiah = (amount: number) => {
-    return new Intl.NumberFormat("id-ID", {
-        style: "currency",
-        currency: "IDR",
-        minimumFractionDigits: 0,
-    }).format(amount);
-};
+// Dynamic Imports for heavy dialogs
+const TransactionDialog = dynamic(() => import("./transaction-dialog"), { 
+  loading: () => <Loader2 className="animate-spin" />,
+  ssr: false 
+});
+const AccountDialog = dynamic(() => import("./account-dialog"), { ssr: false });
+const CategoryDialog = dynamic(() => import("./category-dialog"), { ssr: false });
+const FinanceReports = dynamic(() => import("./finance-reports"), { ssr: false });
+
+import { showSuccess, showError } from "@/lib/toast";
+import { formatRupiah } from "@/lib/utils";
 
 interface Transaction {
-    id: string;
-    date: Date | string;
-    description: string | null;
-    type: "INCOME" | "EXPENSE" | "TRANSFER";
-    amount: number;
-    status: "APPROVED" | "PENDING" | "REJECTED";
-    accountIdSource?: string | null;
-    accountIdDest?: string | null;
-    accountSource?: { name: string } | null;
-    accountDest?: { name: string } | null;
-    category?: { name: string } | null;
+  id: string;
+  amount: number;
+  type: "INCOME" | "EXPENSE" | "TRANSFER";
+  description: string;
+  date: string;
+  status: string;
+  accountIdSource: string;
+  accountIdDest?: string;
+  categoryId?: string;
+  accountSource?: Account;
+  accountDest?: Account;
+  category?: Category;
 }
 
 interface Account {
-    id: string;
-    name: string;
-    accountNumber?: string | null;
-    isSystem?: boolean | null;
+  id: string;
+  name: string;
+  accountNumber?: string;
+  balance?: number;
+  isSystem: boolean;
 }
 
 interface Category {
-    id: string;
-    name: string;
-    type: "INCOME" | "EXPENSE";
-    isSystem?: boolean | null;
+  id: string;
+  name: string;
+  type: "INCOME" | "EXPENSE";
+  isSystem: boolean;
 }
 
 export default function CashFlowManager() {
@@ -70,12 +85,41 @@ export default function CashFlowManager() {
     const [isTxOpen, setIsTxOpen] = useState(false);
     const [isAccountOpen, setIsAccountOpen] = useState(false);
     const [isCategoryOpen, setIsCategoryOpen] = useState(false);
-
-    // Edit States
-    const [accountToEdit, setAccountToEdit] = useState<Account | null>(null);
-    const [categoryToEdit, setCategoryToEdit] = useState<Category | null>(null);
-    const [transactionToEdit, setTransactionToEdit] = useState<Transaction | null>(null);
     
+    // Edit States
+    const [accountToEdit, setAccountToEdit] = useState<Account | undefined>();
+    const [categoryToEdit, setCategoryToEdit] = useState<Category | undefined>();
+
+    // Memoized account balances calculation
+    const accountBalances = useMemo(() => {
+        const balances: Record<string, number> = {};
+        const hasServerBalances = accounts.some(acc => typeof acc.balance === "number");
+        accounts.forEach(acc => {
+            balances[acc.id] = hasServerBalances ? (acc.balance || 0) : 0;
+        });
+
+        if (hasServerBalances) return balances;
+
+        transactions.forEach(tx => {
+            if (tx.status !== "APPROVED") return;
+
+            if (tx.type === "INCOME" && tx.accountIdSource) {
+                balances[tx.accountIdSource] = (balances[tx.accountIdSource] || 0) + tx.amount;
+            } else if (tx.type === "EXPENSE" && tx.accountIdSource) {
+                balances[tx.accountIdSource] = (balances[tx.accountIdSource] || 0) - tx.amount;
+            } else if (tx.type === "TRANSFER") {
+                if (tx.accountIdSource) {
+                    balances[tx.accountIdSource] = (balances[tx.accountIdSource] || 0) - tx.amount;
+                }
+                if (tx.accountIdDest) {
+                    balances[tx.accountIdDest] = (balances[tx.accountIdDest] || 0) + tx.amount;
+                }
+            }
+        });
+
+        return balances;
+    }, [transactions, accounts]);
+
     const fetchData = async () => {
         setIsLoading(true);
         try {
@@ -85,22 +129,30 @@ export default function CashFlowManager() {
                 getCategories()
             ]);
             
-            if (txRes.success) setTransactions(txRes.data || []);
-            if (accRes.success) setAccounts(accRes.data || []);
-            if (catRes.success) setCategories(catRes.data || []);
-            
-        } catch (error) {
-            console.error("Failed to fetch finance data", error);
+            if (txRes.success) setTransactions(Array.isArray(txRes.data) ? txRes.data : []);
+            if (accRes.success) setAccounts(Array.isArray(accRes.data) ? accRes.data : []);
+            if (catRes.success) setCategories(Array.isArray(catRes.data) ? catRes.data : []);
+        } catch (err) {
+            showError("Gagal memuat data keuangan");
         } finally {
             setIsLoading(false);
         }
     };
-    
+
     useEffect(() => {
         fetchData();
     }, []);
 
-    // --- Handlers ---
+    const handleDeleteTransaction = async (id: string) => {
+        if (!confirm("Hapus transaksi ini?")) return;
+        const res = await deleteTransaction(id);
+        if (res.success) {
+            showSuccess("Transaksi dihapus");
+            fetchData();
+        } else {
+            showError(res.error || "Gagal menghapus transaksi");
+        }
+    };
 
     const handleEditAccount = (acc: Account) => {
         setAccountToEdit(acc);
@@ -108,10 +160,10 @@ export default function CashFlowManager() {
     };
 
     const handleDeleteAccount = async (id: string, name: string) => {
-        if (!confirm(`Yakin ingin menghapus akun "${name}"?`)) return;
+        if (!confirm(`Hapus akun "${name}"? Semua transaksi terkait akan ikut terhapus.`)) return;
         const res = await deleteAccount(id);
         if (res.success) {
-            showSuccess(res.message || "Akun berhasil dihapus");
+            showSuccess("Akun dihapus");
             fetchData();
         } else {
             showError(res.error || "Gagal menghapus akun");
@@ -124,82 +176,46 @@ export default function CashFlowManager() {
     };
 
     const handleDeleteCategory = async (id: string, name: string) => {
-        if (!confirm(`Yakin ingin menghapus kategori "${name}"?`)) return;
+        if (!confirm(`Hapus kategori "${name}"?`)) return;
         const res = await deleteCategory(id);
         if (res.success) {
-            showSuccess(res.message || "Kategori berhasil dihapus");
+            showSuccess("Kategori dihapus");
             fetchData();
         } else {
             showError(res.error || "Gagal menghapus kategori");
         }
     };
 
-    const handleDeleteTransaction = async (id: string) => {
-        if (!confirm("Hapus transaksi ini?")) return;
-        const res = await deleteTransaction(id);
-        if (res.success) {
-            showSuccess(res.message || "Transaksi berhasil dihapus");
-            fetchData();
-        } else {
-            showError(res.error || "Gagal menghapus transaksi");
-        }
-    };
-    
-    // Reset edit state when dialogs close
     const onAccountDialogChange = (open: boolean) => {
         setIsAccountOpen(open);
-        if (!open) setAccountToEdit(null);
+        if (!open) setAccountToEdit(undefined);
     };
 
     const onCategoryDialogChange = (open: boolean) => {
         setIsCategoryOpen(open);
-        if (!open) setCategoryToEdit(null);
-    };
-
-    const calculateBalance = (accountId: string) => {
-        let balance = 0;
-        transactions.forEach(tx => {
-            if (tx.status !== "APPROVED") return;
-            if (tx.type === "INCOME" && tx.accountIdSource === accountId) {
-                balance += tx.amount;
-            } else if (tx.type === "EXPENSE" && tx.accountIdSource === accountId) {
-                balance -= tx.amount;
-            } else if (tx.type === "TRANSFER") {
-                if (tx.accountIdSource === accountId) balance -= tx.amount;
-                if (tx.accountIdDest === accountId) balance += tx.amount;
-            }
-        });
-        return balance;
+        if (!open) setCategoryToEdit(undefined);
     };
 
     return (
         <div className="space-y-6">
             <Tabs defaultValue="dashboard" className="w-full">
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center justify-between">
                     <TabsList>
                         <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-                        <TabsTrigger value="reports">Laporan (BKU)</TabsTrigger>
-                        <TabsTrigger value="settings">Pengaturan (Data Master)</TabsTrigger>
+                        <TabsTrigger value="settings">Pengaturan</TabsTrigger>
+                        <TabsTrigger value="reports">Laporan</TabsTrigger>
                     </TabsList>
-                    <Button variant="outline" size="sm" onClick={fetchData}>
-                        <RefreshCcw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+                    <Button variant="outline" size="sm" onClick={fetchData} disabled={isLoading}>
+                        <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
                         Refresh
                     </Button>
                 </div>
 
                 <TabsContent value="dashboard" className="space-y-6">
-                    {/* Header Stats */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {accounts.length === 0 && !isLoading && (
-                            <div className="col-span-3 p-6 border border-dashed rounded-lg text-center bg-muted/30">
-                                <Wallet className="h-10 w-10 mx-auto text-muted-foreground mb-3 opacity-50" />
-                                <h3 className="font-medium text-lg">Belum ada Akun Keuangan</h3>
-                                <p className="text-sm text-muted-foreground mb-4">
-                                    Silakan buat akun (Wadah Uang) terlebih dahulu di menu Pengaturan.
-                                </p>
-                                <Button onClick={() => setIsAccountOpen(true)}>
-                                    <Plus className="mr-2 h-4 w-4" /> Tambah Akun
-                                </Button>
+                            <div className="col-span-3 text-center p-8 bg-muted/50 rounded-lg border border-dashed">
+                                Belum ada akun bank atau kas yang ditambahkan.
                             </div>
                         )}
                         {accounts.map(acc => (
@@ -215,7 +231,7 @@ export default function CashFlowManager() {
                                     )}
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="text-2xl font-bold">{formatRupiah(calculateBalance(acc.id))}</div>
+                                    <div className="text-2xl font-bold">{formatRupiah(accountBalances[acc.id] || 0)}</div>
                                     <p className="text-xs text-muted-foreground">
                                         {acc.accountNumber || "Kas Tunai"}
                                     </p>
@@ -227,8 +243,8 @@ export default function CashFlowManager() {
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between">
                             <div>
-                                <CardTitle>Mutasi & Transaksi</CardTitle>
-                                <CardDescription>Riwayat pemasukan, pengeluaran, dan perpindahan dana.</CardDescription>
+                                <CardTitle>Mutasi & Transaksi BOS</CardTitle>
+                                <CardDescription>Riwayat pemasukan, pengeluaran, dan perpindahan dana BOS.</CardDescription>
                             </div>
                             <Button size="sm" onClick={() => setIsTxOpen(true)} disabled={accounts.length === 0}>
                                 <Plus className="h-4 w-4 mr-2" />
@@ -313,7 +329,6 @@ export default function CashFlowManager() {
 
                 <TabsContent value="settings" className="space-y-6">
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Accounts Section */}
                         <Card>
                             <CardHeader className="flex flex-row items-center justify-between">
                                 <div>
@@ -353,19 +368,11 @@ export default function CashFlowManager() {
                                                 </TableCell>
                                             </TableRow>
                                         ))}
-                                        {accounts.length === 0 && (
-                                             <TableRow>
-                                                <TableCell colSpan={2} className="text-center text-muted-foreground py-4">
-                                                    Belum ada akun.
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
                                     </TableBody>
                                 </Table>
                             </CardContent>
                         </Card>
 
-                        {/* Categories Section */}
                         <Card>
                             <CardHeader className="flex flex-row items-center justify-between">
                                 <div>
@@ -409,13 +416,6 @@ export default function CashFlowManager() {
                                                 </TableCell>
                                             </TableRow>
                                         ))}
-                                        {categories.length === 0 && (
-                                             <TableRow>
-                                                <TableCell colSpan={2} className="text-center text-muted-foreground py-4">
-                                                    Belum ada kategori.
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
                                     </TableBody>
                                 </Table>
                             </CardContent>

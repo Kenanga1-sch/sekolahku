@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"net/http"
 	"strconv"
 
@@ -51,9 +52,16 @@ func (h *ContactHandler) SubmitMessage(c echo.Context) error {
 
 func (h *ContactHandler) ListMessages(c echo.Context) error {
 	page, _ := strconv.Atoi(c.QueryParam("page"))
-	if page < 1 { page = 1 }
+	if page < 1 {
+		page = 1
+	}
 	perPage, _ := strconv.Atoi(c.QueryParam("perPage"))
-	if perPage < 1 { perPage = 10 }
+	if perPage < 1 {
+		perPage, _ = strconv.Atoi(c.QueryParam("limit"))
+	}
+	if perPage < 1 {
+		perPage = 20
+	}
 
 	messages, total, err := h.Repo.GetMessages(page, perPage)
 	if err != nil {
@@ -75,6 +83,9 @@ func (h *ContactHandler) ListMessages(c echo.Context) error {
 func (h *ContactHandler) MarkAsRead(c echo.Context) error {
 	id := c.Param("id")
 	if err := h.Repo.MarkAsRead(id); err != nil {
+		if err == sql.ErrNoRows {
+			return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Pesan tidak ditemukan"})
+		}
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
@@ -83,6 +94,9 @@ func (h *ContactHandler) MarkAsRead(c echo.Context) error {
 func (h *ContactHandler) DeleteMessage(c echo.Context) error {
 	id := c.Param("id")
 	if err := h.Repo.DeleteMessage(id); err != nil {
+		if err == sql.ErrNoRows {
+			return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Pesan tidak ditemukan"})
+		}
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})

@@ -1,26 +1,44 @@
 /**
- * inventory — Client-side data fetcher
- * All database logic has been moved to the Golang backend.
- * These functions now fetch data via the Golang API.
+ * inventory — Client-side data fetcher for Inventory Stats
  */
 
-import { goGet, goPost } from "@/lib/api-client";
+import { goGet } from "@/lib/api-client";
 
-// TODO: Implement specific endpoints as needed.
-// For now, functions export stubs that call the Go API.
-
-export async function getCategoryDistribution(...args: any[]) {
-  // TODO: Wire to Golang API endpoint
-  console.warn("getCategoryDistribution: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+function unwrapStats(res: any) {
+  return res?.data ?? res ?? {
+    totalAssets: 0,
+    totalValue: 0,
+    totalItems: 0,
+    itemsGood: 0,
+    itemsDamaged: 0,
+    itemsLost: 0,
+  };
 }
 
-export async function getCachedInventoryStats(...args: any[]) {
-  console.warn("getCachedInventoryStats: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function getCategoryDistribution() {
+  // Can be summarized from stats or a specific endpoint
+  return unwrapStats(await goGet("/api/inventory/stats"));
 }
 
-export async function getCachedConsumableStats(...args: any[]) {
-  console.warn("getCachedConsumableStats: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function getCachedInventoryStats() {
+  return unwrapStats(await goGet("/api/inventory/stats"));
+}
+
+export async function getCachedConsumableStats() {
+  const [itemsResponse, transactionsResponse] = await Promise.all([
+    goGet("/api/inventory/items?limit=1000"),
+    goGet("/api/inventory/transactions?limit=5").catch(() => ({ items: [] })),
+  ]);
+  const items = itemsResponse?.items ?? itemsResponse?.data ?? [];
+  const recentTransactions = transactionsResponse?.items ?? transactionsResponse?.data ?? [];
+
+  return {
+    totalItems: items.length,
+    totalValue: items.reduce(
+      (sum: number, item: any) => sum + ((item.currentStock ?? 0) * (item.price ?? 0)),
+      0
+    ),
+    lowStockCount: items.filter((item: any) => (item.currentStock ?? 0) <= (item.minStock ?? 0)).length,
+    recentTransactions,
+  };
 }

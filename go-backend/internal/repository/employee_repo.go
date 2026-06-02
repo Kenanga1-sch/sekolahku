@@ -34,7 +34,7 @@ func (r *EmployeeRepository) GetEmployees(page, limit int, search string) (*mode
 	// 1. Data Query
 	query := fmt.Sprintf(`
 		SELECT u.id, u.name, u.full_name, u.email, u.role, 
-		       e.nip, e.nuptk, e.employment_status, e.job_type, e.user_id
+		       e.id, e.nip, e.nuptk, e.employment_status, e.job_type, e.user_id
 		FROM users u
 		LEFT JOIN employee_details e ON u.id = e.user_id
 		WHERE %s
@@ -52,22 +52,37 @@ func (r *EmployeeRepository) GetEmployees(page, limit int, search string) (*mode
 	var employees []models.Employee
 	for rows.Next() {
 		var e models.Employee
-		var fn, nip, nuptk, empStatus, jobType, uId sql.NullString
+		var fn, detailId, nip, nuptk, empStatus, jobType, uId sql.NullString
 
 		err := rows.Scan(
 			&e.ID, &e.Name, &fn, &e.Email, &e.Role,
-			&nip, &nuptk, &empStatus, &jobType, &uId,
+			&detailId, &nip, &nuptk, &empStatus, &jobType, &uId,
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		if fn.Valid { e.FullName = &fn.String }
-		if nip.Valid { e.NIP = &nip.String }
-		if nuptk.Valid { e.NUPTK = &nuptk.String }
-		if empStatus.Valid { e.EmploymentStatus = &empStatus.String }
-		if jobType.Valid { e.JobType = &jobType.String }
-		if uId.Valid { e.UserID = &uId.String }
+		if fn.Valid {
+			e.FullName = &fn.String
+		}
+		if nip.Valid {
+			e.NIP = &nip.String
+		}
+		if nuptk.Valid {
+			e.NUPTK = &nuptk.String
+		}
+		if empStatus.Valid {
+			e.EmploymentStatus = &empStatus.String
+		}
+		if jobType.Valid {
+			e.JobType = &jobType.String
+		}
+		if uId.Valid {
+			e.UserID = &uId.String
+		}
+		if detailId.Valid {
+			e.EmployeeDetailID = &detailId.String
+		}
 
 		employees = append(employees, e)
 	}
@@ -170,14 +185,30 @@ func (r *EmployeeRepository) GetEmployeeByID(id string) (*models.Employee, error
 		return nil, err
 	}
 
-	if fn.Valid { e.FullName = &fn.String }
-	if phone.Valid { e.Phone = &phone.String }
-	if nip.Valid { e.NIP = &nip.String }
-	if nuptk.Valid { e.NUPTK = &nuptk.String }
-	if nik.Valid { e.NIK = &nik.String }
-	if empStatus.Valid { e.EmploymentStatus = &empStatus.String }
-	if jobType.Valid { e.JobType = &jobType.String }
-	if joinDate.Valid { e.JoinDate = &joinDate.String }
+	if fn.Valid {
+		e.FullName = &fn.String
+	}
+	if phone.Valid {
+		e.Phone = &phone.String
+	}
+	if nip.Valid {
+		e.NIP = &nip.String
+	}
+	if nuptk.Valid {
+		e.NUPTK = &nuptk.String
+	}
+	if nik.Valid {
+		e.NIK = &nik.String
+	}
+	if empStatus.Valid {
+		e.EmploymentStatus = &empStatus.String
+	}
+	if jobType.Valid {
+		e.JobType = &jobType.String
+	}
+	if joinDate.Valid {
+		e.JoinDate = &joinDate.String
+	}
 
 	return &e, nil
 }

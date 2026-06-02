@@ -1,40 +1,53 @@
 /**
- * members — Client-side data fetcher
- * All database logic has been moved to the Golang backend.
- * These functions now fetch data via the Golang API.
+ * members — Client-side data fetcher for Library Members
  */
 
-import { goGet, goPost } from "@/lib/api-client";
+import { goGet, goPost, goPatch, goDelete } from "@/lib/api-client";
+import type { LibraryMember } from "@/types/library";
 
-// TODO: Implement specific endpoints as needed.
-// For now, functions export stubs that call the Go API.
-
-export async function getLibraryMembers(...args: any[]) {
-  // TODO: Wire to Golang API endpoint
-  console.warn("getLibraryMembers: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export interface GetMembersOptions {
+  page?: number;
+  perPage?: number;
+  search?: string;
 }
 
-export async function getMemberByQRCode(...args: any[]) {
-  // TODO: Wire to Golang API endpoint
-  console.warn("getMemberByQRCode: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export interface GetMembersResponse {
+  items: LibraryMember[];
+  totalItems: number;
+  totalPages: number;
+  page: number;
 }
 
-export async function createLibraryMember(...args: any[]) {
-  // TODO: Wire to Golang API endpoint
-  console.warn("createLibraryMember: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function getLibraryMembers(options: GetMembersOptions = {}): Promise<GetMembersResponse> {
+  const params = new URLSearchParams();
+  if (options.page) params.append("page", options.page.toString());
+  if (options.perPage) params.append("perPage", options.perPage.toString());
+  if (options.search) params.append("search", options.search);
+
+  return await goGet(`/api/library/members?${params.toString()}`);
 }
 
-export async function updateLibraryMember(...args: any[]) {
-  // TODO: Wire to Golang API endpoint
-  console.warn("updateLibraryMember: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function getMemberByQRCode(qrCode: string): Promise<LibraryMember | null> {
+  try {
+    return await goGet(`/api/library/members/qr/${qrCode}`);
+  } catch (error) {
+    console.error("Failed to get member by QR:", error);
+    return null;
+  }
 }
 
-export async function deleteLibraryMember(...args: any[]) {
-  // TODO: Wire to Golang API endpoint
-  console.warn("deleteLibraryMember: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function createLibraryMember(data: any) {
+  return await goPost("/api/library/members", data);
+}
+
+export async function updateLibraryMember(id: string, data: any) {
+  return await goPatch(`/api/library/members/${id}`, data);
+}
+
+export async function deleteLibraryMember(id: string) {
+  return await goDelete(`/api/library/members/${id}`);
+}
+
+export async function syncMembersFromStudents() {
+  return await goPost("/api/library/members/sync", {});
 }

@@ -14,7 +14,7 @@ export function DownloadPdfButton({ registrant }: { registrant: any }) {
   useEffect(() => {
     setIsClient(true);
     // Generate QR Code as Data URL
-    const url = `${window.location.origin}/spmb/verify/detail?id=${registrant.id}`;
+    const url = `${window.location.origin}/spmb/verify/detail?id=${registrant.registrationNumber}`;
     QRCode.toDataURL(url, { width: 200, margin: 0 }, (err, url) => {
       if (!err) setQrCodeUrl(url);
     });
@@ -29,17 +29,21 @@ export function DownloadPdfButton({ registrant }: { registrant: any }) {
   }
 
   // Enriched data with QR
-  const pdfData = { ...registrant, qrCodeUrl };
+  const pdfData = {
+    ...registrant,
+    qrCodeUrl,
+    logoUrl: `${window.location.origin}/logo.png`,
+  };
 
   return (
     <PDFDownloadLink
       document={<RegistrantDocument data={pdfData} />}
       fileName={registrant.status === "accepted" ? `Surat_Keputusan_${registrant.registrationNumber}.pdf` : `Bukti_Pendaftaran_${registrant.registrationNumber}.pdf`}
     >
-      {({ blob, url, loading, error }) => (
-        <Button disabled={loading} className="gap-2 bg-blue-700 hover:bg-blue-800 text-white">
+      {({ loading, error }) => (
+        <Button disabled={loading || Boolean(error)} className="gap-2 bg-blue-700 hover:bg-blue-800 text-white">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            {loading ? "Generating..." : (registrant.status === "accepted" ? "Download SK PDF" : "Download Bukti PDF")}
+            {error ? "PDF gagal dibuat" : loading ? "Generating..." : (registrant.status === "accepted" ? "Download SK PDF" : "Download Bukti PDF")}
         </Button>
       )}
     </PDFDownloadLink>

@@ -2,8 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // === STATIC EXPORT MODE ===
-  // Generates static HTML/CSS/JS in "out/" folder
+  // Required for embedding in Go binary via "out" folder
   output: "export",
+
 
   typescript: {
     ignoreBuildErrors: true,
@@ -11,7 +12,7 @@ const nextConfig: NextConfig = {
 
   // No source maps in production
   productionBrowserSourceMaps: false,
-  reactStrictMode: false,
+  reactStrictMode: true,
 
   // Optimize package imports
   experimental: {

@@ -1,7 +1,10 @@
 package handlers
 
 import (
+	"bytes"
+	"encoding/csv"
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sekolahku/go-backend/internal/models"
@@ -27,7 +30,7 @@ func (h *AttendanceHandler) GetStats(c echo.Context) error {
 func (h *AttendanceHandler) GetSessions(c echo.Context) error {
 	date := c.QueryParam("date")
 	status := c.QueryParam("status")
-	
+
 	sessions, err := h.Repo.GetSessions(date, status)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
@@ -45,12 +48,12 @@ func (h *AttendanceHandler) CreateSession(c echo.Context) error {
 	if err != nil {
 		if err.Error() == "CONFLICT" {
 			return c.JSON(http.StatusConflict, map[string]interface{}{
-				"success": false, 
-				"error": "Sesi untuk kelas ini sudah ada hari ini",
+				"success":  false,
+				"error":    "Sesi untuk kelas ini sudah ada hari ini",
 				"existing": map[string]string{"id": id},
 			})
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": err.Error()})
 	}
 
 	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true, "id": id})
@@ -62,29 +65,37 @@ func (h *AttendanceHandler) GetSessionByID(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Sesi tidak ditemukan"})
 	}
-	
+
 	var hadir, sakit, izin, alpha int
 	for _, r := range session.Records {
 		switch r.Status {
-		case "hadir": hadir++
-		case "sakit": sakit++
-		case "izin": izin++
-		case "alpha": alpha++
+		case "hadir":
+			hadir++
+		case "sakit":
+			sakit++
+		case "izin":
+			izin++
+		case "alpha":
+			alpha++
 		}
 	}
-	
+
 	belumAbsen := len(session.AllStudents) - len(session.Records)
-	if belumAbsen < 0 { belumAbsen = 0 }
+	if belumAbsen < 0 {
+		belumAbsen = 0
+	}
 
 	res := map[string]interface{}{
-		"id":           session.ID,
-		"date":         session.Date,
-		"className":    session.ClassName,
-		"teacherName":  session.TeacherName,
-		"status":       session.Status,
-		"notes":        session.Notes,
-		"records":      session.Records,
-		"allStudents":  session.AllStudents,
+		"id":          session.ID,
+		"date":        session.Date,
+		"className":   session.ClassName,
+		"teacherName": session.TeacherName,
+		"status":      session.Status,
+		"notes":       session.Notes,
+		"openedAt":    session.OpenedAt,
+		"closedAt":    session.ClosedAt,
+		"records":     session.Records,
+		"allStudents": session.AllStudents,
 		"stats": map[string]interface{}{
 			"total":      len(session.AllStudents),
 			"hadir":      hadir,
@@ -108,7 +119,11 @@ func (h *AttendanceHandler) UpdateSession(c echo.Context) error {
 	}
 
 	if err := h.Repo.UpdateSessionStatus(id, req.Status); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		status := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "tidak valid") || strings.Contains(err.Error(), "tidak ditemukan") {
+			status = http.StatusBadRequest
+		}
+		return c.JSON(status, map[string]interface{}{"success": false, "error": err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
@@ -121,7 +136,15 @@ func (h *AttendanceHandler) RecordManual(c echo.Context) error {
 	}
 
 	if err := h.Repo.RecordManual(req); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		status := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "tidak valid") ||
+			strings.Contains(err.Error(), "harus") ||
+			strings.Contains(err.Error(), "ditutup") ||
+			strings.Contains(err.Error(), "ditemukan") ||
+			strings.Contains(err.Error(), "bukan kelas") {
+			status = http.StatusBadRequest
+		}
+		return c.JSON(status, map[string]interface{}{"success": false, "error": err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
@@ -138,14 +161,24 @@ func (h *AttendanceHandler) ScanQR(c echo.Context) error {
 		status := http.StatusInternalServerError
 		if err.Error() == "Siswa sudah diabsen" {
 			status = http.StatusConflict
-		} else if err.Error() == "Siswa tidak ditemukan" || err.Error() == "Tidak ada sesi aktif untuk kelas ini" {
+		} else if err.Error() == "Siswa tidak ditemukan" || err.Error() == "Tidak ada sesi aktif untuk kelas ini" || err.Error() == "Sesi tidak ditemukan" {
 			status = http.StatusNotFound
+		} else if strings.Contains(err.Error(), "tidak valid") ||
+			strings.Contains(err.Error(), "kosong") ||
+			strings.Contains(err.Error(), "ditutup") ||
+			strings.Contains(err.Error(), "belum memiliki kelas") ||
+			strings.Contains(err.Error(), "bukan kelas") {
+			status = http.StatusBadRequest
 		}
-		
+
+		var student interface{}
+		if res != nil {
+			student = res["student"]
+		}
 		return c.JSON(status, map[string]interface{}{
-			"success": false, 
-			"error": err.Error(),
-			"student": res["student"],
+			"success": false,
+			"error":   err.Error(),
+			"student": student,
 		})
 	}
 
@@ -153,6 +186,23 @@ func (h *AttendanceHandler) ScanQR(c echo.Context) error {
 		"success": true,
 		"student": res["student"],
 	})
+}
+
+func (h *AttendanceHandler) GetReport(c echo.Context) error {
+	startDate := c.QueryParam("startDate")
+	endDate := c.QueryParam("endDate")
+	className := c.QueryParam("class")
+
+	if startDate == "" || endDate == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Tanggal harus diisi"})
+	}
+
+	report, err := h.Repo.GetAttendanceReport(startDate, endDate, className)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, report)
 }
 
 func (h *AttendanceHandler) ExportCSV(c echo.Context) error {
@@ -164,32 +214,30 @@ func (h *AttendanceHandler) ExportCSV(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Tanggal harus diisi"})
 	}
 
-	records, err := h.Repo.ExportAttendance(startDate, endDate, className)
+	report, err := h.Repo.GetAttendanceReport(startDate, endDate, className)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
 	}
 
-	// Generate CSV
-	csv := "Tanggal,Kelas,Nama Siswa,NIS/NISN,Status,Waktu Check-In,Metode\n"
-	for _, r := range records {
+	var buf bytes.Buffer
+	writer := csv.NewWriter(&buf)
+	_ = writer.Write([]string{"Tanggal", "Kelas", "Nama Siswa", "NIS/NISN", "Status", "Waktu Check-In", "Metode"})
+	for _, r := range report.Records {
+		nis := ""
+		if r.NIS != nil {
+			nis = *r.NIS
+		} else if r.NISN != nil {
+			nis = *r.NISN
+		}
 		checkIn := "-"
 		if r.CheckInTime != nil {
-			checkIn = r.CheckInTime.Format("15:04:05")
+			checkIn = *r.CheckInTime
 		}
-		
-		nis := ""
-		if r.Student.NIS != nil { nis = *r.Student.NIS } else if r.Student.NISN != nil { nis = *r.Student.NISN }
-		
-		date := ""
-		if r.Notes != nil { date = *r.Notes }
-
-		className := "-"
-		if r.Student.ClassName != nil { className = *r.Student.ClassName }
-
-		csv += date + "," + className + "," + r.Student.FullName + "," + nis + "," + r.Status + "," + checkIn + "," + r.RecordMethod + "\n"
+		_ = writer.Write([]string{r.Date, r.ClassName, r.StudentName, nis, r.Status, checkIn, r.RecordMethod})
 	}
+	writer.Flush()
 
 	c.Response().Header().Set("Content-Type", "text/csv")
 	c.Response().Header().Set("Content-Disposition", "attachment; filename=laporan-presensi.csv")
-	return c.String(http.StatusOK, csv)
+	return c.String(http.StatusOK, buf.String())
 }

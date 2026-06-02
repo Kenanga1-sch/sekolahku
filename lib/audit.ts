@@ -1,7 +1,5 @@
 /**
- * audit — Client-side data fetcher
- * All database logic has been moved to the Golang backend.
- * These functions now fetch data via the Golang API.
+ * audit — Client-side data fetcher for Audit Logs
  */
 
 import { goGet, goPost } from "@/lib/api-client";
@@ -43,15 +41,14 @@ export interface AuditLogItem {
     createdAt: string;
 }
 
-// TODO: Implement specific endpoints as needed.
-// For now, functions export stubs that call the Go API.
-
-export async function createAuditLog(...args: any[]) {
-  console.warn("createAuditLog: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function createAuditLog(data: Partial<AuditLogItem>) {
+  return await goPost("/api/audit-logs", data);
 }
 
-export async function getAuditLogs(...args: any[]) {
-  console.warn("getAuditLogs: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function getAuditLogs(page = 1, limit = 20, action?: string, resource?: string) {
+  const params = new URLSearchParams({ page: page.toString(), limit: limit.toString() });
+  if (action && action !== "all") params.append("action", action);
+  if (resource && resource !== "all") params.append("resource", resource);
+  
+  return await goGet(`/api/audit-logs?${params.toString()}`);
 }

@@ -21,8 +21,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { goPost } from "@/lib/api-client";
 import { getDDCLabel } from "@/lib/library/ddc-mapping";
-import type { LibraryMember, LibraryItem, LibraryLoan } from "@/types/library";
+import type { LibraryMember, LibraryLoan } from "@/types/library";
 
 // Dynamic import QR Scanner to prevent SSR issues
 const Scanner = dynamic(
@@ -42,56 +43,19 @@ const Scanner = dynamic(
  * Performance: 4 API calls → 1 API call (60-70% faster)
  */
 async function apiSmartScanComplete(code: string) {
-    const res = await fetch("/api/kiosk/scan-complete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
-    });
-    return res.json();
-}
-
-// Legacy API (kept for book scans in borrow mode)
-async function apiSmartScan(code: string) {
-    const res = await fetch("/api/kiosk/scan", {
-        method: "POST",
-        body: JSON.stringify({ code, type: "scan" }),
-    });
-    return res.json();
+    return goPost("/api/kiosk/scan-complete", { code }, { skipRetry: true });
 }
 
 async function apiBorrowBook(memberId: string, itemId: string) {
-    const res = await fetch("/api/kiosk/transaction", {
-        method: "POST",
-        body: JSON.stringify({ type: "borrow", memberId, itemId }),
-    });
-    if (!res.ok) {
-        const text = await res.text();
-        console.error("Borrow API Error:", res.status, text);
-        try {
-            const json = JSON.parse(text);
-            throw new Error(json.error || "Failed to borrow");
-        } catch (e) {
-            throw new Error(`Failed to borrow: ${res.status} ${res.statusText}`);
-        }
-    }
-    return res.json();
+    return goPost("/api/kiosk/transaction", { type: "borrow", memberId, itemId }, { skipRetry: true });
 }
 
 async function apiReturnBook(loanId: string) {
-    const res = await fetch("/api/kiosk/transaction", {
-        method: "POST",
-        body: JSON.stringify({ type: "return", loanId }),
-    });
-    if (!res.ok) throw new Error("Failed to return");
-    return res.json();
+    return goPost("/api/kiosk/transaction", { type: "return", loanId }, { skipRetry: true });
 }
 
 async function apiFindLoanByItemId(itemId: string) {
-    const res = await fetch("/api/kiosk/scan", {
-        method: "POST",
-        body: JSON.stringify({ code: itemId, type: "find-loan" }),
-    });
-    return res.json();
+    return goPost("/api/kiosk/scan", { code: itemId, type: "find-loan" }, { skipRetry: true });
 }
 
 // ==========================================
@@ -132,17 +96,10 @@ export default function KioskPage() {
     const [lastScannedCode, setLastScannedCode] = useState<string | null>(null);
     const [lastCodeScanTime, setLastCodeScanTime] = useState(0);
     const [cameraError, setCameraError] = useState<string | null>(null);
-    const [isSecure, setIsSecure] = useState(true);
+    const [isSecure] = useState(() => (typeof window === "undefined" ? true : window.isSecureContext));
     
     const sessionTimer = useRef<NodeJS.Timeout | null>(null);
     const countdownInterval = useRef<NodeJS.Timeout | null>(null);
-
-    // Check for Secure Context on mount
-    useEffect(() => {
-        if (typeof window !== "undefined") {
-            setIsSecure(window.isSecureContext);
-        }
-    }, []);
 
     // ==========================================
     // Timer Management
@@ -173,10 +130,6 @@ export default function KioskPage() {
             setState({ type: "idle" });
         }, duration);
     }, [clearTimers]);
-
-    const resetSessionTimer = useCallback(() => {
-        startSessionTimer();
-    }, [startSessionTimer]);
 
     useEffect(() => {
         return () => clearTimers();

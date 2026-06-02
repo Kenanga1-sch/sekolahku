@@ -38,7 +38,8 @@ export default function PengumumanPage() {
     fetch(`/api/public/spmb/registrants`)
       .then(res => res.json())
       .then(json => {
-        setRegistrants(json || []);
+        const items = Array.isArray(json) ? json : (Array.isArray(json?.data) ? json.data : []);
+        setRegistrants(items);
         setIsLoading(false);
       })
       .catch(err => {
@@ -48,8 +49,8 @@ export default function PengumumanPage() {
   }, []);
 
   const filteredRegistrants = registrants.filter(reg => 
-    reg.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    reg.registrationNumber.toLowerCase().includes(searchQuery.toLowerCase())
+    (reg.fullName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (reg.registrationNumber || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const acceptedCount = registrants.filter(r => r.status === "accepted").length;

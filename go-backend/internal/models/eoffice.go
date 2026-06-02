@@ -28,8 +28,8 @@ type LetterTemplate struct {
 }
 
 type LetterTemplateResponse struct {
-	Data []LetterTemplate `json:"data"`
-	Total int            `json:"total"`
+	Data  []LetterTemplate `json:"data"`
+	Total int              `json:"total"`
 }
 
 type NumberingRequest struct {
@@ -50,7 +50,6 @@ type IncrementRequest struct {
 }
 
 // Announcement struct moved to announcement.go
-
 
 // ContactMessage moved to contact.go
 
@@ -77,6 +76,7 @@ type SuratMasuk struct {
 	Notes              *string           `json:"notes"`
 	CreatedAt          *time.Time        `json:"createdAt"`
 	UpdatedAt          *time.Time        `json:"updatedAt"`
+	Dispositions       []Disposisi       `json:"dispositions,omitempty"`
 }
 
 type SuratKeluar struct {
@@ -91,27 +91,48 @@ type SuratKeluar struct {
 	FinalFilePath      *string           `json:"finalFilePath"`
 	Status             string            `json:"status"`
 	CreatedBy          *string           `json:"createdBy"`
+	Creator            *User             `json:"creator,omitempty"`
 	CreatedAt          *time.Time        `json:"createdAt"`
 	UpdatedAt          *time.Time        `json:"updatedAt"`
 }
 
 type Disposisi struct {
-	ID             string     `json:"id"`
-	SuratMasukID   string     `json:"suratMasukId"`
-	FromUserID     string     `json:"fromUserId"`
-	FromUser       *User      `json:"fromUser,omitempty"`
-	ToUserID       string     `json:"toUserId"`
-	ToUser         *User      `json:"toUser,omitempty"`
-	Instruction    string     `json:"instruction"`
-	Deadline       *string    `json:"deadline"`
-	IsCompleted    bool       `json:"isCompleted"`
-	CompletedAt    *time.Time `json:"completedAt"`
-	CompletedNote  *string    `json:"completedNote"`
-	CreatedAt      *time.Time `json:"createdAt"`
+	ID            string     `json:"id"`
+	SuratMasukID  string     `json:"suratMasukId"`
+	FromUserID    string     `json:"fromUserId"`
+	FromUser      *User      `json:"fromUser,omitempty"`
+	ToUserID      string     `json:"toUserId"`
+	ToUser        *User      `json:"toUser,omitempty"`
+	Instruction   string     `json:"instruction"`
+	Deadline      *string    `json:"deadline"`
+	IsCompleted   bool       `json:"isCompleted"`
+	CompletedAt   *time.Time `json:"completedAt"`
+	CompletedNote *string    `json:"completedNote"`
+	CreatedAt     *time.Time `json:"createdAt"`
 }
 
 type ArsipStats struct {
 	SuratMasuk   int `json:"suratMasuk"`
-	SuratKeluar   int `json:"suratKeluar"`
+	SuratKeluar  int `json:"suratKeluar"`
 	PendingTasks int `json:"pendingTasks"`
+}
+
+type BatchGenerateRequest struct {
+	TemplateID         string            `json:"templateId"`
+	Recipients         []RecipientData   `json:"recipients"`
+	ManualVars         map[string]string `json:"manualVars"`
+	LetterNumber       string            `json:"letterNumber"`
+	NextSequence       int               `json:"nextSequence"`
+	ClassificationCode *string           `json:"classificationCode"`
+}
+
+type RecipientData struct {
+	ID        string            `json:"id"`
+	Name      string            `json:"name"`
+	ClassName *string           `json:"className"`
+	Data      map[string]string `json:"data"` // Specific overrides
+}
+
+type TemplateVariablesResponse struct {
+	Variables []string `json:"variables"`
 }

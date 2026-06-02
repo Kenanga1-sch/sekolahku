@@ -167,8 +167,9 @@ export default function RegistrantDetailPage() {
     useEffect(() => {
         goGet("/api/school-settings")
             .then((data: any) => {
-                if (data.max_distance_km) {
-                    setMaxDistance(data.max_distance_km);
+                const settings = data?.data ?? data;
+                if (settings?.max_distance_km) {
+                    setMaxDistance(settings.max_distance_km);
                 }
             })
             .catch(err => console.error("Failed to fetch settings", err));

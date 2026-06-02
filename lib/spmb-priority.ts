@@ -7,7 +7,7 @@
  * 3. Waktu Pendaftaran (Lebih Awal): Hanya jika usia dan jarak sama persis
  */
 
-import type { SPMBRegistrant } from "@/db/schema/spmb";
+import type { SPMBRegistrant } from "@/types";
 
 // ==========================================
 // Types
@@ -167,8 +167,8 @@ export function compareRegistrants(
   b: SPMBRegistrant,
   referenceDate: Date = new Date()
 ): number {
-  const ageA = getAgePriorityGroup(a.birthDate, referenceDate);
-  const ageB = getAgePriorityGroup(b.birthDate, referenceDate);
+  const ageA = getAgePriorityGroup(a.birth_date || "", referenceDate);
+  const ageB = getAgePriorityGroup(b.birth_date || "", referenceDate);
 
   // 1. Compare by priority group (lower group number = higher priority)
   if (ageA.group !== ageB.group) {
@@ -178,8 +178,8 @@ export function compareRegistrants(
   // 2. Within same group, compare by age (older = higher priority = more totalMonths)
   // Check if they have the same birth year and month
   const sameBirthYearMonth = hasSameBirthYearMonth(
-    a.birthDate,
-    b.birthDate
+    a.birth_date || "",
+    b.birth_date || ""
   );
 
   if (!sameBirthYearMonth) {
@@ -188,8 +188,8 @@ export function compareRegistrants(
   }
 
   // 3. Same birth year+month: Compare by distance (closer = higher priority)
-  const distanceA = a.distanceToSchool ?? Infinity;
-  const distanceB = b.distanceToSchool ?? Infinity;
+  const distanceA = a.distance_to_school ?? Infinity;
+  const distanceB = b.distance_to_school ?? Infinity;
   
   // Round to 2 decimal places for comparison
   const roundedDistA = Math.round(distanceA * 100) / 100;
@@ -200,9 +200,9 @@ export function compareRegistrants(
   }
 
   // 4. Same distance: Compare by registration time (earlier = higher priority)
-  // createdAt is Date in Drizzle
-  const timeA = a.createdAt ? a.createdAt.getTime() : 0; 
-  const timeB = b.createdAt ? b.createdAt.getTime() : 0;
+  // created is Date in Drizzle
+  const timeA = a.created ? new Date(a.created).getTime() : 0;
+  const timeB = b.created ? new Date(b.created).getTime() : 0;
   
   return timeA - timeB;
 }
@@ -218,7 +218,7 @@ export function rankRegistrants(
   // Create array with age priority calculated
   const withPriority = registrants.map((reg) => ({
     ...reg,
-    agePriority: getAgePriorityGroup(reg.birthDate, referenceDate),
+    agePriority: getAgePriorityGroup(reg.birth_date || "", referenceDate),
     priorityRank: 0,
     recommendation: "pending" as const,
   }));

@@ -6,25 +6,34 @@ import (
 )
 
 /**
- * SafeTime convert sql.NullInt64 (Unix seconds) to *time.Time.
- * SQLite usually stores dates as unix timestamps when coming from JS/Drizzle.
+ * SafeTime convert sql.NullInt64 (Unix milliseconds) to *time.Time.
+ * We standardize on Milliseconds for high precision and consistency with JS.
  */
 func SafeTime(ni sql.NullInt64) *time.Time {
-	if !ni.Valid {
+	if !ni.Valid || ni.Int64 == 0 {
 		return nil
 	}
 	
 	val := ni.Int64
 	
-	// Heuristic: if value > 2,000,000,000, it's likely milliseconds (year 2033 is ~2e9 seconds)
-	// Most Modern JS/Drizzle DBMs use milliseconds for 'timestamp' columns.
+	// Heuristic: if value > 20,000,000,000, it's definitely milliseconds.
+	// Year 2033 in seconds is ~2e9.
 	if val > 20000000000 {
 		t := time.Unix(val/1000, (val%1000)*1000000).UTC()
 		return &t
 	}
 	
+	// Fallback for legacy seconds
 	t := time.Unix(val, 0).UTC()
 	return &t
+}
+
+/**
+ * UnixMilli returns current time in Unix Milliseconds.
+ * Use this for all new 'created_at' and 'updated_at' fields.
+ */
+func UnixMilli() int64 {
+	return time.Now().UnixMilli()
 }
 
 /**

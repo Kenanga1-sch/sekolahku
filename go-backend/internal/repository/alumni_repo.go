@@ -2,6 +2,9 @@ package repository
 
 import (
 	"database/sql"
+	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/nrednav/cuid2"
@@ -18,6 +21,24 @@ func NewAlumniRepository(db *sql.DB) *AlumniRepository {
 	return repo
 }
 
+func optionalString(ns sql.NullString) *string {
+	if !ns.Valid {
+		return nil
+	}
+	value := strings.TrimSpace(ns.String)
+	if value == "" {
+		return nil
+	}
+	return &value
+}
+
+func timeToUnixMilli(t *time.Time) interface{} {
+	if t == nil || t.IsZero() {
+		return nil
+	}
+	return t.UnixMilli()
+}
+
 func (r *AlumniRepository) SeedDocumentTypes() {
 	var count int
 	r.DB.QueryRow("SELECT COUNT(*) FROM alumni_document_types").Scan(&count)
@@ -26,11 +47,11 @@ func (r *AlumniRepository) SeedDocumentTypes() {
 	}
 
 	types := []struct {
-		Name      string
-		Code      string
-		Desc      string
-		Order     int
-		Required  bool
+		Name     string
+		Code     string
+		Desc     string
+		Order    int
+		Required bool
 	}{
 		{"Ijazah", "IJZ", "Dokumen Ijazah Asli/Legalisir", 1, true},
 		{"SKHUN", "SKH", "Surat Keterangan Hasil Ujian Nasional", 2, true},
@@ -84,14 +105,17 @@ func (r *AlumniRepository) GetAlumni(page, limit int, search, year string) ([]mo
 		if err != nil {
 			return nil, 0, err
 		}
-		if nisn.Valid { a.NISN = &nisn.String }
-		if nis.Valid { a.NIS = &nis.String }
-		if gender.Valid { a.Gender = &gender.String }
-		if fClass.Valid { a.FinalClass = &fClass.String }
-		if photo.Valid { a.Photo = &photo.String }
-		if nSchool.Valid { a.NextSchool = &nSchool.String }
-		cTime := ToTime(crAt); a.CreatedAt = &cTime
+		a.NISN = optionalString(nisn)
+		a.NIS = optionalString(nis)
+		a.Gender = optionalString(gender)
+		a.FinalClass = optionalString(fClass)
+		a.Photo = optionalString(photo)
+		a.NextSchool = optionalString(nSchool)
+		a.CreatedAt = SafeTime(crAt)
 		results = append(results, a)
+	}
+	if results == nil {
+		results = []models.Alumni{}
 	}
 	return results, total, nil
 }
@@ -114,32 +138,34 @@ func (r *AlumniRepository) GetAlumniByID(id string) (*models.Alumni, error) {
 		&ce, &ns, &notes, &crat, &upat,
 	)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, err
 	}
 
-	if sid.Valid { a.StudentID = &sid.String }
-	if nisn.Valid { a.NISN = &nisn.String }
-	if nis.Valid { a.NIS = &nis.String }
-	if gender.Valid { a.Gender = &gender.String }
-	if bp.Valid { a.BirthPlace = &bp.String }
-	if bd.Valid { a.BirthDate = &bd.String }
-	if fclass.Valid { a.FinalClass = &fclass.String }
-	if photo.Valid { a.Photo = &photo.String }
-	if pn.Valid { a.ParentName = &pn.String }
-	if pp.Valid { a.ParentPhone = &pp.String }
-	if ca.Valid { a.CurrentAddress = &ca.String }
-	if cp.Valid { a.CurrentPhone = &cp.String }
-	if ce.Valid { a.CurrentEmail = &ce.String }
-	if ns.Valid { a.NextSchool = &ns.String }
-	if notes.Valid { a.Notes = &notes.String }
-	
-	gTime := ToTime(gd); a.GraduationDate = &gTime
-	cTime := ToTime(crat); a.CreatedAt = &cTime
-	uTime := ToTime(upat); a.UpdatedAt = &uTime
+	a.StudentID = optionalString(sid)
+	a.NISN = optionalString(nisn)
+	a.NIS = optionalString(nis)
+	a.Gender = optionalString(gender)
+	a.BirthPlace = optionalString(bp)
+	a.BirthDate = optionalString(bd)
+	a.FinalClass = optionalString(fclass)
+	a.Photo = optionalString(photo)
+	a.ParentName = optionalString(pn)
+	a.ParentPhone = optionalString(pp)
+	a.CurrentAddress = optionalString(ca)
+	a.CurrentPhone = optionalString(cp)
+	a.CurrentEmail = optionalString(ce)
+	a.NextSchool = optionalString(ns)
+	a.Notes = optionalString(notes)
+	a.GraduationDate = SafeTime(gd)
+	a.CreatedAt = SafeTime(crat)
+	a.UpdatedAt = SafeTime(upat)
 
 	// Load Documents
 	a.Documents, _ = r.GetAlumniDocuments(id)
-	
+
 	// Load Pickups
 	a.Pickups, _ = r.GetDocumentPickups(id)
 
@@ -152,14 +178,14 @@ func (r *AlumniRepository) CreateAlumni(a models.Alumni) (string, error) {
 	query := `
 		INSERT INTO alumni (
 			id, student_id, nisn, nis, full_name, gender, birth_place, birth_date,
-			graduation_year, final_class, photo, parent_name, parent_phone,
+			graduation_year, graduation_date, final_class, photo, parent_name, parent_phone,
 			current_address, current_phone, current_email, next_school, notes,
 			created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	_, err := r.DB.Exec(query, 
+	_, err := r.DB.Exec(query,
 		id, a.StudentID, a.NISN, a.NIS, a.FullName, a.Gender, a.BirthPlace, a.BirthDate,
-		a.GraduationYear, a.FinalClass, a.Photo, a.ParentName, a.ParentPhone,
+		a.GraduationYear, timeToUnixMilli(a.GraduationDate), a.FinalClass, a.Photo, a.ParentName, a.ParentPhone,
 		a.CurrentAddress, a.CurrentPhone, a.CurrentEmail, a.NextSchool, a.Notes,
 		now, now,
 	)
@@ -171,18 +197,140 @@ func (r *AlumniRepository) UpdateAlumni(id string, a models.Alumni) error {
 	query := `
 		UPDATE alumni SET
 			nisn = ?, nis = ?, full_name = ?, gender = ?, birth_place = ?, birth_date = ?,
-			graduation_year = ?, final_class = ?, photo = ?, parent_name = ?, parent_phone = ?,
+			graduation_year = ?, graduation_date = ?, final_class = ?, photo = ?, parent_name = ?, parent_phone = ?,
 			current_address = ?, current_phone = ?, current_email = ?, next_school = ?, 
 			notes = ?, updated_at = ?
 		WHERE id = ?
 	`
 	_, err := r.DB.Exec(query,
 		a.NISN, a.NIS, a.FullName, a.Gender, a.BirthPlace, a.BirthDate,
-		a.GraduationYear, a.FinalClass, a.Photo, a.ParentName, a.ParentPhone,
-		a.CurrentAddress, a.CurrentPhone, a.CurrentEmail, a.NextSchool, 
+		a.GraduationYear, timeToUnixMilli(a.GraduationDate), a.FinalClass, a.Photo, a.ParentName, a.ParentPhone,
+		a.CurrentAddress, a.CurrentPhone, a.CurrentEmail, a.NextSchool,
 		a.Notes, now, id,
 	)
 	return err
+}
+
+func (r *AlumniRepository) GraduateStudents(studentIDs []string, graduationYear string, graduationDate *time.Time, deactivateStudents bool) ([]models.Alumni, int, int, error) {
+	if len(studentIDs) == 0 {
+		return []models.Alumni{}, 0, 0, nil
+	}
+	if strings.TrimSpace(graduationYear) == "" {
+		return nil, 0, 0, fmt.Errorf("tahun kelulusan wajib diisi")
+	}
+
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	defer tx.Rollback()
+
+	now := time.Now().UnixMilli()
+	results := []models.Alumni{}
+	created := 0
+	deactivated := 0
+
+	for _, studentID := range studentIDs {
+		studentID = strings.TrimSpace(studentID)
+		if studentID == "" {
+			continue
+		}
+
+		var nisn, nis, gender, birthPlace, birthDate, address, parentName, parentPhone, className, classID, photo sql.NullString
+		var fullName string
+		err := tx.QueryRow(`
+			SELECT nisn, nis, full_name, gender, birth_place, birth_date, address,
+			       parent_name, parent_phone, class_name, class_id, photo
+			FROM students
+			WHERE id = ?
+		`, studentID).Scan(&nisn, &nis, &fullName, &gender, &birthPlace, &birthDate, &address, &parentName, &parentPhone, &className, &classID, &photo)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil, created, deactivated, fmt.Errorf("siswa tidak ditemukan: %s", studentID)
+			}
+			return nil, created, deactivated, err
+		}
+
+		var existingID string
+		checkArgs := []interface{}{studentID}
+		checkQuery := "SELECT id FROM alumni WHERE student_id = ?"
+		if nisnPtr := optionalString(nisn); nisnPtr != nil {
+			checkQuery += " OR nisn = ?"
+			checkArgs = append(checkArgs, *nisnPtr)
+		}
+
+		existingErr := tx.QueryRow(checkQuery+" LIMIT 1", checkArgs...).Scan(&existingID)
+		alumniID := existingID
+		if existingErr != nil {
+			if !errors.Is(existingErr, sql.ErrNoRows) {
+				return nil, created, deactivated, existingErr
+			}
+
+			alumniID = cuid2.Generate()
+			_, err = tx.Exec(`
+				INSERT INTO alumni (
+					id, student_id, nisn, nis, full_name, gender, birth_place, birth_date,
+					graduation_year, graduation_date, final_class, photo, parent_name,
+					parent_phone, current_address, notes, created_at, updated_at
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			`,
+				alumniID, studentID, optionalString(nisn), optionalString(nis), fullName,
+				optionalString(gender), optionalString(birthPlace), optionalString(birthDate),
+				graduationYear, timeToUnixMilli(graduationDate), optionalString(className),
+				optionalString(photo), optionalString(parentName), optionalString(parentPhone),
+				optionalString(address), nil, now, now,
+			)
+			if err != nil {
+				return nil, created, deactivated, err
+			}
+			created++
+		}
+
+		if deactivateStudents {
+			res, err := tx.Exec(`
+				UPDATE students
+				SET status = 'graduated', is_active = 0, class_id = NULL, class_name = NULL, updated_at = ?
+				WHERE id = ? AND (is_active = 1 OR status != 'graduated')
+			`, now, studentID)
+			if err != nil {
+				return nil, created, deactivated, err
+			}
+			if rows, _ := res.RowsAffected(); rows > 0 {
+				deactivated++
+			}
+		}
+
+		historyID := cuid2.Generate()
+		_, _ = tx.Exec(`
+			INSERT INTO student_class_history (id, student_id, class_id, class_name, academic_year, status, record_date)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, historyID, studentID, optionalString(classID), optionalString(className), graduationYear, "graduated", now)
+
+		alumni := models.Alumni{
+			ID:             alumniID,
+			StudentID:      &studentID,
+			NISN:           optionalString(nisn),
+			NIS:            optionalString(nis),
+			FullName:       fullName,
+			Gender:         optionalString(gender),
+			BirthPlace:     optionalString(birthPlace),
+			BirthDate:      optionalString(birthDate),
+			GraduationYear: graduationYear,
+			GraduationDate: graduationDate,
+			FinalClass:     optionalString(className),
+			Photo:          optionalString(photo),
+			ParentName:     optionalString(parentName),
+			ParentPhone:    optionalString(parentPhone),
+			CurrentAddress: optionalString(address),
+		}
+		results = append(results, alumni)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, created, deactivated, err
+	}
+
+	return results, created, deactivated, nil
 }
 
 func (r *AlumniRepository) DeleteAlumni(id string) error {
@@ -213,8 +361,11 @@ func (r *AlumniRepository) GetDocumentTypes() ([]models.AlumniDocumentType, erro
 		if err != nil {
 			return nil, err
 		}
-		if desc.Valid { t.Description = &desc.String }
+		t.Description = optionalString(desc)
 		results = append(results, t)
+	}
+	if results == nil {
+		results = []models.AlumniDocumentType{}
 	}
 	return results, nil
 }
@@ -222,7 +373,7 @@ func (r *AlumniRepository) GetDocumentTypes() ([]models.AlumniDocumentType, erro
 func (r *AlumniRepository) GetAlumniDocuments(alumniID string) ([]models.AlumniDocument, error) {
 	query := `
 		SELECT d.id, d.alumni_id, d.document_type_id, d.file_name, d.file_path, d.file_size, d.mime_type, 
-		       d.document_number, d.issue_date, d.verification_status, d.created_at,
+		       d.document_number, d.issue_date, d.verification_status, d.notes, d.created_at,
 			   t.name, t.code
 		FROM alumni_documents d
 		LEFT JOIN alumni_document_types t ON d.document_type_id = t.id
@@ -238,19 +389,23 @@ func (r *AlumniRepository) GetAlumniDocuments(alumniID string) ([]models.AlumniD
 	for rows.Next() {
 		var d models.AlumniDocument
 		var t models.AlumniDocumentType
-		var dn, isd sql.NullString
+		var dn, isd, notes sql.NullString
 		var crat sql.NullInt64
-		err := rows.Scan(&d.ID, &d.AlumniID, &d.DocumentTypeID, &d.FileName, &d.FilePath, &d.FileSize, &d.MimeType, 
-			&dn, &isd, &d.VerificationStatus, &crat, &t.Name, &t.Code)
+		err := rows.Scan(&d.ID, &d.AlumniID, &d.DocumentTypeID, &d.FileName, &d.FilePath, &d.FileSize, &d.MimeType,
+			&dn, &isd, &d.VerificationStatus, &notes, &crat, &t.Name, &t.Code)
 		if err != nil {
 			return nil, err
 		}
-		if dn.Valid { d.DocumentNumber = &dn.String }
-		if isd.Valid { d.IssueDate = &isd.String }
-		cTime := ToTime(crat); d.CreatedAt = &cTime
+		d.DocumentNumber = optionalString(dn)
+		d.IssueDate = optionalString(isd)
+		d.Notes = optionalString(notes)
+		d.CreatedAt = SafeTime(crat)
 		t.ID = d.DocumentTypeID
 		d.DocumentType = &t
 		results = append(results, d)
+	}
+	if results == nil {
+		results = []models.AlumniDocument{}
 	}
 	return results, nil
 }
@@ -261,16 +416,114 @@ func (r *AlumniRepository) CreateDocument(d models.AlumniDocument) error {
 	query := `
 		INSERT INTO alumni_documents (
 			id, alumni_id, document_type_id, file_name, file_path, file_size, 
-			mime_type, document_number, issue_date, verification_status, 
+			mime_type, document_number, issue_date, verification_status, notes,
 			created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	_, err := r.DB.Exec(query,
 		id, d.AlumniID, d.DocumentTypeID, d.FileName, d.FilePath, d.FileSize,
-		d.MimeType, d.DocumentNumber, d.IssueDate, "pending",
+		d.MimeType, d.DocumentNumber, d.IssueDate, "pending", d.Notes,
 		now, now,
 	)
 	return err
+}
+
+func (r *AlumniRepository) GetDocumentByID(id string) (*models.AlumniDocument, error) {
+	query := `
+		SELECT d.id, d.alumni_id, d.document_type_id, d.file_name, d.file_path, d.file_size,
+		       d.mime_type, d.document_number, d.issue_date, d.verification_status,
+		       d.verified_by, d.verified_at, d.verification_notes, d.notes, d.created_at,
+		       t.name, t.code
+		FROM alumni_documents d
+		LEFT JOIN alumni_document_types t ON d.document_type_id = t.id
+		WHERE d.id = ?
+	`
+	var d models.AlumniDocument
+	var t models.AlumniDocumentType
+	var documentNumber, issueDate, verifiedBy, verificationNotes, notes, typeName, typeCode sql.NullString
+	var verifiedAt, createdAt sql.NullInt64
+	err := r.DB.QueryRow(query, id).Scan(
+		&d.ID, &d.AlumniID, &d.DocumentTypeID, &d.FileName, &d.FilePath, &d.FileSize,
+		&d.MimeType, &documentNumber, &issueDate, &d.VerificationStatus,
+		&verifiedBy, &verifiedAt, &verificationNotes, &notes, &createdAt,
+		&typeName, &typeCode,
+	)
+	if err != nil {
+		return nil, err
+	}
+	d.DocumentNumber = optionalString(documentNumber)
+	d.IssueDate = optionalString(issueDate)
+	d.VerifiedBy = optionalString(verifiedBy)
+	d.VerifiedAt = SafeTime(verifiedAt)
+	d.VerificationNotes = optionalString(verificationNotes)
+	d.Notes = optionalString(notes)
+	d.CreatedAt = SafeTime(createdAt)
+	if typeName.Valid {
+		t.ID = d.DocumentTypeID
+		t.Name = typeName.String
+		t.Code = typeCode.String
+		d.DocumentType = &t
+	}
+	return &d, nil
+}
+
+func (r *AlumniRepository) VerifyDocument(id, status string, notes *string) error {
+	now := time.Now().UnixMilli()
+	res, err := r.DB.Exec(`
+		UPDATE alumni_documents
+		SET verification_status = ?, verified_at = ?, verification_notes = ?, updated_at = ?
+		WHERE id = ?
+	`, status, now, notes, now, id)
+	if err != nil {
+		return err
+	}
+	if rows, _ := res.RowsAffected(); rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (r *AlumniRepository) DeleteDocument(id string) (*models.AlumniDocument, error) {
+	doc, err := r.GetDocumentByID(id)
+	if err != nil {
+		return nil, err
+	}
+	res, err := r.DB.Exec("DELETE FROM alumni_documents WHERE id = ?", id)
+	if err != nil {
+		return nil, err
+	}
+	if rows, _ := res.RowsAffected(); rows == 0 {
+		return nil, sql.ErrNoRows
+	}
+	return doc, nil
+}
+
+func (r *AlumniRepository) UpdatePhoto(id, photoPath string) error {
+	now := time.Now().UnixMilli()
+	res, err := r.DB.Exec("UPDATE alumni SET photo = ?, updated_at = ? WHERE id = ?", photoPath, now, id)
+	if err != nil {
+		return err
+	}
+	if rows, _ := res.RowsAffected(); rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (r *AlumniRepository) RemovePhoto(id string) (string, error) {
+	var photo sql.NullString
+	if err := r.DB.QueryRow("SELECT photo FROM alumni WHERE id = ?", id).Scan(&photo); err != nil {
+		return "", err
+	}
+	now := time.Now().UnixMilli()
+	_, err := r.DB.Exec("UPDATE alumni SET photo = NULL, updated_at = ? WHERE id = ?", now, id)
+	if err != nil {
+		return "", err
+	}
+	if photo.Valid {
+		return photo.String, nil
+	}
+	return "", nil
 }
 
 func (r *AlumniRepository) GetDocumentPickups(alumniID string) ([]models.DocumentPickup, error) {
@@ -299,19 +552,22 @@ func (r *AlumniRepository) GetDocumentPickups(alumniID string) ([]models.Documen
 		if err != nil {
 			return nil, err
 		}
-		
-		if tid.Valid { p.DocumentTypeID = &tid.String }
-		if rel.Valid { p.RecipientRelation = &rel.String }
-		if notes.Valid { p.Notes = &notes.String }
+
+		p.DocumentTypeID = optionalString(tid)
+		p.RecipientRelation = optionalString(rel)
+		p.Notes = optionalString(notes)
 		if tname.Valid && tcode.Valid {
 			dt.ID = tid.String
 			dt.Name = tname.String
 			dt.Code = tcode.String
 			p.DocumentType = &dt
 		}
-		
-		pTime := ToTime(pdate); p.PickupDate = &pTime
+
+		p.PickupDate = SafeTime(pdate)
 		results = append(results, p)
+	}
+	if results == nil {
+		results = []models.DocumentPickup{}
 	}
 	return results, nil
 }
@@ -319,7 +575,7 @@ func (r *AlumniRepository) GetDocumentPickups(alumniID string) ([]models.Documen
 func (r *AlumniRepository) CreatePickup(p models.DocumentPickup) error {
 	id := cuid2.Generate()
 	now := time.Now().UnixMilli()
-	
+
 	var pDate int64
 	if p.PickupDate != nil {
 		pDate = p.PickupDate.UnixMilli()

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { goGet } from "@/lib/api-client";
 
 /**
  * Client-side auth guard component.
@@ -12,19 +13,30 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const [verified, setVerified] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+  const checkingRef = useRef(false);
 
   useEffect(() => {
-    // Check if JWT cookie exists
-    const hasSession = document.cookie.split(";").some(c => c.trim().startsWith("session="));
+    // Prevent duplicate checks
+    if (checkingRef.current) return;
+    checkingRef.current = true;
 
-    if (!hasSession) {
-      router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
-    } else {
-      setVerified(true);
-    }
+    const verifySession = async () => {
+      try {
+        await goGet("/api/admin/system/health", {
+          skipRetry: true,
+        });
+        setVerified(true);
+      } catch {
+        document.cookie = "user_info=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
+        router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
+      } finally {
+        checkingRef.current = false;
+      }
+    };
+
+    verifySession();
   }, [pathname, router]);
 
-  // Handle SSR/Initial Render safely
   if (!verified) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">

@@ -24,9 +24,10 @@ import { showSuccess, showError } from "@/lib/toast";
 interface TreasurerSelectorProps {
   currentTreasurer: any | null;
   employees: any[];
+  onChanged?: () => void | Promise<void>;
 }
 
-export function TreasurerSelector({ currentTreasurer, employees }: TreasurerSelectorProps) {
+export function TreasurerSelector({ currentTreasurer, employees, onChanged }: TreasurerSelectorProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [value, setValue] = useState(currentTreasurer?.id || "");
@@ -39,6 +40,7 @@ export function TreasurerSelector({ currentTreasurer, employees }: TreasurerSele
         showSuccess(res.message || "Berhasil");
         setValue(userId);
         setOpen(false);
+        await onChanged?.();
       } else {
         showError(res.error || "Gagal menetapkan bendahara");
       }

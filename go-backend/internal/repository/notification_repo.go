@@ -83,3 +83,8 @@ func (r *NotificationRepository) CreateNotification(n models.Notification) error
 	_, err := r.DB.Exec(query, n.ID, n.UserID, n.Type, n.Category, n.Title, n.Message, n.TargetURL, n.IsRead, n.Metadata, n.CreatedAt)
 	return err
 }
+
+func (r *NotificationRepository) BroadcastNotification(n models.Notification) error {
+	n.UserID = nil // NULL user_id means broadcast to all
+	return r.CreateNotification(n)
+}

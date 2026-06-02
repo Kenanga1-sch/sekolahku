@@ -174,7 +174,7 @@ export default function RoomDetailPage() {
                                             <TableCell className="capitalize">{asset.category.replace('_', ' ')}</TableCell>
                                             <TableCell>
                                                 <Badge variant={asset.condition === 'good' ? 'default' : 'destructive'} className="capitalize">
-                                                    {asset.condition === 'good' ? 'Baik' : asset.condition.replace('_', ' ')}
+                                                    {asset.condition === 'good' ? 'Baik' : (asset.condition || "").replace('_', ' ')}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell className="text-right">

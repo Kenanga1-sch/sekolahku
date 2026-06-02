@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -20,7 +22,6 @@ func NewSettingHandler(repo *repository.SettingRepository, auditRepo *repository
 	}
 }
 
-
 func (h *SettingHandler) GetSettings(c echo.Context) error {
 	s, err := h.Repo.GetSettings()
 	if err != nil {
@@ -31,9 +32,32 @@ func (h *SettingHandler) GetSettings(c echo.Context) error {
 
 func (h *SettingHandler) UpdateSettings(c echo.Context) error {
 	var s models.SchoolSettings
-	if err := c.Bind(&s); err != nil {
+	body, err := io.ReadAll(c.Request().Body)
+	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
 	}
+	if err := json.Unmarshal(body, &s); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
+	}
+	var raw map[string]interface{}
+	_ = json.Unmarshal(body, &raw)
+
+	existing, err := h.Repo.GetSettings()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+	}
+	if existing != nil {
+		if _, ok := raw["spmb_is_open"]; !ok {
+			s.SPMBIsOpen = existing.SPMBIsOpen
+		}
+		if _, ok := raw["is_maintenance"]; !ok {
+			s.IsMaintenance = existing.IsMaintenance
+		}
+		if _, ok := raw["last_letter_number"]; !ok {
+			s.LastLetterNumber = existing.LastLetterNumber
+		}
+	}
+
 	updated, err := h.Repo.UpdateSettings(s)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
@@ -44,7 +68,7 @@ func (h *SettingHandler) UpdateSettings(c echo.Context) error {
 	ua := c.Request().UserAgent()
 	userID, _ := c.Get("user_id").(string)
 	details := "Updated school settings"
-	
+
 	h.AuditRepo.CreateLog(models.AuditLog{
 		Action:    "update",
 		Resource:  "settings",
@@ -56,4 +80,3 @@ func (h *SettingHandler) UpdateSettings(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, updated)
 }
-

@@ -10,6 +10,7 @@ import { Upload, FileCode, CheckCircle, AlertCircle, Loader2, Download } from "l
 import { showSuccess, showError } from "@/lib/toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { goPost } from "@/lib/api-client";
 
 interface EmployeeImportDialogProps {
   open: boolean;
@@ -85,15 +86,7 @@ export function EmployeeImportDialog({ open, onOpenChange, onSuccess }: Employee
     setIsLoading(true);
     setStep("processing");
     try {
-        const res = await fetch("/api/master/employees/import", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ data: fileData }),
-        });
-
-        const json = await res.json();
-        
-        if (!res.ok) throw new Error(json.error || "Gagal import");
+        const json: any = await goPost("/api/master/employees/import", { data: fileData });
 
         if (json.errors && json.errors.length > 0) {
             setValidationErrors(json.errors);

@@ -95,7 +95,7 @@ export function LandingSidebar() {
   };
 
   return (
-    <Sidebar open={open} setOpen={handleSetOpen}>
+    <Sidebar open={open} setOpen={handleSetOpen} animate={false}>
       <SidebarBody className="justify-between gap-10">
         <SidebarContent setIsDropdownOpen={setIsDropdownOpen} />
       </SidebarBody>
@@ -152,7 +152,11 @@ function SidebarContent({ setIsDropdownOpen }: { setIsDropdownOpen: (v: boolean)
                         href: link.href, 
                         icon: <link.icon className="text-neutral-700 dark:text-neutral-200 h-5 w-5 flex-shrink-0" /> 
                     }}
-                    onClick={() => setOpen(false)}
+                    onClick={() => {
+                        if (window.innerWidth < 768) {
+                            setOpen(false);
+                        }
+                    }}
                 />
             )}
           </div>
@@ -167,7 +171,7 @@ function NavGroup({ link, open, animate, setOpen }: { link: any, open: boolean, 
     // If closed: show icon in dropdown
     // If open: show collapsible
     
-    if (!open) {
+    if (animate && !open) {
         return (
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -180,7 +184,9 @@ function NavGroup({ link, open, animate, setOpen }: { link: any, open: boolean, 
                         {link.label}
                     </div>
                     {link.children.map((child: any) => (
-                        <DropdownMenuItem key={child.href} asChild onClick={() => setOpen(false)}>
+                        <DropdownMenuItem key={child.href} asChild onClick={() => {
+                            if (window.innerWidth < 768) setOpen(false);
+                        }}>
                             <Link href={child.href}>{child.label}</Link>
                         </DropdownMenuItem>
                     ))}
@@ -219,7 +225,9 @@ function NavGroup({ link, open, animate, setOpen }: { link: any, open: boolean, 
                         <Link 
                             key={child.href} 
                             href={child.href}
-                            onClickCapture={() => setOpen(false)}
+                            onClick={() => {
+                                if (window.innerWidth < 768) setOpen(false);
+                            }}
                             className="text-neutral-600 dark:text-neutral-400 text-sm py-1 hover:text-black dark:hover:text-white block"
                         >
                             {child.label}

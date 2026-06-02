@@ -305,7 +305,7 @@ export default function AnggotaPage() {
         setIsSyncing(true);
         try {
             toast.message("Mulai sinkronisasi data siswa...");
-            const result: any = await goPost("/api/sync/library", {});
+            const result: any = await goPost("/api/library/members/sync", {});
             
             if (result.error) throw new Error(result.details || result.error || "Sync failed");
             

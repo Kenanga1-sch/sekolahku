@@ -82,10 +82,10 @@ function OpnameForm({
                 assetCode: asset.code,
                 systemQty: asset.quantity,
                 // Default to current system values
-                qtyGood: asset.condition_good,
-                qtyLightDamage: asset.condition_light_damaged,
-                qtyHeavyDamage: asset.condition_heavy_damaged,
-                qtyLost: asset.condition_lost,
+                qtyGood: asset.condition_good ?? 0,
+                qtyLightDamage: asset.condition_light_damaged ?? 0,
+                qtyHeavyDamage: asset.condition_heavy_damaged ?? 0,
+                qtyLost: asset.condition_lost ?? 0,
             }));
 
             setItems(opnameItems);
@@ -280,6 +280,15 @@ export default function OpnamePage() {
         });
     };
 
+    const getSessionRoomName = (session: InventoryOpname) => {
+        const roomId = (session as any).room || (session as any).room_id;
+        return rooms.find((room) => room.id === roomId)?.name || session.expand?.room?.name || "-";
+    };
+
+    const getSessionAuditorName = (session: InventoryOpname) => {
+        return session.expand?.auditor?.name || "Sistem";
+    };
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -362,11 +371,11 @@ export default function OpnamePage() {
                                                 {formatDate(session.date)}
                                             </div>
                                         </TableCell>
-                                        <TableCell>{session.expand?.room?.name}</TableCell>
+                                        <TableCell>{getSessionRoomName(session)}</TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-2">
                                                 <User className="h-4 w-4 text-muted-foreground" />
-                                                {session.expand?.auditor?.name}
+                                                {getSessionAuditorName(session)}
                                             </div>
                                         </TableCell>
                                         <TableCell>

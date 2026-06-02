@@ -5,11 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
     BookMarked, 
-    RotateCcw, 
     UserCheck, 
     BookOpen,
     QrCode,
-    ExternalLink,
     Printer,
     ScanBarcode,
     Users,
@@ -48,7 +46,6 @@ const QUICK_ACTIONS = [
         href: "/kiosk",
         color: "text-cyan-500",
         bgColor: "bg-cyan-500/10 hover:bg-cyan-500/20",
-        external: true,
     },
     {
         title: "Binding Buku",
@@ -96,7 +93,6 @@ export function QuickActionsPanel() {
                         <Link 
                             key={action.title} 
                             href={action.href}
-                            target={action.external ? "_blank" : undefined}
                             className="w-full"
                         >
                             <Button
@@ -109,9 +105,6 @@ export function QuickActionsPanel() {
                                 <div className="text-center w-full">
                                     <p className="text-xs sm:text-sm font-medium flex items-center justify-center gap-1">
                                         {action.title}
-                                        {action.external && (
-                                            <ExternalLink className="h-2 w-2 sm:h-3 sm:w-3 opacity-50" />
-                                        )}
                                     </p>
                                     <p className="hidden sm:block text-[10px] text-muted-foreground line-clamp-1">
                                         {action.description}

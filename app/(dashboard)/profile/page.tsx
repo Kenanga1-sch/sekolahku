@@ -21,12 +21,13 @@ import {
     Shield,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import { goPatch } from "@/lib/api-client";
+import { goGet, goPatch } from "@/lib/api-client";
 
 
 export default function ProfilePage() {
     const router = useRouter();
-    const { user, isAuthenticated, isLoading: authLoading } = useAuthStore();
+    const { user, isAuthenticated, isLoading: authLoading, refreshSession } = useAuthStore();
+    const [isProfileLoading, setIsProfileLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isChangingPassword, setIsChangingPassword] = useState(false);
     const [saved, setSaved] = useState(false);
@@ -54,7 +55,6 @@ export default function ProfilePage() {
 
     useEffect(() => {
         if (user?.id) {
-            // Only update if values are different to prevent infinite loop
             const newProfile = {
                 name: user.name || "",
                 email: user.email || "",
@@ -71,14 +71,61 @@ export default function ProfilePage() {
         }
     }, [user?.id, user?.name, user?.email, user?.phone]);
 
+    useEffect(() => {
+        if (!isAuthenticated || authLoading) return;
+
+        let active = true;
+        const fetchProfile = async () => {
+            setIsProfileLoading(true);
+            try {
+                const result: any = await goGet("/api/profile");
+                if (!active) return;
+                setProfile({
+                    name: result?.name || user?.name || "",
+                    email: result?.email || user?.email || "",
+                    phone: result?.phone || user?.phone || "",
+                });
+            } catch (err) {
+                console.error("Failed to fetch profile:", err);
+            } finally {
+                if (active) setIsProfileLoading(false);
+            }
+        };
+
+        fetchProfile();
+        return () => {
+            active = false;
+        };
+    }, [authLoading, isAuthenticated, user?.email, user?.name, user?.phone]);
+
+    const syncUserCookie = async (nextProfile: typeof profile) => {
+        if (typeof document === "undefined" || !user) return;
+
+        const nextUser = {
+            id: user.id,
+            role: user.role,
+            email: nextProfile.email || user.email,
+            name: nextProfile.name,
+            phone: nextProfile.phone,
+        };
+        document.cookie = `user_info=${encodeURIComponent(JSON.stringify(nextUser))}; path=/; SameSite=Lax`;
+        await refreshSession();
+    };
+
     const handleSaveProfile = async () => {
         if (!user) return;
         setIsSaving(true);
         setError(null);
 
         try {
-            await goPatch("/api/profile", { name: profile.name, phone: profile.phone });
-            
+            const result: any = await goPatch("/api/profile", { name: profile.name, phone: profile.phone });
+            const nextProfile = {
+                name: result?.user?.name || profile.name,
+                email: result?.user?.email || profile.email,
+                phone: result?.user?.phone || profile.phone,
+            };
+            setProfile(nextProfile);
+            await syncUserCookie(nextProfile);
             setSaved(true);
             setTimeout(() => setSaved(false), 3000);
         } catch (err: any) {
@@ -126,7 +173,7 @@ export default function ProfilePage() {
     };
 
 
-    if (authLoading || !user) {
+    if (authLoading || !user || isProfileLoading) {
         return (
             <div className="space-y-6">
                 <div>
@@ -280,7 +327,7 @@ export default function ProfilePage() {
                                 type="password"
                                 value={passwords.current}
                                 onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
-                                placeholder="••••••••"
+                                placeholder="********"
                             />
                         </div>
 

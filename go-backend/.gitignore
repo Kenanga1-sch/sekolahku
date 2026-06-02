@@ -9,10 +9,16 @@
 *.test
 
 # Output of the go build command
-api
+/api
 api.exe
+bin/
+.gocache/
 
 # Local development
 .env
 .env.local
 .DS_Store
+data/
+
+# ad-hoc local inspection helpers
+check_content*.go

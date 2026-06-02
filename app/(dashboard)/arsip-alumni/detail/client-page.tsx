@@ -17,11 +17,6 @@ import {
   User,
   FileText,
   History,
-  Upload,
-  Download,
-  CheckCircle,
-  Clock,
-  XCircle,
   Phone,
   Mail,
   MapPin,
@@ -90,12 +85,6 @@ interface DocumentPickup {
     code: string;
   } | null;
 }
-
-const statusConfig = {
-  pending: { label: "Menunggu", icon: Clock, color: "text-yellow-600 bg-yellow-100" },
-  verified: { label: "Terverifikasi", icon: CheckCircle, color: "text-green-600 bg-green-100" },
-  rejected: { label: "Ditolak", icon: XCircle, color: "text-red-600 bg-red-100" },
-};
 
 export default function AlumniDetailPage() {
   const searchParams = useSearchParams();
@@ -176,7 +165,7 @@ export default function AlumniDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Link href={`/arsip-alumni/detail?id=${alumni.id}/edit`}>
+          <Link href={`/arsip-alumni/detail/edit?id=${alumni.id}`}>
             <Button variant="outline" size="sm">
               <Edit className="h-4 w-4 mr-1" />
               Edit

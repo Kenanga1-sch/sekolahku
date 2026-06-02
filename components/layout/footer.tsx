@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { GraduationCap, Mail, Phone, MapPin, Facebook, Instagram, Youtube, ArrowRight } from "lucide-react";
+import { Mail, Phone, MapPin, Facebook, Instagram, Youtube, ArrowRight } from "lucide-react";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
@@ -152,7 +152,7 @@ export default function Footer() {
       <div className="container py-6">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-zinc-500 text-sm">
-            © {currentYear} {settings?.school_name || "Sekolah"}. All rights reserved.
+            &copy; {currentYear} {settings?.school_name || "Sekolah"}. All rights reserved.
           </p>
 
           <div className="flex gap-4">

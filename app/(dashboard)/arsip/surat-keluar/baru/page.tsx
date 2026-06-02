@@ -38,10 +38,11 @@ export default function CreateSuratKeluarPage() {
 
             if (result.error) throw new Error(result.error || "Gagal booking nomor surat");
 
-            toast.success(`Nomor Surat Dibooking: ${result.mailNumber}`);
+            const created = result.data || result;
+            toast.success(`Nomor Surat Dibooking: ${created.mailNumber}`);
             
             // Redirect to detail page to view number and upload later
-            router.push(`/arsip/surat-keluar/detail?id=${result.id}`);
+            router.push(`/arsip/surat-keluar/detail?id=${created.id}`);
         } catch (error) {
             console.error(error);
             toast.error("Terjadi kesalahan saat menyimpan");

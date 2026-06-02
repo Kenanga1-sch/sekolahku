@@ -43,6 +43,10 @@ interface Session {
   recordCount: number;
 }
 
+function unwrapData<T>(response: any): T {
+  return (response?.data ?? response) as T;
+}
+
 export default function PresensiDashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -53,11 +57,11 @@ export default function PresensiDashboardPage() {
       try {
         const [statsData, sessionsData] = await Promise.all([
           goGet("/api/attendance/stats"),
-          goGet("/api/attendance/sessions?date=" + new Date().toISOString().split("T")[0]),
+          goGet("/api/attendance/sessions?date=" + format(new Date(), "yyyy-MM-dd")),
         ]);
 
-        setStats(statsData as any);
-        setSessions(sessionsData as any);
+        setStats(unwrapData<Stats>(statsData));
+        setSessions(unwrapData<Session[]>(sessionsData));
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
@@ -271,7 +275,7 @@ export default function PresensiDashboardPage() {
                 <span>Laporan</span>
               </Button>
             </Link>
-            <Link href="/presensi/sesi">
+            <Link href="/presensi/laporan">
               <Button variant="outline" className="w-full h-20 flex-col gap-1">
                 <CalendarDays className="h-6 w-6" />
                 <span>Riwayat</span>

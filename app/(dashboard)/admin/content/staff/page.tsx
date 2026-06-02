@@ -13,10 +13,8 @@ import {
   Trash2, 
   MoreHorizontal, 
   Search,
-  Upload,
   User
 } from "lucide-react";
-import Image from "next/image";
 
 import { goGet, goPost, goPatch, goDelete } from "@/lib/api-client";
 
@@ -81,10 +79,9 @@ const staffSchema = z.object({
 type StaffFormValues = z.infer<typeof staffSchema>;
 
 export default function AdminStaffPage() {
-  const { data, error, isLoading } = useSWR("/api/admin/staff", fetcher);
+  const { data, isLoading } = useSWR("/api/admin/staff", fetcher);
   const [selectedStaff, setSelectedStaff] = useState<any>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   
@@ -131,7 +128,7 @@ export default function AdminStaffPage() {
       setIsDialogOpen(false);
       form.reset();
       setSelectedStaff(null);
-    } catch (error) {
+    } catch {
       toast.error("Terjadi kesalahan");
     }
   };
@@ -139,17 +136,14 @@ export default function AdminStaffPage() {
   const handleDelete = async (id: string) => {
     if (!confirm("Yakin ingin menghapus data ini?")) return;
     
-    setIsDeleting(true);
     try {
       const res: any = await goDelete(`/api/admin/staff/${id}`);
       if (res.error) throw new Error(res.error || "Gagal menghapus");
       
       toast.success("Data dihapus");
       mutate("/api/admin/staff");
-    } catch (error) {
+    } catch {
       toast.error("Gagal menghapus data");
-    } finally {
-      setIsDeleting(false);
     }
   };
 
@@ -195,7 +189,7 @@ export default function AdminStaffPage() {
         } else {
             toast.error("Gagal upload foto");
         }
-    } catch (e) {
+    } catch {
         toast.error("Error uploading");
     } finally {
         setUploading(false);

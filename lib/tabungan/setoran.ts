@@ -17,5 +17,5 @@ export async function verifySetoran(data: any) {
 }
 
 export async function getSetoranDetail(id: string) {
-  return await goGet(`/api/savings/setoran/${id}`);
+  return await goGet(`/api/tabungan/setoran/detail?id=${id}`);
 }

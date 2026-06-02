@@ -69,6 +69,7 @@ export function QRScanner({ sessionId, onScanSuccess, onScanError }: QRScannerPr
           qrCode,
           sessionId,
           status: "hadir",
+          recordedBy: "scanner",
         });
 
         const successResult: ScanResult = {
@@ -91,8 +92,17 @@ export function QRScanner({ sessionId, onScanSuccess, onScanError }: QRScannerPr
           };
           setLastResult(alreadyResult);
         } else {
-          setError(err.message || "Gagal mencatat absensi");
-          onScanError?.(err.message);
+          const failedResult: ScanResult = {
+            success: false,
+            message: err.message || "Gagal mencatat absensi",
+            student: err.data?.student,
+          };
+          if (failedResult.student) {
+            setLastResult(failedResult);
+          } else {
+            setError(failedResult.message);
+          }
+          onScanError?.(failedResult.message);
         }
       } finally {
         setProcessing(false);

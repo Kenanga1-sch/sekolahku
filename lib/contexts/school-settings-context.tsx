@@ -18,18 +18,23 @@ interface SchoolSettingsContextType {
     isLoading: boolean;
 }
 
+interface SchoolSettingsResponse {
+    success?: boolean;
+    data?: SchoolSettings;
+}
+
 const SchoolSettingsContext = createContext<SchoolSettingsContextType>({
     settings: null,
     isLoading: true,
 });
 
 export function SchoolSettingsProvider({ children }: { children: ReactNode }) {
-    const { data: response, isLoading } = useSWR<any>("/api/public/school-settings", goGet, {
+    const { data: response, isLoading } = useSWR<SchoolSettingsResponse>("/api/public/school-settings", goGet, {
         revalidateOnFocus: false, // Don't revalidate on window focus (settings rarely change)
         dedupingInterval: 60000, // Dedup requests within 1 minute
     });
 
-    const settings = response?.success ? response.data : null;
+    const settings = response?.success ? response.data : response?.data ?? null;
 
     return (
         <SchoolSettingsContext.Provider value={{ settings, isLoading }}>

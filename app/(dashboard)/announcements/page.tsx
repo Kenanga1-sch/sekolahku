@@ -18,7 +18,7 @@ import {
   X,
   Loader2 
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -95,6 +95,23 @@ function generateSlug(title: string): string {
     .replace(/(^-|-$)/g, "");
 }
 
+type AdminAnnouncement = Announcement & {
+  isPublished?: boolean;
+  isFeatured?: boolean;
+  publishedAt?: string;
+  createdAt?: string;
+};
+
+function normalizeAnnouncement(item: any): AdminAnnouncement {
+  return {
+    ...item,
+    isPublished: Boolean(item.isPublished ?? item.is_published),
+    isFeatured: Boolean(item.isFeatured ?? item.is_featured),
+    publishedAt: item.publishedAt ?? item.published_at,
+    createdAt: item.createdAt ?? item.created_at ?? item.created,
+  };
+}
+
 // Lazy load heavy Rich Text Editor
 const RichTextEditor = dynamic(
   () => import("@/components/rich-text-editor").then(mod => mod.RichTextEditor),
@@ -105,7 +122,7 @@ const RichTextEditor = dynamic(
 );
 
 export default function AnnouncementsAdminPage() {
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [announcements, setAnnouncements] = useState<AdminAnnouncement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -128,8 +145,8 @@ export default function AnnouncementsAdminPage() {
 
   const fetchAnnouncements = useCallback(async () => {
     try {
-      const data: any = await goGet("/api/announcements?all=true");
-      setAnnouncements(data.data || []);
+      const data: any = await goGet("/api/announcements?all=true&limit=100");
+      setAnnouncements((data.data || []).map(normalizeAnnouncement));
     } catch (error) {
       console.error("Failed to fetch announcements:", error);
       showError("Gagal memuat pengumuman");
@@ -147,8 +164,14 @@ export default function AnnouncementsAdminPage() {
     setIsSaving(true);
     try {
       const data = {
-        ...formData,
+        title: formData.title,
         slug: formData.slug || generateSlug(formData.title),
+        excerpt: formData.excerpt,
+        content: formData.content,
+        category: formData.category,
+        thumbnail: formData.thumbnail,
+        is_published: formData.isPublished,
+        is_featured: formData.isFeatured,
       };
 
       if (editingId) {
@@ -202,18 +225,18 @@ export default function AnnouncementsAdminPage() {
 
   const togglePublish = async (id: string, current: boolean) => {
     try {
-      await goPatch(`/api/announcements/${id}`, { isPublished: !current });
+      await goPatch(`/api/announcements/${id}`, { is_published: !current });
       fetchAnnouncements();
-    } catch (error: any) {
+    } catch {
       showError("Gagal merubah status terbit");
     }
   };
 
   const toggleFeatured = async (id: string, current: boolean) => {
     try {
-      await goPatch(`/api/announcements/${id}`, { isFeatured: !current });
+      await goPatch(`/api/announcements/${id}`, { is_featured: !current });
       fetchAnnouncements();
-    } catch (error: any) {
+    } catch {
       showError("Gagal merubah status featured");
     }
   };
@@ -245,13 +268,13 @@ export default function AnnouncementsAdminPage() {
     formDataUpload.append("folder", "announcements");
 
     try {
-      const data: any = await goPost("/api/uploads", formDataUpload);
+      const data: any = await goPost("/api/upload", formDataUpload);
       if (data.error) throw new Error(data.error || "Upload failed");
 
       setFormData(prev => ({ ...prev, thumbnail: data.url }));
     } catch (error) {
       console.error("Upload error:", error);
-      alert("Gagal mengupload gambar: " + (error instanceof Error ? error.message : "Unknown error"));
+      showError("Gagal mengupload gambar: " + (error instanceof Error ? error.message : "Unknown error"));
     } finally {
       setIsUploading(false);
     }

@@ -58,7 +58,7 @@ func (h *FAQHandler) GetPublicFAQs(c echo.Context) error {
 	}
 
 	// Convert map to slice in order of categoryTitles keys if possible, or just slice
-	var result []*CategoryGroup
+	result := []*CategoryGroup{}
 	order := []string{"spmb", "akademik", "biaya", "lokasi"}
 	for _, cat := range order {
 		if g, ok := groups[cat]; ok {

@@ -25,7 +25,7 @@ interface SuratKeluarDetail {
     classification: { name: string; code: string } | null;
     filePath: string | null;
     finalFilePath: string | null;
-    creator: { name: string } | null;
+    creator: { name?: string; fullName?: string } | null;
 }
 
 export default function SuratKeluarDetailPage() {
@@ -41,7 +41,7 @@ export default function SuratKeluarDetailPage() {
     const loadData = useCallback(async () => {
         try {
             const result: any = await goGet(`/api/arsip/surat-keluar/detail?id=${searchParams.get('id')}`);
-            setData(result);
+            setData(result.data || result);
         } catch (error) {
             console.error(error);
             toast.error("Gagal memuat surat");
@@ -131,7 +131,7 @@ export default function SuratKeluarDetailPage() {
                                     </div>
                                     <div>
                                         <p className="text-muted-foreground">Dibuat Oleh</p>
-                                        <p className="font-medium">{data.creator?.name || "-"}</p>
+                                        <p className="font-medium">{data.creator?.fullName || data.creator?.name || "-"}</p>
                                     </div>
                                 </div>
                             </div>

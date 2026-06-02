@@ -7,9 +7,6 @@ import { toast } from "sonner";
 import { 
   Loader2, 
   CheckCircle, 
-  XCircle, 
-  AlertCircle,
-  FileText,
   Building,
   RefreshCw 
 } from "lucide-react";
@@ -33,17 +30,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
+import { goGet, goPatch } from "@/lib/api-client";
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+const fetcher = (url: string) => goGet(url);
 
 export default function AdminMutasiKeluarPage() {
-  const { data: dataRequests, isLoading } = useSWR(
+  const { data: dataRequests, error: errorRequests, isLoading } = useSWR(
     "/api/admin/mutasi-keluar",
     fetcher
   );
 
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [openRequestId, setOpenRequestId] = useState<string | null>(null);
   const [liabilityData, setLiabilityData] = useState<any>(null);
   const [checkingLiability, setCheckingLiability] = useState(false);
   const [updating, setUpdating] = useState(false);
@@ -56,8 +54,7 @@ export default function AdminMutasiKeluarPage() {
     setLiabilityData(null);
     
     try {
-        const res = await fetch(`/api/admin/mutasi-keluar/${req.id}/check`);
-        const result = await res.json();
+        const result: any = await goGet(`/api/admin/mutasi-keluar/${req.id}/check`);
         if(result.success) {
             setLiabilityData(result.data);
         }
@@ -72,19 +69,14 @@ export default function AdminMutasiKeluarPage() {
   const updateStatus = async (id: string, newStatus: string) => {
     setUpdating(true);
     try {
-        const res = await fetch(`/api/admin/mutasi-keluar/${id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: newStatus }),
-        });
-        
-        if(!res.ok) throw new Error("Update failed");
+        await goPatch(`/api/admin/mutasi-keluar/${id}`, { status: newStatus });
         
         toast.success("Status berhasil diperbarui");
         mutate("/api/admin/mutasi-keluar");
+        setOpenRequestId(null);
         setSelectedRequest(null);
     } catch (e) {
-        toast.error("Gagal memperbarui status");
+        toast.error(e instanceof Error ? e.message : "Gagal memperbarui status");
     } finally {
         setUpdating(false);
     }
@@ -122,6 +114,12 @@ export default function AdminMutasiKeluarPage() {
                   <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                 </TableCell>
               </TableRow>
+            ) : errorRequests ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-8 text-destructive">
+                  Gagal memuat permohonan mutasi keluar.
+                </TableCell>
+              </TableRow>
             ) : requests.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8">
@@ -154,9 +152,14 @@ export default function AdminMutasiKeluarPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Dialog onOpenChange={(open) => {
-                        if(open) handleOpenDetail(req);
-                        else setSelectedRequest(null);
+                    <Dialog open={openRequestId === req.id} onOpenChange={(open) => {
+                        if(open) {
+                            setOpenRequestId(req.id);
+                            handleOpenDetail(req);
+                        } else {
+                            setOpenRequestId(null);
+                            setSelectedRequest(null);
+                        }
                     }}>
                       <DialogTrigger asChild>
                         <Button variant="ghost" size="sm">Tindak Lanjut</Button>
@@ -231,7 +234,10 @@ export default function AdminMutasiKeluarPage() {
                                 </div>
 
                                 <div className="flex justify-end gap-3 pt-4 border-t">
-                                    <Button variant="outline" onClick={() => setSelectedRequest(null)}>Tutup</Button>
+                                    <Button variant="outline" onClick={() => {
+                                        setOpenRequestId(null);
+                                        setSelectedRequest(null);
+                                    }}>Tutup</Button>
                                     
                                     {selectedRequest.status !== "completed" && (
                                         <>

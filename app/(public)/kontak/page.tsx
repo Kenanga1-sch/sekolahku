@@ -17,6 +17,21 @@ import {
 } from "lucide-react";
 import { siteConfig } from "@/lib/config";
 import { goGet } from "@/lib/api-client";
+import type { SchoolSettings } from "@/types";
+
+type ContactSettings = Partial<SchoolSettings> & {
+  schoolName?: string;
+  schoolAddress?: string;
+  schoolPhone?: string;
+  schoolEmail?: string;
+  schoolLat?: number;
+  schoolLng?: number;
+};
+
+interface SpmbLandingResponse {
+  success?: boolean;
+  settings?: ContactSettings;
+}
 
 const socialLinks = [
   { icon: Facebook, href: "#", label: "Facebook" },
@@ -25,12 +40,12 @@ const socialLinks = [
 ];
 
 export default function KontakPage() {
-  const [settings, setSettings] = useState<any>(null);
+  const [settings, setSettings] = useState<ContactSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     goGet(`/api/public/spmb/landing`)
-      .then((json: any) => {
+      .then((json: SpmbLandingResponse) => {
         if (json.success) {
           setSettings(json.settings);
         }
@@ -51,10 +66,9 @@ export default function KontakPage() {
   }
 
   // Default values if no settings found
-  const schoolName = settings?.schoolName || siteConfig.school.name;
-  const schoolAddress = settings?.schoolAddress || siteConfig.school.address;
-  const schoolLat = settings?.schoolLat || siteConfig.location.lat;
-  const schoolLng = settings?.schoolLng || siteConfig.location.lng;
+  const schoolAddress = settings?.school_address || settings?.schoolAddress || siteConfig.school.address;
+  const schoolLat = settings?.school_lat || settings?.schoolLat || siteConfig.location.lat;
+  const schoolLng = settings?.school_lng || settings?.schoolLng || siteConfig.location.lng;
 
   const contactInfo = [
     {
@@ -65,12 +79,12 @@ export default function KontakPage() {
     {
       icon: Phone,
       title: "Telepon",
-      content: settings?.schoolPhone || siteConfig.school.phone,
+      content: settings?.school_phone || settings?.schoolPhone || siteConfig.school.phone,
     },
     {
       icon: Mail,
       title: "Email",
-      content: settings?.schoolEmail || siteConfig.school.email,
+      content: settings?.school_email || settings?.schoolEmail || siteConfig.school.email,
     },
     {
       icon: Clock,

@@ -62,8 +62,9 @@ export default function PromotionPage() {
     const fetchStudents = async (classId: string) => {
         setIsLoadingStudents(true);
         try {
-            const data: any = await goGet(`/api/master/students?classId=${classId}&limit=100&status=active`);
-            setStudents(data.data);
+            const response: any = await goGet(`/api/master/students?classId=${classId}&limit=100&status=active`);
+            const result = response?.data ?? response;
+            setStudents(result?.data ?? []);
         } catch (error) {
             showError("Gagal memuat data siswa");
         } finally {

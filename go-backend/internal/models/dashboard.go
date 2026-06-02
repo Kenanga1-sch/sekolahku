@@ -1,11 +1,17 @@
 package models
 
 type DashboardStats struct {
-	Success           bool             `json:"success"`
-	SPMB              SPMBStats        `json:"spmb"`
-	ModuleStats       ModuleStats      `json:"moduleStats"`
-	RecentRegistrants []SPMBRegistrant `json:"recentRegistrants"`
-	ActivePeriod      *SPMBPeriod      `json:"activePeriod"`
+	Success           bool                     `json:"success"`
+	SPMB              SPMBStats                `json:"spmb"`
+	ModuleStats       ModuleStats              `json:"moduleStats"`
+	RegistrationTrend []RegistrationTrendPoint `json:"registrationTrend"`
+	RecentRegistrants []SPMBRegistrant         `json:"recentRegistrants"`
+	ActivePeriod      *SPMBPeriod              `json:"activePeriod"`
+}
+
+type RegistrationTrendPoint struct {
+	Date  string `json:"date"`
+	Count int    `json:"count"`
 }
 
 type ModuleStats struct {

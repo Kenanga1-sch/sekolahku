@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
-import { Upload, X, Loader2, CheckCircle, AlertCircle, Image as ImageIcon } from "lucide-react";
+import { Upload, X, Loader2, CheckCircle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { goPost } from "@/lib/api-client";
 import { Input } from "@/components/ui/input";
@@ -67,6 +67,7 @@ export function EnhancedUploadZone({ onUploadComplete, onClose }: EnhancedUpload
 
   const uploadAllFiles = async () => {
     setIsUploading(true);
+    let hasError = files.some((file) => file.status === "error");
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -95,15 +96,14 @@ export function EnhancedUploadZone({ onUploadComplete, onClose }: EnhancedUpload
         }
       } catch (error) {
         const msg = error instanceof Error ? error.message : "Upload failed";
+        hasError = true;
         updateFile(i, { status: "error", progress: 0, errorMessage: msg });
       }
     }
 
     setIsUploading(false);
-    
-    // Check if all succeeded
-    const allSuccess = files.every(f => f.status === "success" || f.status === "pending");
-    if (allSuccess && files.length > 0) {
+
+    if (!hasError && files.length > 0) {
       setTimeout(() => {
         onUploadComplete();
         onClose();

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { getSavingsTreasurer, getClassesWithReps, getPendingSetoran, getEmployees, getBrankasSummary } from "@/actions/savings-admin";
 import { getLoans } from "@/actions/loans";
 import { TreasurerSelector } from "@/components/finance/treasurer-selector";
@@ -14,56 +14,69 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ShieldCheck, ArrowLeft, Loader2 } from "lucide-react";
+import { useAuthStore } from "@/lib/stores/auth-store";
+
+const emptyBrankasData = { vaults: [], recentTransactions: [] };
+
+function unwrapData(value: any, fallback: any = null) {
+    const payload = value?.data ?? value;
+    if (payload == null) return fallback;
+    if (Array.isArray(payload?.items)) return payload.items;
+    if (Array.isArray(payload?.vaults)) return payload;
+    if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(payload?.data?.items)) return payload.data.items;
+    if (payload?.data != null) return payload.data;
+    return payload;
+}
+
+function unwrapList(value: any) {
+    const data = unwrapData(value, []);
+    return Array.isArray(data) ? data : [];
+}
 
 export default function SavingsTreasurerPage() {
     const router = useRouter();
-    const [session, setSession] = useState<any>(null);
+    const { user, isAuthenticated, isLoading: authLoading } = useAuthStore();
     const [data, setData] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
 
+    const fetchData = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const [treasurerRes, classesRes, pendingRes, employeesRes, brankasRes, receivablesRes, payablesRes] = await Promise.all([
+                getSavingsTreasurer(),
+                getClassesWithReps(),
+                getPendingSetoran(),
+                getEmployees(),
+                getBrankasSummary(),
+                getLoans("RECEIVABLE"),
+                getLoans("PAYABLE")
+            ]);
+
+            setData({
+                treasurer: unwrapData(treasurerRes),
+                classes: unwrapList(classesRes),
+                pendingSetoran: unwrapList(pendingRes),
+                employees: unwrapList(employeesRes),
+                brankasData: unwrapData(brankasRes, emptyBrankasData) || emptyBrankasData,
+                receivables: unwrapList(receivablesRes),
+                payables: unwrapList(payablesRes)
+            });
+        } catch (err) {
+            console.error("Fetch error:", err);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
     useEffect(() => {
-        const fetchData = async () => {
-            const cookies = document.cookie.split(";").map(c => c.trim());
-            const sessionCookie = cookies.find(c => c.startsWith("session="));
-            
-            if (!sessionCookie) {
-                router.push("/login");
-                return;
-            }
-
-            try {
-                const token = sessionCookie.split("=")[1];
-                const payload = JSON.parse(atob(token.split(".")[1]));
-                setSession({ user: payload });
-
-                const [treasurerRes, classesRes, pendingRes, employeesRes, brankasRes, receivablesRes, payablesRes] = await Promise.all([
-                    getSavingsTreasurer(),
-                    getClassesWithReps(),
-                    getPendingSetoran(),
-                    getEmployees(),
-                    getBrankasSummary(),
-                    getLoans("RECEIVABLE"),
-                    getLoans("PAYABLE")
-                ]);
-
-                setData({
-                    treasurer: treasurerRes.data,
-                    classes: classesRes.data || [],
-                    pendingSetoran: pendingRes.data || [],
-                    employees: employeesRes.data || [],
-                    brankasData: brankasRes.data || { vaults: [], recentTransactions: [] },
-                    receivables: receivablesRes.data || [],
-                    payables: payablesRes.data || []
-                });
-            } catch (err) {
-                console.error("Fetch error:", err);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
+        if (authLoading) return;
+        if (!isAuthenticated) {
+            router.push("/login");
+            return;
+        }
         fetchData();
-    }, [router]);
+    }, [authLoading, fetchData, isAuthenticated, router]);
 
     if (isLoading || !data) {
         return (
@@ -74,8 +87,8 @@ export default function SavingsTreasurerPage() {
     }
 
     const { treasurer, classes, pendingSetoran, employees, brankasData, receivables, payables } = data;
-    const isTreasurer = treasurer?.id === session.user?.id;
-    const isAdmin = session.user?.role === "admin";
+    const isTreasurer = treasurer?.id === user?.id;
+    const isAdmin = user?.role === "admin" || user?.role === "superadmin";
 
     return (
         <div className="space-y-6">
@@ -104,9 +117,10 @@ export default function SavingsTreasurerPage() {
                 <TabsContent value="brankas" className="space-y-4">
                     {(isTreasurer || isAdmin) ? (
                         <BrankasManager 
-                            vaults={brankasData.vaults} 
-                            recentTransactions={brankasData.recentTransactions} 
-                            currentUserId={session.user?.id || ""} 
+                            vaults={brankasData.vaults || []} 
+                            recentTransactions={brankasData.recentTransactions || []} 
+                            currentUserId={user?.id || ""} 
+                            onChanged={fetchData}
                         />
                     ) : (
                         <Card className="border-red-200 bg-red-50 dark:bg-red-900/10">
@@ -120,7 +134,7 @@ export default function SavingsTreasurerPage() {
 
                 <TabsContent value="verifikasi" className="space-y-4">
                     {(isTreasurer || isAdmin) ? (
-                        <VerificationQueue pendingSetoran={pendingSetoran} currentUserId={session.user?.id || ""} />
+                        <VerificationQueue pendingSetoran={pendingSetoran} currentUserId={user?.id || ""} onChanged={fetchData} />
                     ) : (
                         <Card className="border-red-200 bg-red-50 dark:bg-red-900/10">
                             <CardContent className="p-8 text-center text-red-600 dark:text-red-400">
@@ -137,7 +151,8 @@ export default function SavingsTreasurerPage() {
                             receivables={receivables} 
                             payables={payables} 
                             employees={employees}
-                            currentUserId={session.user?.id || ""} 
+                            currentUserId={user?.id || ""} 
+                            onChanged={fetchData}
                         />
                     ) : (
                         <Card className="border-red-200 bg-red-50 dark:bg-red-900/10">
@@ -151,7 +166,7 @@ export default function SavingsTreasurerPage() {
 
                 <TabsContent value="struktur" className="space-y-4">
                     {isAdmin ? (
-                    <TreasurerSelector currentTreasurer={treasurer} employees={employees} />
+                    <TreasurerSelector currentTreasurer={treasurer} employees={employees} onChanged={fetchData} />
                     ) : (
                     <Card className="relative overflow-hidden border-muted/40 dark:bg-zinc-900/50 backdrop-blur-sm group hover:border-primary/20 transition-all duration-300">
                         <CardContent className="p-6">

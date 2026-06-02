@@ -16,8 +16,9 @@ import {
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import { goGet } from "@/lib/api-client";
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+const fetcher = (url: string) => goGet(url);
 
 interface Staff {
   id: string;
@@ -35,7 +36,7 @@ export default function PublicStaffPage() {
   const { settings } = useSchoolSettings();
   const [filter, setFilter] = useState<"all" | "guru" | "staff" | "support">("all");
 
-  const allStaff: Staff[] = data?.data || [];
+  const allStaff: Staff[] = (data as any)?.data || [];
   
   // Filter active only
   const activeStaff = allStaff.filter((s) => s.isActive);

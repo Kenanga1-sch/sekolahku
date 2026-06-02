@@ -76,9 +76,16 @@ export default function KelulusanPage() {
   useEffect(() => {
     const fetchStudents = async () => {
       try {
-        const data: any = await goGet("/api/peserta-didik?isActive=true&limit=1000");
+        const data: any = await goGet("/api/master/students?isActive=true&limit=1000");
+        const source = Array.isArray(data?.data?.data)
+          ? data.data.data
+          : Array.isArray(data?.data)
+            ? data.data
+            : Array.isArray(data)
+              ? data
+              : [];
         // Filter only class 6 students (graduating class)
-        const class6Students = (data.data || data || []).filter(
+        const class6Students = source.filter(
           (s: Student) => s.className?.startsWith("6")
         );
         setStudents(class6Students);

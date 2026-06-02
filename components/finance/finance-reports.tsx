@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { getReportTransactions } from "@/actions/finance";
 import { Loader2, Printer, Search } from "lucide-react";
-import { showSuccess, showError } from "@/lib/toast";
+import { showError } from "@/lib/toast";
 
 // Helper for currency
 const formatRupiah = (amount: number) => {
@@ -30,7 +30,7 @@ interface FinanceReportsProps {
 }
 
 export default function FinanceReports({ accounts }: FinanceReportsProps) {
-    const [selectedAccount, setSelectedAccount] = useState<string>("");
+    const [selectedAccount, setSelectedAccount] = useState<string>("all");
     const [startDate, setStartDate] = useState<string>(
         new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
     ); // First day of current month
@@ -52,8 +52,11 @@ export default function FinanceReports({ accounts }: FinanceReportsProps) {
 
             const res = await getReportTransactions({
                 accountId: selectedAccount === "all" ? undefined : selectedAccount,
-                startDate: start,
-                endDate: end
+                startDate: start.toISOString(),
+                endDate: end.toISOString(),
+                status: "APPROVED",
+                sort: "asc",
+                limit: 2000
             });
 
             if (res.success) {
@@ -114,7 +117,7 @@ export default function FinanceReports({ accounts }: FinanceReportsProps) {
                             />
                         </div>
                         <div className="flex gap-2">
-                             <Button onClick={handleSearch} disabled={isLoading || !selectedAccount} className="flex-1">
+                             <Button onClick={handleSearch} disabled={isLoading} className="flex-1">
                                 {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
                                 Tampilkan
                             </Button>

@@ -1,71 +1,66 @@
-import { goGet, goPost, goPut } from "@/lib/api-client";
+/**
+ * Savings Admin Actions — optimized with handleAction and Caching.
+ */
+
+import { goGet, goPost, goPut, CacheTTL } from "@/lib/api-client";
+import { handleAction } from "@/lib/action-utils";
 
 // --- Users ---
 export async function getEmployees() {
-  try { return await goGet("/api/employee"); }
-  catch (e) { return { success: false, error: e instanceof Error ? e.message : "Error" }; }
+  return handleAction(goGet("/api/master/employees?limit=1000", { ttl: CacheTTL.LONG }));
 }
 
 // --- Treasurer Management ---
 export async function getSavingsTreasurer() {
-  try { return await goGet("/api/savings/treasurer"); }
-  catch (e) { return { success: false, error: e instanceof Error ? e.message : "Error" }; }
+  return handleAction(goGet("/api/savings/treasurer", { ttl: CacheTTL.MEDIUM }));
 }
 
 export async function assignSavingsTreasurer(userId: string) {
-  try {
-    const res = await goPost("/api/savings/treasurer", { userId });
-    return res;
-  }
-  catch (e) { return { success: false, error: e instanceof Error ? e.message : "Error" }; }
+  return handleAction(
+    goPost("/api/savings/treasurer", { userId }),
+    "Bendahara tabungan berhasil ditetapkan"
+  );
 }
 
 // --- Class Rep Management ---
 export async function getClassesWithReps() {
-  try { return await goGet("/api/savings/classes/reps"); }
-  catch (e) { return { success: false, error: e instanceof Error ? e.message : "Error" }; }
+  return handleAction(goGet("/api/savings/classes/reps", { ttl: CacheTTL.MEDIUM }));
 }
 
 export async function assignClassRep(classId: string, userId: string) {
-  try {
-    const res = await goPut(`/api/savings/classes/${classId}/rep`, { userId });
-    return res;
-  }
-  catch (e) { return { success: false, error: e instanceof Error ? e.message : "Error" }; }
+  return handleAction(
+    goPut(`/api/savings/classes/${classId}/rep`, { userId }),
+    "Koordinator kelas berhasil ditetapkan"
+  );
 }
 
 // --- Verification Queue (Setoran) ---
 export async function getPendingSetoran() {
-  try { return await goGet("/api/savings/setoran?status=pending"); }
-  catch (e) { return { success: false, error: e instanceof Error ? e.message : "Error" }; }
+  return handleAction(goGet("/api/savings/setoran?status=pending", { ttl: CacheTTL.SHORT }));
 }
 
 export async function verifySetoran(setoranId: string, bendaharaId: string) {
-  try {
-    const res = await goPost("/api/savings/setoran/verify", { setoranId, bendaharaId, status: "verified" });
-    return res;
-  }
-  catch (e) { return { success: false, error: e instanceof Error ? e.message : "Error" }; }
+  return handleAction(
+    goPost("/api/savings/setoran/verify", { setoranId, bendaharaId, status: "verified" }),
+    "Setoran berhasil diverifikasi"
+  );
 }
 
-export async function rejectSetoran(setoranId: string, reason?: string) {
-  try {
-    const res = await goPost("/api/savings/setoran/verify", { setoranId, status: "rejected", catatan: reason });
-    return res;
-  }
-  catch (e) { return { success: false, error: e instanceof Error ? e.message : "Error" }; }
+export async function rejectSetoran(setoranId: string, bendaharaId: string, reason?: string) {
+  return handleAction(
+    goPost("/api/savings/setoran/verify", { setoranId, bendaharaId, status: "rejected", catatan: reason }),
+    "Setoran ditolak"
+  );
 }
 
 // --- Brankas Management ---
 export async function getBrankasSummary() {
-  try { return await goGet("/api/savings/brankas/summary"); }
-  catch (e) { return { success: false, error: e instanceof Error ? e.message : "Error" }; }
+  return handleAction(goGet("/api/savings/brankas/summary", { ttl: CacheTTL.MEDIUM }));
 }
 
 export async function transferVaultFunds(tipe: "setor_ke_bank" | "tarik_dari_bank", nominal: number, userId: string) {
-  try {
-    const res = await goPost("/api/savings/brankas/transfer", { tipe, nominal, userId });
-    return res;
-  }
-  catch (e) { return { success: false, error: e instanceof Error ? e.message : "Error" }; }
+  return handleAction(
+    goPost("/api/savings/brankas/transfer", { tipe, nominal, userId }),
+    "Mutasi dana berhasil dicatat"
+  );
 }

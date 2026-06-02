@@ -82,9 +82,8 @@ export default function PeminjamanPage() {
                 goGet("/api/library/loans?type=overdue"),
             ]);
 
-            // activeData uses getActiveLoans structure { items: [], totalItems }
             setActiveLoans(activeData.items || []);
-            setOverdueLoans(overdueData || []);
+            setOverdueLoans(overdueData.items || []);
         } catch (error) {
             console.error("Failed to load loans:", error);
             showError("Gagal memuat data peminjaman");
@@ -148,13 +147,13 @@ export default function PeminjamanPage() {
     const loadMemberOptions = async (inputValue: string) => {
         if (!inputValue) return [];
         const data: any = await goGet(`/api/library/members?search=${inputValue}`);
-        return data.items.map((m: LibraryMember) => ({ value: m.id, label: `${m.name} (${m.className})` }));
+        return (data.items || []).map((m: LibraryMember) => ({ value: m.id, label: `${m.name} (${m.className})` }));
     };
 
     const loadBookOptions = async (inputValue: string) => {
         if (!inputValue) return [];
         const data: any = await goGet(`/api/library/books?search=${inputValue}&perPage=10`);
-        return data.items
+        return (data.items || [])
             .filter((item: LibraryItem) => item.status === "AVAILABLE")
             .map((item: LibraryItem) => ({ 
                 value: item.id, // QR Code as ID

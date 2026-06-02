@@ -22,6 +22,15 @@ export type AssetCondition =
 export type OpnameStatus = "PENDING" | "APPLIED" | "REJECTED";
 
 export type AuditAction =
+    | "create"
+    | "update"
+    | "delete"
+    | "status_change"
+    | "login"
+    | "logout"
+    | "export"
+    | "view"
+    | "bulk_action"
     | "CREATE"
     | "UPDATE"
     | "DELETE"
@@ -30,7 +39,14 @@ export type AuditAction =
     | "LOGOUT";
 
 export type AuditEntity =
+    | "registrant"
+    | "user"
+    | "announcement"
+    | "period"
+    | "settings"
+    | "document"
     | "ASSET"
+    | "ITEM"
     | "ROOM"
     | "USER"
     | "OPNAME"
@@ -44,6 +60,7 @@ export interface InventoryRoom extends BaseRecord {
     name: string;
     code: string;
     description?: string;
+    location?: string;
     pic?: string; // Relation to users
     expand?: {
         pic?: {
@@ -68,11 +85,17 @@ export interface InventoryAsset extends BaseRecord {
     image?: string;
     notes?: string;
 
-    // Condition Breakdown
-    condition_good: number;
-    condition_light_damaged: number;
-    condition_heavy_damaged: number;
-    condition_lost: number;
+    // Legacy condition breakdown (kept for backward compat)
+    condition_good?: number;
+    condition_light_damaged?: number;
+    condition_heavy_damaged?: number;
+    condition_lost?: number;
+
+    // Normalized fields used by UI
+    condition?: "good" | "light_damage" | "heavy_damage" | "lost";
+    roomName?: string;
+    receivedAt?: string;
+    specifications?: string;
 
     expand?: {
         room?: InventoryRoom;

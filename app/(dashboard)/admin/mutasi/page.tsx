@@ -5,9 +5,8 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { toast } from "sonner";
-import { Loader2, FileText, Check, X, RefreshCw, MessageCircle, Download } from "lucide-react";
+import { Loader2, Check, X, RefreshCw, MessageCircle, Download } from "lucide-react";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 
 import {
   Table,
@@ -24,7 +23,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,21 +34,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
+import { goGet, goPatch } from "@/lib/api-client";
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+const fetcher = (url: string) => goGet(url);
 
 export default function AdminMutasiPage() {
   const { data: dataRequests, error: errorRequests, isLoading: loadingRequests } = useSWR(
     "/api/admin/mutasi",
     fetcher
   );
-  const { data: dataStats } = useSWR("/api/admin/classes/stats", fetcher);
+  const { data: dataStats } = useSWR("/api/classes/stats", fetcher);
 
   const requests = dataRequests?.data || [];
   const classStats = dataStats?.data || [];
 
-  const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [openRequestId, setOpenRequestId] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [targetClass, setTargetClass] = useState<string>("");
 
@@ -64,19 +63,13 @@ export default function AdminMutasiPage() {
       const payload: any = { statusApproval: newStatus };
       if (targetClassId) payload.targetClassId = targetClassId;
 
-      const res = await fetch(`/api/admin/mutasi/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      await goPatch(`/api/admin/mutasi/${id}`, payload);
 
-      if (!res.ok) throw new Error("Failed to update");
-
-      toast.success("Status updated successfully");
+      toast.success("Status berhasil diperbarui");
       mutate("/api/admin/mutasi");
-      setSelectedRequest(null); // Close dialog or refresh it
+      setOpenRequestId(null);
     } catch (error) {
-      toast.error("Failed to update status");
+      toast.error(error instanceof Error ? error.message : "Gagal memperbarui status");
     } finally {
       setIsUpdating(false);
     }
@@ -154,6 +147,12 @@ export default function AdminMutasiPage() {
                   <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                 </TableCell>
               </TableRow>
+            ) : errorRequests ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-8 text-destructive">
+                  Gagal memuat permohonan mutasi masuk.
+                </TableCell>
+              </TableRow>
             ) : requests.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-8">
@@ -184,10 +183,12 @@ export default function AdminMutasiPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Dialog onOpenChange={(open) => {
+                    <Dialog open={openRequestId === req.id} onOpenChange={(open) => {
                       if(open) {
-                        setSelectedRequest(req);
+                        setOpenRequestId(req.id);
                         setTargetClass(req.targetClassId || "");
+                      } else {
+                        setOpenRequestId(null);
                       }
                     }}>
                       <DialogTrigger asChild>

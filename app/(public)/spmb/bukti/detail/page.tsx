@@ -13,10 +13,36 @@ import Image from "next/image";
 import { QRCodeSVG } from "qrcode.react";
 import { DownloadPdfButton } from "@/components/spmb/download-pdf-button";
 
+type DocumentItem = {
+  path: string;
+  type?: string;
+  originalName?: string;
+};
+
+function parseDocuments(documents: unknown): DocumentItem[] {
+  if (!documents) return [];
+  if (Array.isArray(documents)) return documents.filter((doc): doc is DocumentItem => typeof doc === "object" && doc !== null && "path" in doc);
+  if (typeof documents !== "string") return [];
+  try {
+    const parsed = JSON.parse(documents);
+    return Array.isArray(parsed) ? parsed.filter((doc): doc is DocumentItem => typeof doc === "object" && doc !== null && "path" in doc) : [];
+  } catch {
+    return [];
+  }
+}
+
+function absoluteUrl(path: string) {
+  if (!path) return "";
+  if (/^https?:\/\//i.test(path)) return path;
+  if (typeof window === "undefined") return path;
+  return `${window.location.origin}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
 function ProofContent() {
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
   const [registrant, setRegistrant] = useState<any>(null);
+  const [settings, setSettings] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,7 +58,7 @@ function ProofContent() {
         return res.json();
       })
       .then(json => {
-        setRegistrant(json);
+        setRegistrant(json?.data ?? json);
         setIsLoading(false);
       })
       .catch(err => {
@@ -40,6 +66,11 @@ function ProofContent() {
         setError(err.message);
         setIsLoading(false);
       });
+
+    fetch("/api/public/spmb/landing")
+      .then(res => res.ok ? res.json() : null)
+      .then(json => setSettings(json?.settings ?? null))
+      .catch(() => setSettings(null));
   }, [id]);
 
   if (isLoading) {
@@ -56,6 +87,22 @@ function ProofContent() {
 
   const birthDate = registrant.birthDate ? new Date(registrant.birthDate) : new Date();
   const createdAt = registrant.createdAt ? new Date(registrant.createdAt) : new Date();
+  const documents = parseDocuments(registrant.documents);
+  const photoDoc = documents.find((doc) => doc.type === "pas_foto");
+  const photoUrl = photoDoc?.path ? absoluteUrl(photoDoc.path) : "";
+  const verificationUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/spmb/verify/detail?id=${registrant.registrationNumber}`;
+  const committeeName = settings?.principal_name || "Panitia SPMB";
+  const schoolName = settings?.school_name || "UPTD SDN 1 KENANGA";
+  const schoolNPSN = settings?.school_npsn || "20216609";
+  const schoolAddress = settings?.school_address || "Jl. Perindustrian Blok Dukuh Desa Kenanga Kec. Sindang Kab. Indramayu 45226";
+  const schoolEmail = settings?.school_email || "uptdsdn1kenangasindang@gmail.com";
+  const fullAddress = registrant.address || [
+    registrant.addressStreet,
+    registrant.addressRt ? `RT ${registrant.addressRt}` : "",
+    registrant.addressRw ? `RW ${registrant.addressRw}` : "",
+    registrant.addressVillage,
+    registrant.postalCode,
+  ].filter(Boolean).join(", ");
 
   return (
     <div className="min-h-screen bg-zinc-100 p-4 md:p-8">
@@ -68,7 +115,7 @@ function ProofContent() {
             >
                 <ArrowLeft className="h-4 w-4" /> Kembali
             </Link>
-            <DownloadPdfButton registrant={registrant} />
+            <DownloadPdfButton registrant={{ ...registrant, address: fullAddress, photoUrl, committeeName, schoolName, schoolNPSN, schoolAddress, schoolEmail }} />
         </div>
         
         {/* Printable Card */}
@@ -96,16 +143,16 @@ function ProofContent() {
                             DINAS PENDIDIKAN DAN KEBUDAYAAN
                         </h3>
                         <h1 className="font-bold text-[18pt] leading-tight my-1 text-blue-700 uppercase" style={{ fontFamily: '"Bookman Old Style", "URW Bookman L", serif' }}>
-                            UPTD SDN 1 KENANGA
+                            {schoolName}
                         </h1>
                         <p className="text-[11pt] font-bold leading-tight" style={{ fontFamily: '"Times New Roman", Times, serif' }}>
-                            NSS/NPSN : 10.1.02.18.160.15 / 20216609
+                            NPSN : {schoolNPSN}
                         </p>
                         <p className="text-[9pt] leading-tight mt-1" style={{ fontFamily: '"Times New Roman", Times, serif' }}>
-                            Alamat : Jl. Perindustrian Blok Dukuh Desa Kenanga Kec. Sindang Kab. Indramayu 45226
+                            Alamat : {schoolAddress}
                         </p>
                         <p className="text-[9pt] leading-tight" style={{ fontFamily: '"Times New Roman", Times, serif' }}>
-                            Email : <span className="text-blue-700 underline">uptdsdn1kenangasindang@gmail.com</span>
+                            Email : <span className="text-blue-700 underline">{schoolEmail}</span>
                         </p>
                     </div>
                 </div>
@@ -178,7 +225,7 @@ function ProofContent() {
                                      <tbody>
                                         <tr className="align-top">
                                              <td className="py-1 w-[160px] text-gray-600 font-medium">Alamat Lengkap</td>
-                                             <td className="py-1 text-justify leading-relaxed">: {registrant.address}</td>
+                                             <td className="py-1 text-justify leading-relaxed">: {fullAddress || "-"}</td>
                                          </tr>
                                          <tr className="align-top">
                                              <td className="py-1 text-gray-600 font-medium">Jarak ke Sekolah</td>
@@ -193,10 +240,20 @@ function ProofContent() {
                     <div className="w-[5cm] shrink-0">
                         <div className="border border-gray-300 rounded-sm p-4 flex flex-col items-center gap-6 bg-gray-50/50 h-full">
                             <div className="text-center space-y-2">
-                                <div className="w-[3cm] h-[4cm] bg-white border border-gray-300 mx-auto flex flex-col items-center justify-center text-gray-400">
-                                    <span className="text-[10px] font-bold">FOTO 3x4</span>
+                                <div className="relative w-[3cm] h-[4cm] bg-white border border-gray-300 mx-auto flex flex-col items-center justify-center overflow-hidden text-gray-400">
+                                    {photoUrl ? (
+                                      <Image
+                                        src={photoUrl}
+                                        alt="Pas foto calon siswa"
+                                        fill
+                                        className="object-cover"
+                                        unoptimized={true}
+                                      />
+                                    ) : (
+                                      <span className="text-[10px] font-bold">FOTO 3x4</span>
+                                    )}
                                 </div>
-                                <p className="text-[9px] text-gray-500 italic">Tempel pas foto terbaru<br/>di sini</p>
+                                {!photoUrl && <p className="text-[9px] text-gray-500 italic">Tempel pas foto terbaru<br/>di sini</p>}
                             </div>
 
                             <div className="w-full border-b border-gray-200"></div>
@@ -204,7 +261,7 @@ function ProofContent() {
                             <div className="text-center space-y-2">
                                 <div className="bg-white border border-gray-300 mx-auto p-2 flex items-center justify-center w-fit h-fit">
                                       <QRCodeSVG 
-                                        value={`${typeof window !== 'undefined' ? window.location.origin : ''}/spmb/tracking?id=${registrant.registrationNumber}`}
+                                        value={verificationUrl}
                                         size={90}
                                         level="H"
                                         includeMargin={false}
@@ -244,12 +301,15 @@ function ProofContent() {
                     </div>
                     <div className="text-center w-64">
                         <p className="mb-2 text-[11pt]">Indramayu, {format(createdAt, "dd MMMM yyyy", { locale: idLocale })}</p>
-                        <p className="text-[10pt] font-semibold text-gray-600">Panitia PPDB,</p>
+                        <p className="text-[10pt] font-semibold text-gray-600">Panitia SPMB,</p>
                         <div className="h-20"></div> 
                         <div className="border-b border-black w-48 mx-auto mb-1"></div>
                         <p className="text-[10pt] font-bold">
-                            {registrant.status === "accepted" ? "Kepala Sekolah" : "Panitia Penerimaan"}
+                            {registrant.status === "accepted" && settings?.principal_name ? settings.principal_name : committeeName}
                         </p>
+                        {registrant.status === "accepted" && settings?.principal_nip && (
+                          <p className="text-[9pt]">NIP. {settings.principal_nip}</p>
+                        )}
                     </div>
                 </div>
             </div>

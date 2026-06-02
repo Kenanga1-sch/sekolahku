@@ -1,60 +1,64 @@
 /**
- * spmb — Client-side data fetcher
- * All database logic has been moved to the Golang backend.
- * These functions now fetch data via the Golang API.
+ * SPMB — Client-side data fetcher for Go API
+ * Optimized with handleAction and Caching.
  */
 
-import { goGet, goPost } from "@/lib/api-client";
+import { goGet, goPost, goPut, CacheTTL } from "@/lib/api-client";
+import { handleAction } from "@/lib/action-utils";
 
-// TODO: Implement specific endpoints as needed.
-// For now, functions export stubs that call the Go API.
-
-export async function getActivePeriod(...args: any[]) {
-  console.warn("getActivePeriod: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+interface SPMBQueryOptions {
+  page?: number;
+  limit?: number;
+  filter?: string;
 }
 
-export async function getAllPeriods(...args: any[]) {
-  console.warn("getAllPeriods: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function getActivePeriod() {
+  return handleAction(goGet("/api/spmb/periods/active", { ttl: CacheTTL.LONG }));
 }
 
-export async function getRegistrants(...args: any[]) {
-  console.warn("getRegistrants: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function getAllPeriods(options: SPMBQueryOptions = {}) {
+  const params = new URLSearchParams();
+  if (options.page) params.append('page', options.page.toString());
+  if (options.limit) params.append('limit', options.limit.toString());
+  
+  return handleAction(goGet(`/api/spmb/periods?${params}`, { ttl: CacheTTL.MEDIUM }));
 }
 
-export async function getRegistrantByRegistrationNumber(...args: any[]) {
-  console.warn("getRegistrantByRegistrationNumber: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function getRegistrants(options: SPMBQueryOptions = {}) {
+  const params = new URLSearchParams();
+  if (options.page) params.append('page', options.page.toString());
+  if (options.limit) params.append('limit', options.limit.toString());
+  if (options.filter) params.append('filter', options.filter);
+  
+  return handleAction(goGet(`/api/spmb/registrants?${params}`, { ttl: CacheTTL.SHORT }));
 }
 
-export async function getRegistrantByNik(...args: any[]) {
-  console.warn("getRegistrantByNik: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function getRegistrantByRegistrationNumber(regNum: string) {
+  return handleAction(goGet(`/api/spmb/registrants/regnum/${regNum}`, { ttl: CacheTTL.SHORT }));
 }
 
-export async function getRegistrantById(...args: any[]) {
-  console.warn("getRegistrantById: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function getRegistrantByNik(nik: string) {
+  return handleAction(goGet(`/api/spmb/registrants/nik/${nik}`, { ttl: CacheTTL.SHORT }));
 }
 
-export async function generateRegistrationNumber(...args: any[]) {
-  console.warn("generateRegistrationNumber: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function getRegistrantById(id: string) {
+  return handleAction(goGet(`/api/spmb/registrants/${id}`, { ttl: CacheTTL.SHORT }));
 }
 
-export async function createRegistrant(...args: any[]) {
-  console.warn("createRegistrant: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function generateRegistrationNumber() {
+  const res = await handleAction(goGet("/api/spmb/registrants/next-number"));
+  return res.success ? (res.data as any).number : "SPMB-2026-0001";
 }
 
-export async function updateRegistrant(...args: any[]) {
-  console.warn("updateRegistrant: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function createRegistrant(data: any) {
+  return handleAction(goPost("/api/spmb/registrants", data), "Pendaftaran berhasil dikirim");
 }
 
-export async function getSPMBStats(...args: any[]) {
-  console.warn("getSPMBStats: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function updateRegistrant(id: string, data: any) {
+  return handleAction(goPut(`/api/spmb/registrants/${id}`, data), "Data pendaftar berhasil diperbarui");
 }
+
+export async function getSPMBStats() {
+  return handleAction(goGet("/api/spmb/stats", { ttl: CacheTTL.MEDIUM }));
+}
+

@@ -30,7 +30,7 @@ export default function MasterGTKPage() {
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
-    const [page] = useState(1);
+    const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
 
     // Modal
@@ -200,9 +200,14 @@ export default function MasterGTKPage() {
                 </CardContent>
             </Card>
 
-             <div className="flex justify-end gap-2 text-sm text-muted-foreground">
-                 {/* Logic pagination simple */}
-                  Halaman {page} dari {totalPages}
+             <div className="flex justify-end gap-2">
+                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                    Previous
+                </Button>
+                <div className="flex items-center text-sm font-medium">Halaman {page} dari {totalPages}</div>
+                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                    Next
+                </Button>
             </div>
         </div>
     );

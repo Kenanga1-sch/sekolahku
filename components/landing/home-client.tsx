@@ -1,20 +1,15 @@
 "use client";
 
-import { useRef } from "react";
 import Link from "next/link";
-import { motion, useScroll } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   Users,
   GraduationCap,
   Award,
   BookOpen,
   ArrowRight,
-  PlayCircle,
   CheckCircle,
   Sparkles,
-  ChevronRight,
-  MapPin,
-  Calendar,
   Newspaper,
   LayoutDashboard,
   ShieldCheck,
@@ -26,7 +21,6 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import dynamic from 'next/dynamic';
 import { AuroraBackground } from "@/components/ui/aurora-background";
-import { TextGenerateEffect } from "@/components/ui/text-generate-effect";
 import { BentoGrid, BentoGridItem } from "@/components/ui/bento-grid";
 import { StarsBackground } from "@/components/ui/stars-background";
 
@@ -34,30 +28,6 @@ const SchoolMap = dynamic(() => import('@/components/landing/school-map'), {
   ssr: false,
   loading: () => <div className="w-full h-full bg-zinc-100 dark:bg-zinc-800 animate-pulse" />
 });
-
-// Animations
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.15,
-      delayChildren: 0.2,
-    },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 30 },
-  visible: { 
-    opacity: 1, 
-    y: 0,
-    transition: {
-      stiffness: 50,
-      damping: 20
-    }
-  },
-};
 
 interface HomeClientProps {
   settings: any | null; 
@@ -67,6 +37,8 @@ interface HomeClientProps {
 }
 
 export function HomeClient({ settings, news, activePeriod, studentCount }: HomeClientProps) {
+  const schoolName = settings?.school_name || "UPTD SDN 1 Kenanga";
+
   // Calculate dynamic stats
   const displayStats = [
     { icon: Users, label: "Total Siswa", value: studentCount > 0 ? `${studentCount}+` : "...", color: "text-blue-500", bg: "bg-blue-500/10" },
@@ -100,7 +72,7 @@ export function HomeClient({ settings, news, activePeriod, studentCount }: HomeC
     <div className="flex flex-col min-h-screen bg-white dark:bg-black">
       
       {/* 1. ACETERNITY HERO: Aurora Background with Stars */}
-      <AuroraBackground className="h-screen">
+      <AuroraBackground className="min-h-[100svh] py-24 sm:py-28 lg:py-32">
         {/* Stars Animation - visible in both modes via CSS variables */}
         <StarsBackground className="z-0" />
         
@@ -112,27 +84,27 @@ export function HomeClient({ settings, news, activePeriod, studentCount }: HomeC
             duration: 0.8,
             ease: "easeInOut",
           }}
-          className="relative z-10 flex flex-col gap-4 items-center justify-center px-4"
+          className="relative z-10 flex min-h-[calc(100svh-12rem)] flex-col items-center justify-center gap-5 px-4 pb-10 text-center sm:pb-14 lg:pb-16"
         >
-          <div className="text-3xl md:text-7xl font-bold dark:text-white text-center">
-             Mewujudkan Generasi <br />
-             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-600">Cerdas & Berkarakter</span>
-          </div>
-          
-          <div className="font-light text-base md:text-2xl dark:text-neutral-200 py-4 max-w-2xl text-center">
-             <TextGenerateEffect words={`${settings?.school_name || "SD Negeri 1"} berkomitmen memberikan pendidikan terbaik dengan kurikulum modern yang terintegrasi teknologi.`} />
+          <div className="space-y-5">
+            <h1 className="text-4xl font-bold leading-tight tracking-tight text-zinc-950 dark:text-white sm:text-5xl md:text-6xl lg:text-7xl">
+              {schoolName}
+            </h1>
+            <p className="text-lg font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-600 sm:text-2xl md:text-3xl">
+              Cerdas, Berkarakter, Berdaya Saing
+            </p>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-4 sm:gap-4 sm:pt-5">
              {settings?.spmb_is_open && (
                 <Link href="/spmb/daftar">
-                    <Button size="lg" className="bg-black dark:bg-white rounded-full w-fit text-white dark:text-black px-8 py-6 text-lg font-bold shadow-xl transition-transform hover:scale-105">
+                    <Button size="lg" className="h-12 rounded-full bg-black px-6 text-base font-bold text-white shadow-xl transition-transform hover:scale-105 dark:bg-white dark:text-black sm:h-14 sm:px-8 sm:text-lg">
                       Daftar Sekarang
                     </Button>
                 </Link>
              )}
               <Link href="/profil/visi-misi">
-                <Button variant="outline" size="lg" className="rounded-full px-8 py-6 text-lg font-semibold border-2 border-zinc-900/10 dark:border-white/20 bg-white/10 dark:bg-white/5 backdrop-blur-sm text-zinc-900 dark:text-white hover:bg-white/20 dark:hover:bg-white/10 transition-all hover:scale-105 shadow-sm">
+                <Button variant="outline" size="lg" className="h-12 rounded-full border-2 border-zinc-900/10 bg-white/10 px-6 text-base font-semibold text-zinc-900 shadow-sm backdrop-blur-sm transition-all hover:scale-105 hover:bg-white/20 dark:border-white/20 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 sm:h-14 sm:px-8 sm:text-lg">
                      Tentang Kami
                 </Button>
               </Link>
@@ -141,22 +113,22 @@ export function HomeClient({ settings, news, activePeriod, studentCount }: HomeC
       </AuroraBackground>
 
       {/* Stats Section */}
-      <section className="relative z-20 -mt-20 container px-4 md:px-6">
+      <section className="container relative z-10 px-4 pt-6 pb-12 sm:pt-8 sm:pb-16 md:px-6">
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.8 }}
-          className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8"
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 lg:grid-cols-4 lg:gap-6"
         >
           {displayStats.map((stat, index) => (
             <Card key={index} className="border-none shadow-xl shadow-gray-200/50 dark:shadow-none bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl">
-              <CardContent className="p-6 flex flex-col items-center text-center space-y-4">
-                <div className={`p-4 rounded-2xl ${stat.bg} ${stat.color}`}>
-                  <stat.icon className="h-6 w-6" />
+              <CardContent className="flex flex-col items-center space-y-3 p-4 text-center sm:p-5 lg:space-y-4 lg:p-6">
+                <div className={`rounded-2xl p-3 sm:p-4 ${stat.bg} ${stat.color}`}>
+                  <stat.icon className="h-5 w-5 sm:h-6 sm:w-6" />
                 </div>
                 <div>
-                  <h3 className="text-3xl font-bold tracking-tight">{stat.value}</h3>
+                  <h3 className="text-2xl font-bold tracking-tight sm:text-3xl">{stat.value}</h3>
                   <p className="text-sm font-medium text-muted-foreground mt-1">{stat.label}</p>
                 </div>
               </CardContent>
@@ -166,7 +138,7 @@ export function HomeClient({ settings, news, activePeriod, studentCount }: HomeC
       </section>
 
       {/* 2. ACETERNITY FEATURE: Bento Grid */}
-      <section className="py-20 md:py-32 bg-white dark:bg-black w-full">
+      <section className="w-full bg-white pt-8 pb-16 dark:bg-black sm:pt-10 md:pt-14 md:pb-28">
          <div className="container px-4 md:px-6">
             <div className="text-center mb-16">
                  <h2 className="text-3xl md:text-5xl font-bold mb-4">Keunggulan Kami</h2>

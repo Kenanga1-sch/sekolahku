@@ -2,7 +2,6 @@ package models
 
 import "time"
 
-
 type Employee struct {
 	ID               string  `json:"id"`
 	Name             string  `json:"name"`
@@ -17,6 +16,7 @@ type Employee struct {
 	JobType          *string `json:"jobType"`
 	JoinDate         *string `json:"joinDate"`
 	UserID           *string `json:"userId"`
+	EmployeeDetailID *string `json:"employeeDetailId"`
 }
 
 type EmployeePagination struct {

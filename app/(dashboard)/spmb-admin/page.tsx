@@ -125,8 +125,9 @@ export default function SPMBAdminPage() {
   useEffect(() => {
     goGet("/api/school-settings")
       .then((data: any) => {
-        if (data && data.max_distance_km) {
-          setMaxDistance(data.max_distance_km);
+        const settings = data?.data ?? data;
+        if (settings && settings.max_distance_km) {
+          setMaxDistance(settings.max_distance_km);
         }
       })
       .catch(err => console.error("Failed to fetch settings", err));
@@ -137,27 +138,30 @@ export default function SPMBAdminPage() {
         const query = new URLSearchParams({
             page: page.toString(),
             perPage: "10",
-            status: statusFilter,
             search: searchQuery,
         });
+        if (statusFilter !== "all") {
+            query.set("status", statusFilter);
+        }
 
         const res: any = await goGet(`/api/spmb/registrants?${query.toString()}`);
-        
-        if (res.success && res.items) {
-            // Calculate scores and sort by Score DESC
-            const itemsWithScore = res.items.map((r: any) => ({
+
+        if (res.success) {
+            const items = Array.isArray(res.items) ? res.items : [];
+            const itemsWithScore = items.map((r: any) => ({
                 ...r,
                 score: calculateScore(r.birthDate, r.distanceToSchool)
             })).sort((a: any, b: any) => (b.score || 0) - (a.score || 0));
 
             setRegistrants(itemsWithScore);
-            setTotalPages(res.totalPages || 1);
+            setSelectedIds([]);
+            setTotalPages(Math.max(res.totalPages || 1, 1));
         }
 
         // Fetch stats
         const statsRes: any = await goGet("/api/spmb/stats");
         if (statsRes.success) {
-            setStats(statsRes.data);
+            setStats({ total: 0, pending: 0, verified: 0, accepted: 0, rejected: 0, ...statsRes.data });
         }
 
     } catch (error) {
@@ -171,30 +175,6 @@ export default function SPMBAdminPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  // ... rest of the handlers ...
-  // ... until the render ...
-  
-  // Later in the return, inside map:
-  // registrants.map((r) => {
-  //   const isActuallyInZone = (r.distanceToSchool || 0) <= maxDistance;
-  //   return (
-  //      ...
-  //      <Badge className={isActuallyInZone ? ... }> ... </Badge>
-  // ...
-
-  // Since I can't put comments inside the replacement content like that effectively if I'm replacing a specific block,
-  // I will just replace the variable declarations and then use a second replacement for the map?
-  // No, I can't do two disjoint replacements in one tool call easily if they are far apart in lines unless using multi_replace.
-  
-  // Wait, I can try to use multi_replace.
-  
-  // Or I can just do two sequential calls since I'm in agentic mode it's fine.
-  
-  // Let's do the state implementation first.
-  
-// Actually, I can replace lines 91-132 to include the new state and effect.
-
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -301,9 +281,11 @@ export default function SPMBAdminPage() {
                    const query = new URLSearchParams({
                       page: "1",
                       perPage: "-1", // Fetch all
-                      status: statusFilter,
                       search: searchQuery,
                    });
+                   if (statusFilter !== "all") {
+                     query.set("status", statusFilter);
+                   }
                    const res: any = await goGet(`/api/spmb/registrants?${query.toString()}`);
                    
                    if (res.items) {
@@ -323,9 +305,11 @@ export default function SPMBAdminPage() {
                  const query = new URLSearchParams({
                  page: "1",
                  perPage: "-1",
-                 status: statusFilter,
                  search: searchQuery,
                  });
+                 if (statusFilter !== "all") {
+                   query.set("status", statusFilter);
+                 }
                  const res: any = await goGet(`/api/spmb/registrants?${query.toString()}`);
                  
                                     if (res.items) {
@@ -521,7 +505,7 @@ export default function SPMBAdminPage() {
                   ))
                 ) : registrants.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8">
+                    <TableCell colSpan={10} className="text-center py-8">
                       <Users className="h-12 w-12 mx-auto text-muted-foreground/50 mb-2" />
                       <p className="text-muted-foreground">Tidak ada data ditemukan</p>
                     </TableCell>

@@ -94,7 +94,7 @@ export default function StokPage() {
       
       const res: any = await goGet(`/api/inventory/items?${params.toString()}`);
       if (res.error) throw new Error(res.error);
-      setItems(res.data);
+      setItems(res.items || res.data || []);
     } catch (error) {
       toast.error("Gagal memuat data barang");
     } finally {

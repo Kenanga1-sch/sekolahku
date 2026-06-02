@@ -159,7 +159,8 @@ export async function applyOpnameSession(id: string): Promise<boolean> {
 // Statistics
 export async function getInventoryStats(): Promise<InventoryStats> {
     try {
-        return await goGet("/api/inventory/stats");
+        const res: any = await goGet("/api/inventory/stats");
+        return res?.data ?? res;
     } catch {
         return { totalAssets: 0, totalValue: 0, totalItems: 0, itemsGood: 0, itemsDamaged: 0, itemsLost: 0 };
     }
@@ -185,7 +186,8 @@ export interface RecentAuditActivity {
 
 export async function getRecentAudit(limit = 10): Promise<RecentAuditActivity[]> {
     try {
-        const logs = await goGet<any[]>(`/api/inventory/audit?limit=${limit}`);
+        const result: any = await goGet(`/api/inventory/audit?limit=${limit}`);
+        const logs = result?.items ?? result?.data ?? [];
         return (logs || []).map(l => ({
             id: l.id,
             action: l.action,
@@ -267,9 +269,9 @@ export async function getAssetReport(category?: string): Promise<AssetReportItem
         category: a.category,
         roomName: (a as any).expand?.room?.name || "-",
         quantity: a.quantity,
-        conditionGood: a.condition_good,
-        conditionDamaged: a.condition_light_damaged + a.condition_heavy_damaged,
-        conditionLost: a.condition_lost,
+        conditionGood: a.condition_good ?? 0,
+        conditionDamaged: (a.condition_light_damaged ?? 0) + (a.condition_heavy_damaged ?? 0),
+        conditionLost: a.condition_lost ?? 0,
         price: a.price,
         totalValue: a.price * a.quantity
     }));

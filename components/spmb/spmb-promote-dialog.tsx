@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Loader2 } from "lucide-react";
 import { showSuccess, showError } from "@/lib/toast";
+import { goGet, goPost } from "@/lib/api-client";
 
 interface SPMBPromoteDialogProps {
   open: boolean;
@@ -37,9 +38,8 @@ export function SPMBPromoteDialog({
 
   const fetchClasses = async () => {
     try {
-      const res = await fetch("/api/academic/classes");
-      const data = await res.json();
-      setClasses(data);
+      const data: any = await goGet("/api/academic/classes");
+      setClasses(Array.isArray(data) ? data : data?.data ?? []);
     } catch (e) {
       console.error(e);
     }
@@ -49,17 +49,9 @@ export function SPMBPromoteDialog({
     if (!registrantId || !selectedClassId) return;
     setLoading(true);
     try {
-      const res = await fetch("/api/spmb/candidates/promote", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          registrationId: registrantId,
-          targetClassId: selectedClassId
-        })
+      await goPost(`/api/spmb/registrants/${registrantId}/promote`, {
+        class_id: selectedClassId,
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Gagal memproses");
 
       showSuccess("Siswa berhasil dipromosikan ke Master Data");
       onOpenChange(false);

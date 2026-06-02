@@ -1,64 +1,64 @@
 /**
- * Client-side Auth Actions — no "use server" needed.
- * Communicates directly with Golang backend.
+ * Auth actions — adapted for Static Export (output: "export").
+ * These run in the browser and call the Go backend API.
  */
 
-const GO_API_URL = process.env.NEXT_PUBLIC_API_URL || "";
+import { goPost } from "@/lib/api-client";
 
 export async function loginAction(
   email: string,
   password: string
-): Promise<{ error?: string; success?: boolean }> {
+): Promise<{ error?: string; success?: boolean; user?: any; publicInfo?: any }> {
   try {
-    const response = await fetch(`${GO_API_URL}/api/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+    const data = await goPost("/api/auth/login", { email, password });
 
-    if (!response.ok) {
-      return { error: "Username/email atau password salah." };
+    if (data && (data as any).success) {
+      return { 
+        success: true, 
+        user: (data as any).user,
+        publicInfo: (data as any).public_info
+      };
     }
 
-    const data = await response.json();
-
-    if (data.success && data.token) {
-      // Set session cookie client-side
-      const maxAge = 7 * 24 * 60 * 60; // 7 days
-      document.cookie = `session=${data.token}; path=/; max-age=${maxAge}; SameSite=Lax`;
-      return { success: true };
-    }
-
-    return { error: "Gagal memproses otentikasi" };
-  } catch (e) {
+    return { error: (data as any).error || "Gagal memproses otentikasi" };
+  } catch (e: any) {
     console.error("Auth Error:", e);
-    return { error: "Terjadi kesalahan pada server" };
+    return { error: e.message || "Terjadi kesalahan pada server" };
   }
 }
 
-export function logoutAction() {
-  document.cookie = "session=; path=/; max-age=0";
-  window.location.href = "/login";
+export async function logoutAction() {
+  try {
+    await goPost("/api/auth/logout", {});
+  } catch (e) {
+    console.error("Logout error:", e);
+  }
+  
+  // Clear cookie manually just in case
+  if (typeof document !== "undefined") {
+    document.cookie = "session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
+  }
 }
 
 export async function getSessionAction() {
+  if (typeof document === "undefined") return null;
+
   const cookies = document.cookie.split(";").map((c) => c.trim());
-  const sessionCookie = cookies.find((c) => c.startsWith("session="));
+  const infoCookie = cookies.find((c) => c.startsWith("user_info="));
+  if (!infoCookie) return null;
 
-  if (!sessionCookie) return null;
-
-  const token = sessionCookie.split("=")[1];
-  if (!token) return null;
+  const jsonValue = decodeURIComponent(infoCookie.split("=")[1].replace(/\+/g, " "));
+  if (!jsonValue) return null;
 
   try {
-    // Decode JWT payload (client-side, no verification — just for display)
-    const payload = JSON.parse(atob(token.split(".")[1]));
+    const data = JSON.parse(jsonValue);
     return {
       user: {
-        id: payload.sub,
-        email: payload.email,
-        name: payload.name,
-        role: payload.role,
+        id: data.id,
+        role: data.role,
+        email: data.email,
+        name: data.name,
+        phone: data.phone,
       },
     };
   } catch {

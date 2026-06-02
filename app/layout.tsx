@@ -91,6 +91,22 @@ export default function RootLayout({
               (function() {
                 if ('serviceWorker' in navigator) {
                   window.addEventListener('load', function() {
+                    if (['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)) {
+                      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                        registrations.forEach(function(registration) {
+                          registration.unregister();
+                        });
+                      });
+                      if ('caches' in window) {
+                        caches.keys().then(function(keys) {
+                          keys.forEach(function(key) {
+                            caches.delete(key);
+                          });
+                        });
+                      }
+                      return;
+                    }
+
                     navigator.serviceWorker.register('/sw.js').then(
                       function(registration) {
                         console.log('SW registered: ', registration);

@@ -7,10 +7,12 @@
 
 // Catalog & ISBN Lookup
 export {
+    getBooks,
+    createBook,
+    updateBook,
+    deleteBook,
+    swapAssetQR,
     downloadCoverImage,
-    getOrCreateCatalog,
-    bindAsset,
-    swapAssetCode,
     lookupISBN,
 } from "./catalog";
 
@@ -34,17 +36,17 @@ export {
     createLibraryMember,
     updateLibraryMember,
     deleteLibraryMember,
-    type GetLibraryMembersOptions,
+    syncMembersFromStudents,
+    type GetMembersOptions,
 } from "./members";
 
 // Loans
 export {
+    getLoans,
     getActiveLoans,
     getOverdueLoans,
-    getMemberActiveLoans,
     borrowBook,
     returnBook,
-    findLoanByItemId,
 } from "./loans";
 
 // Visits
@@ -61,8 +63,4 @@ export {
     getRecentActivity,
     getLoanTrend,
     getCategoryDistribution,
-    getTopBorrowedBooks,
-    getTopActiveMembers,
-    smartScan,
-    smartScanComplete,
 } from "./stats";

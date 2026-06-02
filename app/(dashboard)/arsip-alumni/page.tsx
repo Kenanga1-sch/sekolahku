@@ -37,15 +37,12 @@ import {
   Eye,
   Edit,
   Trash2,
-  Download,
   Users,
   FolderOpen,
   Clock,
   RefreshCcw,
 } from "lucide-react";
 import Link from "next/link";
-import { format } from "date-fns";
-import { id } from "date-fns/locale";
 import { goGet, goDelete } from "@/lib/api-client";
 
 interface Alumni {
@@ -374,7 +371,7 @@ export default function ArsipAlumniPage() {
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
-                            <Link href={`/arsip-alumni/detail?id=${item.id}/edit`}>
+                            <Link href={`/arsip-alumni/detail/edit?id=${item.id}`}>
                               <Edit className="h-4 w-4 mr-2" />
                               Edit
                             </Link>

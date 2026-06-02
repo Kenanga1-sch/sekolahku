@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Loader2, Upload, FileSpreadsheet, AlertTriangle, CheckCircle } from "lucide-react";
 import { showSuccess, showError } from "@/lib/toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { goPost } from "@/lib/api-client";
 
 interface StudentImportDialogProps {
     open: boolean;
@@ -51,15 +52,7 @@ export function StudentImportDialog({ open, onOpenChange, onSuccess }: StudentIm
 
         setIsLoading(true);
         try {
-            const res = await fetch("/api/master/students/bulk", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ students: previewData }),
-            });
-            
-            const result = await res.json();
-
-            if (!res.ok) throw new Error(result.error || "Gagal import data");
+            const result: any = await goPost("/api/master/students/bulk", { students: previewData });
 
             showSuccess(`Berhasil import ${result.count} data siswa!`);
             onSuccess();

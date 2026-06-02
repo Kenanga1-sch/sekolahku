@@ -68,7 +68,8 @@ export function StudentFormDialog({ open, onOpenChange, studentId, onSuccess }: 
     if (studentId && open) {
         setIsLoading(true);
         goGet(`/api/master/students/${studentId}`)
-            .then(data => {
+            .then((response: any) => {
+                const data = response?.data ?? response;
                 form.reset(data as any); // Auto-fill
             })
             .catch(err => showError("Gagal memuat data siswa"))

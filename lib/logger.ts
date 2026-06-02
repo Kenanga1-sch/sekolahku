@@ -30,7 +30,8 @@ interface LogEntry {
 // ==========================================
 
 const isDev = process.env.NODE_ENV !== "production";
-const logLevel: LogLevel = (process.env.LOG_LEVEL as LogLevel) || (isDev ? "debug" : "info");
+// Default to 'warn' in production to save Disk I/O, 'debug' in development
+const logLevel: LogLevel = (process.env.LOG_LEVEL as LogLevel) || (isDev ? "debug" : "warn");
 
 const levelPriority: Record<LogLevel, number> = {
     debug: 0,

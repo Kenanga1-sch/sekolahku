@@ -74,7 +74,8 @@ export default function EditSiswaPage() {
   useEffect(() => {
     const fetchStudent = async () => {
       try {
-        const data: any = await goGet(`/api/students/${searchParams.get('id')}`);
+        const response: any = await goGet(`/api/students/${searchParams.get('id')}`);
+        const data = response?.data || response;
 
         if (data) {
           setFormData({
@@ -140,7 +141,7 @@ export default function EditSiswaPage() {
         toast.success("Data peserta didik berhasil diperbarui");
         router.push(`/peserta-didik/detail?id=${searchParams.get('id')}`);
       } else {
-        toast.error(data.error || "Gagal memperbarui data");
+        toast.error(response.error || "Gagal memperbarui data");
       }
     } catch {
       toast.error("Terjadi kesalahan");

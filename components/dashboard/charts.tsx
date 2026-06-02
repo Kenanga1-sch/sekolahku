@@ -97,6 +97,8 @@ interface StatusDistributionProps {
 }
 
 export function StatusDistributionChart({ data }: StatusDistributionProps) {
+    const hasData = data.some((item) => item.value > 0);
+
     return (
         <Card>
             <CardHeader>
@@ -104,6 +106,11 @@ export function StatusDistributionChart({ data }: StatusDistributionProps) {
                 <CardDescription>Persentase status pendaftaran</CardDescription>
             </CardHeader>
             <CardContent>
+                {!hasData ? (
+                    <div className="flex h-[250px] items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
+                        Belum ada data status pendaftaran
+                    </div>
+                ) : (
                 <div className="h-[250px]">
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
@@ -131,6 +138,7 @@ export function StatusDistributionChart({ data }: StatusDistributionProps) {
                         </PieChart>
                     </ResponsiveContainer>
                 </div>
+                )}
                 <div className="flex flex-wrap justify-center gap-4 mt-4">
                     {data.map((item, index) => (
                         <div key={index} className="flex items-center gap-2">

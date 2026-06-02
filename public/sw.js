@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-const CACHE_NAME = 'sekolahku-v1';
+const CACHE_NAME = 'sekolahku-v3';
 const OFFLINE_URL = '/offline';
 
 // Assets to cache immediately on install

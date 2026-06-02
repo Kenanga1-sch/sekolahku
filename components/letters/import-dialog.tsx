@@ -4,7 +4,6 @@ import { useState, useRef } from "react";
 import { 
   Upload, 
   FileText,
-  Download,
   X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,25 +18,26 @@ import {
 import { toast } from "sonner";
 import { LETTER_VARIABLES } from "@/lib/config/letter-variables";
 import { useRouter } from "next/navigation";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import mammoth from "mammoth";
+import { goPost } from "@/lib/api-client";
 
 interface ImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onImported?: () => void;
 }
 
-export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
+export function ImportDialog({ open, onOpenChange, onImported }: ImportDialogProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [tab, setTab] = useState<"upload" | "guide">("upload");
   
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
-  const [category, setCategory] = useState("GENERAL");
-  const [paperSize, setPaperSize] = useState("A4");
-  const [orientation, setOrientation] = useState("portrait");
+  const [category] = useState("GENERAL");
+  const [paperSize] = useState("A4");
+  const [orientation] = useState("portrait");
   const [extractedVars, setExtractedVars] = useState<string[]>([]);
   
   const [importing, setImporting] = useState(false);
@@ -99,15 +99,11 @@ export function ImportDialog({ open, onOpenChange }: ImportDialogProps) {
         formData.append("file", file);
         formData.append("type", "UPLOAD");
 
-        const res = await fetch("/api/letters/templates", {
-            method: "POST",
-            body: formData,
-        });
-
-        if (!res.ok) throw new Error("Gagal menyimpan import");
+        await goPost("/api/eoffice/letter-templates", formData);
 
         toast.success("Template berhasil diupload!");
         onOpenChange(false);
+        onImported?.();
         router.refresh();
         
         resetState();

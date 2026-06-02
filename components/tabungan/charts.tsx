@@ -90,8 +90,8 @@ export function TransactionTrendChart() {
             try {
                 const res = await fetch("/api/tabungan/data?type=trend");
                 if (res.ok) {
-                    const trend = await res.json();
-                    setData(trend);
+                    const payload = await res.json();
+                    setData(Array.isArray(payload) ? payload : payload.data ?? payload.items ?? []);
                 }
             } catch {
                 // Fail silently
@@ -172,8 +172,8 @@ export function ClassBalanceChart() {
             try {
                 const res = await fetch("/api/tabungan/data?type=saldo-by-kelas");
                 if (res.ok) {
-                    const saldo = await res.json();
-                    setData(saldo);
+                    const payload = await res.json();
+                    setData(Array.isArray(payload) ? payload : payload.data ?? payload.items ?? []);
                 }
             } catch {
                 // Fail silently

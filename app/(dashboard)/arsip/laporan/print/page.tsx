@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { formatDate } from "@/lib/utils";
+import { goGet } from "@/lib/api-client";
 
 export default function PrintLaporanPage() {
     const searchParams = useSearchParams();
@@ -26,11 +27,11 @@ export default function PrintLaporanPage() {
         const fetchData = async () => {
             try {
                 const endpoint = type === "surat-masuk" ? "/api/arsip/surat-masuk" : "/api/arsip/surat-keluar";
-                const res = await fetch(`${endpoint}?perPage=1000`); // Get many
-                const result = await res.json();
+                const result: any = await goGet(`${endpoint}?perPage=1000`); // Get many
+                const items = result.items || result.data?.items || result.data || [];
                 
                 // Client-side filter for month/year (MVP solution)
-                const filtered = result.items.filter((item: any) => {
+                const filtered = (Array.isArray(items) ? items : []).filter((item: any) => {
                     const date = new Date(type === "surat-masuk" ? item.receivedAt : item.dateOfLetter);
                     return date.getMonth() === month && date.getFullYear() === year;
                 });
@@ -54,7 +55,7 @@ export default function PrintLaporanPage() {
     if (loading) return <div className="p-8 text-center">Memuat Laporan...</div>;
 
     return (
-        <div className="bg-white text-black bg-white p-8 min-h-screen text-xs font-sans print:p-0">
+        <div className="bg-white text-black p-8 min-h-screen text-xs font-sans print:p-0">
             <div className="text-center mb-6">
                 <h1 className="font-bold text-xl uppercase">Buku Agenda {type === "surat-masuk" ? "Surat Masuk" : "Surat Keluar"}</h1>
                 <p className="text-sm">Bulan: {monthName} {year}</p>

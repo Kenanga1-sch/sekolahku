@@ -102,7 +102,7 @@ export default function SejarahPage() {
       <section className="py-12 -mt-8 relative z-10">
         <div className="container">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {achievements.map((item, index) => (
+            {achievements.map((item: any, index: number) => (
               <Card key={index} className="border-none shadow-lg bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: `${index * 100}ms` }}>
                 <CardContent className="p-6 flex flex-col items-center text-center space-y-2">
                   <div className="h-12 w-12 rounded-xl bg-amber-500/10 flex items-center justify-center">
@@ -134,7 +134,7 @@ export default function SejarahPage() {
              <TracingBeam className="px-6">
               <div className="relative pt-4 pb-12">
                  <div className="space-y-12">
-                {timeline.map((item, index) => (
+                {timeline.map((item: any, index: number) => (
                   <div
                     key={index}
                     className="relative pl-8 md:pl-12"
@@ -170,7 +170,7 @@ export default function SejarahPage() {
             <blockquote className="text-2xl md:text-3xl font-medium italic leading-relaxed">
               &quot;Pendidikan adalah senjata paling ampuh yang bisa kamu gunakan untuk mengubah dunia.&quot;
             </blockquote>
-            <p className="text-zinc-400">— Nelson Mandela</p>
+            <p className="text-zinc-400">- Nelson Mandela</p>
           </div>
         </div>
       </section>

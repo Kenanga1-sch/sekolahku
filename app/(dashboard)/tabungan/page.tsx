@@ -54,7 +54,7 @@ export default function TabunganDashboardPage() {
     async function fetchStats() {
         try {
             const data: any = await goGet("/api/tabungan/data");
-            setStats(data);
+            setStats(data.data ?? data);
         } catch (error) {
             console.error("Failed to fetch stats:", error);
         } finally {

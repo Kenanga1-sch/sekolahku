@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"database/sql"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -236,4 +238,272 @@ func (h *LibraryHandler) ReturnBook(c echo.Context) error {
 		"success": true,
 		"data":    loan,
 	})
+}
+
+func (h *LibraryHandler) RecordVisit(c echo.Context) error {
+	var req struct {
+		MemberID         string `json:"memberId"`
+		GuestName        string `json:"guestName"`
+		GuestInstitution string `json:"institution"`
+		GuestPurpose     string `json:"purpose"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
+	}
+
+	var err error
+	if req.MemberID != "" {
+		err = h.Repo.RecordVisit(req.MemberID)
+	} else if req.GuestName != "" {
+		err = h.Repo.RecordGuestVisit(req.GuestName, req.GuestInstitution, req.GuestPurpose)
+	} else {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "MemberID or GuestName is required"})
+	}
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
+}
+
+func (h *LibraryHandler) GetVisits(c echo.Context) error {
+	date := c.QueryParam("date")
+	visits, err := h.Repo.GetVisits(date)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data":    visits,
+	})
+}
+
+func (h *LibraryHandler) KioskScanComplete(c echo.Context) error {
+	var req struct {
+		Code string `json:"code"`
+	}
+	if err := c.Bind(&req); err != nil || req.Code == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"type": "error", "message": "QR code tidak valid"})
+	}
+
+	member, err := h.Repo.GetMemberByCode(req.Code)
+	if err == nil {
+		visited, err := h.Repo.HasVisitedToday(member.ID)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]interface{}{"type": "error", "message": "Gagal mengecek kunjungan"})
+		}
+
+		isFirstVisit := !visited
+		if isFirstVisit {
+			if err := h.Repo.RecordVisit(member.ID); err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]interface{}{"type": "error", "message": "Gagal mencatat kunjungan"})
+			}
+		}
+
+		activeLoans, err := h.Repo.GetActiveLoansByMemberID(member.ID)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]interface{}{"type": "error", "message": "Gagal mengambil data pinjaman"})
+		}
+
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"type": "member",
+			"data": member,
+			"visitStatus": map[string]interface{}{
+				"isFirstVisit": isFirstVisit,
+			},
+			"activeLoans": activeLoans,
+		})
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"type": "error", "message": "Gagal membaca data anggota"})
+	}
+
+	item, err := h.Repo.GetAssetByCode(req.Code)
+	if err == nil {
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"type": "item",
+			"data": item,
+		})
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		return c.JSON(http.StatusOK, map[string]interface{}{"type": "error", "message": "QR tidak ditemukan"})
+	}
+	return c.JSON(http.StatusInternalServerError, map[string]interface{}{"type": "error", "message": "Gagal membaca data buku"})
+}
+
+func (h *LibraryHandler) KioskScan(c echo.Context) error {
+	var req struct {
+		Code string `json:"code"`
+		Type string `json:"type"`
+	}
+	if err := c.Bind(&req); err != nil || req.Code == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "QR code tidak valid"})
+	}
+
+	if req.Type == "find-loan" {
+		loan, err := h.Repo.FindActiveLoanByItemID(req.Code)
+		if errors.Is(err, sql.ErrNoRows) {
+			return c.JSON(http.StatusOK, nil)
+		}
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		return c.JSON(http.StatusOK, loan)
+	}
+
+	member, err := h.Repo.GetMemberByCode(req.Code)
+	if err == nil {
+		return c.JSON(http.StatusOK, map[string]interface{}{"type": "member", "data": member})
+	}
+
+	item, err := h.Repo.GetAssetByCode(req.Code)
+	if err == nil {
+		return c.JSON(http.StatusOK, map[string]interface{}{"type": "item", "data": item})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{"type": "error", "message": "QR tidak ditemukan"})
+}
+
+func (h *LibraryHandler) KioskTransaction(c echo.Context) error {
+	var req struct {
+		Type     string `json:"type"`
+		MemberID string `json:"memberId"`
+		ItemID   string `json:"itemId"`
+		LoanID   string `json:"loanId"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Payload tidak valid"})
+	}
+
+	switch req.Type {
+	case "borrow":
+		if req.MemberID == "" || req.ItemID == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "MemberID dan ItemID wajib diisi"})
+		}
+		loan, err := h.Repo.BorrowItem(req.MemberID, req.ItemID, 7)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": loan})
+	case "return":
+		if req.LoanID == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "LoanID wajib diisi"})
+		}
+		loan, err := h.Repo.ReturnItem(req.LoanID)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": loan})
+	default:
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Tipe transaksi tidak dikenal"})
+	}
+}
+
+func (h *LibraryHandler) GetReports(c echo.Context) error {
+	reportType := c.QueryParam("type")
+	var (
+		data interface{}
+		err  error
+	)
+
+	switch reportType {
+	case "loan", "loans", "":
+		data, err = h.Repo.GetLoanReport(c.QueryParam("startDate"), c.QueryParam("endDate"))
+	case "visit", "visits":
+		data, err = h.Repo.GetVisitReport(c.QueryParam("startDate"), c.QueryParam("endDate"))
+	case "overdue":
+		data, err = h.Repo.GetOverdueReport()
+	case "inventory":
+		data, err = h.Repo.GetInventoryReport()
+	default:
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Tipe laporan tidak dikenal"})
+	}
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, data)
+}
+
+func (h *LibraryHandler) LookupISBN(c echo.Context) error {
+	data, err := h.Repo.LookupISBN(c.Param("isbn"))
+	if errors.Is(err, sql.ErrNoRows) {
+		return c.JSON(http.StatusOK, map[string]string{"error": "not_found"})
+	}
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data":    data,
+	})
+}
+
+func (h *LibraryHandler) GetQRCodeBatches(c echo.Context) error {
+	batches, err := h.Repo.GetQRBatches(c.QueryParam("search"), c.QueryParam("date"))
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"batches": batches,
+	})
+}
+
+func (h *LibraryHandler) GenerateQRCodeBatch(c echo.Context) error {
+	var req struct {
+		Count  int    `json:"count"`
+		Prefix string `json:"prefix"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Payload tidak valid"})
+	}
+	codes, batch, err := h.Repo.GenerateQRBatch(req.Prefix, req.Count)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"codes":   codes,
+		"batch":   batch,
+	})
+}
+
+func (h *LibraryHandler) BindAsset(c echo.Context) error {
+	var req struct {
+		QRCode   string                 `json:"qrCode"`
+		Location string                 `json:"location"`
+		Catalog  map[string]interface{} `json:"catalog"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Payload tidak valid"})
+	}
+	if err := h.Repo.BindAsset(req.QRCode, req.Location, req.Catalog); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
+}
+
+func (h *LibraryHandler) GetMemberByQRCode(c echo.Context) error {
+	member, err := h.Repo.GetMemberByCode(c.Param("code"))
+	if errors.Is(err, sql.ErrNoRows) {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Anggota tidak ditemukan"})
+	}
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, member)
+}
+
+func (h *LibraryHandler) GetBookByQRCode(c echo.Context) error {
+	item, err := h.Repo.GetAssetByCode(c.Param("code"))
+	if errors.Is(err, sql.ErrNoRows) {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Buku tidak ditemukan"})
+	}
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, item)
 }

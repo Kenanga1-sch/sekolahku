@@ -16,6 +16,7 @@ import { goGet, goDelete } from "@/lib/api-client";
 import { StudentFormDialog } from "@/components/master/student-form-dialog";
 import { StudentImportDialog } from "@/components/master/student-import-dialog";
 import { DataHealthWidget } from "@/components/master/data-health-widget";
+import Link from "next/link";
 
 // Types
 type Student = {
@@ -57,10 +58,11 @@ export default function MasterStudentsPage() {
                 ...(statusFilter && { status: statusFilter })
             });
 
-            const data: any = await goGet(`/api/master/students?${params}`);
+            const response: any = await goGet(`/api/master/students?${params}`);
+            const result = response?.data ?? response;
             
-            setStudents(data.data);
-            setTotalPages(data.pagination.totalPages);
+            setStudents(result?.data ?? []);
+            setTotalPages(result?.pagination?.totalPages ?? 1);
         } catch (error) {
             console.error(error);
             showError("Gagal memuat data siswa");
@@ -214,8 +216,10 @@ export default function MasterStudentsPage() {
                                                     <DropdownMenuItem onClick={() => handleEdit(student.id)}>
                                                         <Pencil className="mr-2 h-4 w-4" /> Edit Detail
                                                     </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => {}}>
-                                                        Promosi / Kenaikan
+                                                    <DropdownMenuItem asChild>
+                                                        <Link href="/admin/pendidikan/kenaikan-kelas">
+                                                            Promosi / Kenaikan
+                                                        </Link>
                                                     </DropdownMenuItem>
                                                     <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(student.id)}>
                                                         <Trash2 className="mr-2 h-4 w-4" /> Hapus Permanen

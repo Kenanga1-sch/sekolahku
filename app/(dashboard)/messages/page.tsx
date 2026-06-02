@@ -12,8 +12,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
-import { Mail, Loader2, Check, Trash2, MailOpen } from "lucide-react";
-import RefreshButton from "@/components/refresh-button";
+import { Mail, Loader2, Check, Trash2, MailOpen, RefreshCcw } from "lucide-react";
 import { getContactMessagesAction, markMessageAsReadAction, deleteMessageAction } from "@/actions/contact";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -29,21 +28,72 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-export default function MessagesPage() {
-  const [messages, setMessages] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+interface ContactMessage {
+  id: string;
+  name: string;
+  email: string;
+  subject?: string;
+  message: string;
+  isRead: boolean;
+  createdAt?: string;
+}
 
-  const fetchMessages = () => {
+interface ContactMessagePayload {
+  items?: ContactMessage[];
+  total?: number;
+  page?: number;
+  perPage?: number;
+  totalPages?: number;
+}
+
+export default function MessagesPage() {
+  const [messages, setMessages] = useState<ContactMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const [pagination, setPagination] = useState<ContactMessagePayload>({
+    total: 0,
+    page: 1,
+    perPage: 20,
+    totalPages: 1,
+  });
+
+  const normalizeMessages = (payload: unknown): ContactMessagePayload => {
+    if (Array.isArray(payload)) {
+      return { items: payload, total: payload.length, page: 1, perPage: payload.length, totalPages: 1 };
+    }
+    if (payload && typeof payload === "object") {
+      const response = payload as { data?: ContactMessagePayload | ContactMessage[] };
+      if (Array.isArray(response.data)) {
+        return { items: response.data, total: response.data.length, page: 1, perPage: response.data.length, totalPages: 1 };
+      }
+      if (response.data && typeof response.data === "object") {
+        return response.data;
+      }
+    }
+    return { items: [], total: 0, page: 1, perPage: 20, totalPages: 1 };
+  };
+
+  const fetchMessages = async () => {
     setIsLoading(true);
-    getContactMessagesAction()
-      .then(data => {
-        setMessages(data || []);
-        setIsLoading(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setIsLoading(false);
-      });
+    setLoadError("");
+    try {
+      const res = await getContactMessagesAction();
+      if (res.success) {
+        const payload = normalizeMessages(res.data);
+        setMessages(payload.items || []);
+        setPagination(payload);
+      } else {
+        setLoadError(res.error || "Gagal memuat pesan");
+        toast.error(res.error || "Gagal memuat pesan");
+      }
+    } catch (err) {
+      console.error(err);
+      setLoadError("Gagal memuat pesan");
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
   };
 
   useEffect(() => {
@@ -53,20 +103,21 @@ export default function MessagesPage() {
   const handleMarkAsRead = async (msgId: string) => {
     const res = await markMessageAsReadAction(msgId);
     if (res.success) {
-      setMessages(messages.map(m => m.id === msgId ? { ...m, isRead: true } : m));
+      setMessages((prev) => prev.map(m => m.id === msgId ? { ...m, isRead: true } : m));
       toast.success("Pesan ditandai sebagai sudah dibaca");
     } else {
-      toast.error("Gagal memperbarui status pesan");
+      toast.error(res.error || "Gagal memperbarui status pesan");
     }
   };
 
   const handleDelete = async (msgId: string) => {
     const res = await deleteMessageAction(msgId);
     if (res.success) {
-      setMessages(messages.filter(m => m.id !== msgId));
+      setMessages((prev) => prev.filter(m => m.id !== msgId));
+      setPagination((prev) => ({ ...prev, total: Math.max((prev.total || 1) - 1, 0) }));
       toast.success("Pesan berhasil dihapus");
     } else {
-      toast.error("Gagal menghapus pesan");
+      toast.error(res.error || "Gagal menghapus pesan");
     }
   };
 
@@ -89,7 +140,17 @@ export default function MessagesPage() {
             Daftar pesan dari formulir kontak website.
           </p>
         </div>
-        <RefreshButton />
+        <Button
+          variant="outline"
+          onClick={() => {
+            setIsRefreshing(true);
+            fetchMessages();
+          }}
+          disabled={isRefreshing || isLoading}
+        >
+          <RefreshCcw className={`mr-2 h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+          Refresh
+        </Button>
       </div>
 
       <Card className="border-none shadow-xl bg-white/50 dark:bg-zinc-900/50 backdrop-blur-xl">
@@ -98,10 +159,15 @@ export default function MessagesPage() {
             <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/20 text-blue-600">
               <Mail className="h-5 w-5" />
             </div>
-            <CardTitle>Daftar Pesan</CardTitle>
+            <CardTitle>Daftar Pesan ({pagination.total || messages.length})</CardTitle>
           </div>
         </CardHeader>
         <CardContent>
+          {loadError && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+              {loadError}
+            </div>
+          )}
           <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
             <Table>
               <TableHeader className="bg-zinc-50/50 dark:bg-white/5">
@@ -125,7 +191,7 @@ export default function MessagesPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  messages.map((msg: any) => (
+                  messages.map((msg) => (
                     <TableRow key={msg.id} className={`group hover:bg-zinc-50/50 dark:hover:bg-white/5 transition-colors ${!msg.isRead ? "bg-blue-50/30 dark:bg-blue-900/5" : ""}`}>
                       <TableCell>
                         {!msg.isRead ? (
@@ -152,7 +218,7 @@ export default function MessagesPage() {
                         </div>
                       </TableCell>
                       <TableCell className={`w-[200px] ${!msg.isRead ? "font-bold" : "font-medium"}`}>
-                        {msg.subject}
+                        {msg.subject || "-"}
                       </TableCell>
                       <TableCell className="max-w-[400px]">
                         <p className={`truncate group-hover:text-zinc-700 dark:group-hover:text-zinc-300 transition-colors ${!msg.isRead ? "text-zinc-900 dark:text-zinc-100 font-medium" : "text-muted-foreground"}`}>

@@ -55,7 +55,7 @@ export default function BarangKeluarPage() {
     const loadItems = async () => {
       try {
         const response: any = await goGet("/api/inventory/items?limit=100");
-        setItems(response.data || []);
+        setItems(response.items || response.data || []);
       } catch (err) {
         toast.error("Gagal memuat daftar barang");
       } finally {

@@ -3,8 +3,12 @@ package repository
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"math"
+	"strconv"
+	"strings"
 	"time"
+
 	"github.com/nrednav/cuid2"
 	"github.com/sekolahku/go-backend/internal/models"
 )
@@ -17,34 +21,105 @@ func NewAttendanceRepository(db *sql.DB) *AttendanceRepository {
 	return &AttendanceRepository{DB: db}
 }
 
+func normalizeAttendanceStatus(status string) string {
+	status = strings.ToLower(strings.TrimSpace(status))
+	if status == "" {
+		return "hadir"
+	}
+	return status
+}
+
+func isValidAttendanceStatus(status string) bool {
+	switch status {
+	case "hadir", "sakit", "izin", "alpha":
+		return true
+	default:
+		return false
+	}
+}
+
+func timeFromDB(value interface{}) *time.Time {
+	if value == nil {
+		return nil
+	}
+
+	switch v := value.(type) {
+	case int64:
+		return SafeTime(sql.NullInt64{Int64: v, Valid: true})
+	case int:
+		return SafeTime(sql.NullInt64{Int64: int64(v), Valid: true})
+	case float64:
+		return SafeTime(sql.NullInt64{Int64: int64(v), Valid: true})
+	case []byte:
+		return parseTimeString(string(v))
+	case string:
+		return parseTimeString(v)
+	case time.Time:
+		return &v
+	default:
+		return nil
+	}
+}
+
+func parseTimeString(value string) *time.Time {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil
+	}
+	if parsed, err := strconv.ParseInt(value, 10, 64); err == nil {
+		return SafeTime(sql.NullInt64{Int64: parsed, Valid: true})
+	}
+	layouts := []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02 15:04:05.999999999-07:00",
+		"2006-01-02 15:04:05.999999999Z07:00",
+		"2006-01-02 15:04:05",
+	}
+	for _, layout := range layouts {
+		if parsed, err := time.Parse(layout, value); err == nil {
+			return &parsed
+		}
+	}
+	return nil
+}
+
+func reportTimeString(t *time.Time) *string {
+	if t == nil || t.IsZero() {
+		return nil
+	}
+	value := t.Format("15:04:05")
+	return &value
+}
+
 func (r *AttendanceRepository) GetStats() (*models.AttendanceStats, error) {
 	today := time.Now().Format("2006-01-02")
-	
+
 	var stats models.AttendanceStats
-	
-	// 1. Total Students
-	err := r.DB.QueryRow("SELECT COUNT(*) FROM students WHERE status = 'active'").Scan(&stats.TotalStudents)
-	if err != nil { return nil, err }
-	
-	// 2. Open Sessions
-	err = r.DB.QueryRow("SELECT COUNT(*) FROM attendance_sessions WHERE date = ? AND status = 'open'", today).Scan(&stats.OpenSessions)
-	if err != nil { return nil, err }
-	
-	// 3. Daily Stats
-	err = r.DB.QueryRow(`
-		SELECT 
+	if err := r.DB.QueryRow("SELECT COUNT(*) FROM students WHERE status = 'active' OR is_active = 1").Scan(&stats.TotalStudents); err != nil {
+		return nil, err
+	}
+	if err := r.DB.QueryRow("SELECT COUNT(*) FROM attendance_sessions WHERE date = ? AND status = 'open'", today).Scan(&stats.OpenSessions); err != nil {
+		return nil, err
+	}
+
+	err := r.DB.QueryRow(`
+		SELECT
 			COUNT(CASE WHEN status = 'hadir' THEN 1 END),
 			COUNT(CASE WHEN status = 'sakit' THEN 1 END),
 			COUNT(CASE WHEN status = 'izin' THEN 1 END),
 			COUNT(CASE WHEN status = 'alpha' THEN 1 END)
-		FROM attendance_records 
+		FROM attendance_records
 		WHERE session_id IN (SELECT id FROM attendance_sessions WHERE date = ?)
 	`, today).Scan(&stats.Stats.Hadir, &stats.Stats.Sakit, &stats.Stats.Izin, &stats.Stats.Alpha)
-	if err != nil { return nil, err }
-	
+	if err != nil {
+		return nil, err
+	}
+
 	stats.Stats.BelumAbsen = stats.TotalStudents - (stats.Stats.Hadir + stats.Stats.Sakit + stats.Stats.Izin + stats.Stats.Alpha)
-	if stats.Stats.BelumAbsen < 0 { stats.Stats.BelumAbsen = 0 }
-	
+	if stats.Stats.BelumAbsen < 0 {
+		stats.Stats.BelumAbsen = 0
+	}
 	if stats.TotalStudents > 0 {
 		stats.Stats.PersenKehadiran = math.Round(float64(stats.Stats.Hadir) / float64(stats.TotalStudents) * 100)
 	}
@@ -53,9 +128,13 @@ func (r *AttendanceRepository) GetStats() (*models.AttendanceStats, error) {
 }
 
 func (r *AttendanceRepository) GetSessions(date, status string) ([]models.AttendanceSession, error) {
-	query := "SELECT id, date, class_name, teacher_name, status, notes, created_at FROM attendance_sessions WHERE 1=1"
+	query := `
+		SELECT id, date, class_name, COALESCE(teacher_name, ''), status, COALESCE(notes, ''), created_at
+		FROM attendance_sessions
+		WHERE 1=1
+	`
 	args := []interface{}{}
-	
+
 	if date != "" {
 		query += " AND date = ?"
 		args = append(args, date)
@@ -64,49 +143,58 @@ func (r *AttendanceRepository) GetSessions(date, status string) ([]models.Attend
 		query += " AND status = ?"
 		args = append(args, status)
 	}
-	
-	query += " ORDER BY created_at DESC"
-	
+
+	query += " ORDER BY date DESC, created_at DESC"
+
 	rows, err := r.DB.Query(query, args...)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	defer rows.Close()
-	
+
 	sessions := []models.AttendanceSession{}
 	for rows.Next() {
 		var s models.AttendanceSession
 		var crAt sql.NullInt64
-		err = rows.Scan(&s.ID, &s.Date, &s.ClassName, &s.TeacherName, &s.Status, &s.Notes, &crAt)
-		if err != nil { return nil, err }
-		
-		t := ToTime(crAt)
-		s.CreatedAt = &t
-		
-		// Get count
-		r.DB.QueryRow("SELECT COUNT(*) FROM attendance_records WHERE session_id = ?", s.ID).Scan(&s.RecordCount)
-		
+		if err := rows.Scan(&s.ID, &s.Date, &s.ClassName, &s.TeacherName, &s.Status, &s.Notes, &crAt); err != nil {
+			return nil, err
+		}
+
+		cTime := ToTime(crAt)
+		s.CreatedAt = &cTime
+		_ = r.DB.QueryRow("SELECT COUNT(*) FROM attendance_records WHERE session_id = ?", s.ID).Scan(&s.RecordCount)
 		sessions = append(sessions, s)
 	}
+
 	return sessions, nil
 }
 
 func (r *AttendanceRepository) CreateSession(req models.CreateAttendanceSessionRequest) (string, error) {
+	className := strings.TrimSpace(req.ClassName)
+	if className == "" {
+		return "", errors.New("Kelas harus dipilih")
+	}
+
 	today := time.Now().Format("2006-01-02")
-	
-	// Check for existing session same class same day
-	var existId string
-	err := r.DB.QueryRow("SELECT id FROM attendance_sessions WHERE date = ? AND class_name = ? AND status = 'open'", today, req.ClassName).Scan(&existId)
+	var existingID string
+	err := r.DB.QueryRow("SELECT id FROM attendance_sessions WHERE date = ? AND class_name = ?", today, className).Scan(&existingID)
 	if err == nil {
-		return existId, errors.New("CONFLICT") 
+		return existingID, errors.New("CONFLICT")
+	}
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return "", err
 	}
 
 	id := cuid2.Generate()
 	now := time.Now().UnixMilli()
-	
+	teacherName := strings.TrimSpace(req.TeacherName)
+	notes := strings.TrimSpace(req.Notes)
+
 	_, err = r.DB.Exec(`
 		INSERT INTO attendance_sessions (id, date, class_name, teacher_name, status, notes, opened_at, created_at, updated_at)
 		VALUES (?, ?, ?, ?, 'open', ?, ?, ?, ?)
-	`, id, today, req.ClassName, req.TeacherName, req.Notes, now, now, now)
-	
+	`, id, today, className, teacherName, notes, now, now, now)
+
 	return id, err
 }
 
@@ -114,212 +202,456 @@ func (r *AttendanceRepository) GetSessionByID(id string) (*models.AttendanceSess
 	var s models.AttendanceSession
 	var crAt, upAt, opAt, clAt sql.NullInt64
 	err := r.DB.QueryRow(`
-		SELECT id, date, class_name, teacher_name, status, notes, opened_at, closed_at, created_at, updated_at 
-		FROM attendance_sessions WHERE id = ?
+		SELECT id, date, class_name, COALESCE(teacher_name, ''), status, COALESCE(notes, ''), opened_at, closed_at, created_at, updated_at
+		FROM attendance_sessions
+		WHERE id = ?
 	`, id).Scan(&s.ID, &s.Date, &s.ClassName, &s.TeacherName, &s.Status, &s.Notes, &opAt, &clAt, &crAt, &upAt)
-	if err != nil { return nil, err }
-	
-	t := ToTime(crAt); s.CreatedAt = &t
-	u := ToTime(upAt); s.UpdatedAt = &u
-	if opAt.Valid { ot := ToTime(opAt); s.OpenedAt = &ot }
-	if clAt.Valid { ct := ToTime(clAt); s.ClosedAt = &ct }
+	if err != nil {
+		return nil, err
+	}
 
-	// Get Records
+	cTime := ToTime(crAt)
+	s.CreatedAt = &cTime
+	uTime := ToTime(upAt)
+	s.UpdatedAt = &uTime
+	if opAt.Valid {
+		s.OpenedAt = SafeTime(opAt)
+	}
+	if clAt.Valid {
+		s.ClosedAt = SafeTime(clAt)
+	}
+
 	rows, err := r.DB.Query(`
-		SELECT ar.id, ar.session_id, ar.student_id, ar.status, ar.check_in_time, ar.record_method, s.full_name, s.nis, s.nisn, s.photo
+		SELECT ar.id, ar.session_id, ar.student_id, ar.status, ar.check_in_time, COALESCE(ar.recorded_by, ''), ar.record_method, ar.notes,
+		       ar.created_at, ar.updated_at, s.full_name, s.nis, s.nisn, s.photo, s.class_name
 		FROM attendance_records ar
 		JOIN students s ON ar.student_id = s.id
 		WHERE ar.session_id = ?
 		ORDER BY ar.created_at DESC
 	`, id)
-	
-	recordedIds := []string{}
-	if err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			var rec models.AttendanceRecord
-			var stu models.Student
-			var ciTime sql.NullInt64
-			var nis, nisn, photo sql.NullString
-			
-			rows.Scan(&rec.ID, &rec.SessionID, &rec.StudentID, &rec.Status, &ciTime, &rec.RecordMethod, &stu.FullName, &nis, &nisn, &photo)
-			
-			if ciTime.Valid { ct := ToTime(ciTime); rec.CheckInTime = &ct }
-			if nis.Valid { stu.NIS = &nis.String }
-			if nisn.Valid { stu.NISN = &nisn.String }
-			if photo.Valid { stu.Photo = &photo.String }
-			stu.ID = rec.StudentID
-			
-			rec.Student = &stu
-			s.Records = append(s.Records, rec)
-			recordedIds = append(recordedIds, rec.StudentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var rec models.AttendanceRecord
+		var student models.Student
+		var checkInRaw interface{}
+		var notes, nis, nisn, photo, className sql.NullString
+		var cr, up sql.NullInt64
+		if err := rows.Scan(
+			&rec.ID, &rec.SessionID, &rec.StudentID, &rec.Status, &checkInRaw, &rec.RecordedBy, &rec.RecordMethod, &notes,
+			&cr, &up, &student.FullName, &nis, &nisn, &photo, &className,
+		); err != nil {
+			return nil, err
 		}
+
+		rec.CheckInTime = timeFromDB(checkInRaw)
+		if notes.Valid {
+			rec.Notes = &notes.String
+		}
+		rec.CreatedAt = SafeTime(cr)
+		rec.UpdatedAt = SafeTime(up)
+		student.ID = rec.StudentID
+		if nis.Valid {
+			student.NIS = &nis.String
+		}
+		if nisn.Valid {
+			student.NISN = &nisn.String
+		}
+		if photo.Valid {
+			student.Photo = &photo.String
+		}
+		if className.Valid {
+			student.ClassName = &className.String
+		}
+
+		rec.Student = &student
+		s.Records = append(s.Records, rec)
 	}
 
-	// 3. Get All Students in Class
-	sRows, err := r.DB.Query("SELECT id, full_name, nis, nisn, photo FROM students WHERE class_name = ? AND status = 'active'", s.ClassName)
-	if err == nil {
-		defer sRows.Close()
-		for sRows.Next() {
-			var stu models.Student
-			var nis, nisn, photo sql.NullString
-			sRows.Scan(&stu.ID, &stu.FullName, &nis, &nisn, &photo)
-			if nis.Valid { stu.NIS = &nis.String }
-			if nisn.Valid { stu.NISN = &nisn.String }
-			if photo.Valid { stu.Photo = &photo.String }
-			
-			s.AllStudents = append(s.AllStudents, stu)
-		}
+	sRows, err := r.DB.Query(`
+		SELECT id, full_name, nis, nisn, photo, class_name
+		FROM students
+		WHERE class_name = ? AND (status = 'active' OR is_active = 1)
+		ORDER BY full_name ASC
+	`, s.ClassName)
+	if err != nil {
+		return nil, err
 	}
-	
+	defer sRows.Close()
+
+	for sRows.Next() {
+		var student models.Student
+		var nis, nisn, photo, className sql.NullString
+		if err := sRows.Scan(&student.ID, &student.FullName, &nis, &nisn, &photo, &className); err != nil {
+			return nil, err
+		}
+		if nis.Valid {
+			student.NIS = &nis.String
+		}
+		if nisn.Valid {
+			student.NISN = &nisn.String
+		}
+		if photo.Valid {
+			student.Photo = &photo.String
+		}
+		if className.Valid {
+			student.ClassName = &className.String
+		}
+		s.AllStudents = append(s.AllStudents, student)
+	}
+
 	s.RecordCount = len(s.Records)
 	return &s, nil
 }
 
 func (r *AttendanceRepository) UpdateSessionStatus(id, status string) error {
-	now := time.Now().UnixMilli()
-	query := "UPDATE attendance_sessions SET status = ?, updated_at = ? WHERE id = ?"
-	if status == "closed" {
-		query = "UPDATE attendance_sessions SET status = ?, closed_at = ?, updated_at = ? WHERE id = ?"
-		_, err := r.DB.Exec(query, status, now, now, id)
+	status = strings.ToLower(strings.TrimSpace(status))
+	if status != "open" && status != "closed" {
+		return errors.New("Status sesi tidak valid")
+	}
+
+	tx, err := r.DB.Begin()
+	if err != nil {
 		return err
 	}
-	_, err := r.DB.Exec(query, status, now, id)
-	return err
+	defer tx.Rollback()
+
+	var className, currentStatus string
+	err = tx.QueryRow("SELECT class_name, status FROM attendance_sessions WHERE id = ?", id).Scan(&className, &currentStatus)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.New("Sesi tidak ditemukan")
+		}
+		return err
+	}
+
+	now := time.Now().UnixMilli()
+	if status == "closed" {
+		if currentStatus == "closed" {
+			return tx.Commit()
+		}
+		if err := r.markMissingStudentsAlpha(tx, id, className, now); err != nil {
+			return err
+		}
+		_, err = tx.Exec("UPDATE attendance_sessions SET status = ?, closed_at = ?, updated_at = ? WHERE id = ?", status, now, now, id)
+	} else {
+		_, err = tx.Exec("UPDATE attendance_sessions SET status = ?, closed_at = NULL, updated_at = ? WHERE id = ?", status, now, id)
+	}
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (r *AttendanceRepository) markMissingStudentsAlpha(tx *sql.Tx, sessionID, className string, now int64) error {
+	rows, err := tx.Query(`
+		SELECT s.id
+		FROM students s
+		WHERE s.class_name = ? AND (s.status = 'active' OR s.is_active = 1)
+		  AND NOT EXISTS (
+			SELECT 1 FROM attendance_records ar
+			WHERE ar.session_id = ? AND ar.student_id = s.id
+		  )
+	`, className, sessionID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var studentID string
+		if err := rows.Scan(&studentID); err != nil {
+			return err
+		}
+		_, err = tx.Exec(`
+			INSERT INTO attendance_records (id, session_id, student_id, status, check_in_time, recorded_by, record_method, created_at, updated_at)
+			VALUES (?, ?, ?, 'alpha', NULL, 'system', 'manual', ?, ?)
+		`, cuid2.Generate(), sessionID, studentID, now, now)
+		if err != nil {
+			return err
+		}
+	}
+
+	return rows.Err()
 }
 
 func (r *AttendanceRepository) RecordManual(req models.AttendanceManualRequest) error {
-	// Check if exists
-	var existId string
-	err := r.DB.QueryRow("SELECT id FROM attendance_records WHERE session_id = ? AND student_id = ?", req.SessionID, req.StudentID).Scan(&existId)
-	
-	now := time.Now()
-	nowMilli := now.UnixMilli()
-	
-	if err == nil {
-		// Update
-		_, err = r.DB.Exec("UPDATE attendance_records SET status = ?, updated_at = ? WHERE id = ?", req.Status, nowMilli, existId)
+	status := normalizeAttendanceStatus(req.Status)
+	if !isValidAttendanceStatus(status) {
+		return errors.New("Status presensi tidak valid")
+	}
+	if strings.TrimSpace(req.SessionID) == "" || strings.TrimSpace(req.StudentID) == "" {
+		return errors.New("Sesi dan siswa harus diisi")
+	}
+
+	tx, err := r.DB.Begin()
+	if err != nil {
 		return err
 	}
-	
-	// Create
-	_, err = r.DB.Exec(`
-		INSERT INTO attendance_records (id, session_id, student_id, status, check_in_time, recorded_by, record_method, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, 'admin', 'manual', ?, ?)
-	`, cuid2.Generate(), req.SessionID, req.StudentID, req.Status, now, nowMilli, nowMilli)
-	
-	return err
-}
-
-func (r *AttendanceRepository) RecordQRScan(req models.AttendanceScanRequest) (map[string]interface{}, error) {
-	tx, err := r.DB.Begin()
-	if err != nil { return nil, err }
 	defer tx.Rollback()
 
-	// 1. Find student
-	var studentId, studentName, className string
-	var photo sql.NullString
-	err = tx.QueryRow("SELECT id, full_name, class_name, photo FROM students WHERE id = ? OR qr_code = ? OR nisn = ? OR nis = ?", req.QRCode, req.QRCode, req.QRCode, req.QRCode).Scan(&studentId, &studentName, &className, &photo)
+	sessionClass, err := validateOpenSession(tx, req.SessionID)
 	if err != nil {
-		return nil, errors.New("Siswa tidak ditemukan")
+		return err
+	}
+	if err := validateStudentForSession(tx, req.StudentID, sessionClass); err != nil {
+		return err
 	}
 
-	// 2. Resolve Session
-	var sessionId string
-	if req.SessionID != nil && *req.SessionID != "" {
-		sessionId = *req.SessionID
-	} else {
-		today := time.Now().Format("2006-01-02")
-		err = tx.QueryRow("SELECT id FROM attendance_sessions WHERE date = ? AND class_name = ? AND status = 'open'", today, className).Scan(&sessionId)
-		if err != nil {
-			return nil, errors.New("Tidak ada sesi aktif untuk kelas ini")
-		}
+	now := time.Now().UnixMilli()
+	checkInTime := interface{}(now)
+	if status == "alpha" {
+		checkInTime = nil
 	}
 
-	// 3. Check duplicate
-	var existId string
-	err = tx.QueryRow("SELECT id FROM attendance_records WHERE session_id = ? AND student_id = ?", sessionId, studentId).Scan(&existId)
+	var existingID string
+	err = tx.QueryRow("SELECT id FROM attendance_records WHERE session_id = ? AND student_id = ?", req.SessionID, req.StudentID).Scan(&existingID)
 	if err == nil {
-		// We return the student data even if error so UI can show who it was
-		res := map[string]interface{}{
-			"student": map[string]interface{}{
-				"fullName":  studentName,
-				"className": className,
-			},
+		_, err = tx.Exec(`
+			UPDATE attendance_records
+			SET status = ?, check_in_time = ?, recorded_by = 'admin', record_method = 'manual', updated_at = ?
+			WHERE id = ?
+		`, status, checkInTime, now, existingID)
+		if err != nil {
+			return err
 		}
-		if photo.Valid { res["student"].(map[string]interface{})["photo"] = photo.String }
-		return res, errors.New("Siswa sudah diabsen")
+		return tx.Commit()
 	}
-
-	// 4. Insert
-	recordId := cuid2.Generate()
-	now := time.Now()
-	nowMilli := now.UnixMilli()
-	status := req.Status
-	if status == "" { status = "hadir" }
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
 
 	_, err = tx.Exec(`
 		INSERT INTO attendance_records (id, session_id, student_id, status, check_in_time, recorded_by, record_method, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, 'qr_scan', ?, ?)
-	`, recordId, sessionId, studentId, status, now, req.RecordedBy, nowMilli, nowMilli)
-	if err != nil { return nil, err }
-
-	if err := tx.Commit(); err != nil { return nil, err }
-
-	res := map[string]interface{}{
-		"student": map[string]interface{}{
-			"id":        studentId,
-			"fullName":  studentName,
-			"className": className,
-		},
+		VALUES (?, ?, ?, ?, ?, 'admin', 'manual', ?, ?)
+	`, cuid2.Generate(), req.SessionID, req.StudentID, status, checkInTime, now, now)
+	if err != nil {
+		return err
 	}
-	if photo.Valid { res["student"].(map[string]interface{})["photo"] = photo.String }
-	
-	return res, nil
+
+	return tx.Commit()
+}
+
+func validateOpenSession(tx *sql.Tx, sessionID string) (string, error) {
+	var className, status string
+	err := tx.QueryRow("SELECT class_name, status FROM attendance_sessions WHERE id = ?", sessionID).Scan(&className, &status)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", errors.New("Sesi tidak ditemukan")
+		}
+		return "", err
+	}
+	if status != "open" {
+		return "", errors.New("Sesi presensi sudah ditutup")
+	}
+	return className, nil
+}
+
+func validateStudentForSession(tx *sql.Tx, studentID, sessionClass string) error {
+	var className string
+	err := tx.QueryRow(`
+		SELECT COALESCE(class_name, '')
+		FROM students
+		WHERE id = ? AND (status = 'active' OR is_active = 1)
+	`, studentID).Scan(&className)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.New("Siswa tidak ditemukan")
+		}
+		return err
+	}
+	if strings.TrimSpace(className) == "" {
+		return errors.New("Siswa belum memiliki kelas")
+	}
+	if className != sessionClass {
+		return fmt.Errorf("Siswa berada di kelas %s, bukan kelas %s", className, sessionClass)
+	}
+	return nil
+}
+
+func (r *AttendanceRepository) RecordQRScan(req models.AttendanceScanRequest) (map[string]interface{}, error) {
+	status := normalizeAttendanceStatus(req.Status)
+	if !isValidAttendanceStatus(status) {
+		return nil, errors.New("Status presensi tidak valid")
+	}
+
+	qrCode := strings.TrimSpace(req.QRCode)
+	if qrCode == "" {
+		return nil, errors.New("QR code kosong")
+	}
+
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	var studentID, studentName, className string
+	var photo sql.NullString
+	err = tx.QueryRow(`
+		SELECT id, full_name, COALESCE(class_name, ''), photo
+		FROM students
+		WHERE (id = ? OR qr_code = ? OR nisn = ? OR nis = ?)
+		  AND (status = 'active' OR is_active = 1)
+	`, qrCode, qrCode, qrCode, qrCode).Scan(&studentID, &studentName, &className, &photo)
+	if err != nil {
+		return nil, errors.New("Siswa tidak ditemukan")
+	}
+	if strings.TrimSpace(className) == "" {
+		return nil, errors.New("Siswa belum memiliki kelas")
+	}
+
+	sessionID := ""
+	if req.SessionID != nil && strings.TrimSpace(*req.SessionID) != "" {
+		sessionID = strings.TrimSpace(*req.SessionID)
+		sessionClass, err := validateOpenSession(tx, sessionID)
+		if err != nil {
+			return nil, err
+		}
+		if sessionClass != className {
+			return map[string]interface{}{"student": attendanceStudentPayload(studentID, studentName, className, photo)}, fmt.Errorf("Siswa berada di kelas %s, bukan kelas %s", className, sessionClass)
+		}
+	} else {
+		today := time.Now().Format("2006-01-02")
+		err = tx.QueryRow("SELECT id FROM attendance_sessions WHERE date = ? AND class_name = ? AND status = 'open'", today, className).Scan(&sessionID)
+		if err != nil {
+			return map[string]interface{}{"student": attendanceStudentPayload(studentID, studentName, className, photo)}, errors.New("Tidak ada sesi aktif untuk kelas ini")
+		}
+	}
+
+	var existingID string
+	err = tx.QueryRow("SELECT id FROM attendance_records WHERE session_id = ? AND student_id = ?", sessionID, studentID).Scan(&existingID)
+	if err == nil {
+		return map[string]interface{}{"student": attendanceStudentPayload(studentID, studentName, className, photo)}, errors.New("Siswa sudah diabsen")
+	}
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+
+	recordedBy := strings.TrimSpace(req.RecordedBy)
+	if recordedBy == "" {
+		recordedBy = "scanner"
+	}
+	now := time.Now().UnixMilli()
+	_, err = tx.Exec(`
+		INSERT INTO attendance_records (id, session_id, student_id, status, check_in_time, recorded_by, record_method, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, 'qr_scan', ?, ?)
+	`, cuid2.Generate(), sessionID, studentID, status, now, recordedBy, now, now)
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	return map[string]interface{}{"student": attendanceStudentPayload(studentID, studentName, className, photo)}, nil
+}
+
+func attendanceStudentPayload(id, fullName, className string, photo sql.NullString) map[string]interface{} {
+	student := map[string]interface{}{
+		"id":        id,
+		"fullName":  fullName,
+		"className": className,
+	}
+	if photo.Valid {
+		student["photo"] = photo.String
+	}
+	return student
 }
 
 func (r *AttendanceRepository) ExportAttendance(startDate, endDate, className string) ([]models.AttendanceRecord, error) {
+	report, err := r.GetAttendanceReport(startDate, endDate, className)
+	if err != nil {
+		return nil, err
+	}
+
+	records := make([]models.AttendanceRecord, 0, len(report.Records))
+	for _, row := range report.Records {
+		student := models.Student{
+			ID:       row.StudentID,
+			FullName: row.StudentName,
+			NIS:      row.NIS,
+			NISN:     row.NISN,
+		}
+		student.ClassName = &row.ClassName
+		rec := models.AttendanceRecord{
+			ID:           row.ID,
+			StudentID:    row.StudentID,
+			Status:       row.Status,
+			RecordMethod: row.RecordMethod,
+			Student:      &student,
+			Notes:        &row.Date,
+		}
+		records = append(records, rec)
+	}
+	return records, nil
+}
+
+func (r *AttendanceRepository) GetAttendanceReport(startDate, endDate, className string) (*models.AttendanceReportResponse, error) {
 	query := `
-		SELECT ar.id, ar.session_id, ar.student_id, ar.status, ar.check_in_time, ar.record_method, s.full_name, s.nis, s.nisn, asess.date, asess.class_name
+		SELECT ar.id, asess.date, asess.class_name, ar.student_id, s.full_name, s.nis, s.nisn,
+		       ar.status, ar.check_in_time, ar.record_method
 		FROM attendance_records ar
 		JOIN students s ON ar.student_id = s.id
 		JOIN attendance_sessions asess ON ar.session_id = asess.id
 		WHERE asess.date BETWEEN ? AND ?
 	`
 	args := []interface{}{startDate, endDate}
-	
+
 	if className != "" && className != "all" {
 		query += " AND asess.class_name = ?"
 		args = append(args, className)
 	}
-	
-	query += " ORDER BY asess.date DESC, s.full_name ASC"
-	
-	rows, err := r.DB.Query(query, args...)
-	if err != nil { return nil, err }
-	defer rows.Close()
-	
-	records := []models.AttendanceRecord{}
-	for rows.Next() {
-		var rec models.AttendanceRecord
-		var stu models.Student
-		var ciTime sql.NullInt64
-		var nis, nisn sql.NullString
-		var sessionDate, sessionClass string
-		
-		err = rows.Scan(&rec.ID, &rec.SessionID, &rec.StudentID, &rec.Status, &ciTime, &rec.RecordMethod, &stu.FullName, &nis, &nisn, &sessionDate, &sessionClass)
-		if err != nil { return nil, err }
-		
-		if ciTime.Valid { ct := ToTime(ciTime); rec.CheckInTime = &ct }
-		if nis.Valid { stu.NIS = &nis.String }
-		if nisn.Valid { stu.NISN = &nisn.String }
-		stu.ClassName = &sessionClass
-		
-		rec.Student = &stu
-		rec.Notes = &sessionDate // Hijack notes for date in CSV
-		
-		records = append(records, rec)
-	}
-	return records, nil
-}
 
+	query += " ORDER BY asess.date DESC, asess.class_name ASC, s.full_name ASC"
+
+	rows, err := r.DB.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	report := &models.AttendanceReportResponse{
+		Records: []models.AttendanceReportRecord{},
+	}
+	for rows.Next() {
+		var row models.AttendanceReportRecord
+		var nis, nisn sql.NullString
+		var checkInRaw interface{}
+		if err := rows.Scan(
+			&row.ID, &row.Date, &row.ClassName, &row.StudentID, &row.StudentName, &nis, &nisn,
+			&row.Status, &checkInRaw, &row.RecordMethod,
+		); err != nil {
+			return nil, err
+		}
+		if nis.Valid {
+			row.NIS = &nis.String
+		}
+		if nisn.Valid {
+			row.NISN = &nisn.String
+		}
+		row.CheckInTime = reportTimeString(timeFromDB(checkInRaw))
+
+		switch row.Status {
+		case "hadir":
+			report.Summary.Hadir++
+		case "sakit":
+			report.Summary.Sakit++
+		case "izin":
+			report.Summary.Izin++
+		case "alpha":
+			report.Summary.Alpha++
+		}
+		report.Summary.Total++
+		report.Records = append(report.Records, row)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return report, nil
+}

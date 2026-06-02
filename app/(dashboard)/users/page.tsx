@@ -69,6 +69,7 @@ interface ClassOption {
 }
 
 const roles = [
+    { value: "superadmin", label: "Super Admin", color: "bg-purple-100 text-purple-700" },
     { value: "user", label: "User", color: "bg-zinc-100 text-zinc-700" },
     { value: "siswa", label: "Siswa", color: "bg-green-100 text-green-700" },
     { value: "guru", label: "Guru", color: "bg-blue-100 text-blue-700" },
@@ -115,12 +116,12 @@ export default function UserManagementPage() {
 
             const result: any = await goGet(`/api/users?${params}`);
             
-            setUsers(result.items.map((u: any) => ({
+            setUsers((result.items || []).map((u: any) => ({
                 ...u,
-                created: u.createdAt,
+                created: u.createdAt || u.created || "",
             })));
-            setTotalPages(result.totalPages);
-            setTotalUsers(result.totalItems);
+            setTotalPages(result.totalPages || 1);
+            setTotalUsers(result.totalItems || 0);
         } catch (error) {
             console.error("Failed to fetch users:", error);
             showError("Gagal memuat daftar pengguna");
@@ -173,12 +174,22 @@ export default function UserManagementPage() {
     const handleSubmit = async () => {
         setIsSaving(true);
         try {
+            if (!formData.name.trim()) {
+                showError("Nama wajib diisi");
+                return;
+            }
+
             if (editingId) {
+                if (formData.password && formData.password.length < 8) {
+                    showError("Password minimal 8 karakter");
+                    return;
+                }
+
                 const updateData: any = {
-                    name: formData.name,
-                    username: formData.username,
+                    name: formData.name.trim(),
+                    username: formData.username.trim(),
                     role: formData.role,
-                    phone: formData.phone,
+                    phone: formData.phone.trim(),
                 };
                 if (formData.password) {
                     updateData.password = formData.password;
@@ -187,7 +198,26 @@ export default function UserManagementPage() {
                 await goPatch(`/api/users/${editingId}`, updateData);
                 showSuccess("Pengguna berhasil diperbarui");
             } else {
-                await goPost("/api/users", formData);
+                if (!formData.email.trim()) {
+                    showError("Email wajib diisi");
+                    return;
+                }
+                if (formData.password.length < 8) {
+                    showError("Password minimal 8 karakter");
+                    return;
+                }
+                if (formData.password !== formData.passwordConfirm) {
+                    showError("Konfirmasi password tidak cocok");
+                    return;
+                }
+
+                await goPost("/api/users", {
+                    ...formData,
+                    name: formData.name.trim(),
+                    username: formData.username.trim(),
+                    email: formData.email.trim(),
+                    phone: formData.phone.trim(),
+                });
                 showSuccess("Pengguna baru berhasil dibuat");
             }
 
@@ -244,13 +274,20 @@ export default function UserManagementPage() {
         setIsDialogOpen(false);
     };
 
-    const filteredUsers = users.filter(
+    const visibleUsers = users.filter(
         (u) =>
             u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            u.email?.toLowerCase().includes(searchQuery.toLowerCase())
+            u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            u.username?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const getRoleInfo = (role: string) => roles.find((r) => r.value === role) || roles[0];
+    const getRoleInfo = (role: string) => roles.find((r) => r.value === role) || roles.find((r) => r.value === "user") || roles[0];
+    const formatCreatedDate = (value?: string) => {
+        if (!value) return "-";
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return "-";
+        return date.toLocaleDateString("id-ID");
+    };
 
     return (
         <div className="space-y-6">
@@ -260,16 +297,16 @@ export default function UserManagementPage() {
                     <h1 className="text-2xl font-bold tracking-tight">Manajemen Pengguna</h1>
                     <p className="text-muted-foreground">Kelola akun pengguna dan hak akses</p>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => { setIsLoading(true); fetchUsers(); }}>
+                <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+                    <Button className="w-full sm:w-auto" variant="outline" onClick={() => { setIsLoading(true); fetchUsers(); }}>
                         <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
                         Refresh
                     </Button>
-                    <Button variant="secondary" onClick={() => setIsGenerateOpen(true)}>
+                    <Button className="w-full sm:w-auto" variant="secondary" onClick={() => setIsGenerateOpen(true)}>
                         <UserPlus className="h-4 w-4 mr-2" />
                         Generate Akun
                     </Button>
-                    <Button onClick={() => { resetForm(); setIsDialogOpen(true); }}>
+                    <Button className="col-span-2 w-full sm:col-span-1 sm:w-auto" onClick={() => { resetForm(); setIsDialogOpen(true); }}>
                         <Plus className="h-4 w-4 mr-2" />
                         Tambah User
                     </Button>
@@ -339,7 +376,7 @@ export default function UserManagementPage() {
                                         <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                                     </TableRow>
                                 ))
-                            ) : users.length === 0 ? (
+                            ) : visibleUsers.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={6} className="text-center py-8">
                                         <Users className="h-12 w-12 mx-auto text-muted-foreground/50 mb-2" />
@@ -347,7 +384,7 @@ export default function UserManagementPage() {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                users.map((user) => {
+                                visibleUsers.map((user) => {
                                     const roleInfo = getRoleInfo(user.role);
                                     return (
                                         <TableRow key={user.id}>
@@ -360,7 +397,7 @@ export default function UserManagementPage() {
                                             </TableCell>
                                             <TableCell className="text-muted-foreground">{user.phone || "-"}</TableCell>
                                             <TableCell className="text-muted-foreground text-sm">
-                                                {new Date(user.created).toLocaleDateString("id-ID")}
+                                                {formatCreatedDate(user.created)}
                                             </TableCell>
                                             <TableCell>
                                                 <DropdownMenu>

@@ -1,6 +1,7 @@
 "use client";
 
 import useSWR from "swr";
+import { goGet } from "@/lib/api-client";
 
 // Default settings values
 const defaultSettings = {
@@ -26,15 +27,8 @@ export type SchoolSettingsData = typeof defaultSettings;
 
 const fetcher = async (url: string) => {
     try {
-        const res = await fetch(url);
-        if (!res.ok) {
-            const error = new Error('An error occurred while fetching the data.');
-            // Attach extra info to the error object.
-            (error as any).info = await res.json().catch(() => ({}));
-            (error as any).status = res.status;
-            throw error;
-        }
-        return res.json();
+        const result: any = await goGet(url);
+        return result?.data || result;
     } catch (error) {
         console.error(`SWR fetcher error for ${url}:`, error);
         throw error;

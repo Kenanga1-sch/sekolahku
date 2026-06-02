@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sekolahku/go-backend/internal/models"
 	"github.com/sekolahku/go-backend/internal/repository"
 )
 
@@ -19,6 +20,9 @@ func NewAuditLogHandler(repo *repository.AuditLogRepository) *AuditLogHandler {
 func (h *AuditLogHandler) GetLogs(c echo.Context) error {
 	pageStr := c.QueryParam("page")
 	limitStr := c.QueryParam("limit")
+	if limitStr == "" {
+		limitStr = c.QueryParam("perPage")
+	}
 	action := c.QueryParam("action")
 	resource := c.QueryParam("resource")
 
@@ -46,4 +50,15 @@ func (h *AuditLogHandler) GetLogs(c echo.Context) error {
 		"limit":      limit,
 		"totalPages": totalPages,
 	})
+}
+
+func (h *AuditLogHandler) CreateAuditLog(c echo.Context) error {
+	var l models.AuditLog
+	if err := c.Bind(&l); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
+	}
+	if err := h.Repo.CreateLog(l); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true})
 }

@@ -16,6 +16,7 @@
 # next.js
 /.next/
 /out/
+go-backend/cmd/api/dist/
 
 # production
 /build
@@ -58,3 +59,20 @@ pocketbase
 *.log
 *.txt
 .env.local
+
+# local agent/tooling state
+.claude/
+.gocache*/
+scratch/
+
+# generated reports and scratch schema dumps
+eslint-report.json
+current_schema.sql
+TODO*.md
+
+# local backups and databases
+backups/db/
+
+# local binaries and migration helpers
+*.exe
+migrate*.exe

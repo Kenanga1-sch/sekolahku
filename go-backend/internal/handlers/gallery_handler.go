@@ -47,9 +47,11 @@ func (h *GalleryHandler) Upload(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "No file uploaded"})
 	}
 
-	title := c.FormValue("title")
-	category := c.FormValue("category")
-	if category == "" { category = "lainnya" }
+	title := strings.TrimSpace(c.FormValue("title"))
+	if title == "" {
+		title = strings.TrimSuffix(file.Filename, filepath.Ext(file.Filename))
+	}
+	category := normalizeGalleryCategory(c.FormValue("category"))
 
 	// Max size 5MB
 	if file.Size > 5*1024*1024 {
@@ -67,11 +69,20 @@ func (h *GalleryHandler) Upload(c echo.Context) error {
 	n, _ := src.Read(buf)
 	contentType := http.DetectContentType(buf[:n])
 	src.Seek(0, io.SeekStart)
+	if !strings.HasPrefix(contentType, "image/") {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "File harus berupa gambar"})
+	}
 
 	ext := "jpg"
-	if strings.HasSuffix(contentType, "png") { ext = "png" }
-	if strings.HasSuffix(contentType, "webp") { ext = "webp" }
-	if strings.HasSuffix(contentType, "gif") { ext = "gif" }
+	if strings.HasSuffix(contentType, "png") {
+		ext = "png"
+	}
+	if strings.HasSuffix(contentType, "webp") {
+		ext = "webp"
+	}
+	if strings.HasSuffix(contentType, "gif") {
+		ext = "gif"
+	}
 
 	// Create directory
 	uploadDir := filepath.Join("public", "uploads", "gallery")
@@ -128,7 +139,21 @@ func (h *GalleryHandler) Update(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
 	}
 
-	if err := h.Repo.Update(id, req.Title, req.Category); err != nil {
+	current, err := h.Repo.GetByID(id)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Foto tidak ditemukan"})
+	}
+
+	title := strings.TrimSpace(req.Title)
+	if title == "" {
+		title = current.Title
+	}
+	category := current.Category
+	if strings.TrimSpace(req.Category) != "" {
+		category = normalizeGalleryCategory(req.Category)
+	}
+
+	if err := h.Repo.Update(id, title, category); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
@@ -156,6 +181,15 @@ func (h *GalleryHandler) Delete(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, map[string]bool{"success": true})
+}
+
+func normalizeGalleryCategory(category string) string {
+	switch strings.ToLower(strings.TrimSpace(category)) {
+	case "kegiatan", "fasilitas", "prestasi", "lainnya":
+		return strings.ToLower(strings.TrimSpace(category))
+	default:
+		return "lainnya"
+	}
 }
 
 func (h *GalleryHandler) BulkDelete(c echo.Context) error {

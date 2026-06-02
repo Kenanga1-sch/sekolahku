@@ -1,40 +1,29 @@
 /**
- * kelas — Client-side data fetcher
- * All database logic has been moved to the Golang backend.
- * These functions now fetch data via the Golang API.
+ * kelas — Client-side data fetcher for Savings Class Management
  */
 
-import { goGet, goPost } from "@/lib/api-client";
+import { goGet, goPost, goPut, goDelete } from "@/lib/api-client";
 
-// TODO: Implement specific endpoints as needed.
-// For now, functions export stubs that call the Go API.
-
-export async function getKelas(...args: any[]) {
-  // TODO: Wire to Golang API endpoint
-  console.warn("getKelas: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function getKelas() {
+  return await goGet("/api/savings/kelas");
 }
 
-export async function getAllKelas(...args: any[]) {
-  // TODO: Wire to Golang API endpoint
-  console.warn("getAllKelas: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function getAllKelas() {
+  return await goGet("/api/savings/kelas");
 }
 
-export async function createKelas(...args: any[]) {
-  // TODO: Wire to Golang API endpoint
-  console.warn("createKelas: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function createKelas(data: { nama: string; waliKelas?: string }) {
+  return await goPost("/api/savings/kelas", data);
 }
 
-export async function updateKelas(...args: any[]) {
-  // TODO: Wire to Golang API endpoint
-  console.warn("updateKelas: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function updateKelas(id: string, data: { nama: string; waliKelas?: string }) {
+  return await goPut(`/api/savings/kelas/${id}`, data);
 }
 
-export async function deleteKelas(...args: any[]) {
-  // TODO: Wire to Golang API endpoint
-  console.warn("deleteKelas: Not yet wired to Go API");
-  return { success: false, error: "Not implemented" };
+export async function deleteKelas(id: string) {
+  return await goDelete(`/api/savings/kelas/${id}`);
+}
+
+export async function assignClassRep(classId: string, userId: string) {
+  return await goPost(`/api/savings/kelas/${classId}/assign-rep`, { userId });
 }

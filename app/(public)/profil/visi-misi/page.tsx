@@ -184,7 +184,7 @@ export default function VisiMisiPage() {
             </div>
 
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {visiMisi.indikator.map((item, index) => (
+              {visiMisi.indikator.map((item: any, index: number) => (
                 <motion.div key={index} variants={itemVariants}>
                   <Card className="h-full border-none shadow-lg hover:shadow-xl transition-shadow bg-zinc-50 dark:bg-zinc-800/50">
                     <CardContent className="p-6 space-y-4">
@@ -198,7 +198,7 @@ export default function VisiMisiPage() {
                         </p>
                         {item.details && (
                           <ul className="space-y-1">
-                            {item.details.map((detail, idx) => (
+                            {item.details.map((detail: any, idx: number) => (
                               <li key={idx} className="text-sm font-medium flex items-center gap-2 text-zinc-700 dark:text-zinc-300">
                                 <span className="h-1.5 w-1.5 rounded-full bg-primary flex-shrink-0" />
                                 {detail}
@@ -234,7 +234,7 @@ export default function VisiMisiPage() {
             </div>
 
             <div className="space-y-4">
-              {visiMisi.misi.map((item, index) => (
+              {visiMisi.misi.map((item: any, index: number) => (
                 <motion.div
                   key={index}
                   variants={itemVariants}

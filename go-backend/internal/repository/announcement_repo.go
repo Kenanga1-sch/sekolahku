@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"math"
 	"time"
@@ -57,20 +58,32 @@ func (r *AnnouncementRepository) GetAnnouncements(page, limit int, search string
 		var pAt, crAt, upAt sql.NullInt64
 
 		err := rows.Scan(
-			&a.ID, &a.Title, &a.Slug, &content, &excerpt, &category, &thumbnail, 
+			&a.ID, &a.Title, &a.Slug, &content, &excerpt, &category, &thumbnail,
 			&a.IsPublished, &a.IsFeatured, &pAt, &authorId, &authorName, &crAt, &upAt,
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		if content.Valid { a.Content = &content.String }
-		if excerpt.Valid { a.Excerpt = &excerpt.String }
-		if category.Valid { a.Category = &category.String }
-		if thumbnail.Valid { a.Thumbnail = &thumbnail.String }
-		if authorId.Valid { a.AuthorID = &authorId.String }
-		if authorName.Valid { a.AuthorName = &authorName.String }
-		
+		if content.Valid {
+			a.Content = &content.String
+		}
+		if excerpt.Valid {
+			a.Excerpt = &excerpt.String
+		}
+		if category.Valid {
+			a.Category = &category.String
+		}
+		if thumbnail.Valid {
+			a.Thumbnail = &thumbnail.String
+		}
+		if authorId.Valid {
+			a.AuthorID = &authorId.String
+		}
+		if authorName.Valid {
+			a.AuthorName = &authorName.String
+		}
+
 		a.PublishedAt = SafeTime(pAt)
 		a.CreatedAt = SafeTime(crAt)
 		a.UpdatedAt = SafeTime(upAt)
@@ -120,20 +133,35 @@ func (r *AnnouncementRepository) GetAnnouncementBySlug(slug string) (*models.Ann
 	var pAt, crAt, upAt sql.NullInt64
 
 	err := r.DB.QueryRow(query, slug, slug).Scan(
-		&a.ID, &a.Title, &a.Slug, &content, &excerpt, &category, &thumbnail, 
+		&a.ID, &a.Title, &a.Slug, &content, &excerpt, &category, &thumbnail,
 		&a.IsPublished, &a.IsFeatured, &pAt, &authorId, &authorName, &crAt, &upAt,
 	)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, err
 	}
 
-	if content.Valid { a.Content = &content.String }
-	if excerpt.Valid { a.Excerpt = &excerpt.String }
-	if category.Valid { a.Category = &category.String }
-	if thumbnail.Valid { a.Thumbnail = &thumbnail.String }
-	if authorId.Valid { a.AuthorID = &authorId.String }
-	if authorName.Valid { a.AuthorName = &authorName.String }
-	
+	if content.Valid {
+		a.Content = &content.String
+	}
+	if excerpt.Valid {
+		a.Excerpt = &excerpt.String
+	}
+	if category.Valid {
+		a.Category = &category.String
+	}
+	if thumbnail.Valid {
+		a.Thumbnail = &thumbnail.String
+	}
+	if authorId.Valid {
+		a.AuthorID = &authorId.String
+	}
+	if authorName.Valid {
+		a.AuthorName = &authorName.String
+	}
+
 	a.PublishedAt = SafeTime(pAt)
 	a.CreatedAt = SafeTime(crAt)
 	a.UpdatedAt = SafeTime(upAt)
@@ -144,7 +172,7 @@ func (r *AnnouncementRepository) GetAnnouncementBySlug(slug string) (*models.Ann
 func (r *AnnouncementRepository) CreateAnnouncement(req models.CreateAnnouncementRequest) (string, error) {
 	id := cuid2.Generate()
 	now := time.Now().UnixMilli()
-	
+
 	var pAt int64
 	if req.IsPublished {
 		pAt = now
@@ -167,7 +195,9 @@ func (r *AnnouncementRepository) UpdateAnnouncement(id string, req models.Create
 	// Get current version for published_at logic
 	var currentPublished bool
 	var currentPublishedAt sql.NullInt64
-	r.DB.QueryRow("SELECT is_published, published_at FROM announcements WHERE id = ?", id).Scan(&currentPublished, &currentPublishedAt)
+	if err := r.DB.QueryRow("SELECT is_published, published_at FROM announcements WHERE id = ?", id).Scan(&currentPublished, &currentPublishedAt); err != nil {
+		return err
+	}
 
 	pAt := currentPublishedAt.Int64
 	if req.IsPublished && !currentPublished {
@@ -181,12 +211,25 @@ func (r *AnnouncementRepository) UpdateAnnouncement(id string, req models.Create
 		SET title=?, slug=?, content=?, excerpt=?, category=?, thumbnail=?, is_published=?, is_featured=?, published_at=?, updated_at=?
 		WHERE id=?
 	`
-	_, err := r.DB.Exec(query, req.Title, req.Slug, req.Content, req.Excerpt, req.Category, req.Thumbnail, req.IsPublished, req.IsFeatured, pAt, now, id)
-	return err
+	res, err := r.DB.Exec(query, req.Title, req.Slug, req.Content, req.Excerpt, req.Category, req.Thumbnail, req.IsPublished, req.IsFeatured, pAt, now, id)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err == nil && affected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
 func (r *AnnouncementRepository) DeleteAnnouncement(id string) error {
-	_, err := r.DB.Exec("DELETE FROM announcements WHERE id = ?", id)
-	return err
+	res, err := r.DB.Exec("DELETE FROM announcements WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err == nil && affected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
-

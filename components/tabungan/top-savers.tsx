@@ -41,8 +41,8 @@ export function TopSaversWidget() {
             try {
                 const res = await fetch("/api/tabungan/data?type=top-savers");
                 if (res.ok) {
-                    const data = await res.json();
-                    setSavers(data);
+                    const payload = await res.json();
+                    setSavers(Array.isArray(payload) ? payload : payload.data ?? payload.items ?? []);
                 }
             } catch {
                 // Fail silently

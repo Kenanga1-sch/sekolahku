@@ -66,8 +66,8 @@ export default function AuditLogPage() {
 
             const result: any = await goGet(`/api/inventory/audit?${queryParams.toString()}`);
             if (!result.error) {
-                setLogs(result.items);
-                setTotalPages(result.totalPages);
+                setLogs(result.items || result.data || []);
+                setTotalPages(result.totalPages || 1);
             }
         } catch (error) {
             console.error("Failed to load audit logs:", error);
@@ -87,9 +87,18 @@ export default function AuditLogPage() {
         });
     };
 
-    const getChangesSummary = (changes?: any[]) => {
-        if (!changes || changes.length === 0) return "-";
-        return changes.map(c => c.field).join(", ");
+    const getChangesSummary = (changes?: any[] | string) => {
+        if (!changes) return "-";
+        let parsed = changes;
+        if (typeof changes === "string") {
+            try {
+                parsed = JSON.parse(changes || "[]");
+            } catch {
+                return changes;
+            }
+        }
+        if (!Array.isArray(parsed) || parsed.length === 0) return "-";
+        return parsed.map(c => c.field).join(", ");
     };
 
     return (
@@ -139,6 +148,7 @@ export default function AuditLogPage() {
                             <SelectContent>
                                 <SelectItem value="all">Semua Entitas</SelectItem>
                                 <SelectItem value="ASSET">Aset</SelectItem>
+                                <SelectItem value="ITEM">Barang Stok</SelectItem>
                                 <SelectItem value="ROOM">Ruangan</SelectItem>
                                 <SelectItem value="OPNAME">Opname</SelectItem>
                             </SelectContent>

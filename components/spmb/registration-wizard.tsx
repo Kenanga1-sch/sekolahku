@@ -36,7 +36,7 @@ interface RegistrationWizardProps {
   schoolLat: number;
   schoolLng: number;
   maxDistanceKm: number;
-  onSubmit: (data: RegistrationData) => Promise<{ success: boolean; registrationNumber?: string; id?: string; error?: string; details?: Record<string, string> }>;
+  onSubmit: (data: RegistrationData) => Promise<{ success: boolean; registrationNumber?: string; id?: string; error?: string; details?: Record<string, string>; errorCode?: string; duplicateRegistrationNumber?: string }>;
 }
 
 const STEPS = [
@@ -69,6 +69,8 @@ function RegistrationWizardContent({
     id?: string;
     error?: string;
     details?: Record<string, string>;
+    errorCode?: string;
+    duplicateRegistrationNumber?: string;
   } | null>(null);
 
   const [registrationData, setRegistrationData] = useState<RegistrationData>(initialData);
@@ -370,7 +372,7 @@ function RegistrationWizardContent({
                   variant="outline"
                   size="lg" 
                   className="mt-2 gap-2 rounded-full px-8 w-full sm:w-auto"
-                  onClick={() => window.open(`/spmb/bukti/detail?id=${submitResult.id}`, '_blank')}
+                  onClick={() => window.open(`/spmb/bukti/detail?id=${submitResult.registrationNumber}`, '_blank')}
                 >
                   <Printer className="h-4 w-4" /> Cetak Bukti Pendaftaran
                 </Button>
@@ -391,16 +393,26 @@ function RegistrationWizardContent({
 
   // Render Error
   if (submitResult && !submitResult.success) {
+    const isDuplicateNIK = submitResult.errorCode === "duplicate_student_nik";
     return (
-      <Card className="max-w-xl mx-auto border-red-200 bg-red-50 dark:bg-red-900/10">
+      <Card className={`max-w-xl mx-auto ${isDuplicateNIK ? "border-amber-200 bg-amber-50 dark:bg-amber-900/10" : "border-red-200 bg-red-50 dark:bg-red-900/10"}`}>
         <CardContent className="pt-8 text-center space-y-4">
           <div className="text-red-500 text-5xl mb-4">⚠️</div>
-          <h2 className="text-xl font-bold text-red-700">Terjadi Kesalahan</h2>
+          <h2 className={`text-xl font-bold ${isDuplicateNIK ? "text-amber-800 dark:text-amber-300" : "text-red-700"}`}>
+            {isDuplicateNIK ? "NIK Sudah Terdaftar" : "Terjadi Kesalahan"}
+          </h2>
           <p className="text-muted-foreground">
             {typeof submitResult.error === 'string' 
               ? submitResult.error 
               : (submitResult.error as any)?.message || "Terjadi kesalahan yang tidak diketahui"}
           </p>
+
+          {isDuplicateNIK && submitResult.duplicateRegistrationNumber && (
+            <div className="bg-white/70 dark:bg-zinc-900/40 p-4 rounded-lg border border-amber-200 space-y-2">
+              <p className="text-sm text-muted-foreground">Nomor pendaftaran yang sudah tercatat</p>
+              <p className="text-2xl font-mono font-bold tracking-wider">{submitResult.duplicateRegistrationNumber}</p>
+            </div>
+          )}
 
           {submitResult.details && Object.keys(submitResult.details).length > 0 && (
             <div className="bg-red-100/50 p-4 rounded-lg text-left text-sm space-y-1 max-h-48 overflow-y-auto">
@@ -414,7 +426,14 @@ function RegistrationWizardContent({
             </div>
           )}
 
-          <Button variant="outline" onClick={() => setSubmitResult(null)}>Kembali</Button>
+          <div className="flex flex-col sm:flex-row gap-2 justify-center">
+            {isDuplicateNIK && submitResult.duplicateRegistrationNumber && (
+              <Button onClick={() => window.location.href = `/spmb/tracking?id=${submitResult.duplicateRegistrationNumber}`}>
+                Cek Status Pendaftaran
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => setSubmitResult(null)}>Kembali ke Formulir</Button>
+          </div>
         </CardContent>
       </Card>
     );

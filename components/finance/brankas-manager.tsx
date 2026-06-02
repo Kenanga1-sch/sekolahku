@@ -32,9 +32,10 @@ interface BrankasManagerProps {
     vaults: any[];
     recentTransactions: any[];
     currentUserId: string;
+    onChanged?: () => void | Promise<void>;
 }
 
-export function BrankasManager({ vaults, recentTransactions, currentUserId }: BrankasManagerProps) {
+export function BrankasManager({ vaults = [], recentTransactions = [], currentUserId, onChanged }: BrankasManagerProps) {
     const [loading, setLoading] = useState(false);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [activeTab, setActiveTab] = useState<"setor" | "tarik">("setor");
@@ -55,6 +56,7 @@ export function BrankasManager({ vaults, recentTransactions, currentUserId }: Br
                 showSuccess(res.message || "Berhasil");
                 setDialogOpen(false);
                 setNominal("");
+                await onChanged?.();
             } else {
                 showError(res.error || "Gagal");
             }

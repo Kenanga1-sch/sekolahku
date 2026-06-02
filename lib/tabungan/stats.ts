@@ -5,14 +5,13 @@ export async function getTabunganStats() {
 }
 
 export async function getTransactionTrend() {
-  // Use stats or specialized endpoint if implemented
-  return await goGet("/api/savings/stats/trend");
+  return await goGet("/api/savings/stats?type=trend");
 }
 
 export async function getSaldoByKelas() {
-  return await goGet("/api/savings/stats/by-class");
+  return await goGet("/api/savings/stats?type=saldo-by-kelas");
 }
 
 export async function getTopSavers() {
-  return await goGet("/api/savings/stats/top-savers");
+  return await goGet("/api/savings/stats?type=top-savers");
 }

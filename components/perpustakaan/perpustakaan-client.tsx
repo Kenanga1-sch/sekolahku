@@ -7,15 +7,13 @@ import {
     BookOpen,
     Users,
     BookMarked,
-    QrCode,
     TrendingUp,
     AlertTriangle,
     UserCheck,
     RefreshCw,
 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { LibraryStats } from "@/types/library";
 import { useRouter } from "next/navigation";
@@ -118,7 +116,7 @@ export default function PerpustakaanClient({ initialStats }: PerpustakaanClientP
                     >
                         <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
                     </Button>
-                    <Link href="/kiosk" target="_blank" className="flex-1 sm:flex-none">
+                    <Link href="/kiosk" className="flex-1 sm:flex-none">
                         <Button variant="outline" className="gap-2 w-full">
                             <BookMarked className="h-4 w-4" />
                             Buka Kiosk

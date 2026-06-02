@@ -21,17 +21,30 @@ const iconMap: Record<string, any> = {
     lokasi: MapPin,
 };
 
+interface FAQ {
+    q: string;
+    a: string;
+}
+
+interface FAQCategory {
+    id: string;
+    title: string;
+    questions: FAQ[];
+}
+
 export default function FAQPage() {
     const [searchQuery, setSearchQuery] = useState("");
-    const [faqCategories, setFaqCategories] = useState<any[]>([]);
+    const [faqCategories, setFaqCategories] = useState<FAQCategory[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         setIsLoading(true);
         goGet('/api/public/faqs')
             .then((json: any) => {
-                if (json.success) {
+                if (json.success && Array.isArray(json.data)) {
                     setFaqCategories(json.data);
+                } else {
+                    setFaqCategories([]);
                 }
                 setIsLoading(false);
             })
@@ -41,10 +54,10 @@ export default function FAQPage() {
             });
     }, []);
 
-    const filteredCategories = faqCategories.map(category => ({
+    const filteredCategories = faqCategories.map((category: FAQCategory) => ({
         ...category,
         questions: category.questions.filter(
-            (faq: any) =>
+            (faq: FAQ) =>
                 faq.q.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 faq.a.toLowerCase().includes(searchQuery.toLowerCase())
         )
@@ -95,7 +108,7 @@ export default function FAQPage() {
                             </CardContent>
                         </Card>
                     ) : (
-                        filteredCategories.map((category) => (
+                        filteredCategories.map((category: FAQCategory) => (
                             <Card key={category.id}>
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-3">
@@ -110,7 +123,7 @@ export default function FAQPage() {
                                 </CardHeader>
                                 <CardContent>
                                     <Accordion type="single" collapsible className="space-y-2">
-                                        {category.questions.map((faq, index) => (
+                                        {category.questions.map((faq: FAQ, index: number) => (
                                             <AccordionItem
                                                 key={index}
                                                 value={`${category.id}-${index}`}

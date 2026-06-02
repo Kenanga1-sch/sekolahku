@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -12,6 +12,11 @@ interface PDFViewerProps {
 export function PDFViewer({ url, className }: PDFViewerProps) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
+
+    useEffect(() => {
+        setLoading(Boolean(url));
+        setError(false);
+    }, [url]);
 
     if (!url) {
         return (
@@ -41,6 +46,7 @@ export function PDFViewer({ url, className }: PDFViewerProps) {
             ) : (
                 <iframe
                     src={`${url}#toolbar=0`}
+                    title="Preview PDF"
                     className="w-full h-full"
                     onLoad={() => setLoading(false)}
                     onError={() => setError(true)}

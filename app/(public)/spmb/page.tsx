@@ -84,38 +84,48 @@ export default function SPMBPage() {
   const period = data?.period;
   const settings = data?.settings;
   const isOpen = data?.isOpen;
+  const currentAcademicYear =
+    period?.academicYear ||
+    period?.academic_year ||
+    settings?.currentAcademicYear ||
+    settings?.current_academic_year;
 
   // Fallback for school info
-  const schoolName = settings?.schoolName || siteConfig.school.name;
-  const schoolAddress = settings?.schoolAddress || siteConfig.school.address;
-  const maxDistance = settings?.maxDistanceKm || 1; 
-  const schoolLat = settings?.schoolLat || -6.175392; 
-  const schoolLng = settings?.schoolLng || 106.827153;
+  const schoolName = settings?.schoolName || settings?.school_name || siteConfig.school.name;
+  const schoolAddress = settings?.schoolAddress || settings?.school_address || siteConfig.school.address;
+  const maxDistance = settings?.maxDistanceKm || settings?.max_distance_km || 1;
+  const schoolLat = settings?.schoolLat || settings?.school_lat || -6.175392;
+  const schoolLng = settings?.schoolLng || settings?.school_lng || 106.827153;
 
   return (
     <div className="flex flex-col bg-background">
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-neutral-950 py-24 sm:py-32">
-        <div className="container relative z-10 text-center text-white">
+      <section className="relative overflow-hidden border-b bg-gradient-to-b from-background via-primary/5 to-background py-20 sm:py-28">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:5rem_5rem] opacity-30" />
+        <div className="container relative z-10 text-center">
           <div className="max-w-4xl mx-auto space-y-6">
             <div className="flex justify-center">
-                 <Badge className="bg-white/10 text-white border-white/20 hover:bg-white/20 backdrop-blur-sm px-4 py-1.5 text-sm font-normal">
-                  <Calendar className="h-3.5 w-3.5 mr-2 text-amber-400" />
-                  {period?.academicYear ? `Tahun Ajaran ${period.academicYear}` : "Pendaftaran Belum Dibuka"}
+                 <Badge className="border-primary/20 bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary hover:bg-primary/15">
+                  <Calendar className="h-3.5 w-3.5 mr-2" />
+                  {currentAcademicYear
+                    ? `Tahun Ajaran ${currentAcademicYear}`
+                    : isOpen
+                      ? "Pendaftaran Dibuka"
+                      : "Pendaftaran Belum Dibuka"}
                 </Badge>
             </div>
             
-            <h1 className="text-5xl md:text-7xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-b from-neutral-50 to-neutral-400">
+            <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl md:text-6xl">
               Penerimaan Siswa Baru
             </h1>
-            <p className="text-xl md:text-2xl text-neutral-400 max-w-2xl mx-auto leading-relaxed">
+            <p className="mx-auto max-w-2xl text-lg leading-relaxed text-muted-foreground md:text-xl">
               Bergabunglah bersama keluarga besar {schoolName}. Sistem Penerimaan Murid Baru (SPMB) dengan fitur zonasi terintegrasi untuk kemudahan dan transparansi.
             </p>
             
             <div className="flex flex-wrap items-center justify-center gap-4 pt-8">
               {isOpen ? (
                 <Link href="/spmb/daftar">
-                  <Button size="lg" className="h-12 px-8 text-base bg-amber-500 hover:bg-amber-600 text-black font-bold shadow-[0_0_40px_-10px_rgba(251,191,36,0.6)] border-0">
+                  <Button size="lg" className="h-12 px-8 text-base font-semibold shadow-lg shadow-primary/20">
                     Daftar Sekarang
                     <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
@@ -129,7 +139,8 @@ export default function SPMBPage() {
               <Link href="/spmb/tracking">
                 <Button
                   size="lg"
-                  className="h-12 px-8 text-base bg-zinc-800 hover:bg-zinc-700 text-white font-medium border border-zinc-700"
+                  variant="outline"
+                  className="h-12 px-8 text-base font-medium bg-background/80"
                 >
                   <Search className="h-4 w-4 mr-2" />
                   Cek Status
@@ -138,7 +149,8 @@ export default function SPMBPage() {
               <Link href="/spmb/pengumuman">
                  <Button
                   size="lg"
-                  className="h-12 px-8 text-base bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-[0_0_20px_-5px_rgba(37,99,235,0.5)] border-0"
+                  variant="secondary"
+                  className="h-12 px-8 text-base font-medium"
                 >
                   <CheckCircle className="h-4 w-4 mr-2" />
                   Pengumuman SPMB
@@ -147,7 +159,7 @@ export default function SPMBPage() {
             </div>
           </div>
         </div>
-        <BackgroundBeams className="opacity-40" />
+        <BackgroundBeams className="opacity-10" />
       </section>
 
       {/* Status Banner */}
@@ -159,7 +171,7 @@ export default function SPMBPage() {
                 <p className="text-muted-foreground flex items-center gap-1.5 mb-1.5">
                     <FileText className="h-3.5 w-3.5" /> Periode
                 </p>
-                <p className="font-semibold text-foreground">{period?.name || "-"}</p>
+                <p className="font-semibold text-foreground">{period?.name || (isOpen ? "Pendaftaran umum" : "Belum ada periode aktif")}</p>
               </div>
               <div>
                 <p className="text-muted-foreground flex items-center gap-1.5 mb-1.5">
@@ -168,14 +180,14 @@ export default function SPMBPage() {
                 <p className="font-semibold text-foreground truncate">
                   {period ? (
                     <>{new Date(period.startDate).toLocaleDateString("id-ID", { day: 'numeric', month: 'short' })} - {new Date(period.endDate).toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' })}</>
-                  ) : "-"}
+                  ) : isOpen ? "Menunggu jadwal resmi" : "-"}
                 </p>
               </div>
               <div>
                 <p className="text-muted-foreground flex items-center gap-1.5 mb-1.5">
                     <Users className="h-3.5 w-3.5" /> Kuota
                 </p>
-                <p className="font-semibold text-foreground">{period?.quota || 0} Siswa</p>
+                <p className="font-semibold text-foreground">{period?.quota ? `${period.quota} Siswa` : "-"}</p>
               </div>
                <div>
                 <p className="text-muted-foreground flex items-center gap-1.5 mb-1.5">

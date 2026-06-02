@@ -482,10 +482,10 @@ export default function AsetPage() {
                                         <TableCell>{asset.quantity} Unit</TableCell>
                                         <TableCell>
                                             <div className="flex gap-2 text-xs">
-                                                {asset.condition_good > 0 && <span className="text-green-600 bg-green-100 px-2 py-0.5 rounded">{asset.condition_good} B</span>}
-                                                {asset.condition_light_damaged > 0 && <span className="text-yellow-600 bg-yellow-100 px-2 py-0.5 rounded">{asset.condition_light_damaged} RR</span>}
-                                                {asset.condition_heavy_damaged > 0 && <span className="text-red-600 bg-red-100 px-2 py-0.5 rounded">{asset.condition_heavy_damaged} RB</span>}
-                                                {asset.condition_lost > 0 && <span className="text-gray-600 bg-gray-100 px-2 py-0.5 rounded">{asset.condition_lost} H</span>}
+                                                {(asset.condition_good ?? 0) > 0 && <span className="text-green-600 bg-green-100 px-2 py-0.5 rounded">{asset.condition_good ?? 0} B</span>}
+                                                {(asset.condition_light_damaged ?? 0) > 0 && <span className="text-yellow-600 bg-yellow-100 px-2 py-0.5 rounded">{asset.condition_light_damaged ?? 0} RR</span>}
+                                                {(asset.condition_heavy_damaged ?? 0) > 0 && <span className="text-red-600 bg-red-100 px-2 py-0.5 rounded">{asset.condition_heavy_damaged ?? 0} RB</span>}
+                                                {(asset.condition_lost ?? 0) > 0 && <span className="text-gray-600 bg-gray-100 px-2 py-0.5 rounded">{asset.condition_lost ?? 0} H</span>}
                                             </div>
                                         </TableCell>
                                         <TableCell>

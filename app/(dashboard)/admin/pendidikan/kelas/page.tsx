@@ -109,7 +109,7 @@ export default function AcademicClassesPage() {
         try {
             const payload = {
                 name: formData.name,
-                grade: formData.grade,
+                grade: parseInt(formData.grade, 10),
                 capacity: formData.capacity,
                 academicYear: academicYear // Now dynamic
             };

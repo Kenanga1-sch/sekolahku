@@ -12,6 +12,7 @@ export interface SessionData {
     role: UserRole | string;
     name?: string;
     email?: string;
+    phone?: string;
   };
 }
 
@@ -19,21 +20,21 @@ export function auth(): SessionData | null {
   if (typeof document === "undefined") return null;
 
   const cookies = document.cookie.split(";").map((c) => c.trim());
-  const sessionCookie = cookies.find((c) => c.startsWith("session="));
-  if (!sessionCookie) return null;
+  const infoCookie = cookies.find((c) => c.startsWith("user_info="));
+  if (!infoCookie) return null;
 
-  const token = sessionCookie.split("=")[1];
-  if (!token) return null;
+  const jsonValue = decodeURIComponent(infoCookie.split("=")[1]);
+  if (!jsonValue) return null;
 
   try {
-    // Decode JWT payload (no verification — that's Go's job)
-    const payload = JSON.parse(atob(token.split(".")[1]));
+    const data = JSON.parse(jsonValue);
     return {
       user: {
-        id: payload.sub,
-        role: payload.role,
-        email: payload.email,
-        name: payload.name,
+        id: data.id,
+        role: data.role,
+        email: data.email,
+        name: data.name,
+        phone: data.phone,
       },
     };
   } catch {

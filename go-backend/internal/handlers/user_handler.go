@@ -1,9 +1,12 @@
 package handlers
 
 import (
+	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
@@ -19,6 +22,16 @@ type UserHandler struct {
 	AuditRepo    *repository.AuditLogRepository
 }
 
+var allowedUserRoles = map[string]bool{
+	"superadmin":  true,
+	"admin":       true,
+	"staff":       true,
+	"user":        true,
+	"guru":        true,
+	"siswa":       true,
+	"calon_siswa": true,
+}
+
 func NewUserHandler(userRepo *repository.UserRepository, studentRepo *repository.StudentRepository, employeeRepo *repository.EmployeeRepository, auditRepo *repository.AuditLogRepository) *UserHandler {
 	return &UserHandler{
 		UserRepo:     userRepo,
@@ -28,6 +41,13 @@ func NewUserHandler(userRepo *repository.UserRepository, studentRepo *repository
 	}
 }
 
+func normalizeUserRole(role string) (string, bool) {
+	normalized := strings.ToLower(strings.TrimSpace(role))
+	if normalized == "" {
+		normalized = "user"
+	}
+	return normalized, allowedUserRoles[normalized]
+}
 
 func (h *UserHandler) GetUsers(c echo.Context) error {
 	pageStr := c.QueryParam("page")
@@ -62,43 +82,79 @@ func (h *UserHandler) GetUsers(c echo.Context) error {
 
 func (h *UserHandler) CreateUser(c echo.Context) error {
 	var req struct {
-		Name     string `json:"name"`
-		Email    string `json:"email"`
-		Username string `json:"username"`
-		Password string `json:"password"`
-		Role     string `json:"role"`
-		Phone    string `json:"phone"`
+		Name            string `json:"name"`
+		Email           string `json:"email"`
+		Username        string `json:"username"`
+		Password        string `json:"password"`
+		PasswordConfirm string `json:"passwordConfirm"`
+		Role            string `json:"role"`
+		Phone           string `json:"phone"`
 	}
 
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid payload"})
 	}
 
-	hash, _ := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
+	req.Name = strings.TrimSpace(req.Name)
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	req.Username = strings.TrimSpace(req.Username)
+	req.Phone = strings.TrimSpace(req.Phone)
+	role, ok := normalizeUserRole(req.Role)
+
+	if req.Name == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Nama wajib diisi"})
+	}
+	if req.Email == "" || !strings.Contains(req.Email, "@") {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Email tidak valid"})
+	}
+	if !ok {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Role tidak valid"})
+	}
+	if len(req.Password) < 8 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Password minimal 8 karakter"})
+	}
+	if req.PasswordConfirm != "" && req.Password != req.PasswordConfirm {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Konfirmasi password tidak cocok"})
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal membuat password"})
+	}
 	passwordHash := string(hash)
+
+	var username *string
+	if req.Username != "" {
+		username = &req.Username
+	}
 
 	user := models.User{
 		Name:         &req.Name,
 		Email:        req.Email,
-		Username:     &req.Username,
+		Username:     username,
+		FullName:     &req.Name,
 		PasswordHash: &passwordHash,
-		Role:         req.Role,
+		Role:         role,
 		Phone:        &req.Phone,
 		IsActive:     true,
 	}
 
 	id, err := h.UserRepo.CreateUser(user)
 	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "unique") {
+			return c.JSON(http.StatusConflict, map[string]string{"error": "Email atau username sudah digunakan"})
+		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
-	// Audit Log
 	ip := c.RealIP()
 	ua := c.Request().UserAgent()
-	details := fmt.Sprintf("Created user: %s (%s)", req.Name, req.Role)
+	details := fmt.Sprintf("Created user: %s (%s)", req.Name, role)
+	currentUserID, _ := c.Get("user_id").(string)
 	h.AuditRepo.CreateLog(models.AuditLog{
 		Action:    "create",
 		Resource:  "user",
+		UserID:    &currentUserID,
 		Details:   &details,
 		IPAddress: &ip,
 		UserAgent: &ua,
@@ -106,7 +162,6 @@ func (h *UserHandler) CreateUser(c echo.Context) error {
 
 	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true, "id": id})
 }
-
 
 func (h *UserHandler) UpdateUser(c echo.Context) error {
 	id := c.Param("id")
@@ -122,30 +177,61 @@ func (h *UserHandler) UpdateUser(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid payload"})
 	}
 
+	req.Name = strings.TrimSpace(req.Name)
+	req.Username = strings.TrimSpace(req.Username)
+	req.Phone = strings.TrimSpace(req.Phone)
+	role, ok := normalizeUserRole(req.Role)
+
+	if req.Name == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Nama wajib diisi"})
+	}
+	if !ok {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Role tidak valid"})
+	}
+	if req.Password != "" && len(req.Password) < 8 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Password minimal 8 karakter"})
+	}
+
+	var username *string
+	if req.Username != "" {
+		username = &req.Username
+	}
+
 	user := models.User{
 		Name:     &req.Name,
-		Username: &req.Username,
-		Role:     req.Role,
+		FullName: &req.Name,
+		Username: username,
+		Role:     role,
 		Phone:    &req.Phone,
 	}
 
 	if req.Password != "" {
-		hash, _ := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
+		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal membuat password"})
+		}
 		pwHash := string(hash)
 		user.PasswordHash = &pwHash
 	}
 
 	if err := h.UserRepo.UpdateUser(id, user); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "Pengguna tidak ditemukan"})
+		}
+		if strings.Contains(strings.ToLower(err.Error()), "unique") {
+			return c.JSON(http.StatusConflict, map[string]string{"error": "Username sudah digunakan"})
+		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
-	// Audit Log
 	ip := c.RealIP()
 	ua := c.Request().UserAgent()
 	details := fmt.Sprintf("Updated user ID: %s", id)
+	currentUserID, _ := c.Get("user_id").(string)
 	h.AuditRepo.CreateLog(models.AuditLog{
 		Action:    "update",
 		Resource:  "user",
+		UserID:    &currentUserID,
 		Details:   &details,
 		IPAddress: &ip,
 		UserAgent: &ua,
@@ -154,20 +240,27 @@ func (h *UserHandler) UpdateUser(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
 
-
 func (h *UserHandler) DeleteUser(c echo.Context) error {
 	id := c.Param("id")
+	currentUserID, _ := c.Get("user_id").(string)
+	if currentUserID != "" && currentUserID == id {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Tidak bisa menghapus akun sendiri"})
+	}
+
 	if err := h.UserRepo.DeleteUser(id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "Pengguna tidak ditemukan"})
+		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
-	// Audit Log
 	ip := c.RealIP()
 	ua := c.Request().UserAgent()
 	details := fmt.Sprintf("Deleted user ID: %s", id)
 	h.AuditRepo.CreateLog(models.AuditLog{
 		Action:    "delete",
 		Resource:  "user",
+		UserID:    &currentUserID,
 		Details:   &details,
 		IPAddress: &ip,
 		UserAgent: &ua,
@@ -175,7 +268,6 @@ func (h *UserHandler) DeleteUser(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
-
 
 func (h *UserHandler) GenerateAccounts(c echo.Context) error {
 	var req struct {
@@ -234,7 +326,7 @@ func (h *UserHandler) GenerateAccounts(c echo.Context) error {
 		for _, e := range res.Data {
 			// Staff already have user accounts usually, but let's check mode
 			if req.Mode == "overwrite" {
-				hash, _ := bcrypt.GenerateFromPassword([]byte("123456"), 10)
+				hash, _ := bcrypt.GenerateFromPassword([]byte("12345678"), 10)
 				pwHash := string(hash)
 				h.UserRepo.UpdateUser(e.ID, models.User{PasswordHash: &pwHash})
 				count++
@@ -260,7 +352,7 @@ func (h *UserHandler) GetProfile(c echo.Context) error {
 	}
 
 	user, err := h.UserRepo.GetUserByID(userID)
-	if err != nil {
+	if err != nil || user == nil {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "User not found"})
 	}
 
@@ -287,7 +379,7 @@ func (h *UserHandler) UpdateProfile(c echo.Context) error {
 	// Case 1: Password Change
 	if req.OldPassword != "" {
 		existingUser, err := h.UserRepo.GetUserByID(userID)
-		if err != nil {
+		if err != nil || existingUser == nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "User not found"})
 		}
 		if existingUser.PasswordHash == nil {
@@ -300,9 +392,18 @@ func (h *UserHandler) UpdateProfile(c echo.Context) error {
 		if req.Password != req.PasswordConfirm {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Konfirmasi password tidak cocok"})
 		}
-		hash, _ := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
+		if len(req.Password) < 8 {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Password minimal 8 karakter"})
+		}
+		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal membuat password"})
+		}
 		err = h.UserRepo.UpdatePassword(userID, string(hash))
 		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "User not found"})
+			}
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
 
@@ -317,12 +418,22 @@ func (h *UserHandler) UpdateProfile(c echo.Context) error {
 	}
 
 	// Case 2: Info Update
+	req.Name = strings.TrimSpace(req.Name)
+	req.Phone = strings.TrimSpace(req.Phone)
+	if req.Name == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Nama wajib diisi"})
+	}
+
 	user := models.User{
-		Name:  &req.Name,
-		Phone: &req.Phone,
+		Name:     &req.Name,
+		FullName: &req.Name,
+		Phone:    &req.Phone,
 	}
 	err := h.UserRepo.UpdateUser(userID, user)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "User not found"})
+		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
@@ -334,7 +445,10 @@ func (h *UserHandler) UpdateProfile(c echo.Context) error {
 		Action: "update", Resource: "profile", UserID: &userID, Details: &details, IPAddress: &ip, UserAgent: &ua,
 	})
 
-	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
+	updatedUser, err := h.UserRepo.GetUserByID(userID)
+	if err != nil || updatedUser == nil {
+		return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "user": updatedUser})
 }
-
-

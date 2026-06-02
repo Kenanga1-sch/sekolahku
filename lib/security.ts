@@ -189,16 +189,25 @@ function cleanupOldEntries() {
     });
 }
 
-interface RateLimitOptions {
+export interface RateLimitOptions {
     windowMs?: number;
     maxRequests?: number;
+    // Compatibility aliases
+    limit?: number;
+    windowSeconds?: number;
 }
 
-interface RateLimitResult {
+export interface RateLimitResult {
     allowed: boolean;
     remaining: number;
     resetIn: number;
 }
+
+export const RateLimitPresets = {
+    STRICT: { limit: 10, windowSeconds: 60, maxRequests: 10, windowMs: 60000 },
+    AUTH: { limit: 5, windowSeconds: 900, maxRequests: 5, windowMs: 900000 },
+    STANDARD: { limit: 60, windowSeconds: 60, maxRequests: 60, windowMs: 60000 },
+};
 
 /**
  * Simple client-side rate limiting
@@ -211,7 +220,10 @@ export function checkRateLimit(
     // Cleanup old entries periodically
     cleanupOldEntries();
     
-    const { maxRequests = 10, windowMs = 60000 } = options;
+    // Support both old (limit/windowSeconds) and new (maxRequests/windowMs)
+    const maxRequests = options.maxRequests || options.limit || 10;
+    const windowMs = options.windowMs || (options.windowSeconds ? options.windowSeconds * 1000 : 60000);
+    
     const now = Date.now();
     const timestamps = requestTimestamps.get(key) || [];
 

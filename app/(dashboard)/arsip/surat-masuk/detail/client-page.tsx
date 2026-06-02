@@ -29,8 +29,8 @@ import { goGet, goPost } from "@/lib/api-client";
 
 interface Disposition {
     id: string;
-    fromUser: { fullName: string; role: string };
-    toUser: { fullName: string; role: string };
+    fromUser?: { fullName?: string; name?: string; role?: string };
+    toUser?: { fullName?: string; name?: string; role?: string };
     instruction: string;
     isCompleted: boolean;
     createdAt: string;
@@ -50,7 +50,7 @@ interface SuratMasukDetail {
     classification: { name: string; code: string } | null;
     filePath: string;
     notes: string | null;
-    dispositions: Disposition[];
+    dispositions?: Disposition[];
 }
 
 export default function SuratMasukDetailPage() {
@@ -72,7 +72,8 @@ export default function SuratMasukDetailPage() {
     const loadData = useCallback(async () => {
         try {
             const result: any = await goGet(`/api/arsip/surat-masuk/detail?id=${searchParams.get('id')}`);
-            setData(result);
+            const payload = result.data || result;
+            setData(payload ? { ...payload, dispositions: payload.dispositions || [] } : null);
         } catch (error) {
             console.error(error);
             toast.error("Gagal memuat surat");
@@ -83,8 +84,14 @@ export default function SuratMasukDetailPage() {
 
     const loadUsers = useCallback(async () => {
         try {
-            const result: any = await goGet("/api/users/options");
-            setUserOptions(result);
+            const result: any = await goGet("/api/users?limit=1000");
+            const items = result.items || result.data?.items || result.data || result || [];
+            setUserOptions(Array.isArray(items)
+                ? items.map((user: any) => ({
+                    value: user.id,
+                    label: user.fullName || user.name || user.email || user.id
+                }))
+                : []);
         } catch (error) {
             console.error(error);
         }
@@ -124,6 +131,8 @@ export default function SuratMasukDetailPage() {
 
     if (loading) return <div className="p-8 text-center bg-muted animate-pulse rounded-xl h-96"></div>;
     if (!data) return <div className="p-8 text-center">Data tidak ditemukan</div>;
+
+    const dispositions = data.dispositions || [];
 
     return (
         <div className="h-[calc(100vh-100px)] flex flex-col gap-4">
@@ -260,7 +269,7 @@ export default function SuratMasukDetailPage() {
                                     Riwayat Disposisi
                                 </h3>
                                 
-                                {data.dispositions.length === 0 ? (
+                                {dispositions.length === 0 ? (
                                     <p className="text-sm text-muted-foreground italic">
                                         Belum ada disposisi untuk surat ini.
                                     </p>
@@ -269,16 +278,16 @@ export default function SuratMasukDetailPage() {
                                         {/* History Timeline Line */}
                                         <div className="absolute left-2 top-2 bottom-2 w-0.5 bg-border -z-10" />
 
-                                        {data.dispositions.map((disp) => (
+                                        {dispositions.map((disp) => (
                                             <div key={disp.id} className="bg-card border rounded-lg p-4 ml-4 relative shadow-sm">
                                                 {/* Dot */}
                                                 <div className={`absolute -left-[25px] top-5 w-4 h-4 rounded-full border-2 border-background ${disp.isCompleted ? "bg-green-500" : "bg-orange-500"}`} />
                                                 
                                                 <div className="flex justify-between items-start mb-2">
                                                     <div className="flex items-center gap-2 text-sm">
-                                                        <span className="font-semibold">{disp.fromUser.fullName}</span>
-                                                        <span className="text-muted-foreground text-xs">→</span>
-                                                        <span className="font-semibold text-blue-600">{disp.toUser.fullName}</span>
+                                                        <span className="font-semibold">{disp.fromUser?.fullName || disp.fromUser?.name || "-"}</span>
+                                                        <span className="text-muted-foreground text-xs">-&gt;</span>
+                                                        <span className="font-semibold text-blue-600">{disp.toUser?.fullName || disp.toUser?.name || "-"}</span>
                                                     </div>
                                                     <span className="text-xs text-muted-foreground">{formatDate(disp.createdAt)}</span>
                                                 </div>

@@ -1,96 +1,26 @@
-version: '3.8'
-
-# ==========================================
-# Sekolahku - Low-Spec Server Configuration
-# Target: 4GB RAM, 200 concurrent users
-# ==========================================
-
-networks:
-  sekolahku-network:
-    driver: bridge
-
 services:
-  # ==========================================
-  # Sekolahku Next.js Application
-  # ==========================================
   sekolahku:
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
-        - NEXT_PUBLIC_APP_NAME=${NEXT_PUBLIC_APP_NAME:-Website Sekolah Terpadu}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-}
+        NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-Website Sekolah Terpadu}
     container_name: sekolahku-app
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3000:8181"
     environment:
-      - NODE_ENV=production
-      - NODE_OPTIONS=--max-old-space-size=384
+      PORT: 8181
+      TZ: Asia/Jakarta
     volumes:
-      # Persist database and uploads
       - ./data:/app/data
       - ./public/uploads:/app/public/uploads
-    networks:
-      - sekolahku-network
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '1.5'
-        reservations:
-          memory: 256M
-          cpus: '0.5'
+      - ./uploads:/app/uploads
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8181/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
-
-  # ==========================================
-  # NGINX Reverse Proxy (Optional)
-  # Uncomment if running behind NGINX container
-  # ==========================================
-  # nginx:
-  #   image: nginx:alpine
-  #   container_name: sekolahku-nginx
-  #   restart: unless-stopped
-  #   ports:
-  #     - "80:80"
-  #     - "443:443"
-  #   volumes:
-  #     - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-  #     - ./certbot/conf:/etc/letsencrypt:ro
-  #     - nginx_cache:/var/cache/nginx
-  #   depends_on:
-  #     - sekolahku
-  #   networks:
-  #     - sekolahku-network
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         memory: 64M
-  #       reservations:
-  #         memory: 32M
-
-# volumes:
-#   nginx_cache:
-
-# ==========================================
-# RAM Summary (for 4GB server):
-# ==========================================
-# Component              | Reserved | Limit
-# -----------------------|----------|--------
-# OS + System            | ~800MB   | -
-# Next.js App            | 256MB    | 512MB
-# NGINX (optional)       | 32MB     | 64MB
-# -----------------------|----------|--------
-# Total Used             | ~1.1GB   | ~1.5GB
-# Available Buffer       | ~2.5GB   | -
-# ==========================================
-# This leaves plenty of headroom for:
-# - 200+ concurrent connections
-# - File uploads/processing
-# - Peak load handling
-# ==========================================
+      start_period: 30s

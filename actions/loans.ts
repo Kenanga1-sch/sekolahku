@@ -1,4 +1,10 @@
-import { goGet, goPost } from "@/lib/api-client";
+/**
+ * Loan Actions — communicates with Go backend.
+ * Optimized with handleAction and Caching.
+ */
+
+import { goGet, goPost, CacheTTL } from "@/lib/api-client";
+import { handleAction } from "@/lib/action-utils";
 
 export type CreateLoanParams = {
     borrowerType: "EMPLOYEE" | "SCHOOL" | "EXTERNAL";
@@ -12,43 +18,49 @@ export type CreateLoanParams = {
 };
 
 export async function createLoan(data: CreateLoanParams) {
-    try {
-        const res = await goPost("/api/loans", data);
-        return res;
-    } catch (e) { return { success: false, error: e instanceof Error ? e.message : "Error" }; }
+    return handleAction(goPost("/api/loans", data), "Pengajuan pinjaman berhasil dibuat");
+}
+
+function extractList(data: any) {
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.items)) return data.items;
+    if (Array.isArray(data?.vaults)) return data.vaults;
+    if (Array.isArray(data?.data)) return data.data;
+    if (Array.isArray(data?.data?.items)) return data.data.items;
+    if (Array.isArray(data?.data?.vaults)) return data.data.vaults;
+    if (Array.isArray(data?.data?.data)) return data.data.data;
+    return [];
 }
 
 export async function getLoans(type: "RECEIVABLE" | "PAYABLE") {
-    try {
-        return await goGet(`/api/loans?type=${type}`);
-    } catch (e) { return { success: false, error: e instanceof Error ? e.message : "Error" }; }
+    const backendType = type === "RECEIVABLE" ? "EMPLOYEE" : "PAYABLE";
+    return handleAction(
+        goGet(`/api/loans?type=${backendType}`, { ttl: CacheTTL.SHORT }).then(extractList)
+    );
 }
 
 export async function getVaults() {
-    try {
-        const res: any = await goGet("/api/savings/brankas");
-        return res;
-    } catch (e) { return { success: false, error: e instanceof Error ? e.message : "Error" }; }
+    return handleAction(
+        goGet("/api/savings/brankas", { ttl: CacheTTL.MEDIUM }).then(extractList)
+    );
 }
 
 export async function approveLoan(loanId: string, approvedAmount: number, sourceVaultId: string) {
-    try {
-        const res = await goPost(`/api/loans/${loanId}/approve`, { approvedAmount, sourceVaultId });
-        return res;
-    } catch (e) { return { success: false, error: e instanceof Error ? e.message : "Error" }; }
+    return handleAction(
+        goPost(`/api/loans/${loanId}/approve`, { approvedAmount, sourceVaultId }),
+        "Pinjaman disetujui"
+    );
 }
 
 export async function addPayment(loanId: string, amount: number, notes?: string, targetVaultId?: string) {
-    try {
-        const res = await goPost(`/api/loans/${loanId}/payments`, { amount, notes, targetVaultId });
-        return res;
-    } catch (e) { return { success: false, error: e instanceof Error ? e.message : "Error" }; }
+    return handleAction(
+        goPost(`/api/loans/${loanId}/pay`, { amount, notes, targetVaultId }),
+        "Pembayaran berhasil dicatat"
+    );
 }
 
 export async function getEmployeeOptions() {
-    try {
-        return await goGet("/api/employee/options");
-    } catch (e) { return { success: false, error: e instanceof Error ? e.message : "Error" }; }
+    return handleAction(goGet("/api/master/employees", { ttl: CacheTTL.LONG }));
 }
 
 export async function createLoanRequest(data: any) {
@@ -60,8 +72,8 @@ export async function createLoanRequest(data: any) {
 }
 
 export async function rejectLoan(loanId: string, reason: string) {
-    try {
-        const res = await goPost(`/api/loans/${loanId}/reject`, { reason });
-        return res;
-    } catch (e) { return { success: false, error: e instanceof Error ? e.message : "Error" }; }
+    return handleAction(
+        goPost(`/api/loans/${loanId}/reject`, { reason }),
+        "Pinjaman ditolak"
+    );
 }

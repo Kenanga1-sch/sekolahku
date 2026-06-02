@@ -87,7 +87,7 @@ export default function TambahSiswaPage() {
         toast.success("Peserta didik berhasil ditambahkan");
         router.push("/peserta-didik");
       } else {
-        toast.error(data.error || "Gagal menambahkan peserta didik");
+        toast.error(response.error || "Gagal menambahkan peserta didik");
       }
     } catch {
       toast.error("Terjadi kesalahan");

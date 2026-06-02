@@ -80,9 +80,10 @@ export default function TabunganPenggunaPage() {
                 goGet("/api/academic/classes"),
             ]);
 
-            setKelasList(Array.isArray(kelasRes) ? (kelasRes as any) : []);
-            setBrankasList((brankasRes as any).data && Array.isArray((brankasRes as any).data) ? (brankasRes as any).data : []);
-            setOfficialClasses(Array.isArray(officialClassesRes) ? (officialClassesRes as any) : []);
+            setKelasList(Array.isArray(kelasRes) ? (kelasRes as any) : (kelasRes as any).items || (kelasRes as any).data || []);
+            const vaults = (brankasRes as any).vaults || (brankasRes as any).items || (brankasRes as any).data?.vaults || [];
+            setBrankasList(Array.isArray(vaults) ? vaults : []);
+            setOfficialClasses(Array.isArray(officialClassesRes) ? (officialClassesRes as any) : (officialClassesRes as any).items || (officialClassesRes as any).data || []);
 
             if ((usersRes as any).items) {
                 const allUsers = (usersRes as any).items as SimpleUser[];
@@ -185,7 +186,7 @@ export default function TabunganPenggunaPage() {
                 // but let's hope the API is smart or we just send what we have.
             };
 
-            await goPost("/api/tabungan/brankas", payload);
+            await goPut(`/api/tabungan/brankas/${brankasId}`, payload);
             
             showSuccess("PIC Brankas diperbarui");
             fetchData();

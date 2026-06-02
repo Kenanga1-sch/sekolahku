@@ -196,9 +196,9 @@ export default function KurikulumPage() {
                             <CardContent>
                                 <h4 className="font-semibold mb-4">Fitur Utama:</h4>
                                 <ul className="grid md:grid-cols-2 gap-3">
-                                    {kurikulumData.features.map((feature, index) => (
+                                    {kurikulumData.features.map((feature: any, index: number) => (
                                         <li key={index} className="flex items-start gap-2">
-                                            <span className="text-primary">✓</span>
+                                            <span className="mt-2 h-1.5 w-1.5 rounded-full bg-primary" />
                                             <span>{feature}</span>
                                         </li>
                                     ))}
@@ -212,7 +212,7 @@ export default function KurikulumPage() {
                             </CardHeader>
                             <CardContent>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    {kurikulumData.subjects.map((subject, index) => (
+                                    {kurikulumData.subjects.map((subject: any, index: number) => (
                                         <div
                                             key={index}
                                             className="flex flex-col items-center p-4 rounded-xl bg-muted/50 hover:bg-muted transition-colors"
@@ -231,7 +231,7 @@ export default function KurikulumPage() {
                     {/* Ekstrakurikuler Tab */}
                     <TabsContent value="ekstrakurikuler">
                         <div className="grid md:grid-cols-2 gap-6">
-                            {ekstraData.map((ekstra, index) => (
+                            {ekstraData.map((ekstra: any, index: number) => (
                                 <Card key={index} className="hover:shadow-lg transition-shadow">
                                     <CardHeader>
                                         <div className="flex items-start justify-between">

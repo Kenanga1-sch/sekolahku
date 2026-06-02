@@ -36,6 +36,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { ImportDialog } from "@/components/letters/import-dialog";
+import { goDelete, goGet } from "@/lib/api-client";
 
 export default function TemplateListPage() {
   const router = useRouter();
@@ -50,10 +51,8 @@ export default function TemplateListPage() {
       const params = new URLSearchParams();
       if (search) params.set("q", search);
       
-      const res = await fetch(`/api/letters/templates?${params.toString()}`);
-      if (!res.ok) throw new Error("Failed to fetch");
-      const data = await res.json();
-      setTemplates(data.data);
+      const data: any = await goGet(`/api/eoffice/letter-templates?${params.toString()}`);
+      setTemplates(Array.isArray(data.data) ? data.data : []);
     } catch (error) {
       toast.error("Gagal memuat template surat");
     } finally {
@@ -71,8 +70,7 @@ export default function TemplateListPage() {
   const handleDelete = async (id: string) => {
     if (!confirm("Yakin ingin menghapus template ini?")) return;
     try {
-      const res = await fetch(`/api/letters/templates/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete");
+      await goDelete(`/api/eoffice/letter-templates/${id}`);
       toast.success("Template dihapus");
       fetchTemplates();
     } catch (error) {
@@ -110,7 +108,7 @@ export default function TemplateListPage() {
 
   return (
     <div className="space-y-6">
-      <ImportDialog open={isImportOpen} onOpenChange={setIsImportOpen} />
+      <ImportDialog open={isImportOpen} onOpenChange={setIsImportOpen} onImported={fetchTemplates} />
 
       <div className="flex items-center justify-between">
         <div>

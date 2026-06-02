@@ -16,7 +16,6 @@ import {
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -46,6 +45,19 @@ const formSchema = z.object({
   amount: z.coerce.number().min(1, "Nominal harus lebih dari 0"),
   description: z.string().optional(),
   dateStr: z.string().optional(), // HTML Input Date
+}).superRefine((values, ctx) => {
+  if (values.type === "TRANSFER") {
+    if (!values.accountIdDest) {
+      ctx.addIssue({ code: "custom", path: ["accountIdDest"], message: "Akun tujuan wajib dipilih" });
+    }
+    if (values.accountIdDest && values.accountIdDest === values.accountIdSource) {
+      ctx.addIssue({ code: "custom", path: ["accountIdDest"], message: "Akun tujuan harus berbeda" });
+    }
+    return;
+  }
+  if (!values.categoryId) {
+    ctx.addIssue({ code: "custom", path: ["categoryId"], message: "Kategori wajib dipilih" });
+  }
 });
 
 interface TransactionDialogProps {
@@ -84,6 +96,8 @@ export default function TransactionDialog({ open, onOpenChange, onSuccess, accou
     try {
       const data = {
           ...values,
+          accountIdDest: values.type === "TRANSFER" ? values.accountIdDest : undefined,
+          categoryId: values.type === "TRANSFER" ? undefined : values.categoryId,
           date: values.dateStr ? new Date(values.dateStr) : new Date(),
       };
       
@@ -145,7 +159,7 @@ export default function TransactionDialog({ open, onOpenChange, onSuccess, accou
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{activeTab === "INCOME" ? "Masuk ke Akun" : "Sumber Dana"}</FormLabel>
-                   <Select onValueChange={field.onChange} defaultValue={field.value}>
+                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Pilih Akun..." />
@@ -169,7 +183,7 @@ export default function TransactionDialog({ open, onOpenChange, onSuccess, accou
                 render={({ field }) => (
                     <FormItem>
                     <FormLabel>Ke Akun (Tujuan)</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                         <SelectTrigger>
                             <SelectValue placeholder="Pilih Akun Tujuan..." />
@@ -194,7 +208,7 @@ export default function TransactionDialog({ open, onOpenChange, onSuccess, accou
                 render={({ field }) => (
                     <FormItem>
                     <FormLabel>Kategori / Pos Anggaran</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                         <SelectTrigger>
                             <SelectValue placeholder="Pilih Kategori..." />

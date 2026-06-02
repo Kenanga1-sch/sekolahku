@@ -59,8 +59,9 @@ export default function SuratMasukPage() {
                 perPage: "20"
             });
             const result: any = await goGet(`/api/arsip/surat-masuk?${params}`);
-            setData(result.items);
-            setTotalPages(result.totalPages);
+            const items = result.items || result.data?.items || result.data || [];
+            setData(Array.isArray(items) ? items : []);
+            setTotalPages(result.totalPages || result.data?.totalPages || 1);
         } catch (error) {
             console.error(error);
         } finally {
