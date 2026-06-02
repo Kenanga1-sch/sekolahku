@@ -533,7 +533,7 @@ export default function SPMBAdminPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="font-mono bg-slate-50">
+                        <Badge variant="outline" className="font-mono font-bold bg-blue-100 text-blue-950 border-blue-300 dark:bg-blue-950 dark:text-blue-100 dark:border-blue-700">
                             {r.score ?? 0}
                         </Badge>
                       </TableCell>

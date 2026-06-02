@@ -111,10 +111,10 @@ func (r *SPMBRepository) defaultAcademicYear(startMillis int64) string {
 
 func (r *SPMBRepository) GetPeriods() ([]models.SPMBPeriod, error) {
 	rows, err := r.DB.Query(`
-		SELECT p.id, p.name, p.year, p.academic_year, p.start_date, p.end_date, p.status, p.quota, COUNT(r.id) AS registered
+		SELECT p.id, p.name, p.year, p.academic_year, COALESCE(p.committee_name, ''), p.start_date, p.end_date, p.status, p.quota, COUNT(r.id) AS registered
 		FROM spmb_periods p
 		LEFT JOIN spmb_registrants r ON r.period_id = p.id
-		GROUP BY p.id, p.name, p.year, p.academic_year, p.start_date, p.end_date, p.status, p.quota
+		GROUP BY p.id, p.name, p.year, p.academic_year, p.committee_name, p.start_date, p.end_date, p.status, p.quota
 		ORDER BY p.year DESC, p.created_at DESC
 	`)
 	if err != nil {
@@ -126,7 +126,7 @@ func (r *SPMBRepository) GetPeriods() ([]models.SPMBPeriod, error) {
 	for rows.Next() {
 		var p models.SPMBPeriod
 		var sd, ed sql.NullInt64
-		if err := rows.Scan(&p.ID, &p.Name, &p.Year, &p.AcademicYear, &sd, &ed, &p.Status, &p.Quota, &p.Registered); err != nil {
+		if err := rows.Scan(&p.ID, &p.Name, &p.Year, &p.AcademicYear, &p.CommitteeName, &sd, &ed, &p.Status, &p.Quota, &p.Registered); err != nil {
 			return nil, err
 		}
 		p.StartDate = SafeTime(sd)
@@ -174,6 +174,13 @@ func (r *SPMBRepository) CreatePeriod(req models.CreateSPMBPeriodRequest) (*mode
 	if req.IsActive {
 		status = "active"
 	}
+	committeeName := strings.TrimSpace(req.CommitteeName)
+	if committeeName == "" {
+		committeeName = strings.TrimSpace(req.CommitteeNameSnake)
+	}
+	if committeeName == "" {
+		committeeName = "Panitia SPMB"
+	}
 
 	tx, err := r.DB.Begin()
 	if err != nil {
@@ -188,8 +195,8 @@ func (r *SPMBRepository) CreatePeriod(req models.CreateSPMBPeriodRequest) (*mode
 	}
 
 	now := time.Now().UnixMilli()
-	_, err = tx.Exec(`INSERT INTO spmb_periods (id, name, year, academic_year, start_date, end_date, status, quota, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		id, name, year, academicYear, startMillis, endMillis, status, quota, now, now)
+	_, err = tx.Exec(`INSERT INTO spmb_periods (id, name, year, academic_year, committee_name, start_date, end_date, status, quota, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		id, name, year, academicYear, committeeName, startMillis, endMillis, status, quota, now, now)
 	if err != nil {
 		return nil, err
 	}
@@ -198,24 +205,25 @@ func (r *SPMBRepository) CreatePeriod(req models.CreateSPMBPeriodRequest) (*mode
 	}
 
 	return &models.SPMBPeriod{
-		ID:           id,
-		Name:         name,
-		Year:         year,
-		AcademicYear: academicYear,
-		StartDate:    SafeTime(sql.NullInt64{Int64: startMillis, Valid: true}),
-		EndDate:      SafeTime(sql.NullInt64{Int64: endMillis, Valid: true}),
-		Status:       status,
-		IsActive:     status == "active",
-		Quota:        quota,
+		ID:            id,
+		Name:          name,
+		Year:          year,
+		AcademicYear:  academicYear,
+		CommitteeName: committeeName,
+		StartDate:     SafeTime(sql.NullInt64{Int64: startMillis, Valid: true}),
+		EndDate:       SafeTime(sql.NullInt64{Int64: endMillis, Valid: true}),
+		Status:        status,
+		IsActive:      status == "active",
+		Quota:         quota,
 	}, nil
 }
 
 func (r *SPMBRepository) UpdatePeriod(id string, req models.UpdateSPMBPeriodRequest) error {
-	var name, year, academicYear, status string
+	var name, year, academicYear, committeeName, status string
 	var startMillis, endMillis sql.NullInt64
 	var quota int
-	err := r.DB.QueryRow(`SELECT name, year, academic_year, start_date, end_date, status, quota FROM spmb_periods WHERE id = ?`, id).
-		Scan(&name, &year, &academicYear, &startMillis, &endMillis, &status, &quota)
+	err := r.DB.QueryRow(`SELECT name, year, academic_year, COALESCE(committee_name, ''), start_date, end_date, status, quota FROM spmb_periods WHERE id = ?`, id).
+		Scan(&name, &year, &academicYear, &committeeName, &startMillis, &endMillis, &status, &quota)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("periode tidak ditemukan")
@@ -237,6 +245,15 @@ func (r *SPMBRepository) UpdatePeriod(id string, req models.UpdateSPMBPeriodRequ
 	}
 	if req.AcademicYearCamel != nil && strings.TrimSpace(*req.AcademicYearCamel) != "" {
 		academicYear = strings.TrimSpace(*req.AcademicYearCamel)
+	}
+	if req.CommitteeName != nil {
+		committeeName = strings.TrimSpace(*req.CommitteeName)
+	}
+	if req.CommitteeNameSnake != nil {
+		committeeName = strings.TrimSpace(*req.CommitteeNameSnake)
+	}
+	if committeeName == "" {
+		committeeName = "Panitia SPMB"
 	}
 	if req.StartDate != nil {
 		parsed, err := parseSPMBDateMillis(*req.StartDate)
@@ -293,8 +310,8 @@ func (r *SPMBRepository) UpdatePeriod(id string, req models.UpdateSPMBPeriodRequ
 			return err
 		}
 	}
-	_, err = tx.Exec(`UPDATE spmb_periods SET name = ?, year = ?, academic_year = ?, start_date = ?, end_date = ?, status = ?, quota = ?, updated_at = ? WHERE id = ?`,
-		name, year, academicYear, startMillis.Int64, endMillis.Int64, status, quota, now, id)
+	_, err = tx.Exec(`UPDATE spmb_periods SET name = ?, year = ?, academic_year = ?, committee_name = ?, start_date = ?, end_date = ?, status = ?, quota = ?, updated_at = ? WHERE id = ?`,
+		name, year, academicYear, committeeName, startMillis.Int64, endMillis.Int64, status, quota, now, id)
 	if err != nil {
 		return err
 	}
@@ -317,14 +334,14 @@ func (r *SPMBRepository) GetActivePeriod() (*models.SPMBPeriod, error) {
 	var p models.SPMBPeriod
 	var sd, ed sql.NullInt64
 	err := r.DB.QueryRow(`
-		SELECT p.id, p.name, p.year, p.academic_year, p.start_date, p.end_date, p.status, p.quota, COUNT(r.id) AS registered
+		SELECT p.id, p.name, p.year, p.academic_year, COALESCE(p.committee_name, ''), p.start_date, p.end_date, p.status, p.quota, COUNT(r.id) AS registered
 		FROM spmb_periods p
 		LEFT JOIN spmb_registrants r ON r.period_id = p.id
 		WHERE p.status = 'active'
-		GROUP BY p.id, p.name, p.year, p.academic_year, p.start_date, p.end_date, p.status, p.quota
+		GROUP BY p.id, p.name, p.year, p.academic_year, p.committee_name, p.start_date, p.end_date, p.status, p.quota
 		LIMIT 1
 	`).
-		Scan(&p.ID, &p.Name, &p.Year, &p.AcademicYear, &sd, &ed, &p.Status, &p.Quota, &p.Registered)
+		Scan(&p.ID, &p.Name, &p.Year, &p.AcademicYear, &p.CommitteeName, &sd, &ed, &p.Status, &p.Quota, &p.Registered)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil

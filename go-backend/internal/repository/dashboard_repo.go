@@ -111,14 +111,14 @@ func (r *DashboardRepository) GetDashboardStats() (*models.DashboardStats, error
 
 	// 7. Active Period
 	activePeriodQuery := `
-		SELECT id, name, academic_year, start_date, end_date, quota, status
+		SELECT id, name, academic_year, COALESCE(committee_name, ''), start_date, end_date, quota, status
 		FROM spmb_periods
 		WHERE status = 'active'
 		LIMIT 1
 	`
 	var p models.SPMBPeriod
 	var sd, ed sql.NullInt64
-	err = r.DB.QueryRow(activePeriodQuery).Scan(&p.ID, &p.Name, &p.AcademicYear, &sd, &ed, &p.Quota, &p.Status)
+	err = r.DB.QueryRow(activePeriodQuery).Scan(&p.ID, &p.Name, &p.AcademicYear, &p.CommitteeName, &sd, &ed, &p.Quota, &p.Status)
 	if err == nil {
 		p.StartDate = SafeTime(sd)
 		p.EndDate = SafeTime(ed)

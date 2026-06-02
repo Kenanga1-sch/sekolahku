@@ -50,6 +50,7 @@ interface Period {
   id: string;
   name: string;
   academicYear?: string;
+  committeeName?: string;
   startDate: string;
   endDate: string;
   status?: string;
@@ -67,6 +68,7 @@ function normalizePeriod(item: any): Period {
     id: item.id,
     name: item.name || "-",
     academicYear: item.academicYear || item.academic_year,
+    committeeName: item.committeeName || item.committee_name || "",
     startDate: item.startDate,
     endDate: item.endDate,
     status: item.status,
@@ -86,6 +88,7 @@ export default function SPMBPeriodsPage() {
 
   const [formData, setFormData] = useState({
     name: "",
+    committeeName: "",
     startDate: "",
     endDate: "",
     quota: "",
@@ -160,6 +163,7 @@ export default function SPMBPeriodsPage() {
 
       const payload = {
         name: formData.name.trim(),
+        committeeName: formData.committeeName.trim(),
         startDate: formData.startDate,
         endDate: formData.endDate,
         quota: parseInt(formData.quota) || 100,
@@ -187,6 +191,7 @@ export default function SPMBPeriodsPage() {
     setEditingId(item.id);
     setFormData({
       name: item.name,
+      committeeName: item.committeeName || "",
       startDate: item.startDate ? new Date(item.startDate).toISOString().split("T")[0] : "",
       endDate: item.endDate ? new Date(item.endDate).toISOString().split("T")[0] : "",
       quota: (item.quota || 100).toString(),
@@ -222,7 +227,7 @@ export default function SPMBPeriodsPage() {
   };
 
   const resetForm = () => {
-    setFormData({ name: "", startDate: "", endDate: "", quota: "", isActive: false });
+    setFormData({ name: "", committeeName: "", startDate: "", endDate: "", quota: "", isActive: false });
     setEditingId(null);
     setIsDialogOpen(false);
   };
@@ -265,6 +270,18 @@ export default function SPMBPeriodsPage() {
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="committeeName">Panitia SPMB</Label>
+                  <Input
+                    id="committeeName"
+                    placeholder="contoh: Tim Panitia SPMB UPTD SDN 1 Kenanga"
+                    value={formData.committeeName}
+                    onChange={(e) => setFormData({ ...formData, committeeName: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Nama ini akan tampil pada tanda bukti pendaftaran.
+                  </p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -394,7 +411,7 @@ export default function SPMBPeriodsPage() {
             <CardDescription>{activePeriod.name}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground">Mulai</p>
                 <p className="font-medium">
@@ -418,6 +435,10 @@ export default function SPMBPeriodsPage() {
               <div>
                 <p className="text-sm text-muted-foreground">Terdaftar</p>
                 <p className="font-medium">{activePeriod.registered || 0} siswa</p>
+              </div>
+              <div className="col-span-2 md:col-span-1">
+                <p className="text-sm text-muted-foreground">Panitia</p>
+                <p className="font-medium">{activePeriod.committeeName || "Panitia SPMB"}</p>
               </div>
             </div>
             <div className="mt-4">
@@ -487,6 +508,7 @@ export default function SPMBPeriodsPage() {
                       {period.academicYear && (
                         <div className="text-xs text-muted-foreground">Tahun ajaran {period.academicYear}</div>
                       )}
+                      <div className="text-xs text-muted-foreground">Panitia: {period.committeeName || "Panitia SPMB"}</div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {period.startDate ? new Date(period.startDate).toLocaleDateString("id-ID", { day: "numeric", month: "short" }) : "-"} - {period.endDate ? new Date(period.endDate).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) : "-"}

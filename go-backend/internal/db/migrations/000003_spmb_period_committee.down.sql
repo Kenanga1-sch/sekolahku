@@ -1,0 +1,1 @@
+-- SQLite down migration intentionally left empty.

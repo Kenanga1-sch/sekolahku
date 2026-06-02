@@ -74,6 +74,7 @@ func main() {
 		// spmb
 		{Table: "spmb_periods", Name: "year", SQLType: "TEXT", Default: "'2026'"},
 		{Table: "spmb_periods", Name: "academic_year", SQLType: "TEXT", Default: "'2026/2027'"},
+		{Table: "spmb_periods", Name: "committee_name", SQLType: "TEXT"},
 		{Table: "spmb_periods", Name: "status", SQLType: "TEXT", Default: "'draft'"},
 		{Table: "spmb_periods", Name: "quota", SQLType: "INTEGER", Default: "100"},
 		{Table: "spmb_periods", Name: "updated_at", SQLType: "INTEGER"},

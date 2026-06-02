@@ -861,6 +861,7 @@ func RepairDatabase(db *sql.DB, logger echo.Logger) {
 		// spmb
 		{Table: "spmb_periods", Name: "year", SQLType: "TEXT", Default: fmt.Sprintf("'%d'", time.Now().Year())},
 		{Table: "spmb_periods", Name: "academic_year", SQLType: "TEXT", Default: fmt.Sprintf("'%d/%d'", time.Now().Year(), time.Now().Year()+1)},
+		{Table: "spmb_periods", Name: "committee_name", SQLType: "TEXT"},
 		{Table: "spmb_periods", Name: "status", SQLType: "TEXT", Default: "'draft'"},
 		{Table: "spmb_periods", Name: "quota", SQLType: "INTEGER", Default: "100"},
 		{Table: "spmb_periods", Name: "updated_at", SQLType: "INTEGER"},

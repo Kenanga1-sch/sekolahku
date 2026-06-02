@@ -43,6 +43,7 @@ function ProofContent() {
   const id = searchParams.get("id");
   const [registrant, setRegistrant] = useState<any>(null);
   const [settings, setSettings] = useState<any>(null);
+  const [activePeriod, setActivePeriod] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -69,8 +70,14 @@ function ProofContent() {
 
     fetch("/api/public/spmb/landing")
       .then(res => res.ok ? res.json() : null)
-      .then(json => setSettings(json?.settings ?? null))
-      .catch(() => setSettings(null));
+      .then(json => {
+        setSettings(json?.settings ?? null);
+        setActivePeriod(json?.period ?? json?.activePeriod ?? null);
+      })
+      .catch(() => {
+        setSettings(null);
+        setActivePeriod(null);
+      });
   }, [id]);
 
   if (isLoading) {
@@ -91,7 +98,7 @@ function ProofContent() {
   const photoDoc = documents.find((doc) => doc.type === "pas_foto");
   const photoUrl = photoDoc?.path ? absoluteUrl(photoDoc.path) : "";
   const verificationUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/spmb/verify/detail?id=${registrant.registrationNumber}`;
-  const committeeName = settings?.principal_name || "Panitia SPMB";
+  const committeeName = activePeriod?.committeeName || activePeriod?.committee_name || "Panitia SPMB";
   const schoolName = settings?.school_name || "UPTD SDN 1 KENANGA";
   const schoolNPSN = settings?.school_npsn || "20216609";
   const schoolAddress = settings?.school_address || "Jl. Perindustrian Blok Dukuh Desa Kenanga Kec. Sindang Kab. Indramayu 45226";
@@ -119,7 +126,7 @@ function ProofContent() {
         </div>
         
         {/* Printable Card */}
-        <div className="bg-white p-8 md:px-12 shadow-xl print:shadow-none print:border-none rounded-xl min-h-[297mm] relative">
+        <div className="bg-white text-slate-950 p-8 md:px-12 shadow-xl print:shadow-none print:border-none rounded-xl min-h-[297mm] relative">
              {/* Header Kop Surat */}
             <div className="relative pb-4 mb-2">
                 <div className="flex items-center justify-center relative min-h-[100px]">
@@ -170,7 +177,7 @@ function ProofContent() {
 
                 {registrant.status === "accepted" && (
                      <div className="mb-8 px-4">
-                        <div className="bg-blue-50 border border-blue-100 p-6 rounded-lg text-justify leading-relaxed">
+                        <div className="bg-blue-50 border border-blue-200 p-6 rounded-lg text-justify leading-relaxed text-slate-950">
                             <p className="mb-4">
                                 Berdasarkan hasil seleksi administrasi dan akademik Penerimaan Peserta Didik Baru (PPDB) Tahun Pelajaran {new Date().getFullYear()}/{new Date().getFullYear() + 1}, Kepala Sekolah UPTD SDN 1 Kenanga dengan ini memutuskan bahwa:
                             </p>
@@ -188,27 +195,27 @@ function ProofContent() {
                                  <table className="w-full text-[11pt]">
                                      <tbody>
                                          <tr className="border-b border-gray-100 last:border-0">
-                                             <td className="py-2 w-[160px] text-gray-600 font-medium">No. Pendaftaran</td>
+                                             <td className="py-2 w-[160px] text-slate-700 font-medium">No. Pendaftaran</td>
                                              <td className="py-2 font-bold font-mono text-lg text-blue-900">: {registrant.registrationNumber}</td>
                                          </tr>
                                          <tr className="border-b border-gray-100 last:border-0">
-                                             <td className="py-2 text-gray-600 font-medium">Nama Lengkap</td>
+                                             <td className="py-2 text-slate-700 font-medium">Nama Lengkap</td>
                                              <td className="py-2 font-bold uppercase">: {registrant.fullName}</td>
                                          </tr>
                                          <tr className="border-b border-gray-100 last:border-0">
-                                             <td className="py-2 text-gray-600 font-medium">NIK</td>
+                                             <td className="py-2 text-slate-700 font-medium">NIK</td>
                                              <td className="py-2 font-medium">: {registrant.studentNik}</td>
                                          </tr>
                                          <tr className="border-b border-gray-100 last:border-0">
-                                             <td className="py-2 text-gray-600 font-medium">Tempat, Tanggal Lahir</td>
+                                             <td className="py-2 text-slate-700 font-medium">Tempat, Tanggal Lahir</td>
                                              <td className="py-2">: {registrant.birthPlace}, {format(birthDate, "dd MMMM yyyy", { locale: idLocale })}</td>
                                          </tr>
                                          <tr className="border-b border-gray-100 last:border-0">
-                                             <td className="py-2 text-gray-600 font-medium">Jenis Kelamin</td>
+                                             <td className="py-2 text-slate-700 font-medium">Jenis Kelamin</td>
                                              <td className="py-2">: {registrant.gender === "L" ? "Laki-laki" : "Perempuan"}</td>
                                          </tr>
                                          <tr className="border-b border-gray-100 last:border-0">
-                                             <td className="py-2 text-gray-600 font-medium">Sekolah Asal</td>
+                                             <td className="py-2 text-slate-700 font-medium">Sekolah Asal</td>
                                              <td className="py-2">: {registrant.previousSchool || "-"}</td>
                                          </tr>
                                      </tbody>
@@ -224,11 +231,11 @@ function ProofContent() {
                                  <table className="w-full text-[11pt]">
                                      <tbody>
                                         <tr className="align-top">
-                                             <td className="py-1 w-[160px] text-gray-600 font-medium">Alamat Lengkap</td>
+                                             <td className="py-1 w-[160px] text-slate-700 font-medium">Alamat Lengkap</td>
                                              <td className="py-1 text-justify leading-relaxed">: {fullAddress || "-"}</td>
                                          </tr>
                                          <tr className="align-top">
-                                             <td className="py-1 text-gray-600 font-medium">Jarak ke Sekolah</td>
+                                             <td className="py-1 text-slate-700 font-medium">Jarak ke Sekolah</td>
                                              <td className="py-1">: {registrant.distanceToSchool ? `${Number(registrant.distanceToSchool).toFixed(2)} km` : '-'}</td>
                                          </tr>
                                      </tbody>
@@ -238,9 +245,9 @@ function ProofContent() {
                     </div>
 
                     <div className="w-[5cm] shrink-0">
-                        <div className="border border-gray-300 rounded-sm p-4 flex flex-col items-center gap-6 bg-gray-50/50 h-full">
+                        <div className="border border-gray-300 rounded-sm p-4 flex flex-col items-center gap-6 bg-gray-50/50 h-full text-slate-950">
                             <div className="text-center space-y-2">
-                                <div className="relative w-[3cm] h-[4cm] bg-white border border-gray-300 mx-auto flex flex-col items-center justify-center overflow-hidden text-gray-400">
+                                <div className="relative w-[3cm] h-[4cm] bg-white border border-gray-300 mx-auto flex flex-col items-center justify-center overflow-hidden text-slate-500">
                                     {photoUrl ? (
                                       <Image
                                         src={photoUrl}
@@ -253,7 +260,7 @@ function ProofContent() {
                                       <span className="text-[10px] font-bold">FOTO 3x4</span>
                                     )}
                                 </div>
-                                {!photoUrl && <p className="text-[9px] text-gray-500 italic">Tempel pas foto terbaru<br/>di sini</p>}
+                                {!photoUrl && <p className="text-[9px] text-slate-600 italic">Tempel pas foto terbaru<br/>di sini</p>}
                             </div>
 
                             <div className="w-full border-b border-gray-200"></div>
@@ -268,7 +275,7 @@ function ProofContent() {
                                       />
                                 </div>
                                 <div className="text-[9px] font-mono font-bold text-blue-900">{registrant.registrationNumber}</div>
-                                <p className="text-[9px] text-gray-500">Scan untuk validasi data</p>
+                                <p className="text-[9px] text-slate-600">Scan untuk validasi data</p>
                             </div>
                         </div>
                     </div>
@@ -279,13 +286,13 @@ function ProofContent() {
                         <p className="text-lg font-bold">
                              Dinyatakan: <span className="text-xl uppercase border-b-2 border-green-600 text-green-700">DITERIMA / LULUS SELEKSI</span>
                         </p>
-                        <p className="mt-2 text-sm italic text-gray-600">
+                        <p className="mt-2 text-sm italic text-slate-700">
                             Sebagai Peserta Didik Baru Kelas 1 di UPTD SDN 1 Kenanga.
                         </p>
                     </div>
                 )}
 
-                <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg text-sm text-blue-900 mb-8">
+                <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg text-sm text-blue-950 mb-8">
                      <p><strong>Catatan Penting:</strong></p>
                      <ul className="list-disc ml-5 space-y-1 mt-1 text-xs">
                          <li>Bukti pendaftaran ini harap dibawa saat melakukan verifikasi ulang di sekolah.</li>
@@ -295,21 +302,18 @@ function ProofContent() {
                 </div>
 
                 <div className="flex justify-between items-end mt-12 px-8">
-                    <div className="text-center text-xs text-gray-400">
+                    <div className="text-center text-xs text-slate-500">
                          Doc ID: {String(registrant.id).split('-')[0]}<br/>
                          Printed: {format(new Date(), "dd/MM/yyyy HH:mm")}
                     </div>
                     <div className="text-center w-64">
                         <p className="mb-2 text-[11pt]">Indramayu, {format(createdAt, "dd MMMM yyyy", { locale: idLocale })}</p>
-                        <p className="text-[10pt] font-semibold text-gray-600">Panitia SPMB,</p>
+                        <p className="text-[10pt] font-semibold text-slate-700">Panitia SPMB,</p>
                         <div className="h-20"></div> 
                         <div className="border-b border-black w-48 mx-auto mb-1"></div>
                         <p className="text-[10pt] font-bold">
-                            {registrant.status === "accepted" && settings?.principal_name ? settings.principal_name : committeeName}
+                            {committeeName}
                         </p>
-                        {registrant.status === "accepted" && settings?.principal_nip && (
-                          <p className="text-[9pt]">NIP. {settings.principal_nip}</p>
-                        )}
                     </div>
                 </div>
             </div>

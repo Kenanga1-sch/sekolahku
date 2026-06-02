@@ -110,11 +110,11 @@ func (r *PublicRepository) GetHomepageData() (*models.PublicHomepageData, error)
 	var p models.SPMBPeriod
 	var sd, ed sql.NullInt64
 	err = r.DB.QueryRow(`
-		SELECT id, name, academic_year, start_date, end_date, quota, status
+		SELECT id, name, academic_year, COALESCE(committee_name, ''), start_date, end_date, quota, status
 		FROM spmb_periods
 		WHERE status = 'active'
 		LIMIT 1
-	`).Scan(&p.ID, &p.Name, &p.AcademicYear, &sd, &ed, &p.Quota, &p.Status)
+	`).Scan(&p.ID, &p.Name, &p.AcademicYear, &p.CommitteeName, &sd, &ed, &p.Quota, &p.Status)
 	if err == nil {
 		p.StartDate = SafeTime(sd)
 		p.EndDate = SafeTime(ed)

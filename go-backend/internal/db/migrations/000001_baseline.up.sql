@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS spmb_periods (
     name TEXT NOT NULL,
     year INTEGER NOT NULL,
     academic_year TEXT NOT NULL,
+    committee_name TEXT,
     start_date INTEGER,
     end_date INTEGER,
     status TEXT DEFAULT 'draft',

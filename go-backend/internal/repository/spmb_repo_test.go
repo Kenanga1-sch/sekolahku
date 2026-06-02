@@ -38,6 +38,7 @@ func setupSPMBTestDB(t *testing.T) *sql.DB {
 			name TEXT NOT NULL,
 			year TEXT,
 			academic_year TEXT,
+			committee_name TEXT,
 			start_date INTEGER,
 			end_date INTEGER,
 			status TEXT DEFAULT 'draft',

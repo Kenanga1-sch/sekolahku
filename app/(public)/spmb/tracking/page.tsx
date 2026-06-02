@@ -44,7 +44,11 @@ function TrackingContent() {
     try {
       const res = await fetch(`/api/public/spmb/registrants/${searchId}`);
       if (!res.ok) throw new Error("Nomor pendaftaran tidak ditemukan");
-      const data = await res.json();
+      const payload = await res.json();
+      const data = payload?.data ?? payload;
+      if (!data?.registrationNumber) {
+        throw new Error("Data pendaftaran tidak lengkap");
+      }
       setRegistrant(data);
     } catch (err: any) {
       setError(err.message);
@@ -91,7 +95,7 @@ function TrackingContent() {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
-                  placeholder="Contoh: REG-2024-0001" 
+                  placeholder="Contoh: SPMB-2026-0001" 
                   className="pl-10 h-12"
                   value={searchId}
                   onChange={(e) => setSearchId(e.target.value.toUpperCase())}
@@ -128,7 +132,7 @@ function TrackingContent() {
                         </div>
                      </div>
                      <Link 
-                        href={`/spmb/bukti/detail?id=${registrant.registrationNumber}`}
+                        href={`/spmb/bukti/detail?id=${encodeURIComponent(registrant.registrationNumber)}`}
                         className={cn(buttonVariants({ variant: "outline" }), "group")}
                      >
                         Lihat Bukti Pendaftaran

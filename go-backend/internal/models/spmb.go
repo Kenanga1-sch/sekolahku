@@ -5,17 +5,18 @@ import (
 )
 
 type SPMBPeriod struct {
-	ID           string     `json:"id"`
-	Year         string     `json:"year"` // Formally school_year or year
-	AcademicYear string     `json:"academic_year"`
-	Name         string     `json:"name"`
-	StartDate    *time.Time `json:"startDate"`
-	EndDate      *time.Time `json:"endDate"`
-	Status       string     `json:"status"` // active, archived, draft
-	IsActive     bool       `json:"isActive"`
-	Quota        int        `json:"quota"`
-	Registered   int        `json:"registered"`
-	CreatedAt    *time.Time `json:"createdAt"`
+	ID            string     `json:"id"`
+	Year          string     `json:"year"` // Formally school_year or year
+	AcademicYear  string     `json:"academic_year"`
+	Name          string     `json:"name"`
+	CommitteeName string     `json:"committeeName"`
+	StartDate     *time.Time `json:"startDate"`
+	EndDate       *time.Time `json:"endDate"`
+	Status        string     `json:"status"` // active, archived, draft
+	IsActive      bool       `json:"isActive"`
+	Quota         int        `json:"quota"`
+	Registered    int        `json:"registered"`
+	CreatedAt     *time.Time `json:"createdAt"`
 }
 
 type SPMBRegistrant struct {
@@ -112,27 +113,31 @@ type PublicLandingData struct {
 }
 
 type CreateSPMBPeriodRequest struct {
-	Year              string `json:"year"`
-	AcademicYear      string `json:"academic_year"`
-	AcademicYearCamel string `json:"academicYear"`
-	Name              string `json:"name"`
-	StartDate         string `json:"startDate"`
-	EndDate           string `json:"endDate"`
-	Status            string `json:"status"`
-	IsActive          bool   `json:"isActive"`
-	Quota             int    `json:"quota"`
+	Year               string `json:"year"`
+	AcademicYear       string `json:"academic_year"`
+	AcademicYearCamel  string `json:"academicYear"`
+	Name               string `json:"name"`
+	CommitteeName      string `json:"committeeName"`
+	CommitteeNameSnake string `json:"committee_name"`
+	StartDate          string `json:"startDate"`
+	EndDate            string `json:"endDate"`
+	Status             string `json:"status"`
+	IsActive           bool   `json:"isActive"`
+	Quota              int    `json:"quota"`
 }
 
 type UpdateSPMBPeriodRequest struct {
-	Year              *string `json:"year"`
-	AcademicYear      *string `json:"academic_year"`
-	AcademicYearCamel *string `json:"academicYear"`
-	Name              *string `json:"name"`
-	StartDate         *string `json:"startDate"`
-	EndDate           *string `json:"endDate"`
-	Status            *string `json:"status"`
-	IsActive          *bool   `json:"isActive"`
-	Quota             *int    `json:"quota"`
+	Year               *string `json:"year"`
+	AcademicYear       *string `json:"academic_year"`
+	AcademicYearCamel  *string `json:"academicYear"`
+	Name               *string `json:"name"`
+	CommitteeName      *string `json:"committeeName"`
+	CommitteeNameSnake *string `json:"committee_name"`
+	StartDate          *string `json:"startDate"`
+	EndDate            *string `json:"endDate"`
+	Status             *string `json:"status"`
+	IsActive           *bool   `json:"isActive"`
+	Quota              *int    `json:"quota"`
 }
 
 type SPMBPromoteRequest struct {
