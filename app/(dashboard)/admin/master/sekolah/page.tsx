@@ -324,10 +324,10 @@ export default function SchoolProfilePage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <MapPin className="h-5 w-5" />
-              Lokasi & Zonasi
+              Lokasi & Domisili
             </CardTitle>
             <CardDescription>
-              Koordinat sekolah dan radius zonasi SPMB
+              Koordinat sekolah dan wilayah penerimaan domisili SPMB
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -358,7 +358,7 @@ export default function SchoolProfilePage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="max_distance_km">Radius Zonasi (km)</Label>
+              <Label htmlFor="max_distance_km">Wilayah Penerimaan Domisili (km)</Label>
               <Input
                 id="max_distance_km"
                 type="number"

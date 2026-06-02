@@ -119,7 +119,7 @@ export default function SPMBPage() {
               Penerimaan Siswa Baru
             </h1>
             <p className="mx-auto max-w-2xl text-lg leading-relaxed text-muted-foreground md:text-xl">
-              Bergabunglah bersama keluarga besar {schoolName}. Sistem Penerimaan Murid Baru (SPMB) dengan fitur zonasi terintegrasi untuk kemudahan dan transparansi.
+              Bergabunglah bersama keluarga besar {schoolName}. Sistem Penerimaan Murid Baru (SPMB) Jalur Domisili dikelola transparan sesuai wilayah penerimaan yang ditetapkan.
             </p>
             
             <div className="flex flex-wrap items-center justify-center gap-4 pt-8">
@@ -208,30 +208,30 @@ export default function SPMBPage() {
         </div>
       </section>
 
-      {/* Zonasi Info */}
+      {/* Domisili Info */}
       <section className="py-20 bg-muted/30">
         <div className="container">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div className="space-y-6">
               <Badge variant="outline" className="gap-1 border-primary/20 bg-primary/5 text-primary">
                 <MapPin className="h-3 w-3" />
-                Sistem Zonasi
+                Jalur Domisili
               </Badge>
-              <h2 className="text-4xl font-bold tracking-tight">Prioritas Berdasarkan Jarak</h2>
+              <h2 className="text-4xl font-bold tracking-tight">Prioritas Berdasarkan Usia dan Domisili</h2>
               <p className="text-lg text-muted-foreground leading-relaxed">
-                Sesuai kebijakan pendidikan, kami menerapkan sistem zonasi dengan
-                prioritas penerimaan berdasarkan jarak rumah ke sekolah. Pastikan alamat Anda terdeteksi dengan akurat saat mendaftar.
+                Sesuai aturan SPMB, seleksi kelas 1 SD pada Jalur Domisili mengutamakan usia calon murid, lalu jarak tempat tinggal terdekat ke sekolah jika kuota terlampaui.
+                Pastikan alamat dan titik domisili terisi akurat saat mendaftar.
               </p>
               <Alert className="bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">
                 <MapPin className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 <AlertDescription className="text-blue-800 dark:text-blue-300">
-                  <strong>Radius Zonasi Utama: {maxDistance} KM</strong>
+                  <strong>Wilayah Penerimaan Domisili: {maxDistance} KM</strong>
                   <br />
-                  Calon siswa yang berdomisili dalam radius {maxDistance} km dari sekolah akan mendapatkan prioritas utama dalam seleksi penerimaan.
+                  Jarak digunakan untuk membantu pemetaan wilayah penerimaan dan menjadi prioritas setelah usia jika jumlah pendaftar melebihi kuota.
                 </AlertDescription>
               </Alert>
               <p className="text-sm text-muted-foreground">
-                * Pendaftaran dari luar zona tetap diterima jika kuota masih tersedia, dengan prioritas setelah pendaftar dalam zona.
+                * Pendaftar usia 7 tahun ke atas diprioritaskan. Usia paling rendah 6 tahun dapat mendaftar; usia 5 tahun 6 bulan hanya dapat dipertimbangkan dengan rekomendasi khusus sesuai ketentuan.
               </p>
             </div>
             <Card className="overflow-hidden border-0 shadow-2xl rounded-2xl ring-1 ring-black/5">

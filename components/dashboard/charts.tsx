@@ -163,7 +163,7 @@ export function ZoneDistributionChart({ data }: ZoneDistributionProps) {
     return (
         <Card>
             <CardHeader>
-                <CardTitle className="text-lg">Statistik Zonasi</CardTitle>
+                <CardTitle className="text-lg">Statistik Domisili</CardTitle>
                 <CardDescription>Perbandingan pendaftar dalam dan luar zona per minggu</CardDescription>
             </CardHeader>
             <CardContent>
@@ -192,13 +192,13 @@ export function ZoneDistributionChart({ data }: ZoneDistributionProps) {
                             <Legend />
                             <Bar
                                 dataKey="inZone"
-                                name="Dalam Zona"
+                                name="Dalam Wilayah"
                                 fill={COLORS.success}
                                 radius={[4, 4, 0, 0]}
                             />
                             <Bar
                                 dataKey="outZone"
-                                name="Luar Zona"
+                                name="Luar Wilayah"
                                 fill={COLORS.secondary}
                                 radius={[4, 4, 0, 0]}
                             />

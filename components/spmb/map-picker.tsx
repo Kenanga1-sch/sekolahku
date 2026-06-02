@@ -320,7 +320,7 @@ export default function MapPicker({
                     <div className="text-center">
                     <strong>🏫 Lokasi Sekolah</strong>
                     <p className="text-xs text-muted-foreground mt-1">
-                        Radius zonasi: {maxDistanceKm} km
+                        Wilayah penerimaan: {maxDistanceKm} km
                     </p>
                     </div>
                 </Popup>
@@ -380,9 +380,9 @@ export default function MapPicker({
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            <strong>Peringatan:</strong> Lokasi rumah Anda berada di luar zona prioritas
-            ({maxDistanceKm} km). Pendaftaran tetap dapat dilanjutkan, namun prioritas
-            penerimaan akan lebih rendah.
+            <strong>Peringatan:</strong> Lokasi rumah Anda berada di luar wilayah
+            penerimaan domisili ({maxDistanceKm} km). Pendaftaran tetap dapat
+            dilanjutkan, namun prioritas Jalur Domisili akan lebih rendah.
           </AlertDescription>
         </Alert>
       )}
@@ -391,8 +391,8 @@ export default function MapPicker({
         <Alert className="border-green-200 bg-green-50">
           <CheckCircle className="h-4 w-4 text-green-600" />
           <AlertDescription className="text-green-800">
-            <strong>Dalam Zona:</strong> Lokasi rumah Anda berada dalam radius zonasi.
-            Anda mendapat prioritas dalam proses seleksi.
+            <strong>Dalam Wilayah Domisili:</strong> Lokasi rumah Anda berada dalam
+            wilayah penerimaan yang dikonfigurasi sekolah.
           </AlertDescription>
         </Alert>
       )}

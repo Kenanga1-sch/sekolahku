@@ -43,7 +43,7 @@ const DEFAULT_TIMELINE = [
   {
     year: "2024",
     title: "Era Baru",
-    description: "Peluncuran website sekolah terpadu dengan sistem SPMB online dan zonasi digital.",
+    description: "Peluncuran website sekolah terpadu dengan sistem SPMB online Jalur Domisili.",
   },
 ];
 

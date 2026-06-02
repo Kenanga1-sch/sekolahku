@@ -175,7 +175,7 @@ export function HomeClient({ settings, news, activePeriod, studentCount }: HomeC
                 Bergabunglah Menjadi Bagian dari Keluarga Besar Kami
               </h2>
               <p className="text-zinc-600 dark:text-zinc-400 text-lg leading-relaxed">
-                Proses pendaftaran mudah dan transparan dengan sistem zonasi digital.
+                Proses pendaftaran mudah dan transparan melalui SPMB Jalur Domisili.
                 Pantau status pendaftaran secara real-time.
               </p>
 

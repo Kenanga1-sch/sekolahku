@@ -235,8 +235,8 @@ export default function RegistrantDetailPage() {
         }
     };
 
-    // Calculate real-time zone status
-    const isActuallyInZone = registrant ? (registrant.distanceToSchool || 0) <= maxDistance : false;
+    // Calculate real-time domisili reception area status
+    const isInReceptionArea = registrant ? (registrant.distanceToSchool || 0) <= maxDistance : false;
 
     if (isLoading) {
         return (
@@ -379,8 +379,8 @@ export default function RegistrantDetailPage() {
                                     <p className="text-sm text-muted-foreground">Jarak ke Sekolah</p>
                                     <div className="flex items-center gap-2">
                                         <span className="font-bold text-lg">{registrant.distanceToSchool?.toFixed(2) || "0.00"} km</span>
-                                        <Badge className={isActuallyInZone ? "bg-green-100 text-green-700 hover:bg-green-100" : "bg-amber-100 text-amber-700 hover:bg-amber-100"}>
-                                            {isActuallyInZone ? "Dalam Zonasi" : "Luar Zonasi"}
+                                        <Badge className={isInReceptionArea ? "bg-green-100 text-green-700 hover:bg-green-100" : "bg-amber-100 text-amber-700 hover:bg-amber-100"}>
+                                            {isInReceptionArea ? "Dalam Wilayah Domisili" : "Luar Wilayah Domisili"}
                                         </Badge>
                                         <span className="text-xs text-muted-foreground whitespace-nowrap">(Max: {maxDistance} km)</span>
                                     </div>

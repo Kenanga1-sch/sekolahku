@@ -27,7 +27,7 @@ export async function exportToExcel(data: SPMBRegistrant[], filename: string = "
         "Lingkar Kepala": item.headCircumference,
         "Waktu Tempuh": item.travelTime,
         "Jarak (km)": item.distanceToSchool?.toFixed(2),
-        "Zonasi": (item.isInZone) ? "Dalam" : "Luar",
+        "Domisili": (item.isInZone) ? "Dalam Wilayah" : "Luar Wilayah",
 
         // Alamat
         "Alamat Lengkap": item.address,
@@ -111,14 +111,14 @@ export async function exportToPDF(data: SPMBRegistrant[], filename: string = "pe
         item.fatherName?.substring(0, 20) || item.motherName?.substring(0, 20),
         item.parentPhone,
         item.distanceToSchool?.toFixed(1) + " km",
-        item.isInZone ? "✓" : "-",
+        item.isInZone ? "Dalam" : "Luar",
         getStatusLabel(item.status),
     ]);
 
     // Use type assertion for autoTable
     (doc as unknown as { autoTable: (options: Record<string, unknown>) => void }).autoTable({
         startY: 35,
-        head: [["#", "No. Pendaftaran", "Nama Siswa", "JK", "Orang Tua", "No. HP", "Jarak", "Zona", "Status"]],
+        head: [["#", "No. Pendaftaran", "Nama Siswa", "JK", "Orang Tua", "No. HP", "Jarak", "Domisili", "Status"]],
         body: tableData,
         styles: {
             fontSize: 8,

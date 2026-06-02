@@ -53,7 +53,7 @@ import { goGet, goPost, goPatch, goDelete } from "@/lib/api-client";
 import { showSuccess, showError } from "@/lib/toast";
 import { SPMBStatusBadge } from "@/components/spmb/status-badge";
 import { SPMBPromoteDialog } from "@/components/spmb/spmb-promote-dialog";
-import { calculateSPMBSelectionScore } from "@/lib/spmb-priority";
+import { calculateSPMBDomisiliPriority, type SPMBAgeEligibility } from "@/lib/spmb-priority";
 
 // Define Drizzle-compatible interface locally for now
 interface Registrant {
@@ -66,7 +66,11 @@ interface Registrant {
     createdAt: string;
     birthDate: string; // Added birthDate
     status: string;
-    score?: number; // Added score
+    priorityScore?: number;
+    ageEligibility?: SPMBAgeEligibility;
+    needsSpecialRecommendation?: boolean;
+    isAgeEligible?: boolean;
+    isWithinReceptionArea?: boolean;
 }
 
 interface Stats {
@@ -75,6 +79,36 @@ interface Stats {
   verified: number;
   accepted: number;
   rejected: number;
+}
+
+function getAgePriorityLabel(ageEligibility?: SPMBAgeEligibility) {
+  switch (ageEligibility) {
+    case "priority_7_plus":
+      return "Prioritas 7+";
+    case "eligible_6_plus":
+      return "Memenuhi";
+    case "conditional_5_6":
+      return "Butuh Rekomendasi";
+    case "ineligible":
+      return "Belum Memenuhi";
+    default:
+      return "-";
+  }
+}
+
+function getAgePriorityClass(ageEligibility?: SPMBAgeEligibility) {
+  switch (ageEligibility) {
+    case "priority_7_plus":
+      return "bg-green-100 text-green-800 border-green-200 hover:bg-green-100 dark:bg-green-950 dark:text-green-100 dark:border-green-800";
+    case "eligible_6_plus":
+      return "bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-100 dark:border-blue-800";
+    case "conditional_5_6":
+      return "bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100 dark:bg-amber-950 dark:text-amber-100 dark:border-amber-800";
+    case "ineligible":
+      return "bg-red-100 text-red-800 border-red-200 hover:bg-red-100 dark:bg-red-950 dark:text-red-100 dark:border-red-800";
+    default:
+      return "";
+  }
 }
 
 // function getStatusBadge removed
@@ -128,8 +162,8 @@ export default function SPMBAdminPage() {
         if (res.success) {
             const items = Array.isArray(res.items) ? res.items : [];
             const referenceDate = new Date(new Date().getFullYear(), 6, 1);
-            const itemsWithScore = items.map((r: any) => {
-                const score = calculateSPMBSelectionScore({
+            const itemsWithPriority = items.map((r: any) => {
+                const priority = calculateSPMBDomisiliPriority({
                     birthDate: r.birthDate,
                     distanceKm: r.distanceToSchool,
                     maxDistanceKm: maxDistance,
@@ -138,17 +172,18 @@ export default function SPMBAdminPage() {
 
                 return {
                     ...r,
-                    score: score.totalScore,
-                    ageScore: score.ageScore,
-                    distanceScore: score.distanceScore,
-                    isWithinEffectiveRadius: score.isWithinEffectiveRadius,
+                    priorityScore: priority.priorityScore,
+                    ageEligibility: priority.ageEligibility,
+                    needsSpecialRecommendation: priority.needsSpecialRecommendation,
+                    isAgeEligible: priority.isAgeEligible,
+                    isWithinReceptionArea: priority.isWithinReceptionArea,
                 };
             }).sort((a: any, b: any) => {
-                if (a.isWithinEffectiveRadius !== b.isWithinEffectiveRadius) {
-                    return a.isWithinEffectiveRadius ? -1 : 1;
+                if (a.isWithinReceptionArea !== b.isWithinReceptionArea) {
+                    return a.isWithinReceptionArea ? -1 : 1;
                 }
-                if ((b.score || 0) !== (a.score || 0)) {
-                    return (b.score || 0) - (a.score || 0);
+                if (a.isAgeEligible !== b.isAgeEligible) {
+                    return a.isAgeEligible ? -1 : 1;
                 }
                 const ageA = a.birthDate ? differenceInMonths(referenceDate, new Date(a.birthDate)) : 0;
                 const ageB = b.birthDate ? differenceInMonths(referenceDate, new Date(b.birthDate)) : 0;
@@ -158,7 +193,7 @@ export default function SPMBAdminPage() {
                 return (a.distanceToSchool ?? Number.POSITIVE_INFINITY) - (b.distanceToSchool ?? Number.POSITIVE_INFINITY);
             });
 
-            setRegistrants(itemsWithScore);
+            setRegistrants(itemsWithPriority);
             setSelectedIds([]);
             setTotalPages(Math.max(res.totalPages || 1, 1));
         }
@@ -466,7 +501,7 @@ export default function SPMBAdminPage() {
                   <TableHead>Nama Lengkap</TableHead>
                   <TableHead>
                     <div className="flex items-center gap-1">
-                        Skor
+                        Prioritas Usia
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger>
@@ -474,10 +509,10 @@ export default function SPMBAdminPage() {
                                 </TooltipTrigger>
                                 <TooltipContent>
                                     <p className="not-italic text-xs max-w-[200px]">
-                                        <strong>Skor Prioritas:</strong><br/>
-                                        Usia 50 poin + jarak 50 poin.<br/>
+                                        <strong>Prioritas SPMB SD:</strong><br/>
+                                        Jalur Domisili mengikuti urutan usia, lalu jarak terdekat ke sekolah jika kuota terlampaui.<br/>
                                         <br/>
-                                        Kandidat dalam radius efektif selalu diprioritaskan sebelum kandidat luar radius.
+                                        Usia dihitung per 1 Juli tahun berjalan.
                                     </p>
                                 </TooltipContent>
                             </Tooltip>
@@ -486,7 +521,7 @@ export default function SPMBAdminPage() {
                   </TableHead>
                   <TableHead>Usia</TableHead>
                   <TableHead className="hidden md:table-cell">Jarak</TableHead>
-                  <TableHead className="hidden lg:table-cell">Zonasi</TableHead>
+                  <TableHead className="hidden lg:table-cell">Domisili</TableHead>
                   <TableHead className="hidden md:table-cell">Tanggal</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
@@ -515,7 +550,7 @@ export default function SPMBAdminPage() {
                   </TableRow>
                 ) : (
                   registrants.map((r) => {
-                    const isActuallyInZone = (r.distanceToSchool || 0) <= maxDistance;
+                    const isInReceptionArea = (r.distanceToSchool || 0) <= maxDistance;
                     return (
                     <TableRow key={r.id} className={selectedIds.includes(r.id) ? "bg-primary/5" : ""}>
                       <TableCell>
@@ -536,8 +571,8 @@ export default function SPMBAdminPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="font-mono font-bold bg-blue-100 text-blue-950 border-blue-300 dark:bg-blue-950 dark:text-blue-100 dark:border-blue-700">
-                            {r.score ?? 0}
+                        <Badge variant="outline" className={getAgePriorityClass(r.ageEligibility)}>
+                            {getAgePriorityLabel(r.ageEligibility)}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -560,9 +595,9 @@ export default function SPMBAdminPage() {
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
                         <Badge
-                          className={isActuallyInZone ? "bg-green-100 text-green-700 hover:bg-green-100" : "bg-amber-100 text-amber-700 hover:bg-amber-100"}
+                          className={isInReceptionArea ? "bg-green-100 text-green-700 hover:bg-green-100" : "bg-amber-100 text-amber-700 hover:bg-amber-100"}
                         >
-                          {isActuallyInZone ? "Dalam" : "Luar"}
+                          {isInReceptionArea ? "Dalam Wilayah" : "Luar Wilayah"}
                         </Badge>
                       </TableCell>
                       <TableCell className="hidden md:table-cell text-muted-foreground text-sm">

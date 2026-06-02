@@ -14,7 +14,7 @@ export const siteConfig = {
         website: process.env.NEXT_PUBLIC_SCHOOL_WEBSITE || "https://sdn1kenanga.sch.id",
     },
     
-    // Location (for SPMB zonasi)
+    // Location (for SPMB domisili)
     location: {
         lat: parseFloat(process.env.NEXT_PUBLIC_DEFAULT_LAT || "-2.072254"),
         lng: parseFloat(process.env.NEXT_PUBLIC_DEFAULT_LNG || "101.395614"),
@@ -39,7 +39,7 @@ export const siteConfig = {
     metadata: {
         title: `${process.env.NEXT_PUBLIC_SCHOOL_SHORT || "Sekolahku"} - Website Sekolah Terpadu`,
         titleTemplate: "%s | Website Sekolah Terpadu",
-        description: "Portal utama sekolah untuk informasi, SPMB zonasi, perpustakaan, tabungan, inventaris.",
+        description: "Portal utama sekolah untuk informasi, SPMB Jalur Domisili, perpustakaan, tabungan, inventaris.",
         keywords: ["sekolah", "SPMB", "perpustakaan", "tabungan", "inventaris"],
     },
     

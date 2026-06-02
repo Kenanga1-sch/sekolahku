@@ -86,7 +86,7 @@ export default function SchoolMap({
             <strong>{schoolName}</strong>
             {showZoneRadius && (
               <p className="text-xs text-muted-foreground mt-1">
-                Radius zonasi: {maxDistanceKm} km
+                Wilayah penerimaan: {maxDistanceKm} km
               </p>
             )}
           </div>

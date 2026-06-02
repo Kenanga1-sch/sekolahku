@@ -227,8 +227,8 @@ export function PrintRegistrationCard({ registrant, schoolName = "SD Negeri 1", 
                 <div class="info-value">${distance?.toFixed(2) || "-"} km</div>
               </div>
               <div class="info-item">
-                <div class="info-label">Status Zonasi</div>
-                <div class="info-value">${inZone ? "Dalam Zona ✓" : "Luar Zona"}</div>
+                <div class="info-label">Status Domisili</div>
+                <div class="info-value">${inZone ? "Dalam Wilayah" : "Luar Wilayah"}</div>
               </div>
             </div>
             

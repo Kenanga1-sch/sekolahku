@@ -96,7 +96,7 @@ describe("Export Helper Functions", () => {
                 "Email": mockRegistrant.parent_email,
                 "Alamat": mockRegistrant.address || mockRegistrant.home_address,
                 "Jarak (km)": mockRegistrant.distance_to_school?.toFixed(2),
-                "Zonasi": (mockRegistrant.is_in_zone || mockRegistrant.is_within_zone) ? "Dalam Zona" : "Luar Zona",
+                "Domisili": (mockRegistrant.is_in_zone || mockRegistrant.is_within_zone) ? "Dalam Wilayah" : "Luar Wilayah",
             };
 
             expect(transformed["No. Pendaftaran"]).toBe("SPMB-2024-0001");
@@ -104,7 +104,7 @@ describe("Export Helper Functions", () => {
             expect(transformed["NIK"]).toBe("1234567890123456");
             expect(transformed["Jenis Kelamin"]).toBe("Laki-laki");
             expect(transformed["Jarak (km)"]).toBe("2.50");
-            expect(transformed["Zonasi"]).toBe("Dalam Zona");
+            expect(transformed["Domisili"]).toBe("Dalam Wilayah");
         });
 
         it("should handle legacy field names", () => {

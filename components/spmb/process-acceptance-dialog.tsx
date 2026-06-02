@@ -204,7 +204,7 @@ export function ProcessAcceptanceDialog({
         <Alert>
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            <strong>Urutan Prioritas:</strong> Kandidat dalam radius efektif didahulukan. Di dalam radius, skor dihitung seimbang dari usia 50% dan jarak 50%. Jika skor sama, sistem membandingkan usia, jarak, lalu waktu pendaftaran.
+            <strong>Urutan Prioritas:</strong> Jalur Domisili kelas 1 SD mengikuti aturan usia terlebih dahulu, lalu jarak tempat tinggal terdekat ke sekolah jika kuota terlampaui. Jika masih sama, sistem membandingkan waktu pendaftaran.
           </AlertDescription>
         </Alert>
 
@@ -282,7 +282,7 @@ export function ProcessAcceptanceDialog({
                         <TableCell className="text-sm">
                           {item.distance?.toFixed(1)} km
                           {item.isInZone && (
-                            <Badge variant="outline" className="ml-1 text-xs">Zona</Badge>
+                            <Badge variant="outline" className="ml-1 text-xs">Domisili</Badge>
                           )}
                         </TableCell>
                         <TableCell>

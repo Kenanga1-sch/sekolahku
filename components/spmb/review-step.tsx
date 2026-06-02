@@ -158,14 +158,14 @@ export default function ReviewStep({ data, onEdit }: ReviewStepProps) {
               value={formatDistance(location.distance_to_school)}
             />
             <DataRow
-              label="Status Zonasi"
+              label="Status Domisili"
               value={
                 location.is_within_zone ? (
                   <Badge variant="default" className="bg-green-600">
-                    Dalam Zona
+                    Dalam Wilayah
                   </Badge>
                 ) : (
-                  <Badge variant="destructive">Luar Zona</Badge>
+                  <Badge variant="destructive">Luar Wilayah</Badge>
                 )
               }
             />

@@ -22,13 +22,13 @@ export const metadata: Metadata = {
     template: "%s | SDN 1 Kenanga",
   },
   description:
-    "Portal utama UPTD SDN 1 Kenanga untuk informasi sekolah, pendaftaran siswa baru (SPMB) dengan sistem zonasi, dan layanan digital terintegrasi.",
+    "Portal utama UPTD SDN 1 Kenanga untuk informasi sekolah, pendaftaran siswa baru (SPMB) Jalur Domisili, dan layanan digital terintegrasi.",
   keywords: [
     "UPTD SDN 1 Kenanga",
     "sekolah dasar",
     "pendaftaran siswa baru",
     "SPMB",
-    "zonasi",
+    "domisili",
     "pendidikan",
     "Indonesia",
   ],

@@ -2,9 +2,10 @@
  * SPMB Priority Logic
  *
  * Prioritas Penerimaan Peserta Didik:
- * 1. Radius efektif sekolah menjadi gerbang utama prioritas
- * 2. Skor seleksi memakai bobot seimbang: usia 50% + jarak 50%
- * 3. Jika skor sama, urutan dibedakan dari usia, jarak, lalu waktu daftar
+ * 1. Wilayah domisili/penerimaan menjadi syarat utama Jalur Domisili
+ * 2. Seleksi kelas 1 SD diprioritaskan berdasarkan usia
+ * 3. Jika usia sama, prioritas berikutnya adalah jarak terdekat ke sekolah
+ * 4. Jika masih sama, urutan dibedakan dari waktu pendaftaran
  */
 
 import type { SPMBRegistrant } from "@/types";
@@ -31,11 +32,12 @@ export interface RankedRegistrant extends SPMBRegistrant {
   priorityRank: number;
   /** Age priority details */
   agePriority: AgePriority;
-  /** Balanced 0-100 score: 50% age + 50% distance */
-  selectionScore: number;
-  ageScore: number;
-  distanceScore: number;
-  isWithinEffectiveRadius: boolean;
+  /** Official SPMB SD priority details */
+  priorityScore: number;
+  ageEligibility: SPMBAgeEligibility;
+  needsSpecialRecommendation: boolean;
+  isAgeEligible: boolean;
+  isWithinReceptionArea: boolean;
   /** Acceptance recommendation based on quota */
   recommendation: "accepted" | "rejected" | "waitlist";
 }
@@ -153,66 +155,67 @@ export function hasSameBirthYearMonth(
   );
 }
 
-export interface SPMBScoreInput {
+export type SPMBAgeEligibility =
+  | "priority_7_plus"
+  | "eligible_6_plus"
+  | "conditional_5_6"
+  | "ineligible";
+
+export interface SPMBDomisiliPriorityInput {
   birthDate?: string | Date | null;
   distanceKm?: number | null;
   maxDistanceKm: number;
   referenceDate?: Date;
 }
 
-export interface SPMBScoreResult {
-  totalScore: number;
-  ageScore: number;
-  distanceScore: number;
+export interface SPMBDomisiliPriorityResult {
+  priorityScore: number;
   ageMonths: number;
-  isWithinEffectiveRadius: boolean;
-}
-
-function roundScore(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max);
+  ageEligibility: SPMBAgeEligibility;
+  needsSpecialRecommendation: boolean;
+  isAgeEligible: boolean;
+  isWithinReceptionArea: boolean;
 }
 
 /**
- * Calculate a balanced SPMB selection score.
- * Radius is the priority gate; age and distance each contribute up to 50 points.
+ * Calculate official SPMB SD Jalur Domisili priority.
+ * Based on Permendikdasmen No. 3 Tahun 2025:
+ * - class 1 SD selection is based on age;
+ * - if Jalur Domisili quota is exceeded, priority order is age, then closest distance.
  */
-export function calculateSPMBSelectionScore({
+export function calculateSPMBDomisiliPriority({
   birthDate,
   distanceKm,
   maxDistanceKm,
   referenceDate = getAgeReferenceDate(),
-}: SPMBScoreInput): SPMBScoreResult {
+}: SPMBDomisiliPriorityInput): SPMBDomisiliPriorityResult {
   const safeMaxDistance = maxDistanceKm > 0 ? maxDistanceKm : 1;
   const safeDistance = typeof distanceKm === "number" && Number.isFinite(distanceKm)
     ? Math.max(distanceKm, 0)
     : Number.POSITIVE_INFINITY;
-  const isWithinEffectiveRadius = safeDistance <= safeMaxDistance;
+  const isWithinReceptionArea = safeDistance <= safeMaxDistance;
 
   let ageMonths = 0;
   if (birthDate) {
     ageMonths = calculateAge(birthDate, referenceDate).totalMonths;
   }
 
-  // 5 years old starts at 0, 7 years and above receives full age score.
-  const ageRatio = clamp((ageMonths - 60) / 24, 0, 1);
-  const ageScore = ageRatio * 50;
-
-  // Within the effective radius, closer homes receive stronger distance score.
-  const distanceRatio = isWithinEffectiveRadius
-    ? clamp(1 - safeDistance / safeMaxDistance, 0, 1)
-    : 0;
-  const distanceScore = distanceRatio * 50;
+  let ageEligibility: SPMBAgeEligibility = "ineligible";
+  if (ageMonths >= 84) {
+    ageEligibility = "priority_7_plus";
+  } else if (ageMonths >= 72) {
+    ageEligibility = "eligible_6_plus";
+  } else if (ageMonths >= 66) {
+    ageEligibility = "conditional_5_6";
+  }
 
   return {
-    totalScore: roundScore(ageScore + distanceScore),
-    ageScore: roundScore(ageScore),
-    distanceScore: roundScore(distanceScore),
+    priorityScore: ageMonths,
     ageMonths,
-    isWithinEffectiveRadius,
+    ageEligibility,
+    needsSpecialRecommendation: ageEligibility === "conditional_5_6",
+    isAgeEligible: ageEligibility !== "ineligible",
+    isWithinReceptionArea,
   };
 }
 
@@ -225,11 +228,11 @@ export function calculateSPMBSelectionScore({
  * Returns negative if A has higher priority, positive if B has higher priority
  * 
  * Priority order:
- * 1. Within effective radius
- * 2. Balanced score: age 50% + distance 50%
- * 3. Older age when score is tied
- * 4. Closer distance when age is tied
- * 5. Earlier registration when distance is tied
+ * 1. Within reception/domisili area
+ * 2. Age eligibility
+ * 3. Older age
+ * 4. Closer distance
+ * 5. Earlier registration
  */
 export function compareRegistrants(
   a: SPMBRegistrant,
@@ -237,26 +240,26 @@ export function compareRegistrants(
   referenceDate: Date = new Date(),
   maxDistanceKm = 3
 ): number {
-  const scoreA = calculateSPMBSelectionScore({
+  const priorityA = calculateSPMBDomisiliPriority({
     birthDate: a.birth_date,
     distanceKm: a.distance_to_school,
     maxDistanceKm,
     referenceDate,
   });
-  const scoreB = calculateSPMBSelectionScore({
+  const priorityB = calculateSPMBDomisiliPriority({
     birthDate: b.birth_date,
     distanceKm: b.distance_to_school,
     maxDistanceKm,
     referenceDate,
   });
 
-  // Radius is the main gate: in-radius candidates always rank above out-radius.
-  if (scoreA.isWithinEffectiveRadius !== scoreB.isWithinEffectiveRadius) {
-    return scoreA.isWithinEffectiveRadius ? -1 : 1;
+  // Jalur Domisili first prioritizes applicants in the reception area.
+  if (priorityA.isWithinReceptionArea !== priorityB.isWithinReceptionArea) {
+    return priorityA.isWithinReceptionArea ? -1 : 1;
   }
 
-  if (scoreA.totalScore !== scoreB.totalScore) {
-    return scoreB.totalScore - scoreA.totalScore;
+  if (priorityA.isAgeEligible !== priorityB.isAgeEligible) {
+    return priorityA.isAgeEligible ? -1 : 1;
   }
 
   const ageA = getAgePriorityGroup(a.birth_date || "", referenceDate);
@@ -265,7 +268,7 @@ export function compareRegistrants(
     return ageB.totalMonths - ageA.totalMonths;
   }
 
-  // Same score and age: compare by distance (closer = higher priority)
+  // Same age: compare by distance (closer = higher priority)
   const distanceA = a.distance_to_school ?? Infinity;
   const distanceB = b.distance_to_school ?? Infinity;
   
@@ -296,7 +299,7 @@ export function rankRegistrants(
 ): RankedRegistrant[] {
   // Create array with age priority calculated
   const withPriority = registrants.map((reg) => {
-    const score = calculateSPMBSelectionScore({
+    const priority = calculateSPMBDomisiliPriority({
       birthDate: reg.birth_date,
       distanceKm: reg.distance_to_school,
       maxDistanceKm,
@@ -307,10 +310,11 @@ export function rankRegistrants(
       ...reg,
       agePriority: getAgePriorityGroup(reg.birth_date || "", referenceDate),
       priorityRank: 0,
-      selectionScore: score.totalScore,
-      ageScore: score.ageScore,
-      distanceScore: score.distanceScore,
-      isWithinEffectiveRadius: score.isWithinEffectiveRadius,
+      priorityScore: priority.priorityScore,
+      ageEligibility: priority.ageEligibility,
+      needsSpecialRecommendation: priority.needsSpecialRecommendation,
+      isAgeEligible: priority.isAgeEligible,
+      isWithinReceptionArea: priority.isWithinReceptionArea,
       recommendation: "pending" as const,
     };
   });
@@ -345,14 +349,13 @@ export function processAcceptance(
   let waitlist = 0;
 
   const processed = ranked.map((reg) => {
-    if (reg.priorityRank <= quota) {
+    if (!reg.isAgeEligible) {
+      reg.recommendation = "rejected";
+      rejected++;
+    } else if (reg.priorityRank <= quota) {
       // Within quota - accepted
       reg.recommendation = "accepted";
       accepted++;
-    } else if (reg.agePriority.group === 3) {
-      // Under 6 years old and over quota - rejected
-      reg.recommendation = "rejected";
-      rejected++;
     } else {
       // Over quota but eligible age - waitlist
       reg.recommendation = "waitlist";
