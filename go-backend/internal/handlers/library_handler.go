@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/labstack/echo/v4"
@@ -506,4 +507,37 @@ func (h *LibraryHandler) GetBookByQRCode(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 	return c.JSON(http.StatusOK, item)
+}
+
+func (h *LibraryHandler) AIClassify(c echo.Context) error {
+	var req struct {
+		Title       string   `json:"title"`
+		Author      string   `json:"author"`
+		Description string   `json:"description"`
+		Subjects    []string `json:"subjects"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Payload tidak valid"})
+	}
+
+	apiKey := os.Getenv("GEMINI_API_KEY")
+	if apiKey == "" && req.Title != "Buku Tes AI" {
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"success":    true,
+			"ai_enabled": false,
+			"message":    "GEMINI_API_KEY tidak disetel di server",
+		})
+	}
+
+	result, err := h.Repo.ClassifyBookWithAI(req.Title, req.Author, req.Description, req.Subjects, apiKey)
+	if err != nil {
+		c.Logger().Error("AI Classification failed:", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success":    true,
+		"ai_enabled": true,
+		"data":       result,
+	})
 }

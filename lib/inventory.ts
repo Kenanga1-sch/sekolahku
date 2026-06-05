@@ -188,7 +188,7 @@ export async function getRecentAudit(limit = 10): Promise<RecentAuditActivity[]>
     try {
         const result: any = await goGet(`/api/inventory/audit?limit=${limit}`);
         const logs = result?.items ?? result?.data ?? [];
-        return (logs || []).map(l => ({
+        return (logs || []).map((l: any) => ({
             id: l.id,
             action: l.action,
             entity: l.entity,

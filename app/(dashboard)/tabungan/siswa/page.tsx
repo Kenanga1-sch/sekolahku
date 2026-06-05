@@ -64,6 +64,8 @@ import Link from "next/link";
 import { showSuccess, showError } from "@/lib/toast";
 import { goGet, goPost, goPut, goDelete } from "@/lib/api-client";
 import type { TabunganSiswaWithRelations, TabunganKelasWithRelations, TabunganSiswaFormData } from "@/types/tabungan";
+import { useSortableData } from "@/hooks/use-sortable-data";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 
 function formatRupiah(amount: number): string {
     return new Intl.NumberFormat("id-ID", {
@@ -80,6 +82,7 @@ export default function TabunganSiswaPage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [kelasFilter, setKelasFilter] = useState("all");
     const [page, setPage] = useState(1);
+    const [perPage, setPerPage] = useState(20);
     const [totalPages, setTotalPages] = useState(1);
 
     // Form state
@@ -95,6 +98,7 @@ export default function TabunganSiswaPage() {
     
     // Sync state
     const [isSyncing, setIsSyncing] = useState(false);
+    const { sortedData: sortedSiswa, sortConfig, requestSort } = useSortableData(siswa);
 
 
 
@@ -103,7 +107,7 @@ export default function TabunganSiswaPage() {
             // Build query params
             const params = new URLSearchParams({
                 page: page.toString(),
-                perPage: "20",
+                perPage: perPage.toString(),
             });
             
             if (searchQuery) params.set("search", searchQuery);
@@ -126,7 +130,7 @@ export default function TabunganSiswaPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [page, searchQuery, kelasFilter]);
+    }, [page, perPage, searchQuery, kelasFilter]);
 
     useEffect(() => {
         fetchData();
@@ -257,6 +261,23 @@ export default function TabunganSiswaPage() {
                                 ))}
                             </SelectContent>
                         </Select>
+                        <Select
+                            value={perPage.toString()}
+                            onValueChange={(val) => {
+                                setPerPage(parseInt(val));
+                                setPage(1);
+                            }}
+                        >
+                            <SelectTrigger className="w-full md:w-[120px]">
+                                <SelectValue placeholder="Baris" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="10">10 Baris</SelectItem>
+                                <SelectItem value="20">20 Baris</SelectItem>
+                                <SelectItem value="50">50 Baris</SelectItem>
+                                <SelectItem value="100">100 Baris</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                 </CardContent>
             </Card>
@@ -267,10 +288,10 @@ export default function TabunganSiswaPage() {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>NISN</TableHead>
-                                <TableHead>Nama</TableHead>
-                                <TableHead>Kelas</TableHead>
-                                <TableHead className="text-right">Saldo</TableHead>
+                                <SortableTableHead label="NISN" sortKey="nisn" sortConfig={sortConfig} onSort={requestSort} />
+                                <SortableTableHead label="Nama" sortKey="nama" sortConfig={sortConfig} onSort={requestSort} />
+                                <SortableTableHead label="Kelas" sortKey="kelas.nama" sortConfig={sortConfig} onSort={requestSort} />
+                                <SortableTableHead label="Saldo" sortKey="saldoTerakhir" sortConfig={sortConfig} onSort={requestSort} className="text-right" />
                                 <TableHead className="w-12"></TableHead>
                             </TableRow>
                         </TableHeader>
@@ -293,7 +314,7 @@ export default function TabunganSiswaPage() {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                siswa.map((s) => (
+                                sortedSiswa.map((s) => (
                                     <TableRow key={s.id}>
                                         <TableCell className="font-mono">{s.nisn}</TableCell>
                                         <TableCell>
@@ -342,29 +363,31 @@ export default function TabunganSiswaPage() {
                     </Table>
 
                     {/* Pagination */}
-                    {totalPages > 1 && (
-                        <div className="flex items-center justify-between p-4 border-t">
-                            <p className="text-sm text-muted-foreground">
+                    {siswa.length > 0 && (
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-slate-100 dark:border-zinc-800">
+                            <div className="text-sm text-muted-foreground">
                                 Halaman {page} dari {totalPages}
-                            </p>
-                            <div className="flex gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    disabled={page <= 1}
-                                    onClick={() => setPage((p) => p - 1)}
-                                >
-                                    Sebelumnya
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    disabled={page >= totalPages}
-                                    onClick={() => setPage((p) => p + 1)}
-                                >
-                                    Selanjutnya
-                                </Button>
                             </div>
+                            {totalPages > 1 && (
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={page <= 1}
+                                        onClick={() => setPage((p) => p - 1)}
+                                    >
+                                        Sebelumnya
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={page >= totalPages}
+                                        onClick={() => setPage((p) => p + 1)}
+                                    >
+                                        Selanjutnya
+                                    </Button>
+                                </div>
+                            )}
                         </div>
                     )}
                 </CardContent>

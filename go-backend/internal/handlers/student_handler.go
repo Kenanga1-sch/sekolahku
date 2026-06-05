@@ -127,6 +127,7 @@ func (h *StudentHandler) BulkCreateStudents(c echo.Context) error {
 			NIS:          optionalImportStringPtr(importString(row, "nis", "NIS")),
 			NISN:         optionalImportStringPtr(importString(row, "nisn", "NISN")),
 			NIK:          optionalImportStringPtr(importString(row, "nik", "NIK")),
+			KIP:          optionalImportStringPtr(importString(row, "kip", "KIP")),
 			Gender:       optionalImportStringPtr(gender),
 			BirthPlace:   optionalImportStringPtr(importString(row, "birthPlace", "BirthPlace", "tempat_lahir", "TempatLahir")),
 			BirthDate:    optionalImportStringPtr(importString(row, "birthDate", "BirthDate", "tanggal_lahir", "TanggalLahir")),

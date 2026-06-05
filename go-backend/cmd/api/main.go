@@ -23,6 +23,7 @@ import (
 	"github.com/sekolahku/go-backend/internal/handlers"
 	authMiddleware "github.com/sekolahku/go-backend/internal/middleware"
 	"github.com/sekolahku/go-backend/internal/repository"
+	"github.com/sekolahku/go-backend/internal/scheduler"
 	_ "modernc.org/sqlite"
 )
 
@@ -36,6 +37,9 @@ func main() {
 	// Global Middleware
 	server.Use(middleware.Logger())
 	server.Use(middleware.Recover())
+	server.Use(middleware.GzipWithConfig(middleware.GzipConfig{
+		Level: 5,
+	}))
 	server.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{
 			"http://localhost:3000",
@@ -60,13 +64,19 @@ func main() {
 	}
 	defer db.Close()
 
-	// Performance Tuning: WAL mode and Normal sync
+	// SQLite connection pooling tuning
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+	db.SetConnMaxLifetime(30 * time.Minute)
+
+	// Performance Tuning: WAL mode, Normal sync, auto_vacuum
 	_, err = db.Exec(`
 		PRAGMA journal_mode = WAL;
 		PRAGMA synchronous = NORMAL;
 		PRAGMA temp_store = MEMORY;
 		PRAGMA cache_size = -2000; -- 2MB cache
 		PRAGMA journal_size_limit = 10485760; -- 10MB limit
+		PRAGMA auto_vacuum = INCREMENTAL;
 	`)
 	if err != nil {
 		server.Logger.Warn("Failed to apply SQLite performance tuning:", err)
@@ -83,6 +93,16 @@ func main() {
 
 	// 2. Automated Schema Repair (Add missing columns to existing DB)
 	RepairDatabase(db, server.Logger)
+
+	// Create database indexes for performance optimization
+	_, err = db.Exec(`
+		CREATE INDEX IF NOT EXISTS idx_students_class_id ON students(class_id);
+		CREATE INDEX IF NOT EXISTS idx_students_full_name ON students(full_name);
+		CREATE INDEX IF NOT EXISTS idx_spmb_registrants_period ON spmb_registrants(period_id);
+	`)
+	if err != nil {
+		server.Logger.Warn("Failed to create database indexes:", err)
+	}
 
 	// 2. Initialize default settings if needed
 	_, _ = db.Exec(`
@@ -119,6 +139,11 @@ func main() {
 		server.Logger.Fatal("DB initialization failed:", err)
 	}
 	server.Logger.Info("Database initialized with default settings and SPMB period")
+
+	// Start background scheduler
+	cronScheduler := scheduler.NewScheduler(db)
+	cronScheduler.Start()
+	defer cronScheduler.Stop()
 
 	// Repositories
 	userRepo := repository.NewUserRepository(db)
@@ -186,6 +211,9 @@ func main() {
 	// Public Routes
 	server.GET("/api/health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"status": "OK"})
+	})
+	server.HEAD("/api/health", func(c echo.Context) error {
+		return c.NoContent(http.StatusOK)
 	})
 	server.POST("/api/auth/login", authHandler.Login)
 	server.POST("/api/auth/logout", authHandler.Logout)
@@ -423,6 +451,7 @@ func main() {
 	auth.POST("/library/assets/bind", libraryHandler.BindAsset)
 	auth.POST("/library/assets/swap", libraryHandler.SwapQR)
 	auth.POST("/library/catalog/cover", uploadHandler.LibraryCoverUpload)
+	auth.POST("/library/catalog/ai-classify", libraryHandler.AIClassify)
 	auth.GET("/library/members", libraryHandler.GetMembers)
 	auth.GET("/library/members/qr/:code", libraryHandler.GetMemberByQRCode)
 	auth.POST("/library/members", libraryHandler.CreateMember)
@@ -561,10 +590,10 @@ func main() {
 	profile.Use(authMiddleware.JWTMiddleware)
 	profile.GET("", userHandler.GetProfile)
 	profile.PATCH("", userHandler.UpdateProfile)
+	profile.GET("/logs", userHandler.GetProfileLogs)
 
 	// Upload routes (General)
 	server.POST("/api/upload", uploadHandler.GeneralUpload)
-	server.POST("/api/uploads", uploadHandler.GeneralUpload)
 	server.POST("/api/spmb/upload", spmbHandler.UploadDocuments)
 
 	// Static file server

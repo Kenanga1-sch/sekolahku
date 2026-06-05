@@ -62,6 +62,8 @@ import {
 import { goGet, goDelete } from "@/lib/api-client";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
+import { useSortableData } from "@/hooks/use-sortable-data";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 
 interface Student {
   id: string;
@@ -101,6 +103,7 @@ export default function PesertaDidikPage() {
   const [classFilter, setClassFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
   const [pagination, setPagination] = useState({
     total: 0,
     totalPages: 0,
@@ -115,13 +118,14 @@ export default function PesertaDidikPage() {
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const { sortedData, sortConfig, requestSort } = useSortableData(students);
 
   const fetchStudents = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       params.set("page", page.toString());
-      params.set("limit", "10");
+      params.set("limit", limit.toString());
       if (search) params.set("q", search);
       if (classFilter !== "all") params.set("classId", classFilter);
       if (statusFilter !== "all") params.set("status", statusFilter);
@@ -132,7 +136,7 @@ export default function PesertaDidikPage() {
         // The list is in response.data.data because the backend wraps the Repo response in 'data'
         const result = response.data;
         setStudents(result.data || []);
-        setPagination(result.pagination || { total: 0, totalPages: 0, page: 1, limit: 10 });
+        setPagination(result.pagination || { total: 0, totalPages: 0, page: 1, limit: limit });
         setSummary(result.summary || { total: 0, active: 0, byClass: [] });
       } else {
         toast.error(response.error || "Gagal memuat data peserta didik");
@@ -143,7 +147,7 @@ export default function PesertaDidikPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, classFilter, statusFilter]);
+  }, [page, limit, search, classFilter, statusFilter]);
 
   useEffect(() => {
     fetchStudents();
@@ -358,6 +362,23 @@ export default function PesertaDidikPage() {
                 <SelectItem value="inactive">Non-Aktif</SelectItem>
               </SelectContent>
             </Select>
+            <Select
+              value={limit.toString()}
+              onValueChange={(val) => {
+                setLimit(parseInt(val));
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[120px]">
+                <SelectValue placeholder="Baris" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10 Baris</SelectItem>
+                <SelectItem value="20">20 Baris</SelectItem>
+                <SelectItem value="50">50 Baris</SelectItem>
+                <SelectItem value="100">100 Baris</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Table */}
@@ -374,10 +395,10 @@ export default function PesertaDidikPage() {
                       onCheckedChange={handleSelectAll}
                     />
                   </TableHead>
-                  <TableHead>Siswa</TableHead>
-                  <TableHead>NISN</TableHead>
-                  <TableHead>Kelas</TableHead>
-                  <TableHead>Status</TableHead>
+                  <SortableTableHead label="Siswa" sortKey="fullName" sortConfig={sortConfig} onSort={requestSort} />
+                  <SortableTableHead label="NISN" sortKey="nisn" sortConfig={sortConfig} onSort={requestSort} />
+                  <SortableTableHead label="Kelas" sortKey="className" sortConfig={sortConfig} onSort={requestSort} />
+                  <SortableTableHead label="Status" sortKey="isActive" sortConfig={sortConfig} onSort={requestSort} />
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
@@ -410,7 +431,7 @@ export default function PesertaDidikPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  students.map((student) => (
+                  sortedData.map((student) => (
                     <TableRow key={student.id}>
                       <TableCell>
                         <Checkbox
@@ -465,7 +486,7 @@ export default function PesertaDidikPage() {
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
+                            <Button variant="outline" size="icon-sm" className="h-8 w-8 text-muted-foreground hover:text-foreground bg-background/50">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -509,33 +530,36 @@ export default function PesertaDidikPage() {
           </div>
 
           {/* Pagination */}
-          {pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4">
-              <p className="text-sm text-muted-foreground">
-                Menampilkan {(page - 1) * pagination.limit + 1} -{" "}
+          {pagination.total > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800">
+              <div className="text-sm text-muted-foreground">
+                Menampilkan {pagination.total > 0 ? (page - 1) * pagination.limit + 1 : 0} -{" "}
                 {Math.min(page * pagination.limit, pagination.total)} dari{" "}
                 {pagination.total} siswa
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                >
-                  Sebelumnya
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    setPage((p) => Math.min(pagination.totalPages, p + 1))
-                  }
-                  disabled={page === pagination.totalPages}
-                >
-                  Selanjutnya
-                </Button>
               </div>
+              
+              {pagination.totalPages > 1 && (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                  >
+                    Sebelumnya
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setPage((p) => Math.min(pagination.totalPages, p + 1))
+                    }
+                    disabled={page === pagination.totalPages}
+                  >
+                    Selanjutnya
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </CardContent>

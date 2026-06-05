@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import type { UserRole } from "@/types";
-import { getSessionAction } from "@/actions/auth";
+import { getSessionAction, logoutAction } from "@/actions/auth";
 
 type User = {
     id: string;
@@ -10,6 +10,9 @@ type User = {
     name?: string;
     role: UserRole;
     phone?: string;
+    image?: string;
+    fullName?: string;
+    username?: string;
 };
 
 interface AuthState {
@@ -48,6 +51,7 @@ export function AuthProvider({ children, session: initialSession }: AuthProvider
     };
 
     const logout = async () => {
+        await logoutAction();
         setUser(null);
     };
 

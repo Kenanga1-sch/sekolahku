@@ -36,6 +36,7 @@ func mergeStudentDefaults(next *models.Student, existing *models.Student) {
 	next.NIK = cleanStudentStringPtr(next.NIK)
 	next.NISN = cleanStudentStringPtr(next.NISN)
 	next.NIS = cleanStudentStringPtr(next.NIS)
+	next.KIP = cleanStudentStringPtr(next.KIP)
 	next.Gender = cleanStudentStringPtr(next.Gender)
 	next.BirthPlace = cleanStudentStringPtr(next.BirthPlace)
 	next.BirthDate = cleanStudentStringPtr(next.BirthDate)
@@ -54,7 +55,17 @@ func mergeStudentDefaults(next *models.Student, existing *models.Student) {
 	next.ClassID = cleanStudentStringPtr(next.ClassID)
 	next.Photo = cleanStudentStringPtr(next.Photo)
 	next.MetaData = cleanStudentStringPtr(next.MetaData)
-	next.Status = strings.TrimSpace(next.Status)
+	statusLower := strings.TrimSpace(strings.ToLower(next.Status))
+	if statusLower == "aktif" || statusLower == "active" {
+		next.Status = "active"
+		next.IsActive = true
+	} else if statusLower != "" {
+		next.Status = statusLower
+		if statusLower == "nonaktif" || statusLower == "non-active" || statusLower == "tidak aktif" || statusLower == "inactive" {
+			next.Status = "inactive"
+		}
+		next.IsActive = false
+	}
 
 	if existing == nil {
 		if next.Status == "" {
@@ -77,6 +88,9 @@ func mergeStudentDefaults(next *models.Student, existing *models.Student) {
 	}
 	if next.NIS == nil {
 		next.NIS = existing.NIS
+	}
+	if next.KIP == nil {
+		next.KIP = existing.KIP
 	}
 	if next.Gender == nil {
 		next.Gender = existing.Gender
@@ -138,7 +152,11 @@ func mergeStudentDefaults(next *models.Student, existing *models.Student) {
 	if next.Status == "" {
 		next.Status = existing.Status
 	}
-	if !next.IsActive && existing.IsActive {
+	if next.Status == "active" {
+		next.IsActive = true
+	} else if next.Status == "inactive" || next.Status == "nonactive" || next.Status == "non-active" {
+		next.IsActive = false
+	} else if !next.IsActive && existing.IsActive {
 		next.IsActive = true
 	}
 	if next.QRCode == "" {
@@ -159,15 +177,15 @@ func (r *StudentRepository) GetStudents(page, limit int, query, status, classID 
 	}
 
 	if status != "" {
-		switch status {
-		case "active":
-			where = append(where, "(status = ? OR is_active = 1)")
-			args = append(args, status)
-		case "inactive", "nonactive", "non-active":
-			where = append(where, "(status != 'active' OR is_active = 0)")
+		statusLower := strings.ToLower(strings.TrimSpace(status))
+		switch statusLower {
+		case "active", "aktif":
+			where = append(where, "(status = 'active' OR is_active = 1)")
+		case "inactive", "nonactive", "non-active", "tidak aktif", "non-aktif":
+			where = append(where, "(status = 'inactive' OR is_active = 0)")
 		default:
 			where = append(where, "status = ?")
-			args = append(args, status)
+			args = append(args, statusLower)
 		}
 	}
 
@@ -187,7 +205,7 @@ func (r *StudentRepository) GetStudents(page, limit int, query, status, classID 
 
 	// Get data
 	selectQuery := fmt.Sprintf(`
-		SELECT id, nik, nisn, nis, full_name, gender, class_name, status, photo, qr_code, is_active, created_at
+		SELECT id, nik, nisn, nis, full_name, gender, class_name, status, photo, qr_code, is_active, created_at, kip
 		FROM students
 		WHERE %s
 		ORDER BY full_name ASC
@@ -204,10 +222,10 @@ func (r *StudentRepository) GetStudents(page, limit int, query, status, classID 
 	students := []models.Student{}
 	for rows.Next() {
 		var s models.Student
-		var nik, nisn, nis, gender, className, photo, qrCode sql.NullString
+		var nik, nisn, nis, gender, className, photo, qrCode, kip sql.NullString
 		var crAt sql.NullInt64
 
-		err = rows.Scan(&s.ID, &nik, &nisn, &nis, &s.FullName, &gender, &className, &s.Status, &photo, &qrCode, &s.IsActive, &crAt)
+		err = rows.Scan(&s.ID, &nik, &nisn, &nis, &s.FullName, &gender, &className, &s.Status, &photo, &qrCode, &s.IsActive, &crAt, &kip)
 		if err != nil {
 			return nil, err
 		}
@@ -220,6 +238,9 @@ func (r *StudentRepository) GetStudents(page, limit int, query, status, classID 
 		}
 		if nis.Valid {
 			s.NIS = &nis.String
+		}
+		if kip.Valid {
+			s.KIP = &kip.String
 		}
 		if gender.Valid {
 			s.Gender = &gender.String
@@ -286,17 +307,17 @@ func (r *StudentRepository) GetStudentByID(id string) (*models.Student, error) {
 		SELECT id, nik, nisn, nis, full_name, gender, birth_place, birth_date, religion,
 		       address, parent_name, father_name, father_nik, mother_name, mother_nik,
 		       guardian_name, guardian_nik, guardian_job, parent_phone, class_name, class_id,
-		       status, photo, qr_code, is_active, meta_data, enrolled_at, created_at, updated_at
+		       status, photo, qr_code, is_active, meta_data, enrolled_at, created_at, updated_at, kip
 		FROM students WHERE id = ?
 	`
 	var s models.Student
-	var nik, nisn, nis, gender, bPlace, bDate, religion, addr, pName, fName, fNik, mName, mNik, gName, gNik, gJob, pPhone, cName, cId, photo, qrCode, meta sql.NullString
+	var nik, nisn, nis, gender, bPlace, bDate, religion, addr, pName, fName, fNik, mName, mNik, gName, gNik, gJob, pPhone, cName, cId, photo, qrCode, meta, kip sql.NullString
 	var enrolled, crAt, upAt sql.NullInt64
 
 	err := r.DB.QueryRow(query, id).Scan(
 		&s.ID, &nik, &nisn, &nis, &s.FullName, &gender, &bPlace, &bDate, &religion,
 		&addr, &pName, &fName, &fNik, &mName, &mNik, &gName, &gNik, &gJob, &pPhone, &cName, &cId,
-		&s.Status, &photo, &qrCode, &s.IsActive, &meta, &enrolled, &crAt, &upAt,
+		&s.Status, &photo, &qrCode, &s.IsActive, &meta, &enrolled, &crAt, &upAt, &kip,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -313,6 +334,9 @@ func (r *StudentRepository) GetStudentByID(id string) (*models.Student, error) {
 	}
 	if nis.Valid {
 		s.NIS = &nis.String
+	}
+	if kip.Valid {
+		s.KIP = &kip.String
 	}
 	if gender.Valid {
 		s.Gender = &gender.String
@@ -408,12 +432,12 @@ func (r *StudentRepository) CreateStudent(s models.Student) (string, error) {
 			id, nik, nisn, nis, full_name, gender, birth_place, birth_date, religion,
 			address, parent_name, father_name, father_nik, mother_name, mother_nik,
 			guardian_name, guardian_nik, guardian_job, parent_phone, class_name, class_id,
-			status, photo, qr_code, is_active, meta_data, enrolled_at, created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			status, photo, qr_code, is_active, meta_data, enrolled_at, created_at, updated_at, kip
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, s.ID, s.NIK, s.NISN, s.NIS, s.FullName, s.Gender, s.BirthPlace, s.BirthDate, s.Religion,
 		s.Address, s.ParentName, s.FatherName, s.FatherNIK, s.MotherName, s.MotherNIK,
 		s.GuardianName, s.GuardianNIK, s.GuardianJob, s.ParentPhone, s.ClassName, s.ClassID,
-		s.Status, s.Photo, s.QRCode, s.IsActive, s.MetaData, s.EnrolledAt, now, now)
+		s.Status, s.Photo, s.QRCode, s.IsActive, s.MetaData, s.EnrolledAt, now, now, s.KIP)
 
 	return s.ID, err
 }
@@ -441,12 +465,12 @@ func (r *StudentRepository) UpdateStudent(id string, s models.Student) error {
 			nik=?, nisn=?, nis=?, full_name=?, gender=?, birth_place=?, birth_date=?, religion=?,
 			address=?, parent_name=?, father_name=?, father_nik=?, mother_name=?, mother_nik=?,
 			guardian_name=?, guardian_nik=?, guardian_job=?, parent_phone=?, class_name=?, class_id=?,
-			status=?, photo=?, is_active=?, meta_data=?, updated_at=?
+			status=?, photo=?, is_active=?, meta_data=?, updated_at=?, kip=?
 		WHERE id=?
 	`, s.NIK, s.NISN, s.NIS, s.FullName, s.Gender, s.BirthPlace, s.BirthDate, s.Religion,
 		s.Address, s.ParentName, s.FatherName, s.FatherNIK, s.MotherName, s.MotherNIK,
 		s.GuardianName, s.GuardianNIK, s.GuardianJob, s.ParentPhone, s.ClassName, s.ClassID,
-		s.Status, s.Photo, s.IsActive, s.MetaData, now, id)
+		s.Status, s.Photo, s.IsActive, s.MetaData, now, s.KIP, id)
 	return err
 }
 
@@ -505,7 +529,7 @@ func (r *StudentRepository) GetStudentsByIDs(ids []string) ([]models.Student, er
 		SELECT id, nik, nisn, nis, full_name, gender, birth_place, birth_date, religion,
 		       address, parent_name, father_name, father_nik, mother_name, mother_nik,
 		       guardian_name, guardian_nik, guardian_job, parent_phone, class_name, class_id,
-		       status, photo, qr_code, is_active, meta_data, enrolled_at, created_at, updated_at
+		       status, photo, qr_code, is_active, meta_data, enrolled_at, created_at, updated_at, kip
 		FROM students WHERE id IN (%s)
 		ORDER BY CASE id %s END
 	`, strings.Join(placeholders, ","), strings.Join(orderCases, " "))
@@ -522,13 +546,13 @@ func (r *StudentRepository) GetStudentsByIDs(ids []string) ([]models.Student, er
 	students := []models.Student{}
 	for rows.Next() {
 		var s models.Student
-		var nik, nisn, nis, gender, bPlace, bDate, religion, addr, pName, fName, fNik, mName, mNik, gName, gNik, gJob, pPhone, cName, cId, photo, qrCode, meta sql.NullString
+		var nik, nisn, nis, gender, bPlace, bDate, religion, addr, pName, fName, fNik, mName, mNik, gName, gNik, gJob, pPhone, cName, cId, photo, qrCode, meta, kip sql.NullString
 		var enrolled, crAt, upAt sql.NullInt64
 
 		err := rows.Scan(
 			&s.ID, &nik, &nisn, &nis, &s.FullName, &gender, &bPlace, &bDate, &religion,
 			&addr, &pName, &fName, &fNik, &mName, &mNik, &gName, &gNik, &gJob, &pPhone, &cName, &cId,
-			&s.Status, &photo, &qrCode, &s.IsActive, &meta, &enrolled, &crAt, &upAt,
+			&s.Status, &photo, &qrCode, &s.IsActive, &meta, &enrolled, &crAt, &upAt, &kip,
 		)
 		if err != nil {
 			return nil, err
@@ -542,6 +566,9 @@ func (r *StudentRepository) GetStudentsByIDs(ids []string) ([]models.Student, er
 		}
 		if nis.Valid {
 			s.NIS = &nis.String
+		}
+		if kip.Valid {
+			s.KIP = &kip.String
 		}
 		if gender.Valid {
 			s.Gender = &gender.String

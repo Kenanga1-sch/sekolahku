@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { goGet, goPost, goPatch, goDelete } from "@/lib/api-client";
+import { compressImage } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -177,8 +178,16 @@ export default function AdminStaffPage() {
 
   const onCropComplete = async (croppedBlob: Blob) => {
     setUploading(true);
+    let uploadFile: File | Blob = croppedBlob;
+    try {
+      const originalFile = new File([croppedBlob], "profile.jpg", { type: croppedBlob.type || "image/jpeg" });
+      uploadFile = await compressImage(originalFile, 512, 0.85);
+    } catch (e) {
+      console.error("Failed to compress cropped image", e);
+    }
+
     const formData = new FormData();
-    formData.append("file", croppedBlob, "profile.jpg");
+    formData.append("file", uploadFile, uploadFile instanceof File ? uploadFile.name : "profile.jpg");
     formData.append("folder", "staff");
 
     try {

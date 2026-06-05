@@ -6,10 +6,6 @@ const nextConfig: NextConfig = {
   output: "export",
 
 
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-
   // No source maps in production
   productionBrowserSourceMaps: false,
   reactStrictMode: true,

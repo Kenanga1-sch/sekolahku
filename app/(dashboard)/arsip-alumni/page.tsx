@@ -44,6 +44,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { goGet, goDelete } from "@/lib/api-client";
+import { useSortableData } from "@/hooks/use-sortable-data";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 
 interface Alumni {
   id: string;
@@ -83,6 +85,7 @@ export default function ArsipAlumniPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [graduationYear, setGraduationYear] = useState("");
+  const { sortedData: sortedAlumni, sortConfig, requestSort } = useSortableData(alumni);
 
   const fetchAlumni = async () => {
     setLoading(true);
@@ -117,7 +120,7 @@ export default function ArsipAlumniPage() {
   useEffect(() => {
     fetchAlumni();
     fetchStats();
-  }, [pagination.page, graduationYear]);
+  }, [pagination.page, pagination.limit, graduationYear]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -274,6 +277,22 @@ export default function ArsipAlumniPage() {
                 ))}
               </SelectContent>
             </Select>
+            <Select
+              value={pagination.limit.toString()}
+              onValueChange={(val) => {
+                setPagination((prev) => ({ ...prev, limit: parseInt(val), page: 1 }));
+              }}
+            >
+              <SelectTrigger className="w-full md:w-[120px]">
+                <SelectValue placeholder="Baris" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10 Baris</SelectItem>
+                <SelectItem value="20">20 Baris</SelectItem>
+                <SelectItem value="50">50 Baris</SelectItem>
+                <SelectItem value="100">100 Baris</SelectItem>
+              </SelectContent>
+            </Select>
             <Button type="submit">
               <Search className="h-4 w-4 mr-1" />
               Cari
@@ -288,11 +307,11 @@ export default function ArsipAlumniPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nama</TableHead>
-                <TableHead>NISN/NIS</TableHead>
-                <TableHead>Tahun Lulus</TableHead>
-                <TableHead>Kelas Akhir</TableHead>
-                <TableHead>Sekolah Lanjutan</TableHead>
+                <SortableTableHead label="Nama" sortKey="fullName" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableTableHead label="NISN/NIS" sortKey="nisn" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableTableHead label="Tahun Lulus" sortKey="graduationYear" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableTableHead label="Kelas Akhir" sortKey="finalClass" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableTableHead label="Sekolah Lanjutan" sortKey="nextSchool" sortConfig={sortConfig} onSort={requestSort} />
                 <TableHead className="text-right">Aksi</TableHead>
               </TableRow>
             </TableHeader>
@@ -336,7 +355,7 @@ export default function ArsipAlumniPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                alumni.map((item) => (
+                sortedAlumni.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-medium">
                       {item.fullName}
@@ -395,35 +414,37 @@ export default function ArsipAlumniPage() {
       </Card>
 
       {/* Pagination */}
-      {pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Menampilkan {(pagination.page - 1) * pagination.limit + 1} -{" "}
+      {pagination.total > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800">
+          <div className="text-sm text-muted-foreground">
+            Menampilkan {pagination.total > 0 ? (pagination.page - 1) * pagination.limit + 1 : 0} -{" "}
             {Math.min(pagination.page * pagination.limit, pagination.total)} dari{" "}
             {pagination.total} data
-          </p>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pagination.page === 1}
-              onClick={() =>
-                setPagination((prev) => ({ ...prev, page: prev.page - 1 }))
-              }
-            >
-              Sebelumnya
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pagination.page === pagination.totalPages}
-              onClick={() =>
-                setPagination((prev) => ({ ...prev, page: prev.page + 1 }))
-              }
-            >
-              Selanjutnya
-            </Button>
           </div>
+          {pagination.totalPages > 1 && (
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pagination.page === 1}
+                onClick={() =>
+                  setPagination((prev) => ({ ...prev, page: prev.page - 1 }))
+                }
+              >
+                Sebelumnya
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pagination.page === pagination.totalPages}
+                onClick={() =>
+                  setPagination((prev) => ({ ...prev, page: prev.page + 1 }))
+                }
+              >
+                Selanjutnya
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>

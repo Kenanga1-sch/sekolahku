@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,12 +9,30 @@ import { Mail, Phone, MapPin, Facebook, Instagram, Youtube, ArrowRight } from "l
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
-import { SparklesCore } from "@/components/ui/sparkles";
+import dynamic from "next/dynamic";
+
+const SparklesCore = dynamic(
+  () => import("@/components/ui/sparkles").then((mod) => mod.SparklesCore),
+  { ssr: false }
+);
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
   const { settings } = useSchoolSettings();
   const pathname = usePathname();
+  const schoolLogo = settings?.school_logo 
+    ? (settings.school_logo.startsWith("http") || settings.school_logo.startsWith("/") 
+      ? settings.school_logo 
+      : `/uploads/${settings.school_logo}`) 
+    : "/logo.png";
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   if (pathname?.startsWith("/kiosk")) return null;
 
@@ -25,15 +44,17 @@ export default function Footer() {
       
       {/* Sparkles Effect */}
       <div className="absolute inset-0 w-full h-full pointer-events-none opacity-50">
-        <SparklesCore
-          id="tsparticlesfullpage"
-          background="transparent"
-          minSize={0.6}
-          maxSize={1.4}
-          particleDensity={50}
-          className="w-full h-full"
-          particleColor="#3b82f6"
-        />
+        {!isMobile && (
+          <SparklesCore
+            id="tsparticlesfullpage"
+            background="transparent"
+            minSize={0.6}
+            maxSize={1.4}
+            particleDensity={50}
+            className="w-full h-full"
+            particleColor="#3b82f6"
+          />
+        )}
       </div>
 
       <div className="container py-16 relative z-10">
@@ -43,7 +64,7 @@ export default function Footer() {
             <div className="flex items-center gap-3">
               <div className="relative h-12 w-12 rounded-xl bg-zinc-100 dark:bg-white/5 p-2 overflow-hidden shadow-lg shadow-zinc-200 dark:shadow-white/5">
                 <Image
-                  src="/logo.png"
+                  src={schoolLogo}
                   alt="Logo Sekolah"
                   fill
                   className="object-contain p-1"
@@ -86,6 +107,7 @@ export default function Footer() {
                 <li key={link.href}>
                   <Link
                     href={link.href}
+                    prefetch={false}
                     className="text-zinc-600 dark:text-zinc-400 hover:text-primary transition-colors hover:translate-x-1 inline-block"
                   >
                     {link.label}
@@ -108,6 +130,7 @@ export default function Footer() {
                 <li key={link.href}>
                   <Link
                     href={link.href}
+                    prefetch={false}
                     className="text-zinc-600 dark:text-zinc-400 hover:text-primary transition-colors hover:translate-x-1 inline-block"
                   >
                     {link.label}

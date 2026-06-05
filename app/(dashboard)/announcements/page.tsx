@@ -67,6 +67,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { goGet, goPost, goPatch, goDelete } from "@/lib/api-client";
 import { showSuccess, showError } from "@/lib/toast";
+import { compressImage } from "@/lib/utils";
 import type { Announcement } from "@/types";
 
 
@@ -263,8 +264,17 @@ export default function AnnouncementsAdminPage() {
     if (!file) return;
 
     setIsUploading(true);
+    let uploadFile = file;
+    try {
+      if (file.type.startsWith("image/")) {
+        uploadFile = await compressImage(file, 1024, 0.85);
+      }
+    } catch (error) {
+      console.error("Compression failed:", error);
+    }
+
     const formDataUpload = new FormData();
-    formDataUpload.append("file", file);
+    formDataUpload.append("file", uploadFile);
     formDataUpload.append("folder", "announcements");
 
     try {

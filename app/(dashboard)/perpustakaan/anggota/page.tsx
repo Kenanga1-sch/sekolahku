@@ -63,6 +63,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { goGet, goPost, goPatch, goDelete } from "@/lib/api-client";
+import { useSortableData } from "@/hooks/use-sortable-data";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 
 import type { LibraryMember } from "@/types/library";
 
@@ -124,6 +126,7 @@ export default function AnggotaPage() {
     // Filter State
     const [searchQuery, setSearchQuery] = useState("");
     const [page, setPage] = useState(1);
+    const [perPage, setPerPage] = useState(20);
     const [totalPages, setTotalPages] = useState(1);
 
     // UI State
@@ -139,6 +142,7 @@ export default function AnggotaPage() {
     const [importing, setImporting] = useState(false);
     const [importProgress, setImportProgress] = useState(0);
     const [isSyncing, setIsSyncing] = useState(false); // Sync state
+    const { sortedData: sortedMembers, sortConfig, requestSort } = useSortableData(members);
     
     // Form state
     const [formData, setFormData] = useState({
@@ -155,7 +159,7 @@ export default function AnggotaPage() {
         try {
             const params = new URLSearchParams({
                 page: page.toString(),
-                perPage: "20",
+                perPage: perPage.toString(),
             });
             if (searchQuery) params.append("search", searchQuery);
             
@@ -168,7 +172,7 @@ export default function AnggotaPage() {
         } finally {
             setLoading(false);
         }
-    }, [page, searchQuery]);
+    }, [page, perPage, searchQuery]);
 
     useEffect(() => {
         loadMembers();
@@ -462,7 +466,23 @@ export default function AnggotaPage() {
                     />
                 </div>
                 <div className="flex items-center gap-2 w-full sm:w-auto">
-                    {/* Add filters here later if needed */}
+                    <Select
+                        value={perPage.toString()}
+                        onValueChange={(val) => {
+                            setPerPage(parseInt(val));
+                            setPage(1);
+                        }}
+                    >
+                        <SelectTrigger className="w-[120px] bg-background">
+                            <SelectValue placeholder="Baris" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="10">10 Baris</SelectItem>
+                            <SelectItem value="20">20 Baris</SelectItem>
+                            <SelectItem value="50">50 Baris</SelectItem>
+                            <SelectItem value="100">100 Baris</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
             </div>
 
@@ -472,10 +492,10 @@ export default function AnggotaPage() {
                     <Table>
                         <TableHeader className="bg-muted/50">
                             <TableRow>
-                                <TableHead className="font-semibold text-muted-foreground">Nama Anggota</TableHead>
-                                <TableHead className="font-semibold text-muted-foreground">Kelas / Posisi</TableHead>
-                                <TableHead className="font-semibold text-muted-foreground">NIS / ID</TableHead>
-                                <TableHead className="font-semibold text-muted-foreground text-center">Limit Pinjam</TableHead>
+                                <SortableTableHead label="Nama Anggota" sortKey="name" sortConfig={sortConfig} onSort={requestSort} className="font-semibold text-muted-foreground" />
+                                <SortableTableHead label="Kelas / Posisi" sortKey="className" sortConfig={sortConfig} onSort={requestSort} className="font-semibold text-muted-foreground" />
+                                <SortableTableHead label="NIS / ID" sortKey="studentId" sortConfig={sortConfig} onSort={requestSort} className="font-semibold text-muted-foreground" />
+                                <SortableTableHead label="Limit Pinjam" sortKey="maxBorrowLimit" sortConfig={sortConfig} onSort={requestSort} className="font-semibold text-muted-foreground text-center" />
                                 <TableHead className="font-semibold text-muted-foreground">Kode QR</TableHead>
                                 <TableHead className="w-[50px]"></TableHead>
                             </TableRow>
@@ -497,7 +517,7 @@ export default function AnggotaPage() {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                members.map((member) => (
+                                sortedMembers.map((member) => (
                                     <TableRow key={member.id} className="hover:bg-muted/50">
                                         <TableCell>
                                             <div className="font-medium text-foreground">{member.name}</div>
@@ -532,11 +552,11 @@ export default function AnggotaPage() {
                                         </TableCell>
                                         <TableCell>
                                             <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted">
-                                                        <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
+                                                 <DropdownMenuTrigger asChild>
+                                                     <Button variant="outline" size="icon-sm" className="h-8 w-8 text-muted-foreground hover:text-foreground bg-background/50">
+                                                         <MoreHorizontal className="h-4 w-4" />
+                                                     </Button>
+                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
                                                     <DropdownMenuLabel>Aksi</DropdownMenuLabel>
                                                     <DropdownMenuSeparator />
@@ -572,27 +592,34 @@ export default function AnggotaPage() {
             </Card>
 
             {/* Pagination */}
-            {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 mt-4">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={page === 1}
-                        onClick={() => setPage(page - 1)}
-                    >
-                        Sebelumnya
-                    </Button>
-                    <span className="text-sm font-medium text-slate-600 mx-2">
-                        {page} / {totalPages}
-                    </span>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={page === totalPages}
-                        onClick={() => setPage(page + 1)}
-                    >
-                        Selanjutnya
-                    </Button>
+            {totalItems > 0 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800">
+                    <div className="text-sm text-muted-foreground">
+                        Menampilkan {totalItems > 0 ? (page - 1) * perPage + 1 : 0} -{" "}
+                        {Math.min(page * perPage, totalItems)} dari{" "}
+                        {totalItems} anggota
+                    </div>
+
+                    {totalPages > 1 && (
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={page === 1}
+                                onClick={() => setPage(page - 1)}
+                            >
+                                Sebelumnya
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={page === totalPages}
+                                onClick={() => setPage(page + 1)}
+                            >
+                                Selanjutnya
+                            </Button>
+                        </div>
+                    )}
                 </div>
             )}
 

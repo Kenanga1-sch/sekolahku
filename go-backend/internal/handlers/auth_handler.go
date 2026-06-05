@@ -73,11 +73,10 @@ func (h *AuthHandler) Login(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Could not generate token"})
 	}
 
-	// Set session cookie for backend security (HttpOnly)
+	// Set session cookie for backend security (HttpOnly) - Session-only cookie
 	sessionCookie := new(http.Cookie)
 	sessionCookie.Name = "session"
 	sessionCookie.Value = tokenString
-	sessionCookie.Expires = time.Now().Add(time.Hour * 24 * 7)
 	sessionCookie.Path = "/"
 	sessionCookie.HttpOnly = true // Secured from XSS
 	sessionCookie.SameSite = http.SameSiteDefaultMode
@@ -111,7 +110,6 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	infoCookie := new(http.Cookie)
 	infoCookie.Name = "user_info"
 	infoCookie.Value = url.QueryEscape(string(userInfoJSON))
-	infoCookie.Expires = time.Now().Add(time.Hour * 24 * 7)
 	infoCookie.Path = "/"
 	infoCookie.HttpOnly = false // Accessible by frontend JS
 	infoCookie.SameSite = http.SameSiteDefaultMode

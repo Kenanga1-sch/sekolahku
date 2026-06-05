@@ -33,7 +33,8 @@ func newAlumniMutasiTestDB(t *testing.T) *sql.DB {
 			photo TEXT,
 			status TEXT DEFAULT 'active',
 			is_active INTEGER DEFAULT 1,
-			updated_at INTEGER
+			updated_at INTEGER,
+			kip TEXT
 		)`,
 		`CREATE TABLE alumni (
 			id TEXT PRIMARY KEY,

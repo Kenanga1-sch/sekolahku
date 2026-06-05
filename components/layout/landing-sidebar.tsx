@@ -122,7 +122,15 @@ function SidebarContent({ setIsDropdownOpen }: { setIsDropdownOpen: (v: boolean)
          <Link href="#" className="font-normal flex space-x-2 items-center text-sm text-black py-1 relative z-20">
             <div className="h-6 w-6 relative flex-shrink-0 rounded-lg bg-black dark:bg-white flex items-center justify-center overflow-hidden">
                 {settings?.school_logo ? (
-                   <Image src={settings.school_logo} alt="Logo" width={24} height={24} className="h-full w-full object-cover" />
+                   <Image 
+                     src={settings.school_logo.startsWith("http") || settings.school_logo.startsWith("/") 
+                       ? settings.school_logo 
+                       : `/uploads/${settings.school_logo}`} 
+                     alt="Logo" 
+                     width={24} 
+                     height={24} 
+                     className="h-full w-full object-cover" 
+                   />
                 ) : (
                    <Image src="/logo.png" alt="Logo" width={24} height={24} className="h-full w-full object-contain p-0.5" />
                 )}

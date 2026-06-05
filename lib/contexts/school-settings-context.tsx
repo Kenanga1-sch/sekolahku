@@ -34,7 +34,7 @@ export function SchoolSettingsProvider({ children }: { children: ReactNode }) {
         dedupingInterval: 60000, // Dedup requests within 1 minute
     });
 
-    const settings = response?.success ? response.data : response?.data ?? null;
+    const settings = (response?.success ? response.data : response?.data) ?? null;
 
     return (
         <SchoolSettingsContext.Provider value={{ settings, isLoading }}>

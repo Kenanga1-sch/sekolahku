@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Save, Loader2, Upload, User } from "lucide-react";
 
+import { compressImage } from "@/lib/utils";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -59,6 +61,7 @@ export default function EditSiswaPage() {
   const [formData, setFormData] = useState({
     nisn: "",
     nis: "",
+    kip: "",
     fullName: "",
     gender: "",
     birthPlace: "",
@@ -69,6 +72,7 @@ export default function EditSiswaPage() {
     className: "",
     photo: "",
     isActive: true,
+    status: "active",
   });
 
   useEffect(() => {
@@ -81,6 +85,7 @@ export default function EditSiswaPage() {
           setFormData({
             nisn: data.nisn || "",
             nis: data.nis || "",
+            kip: data.kip || "",
             fullName: data.fullName,
             gender: data.gender || "",
             birthPlace: data.birthPlace || "",
@@ -91,6 +96,7 @@ export default function EditSiswaPage() {
             className: data.className || "",
             photo: data.photo || "",
             isActive: data.isActive,
+            status: data.status || (data.isActive ? "active" : "inactive"),
           });
           setPhotoPreview(data.photo);
         } else {
@@ -113,15 +119,16 @@ export default function EditSiswaPage() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const compressed = await compressImage(file, 512, 0.8);
       const reader = new FileReader();
       reader.onloadend = () => {
         setPhotoPreview(reader.result as string);
         setFormData((prev) => ({ ...prev, photo: reader.result as string }));
       };
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(compressed);
     }
   };
 
@@ -226,7 +233,7 @@ export default function EditSiswaPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Identity */}
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-2">
                   <Label htmlFor="nisn">NISN</Label>
                   <Input
@@ -243,6 +250,15 @@ export default function EditSiswaPage() {
                     placeholder="Nomor Induk Sekolah"
                     value={formData.nis}
                     onChange={(e) => handleChange("nis", e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="kip">No. KIP</Label>
+                  <Input
+                    id="kip"
+                    placeholder="Nomor Indonesia Pintar"
+                    value={formData.kip}
+                    onChange={(e) => handleChange("kip", e.target.value)}
                   />
                 </div>
               </div>
@@ -362,7 +378,10 @@ export default function EditSiswaPage() {
                 </div>
                 <Switch
                   checked={formData.isActive}
-                  onCheckedChange={(v) => handleChange("isActive", v)}
+                  onCheckedChange={(v) => {
+                    handleChange("isActive", v);
+                    handleChange("status", v ? "active" : "inactive");
+                  }}
                 />
               </div>
             </CardContent>

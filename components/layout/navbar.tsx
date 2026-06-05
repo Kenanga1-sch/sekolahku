@@ -58,6 +58,11 @@ export default function Navbar() {
   const router = useRouter();
   const { user, isAuthenticated, logout: storeLogout } = useAuthStore();
   const { settings } = useSchoolSettings();
+  const schoolLogo = settings?.school_logo 
+    ? (settings.school_logo.startsWith("http") || settings.school_logo.startsWith("/") 
+      ? settings.school_logo 
+      : `/uploads/${settings.school_logo}`) 
+    : "/logo.png";
 
   const handleLogout = async () => {
     await logoutAction();
@@ -89,7 +94,7 @@ export default function Navbar() {
         <Link href="/" className="flex items-center gap-3 group">
           <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden shadow-lg shadow-primary/20 transition-transform group-hover:scale-105">
             <Image 
-              src="/logo.png" 
+              src={schoolLogo} 
               alt="Logo Sekolah" 
               fill
               className="object-contain p-1"
@@ -216,7 +221,7 @@ export default function Navbar() {
               <SheetTitle className="flex items-center gap-3 mb-8">
                 <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl overflow-hidden shadow-xl shadow-primary/20">
                   <Image 
-                    src="/logo.png" 
+                    src={schoolLogo} 
                     alt="Logo Sekolah" 
                     fill
                     className="object-contain p-1"

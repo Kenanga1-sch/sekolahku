@@ -35,6 +35,8 @@ import {
 import Link from "next/link";
 import { goGet } from "@/lib/api-client";
 import type { TabunganTransaksiWithRelations, TransactionStatus } from "@/types/tabungan";
+import { useSortableData } from "@/hooks/use-sortable-data";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 
 function formatRupiah(amount: number): string {
     return new Intl.NumberFormat("id-ID", {
@@ -69,16 +71,18 @@ export default function TabunganRiwayatPage() {
     const [statusFilter, setStatusFilter] = useState<string>("all");
     const [typeFilter, setTypeFilter] = useState<string>("all");
     const [page, setPage] = useState(1);
+    const [perPage, setPerPage] = useState(20);
     const [totalPages, setTotalPages] = useState(1);
+    const { sortedData: sortedTransactions, sortConfig, requestSort } = useSortableData(transactions);
 
     const fetchData = useCallback(async () => {
         setIsLoading(true);
         try {
             const params = new URLSearchParams({
                 page: page.toString(),
-                perPage: "20",
+                perPage: perPage.toString(),
             });
-
+ 
             if (searchQuery) params.set("search", searchQuery); // Note: API needs to handle generic search if I pass it?
             // My API implementation ignored 'search' param for transactions, it strictly used specific filters.
             // I should update API to handle 'search' for siswa name.
@@ -103,7 +107,7 @@ export default function TabunganRiwayatPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [page, searchQuery, statusFilter, typeFilter]);
+    }, [page, perPage, searchQuery, statusFilter, typeFilter]);
 
     useEffect(() => {
         fetchData();
@@ -161,6 +165,23 @@ export default function TabunganRiwayatPage() {
                                 <SelectItem value="tarik">Tarik</SelectItem>
                             </SelectContent>
                         </Select>
+                        <Select
+                            value={perPage.toString()}
+                            onValueChange={(val) => {
+                                setPerPage(parseInt(val));
+                                setPage(1);
+                            }}
+                        >
+                            <SelectTrigger className="w-full md:w-[120px]">
+                                <SelectValue placeholder="Baris" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="10">10 Baris</SelectItem>
+                                <SelectItem value="20">20 Baris</SelectItem>
+                                <SelectItem value="50">50 Baris</SelectItem>
+                                <SelectItem value="100">100 Baris</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                 </CardContent>
             </Card>
@@ -171,12 +192,12 @@ export default function TabunganRiwayatPage() {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Waktu</TableHead>
-                                <TableHead>Siswa</TableHead>
-                                <TableHead>Tipe</TableHead>
-                                <TableHead className="text-right">Nominal</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Operator</TableHead>
+                                <SortableTableHead label="Waktu" sortKey="createdAt" sortConfig={sortConfig} onSort={requestSort} />
+                                <SortableTableHead label="Siswa" sortKey="siswa.nama" sortConfig={sortConfig} onSort={requestSort} />
+                                <SortableTableHead label="Tipe" sortKey="tipe" sortConfig={sortConfig} onSort={requestSort} />
+                                <SortableTableHead label="Nominal" sortKey="nominal" sortConfig={sortConfig} onSort={requestSort} className="text-right" />
+                                <SortableTableHead label="Status" sortKey="status" sortConfig={sortConfig} onSort={requestSort} />
+                                <SortableTableHead label="Operator" sortKey="user.name" sortConfig={sortConfig} onSort={requestSort} />
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -201,7 +222,7 @@ export default function TabunganRiwayatPage() {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                transactions.map((t) => {
+                                sortedTransactions.map((t) => {
                                     const statusInfo = statusConfig[t.status];
                                     const StatusIcon = statusInfo.icon;
                                     return (
@@ -254,29 +275,31 @@ export default function TabunganRiwayatPage() {
                     </Table>
 
                     {/* Pagination */}
-                    {totalPages > 1 && (
-                        <div className="flex items-center justify-between p-4 border-t">
-                            <p className="text-sm text-muted-foreground">
+                    {transactions.length > 0 && (
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-slate-100 dark:border-zinc-800">
+                            <div className="text-sm text-muted-foreground">
                                 Halaman {page} dari {totalPages}
-                            </p>
-                            <div className="flex gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    disabled={page <= 1}
-                                    onClick={() => setPage((p) => p - 1)}
-                                >
-                                    Sebelumnya
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    disabled={page >= totalPages}
-                                    onClick={() => setPage((p) => p + 1)}
-                                >
-                                    Selanjutnya
-                                </Button>
                             </div>
+                            {totalPages > 1 && (
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={page <= 1}
+                                        onClick={() => setPage((p) => p - 1)}
+                                    >
+                                        Sebelumnya
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={page >= totalPages}
+                                        onClick={() => setPage((p) => p + 1)}
+                                    >
+                                        Selanjutnya
+                                    </Button>
+                                </div>
+                            )}
                         </div>
                     )}
                 </CardContent>

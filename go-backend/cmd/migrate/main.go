@@ -34,7 +34,7 @@ func main() {
 	}
 
 	// 2. Read migration files
-	migrationDir := filepath.Join("go-backend", "migrations")
+	migrationDir := filepath.Join("go-backend", "internal", "db", "migrations")
 	files, err := ioutil.ReadDir(migrationDir)
 	if err != nil {
 		log.Fatal("Gagal membaca folder migrasi:", err)

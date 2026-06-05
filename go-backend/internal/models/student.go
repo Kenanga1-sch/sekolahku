@@ -7,6 +7,7 @@ type Student struct {
 	NIK                *string    `json:"nik"`
 	NISN               *string    `json:"nisn"`
 	NIS                *string    `json:"nis"`
+	KIP                *string    `json:"kip"`
 	FullName           string     `json:"fullName"` // Matches frontend expectation
 	Gender             *string    `json:"gender"`
 	BirthPlace         *string    `json:"birthPlace"`

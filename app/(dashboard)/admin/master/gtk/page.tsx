@@ -6,9 +6,12 @@ import { Plus, Search, MoreHorizontal, Pencil, Trash2, Upload } from "lucide-rea
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useSortableData } from "@/hooks/use-sortable-data";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { showSuccess, showError } from "@/lib/toast";
 import { useDebounce } from "@/hooks/use-debounce";
 import { goGet, goDelete } from "@/lib/api-client";
@@ -31,6 +34,7 @@ export default function MasterGTKPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
 
     // Modal
@@ -39,18 +43,19 @@ export default function MasterGTKPage() {
     const [isImportOpen, setIsImportOpen] = useState(false);
 
     const debouncedSearch = useDebounce(searchTerm, 500);
+    const { sortedData: sortedEmployees, sortConfig, requestSort } = useSortableData(employees);
 
     useEffect(() => {
         fetchEmployees();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [debouncedSearch, page]);
+    }, [debouncedSearch, page, limit]);
 
     const fetchEmployees = async () => {
         setIsLoading(true);
         try {
             const params = new URLSearchParams({
                 page: page.toString(),
-                limit: "10",
+                limit: limit.toString(),
                 q: debouncedSearch,
             });
 
@@ -119,24 +124,48 @@ export default function MasterGTKPage() {
 
             <Card>
                 <CardHeader className="p-4 md:p-6 pb-2">
-                     <div className="relative w-full md:w-72">
-                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder="Cari Nama / NIP / NUPTK..."
-                            className="pl-9"
-                            value={searchTerm}
-                            onChange={e => setSearchTerm(e.target.value)}
-                        />
+                    <div className="flex flex-col md:flex-row gap-4 justify-between">
+                         <div className="relative w-full md:w-72">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Cari Nama / NIP / NUPTK..."
+                                className="pl-9"
+                                value={searchTerm}
+                                onChange={e => {
+                                    setSearchTerm(e.target.value);
+                                    setPage(1);
+                                }}
+                            />
+                        </div>
+                        <div className="flex gap-2 w-full md:w-auto">
+                            <Select
+                                value={limit.toString()}
+                                onValueChange={(val) => {
+                                    setLimit(parseInt(val));
+                                    setPage(1);
+                                }}
+                            >
+                                <SelectTrigger className="w-[120px]">
+                                    <SelectValue placeholder="Baris" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="10">10 Baris</SelectItem>
+                                    <SelectItem value="20">20 Baris</SelectItem>
+                                    <SelectItem value="50">50 Baris</SelectItem>
+                                    <SelectItem value="100">100 Baris</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent className="p-0">
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Nama Lengkap</TableHead>
-                                <TableHead>NIP / NUPTK</TableHead>
-                                <TableHead>Jabatan</TableHead>
-                                <TableHead>Status</TableHead>
+                                <SortableTableHead label="Nama Lengkap" sortKey="fullName" sortConfig={sortConfig} onSort={requestSort} />
+                                <SortableTableHead label="NIP / NUPTK" sortKey="nip" sortConfig={sortConfig} onSort={requestSort} />
+                                <SortableTableHead label="Jabatan" sortKey="jobType" sortConfig={sortConfig} onSort={requestSort} />
+                                <SortableTableHead label="Status" sortKey="employmentStatus" sortConfig={sortConfig} onSort={requestSort} />
                                 <TableHead className="text-right">Aksi</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -150,7 +179,7 @@ export default function MasterGTKPage() {
                                     <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">Tidak ada data GTK ditemukan.</TableCell>
                                 </TableRow>
                             ) : (
-                                employees.map((emp) => (
+                                sortedEmployees.map((emp) => (
                                     <TableRow key={emp.id}>
                                         <TableCell className="font-medium">
                                             {emp.fullName}
@@ -200,14 +229,18 @@ export default function MasterGTKPage() {
                 </CardContent>
             </Card>
 
-             <div className="flex justify-end gap-2">
-                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
-                    Previous
-                </Button>
-                <div className="flex items-center text-sm font-medium">Halaman {page} dari {totalPages}</div>
-                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
-                    Next
-                </Button>
+             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800">
+                <div className="text-sm text-muted-foreground">
+                    Halaman {page} dari {totalPages}
+                </div>
+                <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
+                        Previous
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                        Next
+                    </Button>
+                </div>
             </div>
         </div>
     );

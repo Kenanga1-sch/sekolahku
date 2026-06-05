@@ -6,7 +6,6 @@ import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { toast } from "sonner";
 import { Loader2, Check, X, RefreshCw, MessageCircle, Download } from "lucide-react";
-import jsPDF from "jspdf";
 
 import {
   Table,
@@ -75,7 +74,8 @@ export default function AdminMutasiPage() {
     }
   };
 
-  const generatePDF = (req: any) => {
+  const generatePDF = async (req: any) => {
+    const { default: jsPDF } = await import("jspdf");
     const doc = new jsPDF();
     
     // Header

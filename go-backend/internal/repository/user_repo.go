@@ -140,15 +140,15 @@ func (r *UserRepository) GetUsers(page, limit int, search string) ([]models.User
 
 func (r *UserRepository) GetUserByID(id string) (*models.User, error) {
 	query := `
-		SELECT id, name, email, role, phone, username, full_name, password_hash, is_active, created_at, updated_at
+		SELECT id, name, email, role, phone, username, full_name, password_hash, is_active, created_at, updated_at, image
 		FROM users WHERE id = ?
 	`
 	var u models.User
-	var name, username, phone, fullName, passwordHash sql.NullString
+	var name, username, phone, fullName, passwordHash, image sql.NullString
 	var crAt, upAt, isActive sql.NullInt64
 
 	err := r.DB.QueryRow(query, id).Scan(
-		&u.ID, &name, &u.Email, &u.Role, &phone, &username, &fullName, &passwordHash, &isActive, &crAt, &upAt,
+		&u.ID, &name, &u.Email, &u.Role, &phone, &username, &fullName, &passwordHash, &isActive, &crAt, &upAt, &image,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -171,6 +171,9 @@ func (r *UserRepository) GetUserByID(id string) (*models.User, error) {
 	}
 	if passwordHash.Valid {
 		u.PasswordHash = &passwordHash.String
+	}
+	if image.Valid {
+		u.Image = &image.String
 	}
 	u.IsActive = isActive.Int64 != 0
 	u.CreatedAt = SafeTime(crAt)
@@ -238,6 +241,11 @@ func (r *UserRepository) UpdateUser(id string, u models.User) error {
 		phone = u.Phone
 	}
 
+	image := existing.Image
+	if u.Image != nil {
+		image = u.Image
+	}
+
 	isActiveInt := 0
 	if existing.IsActive {
 		isActiveInt = 1
@@ -245,8 +253,8 @@ func (r *UserRepository) UpdateUser(id string, u models.User) error {
 
 	now := time.Now().UnixMilli()
 
-	query := "UPDATE users SET name=?, full_name=?, username=?, role=?, phone=?, is_active=?, updated_at=?"
-	args := []interface{}{name, fullName, username, role, phone, isActiveInt, now}
+	query := "UPDATE users SET name=?, full_name=?, username=?, role=?, phone=?, is_active=?, updated_at=?, image=?"
+	args := []interface{}{name, fullName, username, role, phone, isActiveInt, now, image}
 
 	if u.PasswordHash != nil && *u.PasswordHash != "" {
 		query += ", password_hash=?"

@@ -250,7 +250,12 @@ export function HomeClient({ settings, news, activePeriod, studentCount }: HomeC
                           alt={item.title}
                           className="absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-105"
                           onError={(e) => {
-                            e.currentTarget.src = "/logo.png"; 
+                            const fallbackLogo = settings?.school_logo 
+                              ? (settings.school_logo.startsWith("http") || settings.school_logo.startsWith("/") 
+                                ? settings.school_logo 
+                                : `/uploads/${settings.school_logo}`) 
+                              : "/logo.png";
+                            e.currentTarget.src = fallbackLogo; 
                             e.currentTarget.className = "absolute inset-0 w-full h-full object-contain p-8 opacity-20";
                           }}
                         />

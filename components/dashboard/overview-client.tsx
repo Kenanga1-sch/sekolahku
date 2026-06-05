@@ -416,7 +416,7 @@ export function OverviewClient({
                         <action.icon className="h-4 w-4" />
                       </span>
                       {action.label}
-                      {action.badge > 0 && (
+                      {action.badge !== undefined && action.badge > 0 && (
                         <Badge className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center p-0 text-[10px]">
                           {action.badge}
                         </Badge>

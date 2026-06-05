@@ -103,6 +103,11 @@ function ProofContent() {
   const schoolNPSN = settings?.school_npsn || "20216609";
   const schoolAddress = settings?.school_address || "Jl. Perindustrian Blok Dukuh Desa Kenanga Kec. Sindang Kab. Indramayu 45226";
   const schoolEmail = settings?.school_email || "uptdsdn1kenangasindang@gmail.com";
+  const schoolLogo = settings?.school_logo 
+    ? (settings.school_logo.startsWith("http") || settings.school_logo.startsWith("/") 
+      ? settings.school_logo 
+      : `/uploads/${settings.school_logo}`) 
+    : "/logo.png";
   const fullAddress = registrant.address || [
     registrant.addressStreet,
     registrant.addressRt ? `RT ${registrant.addressRt}` : "",
@@ -122,7 +127,7 @@ function ProofContent() {
             >
                 <ArrowLeft className="h-4 w-4" /> Kembali
             </Link>
-            <DownloadPdfButton registrant={{ ...registrant, address: fullAddress, photoUrl, committeeName, schoolName, schoolNPSN, schoolAddress, schoolEmail }} />
+            <DownloadPdfButton registrant={{ ...registrant, address: fullAddress, photoUrl, committeeName, schoolName, schoolNPSN, schoolAddress, schoolEmail, schoolLogo }} />
         </div>
         
         {/* Printable Card */}
@@ -133,7 +138,7 @@ function ProofContent() {
                     <div className="absolute left-0 top-0 w-24 h-24 flex items-center justify-center">
                          <div className="relative w-[80px] h-[80px]">
                             <Image 
-                                src="/logo.png" 
+                                src={schoolLogo} 
                                 alt="Logo Sekolah" 
                                 fill
                                 className="object-contain"

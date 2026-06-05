@@ -33,6 +33,12 @@ func (s *Scheduler) Start() {
 		s.cleanupSoftDeleted()
 	})
 
+	// SQLite Database Vacuum - runs every Sunday at 03:00 (after cleanup)
+	s.cron.AddFunc("0 0 3 * * 0", func() {
+		log.Println("[CRON] Running SQLite incremental vacuum...")
+		s.vacuumDatabase()
+	})
+
 	s.cron.Start()
 	log.Println("[CRON] Scheduler started with", len(s.cron.Entries()), "jobs registered")
 }
@@ -105,4 +111,14 @@ func (s *Scheduler) cleanupSoftDeleted() {
 			log.Printf("[CRON] Cleaned up %d soft-deleted records from %s", affected, table)
 		}
 	}
+}
+
+// vacuumDatabase runs SQLite incremental vacuum to reclaim unused space
+func (s *Scheduler) vacuumDatabase() {
+	_, err := s.db.Exec("PRAGMA incremental_vacuum(100);")
+	if err != nil {
+		log.Printf("[CRON] Incremental vacuum failed: %v", err)
+		return
+	}
+	log.Println("[CRON] Incremental vacuum completed successfully")
 }

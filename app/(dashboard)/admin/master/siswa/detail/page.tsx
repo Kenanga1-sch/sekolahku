@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { showSuccess, showError } from "@/lib/toast";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
+import { compressImage } from "@/lib/utils";
 
 export default function StudentDetailPage() {
     const searchParams = useSearchParams();
@@ -78,8 +79,17 @@ export default function StudentDetailPage() {
         if (!uploadFile) return showError("Pilih file dulu");
 
         setIsUploading(true);
+        let finalFile = uploadFile;
+        if (uploadFile.type.startsWith("image/")) {
+            try {
+                finalFile = await compressImage(uploadFile, 1200, 0.85);
+            } catch (err) {
+                console.error("Compression error:", err);
+            }
+        }
+
         const formData = new FormData();
-        formData.append("file", uploadFile);
+        formData.append("file", finalFile);
         formData.append("title", docTitle || uploadFile.name);
         formData.append("type", docType);
 

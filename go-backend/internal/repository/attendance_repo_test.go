@@ -27,7 +27,8 @@ func setupAttendanceTestDB(t *testing.T) *sql.DB {
 			status TEXT DEFAULT 'active',
 			photo TEXT,
 			qr_code TEXT,
-			is_active INTEGER DEFAULT 1
+			is_active INTEGER DEFAULT 1,
+			kip TEXT
 		);
 		CREATE TABLE attendance_sessions (
 			id TEXT PRIMARY KEY,

@@ -8,11 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Book, QrCode, Search, Check, Loader2, ArrowLeft, ArrowRight, Save, Plus, Camera, CameraOff, AlertCircle, Upload, X } from "lucide-react";
+import { Book, QrCode, Search, Check, Loader2, ArrowLeft, ArrowRight, Save, Plus, Camera, CameraOff, AlertCircle, Upload, X, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getDDCLabel, getAllDDCCategories, getShelfByDDC, getAllShelves, type DDCCategory } from "@/lib/library/ddc-mapping";
 import { goGet, goPost } from "@/lib/api-client";
+import { compressImage } from "@/lib/utils";
 
 interface CatalogData {
     title: string;
@@ -25,6 +26,7 @@ interface CatalogData {
     ddcCategory?: DDCCategory;
     localFound?: boolean;
     totalExemplars?: number;
+    description?: string;
 }
 
 export default function LibraryBindingPage() {
@@ -44,7 +46,69 @@ export default function LibraryBindingPage() {
         year: new Date().getFullYear(),
         isbn: "",
         ddcCategory: "UNSORTED",
+        description: "",
     });
+    const [aiLoading, setAiLoading] = useState(false);
+    const [aiRecommendation, setAiRecommendation] = useState<{
+        category: DDCCategory;
+        shelf: string;
+        description?: string;
+        reason?: string;
+        subjects?: string[];
+    } | null>(null);
+    const [aiEnabled, setAiEnabled] = useState(true);
+
+    const triggerAIClassify = async (
+        title: string,
+        author: string,
+        description: string = "",
+        subjects: string[] = []
+    ) => {
+        if (!title.trim()) return;
+        setAiLoading(true);
+        try {
+            const response: any = await goPost("/api/library/catalog/ai-classify", {
+                title,
+                author,
+                description,
+                subjects,
+            });
+
+            if (!response.error) {
+                if (response.ai_enabled === false) {
+                    setAiEnabled(false);
+                    setAiRecommendation(null);
+                } else {
+                    setAiEnabled(true);
+                    setAiRecommendation(response.data);
+                    
+                    // Auto-apply AI suggestions to form fields
+                    const rec = response.data;
+                    setOverrideCategory(rec.category);
+                    setLocation(rec.shelf);
+                    
+                    setCatalog(prev => {
+                        const newCat = { ...prev };
+                        if (rec.description && (!prev.description || prev.description.trim() === "")) {
+                            newCat.description = rec.description;
+                        }
+                        if (rec.subjects && rec.subjects.length > 0) {
+                            newCat.subjects = Array.from(new Set([...(prev.subjects || []), ...(rec.subjects || [])]));
+                        }
+                        return newCat;
+                    });
+                    
+                    toast.success("Rekomendasi AI otomatis diterapkan!");
+                }
+            } else {
+                console.error("AI Classify failed:", response.error);
+            }
+        } catch (error) {
+            console.error("Failed calling AI classification endpoint", error);
+        } finally {
+            setAiLoading(false);
+        }
+    };
 
     // Step 1: Scan QR Identity
     const handleQRScan = (code: string) => {
@@ -86,11 +150,20 @@ export default function LibraryBindingPage() {
                     ddcCategory: data.ddcCategory || "UNSORTED",
                     localFound: data.localFound,
                     totalExemplars: data.totalExemplars,
+                    description: data.description || "",
                 });
 
                 // Auto-map to shelf
                 const targetShelf = getShelfByDDC(data.ddcCategory || "UNSORTED");
                 setLocation(targetShelf);
+
+                // Call Gemini AI auto classification in background
+                triggerAIClassify(
+                    data.title || "",
+                    data.author || "",
+                    data.description || "",
+                    data.subjects || []
+                );
 
                 if (data.localFound) {
                     toast.success(`Data ditemukan di koleksi lokal! (${data.totalExemplars} exemplar sudah ada)`);
@@ -109,7 +182,8 @@ export default function LibraryBindingPage() {
                     author: "", 
                     publisher: "", 
                     isbn: isbnToLookup,
-                    ddcCategory: "UNSORTED"
+                    ddcCategory: "UNSORTED",
+                    description: "",
                 }));
             }
         } catch (error) {
@@ -130,11 +204,17 @@ export default function LibraryBindingPage() {
             return;
         }
 
-        const formData = new FormData();
-        formData.append("file", file);
-        if (catalog.isbn) formData.append("isbn", catalog.isbn);
-        
         setLoading(true);
+        let uploadFile = file;
+        try {
+            uploadFile = await compressImage(file, 600, 0.85);
+        } catch (error) {
+            console.error("Cover image compression failed:", error);
+        }
+
+        const formData = new FormData();
+        formData.append("file", uploadFile);
+        if (catalog.isbn) formData.append("isbn", catalog.isbn);
         try {
             const data: any = await goPost("/api/library/catalog/cover", formData);
 
@@ -174,6 +254,7 @@ export default function LibraryBindingPage() {
                 setLookupStatus("idle");
                 setShowISBNScanner(true);
                 setOverrideCategory(null);
+                setAiRecommendation(null);
                 setCatalog({ 
                     title: "", 
                     author: "", 
@@ -183,7 +264,8 @@ export default function LibraryBindingPage() {
                     coverUrl: undefined,
                     ddcCategory: "UNSORTED",
                     localFound: false,
-                    subjects: []
+                    subjects: [],
+                    description: ""
                 });
                 setLocation("RAK-NEW");
                 setStep(1);
@@ -363,16 +445,30 @@ export default function LibraryBindingPage() {
                                         </p>
                                     </div>
                                 )}
-                                <div className={catalog.coverUrl ? "md:col-span-3 space-y-4" : "space-y-4 w-full"}>
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="title">Judul Buku</Label>
+                                <div className="md:col-span-3 space-y-5">
+                                    <div className="grid gap-3">
+                                        <div className="flex items-center justify-between">
+                                            <Label htmlFor="title">Judul Buku</Label>
+                                            {aiEnabled && (
+                                                <Button 
+                                                    type="button" 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    className="h-7 px-2.5 text-xs border-purple-500/30 hover:border-purple-500/50 hover:bg-purple-500/10 text-purple-700 dark:text-purple-300 gap-1 font-semibold"
+                                                    disabled={aiLoading || !catalog.title?.trim() || !catalog.author?.trim()}
+                                                    onClick={() => triggerAIClassify(catalog.title, catalog.author, catalog.description || "", catalog.subjects || [])}
+                                                >
+                                                    {aiLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                                                    Tanya AI
+                                                </Button>
+                                            )}
+                                        </div>
                                         <div className="flex items-center gap-2">
                                             <Input
                                                 id="title"
-                                                className={lookupStatus === 'not_found' ? "border-amber-400 ring-amber-400 focus-visible:ring-amber-500" : ""}
+                                                className={!catalog.title?.trim() ? "border-amber-400 ring-amber-400 focus-visible:ring-amber-500" : ""}
                                                 value={catalog.title}
                                                 onChange={(e) => setCatalog({...catalog, title: e.target.value})}
-                                                placeholder="Contoh: Laskar Pelangi"
                                             />
                                             {catalog.localFound && (
                                                 <Badge className="bg-green-100 text-green-800 border-green-200 shrink-0">
@@ -386,32 +482,108 @@ export default function LibraryBindingPage() {
                                             </p>
                                         )}
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="grid gap-2">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                        <div className="grid gap-3">
                                             <Label htmlFor="author">Penulis</Label>
                                             <Input
                                                 id="author"
-                                                className={lookupStatus === 'not_found' ? "border-amber-400 ring-amber-400 focus-visible:ring-amber-500" : ""}
+                                                className={!catalog.author?.trim() ? "border-amber-400 ring-amber-400 focus-visible:ring-amber-500" : ""}
                                                 value={catalog.author}
                                                 onChange={(e) => setCatalog({...catalog, author: e.target.value})}
-                                                placeholder="Andrea Hirata"
                                             />
                                         </div>
-                                        <div className="grid gap-2">
+                                        <div className="grid gap-3">
                                             <Label htmlFor="publisher">Penerbit</Label>
                                             <Input
                                                 id="publisher"
                                                 value={catalog.publisher}
                                                 onChange={(e) => setCatalog({...catalog, publisher: e.target.value})}
-                                                placeholder="Bentang Pustaka"
                                             />
                                         </div>
                                     </div>
                                     
+                                    {/* AI Suggestion Card */}
+                                    {aiEnabled && (aiRecommendation || aiLoading) && (
+                                        <div className="relative overflow-hidden rounded-xl border border-purple-500/20 bg-gradient-to-br from-purple-500/5 via-transparent to-indigo-500/5 p-4 backdrop-blur-sm shadow-sm space-y-3">
+                                            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-purple-500 via-indigo-500 to-pink-500 opacity-60" />
+                                            
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="rounded-full bg-purple-500/10 p-1.5 text-purple-600 dark:text-purple-400">
+                                                        <Sparkles className="h-4 w-4 animate-pulse" />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="text-xs font-bold text-purple-950 dark:text-purple-300 uppercase tracking-wider">Rekomendasi Gemini AI</h4>
+                                                        <p className="text-[10px] text-muted-foreground">Otomatisasi klasifikasi DDC & Rak Buku</p>
+                                                    </div>
+                                                </div>
+                                                
+                                                {aiRecommendation && (
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="h-7 text-xs border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 font-semibold gap-1"
+                                                        onClick={() => {
+                                                            setOverrideCategory(aiRecommendation.category);
+                                                            setLocation(aiRecommendation.shelf);
+                                                            if (aiRecommendation.description && !catalog.description) {
+                                                                setCatalog(prev => ({ ...prev, description: aiRecommendation.description }));
+                                                            }
+                                                            if (aiRecommendation.subjects && aiRecommendation.subjects.length > 0) {
+                                                                setCatalog(prev => ({ 
+                                                                    ...prev, 
+                                                                    subjects: Array.from(new Set([...(prev.subjects || []), ...(aiRecommendation.subjects || [])]))
+                                                                }));
+                                                            }
+                                                            toast.success("Rekomendasi AI berhasil diterapkan!");
+                                                        }}
+                                                    >
+                                                        <Check className="h-3 w-3" />
+                                                        Terapkan Saran
+                                                    </Button>
+                                                )}
+                                            </div>
+                                            
+                                            {aiLoading ? (
+                                                <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                                                    <Loader2 className="h-3.5 w-3.5 animate-spin text-purple-500" />
+                                                    <span>Gemini sedang menganalisis buku...</span>
+                                                </div>
+                                            ) : aiRecommendation ? (
+                                                <div className="space-y-2">
+                                                    <div className="grid grid-cols-2 gap-4 text-xs">
+                                                        <div className="rounded-lg bg-background/50 border p-2 space-y-0.5">
+                                                            <span className="text-[10px] text-muted-foreground font-medium uppercase">Kategori DDC</span>
+                                                            <p className="font-semibold text-foreground">{getDDCLabel(aiRecommendation.category)}</p>
+                                                        </div>
+                                                        <div className="rounded-lg bg-background/50 border p-2 space-y-0.5">
+                                                            <span className="text-[10px] text-muted-foreground font-medium uppercase">Saran Lokasi Rak</span>
+                                                            <p className="font-semibold text-foreground">{getAllShelves().find(s => s.value === aiRecommendation.shelf)?.label || aiRecommendation.shelf}</p>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    {aiRecommendation.reason && (
+                                                        <p className="text-xs text-muted-foreground leading-relaxed italic bg-purple-500/5 p-2 rounded-lg border border-purple-500/10">
+                                                            &ldquo;{aiRecommendation.reason}&rdquo;
+                                                        </p>
+                                                    )}
+                                                    
+                                                    {aiRecommendation.description && !catalog.description && (
+                                                        <div className="text-[11px] text-muted-foreground space-y-1">
+                                                            <span className="font-semibold text-foreground block">Sinopsis Pendek (AI):</span>
+                                                            <p className="leading-normal">{aiRecommendation.description}</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    )}
+
                                     {/* DDC Category Section */}
-                                    <div className="grid gap-2 pt-4 border-t">
+                                    <div className="grid gap-3 pt-5 border-t">
                                         <Label>Kategori DDC (Dewey Decimal)</Label>
-                                        <div className="flex items-center gap-2 flex-wrap">
+                                        <div className="flex items-center gap-3 flex-wrap">
                                             <Badge variant="outline" className="text-sm py-1 px-3">
                                                 {getDDCLabel(catalog.ddcCategory || "UNSORTED")}
                                             </Badge>
@@ -460,9 +632,15 @@ export default function LibraryBindingPage() {
                             </div>
                         </div>
 
-                        <div className="flex justify-between mt-6">
+                        <div className="flex justify-between mt-6 items-center">
                             <Button variant="outline" onClick={() => setStep(1)}>Kembali</Button>
-                            <Button onClick={() => setStep(3)} disabled={!catalog.title || !catalog.author}>Lanjut</Button>
+                            
+                            <div className="flex items-center gap-3">
+                                {(!catalog.title?.trim() || !catalog.author?.trim()) && (
+                                    <span className="text-xs text-amber-600 font-medium">Judul dan Penulis wajib diisi</span>
+                                )}
+                                <Button onClick={() => setStep(3)} disabled={!catalog.title?.trim() || !catalog.author?.trim()}>Lanjut</Button>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>

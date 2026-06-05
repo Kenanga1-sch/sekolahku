@@ -6,7 +6,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
 import { goPost } from "@/lib/api-client";
-import jsPDF from "jspdf";
 import { Loader2, Download, CheckCircle, ArrowRight, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
@@ -107,7 +106,7 @@ export default function MutasiKeluarPage() {
       });
 
       // 2. Generate PDF
-      generatePDF(values);
+      await generatePDF(values);
 
       setStep("success");
       toast.success("Surat permohonan berhasil dibuat!");
@@ -118,9 +117,10 @@ export default function MutasiKeluarPage() {
     }
   };
 
-  const generatePDF = (values: z.infer<typeof requestSchema>) => {
+  const generatePDF = async (values: z.infer<typeof requestSchema>) => {
     if (!student) return;
 
+    const { default: jsPDF } = await import("jspdf");
     const doc = new jsPDF();
     const reasonText = 
       values.reason === "domisili" ? "Pindah Domisili" :

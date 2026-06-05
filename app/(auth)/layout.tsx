@@ -25,8 +25,18 @@ export default function AuthLayout({
             {/* Content Container - z-index handled by component but ensuring layout */}
             <div className="relative z-10 flex flex-col h-full justify-between w-full">
               <Link href="/" className="flex items-center gap-3 w-fit">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 backdrop-blur border border-white/20">
-                  <GraduationCap className="h-6 w-6" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 backdrop-blur border border-white/20 overflow-hidden">
+                  {settings?.school_logo ? (
+                    <img 
+                      src={settings.school_logo.startsWith("http") || settings.school_logo.startsWith("/") 
+                        ? settings.school_logo 
+                        : `/uploads/${settings.school_logo}`} 
+                      alt="Logo" 
+                      className="h-full w-full object-contain p-1" 
+                    />
+                  ) : (
+                    <GraduationCap className="h-6 w-6" />
+                  )}
                 </div>
                 <div>
                   <p className="font-bold text-lg leading-tight">{settings?.school_name || "Sekolah"}</p>
@@ -66,8 +76,18 @@ export default function AuthLayout({
         <div className="w-full max-w-[400px] space-y-6 mx-auto">
           {/* Mobile Logo (Visible only on small screens) */}
           <div className="lg:hidden flex justify-center mb-8">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary shadow-lg text-primary-foreground">
-              <GraduationCap className="h-7 w-7" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary shadow-lg text-primary-foreground overflow-hidden">
+              {settings?.school_logo ? (
+                <img 
+                  src={settings.school_logo.startsWith("http") || settings.school_logo.startsWith("/") 
+                    ? settings.school_logo 
+                    : `/uploads/${settings.school_logo}`} 
+                  alt="Logo" 
+                  className="h-full w-full object-contain p-1.5 bg-white" 
+                />
+              ) : (
+                <GraduationCap className="h-7 w-7" />
+              )}
             </div>
           </div>
 

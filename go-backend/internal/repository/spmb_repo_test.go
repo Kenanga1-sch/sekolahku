@@ -140,7 +140,8 @@ func setupSPMBTestDB(t *testing.T) *sql.DB {
 			is_active INTEGER,
 			enrolled_at INTEGER,
 			created_at INTEGER,
-			updated_at INTEGER
+			updated_at INTEGER,
+			kip TEXT
 		);
 	`)
 	if err != nil {

@@ -28,11 +28,17 @@ export function DownloadPdfButton({ registrant }: { registrant: any }) {
     );
   }
 
+  const logoUrl = registrant.schoolLogo 
+    ? (registrant.schoolLogo.startsWith("http") 
+      ? registrant.schoolLogo 
+      : `${window.location.origin}${registrant.schoolLogo.startsWith("/") ? "" : "/"}${registrant.schoolLogo}`) 
+    : `${window.location.origin}/logo.png`;
+
   // Enriched data with QR
   const pdfData = {
     ...registrant,
     qrCodeUrl,
-    logoUrl: `${window.location.origin}/logo.png`,
+    logoUrl,
   };
 
   return (

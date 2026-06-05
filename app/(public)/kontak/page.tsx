@@ -47,7 +47,7 @@ export default function KontakPage() {
     goGet(`/api/public/spmb/landing`)
       .then((json: SpmbLandingResponse) => {
         if (json.success) {
-          setSettings(json.settings);
+          setSettings(json.settings || null);
         }
         setIsLoading(false);
       })

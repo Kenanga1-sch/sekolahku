@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"sync"
 	"time"
 
 	"github.com/nrednav/cuid2"
@@ -9,7 +10,9 @@ import (
 )
 
 type SettingRepository struct {
-	DB *sql.DB
+	DB      *sql.DB
+	cache   *models.SchoolSettings
+	cacheMu sync.RWMutex
 }
 
 func NewSettingRepository(db *sql.DB) *SettingRepository {
@@ -17,6 +20,14 @@ func NewSettingRepository(db *sql.DB) *SettingRepository {
 }
 
 func (r *SettingRepository) GetSettings() (*models.SchoolSettings, error) {
+	r.cacheMu.RLock()
+	if r.cache != nil {
+		cached := *r.cache
+		r.cacheMu.RUnlock()
+		return &cached, nil
+	}
+	r.cacheMu.RUnlock()
+
 	query := `
 		SELECT id, school_name, school_npsn, school_address, school_phone, school_email, 
 		       school_website, school_logo, school_lat, school_lng, max_distance_km, 
@@ -121,6 +132,10 @@ func (r *SettingRepository) GetSettings() (*models.SchoolSettings, error) {
 	s.CreatedAt = &cTime
 	uTime := ToTime(upAt)
 	s.UpdatedAt = &uTime
+
+	r.cacheMu.Lock()
+	r.cache = &s
+	r.cacheMu.Unlock()
 
 	return &s, nil
 }
@@ -264,5 +279,10 @@ func (r *SettingRepository) UpdateSettings(s models.SchoolSettings) (*models.Sch
 	if err != nil {
 		return nil, err
 	}
+
+	r.cacheMu.Lock()
+	r.cache = nil
+	r.cacheMu.Unlock()
+
 	return r.GetSettings()
 }

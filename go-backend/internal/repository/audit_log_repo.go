@@ -224,3 +224,76 @@ func auditResourceFilterValues(resource string) []string {
 		return []string{normalized}
 	}
 }
+
+func (r *AuditLogRepository) GetLogsByUserID(userID string, page, limit int) ([]models.AuditLog, int, error) {
+	offset := (page - 1) * limit
+
+	// 1. Count Total
+	var total int
+	countQuery := "SELECT COUNT(*) FROM audit_logs WHERE user_id = ?"
+	err := r.DB.QueryRow(countQuery, userID).Scan(&total)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// 2. Fetch Data
+	query := `
+		SELECT id, action, resource, details, user_id, user_name, user_email, ip_address, user_agent, created_at
+		FROM audit_logs
+		WHERE user_id = ?
+		ORDER BY created_at DESC
+		LIMIT ? OFFSET ?
+	`
+	rows, err := r.DB.Query(query, userID, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var logs []models.AuditLog
+	for rows.Next() {
+		var l models.AuditLog
+		var details, uid, uname, uemail, ip, ua sql.NullString
+		var crAt sql.NullInt64
+
+		err := rows.Scan(&l.ID, &l.Action, &l.Resource, &details, &uid, &uname, &uemail, &ip, &ua, &crAt)
+		if err != nil {
+			return nil, 0, err
+		}
+
+		l.Action = normalizeAuditAction(l.Action)
+		l.Resource = normalizeAuditResource(l.Resource)
+		if details.Valid {
+			l.Details = &details.String
+		}
+		if uid.Valid {
+			l.UserID = &uid.String
+		}
+		if uname.Valid {
+			l.UserName = &uname.String
+		}
+		if uemail.Valid {
+			l.UserEmail = &uemail.String
+		}
+		if ip.Valid {
+			l.IPAddress = &ip.String
+		}
+		if ua.Valid {
+			l.UserAgent = &ua.String
+		}
+
+		cTime := ToTime(crAt)
+		l.CreatedAt = &cTime
+
+		logs = append(logs, l)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	if logs == nil {
+		logs = []models.AuditLog{}
+	}
+
+	return logs, total, nil
+}

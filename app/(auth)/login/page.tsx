@@ -16,12 +16,13 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Loader2, ArrowRight, AlertCircle, Mail, Lock } from "lucide-react";
+import { Loader2, ArrowRight, AlertCircle, Mail, Lock, GraduationCap } from "lucide-react";
 import { loginFormSchema, type LoginFormValues } from "@/lib/validations/spmb";
 import { loginAction, getSessionAction } from "@/actions/auth";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/stores/auth-store";
+import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 
 const BottomGradient = () => {
   return (
@@ -49,8 +50,15 @@ const LabelInputContainer = ({
 export default function LoginPage() {
   const router = useRouter();
   const { refreshSession } = useAuthStore();
+  const { settings } = useSchoolSettings();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const schoolLogo = settings?.school_logo 
+    ? (settings.school_logo.startsWith("http") || settings.school_logo.startsWith("/") 
+      ? settings.school_logo 
+      : `/uploads/${settings.school_logo}`) 
+    : null;
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
@@ -96,7 +104,18 @@ export default function LoginPage() {
       transition={{ duration: 0.5 }}
       className="space-y-6 w-full max-w-md mx-auto p-8 rounded-2xl bg-white/50 dark:bg-black/30 backdrop-blur-md border border-zinc-200/50 dark:border-white/10 shadow-xl"
     >
-      <div className="space-y-2 text-center">
+      <div className="space-y-2 text-center flex flex-col items-center">
+        {schoolLogo ? (
+          <img 
+            src={schoolLogo} 
+            alt="Logo Sekolah" 
+            className="h-16 w-16 object-contain mb-2 p-1.5 bg-white rounded-xl shadow-md border" 
+          />
+        ) : (
+          <div className="h-16 w-16 flex items-center justify-center rounded-xl bg-primary text-primary-foreground mb-2 shadow-md">
+            <GraduationCap className="h-8 w-8" />
+          </div>
+        )}
         <h1 className="text-3xl font-bold tracking-tight text-zinc-800 dark:text-white">Selamat Datang</h1>
         <p className="text-muted-foreground text-sm">
           Masuk ke dashboard untuk mengelola data sekolah

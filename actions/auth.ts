@@ -34,9 +34,10 @@ export async function logoutAction() {
     console.error("Logout error:", e);
   }
   
-  // Clear cookie manually just in case
+  // Clear cookies manually just in case
   if (typeof document !== "undefined") {
     document.cookie = "session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
+    document.cookie = "user_info=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
   }
 }
 
@@ -58,7 +59,10 @@ export async function getSessionAction() {
         role: data.role,
         email: data.email,
         name: data.name,
+        fullName: data.fullName,
+        username: data.username,
         phone: data.phone,
+        image: data.image,
       },
     };
   } catch {

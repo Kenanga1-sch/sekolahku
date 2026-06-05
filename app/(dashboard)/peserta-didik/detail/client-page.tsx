@@ -45,6 +45,7 @@ interface Student {
   id: string;
   nisn: string | null;
   nis: string | null;
+  kip: string | null;
   fullName: string;
   gender: "L" | "P" | null;
   birthPlace: string | null;
@@ -233,6 +234,10 @@ export default function DetailSiswaPage() {
                 <div>
                   <dt className="text-sm text-muted-foreground">NIS</dt>
                   <dd className="font-medium font-mono">{student.nis || "-"}</dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-muted-foreground">No. KIP</dt>
+                  <dd className="font-medium font-mono">{student.kip || "-"}</dd>
                 </div>
                 <div>
                   <dt className="text-sm text-muted-foreground">Jenis Kelamin</dt>

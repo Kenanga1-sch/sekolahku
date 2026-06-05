@@ -371,10 +371,12 @@ func (r *LibraryRepository) SyncFromStudents() (int, error) {
 	defer tx.Rollback()
 
 	// Get active students NOT in library_members.
+	// Use a CASE statement to fallback to student's ID if qr_code is empty string or NULL, avoiding unique constraint violations.
 	rows, err := tx.Query(`
-		SELECT id, full_name, COALESCE(class_name, ''), COALESCE(qr_code, id)
+		SELECT id, full_name, COALESCE(class_name, ''), 
+		       CASE WHEN qr_code IS NOT NULL AND TRIM(qr_code) != '' THEN qr_code ELSE id END
 		FROM students
-		WHERE is_active = 1
+		WHERE (is_active = 1 OR status = 'active' OR status = 'aktif')
 			AND id NOT IN (SELECT student_id FROM library_members WHERE student_id IS NOT NULL)
 	`)
 	if err != nil {
@@ -404,7 +406,9 @@ func (r *LibraryRepository) SyncFromStudents() (int, error) {
 			INSERT INTO library_members (id, student_id, name, class_name, qr_code, max_borrow_limit, is_active, created_at, updated_at)
 			VALUES (?, ?, ?, ?, ?, 3, 1, ?, ?)
 		`, id, s.ID, s.Name, s.Class, s.QR, now, now)
-		if err == nil {
+		if err != nil {
+			fmt.Printf("[SyncFromStudents] Warning: failed to sync student %s (%s), error: %v\n", s.Name, s.ID, err)
+		} else {
 			count++
 		}
 	}
@@ -990,7 +994,7 @@ func (r *LibraryRepository) BindAsset(qrCode, location string, catalog map[strin
 		category = strings.TrimSpace(mapString(catalog, "ddcCategory"))
 	}
 	if category == "" {
-		category = "OTHER"
+		category = "UNSORTED"
 	}
 	isbn := strings.TrimSpace(mapString(catalog, "isbn"))
 
@@ -1013,6 +1017,10 @@ func (r *LibraryRepository) BindAsset(qrCode, location string, catalog map[strin
 	if isbn != "" {
 		_ = tx.QueryRow("SELECT id FROM library_catalog WHERE isbn = ? LIMIT 1", isbn).Scan(&catalogID)
 	}
+	if catalogID == "" {
+		// Fallback to title and author match to prevent duplicates for books without ISBN
+		_ = tx.QueryRow("SELECT id FROM library_catalog WHERE LOWER(title) = LOWER(?) AND LOWER(author) = LOWER(?) LIMIT 1", title, mapString(catalog, "author")).Scan(&catalogID)
+	}
 
 	year := mapInt(catalog, "year")
 	if catalogID == "" {
@@ -1025,13 +1033,74 @@ func (r *LibraryRepository) BindAsset(qrCode, location string, catalog map[strin
 			return err
 		}
 	} else {
-		_, err = tx.Exec(`
-			UPDATE library_catalog
-			SET title = ?, author = ?, publisher = ?, year = ?, category = ?, description = ?, cover = ?, updated_at = ?
+		// Prevent silent master overwrite: fetch existing values and only merge empty/new fields
+		var existingISBN, existingTitle, existingAuthor, existingPublisher, existingCategory, existingDescription, existingCover sql.NullString
+		var existingYear sql.NullInt64
+		err = tx.QueryRow(`
+			SELECT isbn, title, author, publisher, year, category, description, cover
+			FROM library_catalog
 			WHERE id = ?
-		`, title, mapString(catalog, "author"), mapString(catalog, "publisher"), year, category, mapString(catalog, "description"), mapString(catalog, "cover"), now, catalogID)
-		if err != nil {
-			return err
+		`, catalogID).Scan(&existingISBN, &existingTitle, &existingAuthor, &existingPublisher, &existingYear, &existingCategory, &existingDescription, &existingCover)
+		if err == nil {
+			updated := false
+			
+			if (!existingISBN.Valid || existingISBN.String == "") && isbn != "" {
+				existingISBN.String = isbn
+				existingISBN.Valid = true
+				updated = true
+			}
+			
+			newAuthor := mapString(catalog, "author")
+			if (!existingAuthor.Valid || existingAuthor.String == "") && newAuthor != "" {
+				existingAuthor.String = newAuthor
+				existingAuthor.Valid = true
+				updated = true
+			}
+			
+			newPublisher := mapString(catalog, "publisher")
+			if (!existingPublisher.Valid || existingPublisher.String == "") && newPublisher != "" {
+				existingPublisher.String = newPublisher
+				existingPublisher.Valid = true
+				updated = true
+			}
+			
+			if (!existingYear.Valid || existingYear.Int64 == 0) && year > 0 {
+				existingYear.Int64 = int64(year)
+				existingYear.Valid = true
+				updated = true
+			}
+			
+			// Update category if existing is unsorted/other and new is a valid sorted category
+			if (!existingCategory.Valid || existingCategory.String == "" || existingCategory.String == "UNSORTED" || existingCategory.String == "OTHER") && category != "" && category != "UNSORTED" && category != "OTHER" {
+				existingCategory.String = category
+				existingCategory.Valid = true
+				updated = true
+			}
+			
+			newDescription := mapString(catalog, "description")
+			if (!existingDescription.Valid || existingDescription.String == "") && newDescription != "" {
+				existingDescription.String = newDescription
+				existingDescription.Valid = true
+				updated = true
+			}
+			
+			newCover := mapString(catalog, "cover")
+			if (!existingCover.Valid || existingCover.String == "") && newCover != "" {
+				existingCover.String = newCover
+				existingCover.Valid = true
+				updated = true
+			}
+			
+			if updated {
+				_, err = tx.Exec(`
+					UPDATE library_catalog
+					SET isbn = ?, author = ?, publisher = ?, year = ?, category = ?, description = ?, cover = ?, updated_at = ?
+					WHERE id = ?
+				`, existingISBN.String, existingAuthor.String, existingPublisher.String, existingYear.Int64, existingCategory.String, existingDescription.String, existingCover.String, now, catalogID)
+				if err != nil {
+					return err
+				}
+			}
 		}
 	}
 

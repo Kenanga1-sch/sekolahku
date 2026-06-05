@@ -366,11 +366,14 @@ func (h *UserHandler) UpdateProfile(c echo.Context) error {
 	}
 
 	var req struct {
-		Name            string `json:"name"`
-		Phone           string `json:"phone"`
-		OldPassword     string `json:"oldPassword"`
-		Password        string `json:"password"`
-		PasswordConfirm string `json:"passwordConfirm"`
+		Name            string  `json:"name"`
+		FullName        string  `json:"fullName"`
+		Username        string  `json:"username"`
+		Phone           string  `json:"phone"`
+		Image           *string `json:"image"`
+		OldPassword     string  `json:"oldPassword"`
+		Password        string  `json:"password"`
+		PasswordConfirm string  `json:"passwordConfirm"`
 	}
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid payload"})
@@ -419,17 +422,45 @@ func (h *UserHandler) UpdateProfile(c echo.Context) error {
 
 	// Case 2: Info Update
 	req.Name = strings.TrimSpace(req.Name)
+	req.FullName = strings.TrimSpace(req.FullName)
+	req.Username = strings.TrimSpace(req.Username)
 	req.Phone = strings.TrimSpace(req.Phone)
+
 	if req.Name == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Nama wajib diisi"})
 	}
 
+	existingUser, err := h.UserRepo.GetUserByID(userID)
+	if err != nil || existingUser == nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "User not found"})
+	}
+
+	username := existingUser.Username
+	if req.Username != "" && (existingUser.Username == nil || req.Username != *existingUser.Username) {
+		// Verify username uniqueness
+		takenUser, err := h.UserRepo.GetUserByEmail(req.Username)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		if takenUser != nil && takenUser.ID != userID {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Username sudah digunakan oleh pengguna lain"})
+		}
+		username = &req.Username
+	}
+
+	fullName := req.FullName
+	if fullName == "" {
+		fullName = req.Name
+	}
+
 	user := models.User{
 		Name:     &req.Name,
-		FullName: &req.Name,
+		FullName: &fullName,
+		Username: username,
 		Phone:    &req.Phone,
+		Image:    req.Image,
 	}
-	err := h.UserRepo.UpdateUser(userID, user)
+	err = h.UserRepo.UpdateUser(userID, user)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "User not found"})
@@ -451,4 +482,42 @@ func (h *UserHandler) UpdateProfile(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "user": updatedUser})
+}
+
+func (h *UserHandler) GetProfileLogs(c echo.Context) error {
+	userID, ok := c.Get("user_id").(string)
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized"})
+	}
+
+	pageStr := c.QueryParam("page")
+	limitStr := c.QueryParam("limit")
+	if limitStr == "" {
+		limitStr = c.QueryParam("perPage")
+	}
+
+	page := 1
+	if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+		page = p
+	}
+
+	limit := 10
+	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+		limit = l
+	}
+
+	logs, total, err := h.AuditRepo.GetLogsByUserID(userID, page, limit)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	totalPages := (total + limit - 1) / limit
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"items":      logs,
+		"totalItems": total,
+		"page":       page,
+		"limit":      limit,
+		"totalPages": totalPages,
+	})
 }

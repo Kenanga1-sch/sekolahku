@@ -62,6 +62,8 @@ import {
 import { goGet, goPost, goPatch, goDelete } from "@/lib/api-client";
 import { showSuccess, showError } from "@/lib/toast";
 import type { User } from "@/types";
+import { useSortableData } from "@/hooks/use-sortable-data";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 
 
 interface ClassOption {
@@ -86,6 +88,7 @@ export default function UserManagementPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(20);
     const [totalPages, setTotalPages] = useState(1);
     const [totalUsers, setTotalUsers] = useState(0);
 
@@ -110,7 +113,7 @@ export default function UserManagementPage() {
         try {
             const params = new URLSearchParams({
                 page: page.toString(),
-                limit: "20",
+                limit: limit.toString(),
                 ...(searchQuery && { search: searchQuery }),
             });
 
@@ -128,7 +131,7 @@ export default function UserManagementPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [page, searchQuery]);
+    }, [page, limit, searchQuery]);
 
 
     useEffect(() => {
@@ -281,6 +284,8 @@ export default function UserManagementPage() {
             u.username?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    const { sortedData: sortedUsers, sortConfig, requestSort } = useSortableData(visibleUsers);
+
     const getRoleInfo = (role: string) => roles.find((r) => r.value === role) || roles.find((r) => r.value === "user") || roles[0];
     const formatCreatedDate = (value?: string) => {
         if (!value) return "-";
@@ -340,14 +345,35 @@ export default function UserManagementPage() {
             </div>
 
             {/* Search */}
-            <div className="relative max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                    placeholder="Cari nama atau email..."
-                    className="pl-10"
-                    value={searchQuery}
-                    onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-                />
+            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+                <div className="relative w-full sm:max-w-md">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Cari nama atau email..."
+                        className="pl-10"
+                        value={searchQuery}
+                        onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+                    />
+                </div>
+                <div className="flex gap-2 w-full sm:w-auto justify-end">
+                    <Select
+                        value={limit.toString()}
+                        onValueChange={(val) => {
+                            setLimit(parseInt(val));
+                            setPage(1);
+                        }}
+                    >
+                        <SelectTrigger className="w-[120px] bg-background">
+                            <SelectValue placeholder="Baris" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="10">10 Baris</SelectItem>
+                            <SelectItem value="20">20 Baris</SelectItem>
+                            <SelectItem value="50">50 Baris</SelectItem>
+                            <SelectItem value="100">100 Baris</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
 
             {/* Table */}
@@ -356,11 +382,11 @@ export default function UserManagementPage() {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Nama</TableHead>
-                                <TableHead>Email</TableHead>
-                                <TableHead>Role</TableHead>
-                                <TableHead>Telepon</TableHead>
-                                <TableHead>Bergabung</TableHead>
+                                <SortableTableHead label="Nama" sortKey="name" sortConfig={sortConfig} onSort={requestSort} />
+                                <SortableTableHead label="Email" sortKey="email" sortConfig={sortConfig} onSort={requestSort} />
+                                <SortableTableHead label="Role" sortKey="role" sortConfig={sortConfig} onSort={requestSort} />
+                                <SortableTableHead label="Telepon" sortKey="phone" sortConfig={sortConfig} onSort={requestSort} />
+                                <SortableTableHead label="Bergabung" sortKey="created" sortConfig={sortConfig} onSort={requestSort} />
                                 <TableHead className="w-12"></TableHead>
                             </TableRow>
                         </TableHeader>
@@ -384,7 +410,7 @@ export default function UserManagementPage() {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                visibleUsers.map((user) => {
+                                sortedUsers.map((user) => {
                                     const roleInfo = getRoleInfo(user.role);
                                     return (
                                         <TableRow key={user.id}>
@@ -402,7 +428,7 @@ export default function UserManagementPage() {
                                             <TableCell>
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="icon">
+                                                        <Button variant="outline" size="icon-sm" className="h-8 w-8 text-muted-foreground hover:text-foreground bg-background/50">
                                                             <MoreHorizontal className="h-4 w-4" />
                                                         </Button>
                                                     </DropdownMenuTrigger>
@@ -430,29 +456,31 @@ export default function UserManagementPage() {
                 </CardContent>
 
                 {/* Pagination */}
-                {totalPages > 1 && (
-                    <div className="flex items-center justify-between p-4 border-t">
-                        <p className="text-sm text-muted-foreground">
+                {totalUsers > 0 && (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t">
+                        <div className="text-sm text-muted-foreground">
                             Halaman {page} dari {totalPages}
-                        </p>
-                        <div className="flex gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={page <= 1}
-                                onClick={() => setPage(p => p - 1)}
-                            >
-                                Sebelumnya
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={page >= totalPages}
-                                onClick={() => setPage(p => p + 1)}
-                            >
-                                Selanjutnya
-                            </Button>
                         </div>
+                        {totalPages > 1 && (
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={page <= 1}
+                                    onClick={() => setPage(p => p - 1)}
+                                >
+                                    Sebelumnya
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={page >= totalPages}
+                                    onClick={() => setPage(p => p + 1)}
+                                >
+                                    Selanjutnya
+                                </Button>
+                            </div>
+                        )}
                     </div>
                 )}
             </Card>

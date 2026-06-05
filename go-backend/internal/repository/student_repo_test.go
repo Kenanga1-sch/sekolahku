@@ -57,7 +57,8 @@ func setupStudentTestDB(t *testing.T) *sql.DB {
 			meta_data TEXT,
 			enrolled_at INTEGER,
 			created_at INTEGER,
-			updated_at INTEGER
+			updated_at INTEGER,
+			kip TEXT
 		);
 	`)
 	if err != nil {

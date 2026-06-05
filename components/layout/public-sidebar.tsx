@@ -97,6 +97,11 @@ export default function PublicSidebar({
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
   const { settings } = useSchoolSettings();
+  const schoolLogo = settings?.school_logo 
+    ? (settings.school_logo.startsWith("http") || settings.school_logo.startsWith("/") 
+      ? settings.school_logo 
+      : `/uploads/${settings.school_logo}`) 
+    : "/logo.png";
 
   if (pathname?.startsWith("/kiosk")) return null;
 
@@ -116,6 +121,11 @@ function SidebarContent({
   const pathname = usePathname();
   const { user, isAuthenticated, logout: storeLogout } = useAuthStore();
   const { settings } = useSchoolSettings();
+  const schoolLogo = settings?.school_logo 
+    ? (settings.school_logo.startsWith("http") || settings.school_logo.startsWith("/") 
+      ? settings.school_logo 
+      : `/uploads/${settings.school_logo}`) 
+    : "/logo.png";
 
   const handleLogout = async () => {
     await logoutAction();
@@ -136,7 +146,7 @@ function SidebarContent({
         <div className={cn("flex items-center gap-3 transition-all", collapsed ? "justify-center" : "")}>
           <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden bg-primary/10">
             <Image
-              src="/logo.png"
+              src={schoolLogo}
               alt="Logo Sekolah"
               fill
               className="object-contain p-1"
@@ -376,7 +386,7 @@ function SidebarContent({
       <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-200 dark:border-white/10 z-50 px-4 flex items-center justify-between">
          <Link href="/" className="flex items-center gap-2">
             <div className="relative h-8 w-8 rounded-lg overflow-hidden bg-primary/10">
-                 <Image src="/logo.png" alt="Logo" fill className="object-contain p-1" />
+                 <Image src={schoolLogo} alt="Logo" fill className="object-contain p-1" />
             </div>
             <span className="font-bold text-sm">{settings?.school_name || "Sekolah"}</span>
          </Link>

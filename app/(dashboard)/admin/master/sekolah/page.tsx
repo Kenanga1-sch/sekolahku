@@ -25,10 +25,12 @@ import {
   FileText,
 } from "lucide-react";
 import { goGet, goPost } from "@/lib/api-client";
+import { compressImage } from "@/lib/utils";
 
 export default function SchoolProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [settingsId, setSettingsId] = useState<string | null>(null);
@@ -40,6 +42,7 @@ export default function SchoolProfilePage() {
     school_phone: "",
     school_email: "",
     school_website: "",
+    school_logo: "",
     school_lat: -6.2,
     school_lng: 106.816666,
     max_distance_km: 3,
@@ -78,6 +81,7 @@ export default function SchoolProfilePage() {
           school_phone: record.school_phone || "",
           school_email: record.school_email || "",
           school_website: record.school_website || "",
+          school_logo: record.school_logo || "",
           school_lat: record.school_lat ?? -6.2,
           school_lng: record.school_lng ?? 106.816666,
           max_distance_km: record.max_distance_km ?? 3,
@@ -102,6 +106,42 @@ export default function SchoolProfilePage() {
       console.error("Failed to fetch settings:", err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError("File terlalu besar. Maksimal 5MB.");
+      return;
+    }
+
+    setIsUploadingLogo(true);
+    setError(null);
+
+    try {
+      // Compress logo to WebP
+      const compressed = await compressImage(file, 512, 0.85);
+      const formData = new FormData();
+      formData.append("file", compressed);
+      formData.append("folder", "logo");
+
+      const response: any = await goPost("/api/upload", formData);
+      if (response && response.success) {
+        const logoPath = response.url ? response.url.replace(/^\/uploads\//, "") : "";
+        setSettings((prev) => ({ ...prev, school_logo: logoPath }));
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+      } else {
+        setError(response?.error || "Gagal mengunggah logo");
+      }
+    } catch (err) {
+      console.error("Upload error:", err);
+      setError("Terjadi kesalahan saat mengunggah logo");
+    } finally {
+      setIsUploadingLogo(false);
     }
   };
 
@@ -221,6 +261,40 @@ export default function SchoolProfilePage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Logo Upload Section */}
+            <div className="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800">
+              <div className="h-20 w-20 relative rounded-xl overflow-hidden bg-white border border-slate-200 flex items-center justify-center">
+                {settings.school_logo ? (
+                  <img
+                    src={settings.school_logo.startsWith("http") || settings.school_logo.startsWith("/")
+                      ? settings.school_logo
+                      : `/uploads/${settings.school_logo}`}
+                    alt="Logo Sekolah"
+                    className="h-full w-full object-contain p-2"
+                  />
+                ) : (
+                  <School className="h-10 w-10 text-muted-foreground" />
+                )}
+              </div>
+              <div className="space-y-2 flex-1 w-full">
+                <Label htmlFor="logo-upload" className="text-sm font-semibold">Logo Sekolah</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="logo-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoUpload}
+                    disabled={isUploadingLogo}
+                    className="cursor-pointer"
+                  />
+                  {isUploadingLogo && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Format: PNG, JPG, WebP. Maksimal 5MB. Otomatis dikompresi ke format WebP.
+                </p>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="school_name">Nama Sekolah</Label>
               <Input

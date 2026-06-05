@@ -55,6 +55,7 @@ import { SPMBStatusBadge } from "@/components/spmb/status-badge";
 import { SPMBPromoteDialog } from "@/components/spmb/spmb-promote-dialog";
 import { calculateSPMBDomisiliPriority, type SPMBAgeEligibility } from "@/lib/spmb-priority";
 
+
 // Define Drizzle-compatible interface locally for now
 interface Registrant {
     id: string;
@@ -121,6 +122,7 @@ export default function SPMBAdminPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -133,6 +135,7 @@ export default function SPMBAdminPage() {
   // Promote Dialog
   const [isPromoteOpen, setIsPromoteOpen] = useState(false);
   const [promoteCandidate, setPromoteCandidate] = useState<{id: string, name: string} | null>(null);
+  const { sortedData: sortedRegistrants, sortConfig, requestSort } = useSortableData(registrants);
 
   // Fetch school max distance settings
   useEffect(() => {
@@ -150,7 +153,7 @@ export default function SPMBAdminPage() {
     try {
         const query = new URLSearchParams({
             page: page.toString(),
-            perPage: "10",
+            perPage: perPage.toString(),
             search: searchQuery,
         });
         if (statusFilter !== "all") {
@@ -210,7 +213,7 @@ export default function SPMBAdminPage() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [page, statusFilter, searchQuery, maxDistance]);
+  }, [page, perPage, statusFilter, searchQuery, maxDistance]);
 
   useEffect(() => {
     fetchData();
@@ -436,6 +439,23 @@ export default function SPMBAdminPage() {
                 <SelectItem value="rejected">Ditolak</SelectItem>
               </SelectContent>
             </Select>
+            <Select
+              value={perPage.toString()}
+              onValueChange={(val) => {
+                setPerPage(parseInt(val));
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-full md:w-[120px]">
+                <SelectValue placeholder="Baris" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10 Baris</SelectItem>
+                <SelectItem value="20">20 Baris</SelectItem>
+                <SelectItem value="50">50 Baris</SelectItem>
+                <SelectItem value="100">100 Baris</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardHeader>
         <CardContent>
@@ -497,8 +517,8 @@ export default function SPMBAdminPage() {
                       onCheckedChange={toggleSelectAll}
                     />
                   </TableHead>
-                  <TableHead>No. Pendaftaran</TableHead>
-                  <TableHead>Nama Lengkap</TableHead>
+                  <SortableTableHead label="No. Pendaftaran" sortKey="registrationNumber" sortConfig={sortConfig} onSort={requestSort} />
+                  <SortableTableHead label="Nama Lengkap" sortKey="fullName" sortConfig={sortConfig} onSort={requestSort} />
                   <TableHead>
                     <div className="flex items-center gap-1">
                         Prioritas Usia
@@ -683,29 +703,33 @@ export default function SPMBAdminPage() {
           </div>
 
           {/* Pagination */}
-          <div className="flex items-center justify-between mt-4">
-            <p className="text-sm text-muted-foreground">
-              Halaman {page} dari {totalPages}
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page <= 1}
-                onClick={() => setPage(p => p - 1)}
-              >
-                Sebelumnya
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages}
-                onClick={() => setPage(p => p + 1)}
-              >
-                Selanjutnya
-              </Button>
+          {registrants.length > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800">
+              <div className="text-sm text-muted-foreground">
+                Halaman {page} dari {totalPages}
+              </div>
+              {totalPages > 1 && (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page <= 1}
+                    onClick={() => setPage(p => p - 1)}
+                  >
+                    Sebelumnya
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage(p => p + 1)}
+                  >
+                    Selanjutnya
+                  </Button>
+                </div>
+              )}
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 

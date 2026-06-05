@@ -6,6 +6,8 @@ import { Plus, Search, FileDown, MoreHorizontal, Pencil, Trash2, Filter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useSortableData } from "@/hooks/use-sortable-data";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -35,6 +37,7 @@ export default function MasterStudentsPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
     const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
     
     // Modal States
@@ -43,17 +46,18 @@ export default function MasterStudentsPage() {
     const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
 
     const debouncedSearch = useDebounce(searchTerm, 500);
+    const { sortedData: sortedStudents, sortConfig, requestSort } = useSortableData(students);
 
     useEffect(() => {
         fetchStudents();
-    }, [debouncedSearch, statusFilter, page]);
+    }, [debouncedSearch, statusFilter, page, limit]);
 
     const fetchStudents = async () => {
         setIsLoading(true);
         try {
             const params = new URLSearchParams({
                 page: page.toString(),
-                limit: "10",
+                limit: limit.toString(),
                 q: debouncedSearch,
                 ...(statusFilter && { status: statusFilter })
             });
@@ -150,6 +154,23 @@ export default function MasterStudentsPage() {
                                     <SelectItem value="deceased">Meninggal</SelectItem>
                                 </SelectContent>
                             </Select>
+                            <Select
+                                value={limit.toString()}
+                                onValueChange={(val) => {
+                                    setLimit(parseInt(val));
+                                    setPage(1);
+                                }}
+                            >
+                                <SelectTrigger className="w-[120px]">
+                                    <SelectValue placeholder="Baris" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="10">10 Baris</SelectItem>
+                                    <SelectItem value="20">20 Baris</SelectItem>
+                                    <SelectItem value="50">50 Baris</SelectItem>
+                                    <SelectItem value="100">100 Baris</SelectItem>
+                                </SelectContent>
+                            </Select>
                             {/* Clear Filter Button if selected */}
                             {statusFilter && (
                                 <Button variant="ghost" size="icon" onClick={() => setStatusFilter("")}>
@@ -163,10 +184,10 @@ export default function MasterStudentsPage() {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Nama Lengkap</TableHead>
-                                <TableHead>NIS / NISN</TableHead>
-                                <TableHead>Kelas</TableHead>
-                                <TableHead>Status</TableHead>
+                                <SortableTableHead label="Nama Lengkap" sortKey="fullName" sortConfig={sortConfig} onSort={requestSort} />
+                                <SortableTableHead label="NIS / NISN" sortKey="nisn" sortConfig={sortConfig} onSort={requestSort} />
+                                <SortableTableHead label="Kelas" sortKey="className" sortConfig={sortConfig} onSort={requestSort} />
+                                <SortableTableHead label="Status" sortKey="status" sortConfig={sortConfig} onSort={requestSort} />
                                 <TableHead className="text-right">Aksi</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -180,7 +201,7 @@ export default function MasterStudentsPage() {
                                     <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">Tidak ada data siswa ditemukan.</TableCell>
                                 </TableRow>
                             ) : (
-                                students.map((student) => (
+                                sortedStudents.map((student) => (
                                     <TableRow key={student.id}>
                                         <TableCell className="font-medium">
                                             {student.fullName}
@@ -207,7 +228,7 @@ export default function MasterStudentsPage() {
                                         <TableCell className="text-right">
                                              <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" className="h-8 w-8 p-0">
+                                                    <Button variant="outline" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground bg-background/50">
                                                         <span className="sr-only">Open menu</span>
                                                         <MoreHorizontal className="h-4 w-4" />
                                                     </Button>
@@ -235,14 +256,18 @@ export default function MasterStudentsPage() {
                 </CardContent>
             </Card>
             
-            <div className="flex justify-end gap-2">
-                 <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
-                    Previous
-                </Button>
-                <div className="flex items-center text-sm font-medium">Page {page} of {totalPages}</div>
-                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
-                    Next
-                </Button>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800">
+                <div className="text-sm text-muted-foreground">
+                    Page {page} of {totalPages}
+                </div>
+                <div className="flex gap-2">
+                     <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+                        Previous
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}>
+                        Next
+                    </Button>
+                </div>
             </div>
         </div>
     );

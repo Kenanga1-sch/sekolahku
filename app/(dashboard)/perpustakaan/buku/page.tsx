@@ -61,6 +61,8 @@ import {
     swapAssetQR 
 } from "@/lib/library";
 import type { LibraryItem, ItemCategory } from "@/types/library";
+import { useSortableData } from "@/hooks/use-sortable-data";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 
 const CATEGORIES: { value: ItemCategory; label: string }[] = [
     { value: "FICTION", label: "Fiksi" },
@@ -77,6 +79,7 @@ export default function BukuPage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [categoryFilter, setCategoryFilter] = useState<string>("all");
     const [page, setPage] = useState(1);
+    const [perPage, setPerPage] = useState(20);
     const [totalPages, setTotalPages] = useState(1);
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [isSwapDialogOpen, setIsSwapDialogOpen] = useState(false);
@@ -95,13 +98,14 @@ export default function BukuPage() {
         location: "",
         description: "",
     });
+    const { sortedData: sortedItems, sortConfig, requestSort } = useSortableData(items);
 
     const loadItems = useCallback(async () => {
         setLoading(true);
         try {
             const result = await getBooks({
                 page,
-                perPage: 20,
+                perPage,
                 search: searchQuery,
                 category: categoryFilter
             });
@@ -113,7 +117,7 @@ export default function BukuPage() {
         } finally {
             setLoading(false);
         }
-    }, [page, searchQuery, categoryFilter]);
+    }, [page, perPage, searchQuery, categoryFilter]);
 
     useEffect(() => {
         loadItems();
@@ -347,11 +351,20 @@ export default function BukuPage() {
                             <Input
                                 placeholder="Cari judul, penulis, atau ISBN..."
                                 value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onChange={(e) => {
+                                    setSearchQuery(e.target.value);
+                                    setPage(1);
+                                }}
                                 className="pl-9"
                             />
                         </div>
-                        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                        <Select
+                            value={categoryFilter}
+                            onValueChange={(value) => {
+                                setCategoryFilter(value);
+                                setPage(1);
+                            }}
+                        >
                             <SelectTrigger className="w-[180px]">
                                 <Filter className="h-4 w-4 mr-2" />
                                 <SelectValue placeholder="Kategori" />
@@ -365,6 +378,23 @@ export default function BukuPage() {
                                 ))}
                             </SelectContent>
                         </Select>
+                        <Select
+                            value={perPage.toString()}
+                            onValueChange={(val) => {
+                                setPerPage(parseInt(val));
+                                setPage(1);
+                            }}
+                        >
+                            <SelectTrigger className="w-[120px]">
+                                <SelectValue placeholder="Baris" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="10">10 Baris</SelectItem>
+                                <SelectItem value="20">20 Baris</SelectItem>
+                                <SelectItem value="50">50 Baris</SelectItem>
+                                <SelectItem value="100">100 Baris</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                 </CardContent>
             </Card>
@@ -376,11 +406,11 @@ export default function BukuPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead className="w-[80px]">Sampul</TableHead>
-                                <TableHead>Judul</TableHead>
-                                <TableHead>Penulis</TableHead>
-                                <TableHead>Kategori</TableHead>
-                                <TableHead>Lokasi</TableHead>
-                                <TableHead>Status</TableHead>
+                                <SortableTableHead label="Judul" sortKey="catalog.title" sortConfig={sortConfig} onSort={requestSort} />
+                                <SortableTableHead label="Penulis" sortKey="catalog.author" sortConfig={sortConfig} onSort={requestSort} />
+                                <SortableTableHead label="Kategori" sortKey="catalog.category" sortConfig={sortConfig} onSort={requestSort} />
+                                <SortableTableHead label="Lokasi" sortKey="location" sortConfig={sortConfig} onSort={requestSort} />
+                                <SortableTableHead label="Status" sortKey="status" sortConfig={sortConfig} onSort={requestSort} />
                                 <TableHead className="w-[50px]"></TableHead>
                             </TableRow>
                         </TableHeader>
@@ -398,7 +428,7 @@ export default function BukuPage() {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                items.map((item) => (
+                                sortedItems.map((item) => (
                                     <TableRow key={item.id}>
                                         <TableCell>
                                             <div className="w-12 h-16 rounded overflow-hidden border bg-muted flex items-center justify-center">
@@ -442,9 +472,9 @@ export default function BukuPage() {
                                         <TableCell>
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="icon">
-                                                        <MoreHorizontal className="h-4 w-4" />
-                                                    </Button>
+                                                     <Button variant="outline" size="icon-sm" className="h-8 w-8 text-muted-foreground hover:text-foreground bg-background/50">
+                                                         <MoreHorizontal className="h-4 w-4" />
+                                                     </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
                                                     <DropdownMenuItem onClick={() => openEditDialog(item)}>
@@ -513,25 +543,31 @@ export default function BukuPage() {
             </Dialog>
 
             {/* Pagination */}
-            {totalPages > 1 && (
-                <div className="flex justify-center gap-2">
-                    <Button
-                        variant="outline"
-                        disabled={page === 1}
-                        onClick={() => setPage(page - 1)}
-                    >
-                        Sebelumnya
-                    </Button>
-                    <span className="py-2 px-4 text-sm text-muted-foreground">
+            {items.length > 0 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800">
+                    <div className="text-sm text-muted-foreground">
                         Halaman {page} dari {totalPages}
-                    </span>
-                    <Button
-                        variant="outline"
-                        disabled={page === totalPages}
-                        onClick={() => setPage(page + 1)}
-                    >
-                        Selanjutnya
-                    </Button>
+                    </div>
+                    {totalPages > 1 && (
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={page === 1}
+                                onClick={() => setPage(page - 1)}
+                            >
+                                Sebelumnya
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={page === totalPages}
+                                onClick={() => setPage(page + 1)}
+                            >
+                                Selanjutnya
+                            </Button>
+                        </div>
+                    )}
                 </div>
             )}
         </div>

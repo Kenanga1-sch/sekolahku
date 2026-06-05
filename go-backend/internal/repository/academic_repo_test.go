@@ -47,7 +47,8 @@ func setupAcademicTestDB(t *testing.T) *sql.DB {
 			class_name TEXT,
 			status TEXT DEFAULT 'active',
 			is_active INTEGER DEFAULT 1,
-			updated_at INTEGER
+			updated_at INTEGER,
+			kip TEXT
 		);
 		CREATE TABLE student_class_history (
 			id TEXT PRIMARY KEY,

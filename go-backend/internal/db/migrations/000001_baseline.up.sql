@@ -431,6 +431,9 @@ CREATE INDEX IF NOT EXISTS idx_finance_transactions_account ON finance_transacti
 CREATE INDEX IF NOT EXISTS idx_tabungan_transaksi_siswa ON tabungan_transaksi(siswa_id);
 CREATE INDEX IF NOT EXISTS idx_library_loans_is_returned ON library_loans(is_returned);
 CREATE INDEX IF NOT EXISTS idx_loans_status ON loans(status);
+CREATE INDEX IF NOT EXISTS idx_students_class_id ON students(class_id);
+CREATE INDEX IF NOT EXISTS idx_students_full_name ON students(full_name);
+CREATE INDEX IF NOT EXISTS idx_spmb_registrants_period ON spmb_registrants(period_id);
 
 -- Additional Tables for Savings, Finance, Academic, and Admin Modules
 

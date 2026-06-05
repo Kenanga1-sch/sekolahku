@@ -11,7 +11,7 @@ import (
 
 func JWTMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		path := c.Path()
+		path := c.Request().URL.Path
 
 		// Whitelist public paths
 		publicPaths := []string{

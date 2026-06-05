@@ -32,6 +32,7 @@ import {
   Banknote,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
+import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types";
 import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/sidebar";
@@ -218,8 +219,13 @@ export default function DashboardLayoutClient({
   const displayName = isReallyMounted && user?.name ? user.name : "Admin";
   const displayInitials = isReallyMounted && user?.name ? user.name.substring(0, 2).toUpperCase() : "A";
   
-  const schoolName = schoolSettings?.schoolName || "Sekolahku";
-  const schoolLogo = schoolSettings?.schoolLogo || "/logo.png";
+  const { settings } = useSchoolSettings();
+  const schoolName = settings?.school_name || "Sekolahku";
+  const schoolLogo = settings?.school_logo 
+    ? (settings.school_logo.startsWith("http") || settings.school_logo.startsWith("/") 
+      ? settings.school_logo 
+      : `/uploads/${settings.school_logo}`) 
+    : "/logo.png";
   const schoolInitial = schoolName.substring(0, 2).toUpperCase();
 
   return (

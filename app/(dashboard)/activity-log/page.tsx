@@ -37,6 +37,8 @@ import {
 import type { AuditAction, AuditResource } from "@/lib/audit";
 import { goGet } from "@/lib/api-client";
 import { formatDate } from "@/lib/utils";
+import { useSortableData } from "@/hooks/use-sortable-data";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 
 interface AuditLogEntry {
     id?: string;
@@ -214,15 +216,17 @@ export default function ActivityLogPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(20);
     const [totalPages, setTotalPages] = useState(1);
     const [filterAction, setFilterAction] = useState<string>("all");
     const [filterResource, setFilterResource] = useState<string>("all");
+    const { sortedData: sortedLogs, sortConfig, requestSort } = useSortableData(logs);
 
     const fetchLogs = useCallback(async () => {
         try {
             const queryParams = new URLSearchParams({
                 page: page.toString(),
-                limit: "20",
+                limit: limit.toString(),
             });
 
             if (filterAction !== "all") queryParams.append("action", filterAction);
@@ -237,7 +241,7 @@ export default function ActivityLogPage() {
             setIsLoading(false);
             setIsRefreshing(false);
         }
-    }, [page, filterAction, filterResource]);
+    }, [page, limit, filterAction, filterResource]);
 
     useEffect(() => {
         fetchLogs();
@@ -297,6 +301,23 @@ export default function ActivityLogPage() {
                                 ))}
                             </SelectContent>
                         </Select>
+                        <Select
+                            value={limit.toString()}
+                            onValueChange={(val) => {
+                                setLimit(parseInt(val));
+                                setPage(1);
+                            }}
+                        >
+                            <SelectTrigger className="w-[120px]">
+                                <SelectValue placeholder="Baris" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="10">10 Baris</SelectItem>
+                                <SelectItem value="20">20 Baris</SelectItem>
+                                <SelectItem value="50">50 Baris</SelectItem>
+                                <SelectItem value="100">100 Baris</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                 </CardContent>
             </Card>
@@ -306,11 +327,11 @@ export default function ActivityLogPage() {
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-muted/50">
-                                <TableHead className="w-44">Waktu</TableHead>
-                                <TableHead className="w-28">Aksi</TableHead>
-                                <TableHead className="w-32">Resource</TableHead>
+                                <SortableTableHead label="Waktu" sortKey="created" sortConfig={sortConfig} onSort={requestSort} className="w-44" />
+                                <SortableTableHead label="Aksi" sortKey="action" sortConfig={sortConfig} onSort={requestSort} className="w-28" />
+                                <SortableTableHead label="Resource" sortKey="resource" sortConfig={sortConfig} onSort={requestSort} className="w-32" />
                                 <TableHead>Detail</TableHead>
-                                <TableHead>User</TableHead>
+                                <SortableTableHead label="User" sortKey="user_name" sortConfig={sortConfig} onSort={requestSort} />
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -331,7 +352,7 @@ export default function ActivityLogPage() {
                                         <p className="text-muted-foreground">Belum ada log aktivitas</p>
                                     </TableCell>
                                 </TableRow>
-                            ) : logs.map((log) => (
+                            ) : sortedLogs.map((log) => (
                                 <TableRow key={log.id}>
                                     <TableCell className="text-sm text-muted-foreground">{formatDate(log.created)}</TableCell>
                                     <TableCell>
@@ -347,13 +368,17 @@ export default function ActivityLogPage() {
                             ))}
                         </TableBody>
                     </Table>
-                    {totalPages > 1 && (
-                        <div className="flex items-center justify-between p-4 border-t">
-                            <p className="text-sm text-muted-foreground">Halaman {page} dari {totalPages}</p>
-                            <div className="flex gap-2">
-                                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Sebelumnya</Button>
-                                <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Selanjutnya</Button>
+                    {logs.length > 0 && (
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-slate-100 dark:border-zinc-800">
+                            <div className="text-sm text-muted-foreground">
+                                Halaman {page} dari {totalPages}
                             </div>
+                            {totalPages > 1 && (
+                                <div className="flex gap-2">
+                                    <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Sebelumnya</Button>
+                                    <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Selanjutnya</Button>
+                                </div>
+                            )}
                         </div>
                     )}
                 </CardContent>

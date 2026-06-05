@@ -79,21 +79,115 @@ export default function ImportSiswaPage() {
     setResult(null);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const data: any = await goPost("/api/students/import", formData);
-      setResult(data);
+      // Dynamic import xlsx
+      const XLSX = await import("xlsx");
       
-      if (data.success > 0 && data.failed === 0) {
-        toast.success(data.message);
-      } else if (data.success > 0) {
-        toast.warning(data.message);
-      } else {
-        toast.error(data.message);
+      const reader = new FileReader();
+      const parsePromise = new Promise<any[]>((resolve, reject) => {
+        reader.onload = (e) => {
+          try {
+            const data = e.target?.result;
+            const workbook = XLSX.read(data, { type: "binary" });
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+            const jsonData = XLSX.utils.sheet_to_json(sheet);
+            resolve(jsonData);
+          } catch (err) {
+            reject(err);
+          }
+        };
+        reader.onerror = (err) => reject(err);
+        reader.readAsBinaryString(file);
+      });
+
+      const rawRows = await parsePromise;
+      if (!rawRows || rawRows.length === 0) {
+        toast.error("File Excel kosong atau tidak terbaca");
+        setLoading(false);
+        return;
       }
-    } catch (error) {
-      toast.error("Terjadi kesalahan saat mengimport");
+
+      // Map headers to what is expected by /api/master/students/bulk
+      const mappedStudents = rawRows.map((row: any) => {
+        // Map keys case-insensitively and trim spaces
+        const getVal = (possibleKeys: string[]) => {
+          for (const key of possibleKeys) {
+            const rowKey = Object.keys(row).find(
+              (k) => k.trim().toLowerCase() === key.toLowerCase()
+            );
+            if (rowKey !== undefined) {
+              return row[rowKey];
+            }
+          }
+          return undefined;
+        };
+
+        const valToString = (val: any): string => {
+          if (val === undefined || val === null) return "";
+          return String(val).trim();
+        };
+
+        return {
+          fullName: valToString(getVal(["Nama Lengkap", "fullName", "nama", "Nama"])),
+          nis: valToString(getVal(["NIS", "nis"])),
+          nisn: valToString(getVal(["NISN", "nisn"])),
+          gender: valToString(getVal(["Jenis Kelamin", "gender", "jk", "JK"])),
+          className: valToString(getVal(["Kelas", "className", "kelas"])),
+          birthPlace: valToString(getVal(["Tempat Lahir", "birthPlace", "tempat_lahir"])),
+          birthDate: valToString(getVal(["Tanggal Lahir", "birthDate", "tanggal_lahir"])),
+          address: valToString(getVal(["Alamat", "address", "alamat"])),
+          parentName: valToString(getVal(["Nama Orang Tua", "parentName", "nama_orang_tua"])),
+          parentPhone: valToString(getVal(["No HP Orang Tua", "parentPhone", "no_hp", "phone"])),
+          kip: valToString(getVal(["Nomor KIP", "KIP", "kip", "no_kip"]))
+        };
+      });
+
+      // Call the bulk import API
+      const response: any = await goPost("/api/master/students/bulk", { students: mappedStudents });
+
+      // Format response to match ImportResult
+      const errorPattern = /^Baris (\d+): (.*)$/;
+      const formattedErrors = (response.errors || []).map((errStr: string) => {
+        const match = errStr.match(errorPattern);
+        if (match) {
+          const rowIdx = parseInt(match[1]) - 1;
+          const studentName = mappedStudents[rowIdx]?.fullName || "Siswa";
+          return {
+            row: parseInt(match[1]),
+            name: studentName,
+            error: match[2],
+          };
+        }
+        return {
+          row: 0,
+          name: "Siswa",
+          error: errStr,
+        };
+      });
+
+      const failedCount = formattedErrors.length;
+      const successCount = response.count || 0;
+
+      const importResult: ImportResult = {
+        success: successCount,
+        failed: failedCount,
+        errors: formattedErrors,
+        message: `Berhasil mengimport ${successCount} siswa. ${failedCount > 0 ? `${failedCount} baris gagal.` : ""}`
+      };
+
+      setResult(importResult);
+
+      if (successCount > 0 && failedCount === 0) {
+        toast.success(importResult.message);
+      } else if (successCount > 0) {
+        toast.warning(importResult.message);
+      } else {
+        toast.error(importResult.message || "Gagal mengimport data");
+      }
+
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || "Terjadi kesalahan saat mengimport");
     } finally {
       setLoading(false);
     }
