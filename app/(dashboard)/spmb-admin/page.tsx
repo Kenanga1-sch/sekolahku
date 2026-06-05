@@ -54,7 +54,8 @@ import { showSuccess, showError } from "@/lib/toast";
 import { SPMBStatusBadge } from "@/components/spmb/status-badge";
 import { SPMBPromoteDialog } from "@/components/spmb/spmb-promote-dialog";
 import { calculateSPMBDomisiliPriority, type SPMBAgeEligibility } from "@/lib/spmb-priority";
-
+import { useSortableData } from "@/hooks/use-sortable-data";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 
 // Define Drizzle-compatible interface locally for now
 interface Registrant {
@@ -539,11 +540,11 @@ export default function SPMBAdminPage() {
                         </TooltipProvider>
                     </div>
                   </TableHead>
-                  <TableHead>Usia</TableHead>
-                  <TableHead className="hidden md:table-cell">Jarak</TableHead>
+                  <SortableTableHead label="Usia" sortKey="birthDate" sortConfig={sortConfig} onSort={requestSort} />
+                  <SortableTableHead label="Jarak" sortKey="distanceToSchool" sortConfig={sortConfig} onSort={requestSort} className="hidden md:table-cell" />
                   <TableHead className="hidden lg:table-cell">Domisili</TableHead>
-                  <TableHead className="hidden md:table-cell">Tanggal</TableHead>
-                  <TableHead>Status</TableHead>
+                  <SortableTableHead label="Tanggal" sortKey="createdAt" sortConfig={sortConfig} onSort={requestSort} className="hidden md:table-cell" />
+                  <SortableTableHead label="Status" sortKey="status" sortConfig={sortConfig} onSort={requestSort} />
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
@@ -569,7 +570,7 @@ export default function SPMBAdminPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  registrants.map((r) => {
+                  sortedRegistrants.map((r) => {
                     const isInReceptionArea = (r.distanceToSchool || 0) <= maxDistance;
                     return (
                     <TableRow key={r.id} className={selectedIds.includes(r.id) ? "bg-primary/5" : ""}>
