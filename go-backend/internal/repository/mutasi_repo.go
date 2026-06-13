@@ -18,17 +18,29 @@ func NewMutasiRepository(db *sql.DB) *MutasiRepository {
 	return &MutasiRepository{DB: db}
 }
 
-func (r *MutasiRepository) GetMutasiRequests() ([]models.MutasiRequest, error) {
+func (r *MutasiRepository) GetMutasiRequests(page, perPage int) ([]models.MutasiRequest, int, error) {
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 || perPage > 100 {
+		perPage = 20
+	}
+	offset := (page - 1) * perPage
+
+	var total int
+	r.DB.QueryRow("SELECT COUNT(*) FROM mutasi_requests").Scan(&total)
+
 	query := `
 		SELECT id, registration_number, student_name, nisn, gender, origin_school, 
 		       origin_school_address, target_grade, target_class_id, parent_name, 
 			   whatsapp_number, status_approval, status_delivery, created_at, updated_at
 		FROM mutasi_requests
 		ORDER BY created_at DESC
+		LIMIT ? OFFSET ?
 	`
-	rows, err := r.DB.Query(query)
+	rows, err := r.DB.Query(query, perPage, offset)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -44,7 +56,7 @@ func (r *MutasiRepository) GetMutasiRequests() ([]models.MutasiRequest, error) {
 			&m.StatusApproval, &m.StatusDelivery, &crat, &upat,
 		)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		if osa.Valid {
@@ -62,7 +74,7 @@ func (r *MutasiRepository) GetMutasiRequests() ([]models.MutasiRequest, error) {
 	if results == nil {
 		results = []models.MutasiRequest{}
 	}
-	return results, nil
+	return results, total, nil
 }
 
 func (r *MutasiRepository) CreateMutasiRequest(m models.MutasiRequest) (string, error) {
@@ -120,7 +132,18 @@ func (r *MutasiRepository) GenerateRegistrationNumber() string {
 	return fmt.Sprintf("MUT-%s-%03d", datePart, count+1)
 }
 
-func (r *MutasiRepository) GetMutasiOutRequests() ([]models.MutasiOutRequest, error) {
+func (r *MutasiRepository) GetMutasiOutRequests(page, perPage int) ([]models.MutasiOutRequest, int, error) {
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 || perPage > 100 {
+		perPage = 20
+	}
+	offset := (page - 1) * perPage
+
+	var total int
+	r.DB.QueryRow("SELECT COUNT(*) FROM mutasi_out_requests").Scan(&total)
+
 	query := `
 		SELECT m.id, m.student_id, s.full_name as student_name, s.nisn, s.class_name,
 		       m.destination_school, m.reason, m.reason_detail, m.status,
@@ -128,10 +151,11 @@ func (r *MutasiRepository) GetMutasiOutRequests() ([]models.MutasiOutRequest, er
 		FROM mutasi_out_requests m
 		JOIN students s ON m.student_id = s.id
 		ORDER BY m.created_at DESC
+		LIMIT ? OFFSET ?
 	`
-	rows, err := r.DB.Query(query)
+	rows, err := r.DB.Query(query, perPage, offset)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -147,7 +171,7 @@ func (r *MutasiRepository) GetMutasiOutRequests() ([]models.MutasiOutRequest, er
 			&dat, &pat, &cat, &crat, &upat,
 		)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		if rd.Valid {
@@ -165,7 +189,7 @@ func (r *MutasiRepository) GetMutasiOutRequests() ([]models.MutasiOutRequest, er
 	if results == nil {
 		results = []models.MutasiOutRequest{}
 	}
-	return results, nil
+	return results, total, nil
 }
 
 func (r *MutasiRepository) GetMutasiOutByID(id string) (*models.MutasiOutRequest, error) {

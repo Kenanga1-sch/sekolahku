@@ -58,3 +58,16 @@ type StudentResponse struct {
 	Pagination StudentPagination `json:"pagination"`
 	Summary    StudentSummary    `json:"summary"`
 }
+
+type StudentHealth struct {
+	TotalStudents int `json:"totalStudents"`
+	MissingNik    int `json:"missingNik"`
+	MissingMother int `json:"missingMother"`
+	MissingDocs   int `json:"missingDocs"`
+	Completeness  int `json:"completeness"`
+}
+
+type StudentClassItem struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}

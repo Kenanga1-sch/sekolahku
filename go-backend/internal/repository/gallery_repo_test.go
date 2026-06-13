@@ -51,11 +51,11 @@ func TestGalleryRepositoryUsesGalleryTable(t *testing.T) {
 		t.Fatalf("Create returned error: %v", err)
 	}
 
-	items, err := repo.GetGallery("kegiatan")
+	items, total, err := repo.GetGallery("kegiatan", 1, 20)
 	if err != nil {
 		t.Fatalf("GetGallery returned error: %v", err)
 	}
-	if len(items) != 1 || items[0].ID != id || items[0].ImageUrl == "" {
+	if total != 1 || len(items) != 1 || items[0].ID != id || items[0].ImageUrl == "" {
 		t.Fatalf("expected created gallery item, got %#v", items)
 	}
 

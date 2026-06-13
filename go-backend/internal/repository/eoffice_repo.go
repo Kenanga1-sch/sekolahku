@@ -258,11 +258,11 @@ func (r *EOfficeRepository) CreateSuratMasuk(s models.SuratMasuk) (string, error
 }
 
 // Archive - Surat Keluar
-func (r *EOfficeRepository) GetSuratKeluar(page, limit int, search string) ([]models.SuratKeluar, int, error) {
+func (r *EOfficeRepository) GetSuratKeluar(page, limit int, search, statusFilter string) ([]models.SuratKeluar, int, error) {
 	offset := (page - 1) * limit
 	query := `
 		SELECT s.id, s.mail_number, s.recipient, s.subject, s.date_of_letter, s.classification_code, 
-		       s.file_path, s.final_file_path, s.status, s.created_by, s.created_at,
+		       s.file_path, s.final_file_path, s.status, s.agenda_number, s.verified_by, s.verified_at, s.digital_signature, s.revision_note, s.template_id, s.created_by, s.created_at,
 		       k.code, k.name
 		FROM surat_keluar s
 		LEFT JOIN klasifikasi_surat k ON s.classification_code = k.code
@@ -273,6 +273,10 @@ func (r *EOfficeRepository) GetSuratKeluar(page, limit int, search string) ([]mo
 		query += " AND (s.mail_number LIKE ? OR s.recipient LIKE ? OR s.subject LIKE ?)"
 		pattern := "%" + search + "%"
 		args = append(args, pattern, pattern, pattern)
+	}
+	if statusFilter != "" {
+		query += " AND s.status = ?"
+		args = append(args, statusFilter)
 	}
 
 	var total int
@@ -290,12 +294,13 @@ func (r *EOfficeRepository) GetSuratKeluar(page, limit int, search string) ([]mo
 	var results []models.SuratKeluar
 	for rows.Next() {
 		var s models.SuratKeluar
-		var cCode, cName, fPath, fnPath, cBy sql.NullString
+		var cCode, cName, fPath, fnPath, cBy, agenda, vBy, ds, revNote, tplID sql.NullString
+		var vAt sql.NullInt64
 		var crAt sql.NullInt64
 
 		err := rows.Scan(
 			&s.ID, &s.MailNumber, &s.Recipient, &s.Subject, &s.DateOfLetter, &s.ClassificationCode,
-			&fPath, &fnPath, &s.Status, &cBy, &crAt,
+			&fPath, &fnPath, &s.Status, &agenda, &vBy, &vAt, &ds, &revNote, &tplID, &cBy, &crAt,
 			&cCode, &cName,
 		)
 		if err != nil {
@@ -310,6 +315,24 @@ func (r *EOfficeRepository) GetSuratKeluar(page, limit int, search string) ([]mo
 		}
 		if cBy.Valid {
 			s.CreatedBy = &cBy.String
+		}
+		if agenda.Valid {
+			s.AgendaNumber = &agenda.String
+		}
+		if vBy.Valid {
+			s.VerifiedBy = &vBy.String
+		}
+		if vAt.Valid {
+			s.VerifiedAt = &vAt.Int64
+		}
+		if ds.Valid {
+			s.DigitalSignature = &ds.String
+		}
+		if revNote.Valid {
+			s.RevisionNote = &revNote.String
+		}
+		if tplID.Valid {
+			s.TemplateID = &tplID.String
 		}
 		s.CreatedAt = SafeTime(crAt)
 
@@ -328,31 +351,48 @@ func (r *EOfficeRepository) GetSuratKeluar(page, limit int, search string) ([]mo
 	return results, total, nil
 }
 
-func (r *EOfficeRepository) GetLetterTemplates(query string) ([]models.LetterTemplate, error) {
-	sqlQuery := "SELECT id, name, category, content, file_path, type, paper_size, orientation, is_active, created_at, updated_at FROM letter_templates WHERE is_active = 1"
-	args := []interface{}{}
+func (r *EOfficeRepository) GetLetterTemplates(query string, page, perPage int) ([]models.LetterTemplate, int, error) {
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 || perPage > 100 {
+		perPage = 20
+	}
+	offset := (page - 1) * perPage
 
+	where := "is_active = 1"
+	args := []interface{}{}
 	if query != "" {
-		sqlQuery += " AND name LIKE ?"
+		where += " AND name LIKE ?"
 		args = append(args, "%"+query+"%")
 	}
 
-	sqlQuery += " ORDER BY updated_at DESC"
+	var total int
+	r.DB.QueryRow("SELECT COUNT(*) FROM letter_templates WHERE "+where, args...).Scan(&total)
 
-	rows, err := r.DB.Query(sqlQuery, args...)
+	listArgs := append(args, perPage, offset)
+	sqlQuery := "SELECT id, name, category, content, file_path, type, paper_size, orientation, classification_code, letter_number_format, is_active, created_at, updated_at FROM letter_templates WHERE " + where + " ORDER BY updated_at DESC LIMIT ? OFFSET ?"
+
+	rows, err := r.DB.Query(sqlQuery, listArgs...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
 	var results []models.LetterTemplate
 	for rows.Next() {
 		var t models.LetterTemplate
-		var content, fPath sql.NullString
+		var content, fPath, clsCode, ltrFmt sql.NullString
 		var crAt, upAt sql.NullInt64
-		err := rows.Scan(&t.ID, &t.Name, &t.Category, &content, &fPath, &t.Type, &t.PaperSize, &t.Orientation, &t.IsActive, &crAt, &upAt)
+		err := rows.Scan(&t.ID, &t.Name, &t.Category, &content, &fPath, &t.Type, &t.PaperSize, &t.Orientation, &clsCode, &ltrFmt, &t.IsActive, &crAt, &upAt)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
+		}
+		if clsCode.Valid {
+			t.ClassificationCode = &clsCode.String
+		}
+		if ltrFmt.Valid {
+			t.LetterNumberFormat = &ltrFmt.String
 		}
 		if content.Valid {
 			t.Content = &content.String
@@ -367,15 +407,15 @@ func (r *EOfficeRepository) GetLetterTemplates(query string) ([]models.LetterTem
 	if results == nil {
 		results = []models.LetterTemplate{}
 	}
-	return results, nil
+	return results, total, nil
 }
 
 func (r *EOfficeRepository) GetLetterTemplateByID(id string) (*models.LetterTemplate, error) {
 	var t models.LetterTemplate
-	var content, fPath sql.NullString
+	var content, fPath, clsCode, ltrFmt sql.NullString
 	var crAt, upAt sql.NullInt64
-	err := r.DB.QueryRow("SELECT id, name, category, content, file_path, type, paper_size, orientation, is_active, created_at, updated_at FROM letter_templates WHERE id = ?", id).
-		Scan(&t.ID, &t.Name, &t.Category, &content, &fPath, &t.Type, &t.PaperSize, &t.Orientation, &t.IsActive, &crAt, &upAt)
+	err := r.DB.QueryRow("SELECT id, name, category, content, file_path, type, paper_size, orientation, classification_code, letter_number_format, is_active, created_at, updated_at FROM letter_templates WHERE id = ?", id).
+		Scan(&t.ID, &t.Name, &t.Category, &content, &fPath, &t.Type, &t.PaperSize, &t.Orientation, &clsCode, &ltrFmt, &t.IsActive, &crAt, &upAt)
 	if err != nil {
 		return nil, err
 	}
@@ -385,6 +425,12 @@ func (r *EOfficeRepository) GetLetterTemplateByID(id string) (*models.LetterTemp
 	}
 	if fPath.Valid {
 		t.FilePath = &fPath.String
+	}
+	if clsCode.Valid {
+		t.ClassificationCode = &clsCode.String
+	}
+	if ltrFmt.Valid {
+		t.LetterNumberFormat = &ltrFmt.String
 	}
 	t.CreatedAt = SafeTime(crAt)
 	t.UpdatedAt = SafeTime(upAt)
@@ -410,9 +456,9 @@ func (r *EOfficeRepository) CreateLetterTemplate(t models.LetterTemplate) (strin
 	t.IsActive = true
 	now := time.Now().UnixMilli()
 	_, err := r.DB.Exec(`
-		INSERT INTO letter_templates (id, name, category, content, file_path, type, paper_size, orientation, is_active, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, t.ID, t.Name, t.Category, t.Content, t.FilePath, t.Type, t.PaperSize, t.Orientation, t.IsActive, now, now)
+		INSERT INTO letter_templates (id, name, category, content, file_path, type, paper_size, orientation, classification_code, letter_number_format, is_active, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, t.ID, t.Name, t.Category, t.Content, t.FilePath, t.Type, t.PaperSize, t.Orientation, t.ClassificationCode, t.LetterNumberFormat, t.IsActive, now, now)
 	return t.ID, err
 }
 
@@ -442,12 +488,18 @@ func (r *EOfficeRepository) UpdateLetterTemplate(id string, t models.LetterTempl
 	if t.FilePath == nil {
 		t.FilePath = existing.FilePath
 	}
+	if t.ClassificationCode == nil {
+		t.ClassificationCode = existing.ClassificationCode
+	}
+	if t.LetterNumberFormat == nil {
+		t.LetterNumberFormat = existing.LetterNumberFormat
+	}
 
 	res, err := r.DB.Exec(`
 		UPDATE letter_templates
-		SET name = ?, category = ?, content = ?, file_path = ?, type = ?, paper_size = ?, orientation = ?, is_active = 1, updated_at = ?
+		SET name = ?, category = ?, content = ?, file_path = ?, type = ?, paper_size = ?, orientation = ?, classification_code = ?, letter_number_format = ?, is_active = 1, updated_at = ?
 		WHERE id = ?
-	`, t.Name, t.Category, t.Content, t.FilePath, t.Type, t.PaperSize, t.Orientation, UnixMilli(), id)
+	`, t.Name, t.Category, t.Content, t.FilePath, t.Type, t.PaperSize, t.Orientation, t.ClassificationCode, t.LetterNumberFormat, UnixMilli(), id)
 	if err != nil {
 		return err
 	}
@@ -459,6 +511,63 @@ func (r *EOfficeRepository) UpdateLetterTemplate(id string, t models.LetterTempl
 
 func (r *EOfficeRepository) DeleteLetterTemplate(id string) error {
 	res, err := r.DB.Exec("DELETE FROM letter_templates WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	if affected, _ := res.RowsAffected(); affected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+// CreateSuratKeluarFromTemplate creates a surat_keluar from letter generator with status "Menunggu Verifikasi"
+func (r *EOfficeRepository) CreateSuratKeluarFromTemplate(req models.SuratKeluar) (string, error) {
+	if req.ID == "" {
+		req.ID = cuid2.Generate()
+	}
+	now := UnixMilli()
+	_, err := r.DB.Exec(`
+		INSERT INTO surat_keluar (id, mail_number, recipient, subject, date_of_letter, classification_code, file_path, status, template_id, created_by, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, 'Menunggu Verifikasi', ?, ?, ?, ?)
+	`, req.ID, req.MailNumber, req.Recipient, req.Subject, req.DateOfLetter, req.ClassificationCode, req.FilePath, req.TemplateID, req.CreatedBy, now, now)
+	if err != nil {
+		return "", err
+	}
+	return req.ID, nil
+}
+
+// VerifySuratKeluar approves a surat_keluar with digital signature and auto-generates agenda number
+func (r *EOfficeRepository) VerifySuratKeluar(id, verifiedBy, digitalSignature string) error {
+	now := UnixMilli()
+	letterDate := time.Now()
+	startOfYear := time.Date(letterDate.Year(), 1, 1, 0, 0, 0, 0, letterDate.Location()).UnixMilli()
+	endOfYear := time.Date(letterDate.Year()+1, 1, 1, 0, 0, 0, 0, letterDate.Location()).UnixMilli()
+	var count int
+	r.DB.QueryRow("SELECT COUNT(*) FROM surat_keluar WHERE status = 'Terverifikasi' AND verified_at >= ? AND verified_at < ?", startOfYear, endOfYear).Scan(&count)
+	agendaNumber := fmt.Sprintf("SK-%d-%04d", letterDate.Year(), count+1)
+
+	res, err := r.DB.Exec(`
+		UPDATE surat_keluar
+		SET status = 'Terverifikasi', verified_by = ?, verified_at = ?, digital_signature = ?, agenda_number = ?, updated_at = ?
+		WHERE id = ? AND status = 'Menunggu Verifikasi'
+	`, verifiedBy, now, digitalSignature, agendaNumber, now, id)
+	if err != nil {
+		return err
+	}
+	if affected, _ := res.RowsAffected(); affected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+// SetSuratKeluarRevision sets status to "Revisi" with a revision note
+func (r *EOfficeRepository) SetSuratKeluarRevision(id, revisionNote string) error {
+	now := UnixMilli()
+	res, err := r.DB.Exec(`
+		UPDATE surat_keluar
+		SET status = 'Revisi', revision_note = ?, updated_at = ?
+		WHERE id = ? AND status = 'Menunggu Verifikasi'
+	`, revisionNote, now, id)
 	if err != nil {
 		return err
 	}
@@ -572,10 +681,12 @@ func (r *EOfficeRepository) GetSuratMasukByID(id string) (*models.SuratMasuk, er
 func (r *EOfficeRepository) GetSuratKeluarByID(id string) (*models.SuratKeluar, error) {
 	var s models.SuratKeluar
 	var classCode, filePath, finalPath, createdBy, creatorName, creatorFullName, creatorRole, kCode, kName, kDesc sql.NullString
+	var agenda, vBy, ds, revNote, tplID sql.NullString
+	var vAt sql.NullInt64
 	var crAt, upAt sql.NullInt64
 	err := r.DB.QueryRow(`
 		SELECT s.id, s.mail_number, s.recipient, s.subject, s.date_of_letter, s.classification_code,
-		       s.file_path, s.final_file_path, s.status, s.created_by, s.created_at, s.updated_at,
+		       s.file_path, s.final_file_path, s.status, s.agenda_number, s.verified_by, s.verified_at, s.digital_signature, s.revision_note, s.template_id, s.created_by, s.created_at, s.updated_at,
 		       u.name, u.full_name, u.role,
 		       k.code, k.name, k.description
 		FROM surat_keluar s
@@ -583,7 +694,7 @@ func (r *EOfficeRepository) GetSuratKeluarByID(id string) (*models.SuratKeluar, 
 		LEFT JOIN klasifikasi_surat k ON s.classification_code = k.code
 		WHERE s.id = ?
 	`, id).Scan(&s.ID, &s.MailNumber, &s.Recipient, &s.Subject, &s.DateOfLetter, &classCode,
-		&filePath, &finalPath, &s.Status, &createdBy, &crAt, &upAt,
+		&filePath, &finalPath, &s.Status, &agenda, &vBy, &vAt, &ds, &revNote, &tplID, &createdBy, &crAt, &upAt,
 		&creatorName, &creatorFullName, &creatorRole,
 		&kCode, &kName, &kDesc)
 	if err != nil {
@@ -600,6 +711,24 @@ func (r *EOfficeRepository) GetSuratKeluarByID(id string) (*models.SuratKeluar, 
 	}
 	if createdBy.Valid {
 		s.CreatedBy = &createdBy.String
+	}
+	if agenda.Valid {
+		s.AgendaNumber = &agenda.String
+	}
+	if vBy.Valid {
+		s.VerifiedBy = &vBy.String
+	}
+	if vAt.Valid {
+		s.VerifiedAt = &vAt.Int64
+	}
+	if ds.Valid {
+		s.DigitalSignature = &ds.String
+	}
+	if revNote.Valid {
+		s.RevisionNote = &revNote.String
+	}
+	if tplID.Valid {
+		s.TemplateID = &tplID.String
 	}
 	if createdBy.Valid || creatorName.Valid || creatorFullName.Valid {
 		s.Creator = &models.User{ID: createdBy.String, Role: creatorRole.String}

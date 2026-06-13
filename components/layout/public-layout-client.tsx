@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Settings, LogOut, User, LayoutDashboard } from "lucide-react";
+import { Settings, LogOut, User, LayoutDashboard, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { logoutAction } from "@/actions/auth";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
@@ -27,6 +27,7 @@ export default function PublicLayoutClient({
 }) {
   const { user, isAuthenticated, logout: storeLogout } = useAuthStore();
   const [mounted, setMounted] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => {
     setMounted(true);
@@ -45,7 +46,24 @@ export default function PublicLayoutClient({
         "h-screen" // Main App container
       )}
     >
-      <LandingSidebar />
+      {/* Sidebar Toggle Button */}
+      <button
+        onClick={() => setSidebarOpen((prev) => !prev)}
+        className={cn(
+          "fixed top-1/2 -translate-y-1/2 z-[60] h-12 w-5 rounded-r-md border border-l-0 border-neutral-200 dark:border-neutral-700 shadow-sm flex items-center justify-center transition-all cursor-pointer group",
+          "bg-white dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700",
+          sidebarOpen
+            ? "left-[280px] xl:left-[300px]"
+            : "left-0"
+        )}
+        aria-label={sidebarOpen ? "Sembunyikan navigasi" : "Tampilkan navigasi"}
+      >
+        <PanelLeftClose className={cn("h-3.5 w-3.5 transition-transform", !sidebarOpen && "rotate-180")} />
+      </button>
+
+      <div className={cn("flex-shrink-0 transition-all duration-300 ease-in-out overflow-hidden", sidebarOpen ? "max-w-[300px]" : "max-w-0")}>
+        <LandingSidebar />
+      </div>
       <div className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden relative no-scrollbar">
          {/* Top Navigation Bar */}
          <header 

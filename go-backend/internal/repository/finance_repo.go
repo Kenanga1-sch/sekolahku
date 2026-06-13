@@ -515,8 +515,14 @@ func (r *FinanceRepository) CreateTransaction(req models.CreateFinanceTransactio
 		}
 	}
 
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
 	if status == "APPROVED" && (req.Type == "EXPENSE" || req.Type == "TRANSFER") {
-		balance, err := r.accountBalance(req.AccountIDSource)
+		balance, err := r.accountBalanceTx(tx, req.AccountIDSource)
 		if err != nil {
 			return err
 		}
@@ -532,15 +538,48 @@ func (r *FinanceRepository) CreateTransaction(req models.CreateFinanceTransactio
 		txDate = req.Date.UnixMilli()
 	}
 
-	query := `
+	_, err = tx.Exec(`
 		INSERT INTO finance_transactions (id, date, type, account_id_source, account_id_dest, category_id, amount, description, proof_image, status, created_by, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`
-	_, err := r.DB.Exec(query, id, txDate, req.Type, req.AccountIDSource, req.AccountIDDest, req.CategoryID, req.Amount, req.Description, req.ProofImage, status, req.CreatedBy, now, now)
-	return err
+	`, id, txDate, req.Type, req.AccountIDSource, req.AccountIDDest, req.CategoryID, req.Amount, req.Description, req.ProofImage, status, req.CreatedBy, now, now)
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (r *FinanceRepository) accountBalanceTx(tx *sql.Tx, accountID string) (float64, error) {
+	var balance sql.NullFloat64
+	err := tx.QueryRow(`
+		SELECT COALESCE(SUM(CASE
+			WHEN status = 'APPROVED' AND type = 'INCOME' AND account_id_source = ? THEN amount
+			WHEN status = 'APPROVED' AND type = 'EXPENSE' AND account_id_source = ? THEN -amount
+			WHEN status = 'APPROVED' AND type = 'TRANSFER' AND account_id_source = ? THEN -amount
+			WHEN status = 'APPROVED' AND type = 'TRANSFER' AND account_id_dest = ? THEN amount
+			ELSE 0
+		END), 0)
+		FROM finance_transactions
+	`, accountID, accountID, accountID, accountID).Scan(&balance)
+	if err != nil {
+		return 0, err
+	}
+	if !balance.Valid {
+		return 0, nil
+	}
+	return balance.Float64, nil
 }
 
 func (r *FinanceRepository) UpdateTransaction(id string, req models.FinanceTransaction) error {
+	var currentStatus string
+	if err := r.DB.QueryRow("SELECT status FROM finance_transactions WHERE id = ?", id).Scan(&currentStatus); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.New("Transaksi tidak ditemukan")
+		}
+		return err
+	}
+	if currentStatus == "APPROVED" {
+		return errors.New("Transaksi yang sudah di-APPROVED tidak dapat diubah. Batalkan dan buat transaksi baru")
+	}
 	now := time.Now().UnixMilli()
 	_, err := r.DB.Exec(`
 		UPDATE finance_transactions SET date = ?, type = ?, account_id_source = ?, account_id_dest = ?,

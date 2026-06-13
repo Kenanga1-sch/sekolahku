@@ -26,7 +26,23 @@ go-backend/uploads
 *.log
 *.tmp
 *.tgz
+*.gz
+*.tar
 *.zip
 *.exe
 *.db
 *.db-*
+
+# compiled binaries in project root
+sekolahku
+sekolahku.exe
+sekolahku_linux
+sekolahku_test
+migrate.exe
+seed.exe
+api.exe
+dump_schema.exe
+
+# Go build cache dirs
+.gocache*
+vendor/

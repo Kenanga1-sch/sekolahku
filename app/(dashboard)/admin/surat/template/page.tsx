@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { 
   Plus, 
   Search, 
@@ -11,7 +11,8 @@ import {
   Printer,
   Download,
   Upload,
-  RotateCcw
+  RotateCcw,
+  FileJson
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +37,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { ImportDialog } from "@/components/letters/import-dialog";
-import { goDelete, goGet } from "@/lib/api-client";
+import { goDelete, goGet, goPost } from "@/lib/api-client";
 
 export default function TemplateListPage() {
   const router = useRouter();
@@ -44,6 +45,26 @@ export default function TemplateListPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const jsonInputRef = useRef<HTMLInputElement>(null);
+
+  const handleJsonImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (!data.config?.name) {
+        toast.error("Format JSON backup tidak valid");
+        return;
+      }
+      await goPost("/api/eoffice/letter-templates/import", data);
+      toast.success("Template berhasil diimport dari backup");
+      fetchTemplates();
+    } catch (err) {
+      toast.error("Gagal membaca file backup");
+    }
+    if (jsonInputRef.current) jsonInputRef.current.value = "";
+  };
 
   const fetchTemplates = async () => {
     setLoading(true);
@@ -122,8 +143,12 @@ export default function TemplateListPage() {
               <RotateCcw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
             <Button variant="outline" onClick={() => setIsImportOpen(true)}>
-              <Upload className="mr-2 h-4 w-4" /> Import Backup
+              <Upload className="mr-2 h-4 w-4" /> Import DOCX
             </Button>
+            <Button variant="outline" onClick={() => jsonInputRef.current?.click()}>
+              <FileJson className="mr-2 h-4 w-4" /> Import Backup
+            </Button>
+            <input ref={jsonInputRef} type="file" accept=".json" className="hidden" onChange={handleJsonImport} />
             <Button onClick={() => router.push("/admin/surat/template/editor")} className="bg-blue-600 hover:bg-blue-700">
               <Plus className="mr-2 h-4 w-4" /> Buat Template Baru
             </Button>

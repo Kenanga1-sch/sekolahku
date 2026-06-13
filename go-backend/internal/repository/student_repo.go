@@ -474,7 +474,7 @@ func (r *StudentRepository) UpdateStudent(id string, s models.Student) error {
 	return err
 }
 
-func (r *StudentRepository) GetStudentHealth() (map[string]interface{}, error) {
+func (r *StudentRepository) GetStudentHealth() (*models.StudentHealth, error) {
 	var total, missingNIK, missingMother int
 	if err := r.DB.QueryRow(`SELECT COUNT(*) FROM students`).Scan(&total); err != nil {
 		return nil, err
@@ -497,12 +497,12 @@ func (r *StudentRepository) GetStudentHealth() (map[string]interface{}, error) {
 		}
 	}
 
-	return map[string]interface{}{
-		"totalStudents": total,
-		"missingNik":    missingNIK,
-		"missingMother": missingMother,
-		"missingDocs":   missingDocs,
-		"completeness":  completeness,
+	return &models.StudentHealth{
+		TotalStudents: total,
+		MissingNik:    missingNIK,
+		MissingMother: missingMother,
+		MissingDocs:   missingDocs,
+		Completeness:  completeness,
 	}, nil
 }
 
@@ -644,22 +644,22 @@ func (r *StudentRepository) GetStudentsByIDs(ids []string) ([]models.Student, er
 	return students, nil
 }
 
-func (r *StudentRepository) GetClasses() ([]map[string]interface{}, error) {
+func (r *StudentRepository) GetClasses() ([]models.StudentClassItem, error) {
 	rows, err := r.DB.Query("SELECT DISTINCT class_name FROM students WHERE class_name IS NOT NULL AND class_name != '' ORDER BY class_name ASC")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	classes := []map[string]interface{}{}
+	classes := []models.StudentClassItem{}
 	for rows.Next() {
 		var name string
 		if err := rows.Scan(&name); err != nil {
 			return nil, err
 		}
-		classes = append(classes, map[string]interface{}{
-			"id":   name,
-			"name": name,
+		classes = append(classes, models.StudentClassItem{
+			ID:   name,
+			Name: name,
 		})
 	}
 	return classes, nil

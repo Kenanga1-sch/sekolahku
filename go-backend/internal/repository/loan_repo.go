@@ -18,30 +18,39 @@ func NewLoanRepository(db *sql.DB) *LoanRepository {
 	return &LoanRepository{DB: db}
 }
 
-func (r *LoanRepository) GetLoans(borrowerType string) ([]models.Loan, error) {
-	query := `
-		SELECT l.id, l.employee_detail_id, l.borrower_type, l.borrower_name, l.description, l.type, 
-		       l.amount_requested, l.amount_approved, l.tenor_months, l.admin_fee, l.status, 
-		       l.rejection_reason, l.notes, l.disbursed_at, l.created_at, l.updated_at,
-		       u.name as emp_name
-		FROM loans l
-		LEFT JOIN employee_details d ON l.employee_detail_id = d.id
-		LEFT JOIN users u ON d.user_id = u.id
-		WHERE 1=1
-	`
-	var args []interface{}
+func (r *LoanRepository) GetLoans(borrowerType string, page, perPage int) ([]models.Loan, int, error) {
+	where := "1=1"
+	args := []interface{}{}
 	if borrowerType != "" {
-		if borrowerType == "EMPLOYEE" {
-			query += " AND l.borrower_type = 'EMPLOYEE'"
-		} else {
-			query += " AND l.borrower_type != 'EMPLOYEE'"
-		}
+		where += " AND borrower_type = ?"
+		args = append(args, borrowerType)
 	}
-	query += " ORDER BY l.created_at DESC"
 
-	rows, err := r.DB.Query(query, args...)
+	var total int
+	r.DB.QueryRow("SELECT COUNT(*) FROM loans WHERE "+where, args...).Scan(&total)
+
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 || perPage > 100 {
+		perPage = 20
+	}
+	offset := (page - 1) * perPage
+
+	query := `
+		SELECT l.id, COALESCE(l.employee_detail_id, ''), COALESCE(l.borrower_type, ''), COALESCE(l.borrower_name, ''),
+		       COALESCE(l.description, ''), COALESCE(l.type, ''), l.amount_requested, COALESCE(l.amount_approved, 0),
+		       l.tenor_months, COALESCE(l.admin_fee, 0), l.status, COALESCE(l.rejection_reason, ''),
+		       COALESCE(l.notes, ''), COALESCE(l.disbursed_at, 0), l.created_at, COALESCE(l.updated_at, 0),
+		       COALESCE(e.name, '')
+		FROM loans l
+		LEFT JOIN employee_details e ON l.employee_detail_id = e.id
+		WHERE ` + where + ` ORDER BY l.created_at DESC LIMIT ? OFFSET ?`
+	listArgs := append(args, perPage, offset)
+
+	rows, err := r.DB.Query(query, listArgs...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -58,7 +67,7 @@ func (r *LoanRepository) GetLoans(borrowerType string) ([]models.Loan, error) {
 			&reject, &notes, &disbAt, &crAt, &upAt, &empName,
 		)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		if empId.Valid {
@@ -92,7 +101,6 @@ func (r *LoanRepository) GetLoans(borrowerType string) ([]models.Loan, error) {
 			l.Employee = &models.Employee{Name: empNameStr}
 		}
 
-		// Get paid amount
 		r.DB.QueryRow("SELECT COALESCE(SUM(total_amount), 0) FROM loan_installments WHERE loan_id = ? AND status = 'PAID'", l.ID).Scan(&l.PaidAmount)
 		base := l.AmountRequested
 		if l.AmountApproved != nil {
@@ -108,7 +116,7 @@ func (r *LoanRepository) GetLoans(borrowerType string) ([]models.Loan, error) {
 	if results == nil {
 		results = []models.Loan{}
 	}
-	return results, nil
+	return results, total, nil
 }
 
 func (r *LoanRepository) CreateLoan(req models.CreateLoanRequest) error {

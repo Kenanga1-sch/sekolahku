@@ -16,6 +16,40 @@ func NewFAQRepository(db *sql.DB) *FAQRepository {
 	return &FAQRepository{DB: db}
 }
 
+func (r *FAQRepository) GetFAQsAdmin(page, perPage int) ([]models.FAQ, int, error) {
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 || perPage > 100 {
+		perPage = 20
+	}
+	offset := (page - 1) * perPage
+
+	var total int
+	r.DB.QueryRow("SELECT COUNT(*) FROM faqs").Scan(&total)
+
+	rows, err := r.DB.Query("SELECT id, category, question, answer, order_rank, is_active, created_at, updated_at FROM faqs ORDER BY category, order_rank ASC LIMIT ? OFFSET ?", perPage, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var list []models.FAQ
+	for rows.Next() {
+		var f models.FAQ
+		var ca, ua sql.NullInt64
+		var active int
+		if err := rows.Scan(&f.ID, &f.Category, &f.Question, &f.Answer, &f.OrderRank, &active, &ca, &ua); err != nil {
+			return nil, 0, err
+		}
+		f.IsActive = active == 1
+		f.CreatedAt = SafeTime(ca)
+		f.UpdatedAt = SafeTime(ua)
+		list = append(list, f)
+	}
+	return list, total, nil
+}
+
 func (r *FAQRepository) GetPublicFAQs() ([]models.FAQ, error) {
 	query := `SELECT id, category, question, answer, order_rank, is_active, created_at, updated_at FROM faqs WHERE is_active = 1 ORDER BY category, order_rank ASC`
 	rows, err := r.DB.Query(query)

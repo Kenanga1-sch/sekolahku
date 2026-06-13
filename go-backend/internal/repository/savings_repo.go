@@ -36,7 +36,7 @@ func (r *SavingsRepository) GetSavingsStats() (*models.SavingsStats, error) {
 	return stats, nil
 }
 
-func (r *SavingsRepository) GetTopSavers(limit int) ([]map[string]interface{}, error) {
+func (r *SavingsRepository) GetTopSavers(limit int) ([]models.TopSaverItem, error) {
 	if limit < 1 {
 		limit = 5
 	}
@@ -53,24 +53,24 @@ func (r *SavingsRepository) GetTopSavers(limit int) ([]map[string]interface{}, e
 	}
 	defer rows.Close()
 
-	items := []map[string]interface{}{}
+	items := make([]models.TopSaverItem, 0)
 	for rows.Next() {
 		var id, nama, kelas string
 		var saldo int
 		if err := rows.Scan(&id, &nama, &kelas, &saldo); err != nil {
 			return nil, err
 		}
-		items = append(items, map[string]interface{}{
-			"id":    id,
-			"name":  nama,
-			"kelas": kelas,
-			"saldo": saldo,
+		items = append(items, models.TopSaverItem{
+			ID:    id,
+			Name:  nama,
+			Kelas: kelas,
+			Saldo: saldo,
 		})
 	}
 	return items, nil
 }
 
-func (r *SavingsRepository) GetRecentTransactions(limit int) ([]map[string]interface{}, error) {
+func (r *SavingsRepository) GetRecentTransactions(limit int) ([]models.RecentTransactionItem, error) {
 	if limit < 1 {
 		limit = 8
 	}
@@ -88,7 +88,7 @@ func (r *SavingsRepository) GetRecentTransactions(limit int) ([]map[string]inter
 	}
 	defer rows.Close()
 
-	items := []map[string]interface{}{}
+	items := make([]models.RecentTransactionItem, 0)
 	for rows.Next() {
 		var id, tipe, siswaName, kelasName string
 		var nominal int
@@ -100,20 +100,20 @@ func (r *SavingsRepository) GetRecentTransactions(limit int) ([]map[string]inter
 		if createdAt.Valid {
 			timeValue = ToTime(createdAt).Format(time.RFC3339)
 		}
-		items = append(items, map[string]interface{}{
-			"id":        id,
-			"type":      tipe,
-			"nominal":   nominal,
-			"siswaName": siswaName,
-			"kelasName": kelasName,
-			"time":      timeValue,
+		items = append(items, models.RecentTransactionItem{
+			ID:        id,
+			Tipe:      tipe,
+			Nominal:   nominal,
+			SiswaName: siswaName,
+			KelasName: kelasName,
+			Time:      timeValue,
 		})
 	}
 	return items, nil
 }
 
-func (r *SavingsRepository) GetTransactionTrend() ([]map[string]interface{}, error) {
-	items := make([]map[string]interface{}, 0, 7)
+func (r *SavingsRepository) GetTransactionTrend() ([]models.TransactionTrendItem, error) {
+	items := make([]models.TransactionTrendItem, 0, 7)
 	now := time.Now()
 	for i := 6; i >= 0; i-- {
 		day := now.AddDate(0, 0, -i)
@@ -122,16 +122,16 @@ func (r *SavingsRepository) GetTransactionTrend() ([]map[string]interface{}, err
 		var setor, tarik int
 		r.DB.QueryRow("SELECT COALESCE(SUM(nominal), 0) FROM tabungan_transaksi WHERE status = 'verified' AND tipe = 'setor' AND created_at BETWEEN ? AND ?", start, end).Scan(&setor)
 		r.DB.QueryRow("SELECT COALESCE(SUM(nominal), 0) FROM tabungan_transaksi WHERE status = 'verified' AND tipe = 'tarik' AND created_at BETWEEN ? AND ?", start, end).Scan(&tarik)
-		items = append(items, map[string]interface{}{
-			"date":  day.Format("02/01"),
-			"setor": setor,
-			"tarik": tarik,
+		items = append(items, models.TransactionTrendItem{
+			Date:  day.Format("02/01"),
+			Setor: setor,
+			Tarik: tarik,
 		})
 	}
 	return items, nil
 }
 
-func (r *SavingsRepository) GetSaldoByKelas() ([]map[string]interface{}, error) {
+func (r *SavingsRepository) GetSaldoByKelas() ([]models.SaldoByKelasItem, error) {
 	rows, err := r.DB.Query(`
 		SELECT k.nama, COALESCE(SUM(s.saldo_terakhir), 0) AS saldo
 		FROM tabungan_kelas k
@@ -146,7 +146,7 @@ func (r *SavingsRepository) GetSaldoByKelas() ([]map[string]interface{}, error) 
 	defer rows.Close()
 
 	colors := []string{"#22c55e", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6", "#6366f1", "#84cc16", "#06b6d4"}
-	items := []map[string]interface{}{}
+	items := make([]models.SaldoByKelasItem, 0)
 	i := 0
 	for rows.Next() {
 		var nama string
@@ -154,10 +154,10 @@ func (r *SavingsRepository) GetSaldoByKelas() ([]map[string]interface{}, error) 
 		if err := rows.Scan(&nama, &saldo); err != nil {
 			return nil, err
 		}
-		items = append(items, map[string]interface{}{
-			"name":  nama,
-			"value": saldo,
-			"color": colors[i%len(colors)],
+		items = append(items, models.SaldoByKelasItem{
+			Name:  nama,
+			Value: saldo,
+			Color: colors[i%len(colors)],
 		})
 		i++
 	}
@@ -512,29 +512,41 @@ func (r *SavingsRepository) GetTransactions(siswaId, status, guruId, search, tip
 }
 
 // Settlements (Setoran)
-func (r *SavingsRepository) GetSetoranList(status, guruID string) ([]models.TabunganSetoran, error) {
+func (r *SavingsRepository) GetSetoranList(status, guruID string, page, perPage int) ([]models.TabunganSetoran, int, error) {
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 || perPage > 100 {
+		perPage = 20
+	}
+	offset := (page - 1) * perPage
+
+	where := "1=1"
+	var args []interface{}
+	if status != "" {
+		where += " AND s.status = ?"
+		args = append(args, status)
+	}
+	if guruID != "" {
+		where += " AND s.guru_id = ?"
+		args = append(args, guruID)
+	}
+
+	var total int
+	r.DB.QueryRow("SELECT COUNT(*) FROM tabungan_setoran s WHERE "+where, args...).Scan(&total)
+
+	listArgs := append(args, perPage, offset)
 	query := `
 		SELECT s.id, s.guru_id, s.bendahara_id, s.tipe, s.total_nominal, s.nominal_fisik, s.selisih, s.status, s.catatan, s.created_at,
 		       g.name as g_name, b.name as b_name
 		FROM tabungan_setoran s
 		JOIN users g ON s.guru_id = g.id
 		LEFT JOIN users b ON s.bendahara_id = b.id
-		WHERE 1=1
-	`
-	var args []interface{}
-	if status != "" {
-		query += " AND s.status = ?"
-		args = append(args, status)
-	}
-	if guruID != "" {
-		query += " AND s.guru_id = ?"
-		args = append(args, guruID)
-	}
-	query += " ORDER BY s.created_at DESC LIMIT 50"
+		WHERE ` + where + ` ORDER BY s.created_at DESC LIMIT ? OFFSET ?`
 
-	rows, err := r.DB.Query(query, args...)
+	rows, err := r.DB.Query(query, listArgs...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -545,7 +557,7 @@ func (r *SavingsRepository) GetSetoranList(status, guruID string) ([]models.Tabu
 		var crAt sql.NullInt64
 		err := rows.Scan(&s.ID, &s.GuruID, &bId, &s.Tipe, &s.TotalNominal, &s.NominalFisik, &s.Selisih, &s.Status, &cat, &crAt, &gName, &bName)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		if bId.Valid {
 			s.BendaharaID = &bId.String
@@ -561,7 +573,7 @@ func (r *SavingsRepository) GetSetoranList(status, guruID string) ([]models.Tabu
 	if results == nil {
 		results = []models.TabunganSetoran{}
 	}
-	return results, nil
+	return results, total, nil
 }
 
 func (r *SavingsRepository) CreateSetoran(req models.CreateSetoranRequest) error {
@@ -958,6 +970,16 @@ func (r *SavingsRepository) CreateHutang(h models.TabunganHutang) error {
 	if h.ID == "" {
 		h.ID = cuid2.Generate()
 	}
+	if h.SiswaID == "" {
+		return errors.New("siswa wajib diisi")
+	}
+	var exists int
+	if err := r.DB.QueryRow("SELECT COUNT(*) FROM tabungan_siswa WHERE id = ?", h.SiswaID).Scan(&exists); err != nil {
+		return err
+	}
+	if exists == 0 {
+		return errors.New("siswa tidak ditemukan")
+	}
 	now := UnixMilli()
 	_, err := r.DB.Exec(`
 		INSERT INTO tabungan_hutang (id, siswa_id, nama_barang, kategori, nominal, jumlah, dicatat_oleh, status, created_at, updated_at)
@@ -966,17 +988,43 @@ func (r *SavingsRepository) CreateHutang(h models.TabunganHutang) error {
 	return err
 }
 
-func (r *SavingsRepository) UpdateHutang(id string, input map[string]interface{}) error {
+func (r *SavingsRepository) UpdateHutang(id string, input models.UpdateHutangRequest) error {
 	_, err := r.DB.Exec(`
 		UPDATE tabungan_hutang SET nama_barang = ?, nominal = ?, jumlah = ?, updated_at = ?
 		WHERE id = ?
-	`, input["nama_barang"], input["nominal"], input["jumlah"], UnixMilli(), id)
+	`, input.NamaBarang, input.Nominal, input.Jumlah, UnixMilli(), id)
 	return err
 }
 
 func (r *SavingsRepository) DeleteHutang(id string) error {
-	_, err := r.DB.Exec("DELETE FROM tabungan_hutang WHERE id = ?", id)
-	return err
+	// Restore saldo if hutang was settled from savings
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var status, sid string
+	var nominal, jumlah int
+	err = tx.QueryRow("SELECT status, siswa_id, nominal, jumlah FROM tabungan_hutang WHERE id = ?", id).Scan(&status, &sid, &nominal, &jumlah)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.New("hutang tidak ditemukan")
+		}
+		return err
+	}
+
+	now := UnixMilli()
+	if status == "lunas" && sid != "" {
+		total := nominal * jumlah
+		tx.Exec("UPDATE tabungan_siswa SET saldo_terakhir = saldo_terakhir + ?, updated_at = ? WHERE id = ?", total, now, sid)
+	}
+
+	_, err = tx.Exec("UPDATE tabungan_hutang SET status = 'batal', updated_at = ? WHERE id = ?", now, id)
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (r *SavingsRepository) PayHutangCash(id string, amount int) error {
@@ -1315,7 +1363,7 @@ func (r *SavingsRepository) CreateHutangBatch(entries []models.TabunganHutang) e
 }
 
 // GetFinalReport returns end-of-year financial report for a student
-func (r *SavingsRepository) GetFinalReport(studentID string, year string) (map[string]interface{}, error) {
+func (r *SavingsRepository) GetFinalReport(studentID string, year string) (*models.FinalReport, error) {
 	var s models.TabunganSiswa
 	var kNama sql.NullString
 	err := r.DB.QueryRow(`
@@ -1331,7 +1379,6 @@ func (r *SavingsRepository) GetFinalReport(studentID string, year string) (map[s
 		return nil, err
 	}
 
-	// Get transaction history
 	rows, err := r.DB.Query(`
 		SELECT t.tipe, t.nominal, t.catatan, t.created_at
 		FROM tabungan_transaksi t
@@ -1343,7 +1390,7 @@ func (r *SavingsRepository) GetFinalReport(studentID string, year string) (map[s
 	}
 	defer rows.Close()
 
-	var transactions []map[string]interface{}
+	var transactions []models.FinalReportTransaction
 	totalSetor := 0
 	totalTarik := 0
 	for rows.Next() {
@@ -1352,15 +1399,15 @@ func (r *SavingsRepository) GetFinalReport(studentID string, year string) (map[s
 		var cat sql.NullString
 		var crAt sql.NullInt64
 		rows.Scan(&tipe, &nominal, &cat, &crAt)
-		item := map[string]interface{}{
-			"tipe":    tipe,
-			"nominal": nominal,
+		item := models.FinalReportTransaction{
+			Tipe:    tipe,
+			Nominal: nominal,
 		}
 		if cat.Valid {
-			item["catatan"] = cat.String
+			item.Catatan = cat.String
 		}
 		if crAt.Valid {
-			item["tanggal"] = ToTime(crAt).Format("2006-01-02")
+			item.Tanggal = ToTime(crAt).Format("2006-01-02")
 		}
 		transactions = append(transactions, item)
 		if tipe == "setor" {
@@ -1370,25 +1417,25 @@ func (r *SavingsRepository) GetFinalReport(studentID string, year string) (map[s
 		}
 	}
 	if transactions == nil {
-		transactions = []map[string]interface{}{}
+		transactions = []models.FinalReportTransaction{}
 	}
 
-	return map[string]interface{}{
-		"siswa": map[string]interface{}{
-			"nama":  s.Nama,
-			"nisn":  s.NISN,
-			"kelas": kNama.String,
-			"saldo": s.SaldoTerakhir,
+	return &models.FinalReport{
+		Siswa: models.FinalReportSiswa{
+			Nama:  s.Nama,
+			NISN:  s.NISN,
+			Kelas: kNama.String,
+			Saldo: s.SaldoTerakhir,
 		},
-		"transactions": transactions,
-		"totalSetor":   totalSetor,
-		"totalTarik":   totalTarik,
-		"saldoAkhir":   s.SaldoTerakhir,
+		Transactions: transactions,
+		TotalSetor:   totalSetor,
+		TotalTarik:   totalTarik,
+		SaldoAkhir:   s.SaldoTerakhir,
 	}, nil
 }
 
 // GetStatement returns a list of statement records for rekening koran
-func (r *SavingsRepository) GetStatement(siswaID string) ([]map[string]interface{}, error) {
+func (r *SavingsRepository) GetStatement(siswaID string) ([]models.StatementItem, error) {
 	rows, err := r.DB.Query(`
 		SELECT t.id, t.tipe, t.nominal, t.status, t.catatan, t.created_at, ts.nama as s_nama
 		FROM tabungan_transaksi t
@@ -1401,7 +1448,7 @@ func (r *SavingsRepository) GetStatement(siswaID string) ([]map[string]interface
 	}
 	defer rows.Close()
 
-	var results []map[string]interface{}
+	var results []models.StatementItem
 	for rows.Next() {
 		var tipe, status string
 		var nominal int
@@ -1409,25 +1456,25 @@ func (r *SavingsRepository) GetStatement(siswaID string) ([]map[string]interface
 		var crAt sql.NullInt64
 		var id string
 		rows.Scan(&id, &tipe, &nominal, &status, &cat, &crAt, &sName)
-		item := map[string]interface{}{
-			"id":      id,
-			"tipe":    tipe,
-			"nominal": nominal,
-			"status":  status,
+		item := models.StatementItem{
+			ID:      id,
+			Tipe:    tipe,
+			Nominal: nominal,
+			Status:  status,
 		}
 		if cat.Valid {
-			item["catatan"] = cat.String
+			item.Catatan = cat.String
 		}
 		if crAt.Valid {
-			item["tanggal"] = ToTime(crAt).Format("2006-01-02")
+			item.Tanggal = ToTime(crAt).Format("2006-01-02")
 		}
 		if sName.Valid {
-			item["namaSiswa"] = sName.String
+			item.NamaSiswa = sName.String
 		}
 		results = append(results, item)
 	}
 	if results == nil {
-		results = []map[string]interface{}{}
+		results = []models.StatementItem{}
 	}
 	return results, nil
 }

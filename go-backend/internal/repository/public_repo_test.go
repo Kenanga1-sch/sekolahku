@@ -53,12 +53,11 @@ func TestPublicRepositoryGetPublicStaffUsesStaffProfiles(t *testing.T) {
 		t.Fatalf("failed to seed staff profiles: %v", err)
 	}
 
-	staff, err := NewPublicRepository(db).GetPublicStaff()
+	staff, total, err := NewPublicRepository(db).GetPublicStaff(1, 20)
 	if err != nil {
 		t.Fatalf("GetPublicStaff returned error: %v", err)
 	}
-
-	if len(staff) != 2 {
+	if total != 2 {
 		t.Fatalf("expected two active staff profiles, got %d", len(staff))
 	}
 	if staff[0].ID != "staff-1" || staff[0].Category != "kepsek" {

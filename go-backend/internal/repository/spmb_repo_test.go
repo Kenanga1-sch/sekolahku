@@ -277,7 +277,7 @@ func TestSPMBRepositoryCreateRegistrantAssignsPeriod(t *testing.T) {
 		FatherName:     "Ayah",
 		MotherName:     "Ibu",
 		AddressVillage: "Kenanga",
-	})
+	}, "p1", 10)
 	if err != nil {
 		t.Fatalf("create registrant: %v", err)
 	}
@@ -299,9 +299,13 @@ func TestSPMBRepositoryCreateRegistrantDetectsDuplicateStudentNIK(t *testing.T) 
 	defer db.Close()
 	repo := NewSPMBRepository(db)
 	now := time.Now().UnixMilli()
-	_, err := db.Exec(`
-		INSERT INTO spmb_registrants (id, registration_number, full_name, student_nik, status, created_at)
-		VALUES ('r1', 'SPMB-2026-0001', 'Siswa Lama', '9998887776665554', 'pending', ?)
+	_, err := db.Exec(`INSERT INTO spmb_periods (id, name, year, academic_year, status, quota, created_at) VALUES ('p1', 'SPMB', '2026', '2026/2027', 'active', 10, ?)`, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.Exec(`
+		INSERT INTO spmb_registrants (id, registration_number, full_name, student_nik, status, period_id, created_at)
+		VALUES ('r1', 'SPMB-2026-0001', 'Siswa Lama', '9998887776665554', 'pending', 'p1', ?)
 	`, now)
 	if err != nil {
 		t.Fatal(err)
@@ -310,7 +314,7 @@ func TestSPMBRepositoryCreateRegistrantDetectsDuplicateStudentNIK(t *testing.T) 
 	id, regNumber, err := repo.CreateRegistrant(models.SPMBRegistrant{
 		FullName:   "Siswa Baru",
 		StudentNIK: "9998887776665554",
-	})
+	}, "p1", 10)
 	if err == nil {
 		t.Fatal("expected duplicate NIK error")
 	}

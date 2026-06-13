@@ -51,15 +51,19 @@ func (s *Scheduler) Stop() {
 
 // checkLibraryOverdue finds overdue library loans and marks them
 func (s *Scheduler) checkLibraryOverdue() {
-	now := time.Now().Format("2006-01-02")
+	now := time.Now().UnixMilli()
 
+	// Mark overdue loans using is_returned flag and due_date
 	result, err := s.db.Exec(`
 		UPDATE library_loans 
-		SET status = 'overdue', updated_at = datetime('now')
-		WHERE status = 'borrowed' 
+		SET status = 'overdue', 
+		    overdue_at = COALESCE(overdue_at, ?),
+		    fine_amount = CAST(MAX(0, (? - due_date) / 86400000) * 500 AS INTEGER),
+		    updated_at = ?
+		WHERE is_returned = 0
 		  AND due_date < ?
-		  AND (status != 'overdue')
-	`, now)
+		  AND (status IS NULL OR status != 'overdue')
+	`, now, now, now, now)
 
 	if err != nil {
 		log.Printf("[CRON] Library overdue check error: %v", err)
@@ -68,20 +72,7 @@ func (s *Scheduler) checkLibraryOverdue() {
 
 	affected, _ := result.RowsAffected()
 	if affected > 0 {
-		log.Printf("[CRON] Marked %d library loans as overdue", affected)
-
-		// Calculate fines for overdue loans
-		_, err = s.db.Exec(`
-			UPDATE library_loans 
-			SET fine = CAST(
-				(julianday('now') - julianday(due_date)) * 500 AS INTEGER
-			),
-			updated_at = datetime('now')
-			WHERE status = 'overdue' AND (fine IS NULL OR fine = 0)
-		`)
-		if err != nil {
-			log.Printf("[CRON] Fine calculation error: %v", err)
-		}
+		log.Printf("[CRON] Marked %d library loans as overdue with fines", affected)
 	} else {
 		log.Println("[CRON] No overdue loans found")
 	}

@@ -162,7 +162,6 @@ export function RegistrationPageClient({
       });
 
       const result = await response.json();
-      console.log("Registration API Result:", result); // DEBUG LOG
 
       if (!result.success) {
         // Handle case where error is an object (e.g. { message: "...", code: "..." })

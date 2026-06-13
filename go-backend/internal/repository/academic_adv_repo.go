@@ -17,7 +17,7 @@ func NewAcademicAdvRepository(db *sql.DB) *AcademicAdvRepository {
 	return &AcademicAdvRepository{DB: db}
 }
 
-func (r *AcademicAdvRepository) RecordQRScan(req models.AttendanceScanRequest) (map[string]interface{}, error) {
+func (r *AcademicAdvRepository) RecordQRScan(req models.AttendanceScanRequest) (*models.ScanResult, error) {
 	tx, err := r.DB.Begin()
 	if err != nil {
 		return nil, err
@@ -75,16 +75,16 @@ func (r *AcademicAdvRepository) RecordQRScan(req models.AttendanceScanRequest) (
 		return nil, err
 	}
 
-	return map[string]interface{}{
-		"record": map[string]interface{}{
+	return &models.ScanResult{
+		Record: map[string]interface{}{
 			"id": recordId,
 		},
-		"student": map[string]interface{}{
+		Student: map[string]interface{}{
 			"id":        studentId,
 			"fullName":  studentName,
 			"className": className,
 		},
-		"session": map[string]interface{}{
+		Session: map[string]interface{}{
 			"id":        sessionId,
 			"className": sessionClass,
 			"date":      sessionDate,

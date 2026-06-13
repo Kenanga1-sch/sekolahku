@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Check, Download, Users } from "lucide-react";
+import { ArrowLeft, Check, Download, Loader2, Send, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface PreviewStepProps {
@@ -8,7 +8,9 @@ interface PreviewStepProps {
   generatedData: any;
   onBack: () => void;
   onDownload: () => void;
+  onSubmitToVerification?: () => void;
   loading: boolean;
+  submitting?: boolean;
 }
 
 export function PreviewStep({
@@ -16,7 +18,9 @@ export function PreviewStep({
   generatedData,
   onBack,
   onDownload,
+  onSubmitToVerification,
   loading,
+  submitting,
 }: PreviewStepProps) {
   return (
     <div className="space-y-6">
@@ -34,10 +38,22 @@ export function PreviewStep({
             <span className="text-xs text-muted-foreground">Pastikan data sudah benar.</span>
           </div>
         </div>
-        <Button onClick={onDownload} size="lg" className="bg-blue-600 hover:bg-blue-700" disabled={loading}>
-          <Download className="mr-2 h-4 w-4" />
-          {selectedRecipients.length > 1 ? "Download ZIP (Semua)" : "Download Dokumen (.docx)"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={onDownload} size="lg" variant="outline" disabled={loading}>
+            <Download className="mr-2 h-4 w-4" />
+            {selectedRecipients.length > 1 ? "Download ZIP (Semua)" : "Download"}
+          </Button>
+          {onSubmitToVerification && (
+            <Button onClick={onSubmitToVerification} size="lg" className="bg-blue-600 hover:bg-blue-700" disabled={loading || submitting}>
+              {submitting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="mr-2 h-4 w-4" />
+              )}
+              {submitting ? "Mengirim..." : "Cetak & Kirim ke Verifikasi"}
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="flex justify-center bg-zinc-200 dark:bg-zinc-950 p-8 rounded-lg overflow-auto">

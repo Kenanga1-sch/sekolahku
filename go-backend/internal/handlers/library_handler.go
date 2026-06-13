@@ -42,8 +42,9 @@ func (h *LibraryHandler) GetBooks(c echo.Context) error {
 	}
 	search := c.QueryParam("search")
 	category := c.QueryParam("category")
+	statusFilter := c.QueryParam("status")
 
-	items, total, err := h.Repo.GetBooks(page, perPage, search, category)
+	items, total, err := h.Repo.GetBooks(page, perPage, search, category, statusFilter)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
@@ -59,7 +60,7 @@ func (h *LibraryHandler) GetBooks(c echo.Context) error {
 }
 
 func (h *LibraryHandler) CreateBook(c echo.Context) error {
-	var input map[string]interface{}
+	var input models.CreateBookRequest
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
 	}
@@ -73,7 +74,7 @@ func (h *LibraryHandler) CreateBook(c echo.Context) error {
 
 func (h *LibraryHandler) UpdateBook(c echo.Context) error {
 	id := c.Param("id")
-	var input map[string]interface{}
+	var input models.UpdateBookRequest
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
 	}
@@ -150,7 +151,7 @@ func (h *LibraryHandler) CreateMember(c echo.Context) error {
 
 func (h *LibraryHandler) UpdateMember(c echo.Context) error {
 	id := c.Param("id")
-	var input map[string]interface{}
+	var input models.UpdateMemberRequest
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
 	}
@@ -184,16 +185,23 @@ func (h *LibraryHandler) SyncLibrary(c echo.Context) error {
 
 func (h *LibraryHandler) GetLoans(c echo.Context) error {
 	loanType := c.QueryParam("type")
-	loans, err := h.Repo.GetLoans(loanType)
+	page, _ := strconv.Atoi(c.QueryParam("page"))
+	perPage, _ := strconv.Atoi(c.QueryParam("perPage"))
+	loans, total, err := h.Repo.GetLoans(loanType, page, perPage)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
-	// Note: PeminjamanPage expects different return structure for active vs overdue based on current code
-	// but let's just return the list.
+	totalPages := (total + perPage - 1) / perPage
+	if perPage < 1 {
+		perPage = 20
+		totalPages = 1
+	}
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success":    true,
 		"items":      loans,
-		"totalItems": len(loans),
+		"totalItems": total,
+		"totalPages": totalPages,
+		"page":       page,
 	})
 }
 
@@ -229,7 +237,10 @@ func (h *LibraryHandler) ReturnBook(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Loan ID is required"})
 	}
 
-	loan, err := h.Repo.ReturnItem(loanID)
+	// Optional member verification from query param
+	memberID := c.QueryParam("memberId")
+
+	loan, err := h.Repo.ReturnItem(loanID, memberID)
 	if err != nil {
 		c.Logger().Error("Failed to return library asset:", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -270,14 +281,27 @@ func (h *LibraryHandler) RecordVisit(c echo.Context) error {
 
 func (h *LibraryHandler) GetVisits(c echo.Context) error {
 	date := c.QueryParam("date")
-	visits, err := h.Repo.GetVisits(date)
+	page, _ := strconv.Atoi(c.QueryParam("page"))
+	perPage, _ := strconv.Atoi(c.QueryParam("perPage"))
+
+	visits, total, err := h.Repo.GetVisits(date, page, perPage)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 {
+		perPage = 20
+	}
+
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"success": true,
-		"data":    visits,
+		"success":   true,
+		"data":      visits,
+		"total":     total,
+		"page":      page,
+		"perPage":   perPage,
 	})
 }
 
@@ -392,7 +416,7 @@ func (h *LibraryHandler) KioskTransaction(c echo.Context) error {
 		if req.LoanID == "" {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "LoanID wajib diisi"})
 		}
-		loan, err := h.Repo.ReturnItem(req.LoanID)
+		loan, err := h.Repo.ReturnItem(req.LoanID, req.MemberID)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
@@ -400,6 +424,19 @@ func (h *LibraryHandler) KioskTransaction(c echo.Context) error {
 	default:
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Tipe transaksi tidak dikenal"})
 	}
+}
+
+func (h *LibraryHandler) GetMemberLoanHistory(c echo.Context) error {
+	memberID := c.Param("id")
+	limit, _ := strconv.Atoi(c.QueryParam("limit"))
+	loans, err := h.Repo.GetMemberLoanHistory(memberID, limit)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"items":   loans,
+	})
 }
 
 func (h *LibraryHandler) GetReports(c echo.Context) error {
@@ -411,9 +448,11 @@ func (h *LibraryHandler) GetReports(c echo.Context) error {
 
 	switch reportType {
 	case "loan", "loans", "":
-		data, err = h.Repo.GetLoanReport(c.QueryParam("startDate"), c.QueryParam("endDate"))
+		limit, _ := strconv.Atoi(c.QueryParam("limit"))
+		data, err = h.Repo.GetLoanReport(c.QueryParam("startDate"), c.QueryParam("endDate"), limit)
 	case "visit", "visits":
-		data, err = h.Repo.GetVisitReport(c.QueryParam("startDate"), c.QueryParam("endDate"))
+		limit, _ := strconv.Atoi(c.QueryParam("limit"))
+		data, err = h.Repo.GetVisitReport(c.QueryParam("startDate"), c.QueryParam("endDate"), limit)
 	case "overdue":
 		data, err = h.Repo.GetOverdueReport()
 	case "inventory":
@@ -443,14 +482,20 @@ func (h *LibraryHandler) LookupISBN(c echo.Context) error {
 }
 
 func (h *LibraryHandler) GetQRCodeBatches(c echo.Context) error {
-	batches, err := h.Repo.GetQRBatches(c.QueryParam("search"), c.QueryParam("date"))
+	page, _ := strconv.Atoi(c.QueryParam("page"))
+	perPage, _ := strconv.Atoi(c.QueryParam("perPage"))
+
+	batches, total, err := h.Repo.GetQRBatches(c.QueryParam("search"), c.QueryParam("date"), page, perPage)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
-	return c.JSON(http.StatusOK, map[string]interface{}{
-		"success": true,
-		"batches": batches,
-	})
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 {
+		perPage = 20
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": batches, "total": total, "page": page, "perPage": perPage})
 }
 
 func (h *LibraryHandler) GenerateQRCodeBatch(c echo.Context) error {
@@ -474,9 +519,9 @@ func (h *LibraryHandler) GenerateQRCodeBatch(c echo.Context) error {
 
 func (h *LibraryHandler) BindAsset(c echo.Context) error {
 	var req struct {
-		QRCode   string                 `json:"qrCode"`
-		Location string                 `json:"location"`
-		Catalog  map[string]interface{} `json:"catalog"`
+		QRCode   string              `json:"qrCode"`
+		Location string              `json:"location"`
+		Catalog  models.CatalogInput `json:"catalog"`
 	}
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Payload tidak valid"})
@@ -509,6 +554,35 @@ func (h *LibraryHandler) GetBookByQRCode(c echo.Context) error {
 	return c.JSON(http.StatusOK, item)
 }
 
+func (h *LibraryHandler) PayFine(c echo.Context) error {
+	loanID := c.Param("id")
+	var req struct {
+		Amount int `json:"amount"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Payload tidak valid"})
+	}
+	if err := h.Repo.PayFine(loanID, req.Amount); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "message": "Denda berhasil dibayar"})
+}
+
+func (h *LibraryHandler) RenewLoan(c echo.Context) error {
+	loanID := c.Param("id")
+	var req struct {
+		ExtraDays int `json:"extraDays"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Payload tidak valid"})
+	}
+	loan, err := h.Repo.RenewLoan(loanID, req.ExtraDays)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": loan})
+}
+
 func (h *LibraryHandler) AIClassify(c echo.Context) error {
 	var req struct {
 		Title       string   `json:"title"`
@@ -521,7 +595,7 @@ func (h *LibraryHandler) AIClassify(c echo.Context) error {
 	}
 
 	apiKey := os.Getenv("GEMINI_API_KEY")
-	if apiKey == "" && req.Title != "Buku Tes AI" {
+	if apiKey == "" {
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"success":    true,
 			"ai_enabled": false,

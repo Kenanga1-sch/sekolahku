@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sekolahku/go-backend/internal/util"
 )
 
 type UploadHandler struct{}
@@ -117,6 +118,12 @@ func (h *UploadHandler) GeneralUpload(c echo.Context) error {
 	if _, err = io.Copy(dst, src); err != nil {
 		c.Logger().Error("Failed to write file:", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Cannot write file"})
+	}
+	dst.Close()
+
+	// Resize images to reduce bandwidth
+	if strings.HasPrefix(contentType, "image/") {
+		util.ResizeImage(dstPath, util.DefaultResizeConfig)
 	}
 
 	publicURL := fmt.Sprintf("/uploads/%s/%s", folder, filename)
@@ -290,6 +297,10 @@ func (h *UploadHandler) LibraryCoverUpload(c echo.Context) error {
 	defer dst.Close()
 
 	io.Copy(dst, src)
+	dst.Close()
+
+	// Resize large covers to reduce bandwidth
+	util.ResizeImage(dstPath, util.DefaultResizeConfig)
 
 	imageURL := fmt.Sprintf("/uploads/library/covers/%s", filename)
 

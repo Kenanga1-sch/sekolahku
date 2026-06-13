@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/csv"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -22,7 +23,7 @@ func NewAttendanceHandler(repo *repository.AttendanceRepository) *AttendanceHand
 func (h *AttendanceHandler) GetStats(c echo.Context) error {
 	stats, err := h.Repo.GetStats()
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal memuat statistik"})
 	}
 	return c.JSON(http.StatusOK, stats)
 }
@@ -30,12 +31,22 @@ func (h *AttendanceHandler) GetStats(c echo.Context) error {
 func (h *AttendanceHandler) GetSessions(c echo.Context) error {
 	date := c.QueryParam("date")
 	status := c.QueryParam("status")
+	page, _ := strconv.Atoi(c.QueryParam("page"))
+	perPage, _ := strconv.Atoi(c.QueryParam("perPage"))
 
-	sessions, err := h.Repo.GetSessions(date, status)
+	sessions, total, err := h.Repo.GetSessions(date, status, page, perPage)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
 	}
-	return c.JSON(http.StatusOK, sessions)
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 {
+		perPage = 20
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true, "data": sessions, "total": total, "page": page, "perPage": perPage,
+	})
 }
 
 func (h *AttendanceHandler) CreateSession(c echo.Context) error {
@@ -173,7 +184,7 @@ func (h *AttendanceHandler) ScanQR(c echo.Context) error {
 
 		var student interface{}
 		if res != nil {
-			student = res["student"]
+			student = res.Student
 		}
 		return c.JSON(status, map[string]interface{}{
 			"success": false,
@@ -184,7 +195,31 @@ func (h *AttendanceHandler) ScanQR(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
-		"student": res["student"],
+		"student": res.Student,
+	})
+}
+
+func (h *AttendanceHandler) KioskRecordAttendance(c echo.Context) error {
+	var req struct {
+		QRCode string `json:"qrCode"`
+	}
+	if err := c.Bind(&req); err != nil || req.QRCode == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "QR Code diperlukan"})
+	}
+
+	res, err := h.Repo.RecordQRScan(models.AttendanceScanRequest{QRCode: req.QRCode})
+	if err != nil {
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"success":           false,
+			"attendanceRecorded": false,
+			"error":             "Gagal merekam presensi",
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success":            true,
+		"attendanceRecorded": true,
+		"student":            res.Student,
 	})
 }
 

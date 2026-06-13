@@ -3,11 +3,58 @@ package middleware
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 )
+
+var jwtSecret []byte
+
+const (
+	RoleSuperadmin = "superadmin"
+	RoleAdmin      = "admin"
+	RoleStaff      = "staff"
+	RoleGuru       = "guru"
+	RoleBendahara  = "bendahara"
+	RoleUser       = "user"
+)
+
+func InitJWTMiddleware() {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		secret = "sekolahku-dev-secret-key-12345"
+	}
+	jwtSecret = []byte(secret)
+}
+
+func RoleMiddleware(allowedRoles ...string) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			role, ok := c.Get("user_role").(string)
+			if !ok || role == "" {
+				return c.JSON(http.StatusForbidden, map[string]string{"error": "Access denied: no role found"})
+			}
+			for _, allowed := range allowedRoles {
+				if role == allowed {
+					return next(c)
+				}
+			}
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "Access denied: insufficient role"})
+		}
+	}
+}
+
+func SecurityHeaders(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		c.Response().Header().Set("X-Content-Type-Options", "nosniff")
+		c.Response().Header().Set("X-Frame-Options", "DENY")
+		c.Response().Header().Set("X-XSS-Protection", "1; mode=block")
+		c.Response().Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		return next(c)
+	}
+}
 
 func JWTMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -16,8 +63,7 @@ func JWTMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		// Whitelist public paths
 		publicPaths := []string{
 			"/api/auth/login",
-			"/api/school-settings",
-			"/api/health",
+		"/api/health",
 		}
 
 		isPublic := false
@@ -55,13 +101,11 @@ func JWTMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Missing authorization header or session cookie"})
 		}
 
-		secret := "sekolahku-dev-secret-key-12345"
-
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 			}
-			return []byte(secret), nil
+			return jwtSecret, nil
 		})
 
 		if err != nil {

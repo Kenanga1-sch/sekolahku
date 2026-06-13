@@ -5,10 +5,21 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   ChevronRight,
+  Loader2,
+  Send,
+  FileCheck,
 } from "lucide-react";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -16,6 +27,7 @@ import { id } from "date-fns/locale";
 import { useSchoolSettings } from "@/lib/hooks/use-settings";
 import { generateDocument, createDocumentBlob } from "@/lib/docx";
 import { goGet, goPost } from "@/lib/api-client";
+import { LETTER_TYPES } from "@/lib/constants/letter-types";
 
 // Import Modular Components
 import { TemplateSelector } from "@/components/letters/generator/template-selector";
@@ -25,12 +37,14 @@ import { PreviewStep } from "@/components/letters/generator/preview-step";
 
 const romanMonths = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
-function formatLetterNumber(formatPattern: string | undefined, sequence: number, date = new Date()) {
+function formatLetterNumber(formatPattern: string | undefined, sequence: number, classificationCode: string, date = new Date()) {
   const padded = String(sequence).padStart(3, "0");
   const year = String(date.getFullYear());
   const month = romanMonths[date.getMonth()];
 
-  return (formatPattern || "421/{nomor}/SDN1-KNG/{bulan}/{tahun}")
+  return (formatPattern || "{kode_klasifikasi}/{nomor}/SDN1-KNG/{bulan}/{tahun}")
+    .replaceAll("{kode_klasifikasi}", classificationCode)
+    .replaceAll("{nomor_urut}", padded)
     .replaceAll("{nomor}", padded)
     .replaceAll("{no}", padded)
     .replaceAll("{bulan}", month)
@@ -63,7 +77,9 @@ function LetterGeneratorContent() {
   // Inputs
   const [manualInputs, setManualInputs] = useState<Record<string, string>>({});
   const [generatedPreviewData, setGeneratedPreviewData] = useState<any>(null);
-  const [generatedLetterMeta, setGeneratedLetterMeta] = useState<{ letterNumber: string; nextSequence: number } | null>(null);
+  const [generatedLetterMeta, setGeneratedLetterMeta] = useState<{ letterNumber: string; nextSequence: number; classificationCode: string } | null>(null);
+  const [selectedClassification, setSelectedClassification] = useState<string>("");
+  const [submitting, setSubmitting] = useState(false);
 
   // School Settings
   const { settings: schoolSettings, refresh: refreshSettings } = useSchoolSettings();
@@ -89,6 +105,7 @@ function LetterGeneratorContent() {
       
       setSelectedTemplate(fullTpl);
       setTemplateVars(varRes.variables || []);
+      setSelectedClassification(fullTpl.classificationCode || "");
       
       if (fullTpl.category === "STAFF") setTargetType("STAFF");
       else if (fullTpl.category === "STUDENT") setTargetType("STUDENT");
@@ -157,14 +174,15 @@ function LetterGeneratorContent() {
 
     try {
       if (shouldUseAutoNumber()) {
-        const numbering: any = await goPost("/api/eoffice/letter-numbering", {
-          date: new Date().toISOString(),
-        });
+        const clsCode = selectedClassification || selectedTemplate?.classificationCode || "";
+        const clsPayload: any = clsCode ? { classificationCode: clsCode, date: new Date().toISOString() } : { date: new Date().toISOString() };
+        const numbering: any = await goPost("/api/eoffice/letter-numbering", clsPayload);
         const nextSequence = Number(numbering?.data || numbering?.nextSequence || 1);
-        const letterNumber = formatLetterNumber(schoolSettings?.letter_number_format, nextSequence);
+        const formatPattern = selectedTemplate?.letterNumberFormat || schoolSettings?.letter_number_format;
+        const letterNumber = formatLetterNumber(formatPattern, nextSequence, clsCode);
         baseData.nomor_surat_otomatis = letterNumber;
         baseData.nomor_surat = manualInputs.nomor_surat || letterNumber;
-        setGeneratedLetterMeta({ letterNumber, nextSequence });
+        setGeneratedLetterMeta({ letterNumber, nextSequence, classificationCode: clsCode });
       } else {
         setGeneratedLetterMeta(null);
       }
@@ -185,11 +203,15 @@ function LetterGeneratorContent() {
   const logGeneratedLetter = async (recipient: any, index: number) => {
     if (!generatedLetterMeta) return;
     const sequenceNumber = generatedLetterMeta.nextSequence + index;
+    const clsCode = generatedLetterMeta.classificationCode;
+    const formatPattern = selectedTemplate?.letterNumberFormat || schoolSettings?.letter_number_format;
+    const letterNumber = formatLetterNumber(formatPattern, sequenceNumber, clsCode);
     await goPost("/api/eoffice/letter-increment", {
-      letterNumber: formatLetterNumber(schoolSettings?.letter_number_format, sequenceNumber),
+      letterNumber,
       sequenceNumber,
       templateId: selectedTemplate?.id,
       recipient: recipientLabel(recipient),
+      classificationCode: clsCode || undefined,
     });
   };
 
@@ -209,7 +231,8 @@ function LetterGeneratorContent() {
           const recData = { ...generatedPreviewData };
           if (generatedLetterMeta) {
             const sequenceNumber = generatedLetterMeta.nextSequence + index;
-            const letterNumber = formatLetterNumber(schoolSettings?.letter_number_format, sequenceNumber);
+            const clsCode = generatedLetterMeta.classificationCode || selectedTemplate?.classificationCode || "";
+            const letterNumber = formatLetterNumber(schoolSettings?.letter_number_format, sequenceNumber, clsCode);
             recData.nomor_surat_otomatis = letterNumber;
             recData.nomor_surat = manualInputs.nomor_surat || letterNumber;
           }
@@ -235,6 +258,55 @@ function LetterGeneratorContent() {
       toast.error("Gagal membuat dokumen.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSubmitToVerification = async () => {
+    if (!generatedPreviewData || !selectedTemplate) return;
+    if (!selectedTemplate?.filePath) {
+      toast.error("Template ini belum memiliki file DOCX.");
+      return;
+    }
+    if (!selectedClassification && !selectedTemplate?.classificationCode) {
+      toast.error("Pilih klasifikasi surat terlebih dahulu.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const clsCode = selectedClassification || selectedTemplate?.classificationCode || "";
+      const recName = selectedRecipients[0]?.name || selectedRecipients[0]?.fullName || generatedPreviewData.siswa_nama || "Penerima";
+      // Generate DOCX blob
+      const blob = await createDocumentBlob(selectedTemplate.filePath, generatedPreviewData);
+      // Upload the blob as a file
+      const docxFile = new File([blob], `${selectedTemplate.name}_${recName}.docx`, { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+      const uploadForm = new FormData();
+      uploadForm.append("file", docxFile);
+      // Upload to a temp endpoint to store the DOCX
+      const uploadResult: any = await goPost("/api/eoffice/upload-docx", uploadForm);
+      const filePath = uploadResult?.filePath || uploadResult?.path || "";
+      if (!filePath) throw new Error("Gagal mengupload file");
+
+      await goPost("/api/eoffice/letter-generate-submit", {
+        templateId: selectedTemplate.id,
+        classificationCode: clsCode,
+        recipient: recName,
+        subject: generatedPreviewData.perihal_surat || `Surat ${selectedTemplate.name}`,
+        mailNumber: generatedLetterMeta?.letterNumber || "",
+        dateOfLetter: format(new Date(), "yyyy-MM-dd"),
+        filePath,
+      });
+
+      // Log increment
+      if (generatedLetterMeta) {
+        await logGeneratedLetter(selectedRecipients[0], 0);
+      }
+
+      toast.success("Surat berhasil dikirim ke verifikasi!");
+      router.push("/arsip/surat-keluar");
+    } catch (error) {
+      toast.error("Gagal mengirim surat ke verifikasi.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -302,9 +374,26 @@ function LetterGeneratorContent() {
             <div className="p-4 rounded-lg border bg-zinc-50 dark:bg-zinc-900 space-y-2 text-sm">
               <h4 className="font-semibold">Info Template</h4>
               <p className="text-muted-foreground">{selectedTemplate?.name}</p>
-              <div className="pt-2 border-t">
-                <p className="text-xs text-muted-foreground">Penerima terpilih:</p>
-                <p className="font-medium">{selectedRecipients.length} Orang</p>
+              <div className="pt-2 border-t space-y-2">
+                <div>
+                  <p className="text-xs text-muted-foreground">Klasifikasi Surat</p>
+                  <Select value={selectedClassification || selectedTemplate?.classificationCode || ""} onValueChange={setSelectedClassification}>
+                    <SelectTrigger className="w-full mt-1">
+                      <SelectValue placeholder="Pilih klasifikasi" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {LETTER_TYPES.map((lt) => (
+                        <SelectItem key={lt.id} value={lt.kode_klasifikasi}>
+                          {lt.kode_klasifikasi} - {lt.jenis_surat}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Penerima terpilih:</p>
+                  <p className="font-medium">{selectedRecipients.length} Orang</p>
+                </div>
               </div>
             </div>
           </div>
@@ -317,7 +406,9 @@ function LetterGeneratorContent() {
           generatedData={generatedPreviewData}
           onBack={() => setStep(2)}
           onDownload={handleDownload}
+          onSubmitToVerification={handleSubmitToVerification}
           loading={loading}
+          submitting={submitting}
         />
       )}
     </div>

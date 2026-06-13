@@ -53,6 +53,14 @@ type CreateAttendanceSessionRequest struct {
 	Notes       string `json:"notes"`
 }
 
+type ScanResult struct {
+	Student interface{} `json:"student,omitempty"`
+	Record  interface{} `json:"record,omitempty"`
+	Session interface{} `json:"session,omitempty"`
+	Message string      `json:"message,omitempty"`
+	Success bool        `json:"success,omitempty"`
+}
+
 type AttendanceScanRequest struct {
 	QRCode     string  `json:"qrCode"`
 	SessionID  *string `json:"sessionId"`

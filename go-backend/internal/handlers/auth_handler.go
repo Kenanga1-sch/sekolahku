@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -37,27 +38,26 @@ func (h *AuthHandler) Login(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request payload"})
 	}
 
-	// Fetch user directly from sqlite via repository
 	user, err := h.Repo.GetUserByEmail(req.Email)
 	if err != nil {
-		c.Logger().Errorf("LOGIN DEBUG: Database error for %s: %v", req.Email, err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error: " + err.Error()})
+		c.Logger().Errorf("login database error for %s: %v", req.Email, err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan sistem"})
 	}
 
 	if user == nil || user.PasswordHash == nil {
-		c.Logger().Errorf("LOGIN DEBUG: User not found or has no password hash for email: [%s]", req.Email)
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Username/email atau password salah."})
 	}
 
-	// Verify the password using bcrypt
 	err = bcrypt.CompareHashAndPassword([]byte(*user.PasswordHash), []byte(req.Password))
 	if err != nil {
-		c.Logger().Errorf("LOGIN DEBUG: Password comparison failed for %s. Error: %v", req.Email, err)
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Username/email atau password salah."})
 	}
 
 	// Generate JWT
-	secret := "sekolahku-dev-secret-key-12345"
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		secret = "sekolahku-dev-secret-key-12345"
+	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub":   user.ID,
@@ -78,8 +78,9 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	sessionCookie.Name = "session"
 	sessionCookie.Value = tokenString
 	sessionCookie.Path = "/"
-	sessionCookie.HttpOnly = true // Secured from XSS
-	sessionCookie.SameSite = http.SameSiteDefaultMode
+	sessionCookie.HttpOnly = true
+	sessionCookie.Secure = c.Request().TLS != nil
+	sessionCookie.SameSite = http.SameSiteStrictMode
 	c.SetCookie(sessionCookie)
 
 	// Extract name safely
@@ -87,19 +88,12 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	if user.Name != nil {
 		userName = *user.Name
 	}
-	userPhone := ""
-	if user.Phone != nil {
-		userPhone = *user.Phone
-	}
-
 	// Set a public user info cookie for frontend display (Non-HttpOnly)
 	// This contains non-sensitive info only.
 	userInfo := map[string]string{
-		"id":    user.ID,
-		"name":  userName,
-		"role":  user.Role,
-		"email": user.Email,
-		"phone": userPhone,
+		"id":   user.ID,
+		"name": userName,
+		"role": user.Role,
 	}
 	userInfoJSON, err := json.Marshal(userInfo)
 	if err != nil {
@@ -111,8 +105,8 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	infoCookie.Name = "user_info"
 	infoCookie.Value = url.QueryEscape(string(userInfoJSON))
 	infoCookie.Path = "/"
-	infoCookie.HttpOnly = false // Accessible by frontend JS
-	infoCookie.SameSite = http.SameSiteDefaultMode
+	infoCookie.HttpOnly = false
+	infoCookie.SameSite = http.SameSiteLaxMode
 	c.SetCookie(infoCookie)
 
 	// Record Audit Log

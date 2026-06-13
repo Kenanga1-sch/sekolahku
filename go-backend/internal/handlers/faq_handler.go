@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sekolahku/go-backend/internal/middleware"
 	"github.com/sekolahku/go-backend/internal/models"
 	"github.com/sekolahku/go-backend/internal/repository"
 )
@@ -94,15 +96,27 @@ func (h *FAQHandler) CreateFAQ(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
 	}
 
+	middleware.CacheInvalidate("/api/public/faqs")
+	middleware.CacheInvalidate("/api/public/homepage")
+
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "id": id})
 }
 
 func (h *FAQHandler) ListFAQsAdmin(c echo.Context) error {
-	faqs, err := h.Repo.GetPublicFAQs() // Use GetPublicFAQs for now or a dedicated admin list
+	page, _ := strconv.Atoi(c.QueryParam("page"))
+	perPage, _ := strconv.Atoi(c.QueryParam("perPage"))
+
+	faqs, total, err := h.Repo.GetFAQsAdmin(page, perPage)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
 	}
-	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": faqs})
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 {
+		perPage = 20
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": faqs, "total": total, "page": page, "perPage": perPage})
 }
 
 func (h *FAQHandler) UpdateFAQ(c echo.Context) error {
@@ -115,6 +129,10 @@ func (h *FAQHandler) UpdateFAQ(c echo.Context) error {
 	if err := h.Repo.UpdateFAQ(id, req); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
+
+	middleware.CacheInvalidate("/api/public/faqs")
+	middleware.CacheInvalidate("/api/public/homepage")
+
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
 
@@ -123,5 +141,9 @@ func (h *FAQHandler) DeleteFAQ(c echo.Context) error {
 	if err := h.Repo.DeleteFAQ(id); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
+
+	middleware.CacheInvalidate("/api/public/faqs")
+	middleware.CacheInvalidate("/api/public/homepage")
+
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }

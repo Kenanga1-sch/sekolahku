@@ -374,16 +374,20 @@ func (h *AlumniHandler) UploadPhoto(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Foto wajib dipilih"})
 	}
 
-	contentType := file.Header.Get("Content-Type")
-	if contentType != "image/jpeg" && contentType != "image/png" && contentType != "image/webp" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Format foto harus JPG, PNG, atau WebP"})
-	}
-
 	src, err := file.Open()
 	if err != nil {
 		return err
 	}
 	defer src.Close()
+
+	buf := make([]byte, 512)
+	n, _ := src.Read(buf)
+	ct := http.DetectContentType(buf[:n])
+	src.Seek(0, io.SeekStart)
+
+	if ct != "image/jpeg" && ct != "image/png" && ct != "image/webp" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Format foto harus JPG, PNG, atau WebP"})
+	}
 
 	uploadDir := filepath.Join("uploads", "alumni", alumniID)
 	if err := os.MkdirAll(uploadDir, 0755); err != nil {
@@ -476,4 +480,173 @@ func (h *AlumniHandler) DownloadDocument(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "File dokumen tidak ditemukan"})
 	}
 	return c.Attachment(diskPath, doc.FileName)
+}
+
+// ───────── Achievements CRUD ─────────
+
+func (h *AlumniHandler) GetAchievements(c echo.Context) error {
+	alumniID := c.Param("id")
+	list, err := h.Repo.GetAchievements(alumniID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, list)
+}
+
+func (h *AlumniHandler) CreateAchievement(c echo.Context) error {
+	alumniID := c.Param("id")
+	var req struct {
+		Type          string  `json:"type"`
+		Title         string  `json:"title"`
+		Description   *string `json:"description"`
+		Level         string  `json:"level"`
+		Ranking       *string `json:"ranking"`
+		Year          string  `json:"year"`
+		Organizer     *string `json:"organizer"`
+		CertificateURL *string `json:"certificateUrl"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
+	}
+	if strings.TrimSpace(req.Title) == "" || strings.TrimSpace(req.Year) == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Judul dan tahun prestasi wajib diisi"})
+	}
+	if req.Type != "academic" && req.Type != "non_academic" {
+		req.Type = "academic"
+	}
+	validLevels := map[string]bool{"school": true, "district": true, "province": true, "national": true, "international": true}
+	if !validLevels[req.Level] {
+		req.Level = "school"
+	}
+
+	a := models.AlumniAchievement{
+		AlumniID:      alumniID,
+		Type:          req.Type,
+		Title:         strings.TrimSpace(req.Title),
+		Description:   req.Description,
+		Level:         req.Level,
+		Ranking:       req.Ranking,
+		Year:          strings.TrimSpace(req.Year),
+		Organizer:     req.Organizer,
+		CertificateURL: req.CertificateURL,
+	}
+	id, err := h.Repo.CreateAchievement(a)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true, "id": id})
+}
+
+func (h *AlumniHandler) UpdateAchievement(c echo.Context) error {
+	id := c.Param("achId")
+	var req struct {
+		Type          *string `json:"type"`
+		Title         *string `json:"title"`
+		Description   *string `json:"description"`
+		Level         *string `json:"level"`
+		Ranking       *string `json:"ranking"`
+		Year          *string `json:"year"`
+		Organizer     *string `json:"organizer"`
+		CertificateURL *string `json:"certificateUrl"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
+	}
+
+	ach := models.AlumniAchievement{}
+	if req.Type != nil { ach.Type = *req.Type }
+	if req.Title != nil { ach.Title = strings.TrimSpace(*req.Title) }
+	if req.Description != nil { ach.Description = req.Description }
+	if req.Level != nil { ach.Level = *req.Level }
+	if req.Ranking != nil { ach.Ranking = req.Ranking }
+	if req.Year != nil { ach.Year = strings.TrimSpace(*req.Year) }
+	if req.Organizer != nil { ach.Organizer = req.Organizer }
+	if req.CertificateURL != nil { ach.CertificateURL = req.CertificateURL }
+
+	if err := h.Repo.UpdateAchievement(id, ach); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]bool{"success": true})
+}
+
+func (h *AlumniHandler) DeleteAchievement(c echo.Context) error {
+	if err := h.Repo.DeleteAchievement(c.Param("achId")); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]bool{"success": true})
+}
+
+// ───────── Extracurriculars CRUD ─────────
+
+func (h *AlumniHandler) GetExtracurriculars(c echo.Context) error {
+	alumniID := c.Param("id")
+	list, err := h.Repo.GetExtracurriculars(alumniID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, list)
+}
+
+func (h *AlumniHandler) CreateExtracurricular(c echo.Context) error {
+	alumniID := c.Param("id")
+	var req struct {
+		ActivityName string  `json:"activityName"`
+		Role         *string `json:"role"`
+		YearStart    *string `json:"yearStart"`
+		YearEnd      *string `json:"yearEnd"`
+		Description  *string `json:"description"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
+	}
+	if strings.TrimSpace(req.ActivityName) == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Nama kegiatan wajib diisi"})
+	}
+
+	e := models.AlumniExtracurricular{
+		AlumniID:     alumniID,
+		ActivityName: strings.TrimSpace(req.ActivityName),
+		Role:         req.Role,
+		YearStart:    req.YearStart,
+		YearEnd:      req.YearEnd,
+		Description:  req.Description,
+	}
+	id, err := h.Repo.CreateExtracurricular(e)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true, "id": id})
+}
+
+func (h *AlumniHandler) UpdateExtracurricular(c echo.Context) error {
+	id := c.Param("exId")
+	var req struct {
+		ActivityName *string `json:"activityName"`
+		Role         *string `json:"role"`
+		YearStart    *string `json:"yearStart"`
+		YearEnd      *string `json:"yearEnd"`
+		Description  *string `json:"description"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
+	}
+
+	e := models.AlumniExtracurricular{}
+	if req.ActivityName != nil { e.ActivityName = strings.TrimSpace(*req.ActivityName) }
+	if req.Role != nil { e.Role = req.Role }
+	if req.YearStart != nil { e.YearStart = req.YearStart }
+	if req.YearEnd != nil { e.YearEnd = req.YearEnd }
+	if req.Description != nil { e.Description = req.Description }
+
+	if err := h.Repo.UpdateExtracurricular(id, e); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]bool{"success": true})
+}
+
+func (h *AlumniHandler) DeleteExtracurricular(c echo.Context) error {
+	if err := h.Repo.DeleteExtracurricular(c.Param("exId")); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]bool{"success": true})
 }

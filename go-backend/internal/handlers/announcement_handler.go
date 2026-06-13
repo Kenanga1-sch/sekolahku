@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sekolahku/go-backend/internal/middleware"
 	"github.com/sekolahku/go-backend/internal/models"
 	"github.com/sekolahku/go-backend/internal/repository"
 )
@@ -87,6 +88,9 @@ func (h *AnnouncementHandler) CreateAnnouncement(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal menyimpan pengumuman"})
 	}
 
+	middleware.CacheInvalidate("/api/public/news")
+	middleware.CacheInvalidate("/api/public/homepage")
+
 	return c.JSON(http.StatusCreated, map[string]interface{}{
 		"success": true,
 		"id":      id,
@@ -116,6 +120,9 @@ func (h *AnnouncementHandler) UpdateAnnouncement(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal memperbarui pengumuman"})
 	}
 
+	middleware.CacheInvalidate("/api/public/news")
+	middleware.CacheInvalidate("/api/public/homepage")
+
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
 
@@ -127,6 +134,10 @@ func (h *AnnouncementHandler) DeleteAnnouncement(c echo.Context) error {
 		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal menghapus pengumuman"})
 	}
+
+	middleware.CacheInvalidate("/api/public/news")
+	middleware.CacheInvalidate("/api/public/homepage")
+
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
 

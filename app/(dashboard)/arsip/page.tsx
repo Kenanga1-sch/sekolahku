@@ -52,10 +52,10 @@ export default function ArsipDashboard() {
                             Surat Masuk
                         </Button>
                     </Link>
-                    <Link href="/arsip/surat-keluar/baru">
+                    <Link href="/admin/surat/buat">
                         <Button variant="outline" className="gap-2">
                             <Plus className="h-4 w-4" />
-                            Surat Keluar
+                            Buat Surat Keluar
                         </Button>
                     </Link>
                 </div>
@@ -129,7 +129,7 @@ export default function ArsipDashboard() {
                         </CardHeader>
                         <CardContent>
                             <p className="text-sm text-muted-foreground">
-                                Booking nomor surat, drafting, dan arsip surat keluar.
+                                Buat surat otomatis dari template, verifikasi, TTD elektronik, dan arsip.
                             </p>
                         </CardContent>
                     </Card>

@@ -10,11 +10,13 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sekolahku/go-backend/internal/middleware"
 	"github.com/sekolahku/go-backend/internal/models"
 	"github.com/sekolahku/go-backend/internal/repository"
 )
@@ -279,19 +281,26 @@ func (h *SPMBHandler) Register(c echo.Context) error {
 	if period.StartDate == nil || period.EndDate == nil || now.Before(*period.StartDate) || now.After(*period.EndDate) {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Periode SPMB belum dibuka atau sudah ditutup"})
 	}
-	if period.Quota > 0 {
-		count, err := h.Repo.GetPeriodRegistrantCount(period.ID)
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal memeriksa kuota SPMB"})
-		}
-		if count >= period.Quota {
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Kuota periode SPMB sudah terpenuhi"})
-		}
-	}
 	m.PeriodID = period.ID
 
-	// Create registrant
-	id, regNum, err := h.Repo.CreateRegistrant(m)
+	// Server-side coordinate validation
+	if m.HomeLat != 0 || m.HomeLng != 0 {
+		if m.HomeLat < -90 || m.HomeLat > 90 || m.HomeLng < -180 || m.HomeLng > 180 {
+			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+				"success": false,
+				"error":   "Koordinat lokasi tidak valid",
+			})
+		}
+	}
+	if m.DistanceKM < 0 {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   "Jarak ke sekolah tidak valid",
+		})
+	}
+
+	// Create registrant (quota check + reg number generation inside transaction)
+	id, regNum, err := h.Repo.CreateRegistrant(m, period.ID, period.Quota)
 	if err != nil {
 		var duplicate *repository.DuplicateSPMBRegistrantError
 		if errors.As(err, &duplicate) {
@@ -310,9 +319,13 @@ func (h *SPMBHandler) Register(c echo.Context) error {
 		}
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
 			"success": false,
-			"error":   "Gagal menyimpan data pendaftaran: " + err.Error(),
+			"error":   "Gagal menyimpan data pendaftaran. Silakan coba lagi.",
 		})
 	}
+
+	// Invalidate public cache so landing page stats and announcement list refresh
+	middleware.CacheInvalidate("/api/public/spmb/landing")
+	middleware.CacheInvalidate("/api/public/spmb/registrants")
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
@@ -359,13 +372,16 @@ func (h *SPMBHandler) UploadDocuments(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal membuat direktori penyimpanan"})
 	}
 
+	var uploadErrors []string
 	for i, fh := range files {
 		if fh.Size > 2*1024*1024 {
-			continue // Skip files > 2MB
+			uploadErrors = append(uploadErrors, fh.Filename+": file melebihi 2MB")
+			continue
 		}
 
 		src, err := fh.Open()
 		if err != nil {
+			uploadErrors = append(uploadErrors, fh.Filename+": gagal dibaca")
 			continue
 		}
 
@@ -380,6 +396,7 @@ func (h *SPMBHandler) UploadDocuments(c echo.Context) error {
 		}
 		if !ok {
 			src.Close()
+			uploadErrors = append(uploadErrors, fh.Filename+": format file tidak didukung (hanya PDF/JPG/PNG)")
 			continue
 		}
 
@@ -392,6 +409,7 @@ func (h *SPMBHandler) UploadDocuments(c echo.Context) error {
 		dst, err := os.Create(dstPath)
 		if err != nil {
 			src.Close()
+			uploadErrors = append(uploadErrors, fh.Filename+": gagal disimpan")
 			continue
 		}
 
@@ -422,7 +440,8 @@ func (h *SPMBHandler) UploadDocuments(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
 		"data": map[string]interface{}{
-			"count": len(savedFiles),
+			"count":  len(savedFiles),
+			"errors": uploadErrors,
 		},
 	})
 }
@@ -488,6 +507,9 @@ func (h *SPMBHandler) CreatePeriod(c echo.Context) error {
 		})
 	}
 
+	middleware.CacheInvalidate("/api/public/spmb/landing")
+	middleware.CacheInvalidate("/api/public/spmb/registrants")
+
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
 		"data":    period,
@@ -505,6 +527,9 @@ func (h *SPMBHandler) UpdatePeriod(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
 	}
 
+	middleware.CacheInvalidate("/api/public/spmb/landing")
+	middleware.CacheInvalidate("/api/public/spmb/registrants")
+
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
 
@@ -513,31 +538,36 @@ func (h *SPMBHandler) DeletePeriod(c echo.Context) error {
 	if err := h.Repo.DeletePeriod(id); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
 	}
+
+	middleware.CacheInvalidate("/api/public/spmb/landing")
+	middleware.CacheInvalidate("/api/public/spmb/registrants")
+
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
 
 func (h *SPMBHandler) GetLandingData(c echo.Context) error {
-	period, err := h.Repo.GetActivePeriod()
-	if err != nil {
-		c.Logger().Error("Failed to get active period:", err)
-	}
-
 	settings, err := h.Repo.GetSchoolSettings()
 	if err != nil {
 		c.Logger().Error("Failed to get school settings:", err)
 	}
 
 	isOpen := false
-	if settings != nil && settings.SPMBIsOpen && period != nil {
-		isOpen = settings.SPMBIsOpen
-		now := time.Now()
-		if period.StartDate != nil && period.EndDate != nil {
-			if now.Before(*period.StartDate) || now.After(*period.EndDate) {
-				isOpen = false
+	var period *models.SPMBPeriod
+	if settings != nil && settings.SPMBIsOpen {
+		period, _ = h.Repo.GetActivePeriod()
+		if period != nil {
+			now := time.Now()
+			if period.StartDate != nil && period.EndDate != nil {
+				if !now.Before(*period.StartDate) && !now.After(*period.EndDate) {
+					isOpen = true
+				}
 			}
-		} else {
-			isOpen = false
 		}
+	}
+
+	// Don't return period details if SPMB is closed
+	if !isOpen {
+		period = nil
 	}
 
 	if settings == nil {
@@ -565,11 +595,11 @@ func (h *SPMBHandler) GetRegistrant(c echo.Context) error {
 	registrant, err := h.Repo.GetRegistrantByNumber(regNum)
 	if err != nil {
 		c.Logger().Error("Failed to fetch registrant:", err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal mengambil data pendaftar"})
 	}
 
 	if registrant == nil {
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "Registrant not found"})
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Pendaftar tidak ditemukan"})
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
@@ -609,7 +639,7 @@ func (h *SPMBHandler) GetRegistrantsAdmin(c echo.Context) error {
 
 	registrants, total, err := h.Repo.GetRegistrantsAdmin(page, perPage, status, search)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal mengambil data pendaftar"})
 	}
 
 	totalPages := (total + perPage - 1) / perPage
@@ -651,6 +681,9 @@ func (h *SPMBHandler) UpdateStatus(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
 	}
 
+	middleware.CacheInvalidate("/api/public/spmb/landing")
+	middleware.CacheInvalidate("/api/public/spmb/registrants")
+
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
 
@@ -659,7 +692,30 @@ func (h *SPMBHandler) DeleteRegistrant(c echo.Context) error {
 	if err := h.Repo.DeleteRegistrant(id); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
 	}
+	// Clean up uploaded files
+	uploadDir := filepath.Join("public", "uploads", "spmb", id)
+	if err := os.RemoveAll(uploadDir); err != nil {
+		c.Logger().Warnf("Failed to clean up upload dir %s: %v", uploadDir, err)
+	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
+}
+
+func (h *SPMBHandler) GetReferenceDate(c echo.Context) error {
+	now := time.Now()
+	year := now.Year()
+	month := now.Month()
+	// Academic year reference: July 1st
+	academicStart := time.Date(year, 7, 1, 0, 0, 0, 0, now.Location())
+	if month < 7 {
+		academicStart = time.Date(year-1, 7, 1, 0, 0, 0, 0, now.Location())
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success":         true,
+		"serverTimestamp": now.UnixMilli(),
+		"serverDate":      now.Format("2006-01-02"),
+		"academicYearRef": academicStart.Format("2006-01-02"),
+		"timezone":        now.Location().String(),
+	})
 }
 
 func (h *SPMBHandler) PromoteRegistrant(c echo.Context) error {
@@ -673,5 +729,238 @@ func (h *SPMBHandler) PromoteRegistrant(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
 	}
 
+	middleware.CacheInvalidate("/api/public/spmb/landing")
+	middleware.CacheInvalidate("/api/public/spmb/registrants")
+
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
+}
+
+func calculateAge(birthDateStr string, referenceDate time.Time) (int, int, int) {
+	if birthDateStr == "" {
+		return 0, 0, 3
+	}
+	t, err := time.Parse("2006-01-02", birthDateStr)
+	if err != nil {
+		return 0, 0, 3
+	}
+	years := referenceDate.Year() - t.Year()
+	months := int(referenceDate.Month() - t.Month())
+	days := referenceDate.Day() - t.Day()
+	if days < 0 {
+		months--
+		days += 32
+	}
+	if months < 0 {
+		years--
+		months += 12
+	}
+	totalMonths := years*12 + months
+	if years < 0 || totalMonths < 60 {
+		return years, months, 4 // ineligible (<5 years)
+	}
+	if years < 6 || (years == 6 && months < 0) {
+		return years, months, 3 // <6 tahun
+	}
+	if years < 7 || (years == 7 && months < 0) {
+		return years, months, 2 // 6 tahun
+	}
+	if years <= 12 {
+		return years, months, 1 // 7-12 tahun
+	}
+	return years, months, 4 // >12 tahun
+}
+
+func getAgeReferenceDate() time.Time {
+	now := time.Now()
+	year := now.Year()
+	ref := time.Date(year, 7, 1, 0, 0, 0, 0, now.Location())
+	if now.Month() < 7 {
+		ref = time.Date(year-1, 7, 1, 0, 0, 0, 0, now.Location())
+	}
+	return ref
+}
+
+func computeSPMBRankings(registrants []models.SPMBRegistrant, quota int, maxDistanceKm float64) models.SPMBProcessResponse {
+	if len(registrants) == 0 {
+		return models.SPMBProcessResponse{}
+	}
+	refDate := getAgeReferenceDate()
+
+	type rankedReg struct {
+		reg           models.SPMBRegistrant
+		ageYears      int
+		ageMonths     int
+		priorityGroup int
+	}
+
+	ranked := make([]rankedReg, len(registrants))
+	for i, reg := range registrants {
+		years, months, group := calculateAge(reg.BirthDate, refDate)
+		ranked[i] = rankedReg{reg: reg, ageYears: years, ageMonths: months, priorityGroup: group}
+	}
+
+	// Sort: priorityGroup ASC > isInZone DESC > age DESC (totalMonths) > distance ASC > createdAt ASC
+	sort.SliceStable(ranked, func(i, j int) bool {
+		a, b := ranked[i], ranked[j]
+
+		// Ineligible last
+		if a.priorityGroup != b.priorityGroup {
+			return a.priorityGroup < b.priorityGroup
+		}
+		// In zone first
+		if a.reg.IsInZone != b.reg.IsInZone {
+			return a.reg.IsInZone && !b.reg.IsInZone
+		}
+		// Older first (total months)
+		aMonths := a.ageYears*12 + a.ageMonths
+		bMonths := b.ageYears*12 + b.ageMonths
+		if aMonths != bMonths {
+			return aMonths > bMonths
+		}
+		// Closer first
+		if a.reg.DistanceKM != b.reg.DistanceKM {
+			return a.reg.DistanceKM < b.reg.DistanceKM
+		}
+		// Earlier registration first
+		return a.reg.CreatedAt < b.reg.CreatedAt
+	})
+
+	acceptedCount := 0
+	waitlistCount := 0
+	rankings := make([]models.SPMBProcessRanking, len(ranked))
+
+	for i, r := range ranked {
+		recommendation := "rejected"
+		if r.priorityGroup != 4 {
+			if acceptedCount < quota {
+				recommendation = "accepted"
+				acceptedCount++
+			} else {
+				recommendation = "waitlist"
+				waitlistCount++
+			}
+		}
+
+		rankings[i] = models.SPMBProcessRanking{
+			Rank:               i + 1,
+			ID:                 r.reg.ID,
+			RegistrationNumber: r.reg.RegistrationNumber,
+			FullName:           r.reg.FullName,
+			Gender:             r.reg.Gender,
+			BirthDate:          r.reg.BirthDate,
+			DistanceKM:         r.reg.DistanceKM,
+			IsInZone:           r.reg.IsInZone,
+			PriorityGroup:      r.priorityGroup,
+			AgeYears:           r.ageYears,
+			AgeMonths:          r.ageMonths,
+			Recommendation:     recommendation,
+		}
+	}
+
+	return models.SPMBProcessResponse{
+		Quota:    quota,
+		Accepted: acceptedCount,
+		Waitlist: waitlistCount,
+		Total:    len(ranked),
+		Rankings: rankings,
+		DryRun:   true,
+	}
+}
+
+func (h *SPMBHandler) ProcessAcceptancePreview(c echo.Context) error {
+	periodID := c.QueryParam("periodId")
+	if periodID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "periodId diperlukan"})
+	}
+
+	period, err := h.Repo.GetPeriodByID(periodID)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Periode tidak ditemukan"})
+	}
+
+	registrants, err := h.Repo.GetRegistrantsForPeriod(periodID)
+	if err != nil {
+		c.Logger().Errorf("Failed to fetch registrants for period %s: %v", periodID, err)
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal mengambil data pendaftar"})
+	}
+
+	maxDistance := 5.0
+	settings, _ := h.Repo.GetSchoolSettings()
+	if settings != nil && settings.MaxDistanceKM > 0 {
+		maxDistance = settings.MaxDistanceKM
+	}
+
+	result := computeSPMBRankings(registrants, period.Quota, maxDistance)
+	result.PeriodID = periodID
+	result.DryRun = true
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data":    result,
+	})
+}
+
+func (h *SPMBHandler) ProcessAcceptanceExecute(c echo.Context) error {
+	var req struct {
+		PeriodID string `json:"periodId"`
+	}
+	if err := c.Bind(&req); err != nil || req.PeriodID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "periodId diperlukan"})
+	}
+
+	period, err := h.Repo.GetPeriodByID(req.PeriodID)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Periode tidak ditemukan"})
+	}
+
+	registrants, err := h.Repo.GetRegistrantsForPeriod(req.PeriodID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal mengambil data pendaftar"})
+	}
+
+	maxDistance := 5.0
+	settings, _ := h.Repo.GetSchoolSettings()
+	if settings != nil && settings.MaxDistanceKM > 0 {
+		maxDistance = settings.MaxDistanceKM
+	}
+
+	result := computeSPMBRankings(registrants, period.Quota, maxDistance)
+	result.PeriodID = req.PeriodID
+	result.DryRun = false
+
+	// Execute: update statuses in DB
+	tx, err := h.Repo.DB.Begin()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal memulai transaksi"})
+	}
+	defer tx.Rollback()
+
+	var acceptedIDs, rejectedIDs []string
+	for _, r := range result.Rankings {
+		switch r.Recommendation {
+		case "accepted":
+			acceptedIDs = append(acceptedIDs, r.ID)
+		case "rejected":
+			rejectedIDs = append(rejectedIDs, r.ID)
+		}
+	}
+
+	if err := h.Repo.BatchUpdateStatus(tx, acceptedIDs, "accepted"); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal memperbarui status"})
+	}
+	if err := h.Repo.BatchUpdateStatus(tx, rejectedIDs, "rejected"); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal memperbarui status"})
+	}
+
+	if err := tx.Commit(); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal menyimpan perubahan"})
+	}
+
+	middleware.CacheInvalidate("/api/public/spmb/landing")
+	middleware.CacheInvalidate("/api/public/spmb/registrants")
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data":    result,
+	})
 }

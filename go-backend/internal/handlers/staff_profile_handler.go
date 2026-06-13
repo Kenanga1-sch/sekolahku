@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sekolahku/go-backend/internal/middleware"
 	"github.com/sekolahku/go-backend/internal/models"
 	"github.com/sekolahku/go-backend/internal/repository"
 )
@@ -67,6 +68,9 @@ func (h *StaffProfileHandler) CreateProfile(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
+	middleware.CacheInvalidate("/api/public/staff")
+	middleware.CacheInvalidate("/api/public/homepage")
+
 	return c.JSON(http.StatusCreated, map[string]interface{}{
 		"success": true,
 		"id":      id,
@@ -90,6 +94,9 @@ func (h *StaffProfileHandler) UpdateProfile(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
+	middleware.CacheInvalidate("/api/public/staff")
+	middleware.CacheInvalidate("/api/public/homepage")
+
 	return c.JSON(http.StatusOK, map[string]bool{"success": true})
 }
 
@@ -101,5 +108,7 @@ func (h *StaffProfileHandler) DeleteProfile(c echo.Context) error {
 		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
+	middleware.CacheInvalidate("/api/public/staff")
+	middleware.CacheInvalidate("/api/public/homepage")
 	return c.JSON(http.StatusOK, map[string]bool{"success": true})
 }

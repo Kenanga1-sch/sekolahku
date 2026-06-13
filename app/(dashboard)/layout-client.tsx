@@ -30,6 +30,8 @@ import {
   ShieldCheck,
   Globe,
   Banknote,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
@@ -128,7 +130,6 @@ const navGroups: NavGroup[] = [
     label: "Komunikasi",
     items: [
       { href: "/messages", label: "Pesan Masuk", icon: Mail, roles: ADMIN_ROLES },
-      { href: "/admin/surat/template", label: "Surat Otomatis", icon: FileText, roles: ADMIN_ROLES },
     ],
   },
   {
@@ -184,6 +185,7 @@ export default function DashboardLayoutClient({
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false); // Sidebar open state
   const [isDropdownOpen, setIsDropdownOpen] = useState(false); // Track dropdown state
+  const [sidebarVisible, setSidebarVisible] = useState(true); // Sidebar completely hidden/visible
 
   // Custom setOpen handler to prevent closing when dropdown is open
   const handleSetOpen = (value: boolean | ((prevState: boolean) => boolean)) => {
@@ -233,6 +235,22 @@ export default function DashboardLayoutClient({
       "flex min-w-0 flex-col md:flex-row bg-gray-100 dark:bg-neutral-800 w-full flex-1 overflow-x-hidden md:overflow-hidden",
       "min-h-dvh md:h-dvh"
     )}>
+      {/* Sidebar Toggle Button */}
+      <button
+        onClick={() => setSidebarVisible((prev) => !prev)}
+        className={cn(
+          "fixed top-1/2 -translate-y-1/2 z-[60] h-12 w-5 rounded-r-md border border-l-0 border-neutral-200 dark:border-neutral-700 shadow-sm flex items-center justify-center transition-all cursor-pointer group",
+          "bg-white dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700",
+          sidebarVisible
+            ? "left-[280px] xl:left-[300px]"
+            : "left-0"
+        )}
+        aria-label={sidebarVisible ? "Sembunyikan navigasi" : "Tampilkan navigasi"}
+      >
+        <PanelLeftClose className={cn("h-3.5 w-3.5 transition-transform", !sidebarVisible && "rotate-180")} />
+      </button>
+
+      <div className={cn("flex-shrink-0 transition-all duration-300 ease-in-out overflow-hidden", sidebarVisible ? "max-w-[300px]" : "max-w-0")}>
       <Sidebar open={open} setOpen={handleSetOpen} animate={false}>
         <SidebarBody className="justify-between gap-10">
           <div className="flex flex-col flex-1 overflow-hidden">
@@ -281,6 +299,7 @@ export default function DashboardLayoutClient({
           </div>
         </SidebarBody>
       </Sidebar>
+      </div>
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           {/* Top Navigation Bar - Static/Relative */}
           <header className="sticky top-0 md:static flex items-center justify-end gap-2 p-2.5 sm:p-3 md:p-4 w-full z-40 bg-gray-100/80 dark:bg-neutral-800/80 backdrop-blur md:bg-transparent md:dark:bg-transparent">

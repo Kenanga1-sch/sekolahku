@@ -113,7 +113,7 @@ func (r *SPMBRepository) GetPeriods() ([]models.SPMBPeriod, error) {
 	rows, err := r.DB.Query(`
 		SELECT p.id, p.name, p.year, p.academic_year, COALESCE(p.committee_name, ''), p.start_date, p.end_date, p.status, p.quota, COUNT(r.id) AS registered
 		FROM spmb_periods p
-		LEFT JOIN spmb_registrants r ON r.period_id = p.id
+		LEFT JOIN spmb_registrants r ON r.period_id = p.id AND r.status NOT IN ('rejected')
 		GROUP BY p.id, p.name, p.year, p.academic_year, p.committee_name, p.start_date, p.end_date, p.status, p.quota
 		ORDER BY p.year DESC, p.created_at DESC
 	`)
@@ -330,13 +330,37 @@ func (r *SPMBRepository) DeletePeriod(id string) error {
 	return err
 }
 
+func (r *SPMBRepository) GetPeriodByID(id string) (*models.SPMBPeriod, error) {
+	var p models.SPMBPeriod
+	var sd, ed sql.NullInt64
+	err := r.DB.QueryRow(`
+		SELECT p.id, p.name, p.year, p.academic_year, COALESCE(p.committee_name, ''), p.start_date, p.end_date, p.status, p.quota, COUNT(r.id) AS registered
+		FROM spmb_periods p
+		LEFT JOIN spmb_registrants r ON r.period_id = p.id AND r.status NOT IN ('rejected')
+		WHERE p.id = ?
+		GROUP BY p.id, p.name, p.year, p.academic_year, p.committee_name, p.start_date, p.end_date, p.status, p.quota
+		LIMIT 1
+	`, id).
+		Scan(&p.ID, &p.Name, &p.Year, &p.AcademicYear, &p.CommitteeName, &sd, &ed, &p.Status, &p.Quota, &p.Registered)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("periode tidak ditemukan")
+		}
+		return nil, err
+	}
+	p.StartDate = SafeTime(sd)
+	p.EndDate = SafeTime(ed)
+	p.IsActive = p.Status == "active"
+	return &p, nil
+}
+
 func (r *SPMBRepository) GetActivePeriod() (*models.SPMBPeriod, error) {
 	var p models.SPMBPeriod
 	var sd, ed sql.NullInt64
 	err := r.DB.QueryRow(`
 		SELECT p.id, p.name, p.year, p.academic_year, COALESCE(p.committee_name, ''), p.start_date, p.end_date, p.status, p.quota, COUNT(r.id) AS registered
 		FROM spmb_periods p
-		LEFT JOIN spmb_registrants r ON r.period_id = p.id
+		LEFT JOIN spmb_registrants r ON r.period_id = p.id AND r.status NOT IN ('rejected')
 		WHERE p.status = 'active'
 		GROUP BY p.id, p.name, p.year, p.academic_year, p.committee_name, p.start_date, p.end_date, p.status, p.quota
 		LIMIT 1
@@ -387,14 +411,20 @@ func (r *SPMBRepository) GetSchoolSettings() (*models.PublicLandingData, error) 
 	return &s, nil
 }
 
-func (r *SPMBRepository) CreateRegistrant(reg models.SPMBRegistrant) (string, string, error) {
+func (r *SPMBRepository) CreateRegistrant(reg models.SPMBRegistrant, periodID string, quota int) (string, string, error) {
 	id := cuid2.Generate()
 	now := time.Now().UnixMilli()
 	reg.StudentNIK = strings.TrimSpace(reg.StudentNIK)
 
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return "", "", err
+	}
+	defer tx.Rollback()
+
 	if reg.StudentNIK != "" {
 		var existingID, existingRegNum string
-		err := r.DB.QueryRow(`SELECT id, registration_number FROM spmb_registrants WHERE student_nik = ? LIMIT 1`, reg.StudentNIK).Scan(&existingID, &existingRegNum)
+		err := tx.QueryRow(`SELECT id, registration_number FROM spmb_registrants WHERE student_nik = ? LIMIT 1`, reg.StudentNIK).Scan(&existingID, &existingRegNum)
 		if err == nil {
 			return existingID, existingRegNum, &DuplicateSPMBRegistrantError{
 				ID:                 existingID,
@@ -407,25 +437,36 @@ func (r *SPMBRepository) CreateRegistrant(reg models.SPMBRegistrant) (string, st
 		}
 	}
 
-	// 1. Generate registration number (Format: SPMB-YYYY-XXXX)
-	year := time.Now().Year()
+	// Check quota inside transaction (atomic)
+	if quota > 0 {
+		var count int
+		if err := tx.QueryRow(`SELECT COUNT(*) FROM spmb_registrants WHERE period_id = ?`, periodID).Scan(&count); err != nil {
+			return "", "", err
+		}
+		if count >= quota {
+			return "", "", fmt.Errorf("kuota periode SPMB sudah terpenuhi")
+		}
+	}
 
+	// Generate registration number (Format: SPMB-YYYY-XXXX) inside transaction
+	year := time.Now().Year()
 	var lastCount int
-	err := r.DB.QueryRow(`SELECT count(*) FROM spmb_registrants WHERE registration_number LIKE ?`, fmt.Sprintf("SPMB-%d-%%", year)).Scan(&lastCount)
+	err = tx.QueryRow(`SELECT count(*) FROM spmb_registrants WHERE registration_number LIKE ?`, fmt.Sprintf("SPMB-%d-%%", year)).Scan(&lastCount)
 	if err != nil {
 		lastCount = 0
 	}
 	regNum := fmt.Sprintf("SPMB-%d-%04d", year, lastCount+1)
 
-	// 2. Calculate distance and zonasi
+	// Calculate distance and zonasi
 	var maxDistance float64
-	err = r.DB.QueryRow(`SELECT max_distance_km FROM school_settings LIMIT 1`).Scan(&maxDistance)
+	err = tx.QueryRow(`SELECT max_distance_km FROM school_settings LIMIT 1`).Scan(&maxDistance)
 	if err != nil || maxDistance == 0 {
-		maxDistance = 5.0 // Default 5km
+		maxDistance = 5.0
 	}
 
 	isInZone := 0
-	if reg.DistanceKM <= maxDistance {
+	hasLocation := reg.HomeLat != 0 || reg.HomeLng != 0 || reg.DistanceKM > 0
+	if hasLocation && reg.DistanceKM <= maxDistance {
 		isInZone = 1
 	}
 
@@ -457,7 +498,7 @@ func (r *SPMBRepository) CreateRegistrant(reg models.SPMBRegistrant) (string, st
 		?, ?, 'pending', ?, ?, ?
 	)`
 
-	_, err = r.DB.Exec(query,
+	_, err = tx.Exec(query,
 		id, regNum, reg.FullName, reg.NISN, reg.StudentNIK, reg.KKNumber,
 		reg.BirthCertificateNo, reg.BirthPlace, reg.BirthDate, reg.Gender, reg.Religion,
 		reg.SpecialNeeds, reg.LivingArrangement, reg.TransportMode, reg.ChildOrder,
@@ -469,20 +510,27 @@ func (r *SPMBRepository) CreateRegistrant(reg models.SPMBRegistrant) (string, st
 		reg.FatherEdu, reg.FatherJob, reg.FatherIncome, reg.MotherName, reg.MotherNIK,
 		reg.MotherBirth, reg.MotherEdu, reg.MotherJob, reg.MotherIncome,
 		reg.GuardianName, reg.GuardianNIK, reg.GuardianBirth, reg.GuardianEdu,
-		reg.GuardianJob, reg.GuardianIncome, reg.PeriodID, now, now,
+		reg.GuardianJob, reg.GuardianIncome, periodID, now, now,
 	)
-	if err != nil && reg.StudentNIK != "" && strings.Contains(strings.ToLower(err.Error()), "student_nik") {
-		var existingID, existingRegNum string
-		if lookupErr := r.DB.QueryRow(`SELECT id, registration_number FROM spmb_registrants WHERE student_nik = ? LIMIT 1`, reg.StudentNIK).Scan(&existingID, &existingRegNum); lookupErr == nil {
-			return existingID, existingRegNum, &DuplicateSPMBRegistrantError{
-				ID:                 existingID,
-				RegistrationNumber: existingRegNum,
-				StudentNIK:         reg.StudentNIK,
+	if err != nil {
+		if reg.StudentNIK != "" && strings.Contains(strings.ToLower(err.Error()), "student_nik") {
+			var existingID, existingRegNum string
+			if lookupErr := tx.QueryRow(`SELECT id, registration_number FROM spmb_registrants WHERE student_nik = ? LIMIT 1`, reg.StudentNIK).Scan(&existingID, &existingRegNum); lookupErr == nil {
+				return existingID, existingRegNum, &DuplicateSPMBRegistrantError{
+					ID:                 existingID,
+					RegistrationNumber: existingRegNum,
+					StudentNIK:         reg.StudentNIK,
+				}
 			}
 		}
+		return "", "", err
 	}
 
-	return id, regNum, err
+	if err := tx.Commit(); err != nil {
+		return "", "", err
+	}
+
+	return id, regNum, nil
 }
 
 func (r *SPMBRepository) GetPeriodRegistrantCount(periodID string) (int, error) {
@@ -603,14 +651,63 @@ func (r *SPMBRepository) GetRegistrantsAdmin(page, perPage int, status, search s
 func (r *SPMBRepository) UpdateRegistrantStatus(id string, status string, notes *string, verifiedBy string) error {
 	status = strings.ToLower(strings.TrimSpace(status))
 	switch status {
-	case "pending", "verified", "accepted", "rejected":
+	case "pending", "verified", "accepted", "rejected", "promoted":
 	default:
 		return fmt.Errorf("status pendaftar tidak valid")
 	}
 
+	var periodID string
+	var currentStatus string
+	err := r.DB.QueryRow("SELECT period_id, status FROM spmb_registrants WHERE id = ?", id).Scan(&periodID, &currentStatus)
+	if err != nil {
+		return fmt.Errorf("pendaftar tidak ditemukan")
+	}
+
+	// State machine validation
+	allowedTransitions := map[string][]string{
+		"pending":  {"verified", "rejected"},
+		"verified": {"accepted", "rejected"},
+		"accepted": {"promoted"},
+		"promoted": {},
+		"rejected": {},
+	}
+	if allowed, ok := allowedTransitions[currentStatus]; !ok {
+		return fmt.Errorf("status awal tidak dikenal: %s", currentStatus)
+	} else {
+		valid := false
+		for _, s := range allowed {
+			if s == status {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			return fmt.Errorf("transisi status tidak valid: %s → %s", currentStatus, status)
+		}
+	}
+
+	// Server-side quota validation: jika akan di-accepted, pastikan masih ada kuota
+	if status == "accepted" {
+		if currentStatus == "accepted" {
+			return fmt.Errorf("pendaftar sudah diterima sebelumnya")
+		}
+		var quota, accepted int
+		if err := r.DB.QueryRow("SELECT quota FROM spmb_periods WHERE id = ?", periodID).Scan(&quota); err != nil {
+			return fmt.Errorf("periode tidak ditemukan")
+		}
+		if quota > 0 {
+			if err := r.DB.QueryRow("SELECT COUNT(*) FROM spmb_registrants WHERE period_id = ? AND status IN ('accepted', 'promoted')", periodID).Scan(&accepted); err != nil {
+				return err
+			}
+			if accepted >= quota {
+				return fmt.Errorf("kuota penerimaan periode sudah terpenuhi (%d/%d)", accepted, quota)
+			}
+		}
+	}
+
 	now := time.Now().UnixMilli()
 	if notes == nil {
-		_, err := r.DB.Exec(`
+		_, err = r.DB.Exec(`
 			UPDATE spmb_registrants
 			SET status = ?,
 				verified_at = CASE WHEN ? IN ('verified', 'accepted') THEN COALESCE(verified_at, ?) ELSE verified_at END,
@@ -621,7 +718,7 @@ func (r *SPMBRepository) UpdateRegistrantStatus(id string, status string, notes 
 		return err
 	}
 
-	_, err := r.DB.Exec(`
+	_, err = r.DB.Exec(`
 		UPDATE spmb_registrants
 		SET status = ?,
 			notes = ?,
@@ -643,7 +740,7 @@ func (r *SPMBRepository) GetSPMBStats() (models.SPMBStats, error) {
 	_ = r.DB.QueryRow(`SELECT count(*) FROM spmb_registrants`).Scan(&stats.TotalRegistrants)
 	_ = r.DB.QueryRow(`SELECT count(*) FROM spmb_registrants WHERE status = 'verified'`).Scan(&stats.VerifiedRegistrants)
 	_ = r.DB.QueryRow(`SELECT count(*) FROM spmb_registrants WHERE status = 'pending'`).Scan(&stats.PendingRegistrants)
-	_ = r.DB.QueryRow(`SELECT count(*) FROM spmb_registrants WHERE status = 'accepted'`).Scan(&stats.AcceptedRegistrants)
+	_ = r.DB.QueryRow(`SELECT count(*) FROM spmb_registrants WHERE status IN ('accepted', 'promoted')`).Scan(&stats.AcceptedRegistrants)
 	_ = r.DB.QueryRow(`SELECT count(*) FROM spmb_registrants WHERE status = 'rejected'`).Scan(&stats.RejectedRegistrants)
 	return stats, nil
 }
@@ -652,7 +749,7 @@ func (r *SPMBRepository) GetPublicRegistrants() ([]models.SPMBRegistrant, error)
 	rows, err := r.DB.Query(`
 		SELECT registration_number, full_name, COALESCE(status, 'pending'), COALESCE(created_at, 0), COALESCE(updated_at, 0)
 		FROM spmb_registrants
-		WHERE status IN ('accepted', 'rejected')
+		WHERE status IN ('accepted', 'promoted', 'rejected')
 		ORDER BY
 			CASE status WHEN 'accepted' THEN 0 ELSE 1 END,
 			created_at ASC
@@ -671,6 +768,65 @@ func (r *SPMBRepository) GetPublicRegistrants() ([]models.SPMBRegistrant, error)
 		registrants = append(registrants, reg)
 	}
 	return registrants, rows.Err()
+}
+
+type ProcessRankedRegistrant struct {
+	ID                 string
+	RegistrationNumber string
+	FullName           string
+	Gender             string
+	BirthDate          string
+	DistanceKM         float64
+	IsInZone           bool
+	Status             string
+	CreatedAt          int64
+	AgeYears           int
+	AgeMonths          int
+	PriorityGroup      int
+}
+
+func (r *SPMBRepository) GetRegistrantsForPeriod(periodID string) ([]models.SPMBRegistrant, error) {
+	rows, err := r.DB.Query(`
+		SELECT id, registration_number, full_name, COALESCE(gender, ''), COALESCE(birth_date, ''), COALESCE(distance_km, 0), COALESCE(is_in_zone, 0), status, created_at
+		FROM spmb_registrants WHERE period_id = ? AND status IN ('pending', 'verified')
+		ORDER BY created_at ASC
+	`, periodID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var regs []models.SPMBRegistrant
+	for rows.Next() {
+		var reg models.SPMBRegistrant
+		var bd string
+		var inZone int
+		if err := rows.Scan(&reg.ID, &reg.RegistrationNumber, &reg.FullName, &reg.Gender, &bd, &reg.DistanceKM, &inZone, &reg.Status, &reg.CreatedAt); err != nil {
+			return nil, err
+		}
+		reg.BirthDate = normalizeSPMBBirthDate(bd)
+		reg.IsInZone = inZone == 1
+		regs = append(regs, reg)
+	}
+	return regs, rows.Err()
+}
+
+func (r *SPMBRepository) BatchUpdateStatus(tx *sql.Tx, ids []string, status string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	now := time.Now().UnixMilli()
+	stmt, err := tx.Prepare(`UPDATE spmb_registrants SET status = ?, updated_at = ? WHERE id = ?`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	for _, id := range ids {
+		if _, err := stmt.Exec(status, now, id); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *SPMBRepository) PromoteToStudent(registrantID string, req models.SPMBPromoteRequest) error {
@@ -716,6 +872,6 @@ func (r *SPMBRepository) PromoteToStudent(registrantID string, req models.SPMBPr
 		return err
 	}
 
-	_, err = r.DB.Exec(`UPDATE spmb_registrants SET updated_at = ? WHERE id = ?`, now, registrantID)
+	_, err = r.DB.Exec(`UPDATE spmb_registrants SET status = 'promoted', updated_at = ? WHERE id = ?`, now, registrantID)
 	return err
 }

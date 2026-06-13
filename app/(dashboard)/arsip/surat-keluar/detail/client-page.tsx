@@ -26,6 +26,11 @@ interface SuratKeluarDetail {
     filePath: string | null;
     finalFilePath: string | null;
     creator: { name?: string; fullName?: string } | null;
+    agendaNumber?: string;
+    verifiedBy?: string;
+    verifiedAt?: string;
+    digitalSignature?: string;
+    revisionNote?: string;
 }
 
 export default function SuratKeluarDetailPage() {
@@ -79,7 +84,7 @@ export default function SuratKeluarDetailPage() {
     if (loading) return <div className="p-8 text-center bg-muted animate-pulse rounded-xl h-96"></div>;
     if (!data) return <div className="p-8 text-center">Data tidak ditemukan</div>;
 
-    const isDraft = data.status === "Draft" || data.status === "Pending";
+    const isDraft = data.status === "Draft";
     const hasFinalFile = !!data.finalFilePath;
 
     return (
@@ -134,6 +139,39 @@ export default function SuratKeluarDetailPage() {
                                         <p className="font-medium">{data.creator?.fullName || data.creator?.name || "-"}</p>
                                     </div>
                                 </div>
+                                {data.status === "Terverifikasi" && (
+                                    <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg border border-green-200 dark:border-green-800 space-y-2">
+                                        <p className="text-xs text-green-700 dark:text-green-400 font-semibold uppercase">Verifikasi</p>
+                                        {data.agendaNumber && (
+                                            <div>
+                                                <p className="text-muted-foreground text-xs">Agenda Number</p>
+                                                <p className="font-medium text-sm">{data.agendaNumber}</p>
+                                            </div>
+                                        )}
+                                        <div>
+                                            <p className="text-muted-foreground text-xs">Diverifikasi Oleh</p>
+                                            <p className="font-medium text-sm">{data.verifiedBy || "-"}</p>
+                                        </div>
+                                        {data.verifiedAt && (
+                                            <div>
+                                                <p className="text-muted-foreground text-xs">Tanggal Verifikasi</p>
+                                                <p className="font-medium text-sm">{formatDate(data.verifiedAt)}</p>
+                                            </div>
+                                        )}
+                                        {data.digitalSignature && (
+                                            <div>
+                                                <p className="text-muted-foreground text-xs">Tanda Tangan Elektronik</p>
+                                                <img src={data.digitalSignature} alt="TTD" className="max-h-16 mt-1 object-contain border rounded bg-white" />
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                {data.revisionNote && (
+                                    <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800">
+                                        <p className="text-xs text-red-700 dark:text-red-400 font-semibold uppercase mb-1">Catatan Revisi</p>
+                                        <p className="text-sm">{data.revisionNote}</p>
+                                    </div>
+                                )}
                             </div>
                         </CardContent>
                     </Card>

@@ -170,6 +170,72 @@ type SetoranTransaction struct {
 	Catatan   *string `json:"catatan"`
 }
 
+type TopSaverItem struct {
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Kelas string `json:"kelas"`
+	Saldo int    `json:"saldo"`
+}
+
+type RecentTransactionItem struct {
+	ID        string `json:"id"`
+	Tipe      string `json:"type"`
+	Nominal   int    `json:"nominal"`
+	SiswaName string `json:"siswaName"`
+	KelasName string `json:"kelasName"`
+	Time      string `json:"time"`
+}
+
+type TransactionTrendItem struct {
+	Date  string `json:"date"`
+	Setor int    `json:"setor"`
+	Tarik int    `json:"tarik"`
+}
+
+type SaldoByKelasItem struct {
+	Name  string `json:"name"`
+	Value int    `json:"value"`
+	Color string `json:"color"`
+}
+
+type FinalReportSiswa struct {
+	Nama  string `json:"nama"`
+	NISN  string `json:"nisn"`
+	Kelas string `json:"kelas"`
+	Saldo int    `json:"saldo"`
+}
+
+type FinalReportTransaction struct {
+	Tipe    string `json:"tipe"`
+	Nominal int    `json:"nominal"`
+	Catatan string `json:"catatan,omitempty"`
+	Tanggal string `json:"tanggal,omitempty"`
+}
+
+type FinalReport struct {
+	Siswa        FinalReportSiswa        `json:"siswa"`
+	Transactions []FinalReportTransaction `json:"transactions"`
+	TotalSetor   int                     `json:"totalSetor"`
+	TotalTarik   int                     `json:"totalTarik"`
+	SaldoAkhir   int                     `json:"saldoAkhir"`
+}
+
+type StatementItem struct {
+	ID        string `json:"id"`
+	Tipe      string `json:"tipe"`
+	Nominal   int    `json:"nominal"`
+	Status    string `json:"status"`
+	Catatan   string `json:"catatan,omitempty"`
+	Tanggal   string `json:"tanggal,omitempty"`
+	NamaSiswa string `json:"namaSiswa,omitempty"`
+}
+
+type UpdateHutangRequest struct {
+	NamaBarang string `json:"namaBarang"`
+	Nominal    int    `json:"nominal"`
+	Jumlah     int    `json:"jumlah"`
+}
+
 type SavingsStats struct {
 	TotalSiswa          int `json:"totalSiswa"`
 	TotalSaldo          int `json:"totalSaldo"`

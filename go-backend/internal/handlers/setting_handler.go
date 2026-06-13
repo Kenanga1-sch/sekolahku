@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sekolahku/go-backend/internal/middleware"
 	"github.com/sekolahku/go-backend/internal/models"
 	"github.com/sekolahku/go-backend/internal/repository"
 )
@@ -77,6 +78,9 @@ func (h *SettingHandler) UpdateSettings(c echo.Context) error {
 		IPAddress: &ip,
 		UserAgent: &ua,
 	})
+
+	middleware.CacheInvalidate("/api/public/school-settings")
+	middleware.CacheInvalidate("/api/public/homepage")
 
 	return c.JSON(http.StatusOK, updated)
 }

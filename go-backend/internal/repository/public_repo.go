@@ -130,7 +130,18 @@ func (r *PublicRepository) GetHomepageData() (*models.PublicHomepageData, error)
 	return data, nil
 }
 
-func (r *PublicRepository) GetPublicStaff() ([]models.PublicStaff, error) {
+func (r *PublicRepository) GetPublicStaff(page, perPage int) ([]models.PublicStaff, int, error) {
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 || perPage > 100 {
+		perPage = 20
+	}
+	offset := (page - 1) * perPage
+
+	var total int
+	r.DB.QueryRow("SELECT COUNT(*) FROM staff_profiles WHERE is_active = 1").Scan(&total)
+
 	query := `
 		SELECT id, name, is_active, photo_url,
 		       category, degree, position, quote
@@ -140,10 +151,11 @@ func (r *PublicRepository) GetPublicStaff() ([]models.PublicStaff, error) {
 			CASE WHEN category = 'kepsek' THEN 0 ELSE 1 END,
 			display_order ASC,
 			name ASC
+		LIMIT ? OFFSET ?
 	`
-	rows, err := r.DB.Query(query)
+	rows, err := r.DB.Query(query, perPage, offset)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -155,7 +167,7 @@ func (r *PublicRepository) GetPublicStaff() ([]models.PublicStaff, error) {
 
 		err := rows.Scan(&s.ID, &s.Name, &isActive, &img, &cat, &deg, &job, &quote)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		s.IsActive = isActive
@@ -182,23 +194,34 @@ func (r *PublicRepository) GetPublicStaff() ([]models.PublicStaff, error) {
 		staff = []models.PublicStaff{}
 	}
 
-	return staff, nil
+	return staff, total, nil
 }
 
-func (r *PublicRepository) GetPublicGallery(category string) ([]models.GalleryItem, error) {
-	query := "SELECT id, title, description, category, image_url, public_id, created_at, updated_at FROM gallery WHERE 1=1"
-	args := []interface{}{}
+func (r *PublicRepository) GetPublicGallery(category string, page, perPage int) ([]models.GalleryItem, int, error) {
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 || perPage > 100 {
+		perPage = 20
+	}
+	offset := (page - 1) * perPage
 
+	where := "1=1"
+	args := []interface{}{}
 	if category != "" && category != "all" {
-		query += " AND category = ?"
+		where += " AND category = ?"
 		args = append(args, category)
 	}
 
-	query += " ORDER BY created_at DESC"
+	var total int
+	r.DB.QueryRow("SELECT COUNT(*) FROM gallery WHERE "+where, args...).Scan(&total)
 
-	rows, err := r.DB.Query(query, args...)
+	listArgs := append(args, perPage, offset)
+	query := "SELECT id, title, description, category, image_url, public_id, created_at, updated_at FROM gallery WHERE " + where + " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+
+	rows, err := r.DB.Query(query, listArgs...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -210,7 +233,7 @@ func (r *PublicRepository) GetPublicGallery(category string) ([]models.GalleryIt
 
 		err := rows.Scan(&item.ID, &title, &desc, &category, &item.ImageUrl, &pubID, &crAt, &upAt)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		item.Title = "Foto"
@@ -232,10 +255,9 @@ func (r *PublicRepository) GetPublicGallery(category string) ([]models.GalleryIt
 
 		items = append(items, item)
 	}
-
 	if items == nil {
 		items = []models.GalleryItem{}
 	}
-
-	return items, nil
+	return items, total, nil
 }
+

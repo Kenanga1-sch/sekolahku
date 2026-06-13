@@ -96,6 +96,45 @@ func (h *SavingsHandler) GetSiswa(c echo.Context) error {
 	})
 }
 
+func (h *SavingsHandler) KioskDeposit(c echo.Context) error {
+	var req struct {
+		QRCode  string `json:"qrCode"`
+		Nominal int    `json:"nominal"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Input tidak valid"})
+	}
+	if req.QRCode == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "QR Code diperlukan"})
+	}
+	if req.Nominal < 1000 {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Minimal setoran Rp1.000"})
+	}
+	if req.Nominal > 10000000 {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Maksimal setoran Rp10.000.000"})
+	}
+
+	s, err := h.Repo.GetSiswaByQR(req.QRCode)
+	if err != nil || s == nil {
+		return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Siswa tidak ditemukan"})
+	}
+
+	txReq := models.CreateTransaksiRequest{
+		SiswaID: s.ID,
+		Tipe:    "setor",
+		Nominal: req.Nominal,
+	}
+	if err := h.Repo.CreateTransaksi(txReq); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal mencatat setoran"})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Setoran berhasil dicatat",
+		"balance": s.SaldoTerakhir + req.Nominal,
+	})
+}
+
 func (h *SavingsHandler) GetDetailSiswa(c echo.Context) error {
 	id := c.Param("id") // Could be ID or QR Code
 	s, err := h.Repo.GetSiswaByQR(id)
@@ -166,11 +205,20 @@ func (h *SavingsHandler) GetTransactions(c echo.Context) error {
 }
 
 func (h *SavingsHandler) GetSetoranList(c echo.Context) error {
-	list, err := h.Repo.GetSetoranList(c.QueryParam("status"), c.QueryParam("guruId"))
+	page, _ := strconv.Atoi(c.QueryParam("page"))
+	perPage, _ := strconv.Atoi(c.QueryParam("perPage"))
+
+	list, total, err := h.Repo.GetSetoranList(c.QueryParam("status"), c.QueryParam("guruId"), page, perPage)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
 	}
-	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": list, "items": list})
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 {
+		perPage = 20
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": list, "total": total, "page": page, "perPage": perPage})
 }
 
 // Admin & Brankas
@@ -306,7 +354,7 @@ func (h *SavingsHandler) CreateHutang(c echo.Context) error {
 
 func (h *SavingsHandler) UpdateHutang(c echo.Context) error {
 	id := c.Param("id")
-	var input map[string]interface{}
+	var input models.UpdateHutangRequest
 	if err := c.Bind(&input); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid input"})
 	}
@@ -351,8 +399,14 @@ func (h *SavingsHandler) CreateTransaksi(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
 	}
+	if req.Nominal < 1000 {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Minimal nominal Rp1.000"})
+	}
+	if req.Nominal > 10000000 {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Maksimal nominal Rp10.000.000"})
+	}
 	if err := h.Repo.CreateTransaksi(req); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal mencatat transaksi"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "message": "Transaksi berhasil dikumpulkan"})
 }

@@ -145,3 +145,28 @@ type SPMBPromoteRequest struct {
 	ClassID      string `json:"class_id"`
 	StudentID    string `json:"student_id"` // Optional, if already exists
 }
+
+type SPMBProcessRanking struct {
+	Rank               int     `json:"rank"`
+	ID                 string  `json:"id"`
+	RegistrationNumber string  `json:"registrationNumber"`
+	FullName           string  `json:"fullName"`
+	Gender             string  `json:"gender"`
+	BirthDate          string  `json:"birthDate"`
+	DistanceKM         float64 `json:"distanceKm"`
+	IsInZone           bool    `json:"isInZone"`
+	PriorityGroup      int     `json:"priorityGroup"`
+	AgeYears           int     `json:"ageYears"`
+	AgeMonths          int     `json:"ageMonths"`
+	Recommendation     string  `json:"recommendation"`
+}
+
+type SPMBProcessResponse struct {
+	PeriodID  string              `json:"periodId"`
+	Quota     int                 `json:"quota"`
+	Accepted  int                 `json:"accepted"`
+	Waitlist  int                 `json:"waitlist"`
+	Total     int                 `json:"total"`
+	Rankings  []SPMBProcessRanking `json:"rankings"`
+	DryRun    bool                `json:"dryRun"`
+}

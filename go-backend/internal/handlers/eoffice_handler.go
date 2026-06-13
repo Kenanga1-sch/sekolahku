@@ -308,8 +308,9 @@ func (h *EOfficeHandler) GetSuratKeluar(c echo.Context) error {
 		limit = 20
 	}
 	search := c.QueryParam("search")
+	statusFilter := c.QueryParam("status")
 
-	items, total, err := h.Repo.GetSuratKeluar(page, limit, search)
+	items, total, err := h.Repo.GetSuratKeluar(page, limit, search, statusFilter)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
@@ -328,11 +329,20 @@ func (h *EOfficeHandler) GetSuratKeluar(c echo.Context) error {
 
 func (h *EOfficeHandler) GetLetterTemplates(c echo.Context) error {
 	q := c.QueryParam("q")
-	list, err := h.Repo.GetLetterTemplates(q)
+	page, _ := strconv.Atoi(c.QueryParam("page"))
+	perPage, _ := strconv.Atoi(c.QueryParam("perPage"))
+
+	list, total, err := h.Repo.GetLetterTemplates(q, page, perPage)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
 	}
-	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": list})
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 {
+		perPage = 20
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": list, "total": total, "page": page, "perPage": perPage})
 }
 
 func (h *EOfficeHandler) GetLetterTemplateByID(c echo.Context) error {
@@ -480,41 +490,210 @@ func (h *EOfficeHandler) CreateDisposisi(c echo.Context) error {
 	return c.JSON(http.StatusCreated, map[string]interface{}{"id": id, "success": true})
 }
 
+// GenerateAndSubmit creates surat_keluar from letter generator and saves the generated DOCX
+func (h *EOfficeHandler) UploadDocx(c echo.Context) error {
+	file, err := c.FormFile("file")
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "File tidak ditemukan"})
+	}
+
+	src, err := file.Open()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	defer src.Close()
+
+	outDir := filepath.Join("public", "uploads", "eoffice", "docx")
+	if err := os.MkdirAll(outDir, 0755); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	filename := fmt.Sprintf("%d_%s", time.Now().UnixNano(), file.Filename)
+	outPath := filepath.Join(outDir, filename)
+	dst, err := os.Create(outPath)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	defer dst.Close()
+
+	if _, err := io.Copy(dst, src); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	relativePath := filepath.Join("uploads", "eoffice", "docx", filename)
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success":  true,
+		"filePath": relativePath,
+		"path":     relativePath,
+	})
+}
+
+func (h *EOfficeHandler) GenerateAndSubmit(c echo.Context) error {
+	var req struct {
+		TemplateID         string            `json:"templateId"`
+		ClassificationCode string            `json:"classificationCode"`
+		Recipient          string            `json:"recipient"`
+		Subject            string            `json:"subject"`
+		MailNumber         string            `json:"mailNumber"`
+		DateOfLetter       string            `json:"dateOfLetter"`
+		FilePath           string            `json:"filePath"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
+	}
+	if req.Recipient == "" || req.Subject == "" || req.TemplateID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Penerima, perihal, dan template wajib diisi"})
+	}
+
+	uid := currentUserID(c)
+	dateLetter := req.DateOfLetter
+	if dateLetter == "" {
+		dateLetter = time.Now().Format("2006-01-02")
+	}
+
+	sk := models.SuratKeluar{
+		MailNumber:         req.MailNumber,
+		Recipient:          req.Recipient,
+		Subject:            req.Subject,
+		DateOfLetter:       dateLetter,
+		ClassificationCode: stringPtrIfNotEmpty(req.ClassificationCode),
+		FilePath:           stringPtrIfNotEmpty(req.FilePath),
+		TemplateID:         stringPtrIfNotEmpty(req.TemplateID),
+		Status:             "Menunggu Verifikasi",
+		CreatedBy:          &uid,
+	}
+	id, err := h.Repo.CreateSuratKeluarFromTemplate(sk)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+	}
+	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true, "id": id, "status": "Menunggu Verifikasi"})
+}
+
+// VerifySuratKeluar approves a surat_keluar with digital signature
+func (h *EOfficeHandler) VerifySuratKeluar(c echo.Context) error {
+	id := c.QueryParam("id")
+	if id == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "ID surat wajib diisi"})
+	}
+	var req struct {
+		DigitalSignature string `json:"digitalSignature"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
+	}
+	if req.DigitalSignature == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Tanda tangan elektronik wajib diisi"})
+	}
+	uid := currentUserID(c)
+	if err := h.Repo.VerifySuratKeluar(id, uid, req.DigitalSignature); err != nil {
+		if err == sql.ErrNoRows {
+			return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Surat tidak ditemukan atau sudah diverifikasi"})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "message": "Surat berhasil diverifikasi"})
+}
+
+// SetSuratKeluarRevision rejects a surat_keluar with revision note
+func (h *EOfficeHandler) SetSuratKeluarRevision(c echo.Context) error {
+	id := c.QueryParam("id")
+	if id == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "ID surat wajib diisi"})
+	}
+	var req struct {
+		RevisionNote string `json:"revisionNote"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
+	}
+	if req.RevisionNote == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Catatan revisi wajib diisi"})
+	}
+	if err := h.Repo.SetSuratKeluarRevision(id, req.RevisionNote); err != nil {
+		if err == sql.ErrNoRows {
+			return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Surat tidak ditemukan atau sudah diverifikasi"})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "message": "Surat dikembalikan untuk revisi"})
+}
+
+func (h *EOfficeHandler) ImportLetterTemplate(c echo.Context) error {
+	var payload struct {
+		Config struct {
+			Name        string `json:"name"`
+			Category    string `json:"category"`
+			PaperSize   string `json:"paperSize"`
+			Orientation string `json:"orientation"`
+		} `json:"config"`
+		Content string `json:"content"`
+	}
+	if err := c.Bind(&payload); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Format JSON tidak valid"})
+	}
+	if strings.TrimSpace(payload.Config.Name) == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Nama template wajib diisi"})
+	}
+
+	t := models.LetterTemplate{
+		Name:        payload.Config.Name,
+		Category:    payload.Config.Category,
+		Type:        "EDITOR",
+		PaperSize:   payload.Config.PaperSize,
+		Orientation: payload.Config.Orientation,
+	}
+	normalizeLetterTemplate(&t)
+	if payload.Content != "" {
+		t.Content = &payload.Content
+	}
+
+	id, err := h.Repo.CreateLetterTemplate(t)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+	}
+
+	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true, "id": id})
+}
+
 func (h *EOfficeHandler) GenerateBatch(c echo.Context) error {
 	var req models.BatchGenerateRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
 	}
 
-	// This is a placeholder for actual DOCX generation logic.
-	// In a real implementation, we would:
-	// 1. Load the template
-	// 2. Loop through recipients
-	// 3. For each recipient, merge data and create a docx
-	// 4. Zip all documents
-	// 5. Log the increment in DB
-	// 6. Return the zip file
+	if len(req.Recipients) == 0 {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Minimal satu penerima"})
+	}
 
-	// For now, let's just log the increment if requested
-	if req.LetterNumber != "" && req.NextSequence > 0 {
-		recipientLabel := "Batch"
-		if len(req.Recipients) > 0 {
-			recipientLabel = "Batch (" + strconv.Itoa(len(req.Recipients)) + ")"
+	results := make([]map[string]interface{}, 0, len(req.Recipients))
+	for i, rec := range req.Recipients {
+		sequenceNumber := req.NextSequence + i
+		recipientName := rec.Name
+		if recipientName == "" {
+			recipientName = fmt.Sprintf("Penerima %d", i+1)
 		}
 
 		incReq := models.IncrementRequest{
 			LetterNumber:       req.LetterNumber,
-			SequenceNumber:     req.NextSequence,
+			SequenceNumber:     sequenceNumber,
 			TemplateID:         &req.TemplateID,
-			Recipient:          &recipientLabel,
+			Recipient:          &recipientName,
 			ClassificationCode: req.ClassificationCode,
 		}
-		h.Repo.IncrementLetterSequence(incReq)
+		if err := h.Repo.IncrementLetterSequence(incReq); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		}
+
+		results = append(results, map[string]interface{}{
+			"recipient":      recipientName,
+			"sequenceNumber": sequenceNumber,
+		})
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
-		"message": "Batch processed (Simulation - Backend DOCX engine setup needed)",
+		"message": "Batch letter numbers logged. DOCX generation handled client-side.",
 		"count":   len(req.Recipients),
+		"results": results,
 	})
 }

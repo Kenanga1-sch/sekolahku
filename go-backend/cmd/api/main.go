@@ -19,11 +19,14 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	gommonLog "github.com/labstack/gommon/log"
+	"github.com/nrednav/cuid2"
 	"github.com/sekolahku/go-backend/internal/db/migrations"
 	"github.com/sekolahku/go-backend/internal/handlers"
 	authMiddleware "github.com/sekolahku/go-backend/internal/middleware"
 	"github.com/sekolahku/go-backend/internal/repository"
 	"github.com/sekolahku/go-backend/internal/scheduler"
+	"golang.org/x/crypto/bcrypt"
 	_ "modernc.org/sqlite"
 )
 
@@ -34,12 +37,40 @@ func main() {
 	startTime := time.Now()
 	server := echo.New()
 
+	authMiddleware.InitJWTMiddleware()
+
+	// Log level from env (debug, info, warn, error)
+	logLevel := os.Getenv("LOG_LEVEL")
+	if logLevel == "" {
+		logLevel = "info"
+	}
+	switch logLevel {
+	case "debug":
+		server.Logger.SetLevel(gommonLog.DEBUG)
+	case "info":
+		server.Logger.SetLevel(gommonLog.INFO)
+	case "warn":
+		server.Logger.SetLevel(gommonLog.WARN)
+	case "error":
+		server.Logger.SetLevel(gommonLog.ERROR)
+	default:
+		server.Logger.SetLevel(gommonLog.INFO)
+	}
+	server.Logger.SetOutput(os.Stdout)
+	server.Logger.SetHeader("${time_rfc3339} ${level} ${prefix}")
+
 	// Global Middleware
-	server.Use(middleware.Logger())
+	server.Use(middleware.RequestID())
+	server.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
+		Format: `{"time":"${time_rfc3339_nano}","id":"${id}","remote_ip":"${remote_ip}","host":"${host}","method":"${method}","uri":"${uri}","status":${status},"error":"${error}","latency":"${latency}","latency_human":"${latency_human}","bytes_in":${bytes_in},"bytes_out":${bytes_out}}` + "\n",
+		Output: os.Stdout,
+	}))
 	server.Use(middleware.Recover())
+	server.Use(middleware.BodyLimit("10M"))
 	server.Use(middleware.GzipWithConfig(middleware.GzipConfig{
 		Level: 5,
 	}))
+	server.Use(authMiddleware.SecurityHeaders)
 	server.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{
 			"http://localhost:3000",
@@ -91,23 +122,8 @@ func main() {
 		server.Logger.Warn("Migration failed (might be ok if tables exist):", err)
 	}
 
-	// 2. Automated Schema Repair (Add missing columns to existing DB)
-	RepairDatabase(db, server.Logger)
-
-	// Create database indexes for performance optimization
-	_, err = db.Exec(`
-		CREATE INDEX IF NOT EXISTS idx_students_class_id ON students(class_id);
-		CREATE INDEX IF NOT EXISTS idx_students_full_name ON students(full_name);
-		CREATE INDEX IF NOT EXISTS idx_spmb_registrants_period ON spmb_registrants(period_id);
-	`)
-	if err != nil {
-		server.Logger.Warn("Failed to create database indexes:", err)
-	}
-
-	// 2. Initialize default settings if needed
-	_, _ = db.Exec(`
-		INSERT OR IGNORE INTO school_settings (id, school_name, current_academic_year, spmb_is_open, max_distance_km)
-		VALUES ('default', 'UPTD SDN 1 Kenanga', '2026/2027', 1, 3.0);
+	// 2. Ensure core tables exist FIRST (so RepairDatabase and indexes can reference them)
+	if _, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS users (
 			id TEXT PRIMARY KEY,
 			name TEXT,
@@ -131,14 +147,134 @@ func main() {
 			updated_at INTEGER,
 			FOREIGN KEY(user_id) REFERENCES users(id)
 		);
+	`); err != nil {
+		server.Logger.Warn("Failed to create core tables:", err)
+	}
+
+	// 3. Automated Schema Repair (Add missing columns to existing DB)
+	RepairDatabase(db, server.Logger)
+
+	// Enable foreign keys
+	_, err = db.Exec(`PRAGMA foreign_keys = ON`)
+	if err != nil {
+		server.Logger.Warn("Failed to enable foreign keys:", err)
+	}
+
+	// Seed default admin if users table is empty
+	SeedDefaultAdmin(db, server.Logger)
+
+	// Create database indexes and constraints for performance and integrity
+	_, err = db.Exec(`
+		CREATE INDEX IF NOT EXISTS idx_students_class_id ON students(class_id);
+		CREATE INDEX IF NOT EXISTS idx_students_full_name ON students(full_name);
+		CREATE INDEX IF NOT EXISTS idx_students_status ON students(status);
+		CREATE INDEX IF NOT EXISTS idx_spmb_registrants_period ON spmb_registrants(period_id);
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_spmb_registrants_reg_number ON spmb_registrants(registration_number);
+		CREATE INDEX IF NOT EXISTS idx_library_books_title ON library_books(title);
+		CREATE INDEX IF NOT EXISTS idx_library_books_category ON library_books(category);
+		CREATE INDEX IF NOT EXISTS idx_library_visits_created ON library_visits(created_at);
+		CREATE INDEX IF NOT EXISTS idx_tabungan_transaksi_siswa ON tabungan_transaksi(siswa_id);
+		CREATE INDEX IF NOT EXISTS idx_tabungan_transaksi_created ON tabungan_transaksi(created_at);
+		CREATE INDEX IF NOT EXISTS idx_tabungan_transaksi_setoran ON tabungan_transaksi(setoran_id);
+		CREATE INDEX IF NOT EXISTS idx_tabungan_setoran_status ON tabungan_setoran(status);
+		CREATE INDEX IF NOT EXISTS idx_tabungan_setoran_created ON tabungan_setoran(created_at);
+		CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
+		CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(is_read);
+		CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at);
+		CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON audit_logs(user_id);
+		CREATE INDEX IF NOT EXISTS idx_attendance_sessions_date ON attendance_sessions(session_date);
+		CREATE INDEX IF NOT EXISTS idx_letter_templates_type ON letter_templates(type);
+		CREATE INDEX IF NOT EXISTS idx_gallery_category ON gallery(category);
+		CREATE INDEX IF NOT EXISTS idx_gallery_created ON gallery(created_at);
+		CREATE INDEX IF NOT EXISTS idx_announcements_published ON announcements(is_published);
+		CREATE INDEX IF NOT EXISTS idx_announcements_created ON announcements(created_at);
+		CREATE INDEX IF NOT EXISTS idx_staff_profiles_category ON staff_profiles(category);
+		CREATE INDEX IF NOT EXISTS idx_faqs_category ON faqs(category);
+		CREATE INDEX IF NOT EXISTS idx_faqs_order ON faqs(order_rank);
+		CREATE INDEX IF NOT EXISTS idx_contact_messages_created ON contact_messages(created_at);
+		CREATE INDEX IF NOT EXISTS idx_mutasi_requests_status ON mutasi_requests(status);
+		CREATE INDEX IF NOT EXISTS idx_mutasi_out_requests_status ON mutasi_out_requests(status);
 		CREATE INDEX IF NOT EXISTS idx_finance_transactions_account ON finance_transactions(account_id_source);
 		CREATE INDEX IF NOT EXISTS idx_savings_transactions_siswa ON savings_transactions(siswa_id);
 		CREATE INDEX IF NOT EXISTS idx_library_loans_status ON library_loans(status);
 	`)
 	if err != nil {
-		server.Logger.Fatal("DB initialization failed:", err)
+		server.Logger.Warn("Failed to create database indexes:", err)
 	}
-	server.Logger.Info("Database initialized with default settings and SPMB period")
+
+	// 4. Initialize default settings if needed
+	if _, err := db.Exec(`
+		INSERT OR IGNORE INTO school_settings (id, school_name, current_academic_year, spmb_is_open, max_distance_km)
+		VALUES ('default', 'UPTD SDN 1 Kenanga', '2026/2027', 1, 3.0)
+	`); err != nil {
+		server.Logger.Warn("Failed to initialize default settings:", err)
+	}
+
+	// 5. Create Alumni Buku Induk tables
+	if _, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS alumni_transcripts (
+			id TEXT PRIMARY KEY,
+			alumni_id TEXT NOT NULL,
+			academic_year TEXT NOT NULL,
+			semester TEXT NOT NULL,
+			subject_name TEXT NOT NULL,
+			subject_code TEXT,
+			score REAL NOT NULL,
+			score_letter TEXT,
+			notes TEXT,
+			created_at INTEGER,
+			updated_at INTEGER,
+			FOREIGN KEY(alumni_id) REFERENCES alumni(id)
+		);
+		CREATE TABLE IF NOT EXISTS alumni_achievements (
+			id TEXT PRIMARY KEY,
+			alumni_id TEXT NOT NULL,
+			type TEXT NOT NULL,
+			title TEXT NOT NULL,
+			description TEXT,
+			level TEXT NOT NULL,
+			ranking TEXT,
+			year TEXT NOT NULL,
+			organizer TEXT,
+			certificate_url TEXT,
+			created_at INTEGER,
+			updated_at INTEGER,
+			FOREIGN KEY(alumni_id) REFERENCES alumni(id)
+		);
+		CREATE TABLE IF NOT EXISTS alumni_extracurriculars (
+			id TEXT PRIMARY KEY,
+			alumni_id TEXT NOT NULL,
+			activity_name TEXT NOT NULL,
+			role TEXT,
+			year_start TEXT,
+			year_end TEXT,
+			description TEXT,
+			created_at INTEGER,
+			updated_at INTEGER,
+			FOREIGN KEY(alumni_id) REFERENCES alumni(id)
+		);
+		CREATE TABLE IF NOT EXISTS alumni_attendance_summary (
+			id TEXT PRIMARY KEY,
+			alumni_id TEXT NOT NULL,
+			academic_year TEXT NOT NULL,
+			semester TEXT NOT NULL,
+			present INTEGER DEFAULT 0,
+			sick INTEGER DEFAULT 0,
+			permission INTEGER DEFAULT 0,
+			absent INTEGER DEFAULT 0,
+			total_days INTEGER DEFAULT 0,
+			created_at INTEGER,
+			updated_at INTEGER,
+			FOREIGN KEY(alumni_id) REFERENCES alumni(id)
+		);
+		CREATE INDEX IF NOT EXISTS idx_alumni_transcripts_alumni ON alumni_transcripts(alumni_id);
+		CREATE INDEX IF NOT EXISTS idx_alumni_achievements_alumni ON alumni_achievements(alumni_id);
+		CREATE INDEX IF NOT EXISTS idx_alumni_extracurriculars_alumni ON alumni_extracurriculars(alumni_id);
+		CREATE INDEX IF NOT EXISTS idx_alumni_attendance_summary_alumni ON alumni_attendance_summary(alumni_id);
+	`); err != nil {
+		server.Logger.Warn("Failed to create alumni Buku Induk tables:", err)
+	}
+	server.Logger.Info("Database initialized with default settings and core tables")
 
 	// Start background scheduler
 	cronScheduler := scheduler.NewScheduler(db)
@@ -215,11 +351,33 @@ func main() {
 	server.HEAD("/api/health", func(c echo.Context) error {
 		return c.NoContent(http.StatusOK)
 	})
-	server.POST("/api/auth/login", authHandler.Login)
+	// Rate limiter for login to prevent brute force
+	loginLimit := middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
+		Skipper: func(c echo.Context) bool {
+			return c.Path() != "/api/auth/login"
+		},
+		IdentifierExtractor: func(c echo.Context) (string, error) {
+			return c.RealIP(), nil
+		},
+		Store: middleware.NewRateLimiterMemoryStoreWithConfig(middleware.RateLimiterMemoryStoreConfig{
+			Rate:      5,
+			Burst:     10,
+			ExpiresIn: 1 * time.Minute,
+		}),
+		DenyHandler: func(c echo.Context, id string, err error) error {
+			return c.JSON(http.StatusTooManyRequests, map[string]string{"error": "Terlalu banyak percobaan login. Silakan coba lagi dalam 1 menit"})
+		},
+	})
+	server.POST("/api/auth/login", authHandler.Login, loginLimit)
 	server.POST("/api/auth/logout", authHandler.Logout)
 
-	// Move other public routes to publicGroup in next chunk
+	// Public routes with caching for GET endpoints
 	publicGroup := server.Group("/api/public")
+	publicGroup.Use(authMiddleware.CacheMiddleware(authMiddleware.CacheConfig{
+		TTL:          5 * time.Minute,
+		CacheControl: "public, max-age=300",
+	}))
+
 	publicGroup.GET("/homepage", publicHandler.GetHomepageData)
 	publicGroup.GET("/staff", publicHandler.GetPublicStaff)
 	publicGroup.GET("/gallery", publicHandler.GetPublicGallery)
@@ -237,6 +395,10 @@ func main() {
 	publicGroup.POST("/mutasi-keluar/validate", mutasiHandler.ValidatePublicMutasiOut)
 	publicGroup.POST("/mutasi-keluar/request", mutasiHandler.CreatePublicMutasiOutRequest)
 	publicGroup.POST("/tabungan/check-balance", savingsHandler.CheckPublicBalance)
+	publicGroup.GET("/spmb/reference-date", spmbHandler.GetReferenceDate)
+	publicGroup.POST("/kiosk/attendance", attendanceHandler.KioskRecordAttendance)
+	publicGroup.POST("/kiosk/savings-deposit", savingsHandler.KioskDeposit)
+	publicGroup.GET("/kiosk/savings-lookup", savingsHandler.GetSiswa)
 
 	// Public compatibility aliases used by static public pages.
 	server.POST("/api/mutasi/request", mutasiHandler.CreateMutasiRequest)
@@ -248,9 +410,13 @@ func main() {
 	auth := server.Group("/api")
 	auth.Use(authMiddleware.JWTMiddleware)
 
-	// Admin Dashboard
-	auth.GET("/admin/dashboard/stats", dashboardHandler.GetStats)
-	auth.GET("/admin/system/health", dashboardHandler.GetHealth)
+	// Admin-only routes (superadmin, admin)
+	adminGroup := auth.Group("")
+	adminGroup.Use(authMiddleware.RoleMiddleware(authMiddleware.RoleSuperadmin, authMiddleware.RoleAdmin))
+
+	// Admin Dashboard (admin only)
+	adminGroup.GET("/admin/dashboard/stats", dashboardHandler.GetStats)
+	adminGroup.GET("/admin/system/health", dashboardHandler.GetHealth)
 
 	// Academic Admin
 	auth.GET("/academic/active-year", academicHandler.GetActiveAcademicYear)
@@ -309,17 +475,20 @@ func main() {
 	auth.POST("/inventory/opname/:id/apply", inventoryHandler.ApplyOpname)
 	auth.GET("/inventory/audit", inventoryHandler.GetAuditLogs)
 
-	// SPMB Admin
-	auth.GET("/spmb/periods", spmbHandler.GetPeriods)
-	auth.POST("/spmb/periods", spmbHandler.CreatePeriod)
-	auth.PATCH("/spmb/periods/:id", spmbHandler.UpdatePeriod)
-	auth.DELETE("/spmb/periods/:id", spmbHandler.DeletePeriod)
-	auth.GET("/spmb/stats", spmbHandler.GetStats)
-	auth.GET("/spmb/registrants", spmbHandler.GetRegistrantsAdmin)
-	auth.GET("/spmb/registrants/:number", spmbHandler.GetRegistrant)
-	auth.PATCH("/spmb/registrants/:id", spmbHandler.UpdateStatus)
-	auth.DELETE("/spmb/registrants/:id", spmbHandler.DeleteRegistrant)
-	auth.POST("/spmb/registrants/:id/promote", spmbHandler.PromoteRegistrant)
+	// SPMB Admin (admin only)
+	adminGroup.GET("/spmb/periods/active", spmbHandler.GetActivePeriod)
+	adminGroup.GET("/spmb/periods", spmbHandler.GetPeriods)
+	adminGroup.POST("/spmb/periods", spmbHandler.CreatePeriod)
+	adminGroup.PATCH("/spmb/periods/:id", spmbHandler.UpdatePeriod)
+	adminGroup.DELETE("/spmb/periods/:id", spmbHandler.DeletePeriod)
+	adminGroup.GET("/spmb/stats", spmbHandler.GetStats)
+	adminGroup.GET("/spmb/registrants", spmbHandler.GetRegistrantsAdmin)
+	adminGroup.GET("/spmb/registrants/:number", spmbHandler.GetRegistrant)
+	adminGroup.PATCH("/spmb/registrants/:id", spmbHandler.UpdateStatus)
+	adminGroup.DELETE("/spmb/registrants/:id", spmbHandler.DeleteRegistrant)
+	adminGroup.POST("/spmb/registrants/:id/promote", spmbHandler.PromoteRegistrant)
+	adminGroup.GET("/spmb/process", spmbHandler.ProcessAcceptancePreview)
+	adminGroup.POST("/spmb/process", spmbHandler.ProcessAcceptanceExecute)
 
 	// Master Data Admin
 	auth.GET("/master/students", studentHandler.GetStudents)
@@ -348,20 +517,20 @@ func main() {
 	auth.PUT("/master/employees/:id", employeeHandler.UpdateEmployee)
 	auth.DELETE("/master/employees/:id", employeeHandler.DeleteEmployee)
 
-	// Staff & Profile Admin
-	auth.GET("/admin/staff", staffProfileHandler.GetProfiles)
-	auth.POST("/admin/staff", staffProfileHandler.CreateProfile)
-	auth.PATCH("/admin/staff/:id", staffProfileHandler.UpdateProfile)
-	auth.DELETE("/admin/staff/:id", staffProfileHandler.DeleteProfile)
+	// Staff & Profile Admin (admin only)
+	adminGroup.GET("/admin/staff", staffProfileHandler.GetProfiles)
+	adminGroup.POST("/admin/staff", staffProfileHandler.CreateProfile)
+	adminGroup.PATCH("/admin/staff/:id", staffProfileHandler.UpdateProfile)
+	adminGroup.DELETE("/admin/staff/:id", staffProfileHandler.DeleteProfile)
 
-	// FAQ & Contact Admin
-	auth.GET("/faqs", faqHandler.ListFAQsAdmin)
-	auth.POST("/faqs", faqHandler.CreateFAQ)
-	auth.PUT("/faqs/:id", faqHandler.UpdateFAQ)
-	auth.DELETE("/faqs/:id", faqHandler.DeleteFAQ)
-	auth.GET("/contact-messages", contactHandler.ListMessages)
-	auth.PUT("/contact-messages/:id/read", contactHandler.MarkAsRead)
-	auth.DELETE("/contact-messages/:id", contactHandler.DeleteMessage)
+	// FAQ & Contact Admin (admin only)
+	adminGroup.GET("/faqs", faqHandler.ListFAQsAdmin)
+	adminGroup.POST("/faqs", faqHandler.CreateFAQ)
+	adminGroup.PUT("/faqs/:id", faqHandler.UpdateFAQ)
+	adminGroup.DELETE("/faqs/:id", faqHandler.DeleteFAQ)
+	adminGroup.GET("/contact-messages", contactHandler.ListMessages)
+	adminGroup.PUT("/contact-messages/:id/read", contactHandler.MarkAsRead)
+	adminGroup.DELETE("/contact-messages/:id", contactHandler.DeleteMessage)
 
 	// Savings Admin
 	auth.GET("/savings/stats", savingsHandler.GetStats)
@@ -461,14 +630,18 @@ func main() {
 	auth.GET("/library/loans", libraryHandler.GetLoans)
 	auth.POST("/library/loans", libraryHandler.BorrowBook)
 	auth.POST("/library/loans/:id/return", libraryHandler.ReturnBook)
+	auth.POST("/library/loans/:id/pay-fine", libraryHandler.PayFine)
+	auth.POST("/library/loans/:id/renew", libraryHandler.RenewLoan)
+	auth.GET("/library/members/:id/history", libraryHandler.GetMemberLoanHistory)
+	auth.GET("/library/assets/:id", libraryHandler.GetBookByQRCode)
 	auth.POST("/library/visits/manual", libraryHandler.RecordVisit)
 	auth.GET("/library/visits", libraryHandler.GetVisits)
 	auth.GET("/library/reports", libraryHandler.GetReports)
 	auth.GET("/library/qr-generator", libraryHandler.GetQRCodeBatches)
 	auth.POST("/library/qr-generator", libraryHandler.GenerateQRCodeBatch)
-	auth.POST("/kiosk/scan-complete", libraryHandler.KioskScanComplete)
-	auth.POST("/kiosk/scan", libraryHandler.KioskScan)
-	auth.POST("/kiosk/transaction", libraryHandler.KioskTransaction)
+	server.POST("/api/kiosk/scan-complete", libraryHandler.KioskScanComplete)
+	server.POST("/api/kiosk/scan", libraryHandler.KioskScan)
+	server.POST("/api/kiosk/transaction", libraryHandler.KioskTransaction)
 
 	// Announcements Admin
 	auth.GET("/announcements", announcementHandler.GetAnnouncements)
@@ -477,25 +650,25 @@ func main() {
 	auth.PATCH("/announcements/:id", announcementHandler.UpdateAnnouncement)
 	auth.DELETE("/announcements/:id", announcementHandler.DeleteAnnouncement)
 
-	// User Management Admin
-	auth.GET("/users", userHandler.GetUsers)
-	auth.POST("/users", userHandler.CreateUser)
-	auth.PATCH("/users/:id", userHandler.UpdateUser)
-	auth.DELETE("/users/:id", userHandler.DeleteUser)
-	auth.POST("/users/generate", userHandler.GenerateAccounts)
+	// User Management Admin (admin only)
+	adminGroup.GET("/users", userHandler.GetUsers)
+	adminGroup.POST("/users", userHandler.CreateUser)
+	adminGroup.PATCH("/users/:id", userHandler.UpdateUser)
+	adminGroup.DELETE("/users/:id", userHandler.DeleteUser)
+	adminGroup.POST("/users/generate", userHandler.GenerateAccounts)
 
-	// Other Admin
-	auth.GET("/audit-logs", auditLogHandler.GetLogs)
-	auth.POST("/audit-logs", auditLogHandler.CreateAuditLog)
-	auth.GET("/school-settings", settingHandler.GetSettings)
-	auth.POST("/school-settings", settingHandler.UpdateSettings)
-	auth.GET("/gallery/stats", galleryHandler.GetStats)
-	auth.POST("/gallery/bulk-delete", galleryHandler.BulkDelete)
-	auth.GET("/gallery", galleryHandler.GetGallery)
-	auth.POST("/gallery/upload", galleryHandler.Upload)
-	auth.PUT("/gallery/:id", galleryHandler.Update)
-	auth.PATCH("/gallery/:id", galleryHandler.Update)
-	auth.DELETE("/gallery/:id", galleryHandler.Delete)
+	// Other Admin (admin only)
+	adminGroup.GET("/audit-logs", auditLogHandler.GetLogs)
+	adminGroup.POST("/audit-logs", auditLogHandler.CreateAuditLog)
+	adminGroup.GET("/school-settings", settingHandler.GetSettings)
+	adminGroup.POST("/school-settings", settingHandler.UpdateSettings)
+	adminGroup.GET("/gallery/stats", galleryHandler.GetStats)
+	adminGroup.POST("/gallery/bulk-delete", galleryHandler.BulkDelete)
+	adminGroup.GET("/gallery", galleryHandler.GetGallery)
+	adminGroup.POST("/gallery/upload", galleryHandler.Upload)
+	adminGroup.PUT("/gallery/:id", galleryHandler.Update)
+	adminGroup.PATCH("/gallery/:id", galleryHandler.Update)
+	adminGroup.DELETE("/gallery/:id", galleryHandler.Delete)
 
 	// E-Office Admin
 	auth.GET("/eoffice/arsip/stats", eofficeHandler.GetArsipStats)
@@ -513,9 +686,14 @@ func main() {
 	auth.GET("/eoffice/letter-templates/:id", eofficeHandler.GetLetterTemplateByID)
 	auth.GET("/eoffice/letter-templates/:id/variables", eofficeHandler.GetTemplateVariables)
 	auth.POST("/eoffice/letter-templates", eofficeHandler.CreateLetterTemplate)
+	auth.POST("/eoffice/letter-templates/import", eofficeHandler.ImportLetterTemplate)
 	auth.PATCH("/eoffice/letter-templates/:id", eofficeHandler.UpdateLetterTemplate)
 	auth.POST("/eoffice/letter-batch-generate", eofficeHandler.GenerateBatch)
 	auth.DELETE("/eoffice/letter-templates/:id", eofficeHandler.DeleteLetterTemplate)
+	auth.POST("/eoffice/letter-generate-submit", eofficeHandler.GenerateAndSubmit)
+	auth.POST("/eoffice/surat-keluar/verify", eofficeHandler.VerifySuratKeluar)
+	auth.POST("/eoffice/surat-keluar/revision", eofficeHandler.SetSuratKeluarRevision)
+	auth.POST("/eoffice/upload-docx", eofficeHandler.UploadDocx)
 
 	// Arsip route aliases (frontend uses /api/arsip/*)
 	auth.GET("/arsip/stats", eofficeHandler.GetArsipStats)
@@ -528,6 +706,8 @@ func main() {
 	auth.PATCH("/arsip/surat-keluar/detail", eofficeHandler.UpdateSuratKeluar)
 	auth.POST("/arsip/disposisi", eofficeHandler.CreateDisposisi)
 	auth.GET("/arsip/klasifikasi", eofficeHandler.GetKlasifikasi)
+	auth.POST("/arsip/surat-keluar/verify", eofficeHandler.VerifySuratKeluar)
+	auth.POST("/arsip/surat-keluar/revision", eofficeHandler.SetSuratKeluarRevision)
 
 	// Academic Advanced Admin
 	auth.POST("/academic/adv/scan", academicAdvHandler.RecordQRScan)
@@ -569,13 +749,23 @@ func main() {
 	auth.DELETE("/alumni/:id/photo", alumniHandler.RemovePhoto)
 	auth.POST("/alumni/:id/documents", alumniHandler.CreateDocument)
 	auth.POST("/alumni/:id/pickups", alumniHandler.CreatePickup)
+	// Buku Induk: Achievements
+	auth.GET("/alumni/:id/achievements", alumniHandler.GetAchievements)
+	auth.POST("/alumni/:id/achievements", alumniHandler.CreateAchievement)
+	auth.PUT("/alumni/achievements/:achId", alumniHandler.UpdateAchievement)
+	auth.DELETE("/alumni/achievements/:achId", alumniHandler.DeleteAchievement)
+	// Buku Induk: Extracurriculars
+	auth.GET("/alumni/:id/extracurriculars", alumniHandler.GetExtracurriculars)
+	auth.POST("/alumni/:id/extracurriculars", alumniHandler.CreateExtracurricular)
+	auth.PUT("/alumni/extracurriculars/:exId", alumniHandler.UpdateExtracurricular)
+	auth.DELETE("/alumni/extracurriculars/:exId", alumniHandler.DeleteExtracurricular)
 
-	// Mutasi Admin Pages (Explicitly prefixed /admin/)
-	auth.GET("/admin/mutasi", mutasiHandler.GetMutasiRequests)
-	auth.PATCH("/admin/mutasi/:id", mutasiHandler.UpdateMutasiRequest)
-	auth.GET("/admin/mutasi-keluar", mutasiHandler.GetMutasiOutRequests)
-	auth.GET("/admin/mutasi-keluar/:id/check", mutasiHandler.CheckStudentLiability)
-	auth.PATCH("/admin/mutasi-keluar/:id", mutasiHandler.UpdateMutasiOutStatus)
+	// Mutasi Admin Pages (admin only)
+	adminGroup.GET("/admin/mutasi", mutasiHandler.GetMutasiRequests)
+	adminGroup.PATCH("/admin/mutasi/:id", mutasiHandler.UpdateMutasiRequest)
+	adminGroup.GET("/admin/mutasi-keluar", mutasiHandler.GetMutasiOutRequests)
+	adminGroup.GET("/admin/mutasi-keluar/:id/check", mutasiHandler.CheckStudentLiability)
+	adminGroup.PATCH("/admin/mutasi-keluar/:id", mutasiHandler.UpdateMutasiOutStatus)
 
 	// Notifications (Protected)
 	notifs := server.Group("/api/notifications")
@@ -592,8 +782,10 @@ func main() {
 	profile.PATCH("", userHandler.UpdateProfile)
 	profile.GET("/logs", userHandler.GetProfileLogs)
 
-	// Upload routes (General)
-	server.POST("/api/upload", uploadHandler.GeneralUpload)
+	// Upload routes
+	auth.POST("/upload", uploadHandler.GeneralUpload)
+	// SPMB upload is public (user is not logged in after registration).
+	// Security: only accepts files for a specific registrant ID (cuid2, unguessable).
 	server.POST("/api/spmb/upload", spmbHandler.UploadDocuments)
 
 	// Static file server
@@ -737,9 +929,11 @@ func serveEmbeddedFile(c echo.Context, fsys http.FileSystem, name string) error 
 	// Set content type based on extension
 	ext := filepath.Ext(name)
 	contentType := "text/plain"
+	cacheControl := "public, max-age=31536000, immutable" // 1 year for hashed assets
 	switch ext {
 	case ".html":
 		contentType = "text/html"
+		cacheControl = "public, max-age=0, must-revalidate" // HTML must be fresh
 	case ".js", ".mjs":
 		contentType = "application/javascript"
 	case ".css":
@@ -750,10 +944,16 @@ func serveEmbeddedFile(c echo.Context, fsys http.FileSystem, name string) error 
 		contentType = "image/png"
 	case ".jpg", ".jpeg":
 		contentType = "image/jpeg"
+	case ".webp":
+		contentType = "image/webp"
 	case ".json":
 		contentType = "application/json"
+		cacheControl = "public, max-age=3600" // 1 hour for JSON
+	case ".ico":
+		contentType = "image/x-icon"
 	}
 	c.Response().Header().Set(echo.HeaderContentType, contentType)
+	c.Response().Header().Set(echo.HeaderCacheControl, cacheControl)
 
 	http.ServeContent(c.Response(), c.Request(), name, d.ModTime(), seeker)
 	return nil
@@ -784,6 +984,7 @@ func serveUploadFile(c echo.Context, roots []string) error {
 		fullPath := filepath.Join(root, relPath)
 		info, err := os.Stat(fullPath)
 		if err == nil && !info.IsDir() {
+			c.Response().Header().Set(echo.HeaderCacheControl, "public, max-age=86400") // 1 day for uploads
 			return c.File(fullPath)
 		}
 	}
@@ -818,6 +1019,10 @@ func RepairDatabase(db *sql.DB, logger echo.Logger) {
 		{Table: "students", Name: "status", SQLType: "TEXT", Default: "'active'"},
 		{Table: "students", Name: "meta_data", SQLType: "TEXT"},
 		{Table: "students", Name: "is_active", SQLType: "INTEGER", Default: "1"},
+
+		// library_loans
+		{Table: "library_loans", Name: "status", SQLType: "TEXT", Default: "'borrowed'"},
+		{Table: "library_loans", Name: "overdue_at", SQLType: "INTEGER"},
 
 		// library_visits
 		{Table: "library_visits", Name: "time", SQLType: "TEXT"},
@@ -954,6 +1159,37 @@ func RepairDatabase(db *sql.DB, logger echo.Logger) {
 		{Table: "spmb_registrants", Name: "created_at", SQLType: "INTEGER"},
 		{Table: "spmb_registrants", Name: "updated_at", SQLType: "INTEGER"},
 
+		// alumni buku induk
+		{Table: "alumni", Name: "nik", SQLType: "TEXT"},
+		{Table: "alumni", Name: "religion", SQLType: "TEXT"},
+		{Table: "alumni", Name: "address", SQLType: "TEXT"},
+		{Table: "alumni", Name: "enrolled_year", SQLType: "TEXT"},
+		{Table: "alumni", Name: "previous_school", SQLType: "TEXT"},
+		{Table: "alumni", Name: "father_name", SQLType: "TEXT"},
+		{Table: "alumni", Name: "father_nik", SQLType: "TEXT"},
+		{Table: "alumni", Name: "father_education", SQLType: "TEXT"},
+		{Table: "alumni", Name: "father_job", SQLType: "TEXT"},
+		{Table: "alumni", Name: "mother_name", SQLType: "TEXT"},
+		{Table: "alumni", Name: "mother_nik", SQLType: "TEXT"},
+		{Table: "alumni", Name: "mother_education", SQLType: "TEXT"},
+		{Table: "alumni", Name: "mother_job", SQLType: "TEXT"},
+		{Table: "alumni", Name: "guardian_name", SQLType: "TEXT"},
+		{Table: "alumni", Name: "guardian_nik", SQLType: "TEXT"},
+		{Table: "alumni", Name: "guardian_relation", SQLType: "TEXT"},
+		{Table: "alumni", Name: "guardian_job", SQLType: "TEXT"},
+		{Table: "alumni", Name: "guardian_phone", SQLType: "TEXT"},
+		{Table: "alumni", Name: "sibling_count", SQLType: "INTEGER", Default: "0"},
+		{Table: "alumni", Name: "child_order", SQLType: "INTEGER", Default: "0"},
+		{Table: "alumni", Name: "height", SQLType: "INTEGER", Default: "0"},
+		{Table: "alumni", Name: "weight", SQLType: "INTEGER", Default: "0"},
+		{Table: "alumni", Name: "blood_type", SQLType: "TEXT"},
+		{Table: "alumni", Name: "medical_notes", SQLType: "TEXT"},
+		{Table: "alumni", Name: "special_needs", SQLType: "TEXT"},
+		{Table: "alumni", Name: "current_occupation", SQLType: "TEXT"},
+		{Table: "alumni", Name: "current_institution", SQLType: "TEXT"},
+		{Table: "alumni", Name: "last_education_level", SQLType: "TEXT"},
+		{Table: "alumni", Name: "final_grade_avg", SQLType: "REAL"},
+
 		// content management
 		{Table: "gallery", Name: "public_id", SQLType: "TEXT"},
 		{Table: "gallery", Name: "updated_at", SQLType: "INTEGER"},
@@ -1073,4 +1309,28 @@ func RepairDatabase(db *sql.DB, logger echo.Logger) {
 	`); err != nil {
 		logger.Warnf("Failed to ensure library_qr_batches table: %v", err)
 	}
+}
+
+func SeedDefaultAdmin(db *sql.DB, logger echo.Logger) {
+	var count int
+	if err := db.QueryRow("SELECT COUNT(*) FROM users").Scan(&count); err != nil || count > 0 {
+		return
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
+	if err != nil {
+		logger.Warnf("Failed to hash admin password: %v", err)
+		return
+	}
+
+	id := cuid2.Generate()
+	now := time.Now().UnixMilli()
+	_, err = db.Exec(`INSERT OR IGNORE INTO users (id, email, username, password_hash, role, name, full_name, is_active, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+		id, "admin@sekolah.sch.id", "admin", string(hash), "superadmin", "Administrator", "Administrator Sekolah", now, now)
+	if err != nil {
+		logger.Warnf("Failed to seed admin user: %v", err)
+		return
+	}
+	logger.Info("Default admin user created (admin@sekolah.sch.id / admin123)")
 }

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -26,13 +27,25 @@ func NewMutasiHandler(repo *repository.MutasiRepository, lib *repository.Library
 }
 
 func (h *MutasiHandler) GetMutasiRequests(c echo.Context) error {
-	list, err := h.Repo.GetMutasiRequests()
+	page, _ := strconv.Atoi(c.QueryParam("page"))
+	perPage, _ := strconv.Atoi(c.QueryParam("perPage"))
+
+	list, total, err := h.Repo.GetMutasiRequests(page, perPage)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 {
+		perPage = 20
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
 		"data":    list,
+		"total":   total,
+		"page":    page,
+		"perPage": perPage,
 	})
 }
 
@@ -89,13 +102,25 @@ func (h *MutasiHandler) UpdateMutasiRequest(c echo.Context) error {
 }
 
 func (h *MutasiHandler) GetMutasiOutRequests(c echo.Context) error {
-	list, err := h.Repo.GetMutasiOutRequests()
+	page, _ := strconv.Atoi(c.QueryParam("page"))
+	perPage, _ := strconv.Atoi(c.QueryParam("perPage"))
+
+	list, total, err := h.Repo.GetMutasiOutRequests(page, perPage)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 {
+		perPage = 20
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
 		"data":    list,
+		"total":   total,
+		"page":    page,
+		"perPage": perPage,
 	})
 }
 

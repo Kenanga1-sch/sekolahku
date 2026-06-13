@@ -63,9 +63,13 @@ export function RecipientSelector({
   };
 
   const searchItems = async (query: string) => {
-    const endpoint = targetType === "STUDENT" ? "/api/students/simple-search" : "/api/master/employees";
-    const data: any = await goGet(`${endpoint}?q=${query}`);
-    setSearchList(normalizeList(data));
+    try {
+      const endpoint = targetType === "STUDENT" ? "/api/students/simple-search" : "/api/master/employees";
+      const data: any = await goGet(`${endpoint}?q=${query}`);
+      setSearchList(normalizeList(data));
+    } catch (e) {
+      setSearchList([]);
+    }
   };
 
   const fetchClassStudents = async (className: string) => {
@@ -200,7 +204,14 @@ export function RecipientSelector({
                         onValueChange={searchItems}
                       />
                       <CommandList>
-                        {searchList.length === 0 && <CommandEmpty>Tidak ditemukan.</CommandEmpty>}
+                        {searchList.length === 0 && (
+                          <CommandEmpty>
+                            <span>Data tidak ditemukan</span>
+                            <span className="block text-xs text-muted-foreground mt-1">
+                              {targetType === "STUDENT" ? "Import siswa terlebih dahulu di menu Peserta Didik." : "Tambahkan data Guru/Staff di menu Admin > GTK."}
+                            </span>
+                          </CommandEmpty>
+                        )}
                         {searchList.map((item) => (
                           <CommandItem key={item.id} value={item.id} onSelect={() => handleSelect(item)}>
                             <Check

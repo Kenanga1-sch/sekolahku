@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sekolahku/go-backend/internal/models"
@@ -18,11 +19,20 @@ func NewLoanHandler(repo *repository.LoanRepository) *LoanHandler {
 
 func (h *LoanHandler) GetLoans(c echo.Context) error {
 	borrowerType := c.QueryParam("type")
-	list, err := h.Repo.GetLoans(borrowerType)
+	page, _ := strconv.Atoi(c.QueryParam("page"))
+	perPage, _ := strconv.Atoi(c.QueryParam("perPage"))
+
+	list, total, err := h.Repo.GetLoans(borrowerType, page, perPage)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
 	}
-	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": list})
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 {
+		perPage = 20
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": list, "total": total, "page": page, "perPage": perPage})
 }
 
 func (h *LoanHandler) CreateLoan(c echo.Context) error {

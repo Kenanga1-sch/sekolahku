@@ -35,8 +35,8 @@ func (h *AcademicAdvHandler) RecordQRScan(c echo.Context) error {
 		return c.JSON(statusCode, map[string]string{"error": err.Error()})
 	}
 
-	res["message"] = "Attendance recorded successfully"
-	res["success"] = true
+	res.Message = "Attendance recorded successfully"
+	res.Success = true
 	return c.JSON(http.StatusOK, res)
 }
 

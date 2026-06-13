@@ -14,17 +14,19 @@ type GeneratedLetter struct {
 }
 
 type LetterTemplate struct {
-	ID          string     `json:"id"`
-	Name        string     `json:"name"`
-	Category    string     `json:"category"`
-	Content     *string    `json:"content"`
-	FilePath    *string    `json:"filePath"`
-	Type        string     `json:"type"` // EDITOR or UPLOAD
-	PaperSize   string     `json:"paperSize"`
-	Orientation string     `json:"orientation"`
-	IsActive    bool       `json:"isActive"`
-	CreatedAt   *time.Time `json:"createdAt"`
-	UpdatedAt   *time.Time `json:"updatedAt"`
+	ID                 string     `json:"id"`
+	Name               string     `json:"name"`
+	Category           string     `json:"category"`
+	Content            *string    `json:"content"`
+	FilePath           *string    `json:"filePath"`
+	Type               string     `json:"type"` // EDITOR or UPLOAD
+	PaperSize          string     `json:"paperSize"`
+	Orientation        string     `json:"orientation"`
+	ClassificationCode *string    `json:"classificationCode"`
+	LetterNumberFormat *string    `json:"letterNumberFormat"`
+	IsActive           bool       `json:"isActive"`
+	CreatedAt          *time.Time `json:"createdAt"`
+	UpdatedAt          *time.Time `json:"updatedAt"`
 }
 
 type LetterTemplateResponse struct {
@@ -90,6 +92,12 @@ type SuratKeluar struct {
 	FilePath           *string           `json:"filePath"`
 	FinalFilePath      *string           `json:"finalFilePath"`
 	Status             string            `json:"status"`
+	AgendaNumber       *string           `json:"agendaNumber"`
+	VerifiedBy         *string           `json:"verifiedBy"`
+	VerifiedAt         *int64            `json:"verifiedAt"`
+	DigitalSignature   *string           `json:"digitalSignature"`
+	RevisionNote      *string           `json:"revisionNote"`
+	TemplateID         *string           `json:"templateId"`
 	CreatedBy          *string           `json:"createdBy"`
 	Creator            *User             `json:"creator,omitempty"`
 	CreatedAt          *time.Time        `json:"createdAt"`

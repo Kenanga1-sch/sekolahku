@@ -18,20 +18,31 @@ func NewGalleryRepository(db *sql.DB) *GalleryRepository {
 	return &GalleryRepository{DB: db}
 }
 
-func (r *GalleryRepository) GetGallery(category string) ([]models.GalleryItem, error) {
-	sqlQuery := "SELECT id, title, description, category, image_url, public_id, created_at, updated_at FROM gallery WHERE 1=1"
-	args := []interface{}{}
+func (r *GalleryRepository) GetGallery(category string, page, perPage int) ([]models.GalleryItem, int, error) {
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 || perPage > 100 {
+		perPage = 20
+	}
+	offset := (page - 1) * perPage
 
+	where := "1=1"
+	args := []interface{}{}
 	if category != "" && category != "all" {
-		sqlQuery += " AND category = ?"
+		where += " AND category = ?"
 		args = append(args, category)
 	}
 
-	sqlQuery += " ORDER BY created_at DESC"
+	var total int
+	r.DB.QueryRow("SELECT COUNT(*) FROM gallery WHERE "+where, args...).Scan(&total)
 
-	rows, err := r.DB.Query(sqlQuery, args...)
+	listArgs := append(args, perPage, offset)
+	sqlQuery := "SELECT id, title, description, category, image_url, public_id, created_at, updated_at FROM gallery WHERE " + where + " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+
+	rows, err := r.DB.Query(sqlQuery, listArgs...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -43,7 +54,7 @@ func (r *GalleryRepository) GetGallery(category string) ([]models.GalleryItem, e
 
 		err := rows.Scan(&item.ID, &title, &desc, &category, &item.ImageUrl, &pubID, &crAt, &upAt)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		item.Title = "Foto"
@@ -60,16 +71,15 @@ func (r *GalleryRepository) GetGallery(category string) ([]models.GalleryItem, e
 		if pubID.Valid {
 			item.PublicID = &pubID.String
 		}
-		cTime := ToTime(crAt)
-		item.CreatedAt = &cTime
-		uTime := ToTime(upAt)
-		item.UpdatedAt = &uTime
+		item.CreatedAt = SafeTime(crAt)
+		item.UpdatedAt = SafeTime(upAt)
+
 		items = append(items, item)
 	}
 	if items == nil {
 		items = []models.GalleryItem{}
 	}
-	return items, nil
+	return items, total, nil
 }
 
 func (r *GalleryRepository) GetStats() (*models.GalleryStats, error) {

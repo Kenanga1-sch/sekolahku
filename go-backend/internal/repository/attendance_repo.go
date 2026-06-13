@@ -127,28 +127,36 @@ func (r *AttendanceRepository) GetStats() (*models.AttendanceStats, error) {
 	return &stats, nil
 }
 
-func (r *AttendanceRepository) GetSessions(date, status string) ([]models.AttendanceSession, error) {
-	query := `
-		SELECT id, date, class_name, COALESCE(teacher_name, ''), status, COALESCE(notes, ''), created_at
-		FROM attendance_sessions
-		WHERE 1=1
-	`
+func (r *AttendanceRepository) GetSessions(date, status string, page, perPage int) ([]models.AttendanceSession, int, error) {
+	where := "1=1"
 	args := []interface{}{}
 
 	if date != "" {
-		query += " AND date = ?"
+		where += " AND date = ?"
 		args = append(args, date)
 	}
 	if status != "" {
-		query += " AND status = ?"
+		where += " AND status = ?"
 		args = append(args, status)
 	}
 
-	query += " ORDER BY date DESC, created_at DESC"
+	var total int
+	r.DB.QueryRow("SELECT COUNT(*) FROM attendance_sessions WHERE "+where, args...).Scan(&total)
 
-	rows, err := r.DB.Query(query, args...)
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 || perPage > 100 {
+		perPage = 20
+	}
+	offset := (page - 1) * perPage
+
+	listArgs := append(args, perPage, offset)
+	query := "SELECT id, date, class_name, COALESCE(teacher_name, ''), status, COALESCE(notes, ''), created_at FROM attendance_sessions WHERE " + where + " ORDER BY date DESC, created_at DESC LIMIT ? OFFSET ?"
+
+	rows, err := r.DB.Query(query, listArgs...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -157,7 +165,7 @@ func (r *AttendanceRepository) GetSessions(date, status string) ([]models.Attend
 		var s models.AttendanceSession
 		var crAt sql.NullInt64
 		if err := rows.Scan(&s.ID, &s.Date, &s.ClassName, &s.TeacherName, &s.Status, &s.Notes, &crAt); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		cTime := ToTime(crAt)
@@ -166,7 +174,7 @@ func (r *AttendanceRepository) GetSessions(date, status string) ([]models.Attend
 		sessions = append(sessions, s)
 	}
 
-	return sessions, nil
+	return sessions, total, nil
 }
 
 func (r *AttendanceRepository) CreateSession(req models.CreateAttendanceSessionRequest) (string, error) {
@@ -473,7 +481,7 @@ func validateStudentForSession(tx *sql.Tx, studentID, sessionClass string) error
 	return nil
 }
 
-func (r *AttendanceRepository) RecordQRScan(req models.AttendanceScanRequest) (map[string]interface{}, error) {
+func (r *AttendanceRepository) RecordQRScan(req models.AttendanceScanRequest) (*models.ScanResult, error) {
 	status := normalizeAttendanceStatus(req.Status)
 	if !isValidAttendanceStatus(status) {
 		return nil, errors.New("Status presensi tidak valid")
@@ -505,6 +513,7 @@ func (r *AttendanceRepository) RecordQRScan(req models.AttendanceScanRequest) (m
 		return nil, errors.New("Siswa belum memiliki kelas")
 	}
 
+	studentPayload := attendanceStudentPayload(studentID, studentName, className, photo)
 	sessionID := ""
 	if req.SessionID != nil && strings.TrimSpace(*req.SessionID) != "" {
 		sessionID = strings.TrimSpace(*req.SessionID)
@@ -513,20 +522,20 @@ func (r *AttendanceRepository) RecordQRScan(req models.AttendanceScanRequest) (m
 			return nil, err
 		}
 		if sessionClass != className {
-			return map[string]interface{}{"student": attendanceStudentPayload(studentID, studentName, className, photo)}, fmt.Errorf("Siswa berada di kelas %s, bukan kelas %s", className, sessionClass)
+			return &models.ScanResult{Student: studentPayload}, fmt.Errorf("Siswa berada di kelas %s, bukan kelas %s", className, sessionClass)
 		}
 	} else {
 		today := time.Now().Format("2006-01-02")
 		err = tx.QueryRow("SELECT id FROM attendance_sessions WHERE date = ? AND class_name = ? AND status = 'open'", today, className).Scan(&sessionID)
 		if err != nil {
-			return map[string]interface{}{"student": attendanceStudentPayload(studentID, studentName, className, photo)}, errors.New("Tidak ada sesi aktif untuk kelas ini")
+			return &models.ScanResult{Student: studentPayload}, errors.New("Tidak ada sesi aktif untuk kelas ini")
 		}
 	}
 
 	var existingID string
 	err = tx.QueryRow("SELECT id FROM attendance_records WHERE session_id = ? AND student_id = ?", sessionID, studentID).Scan(&existingID)
 	if err == nil {
-		return map[string]interface{}{"student": attendanceStudentPayload(studentID, studentName, className, photo)}, errors.New("Siswa sudah diabsen")
+		return &models.ScanResult{Student: studentPayload}, errors.New("Siswa sudah diabsen")
 	}
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
@@ -548,7 +557,7 @@ func (r *AttendanceRepository) RecordQRScan(req models.AttendanceScanRequest) (m
 		return nil, err
 	}
 
-	return map[string]interface{}{"student": attendanceStudentPayload(studentID, studentName, className, photo)}, nil
+	return &models.ScanResult{Student: studentPayload}, nil
 }
 
 func attendanceStudentPayload(id, fullName, className string, photo sql.NullString) map[string]interface{} {

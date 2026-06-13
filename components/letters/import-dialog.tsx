@@ -4,7 +4,9 @@ import { useState, useRef } from "react";
 import { 
   Upload, 
   FileText,
-  X
+  X,
+  Copy,
+  Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +43,13 @@ export function ImportDialog({ open, onOpenChange, onImported }: ImportDialogPro
   const [extractedVars, setExtractedVars] = useState<string[]>([]);
   
   const [importing, setImporting] = useState(false);
+  const [copiedVar, setCopiedVar] = useState<string | null>(null);
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedVar(text);
+    setTimeout(() => setCopiedVar(null), 1500);
+  };
 
   // --- Actions ---
 
@@ -156,8 +165,21 @@ export function ImportDialog({ open, onOpenChange, onImported }: ImportDialogPro
                                 <h4 className="text-sm font-medium text-muted-foreground">{category}</h4>
                                 <ul className="space-y-1">
                                     {items.map(item => (
-                                        <li key={item.value} className="text-xs flex flex-col p-2 bg-zinc-50 dark:bg-zinc-900 rounded border">
-                                            <code className="font-mono text-blue-600 font-bold">{item.value}</code>
+                                        <li 
+                                            key={item.value} 
+                                            className="text-xs flex flex-col p-2 bg-zinc-50 dark:bg-zinc-900 rounded border cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors relative"
+                                            onClick={() => copyToClipboard(item.value)}
+                                            title="Klik untuk copy"
+                                        >
+                                            <div className="flex items-center justify-between gap-2">
+                                                <code className="font-mono text-blue-600 font-bold flex-1 truncate">{item.value}</code>
+                                                {copiedVar === item.value && (
+                                                    <span className="flex items-center gap-1 text-green-600 dark:text-green-400 text-[10px] shrink-0">
+                                                        <Check className="h-3 w-3" />
+                                                        Tersalin
+                                                    </span>
+                                                )}
+                                            </div>
                                             <span className="text-muted-foreground">{item.label}</span>
                                         </li>
                                     ))}

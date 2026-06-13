@@ -47,7 +47,7 @@ func normalizeISBN(value string) string {
 	return normalized
 }
 
-func lookupISBNOnline(isbn string) (map[string]interface{}, error) {
+func lookupISBNOnline(isbn string) (*isbnLookupResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 
@@ -127,22 +127,7 @@ func lookupISBNOnline(isbn string) (map[string]interface{}, error) {
 		merged.DDCCategory = merged.Category
 	}
 
-	return map[string]interface{}{
-		"title":          merged.Title,
-		"author":         merged.Author,
-		"publisher":      merged.Publisher,
-		"year":           merged.Year,
-		"isbn":           merged.ISBN,
-		"cover":          merged.CoverURL,
-		"coverUrl":       merged.CoverURL,
-		"subjects":       merged.Subjects,
-		"ddcCategory":    merged.DDCCategory,
-		"category":       merged.Category,
-		"description":    merged.Description,
-		"localFound":     false,
-		"totalExemplars": 0,
-		"sources":        merged.Sources,
-	}, nil
+	return merged, nil
 }
 
 func lookupISBNPerpusnasPublic(ctx context.Context, isbn string) (*isbnLookupResult, error) {
