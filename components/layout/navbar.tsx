@@ -29,13 +29,12 @@ const navLinks = [
   { href: "/", label: "Beranda" },
   {
     label: "Profil",
-    children: [
-      { href: "/profil/visi-misi", label: "Visi & Misi" },
-      { href: "/profil/sejarah", label: "Sejarah" },
-      { href: "/profil/guru-staff", label: "Guru & Staff" },
-      { href: "/kurikulum", label: "Kurikulum & Ekskul" },
-      { href: "/galeri", label: "Galeri Foto" },
-    ],
+      children: [
+        { href: "/profil/visi-misi", label: "Visi & Misi" },
+        { href: "/profil/sejarah", label: "Sejarah" },
+        { href: "/kurikulum", label: "Kurikulum & Ekskul" },
+        { href: "/galeri", label: "Galeri Foto" },
+      ],
   },
   { href: "/berita", label: "Berita" },
   {

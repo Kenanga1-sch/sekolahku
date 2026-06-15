@@ -76,3 +76,11 @@ backups/db/
 # local binaries and migration helpers
 *.exe
 migrate*.exe
+
+# build artifacts and temp
+/dist/
+deploy.tar.gz
+.vercel-tmp/
+test_login.json
+tmp_test.tsx
+go-backend/query_main.go

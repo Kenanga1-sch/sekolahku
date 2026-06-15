@@ -15,6 +15,11 @@ type Employee struct {
 	EmploymentStatus *string `json:"employmentStatus"`
 	JobType          *string `json:"jobType"`
 	JoinDate         *string `json:"joinDate"`
+	Category         *string `json:"category"`
+	Degree           *string `json:"degree"`
+	Quote            *string `json:"quote"`
+	PhotoUrl         *string `json:"photoUrl"`
+	DisplayOrder     *int    `json:"displayOrder"`
 	UserID           *string `json:"userId"`
 	EmployeeDetailID *string `json:"employeeDetailId"`
 }
@@ -42,6 +47,11 @@ type CreateEmployeeRequest struct {
 	EmploymentStatus *string `json:"employmentStatus,omitempty"`
 	JobType          *string `json:"jobType,omitempty"`
 	JoinDate         *string `json:"joinDate,omitempty"`
+	Category         *string `json:"category,omitempty"`
+	Degree           *string `json:"degree,omitempty"`
+	Quote            *string `json:"quote,omitempty"`
+	PhotoUrl         *string `json:"photoUrl,omitempty"`
+	DisplayOrder     *int    `json:"displayOrder,omitempty"`
 }
 
 type StaffProfile struct {

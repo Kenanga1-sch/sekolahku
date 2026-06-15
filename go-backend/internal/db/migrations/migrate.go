@@ -59,10 +59,17 @@ func RunMigrations(db *sql.DB) error {
 			return err
 		}
 
-		// Execute SQL
-		_, err = db.Exec(string(content))
-		if err != nil {
-			return fmt.Errorf("failed migration %s: %w", fName, err)
+		// Execute SQL (split by semicolon for multiple statements)
+		statements := strings.Split(string(content), ";")
+		for _, stmt := range statements {
+			stmt = strings.TrimSpace(stmt)
+			if stmt == "" {
+				continue
+			}
+			_, err = db.Exec(stmt)
+			if err != nil {
+				return fmt.Errorf("failed migration %s: %w", fName, err)
+			}
 		}
 
 		// Record success

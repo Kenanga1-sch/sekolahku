@@ -70,6 +70,9 @@ func main() {
 		{Table: "employee_details", Name: "category", SQLType: "TEXT"},
 		{Table: "employee_details", Name: "degree", SQLType: "TEXT"},
 		{Table: "employee_details", Name: "quote", SQLType: "TEXT"},
+		{Table: "employee_details", Name: "photo_url", SQLType: "TEXT"},
+		{Table: "employee_details", Name: "display_order", SQLType: "INTEGER", Default: "0"},
+		{Table: "employee_details", Name: "name_without_degree", SQLType: "TEXT"},
 
 		// spmb
 		{Table: "spmb_periods", Name: "year", SQLType: "TEXT", Default: "'2026'"},

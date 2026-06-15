@@ -19,7 +19,13 @@ import {
   Trash2,
   Merge,
   Split,
-  MoreVertical
+  MoreVertical,
+  Type,
+  Highlighter,
+  Palette,
+  Minus,
+  CheckSquare,
+  Image as ImageIcon
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -250,8 +256,62 @@ export function EditorSidebar({
                             icon={ListOrdered} 
                             label="Ordered List" 
                           />
+                          <FormatButton 
+                            active={editor.isActive('taskList')} 
+                            onClick={() => editor.chain().focus().toggleTaskList().run()} 
+                            icon={CheckSquare} 
+                            label="Task List" 
+                          />
                       </div>
                   </div>
+
+                  <Separator />
+
+                  {/* Font & Color */}
+                  <div className="space-y-4">
+                      <Label className="text-xs uppercase text-muted-foreground font-bold">Font & Warna</Label>
+                      <div className="space-y-1">
+                          <span className="text-xs">Font</span>
+                          <Select value={editor.getAttributes('textStyle').fontFamily || ''} onValueChange={(v) => editor.chain().focus().setFontFamily(v).run()}>
+                            <SelectTrigger className="h-8 text-xs">
+                                <SelectValue placeholder="Default" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="serif">Serif</SelectItem>
+                                <SelectItem value="sans-serif">Sans Serif</SelectItem>
+                                <SelectItem value="monospace">Monospace</SelectItem>
+                                <SelectItem value="Times New Roman, Times, serif">Times New Roman</SelectItem>
+                                <SelectItem value="Arial, Helvetica, sans-serif">Arial</SelectItem>
+                                <SelectItem value="Courier New, monospace">Courier New</SelectItem>
+                                <SelectItem value="Georgia, serif">Georgia</SelectItem>
+                                <SelectItem value="Verdana, sans-serif">Verdana</SelectItem>
+                                <SelectItem value="Tahoma, Geneva, sans-serif">Tahoma</SelectItem>
+                            </SelectContent>
+                          </Select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                          <div className="space-y-1">
+                              <span className="text-xs">Warna Teks</span>
+                              <input
+                                type="color"
+                                value={editor.getAttributes('textStyle').color || '#000000'}
+                                onChange={(e) => editor.chain().focus().setColor(e.target.value).run()}
+                                className="w-full h-8 rounded cursor-pointer border"
+                              />
+                          </div>
+                          <div className="space-y-1">
+                              <span className="text-xs">Highlight</span>
+                              <input
+                                type="color"
+                                value={editor.getAttributes('highlight').color || '#FFFF00'}
+                                onChange={(e) => editor.chain().focus().toggleHighlight({ color: e.target.value }).run()}
+                                className="w-full h-8 rounded cursor-pointer border"
+                              />
+                          </div>
+                      </div>
+                  </div>
+
+                  <Separator />
                   
                   <Separator />
 
@@ -299,26 +359,48 @@ export function EditorSidebar({
     
                   <Separator />
                    
-                  {/* Insert Objects */}
-                  <div className="space-y-4">
-                      <Label className="text-xs uppercase text-muted-foreground font-bold">Insert</Label>
-                       <div className="grid grid-cols-2 gap-2">
-                          <Button variant="outline" size="sm" onClick={() => {
-                              editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
-                          }}>
-                              <TableIcon className="h-4 w-4 mr-2" /> Tabel
-                          </Button>
+                   {/* Insert Objects */}
+                   <div className="space-y-4">
+                       <Label className="text-xs uppercase text-muted-foreground font-bold">Insert</Label>
+                        <div className="grid grid-cols-2 gap-2">
                            <Button variant="outline" size="sm" onClick={() => {
-                              const url = window.prompt('URL Gambar (Pastikan public URL):')
-                              if (url) editor.chain().focus().setImage({ src: url }).run()
-                          }}>
-                              Gambar
-                          </Button>
-                          <Button variant="outline" size="sm" className="col-span-2 border-blue-200 hover:bg-blue-50 hover:border-blue-300 text-blue-700" onClick={insertKopSurat}>
-                              <School className="h-4 w-4 mr-2" /> Insert Kop Surat
-                          </Button>
-                       </div>
-                   </div>
+                               editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+                           }}>
+                               <TableIcon className="h-4 w-4 mr-2" /> Tabel
+                           </Button>
+                            <Button variant="outline" size="sm" onClick={() => {
+                               const input = document.createElement('input');
+                               input.type = 'file';
+                               input.accept = 'image/*';
+                               input.onchange = (e) => {
+                                   const file = (e.target as HTMLInputElement).files?.[0];
+                                   if (file) {
+                                       const reader = new FileReader();
+                                       reader.onload = () => {
+                                           editor.chain().focus().setImage({ src: reader.result as string }).run();
+                                       };
+                                       reader.readAsDataURL(file);
+                                   }
+                               };
+                               input.click();
+                           }}>
+                               <ImageIcon className="h-4 w-4 mr-2" /> Gambar
+                           </Button>
+                           <Button variant="outline" size="sm" onClick={() => {
+                               editor.chain().focus().setHorizontalRule().run()
+                           }}>
+                               <Minus className="h-4 w-4 mr-2" /> Garis
+                           </Button>
+                           <Button variant="outline" size="sm" onClick={() => {
+                               editor.chain().focus().toggleTaskList().run()
+                           }}>
+                               <CheckSquare className="h-4 w-4 mr-2" /> Checklist
+                           </Button>
+                           <Button variant="outline" size="sm" className="col-span-2 border-blue-200 hover:bg-blue-50 hover:border-blue-300 text-blue-700" onClick={insertKopSurat}>
+                               <School className="h-4 w-4 mr-2" /> Insert Kop Surat
+                           </Button>
+                        </div>
+                    </div>
                 </>
               )}
           </TabsContent>

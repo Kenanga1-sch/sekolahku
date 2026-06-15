@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -12,6 +12,15 @@ import { Table } from '@tiptap/extension-table'
 import { TableCell } from '@tiptap/extension-table-cell'
 import { TableHeader } from '@tiptap/extension-table-header'
 import { TableRow } from '@tiptap/extension-table-row'
+import { Highlight } from "@tiptap/extension-highlight";
+import { Placeholder } from "@tiptap/extension-placeholder";
+import { Typography } from "@tiptap/extension-typography";
+import { TaskList } from "@tiptap/extension-task-list";
+import { TaskItem } from "@tiptap/extension-task-item";
+import { TextStyle } from "@tiptap/extension-text-style";
+import { FontFamily } from "@tiptap/extension-font-family";
+import { Color } from "@tiptap/extension-color";
+import { DragAndDrop } from "@/lib/tiptap-drag-and-drop";
 
 import { toast } from "sonner";
 import { EditorToolbar } from "@/components/letters/editor-toolbar";
@@ -27,6 +36,57 @@ import {
 import { FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { goGet, goPost, goPatch } from "@/lib/api-client";
+
+function handlePaste(view: any, event: ClipboardEvent, _slice: any) {
+  if (!event.clipboardData) return false;
+  const items = Array.from(event.clipboardData.items);
+  const hasImages = items.some(item => item.type.startsWith("image/"));
+  const hasFiles = Array.from(event.clipboardData.files).length > 0;
+
+  if (hasImages || hasFiles) {
+    event.preventDefault();
+    
+    items.forEach(item => {
+      if (item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            view.dispatch(view.state.tr.replaceSelectionWith(
+              view.state.schema.nodes.image.create({ src: reader.result as string })
+            ));
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+    });
+    return true;
+  }
+
+  return false;
+}
+
+function handleDrop(view: any, event: DragEvent, _slice: any, _moved: boolean) {
+  if (!event.dataTransfer) return false;
+  
+  const files = Array.from(event.dataTransfer.files);
+  if (files.length === 0) return false;
+
+  event.preventDefault();
+  
+  files.forEach(file => {
+    if (file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        view.dispatch(view.state.tr.replaceSelectionWith(
+          view.state.schema.nodes.image.create({ src: reader.result as string })
+        ));
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+  return true;
+}
 
 export default function TemplateEditorPage() {
   const router = useRouter();
@@ -47,24 +107,58 @@ export default function TemplateEditorPage() {
   // Editor Setup
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        codeBlock: false,
+        dropcursor: { width: 2, color: "#3b82f6" },
+      }),
       Underline,
-      TextAlign.configure({ types: ["heading", "paragraph"] }),
-      LinkExtension,
-      ImageExtension,
-      Table.configure({ resizable: true }),
+      TextAlign.configure({ types: ["heading", "paragraph", "listItem", "tableCell"] }),
+      LinkExtension.configure({
+        openOnClick: false,
+        HTMLAttributes: { class: "text-blue-600 underline" },
+      }),
+      ImageExtension.configure({
+        inline: false,
+        allowBase64: true,
+        HTMLAttributes: { class: "max-w-full h-auto rounded border" },
+      }),
+      Table.configure({ resizable: true, HTMLAttributes: { class: "border-collapse w-full" } }),
       TableRow,
       TableHeader,
       TableCell,
+      Highlight.configure({ multicolor: true }),
+      Placeholder.configure({
+        placeholder: ({ node }) => {
+          if (node.type.name === "heading") return `Heading ${node.attrs.level}`;
+          return "Ketik isi surat di sini...";
+        },
+        emptyEditorClass: "is-editor-empty",
+        emptyNodeClass: "is-empty",
+      }),
+      Typography,
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      TextStyle,
+      FontFamily.configure({
+        types: ["textStyle"],
+      }),
+      Color.configure({ types: ["textStyle"] }),
+      DragAndDrop,
     ],
     content: "<p>Ketik isi surat di sini...</p>",
     editorProps: {
       attributes: {
         class: "prose prose-sm xl:prose-base focus:outline-none min-h-[500px] w-full max-w-none p-8 bg-white text-black shadow-sm border mx-auto",
-        style: "width: 210mm; min-height: 297mm;" // Initial A4
+        style: "width: 210mm; min-height: 297mm;",
+        spellcheck: "true" as any,
       },
+      handlePaste: handlePaste as any,
+      handleDrop: handleDrop as any,
     },
     immediatelyRender: false,
+    onUpdate: ({ editor }) => {
+      // Auto-save could be added here
+    },
   });
 
   // Load Data

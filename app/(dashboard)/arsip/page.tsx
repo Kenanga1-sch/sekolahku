@@ -52,7 +52,7 @@ export default function ArsipDashboard() {
                             Surat Masuk
                         </Button>
                     </Link>
-                    <Link href="/admin/surat/buat">
+                    <Link href="/arsip/surat-keluar/baru">
                         <Button variant="outline" className="gap-2">
                             <Plus className="h-4 w-4" />
                             Buat Surat Keluar

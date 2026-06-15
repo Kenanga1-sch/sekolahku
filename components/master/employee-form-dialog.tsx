@@ -11,23 +11,33 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2 } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ImageCropper } from "@/components/ui/image-cropper";
+import { Loader2, User } from "lucide-react";
 import { showSuccess, showError } from "@/lib/toast";
 import { goGet, goPost, goPut } from "@/lib/api-client";
+import { compressImage } from "@/lib/utils";
 
 const employeeSchema = z.object({
   fullName: z.string().min(3, "Nama minimal 3 karakter"),
   email: z.string().email("Email tidak valid"),
   role: z.enum(["admin", "guru", "staff"]),
-  
+
   // Details
   nip: z.string().optional(),
   nuptk: z.string().optional(),
   nik: z.string().optional(),
-  employmentStatus: z.string().optional(), // PNS, GTY, Non-PNS
-  jobType: z.string().optional(), // Guru Kelas, Staff TU
+  employmentStatus: z.string().optional(),
+  jobType: z.string().optional(),
   joinDate: z.string().optional(),
   phone: z.string().optional(),
+
+  // Public profile
+  photoUrl: z.string().optional().or(z.literal("")),
+  category: z.string().optional(),
+  degree: z.string().optional(),
+  quote: z.string().optional(),
+  displayOrder: z.coerce.number(),
 });
 
 type EmployeeFormValues = z.infer<typeof employeeSchema>;
@@ -41,21 +51,28 @@ interface EmployeeFormDialogProps {
 
 export function EmployeeFormDialog({ open, onOpenChange, employeeId, onSuccess }: EmployeeFormDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [cropperOpen, setCropperOpen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const form = useForm<EmployeeFormValues>({
-    resolver: zodResolver(employeeSchema),
+    resolver: zodResolver(employeeSchema) as any,
     defaultValues: {
       fullName: "",
       email: "",
       role: "guru",
-      employmentStatus: "GTY", 
+      employmentStatus: "GTY",
       jobType: "Guru Mapel",
-      // Initialize optional strings to empty string to avoid "uncontrolled" error
       nip: "",
       nuptk: "",
       nik: "",
       joinDate: "",
       phone: "",
+      photoUrl: "",
+      category: "",
+      degree: "",
+      quote: "",
+      displayOrder: 0,
     },
   });
 
@@ -64,14 +81,13 @@ export function EmployeeFormDialog({ open, onOpenChange, employeeId, onSuccess }
         setIsLoading(true);
         goGet(`/api/master/employees/${employeeId}`)
             .then((data: any) => {
-                // Format Date to YYYY-MM-DD for Input type="date"
                 let formattedDate = "";
                 if (data.joinDate) {
                     const dateObj = new Date(data.joinDate);
                     if (!isNaN(dateObj.getTime())) {
                         formattedDate = dateObj.toISOString().split("T")[0];
                     } else {
-                        formattedDate = data.joinDate; // Fallback if already string or unknown
+                        formattedDate = data.joinDate;
                     }
                 }
 
@@ -86,33 +102,89 @@ export function EmployeeFormDialog({ open, onOpenChange, employeeId, onSuccess }
                     nik: data.nik || "",
                     joinDate: formattedDate,
                     phone: data.phone || "",
+                    photoUrl: data.photoUrl || "",
+                    category: data.category || "",
+                    degree: data.degree || "",
+                    quote: data.quote || "",
+                    displayOrder: data.displayOrder ?? 0,
                 });
             })
             .catch((e) => showError(e.message))
             .finally(() => setIsLoading(false));
     } else if (open) {
-        form.reset({ 
-            fullName: "", 
-            email: "", 
-            role: "guru", 
-            employmentStatus: "GTY", 
+        form.reset({
+            fullName: "",
+            email: "",
+            role: "guru",
+            employmentStatus: "GTY",
             jobType: "Guru Mapel",
             nip: "",
             nuptk: "",
             nik: "",
             joinDate: "",
             phone: "",
+            photoUrl: "",
+            category: "",
+            degree: "",
+            quote: "",
+            displayOrder: 0,
         });
     }
   }, [employeeId, open, form]);
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setSelectedImage(reader.result as string);
+        setCropperOpen(true);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const onCropComplete = async (croppedBlob: Blob) => {
+    setUploading(true);
+    let uploadFile: File | Blob = croppedBlob;
+    try {
+      const originalFile = new File([croppedBlob], "profile.jpg", { type: croppedBlob.type || "image/jpeg" });
+      uploadFile = await compressImage(originalFile, 512, 0.85);
+    } catch (e) {
+      console.error("Failed to compress cropped image", e);
+    }
+
+    const formData = new FormData();
+    formData.append("file", uploadFile, uploadFile instanceof File ? uploadFile.name : "profile.jpg");
+    formData.append("folder", "staff");
+
+    try {
+        const data: any = await goPost("/api/upload", formData);
+        if(data.success) {
+            form.setValue("photoUrl", data.url);
+            showSuccess("Foto berhasil diupload");
+        } else {
+            showError("Gagal upload foto");
+        }
+    } catch {
+        showError("Error uploading");
+    } finally {
+        setUploading(false);
+    }
+  };
+
   const onSubmit = async (data: EmployeeFormValues) => {
     setIsLoading(true);
     try {
+        const payload = {
+            ...data,
+            displayOrder: data.displayOrder ?? 0,
+        };
+
         if (employeeId) {
-            await goPut(`/api/master/employees/${employeeId}`, data);
+            await goPut(`/api/master/employees/${employeeId}`, payload);
         } else {
-            await goPost("/api/master/employees", data);
+            await goPost("/api/master/employees", payload);
         }
 
         showSuccess(employeeId ? "Data pegawai diperbarui" : "Pegawai baru ditambahkan");
@@ -138,9 +210,10 @@ export function EmployeeFormDialog({ open, onOpenChange, employeeId, onSuccess }
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <Tabs defaultValue="account">
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="account">Akun Login</TabsTrigger>
                     <TabsTrigger value="employment">Kepegawaian</TabsTrigger>
+                    <TabsTrigger value="public">Profil Publik</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="account" className="space-y-4">
@@ -290,17 +363,124 @@ export function EmployeeFormDialog({ open, onOpenChange, employeeId, onSuccess }
                         )}
                     />
                 </TabsContent>
+
+                <TabsContent value="public" className="space-y-4">
+                    <div className="flex gap-4 items-start">
+                        <FormField
+                            control={form.control}
+                            name="photoUrl"
+                            render={({ field }) => (
+                                <FormItem className="flex-1">
+                                    <FormLabel>Foto Profil</FormLabel>
+                                    <div className="flex items-center gap-4">
+                                        <Avatar className="h-16 w-16 border">
+                                            <AvatarImage src={field.value || undefined} />
+                                            <AvatarFallback><User /></AvatarFallback>
+                                        </Avatar>
+                                        <div className="flex-1">
+                                            <Input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={handleFileSelect}
+                                                disabled={uploading}
+                                            />
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                {uploading ? "Mengupload..." : "Format: JPG/PNG. Max 2MB."}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                            control={form.control}
+                            name="category"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Kategori Publik</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value || ""}>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Pilih kategori" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="">Tidak ditampilkan</SelectItem>
+                                            <SelectItem value="kepsek">Kepala Sekolah</SelectItem>
+                                            <SelectItem value="guru">Tenaga Pendidik (Guru)</SelectItem>
+                                            <SelectItem value="staff">Tenaga Kependidikan (TU/Operator)</SelectItem>
+                                            <SelectItem value="support">Support (Penjaga/Kebersihan)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="degree"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Gelar</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="S.Pd, M.Kom" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+
+                    <FormField
+                        control={form.control}
+                        name="quote"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Motto / Pesan Singkat</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="Pesan inspiratif..." {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+
+                    <FormField
+                        control={form.control}
+                        name="displayOrder"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Urutan Tampil di Halaman Publik</FormLabel>
+                                <FormControl>
+                                    <Input type="number" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </TabsContent>
             </Tabs>
 
             <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Batal</Button>
-                <Button type="submit" disabled={isLoading}>
-                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Button type="submit" disabled={isLoading || uploading}>
+                    {(isLoading || uploading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Simpan Data
                 </Button>
             </DialogFooter>
           </form>
         </Form>
+
+        <ImageCropper
+            isOpen={cropperOpen}
+            onClose={() => setCropperOpen(false)}
+            imageSrc={selectedImage}
+            onCropComplete={onCropComplete}
+        />
       </DialogContent>
     </Dialog>
   );

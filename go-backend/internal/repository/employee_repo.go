@@ -34,7 +34,8 @@ func (r *EmployeeRepository) GetEmployees(page, limit int, search string) (*mode
 	// 1. Data Query
 	query := fmt.Sprintf(`
 		SELECT u.id, u.name, u.full_name, u.email, u.role, 
-		       e.id, e.nip, e.nuptk, e.employment_status, e.job_type, e.user_id
+		       e.id, e.nip, e.nuptk, e.employment_status, e.job_type, e.user_id,
+		       e.category, e.degree, e.quote, e.photo_url, e.display_order
 		FROM users u
 		LEFT JOIN employee_details e ON u.id = e.user_id
 		WHERE %s
@@ -53,10 +54,13 @@ func (r *EmployeeRepository) GetEmployees(page, limit int, search string) (*mode
 	for rows.Next() {
 		var e models.Employee
 		var fn, detailId, nip, nuptk, empStatus, jobType, uId sql.NullString
+		var cat, deg, quot, photo sql.NullString
+		var displayOrder sql.NullInt64
 
 		err := rows.Scan(
 			&e.ID, &e.Name, &fn, &e.Email, &e.Role,
 			&detailId, &nip, &nuptk, &empStatus, &jobType, &uId,
+			&cat, &deg, &quot, &photo, &displayOrder,
 		)
 		if err != nil {
 			return nil, err
@@ -82,6 +86,22 @@ func (r *EmployeeRepository) GetEmployees(page, limit int, search string) (*mode
 		}
 		if detailId.Valid {
 			e.EmployeeDetailID = &detailId.String
+		}
+		if cat.Valid {
+			e.Category = &cat.String
+		}
+		if deg.Valid {
+			e.Degree = &deg.String
+		}
+		if quot.Valid {
+			e.Quote = &quot.String
+		}
+		if photo.Valid {
+			e.PhotoUrl = &photo.String
+		}
+		if displayOrder.Valid {
+			do := int(displayOrder.Int64)
+			e.DisplayOrder = &do
 		}
 
 		employees = append(employees, e)
@@ -155,10 +175,10 @@ func (r *EmployeeRepository) CreateEmployee(req models.CreateEmployeeRequest) er
 	}
 
 	detailQuery := `
-		INSERT INTO employee_details (id, user_id, nip, nuptk, nik, employment_status, job_type, join_date, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO employee_details (id, user_id, nip, nuptk, nik, employment_status, job_type, join_date, category, degree, quote, photo_url, display_order, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	_, err = tx.Exec(detailQuery, detailId, userId, req.NIP, req.NUPTK, req.NIK, empStatus, jobType, req.JoinDate, now, now)
+	_, err = tx.Exec(detailQuery, detailId, userId, req.NIP, req.NUPTK, req.NIK, empStatus, jobType, req.JoinDate, req.Category, req.Degree, req.Quote, req.PhotoUrl, req.DisplayOrder, now, now)
 	if err != nil {
 		return err
 	}
@@ -169,17 +189,21 @@ func (r *EmployeeRepository) CreateEmployee(req models.CreateEmployeeRequest) er
 func (r *EmployeeRepository) GetEmployeeByID(id string) (*models.Employee, error) {
 	query := `
 		SELECT u.id, u.name, u.full_name, u.email, u.role, u.phone,
-		       e.nip, e.nuptk, e.nik, e.employment_status, e.job_type, e.join_date
+		       e.nip, e.nuptk, e.nik, e.employment_status, e.job_type, e.join_date,
+		       e.category, e.degree, e.quote, e.photo_url, e.display_order
 		FROM users u
 		LEFT JOIN employee_details e ON u.id = e.user_id
 		WHERE u.id = ?
 	`
 	var e models.Employee
 	var fn, phone, nip, nuptk, nik, empStatus, jobType, joinDate sql.NullString
+	var cat, deg, quot, photo sql.NullString
+	var displayOrder sql.NullInt64
 
 	err := r.DB.QueryRow(query, id).Scan(
 		&e.ID, &e.Name, &fn, &e.Email, &e.Role, &phone,
 		&nip, &nuptk, &nik, &empStatus, &jobType, &joinDate,
+		&cat, &deg, &quot, &photo, &displayOrder,
 	)
 	if err != nil {
 		return nil, err
@@ -208,6 +232,22 @@ func (r *EmployeeRepository) GetEmployeeByID(id string) (*models.Employee, error
 	}
 	if joinDate.Valid {
 		e.JoinDate = &joinDate.String
+	}
+	if cat.Valid {
+		e.Category = &cat.String
+	}
+	if deg.Valid {
+		e.Degree = &deg.String
+	}
+	if quot.Valid {
+		e.Quote = &quot.String
+	}
+	if photo.Valid {
+		e.PhotoUrl = &photo.String
+	}
+	if displayOrder.Valid {
+		do := int(displayOrder.Int64)
+		e.DisplayOrder = &do
 	}
 
 	return &e, nil
@@ -239,17 +279,17 @@ func (r *EmployeeRepository) UpdateEmployee(id string, req models.CreateEmployee
 
 	if detailExists {
 		detailQuery := `
-			UPDATE employee_details SET nip=?, nuptk=?, nik=?, employment_status=?, job_type=?, join_date=?, updated_at=?
+			UPDATE employee_details SET nip=?, nuptk=?, nik=?, employment_status=?, job_type=?, join_date=?, category=?, degree=?, quote=?, photo_url=?, display_order=?, updated_at=?
 			WHERE user_id=?
 		`
-		_, err = tx.Exec(detailQuery, req.NIP, req.NUPTK, req.NIK, req.EmploymentStatus, req.JobType, req.JoinDate, now, id)
+		_, err = tx.Exec(detailQuery, req.NIP, req.NUPTK, req.NIK, req.EmploymentStatus, req.JobType, req.JoinDate, req.Category, req.Degree, req.Quote, req.PhotoUrl, req.DisplayOrder, now, id)
 	} else {
 		detailId := cuid2.Generate()
 		detailQuery := `
-			INSERT INTO employee_details (id, user_id, nip, nuptk, nik, employment_status, job_type, join_date, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			INSERT INTO employee_details (id, user_id, nip, nuptk, nik, employment_status, job_type, join_date, category, degree, quote, photo_url, display_order, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`
-		_, err = tx.Exec(detailQuery, detailId, id, req.NIP, req.NUPTK, req.NIK, req.EmploymentStatus, req.JobType, req.JoinDate, now, now)
+		_, err = tx.Exec(detailQuery, detailId, id, req.NIP, req.NUPTK, req.NIK, req.EmploymentStatus, req.JobType, req.JoinDate, req.Category, req.Degree, req.Quote, req.PhotoUrl, req.DisplayOrder, now, now)
 	}
 
 	if err != nil {

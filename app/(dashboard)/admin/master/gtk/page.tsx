@@ -10,6 +10,7 @@ import { useSortableData } from "@/hooks/use-sortable-data";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { showSuccess, showError } from "@/lib/toast";
@@ -27,6 +28,11 @@ type Employee = {
     nuptk: string;
     employmentStatus: string;
     jobType: string;
+    photoUrl?: string;
+    category?: string;
+    degree?: string;
+    quote?: string;
+    displayOrder?: number;
 };
 
 export default function MasterGTKPage() {
@@ -60,7 +66,7 @@ export default function MasterGTKPage() {
             });
 
             const data: any = await goGet(`/api/master/employees?${params}`);
-            
+
             setEmployees(data.data);
             setTotalPages(data.pagination.totalPages);
         } catch (error) {
@@ -93,18 +99,28 @@ export default function MasterGTKPage() {
         setIsFormOpen(true);
     };
 
+    const categoryLabel = (cat?: string) => {
+        switch (cat) {
+            case 'kepsek': return 'Kepala Sekolah';
+            case 'guru': return 'Guru';
+            case 'staff': return 'Staff TU';
+            case 'support': return 'Support';
+            default: return '-';
+        }
+    };
+
     return (
         <div className="space-y-6">
-            <EmployeeFormDialog 
-                open={isFormOpen} 
-                onOpenChange={setIsFormOpen} 
+            <EmployeeFormDialog
+                open={isFormOpen}
+                onOpenChange={setIsFormOpen}
                 employeeId={selectedId}
                 onSuccess={() => fetchEmployees()}
             />
-            <EmployeeImportDialog 
-                open={isImportOpen} 
-                onOpenChange={setIsImportOpen} 
-                onSuccess={() => fetchEmployees()} 
+            <EmployeeImportDialog
+                open={isImportOpen}
+                onOpenChange={setIsImportOpen}
+                onSuccess={() => fetchEmployees()}
             />
 
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -162,28 +178,41 @@ export default function MasterGTKPage() {
                     <Table>
                         <TableHeader>
                             <TableRow>
+                                <TableHead className="w-[60px]">Foto</TableHead>
                                 <SortableTableHead label="Nama Lengkap" sortKey="fullName" sortConfig={sortConfig} onSort={requestSort} />
+                                <SortableTableHead label="Gelar" sortKey="degree" sortConfig={sortConfig} onSort={requestSort} />
                                 <SortableTableHead label="NIP / NUPTK" sortKey="nip" sortConfig={sortConfig} onSort={requestSort} />
                                 <SortableTableHead label="Jabatan" sortKey="jobType" sortConfig={sortConfig} onSort={requestSort} />
                                 <SortableTableHead label="Status" sortKey="employmentStatus" sortConfig={sortConfig} onSort={requestSort} />
+                                <TableHead>Kategori</TableHead>
+                                <TableHead>Urutan</TableHead>
                                 <TableHead className="text-right">Aksi</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {isLoading ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="h-24 text-center">Loading...</TableCell>
+                                    <TableCell colSpan={9} className="h-24 text-center">Loading...</TableCell>
                                 </TableRow>
                             ) : employees.length === 0 ? (
                                  <TableRow>
-                                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">Tidak ada data GTK ditemukan.</TableCell>
+                                    <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">Tidak ada data GTK ditemukan.</TableCell>
                                 </TableRow>
                             ) : (
                                 sortedEmployees.map((emp) => (
                                     <TableRow key={emp.id}>
+                                        <TableCell>
+                                            <Avatar className="h-9 w-9">
+                                                <AvatarImage src={emp.photoUrl || undefined} />
+                                                <AvatarFallback className="text-xs">{(emp.fullName || '?')[0]}</AvatarFallback>
+                                            </Avatar>
+                                        </TableCell>
                                         <TableCell className="font-medium">
                                             {emp.fullName}
                                             <div className="text-xs text-muted-foreground">{emp.email}</div>
+                                        </TableCell>
+                                        <TableCell className="text-sm text-muted-foreground">
+                                            {emp.degree || '-'}
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex flex-col text-sm">
@@ -202,6 +231,14 @@ export default function MasterGTKPage() {
                                             }>
                                                 {emp.employmentStatus || '-'}
                                             </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline" className="capitalize">
+                                                {categoryLabel(emp.category)}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-sm text-muted-foreground">
+                                            {emp.displayOrder ?? '-'}
                                         </TableCell>
                                         <TableCell className="text-right">
                                              <DropdownMenu>
@@ -245,4 +282,3 @@ export default function MasterGTKPage() {
         </div>
     );
 }
-

@@ -130,13 +130,13 @@ const navGroups: NavGroup[] = [
     label: "Komunikasi",
     items: [
       { href: "/messages", label: "Pesan Masuk", icon: Mail, roles: ADMIN_ROLES },
+      
     ],
   },
   {
     label: "Konten",
     items: [
        { href: "/admin/galeri", label: "Galeri Foto", icon: ImageIcon, roles: ADMIN_ROLES },
-       { href: "/admin/content/staff", label: "Guru & Staff", icon: Users, roles: ADMIN_ROLES },
        { href: "/announcements", label: "Pengumuman", icon: Bell, roles: ADMIN_ROLES },
     ],
   },
