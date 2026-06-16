@@ -222,39 +222,44 @@ func (r *StudentRepository) GetStudents(page, limit int, query, status, classID 
 	students := []models.Student{}
 	for rows.Next() {
 		var s models.Student
-		var nik, nisn, nis, gender, className, photo, qrCode, kip sql.NullString
-		var crAt sql.NullInt64
+		var nik, nisn, nis, gender, className, photo, qrCode, kip, status sql.NullString
+		var crAtRaw interface{}
 
-		err = rows.Scan(&s.ID, &nik, &nisn, &nis, &s.FullName, &gender, &className, &s.Status, &photo, &qrCode, &s.IsActive, &crAt, &kip)
+		err = rows.Scan(&s.ID, &nik, &nisn, &nis, &s.FullName, &gender, &className, &status, &photo, &qrCode, &s.IsActive, &crAtRaw, &kip)
 		if err != nil {
 			return nil, err
 		}
 
-		if nik.Valid {
-			s.NIK = &nik.String
+		s.NIK = cleanStudentStringPtr(&nik.String)
+		s.NISN = cleanStudentStringPtr(&nisn.String)
+		s.NIS = cleanStudentStringPtr(&nis.String)
+		s.Gender = cleanStudentStringPtr(&gender.String)
+		s.ClassName = cleanStudentStringPtr(&className.String)
+		if status.Valid && status.String != "" {
+			s.Status = status.String
+		} else {
+			s.Status = "active"
 		}
-		if nisn.Valid {
-			s.NISN = &nisn.String
+		if photo.Valid && photo.String != "" {
+			s.Photo = &photo.String
 		}
-		if nis.Valid {
-			s.NIS = &nis.String
+		if qrCode.Valid && qrCode.String != "" {
+			s.QRCode = qrCode.String
+		} else {
+			s.QRCode = s.ID
 		}
 		if kip.Valid {
 			s.KIP = &kip.String
 		}
-		if gender.Valid {
-			s.Gender = &gender.String
-		}
-		if className.Valid {
-			s.ClassName = &className.String
-		}
-		if photo.Valid {
-			s.Photo = &photo.String
-		}
-		if qrCode.Valid && strings.TrimSpace(qrCode.String) != "" {
-			s.QRCode = qrCode.String
-		} else {
-			s.QRCode = s.ID
+
+		var crAt sql.NullInt64
+		switch v := crAtRaw.(type) {
+		case int64:
+			crAt = sql.NullInt64{Int64: v, Valid: true}
+		case float64:
+			crAt = sql.NullInt64{Int64: int64(v), Valid: true}
+		case time.Time:
+			crAt = sql.NullInt64{Int64: v.UnixMilli(), Valid: true}
 		}
 
 		cTime := ToTime(crAt)

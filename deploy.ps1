@@ -9,14 +9,33 @@ $tempTar = "$env:TEMP\sekolahku-deploy.tar.gz"
 
 # Build exclusion list
 $excludes = @(
-    "--exclude=node_modules", "--exclude=.next", "--exclude=out",
-    "--exclude='.gocache'", "--exclude='.gocache-*'", "--exclude=.git",
-    "--exclude='*.exe'", "--exclude=sekolahku_linux", "--exclude=backups",
-    "--exclude='.claude'", "--exclude='.husky'", "--exclude='.vscode'",
-    "--exclude=data", "--exclude=uploads", "--exclude='public\uploads'",
-    "--exclude='*.log'", "--exclude='deploy*'", "--exclude='.env*'",
-    "--exclude=scratch", "--exclude='playwright-report'", "--exclude='test-results'",
-    "--exclude='tmp-*'"
+    "--exclude=node_modules",
+    "--exclude=.next",
+    "--exclude=out",
+    "--exclude=.git",
+    "--exclude=.claude",
+    "--exclude=.husky",
+    "--exclude=.vscode",
+    "--exclude=data",
+    "--exclude=uploads",
+    "--exclude=public/uploads",
+    "--exclude=public\uploads",
+    "--exclude=playwright-report",
+    "--exclude=test-results",
+    "--exclude=dist",
+    "--exclude=scratch",
+    "--exclude=backups",
+    "--exclude=go-backend/bin",
+    "--exclude=go-backend/.gocache",
+    "--exclude=.gocache*",
+    "--exclude=*.exe",
+    "--exclude=*.zip",
+    "--exclude=*.tgz",
+    "--exclude=*.tar.gz",
+    "--exclude=*.log",
+    "--exclude=eslint-report.json",
+    "--exclude=deploy*",
+    "--exclude=.env*"
 )
 
 # Remove old archive

@@ -84,3 +84,13 @@ deploy.tar.gz
 test_login.json
 tmp_test.tsx
 go-backend/query_main.go
+
+# scratch files and local dbs
+check_db.go
+check_schema.go
+go-backend/check.go
+go-backend/check_err.go
+go-backend/test_db.js
+*.db
+*.db-shm
+*.db-wal

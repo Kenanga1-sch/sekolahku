@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Search, FileDown, MoreHorizontal, Pencil, Trash2, Filter } from "lucide-react";
+import { Plus, Search, FileDown, MoreHorizontal, Pencil, Trash2, Filter, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -40,6 +40,10 @@ export default function MasterStudentsPage() {
     const [limit, setLimit] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
     
+    // Stats Summary
+    const [totalStudents, setTotalStudents] = useState(0);
+    const [activeStudents, setActiveStudents] = useState(0);
+    
     // Modal States
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isImportOpen, setIsImportOpen] = useState(false);
@@ -67,6 +71,8 @@ export default function MasterStudentsPage() {
             
             setStudents(result?.data ?? []);
             setTotalPages(result?.pagination?.totalPages ?? 1);
+            setTotalStudents(result?.summary?.total ?? result?.pagination?.total ?? 0);
+            setActiveStudents(result?.summary?.active ?? 0);
         } catch (error) {
             console.error(error);
             showError("Gagal memuat data siswa");
@@ -115,7 +121,19 @@ export default function MasterStudentsPage() {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h1 className="text-2xl font-bold">Direktori Siswa Utama</h1>
-                    <p className="text-muted-foreground">Pusat data seluruh siswa sekolah (Active & Alumni).</p>
+                    <p className="text-muted-foreground mt-1">Pusat data seluruh siswa sekolah (Active & Alumni).</p>
+                    {!isLoading && (
+                        <div className="flex gap-3 mt-4">
+                            <Badge variant="secondary" className="px-3 py-1.5 text-sm bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-400 border border-blue-200 dark:border-blue-900/50">
+                                <Users className="w-4 h-4 mr-2" />
+                                Total: {totalStudents} Siswa
+                            </Badge>
+                            <Badge variant="secondary" className="px-3 py-1.5 text-sm bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-950/40 dark:text-green-400 border border-green-200 dark:border-green-900/50">
+                                <span className="w-2 h-2 rounded-full bg-green-500 mr-2" />
+                                Aktif: {activeStudents} Siswa
+                            </Badge>
+                        </div>
+                    )}
                 </div>
                 <div className="flex gap-2">
                     <Button variant="outline" onClick={() => setIsImportOpen(true)}>

@@ -38,6 +38,8 @@ import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { ImportDialog } from "@/components/letters/import-dialog";
 import { goDelete, goGet, goPost } from "@/lib/api-client";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TemplateGroupList } from "./template-group-list";
 
 export default function TemplateListPage() {
   const router = useRouter();
@@ -133,9 +135,9 @@ export default function TemplateListPage() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Template Surat</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Template & Paket Surat</h1>
           <p className="text-muted-foreground">
-            Kelola desain dan layout surat untuk generator otomatis.
+            Kelola desain dan kelompok surat (paket) untuk efisiensi.
           </p>
         </div>
         <div className="flex gap-2">
@@ -155,7 +157,14 @@ export default function TemplateListPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-4 bg-white/50 dark:bg-zinc-900/50 p-4 rounded-lg border border-zinc-200 dark:border-zinc-800">
+      <Tabs defaultValue="tunggal" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="tunggal">Template Tunggal</TabsTrigger>
+          <TabsTrigger value="grup">Grup / Paket Surat</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="tunggal" className="space-y-6">
+          <div className="flex items-center gap-4 bg-white/50 dark:bg-zinc-900/50 p-4 rounded-lg border border-zinc-200 dark:border-zinc-800">
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -241,6 +250,12 @@ export default function TemplateListPage() {
           </TableBody>
         </Table>
       </div>
+      </TabsContent>
+
+      <TabsContent value="grup">
+        <TemplateGroupList />
+      </TabsContent>
+      </Tabs>
     </div>
   );
 }

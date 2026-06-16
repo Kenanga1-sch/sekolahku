@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -47,6 +48,7 @@ func (h *StudentHandler) GetStudents(c echo.Context) error {
 
 	res, err := h.Repo.GetStudents(page, limit, query, status, classID)
 	if err != nil {
+		fmt.Println("GetStudents ERROR:", err)
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{

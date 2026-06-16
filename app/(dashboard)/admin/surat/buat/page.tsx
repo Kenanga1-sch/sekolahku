@@ -8,6 +8,8 @@ import {
   Loader2,
   Send,
   FileCheck,
+  Layers,
+  FileText,
 } from "lucide-react";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
@@ -34,6 +36,8 @@ import { TemplateSelector } from "@/components/letters/generator/template-select
 import { RecipientSelector } from "@/components/letters/generator/recipient-selector";
 import { VariableForm } from "@/components/letters/generator/variable-form";
 import { PreviewStep } from "@/components/letters/generator/preview-step";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const romanMonths = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
@@ -65,8 +69,11 @@ function LetterGeneratorContent() {
   const [loading, setLoading] = useState(true);
 
   // Data
+  const [creationMode, setCreationMode] = useState<"SINGLE" | "GROUP">("SINGLE");
   const [templates, setTemplates] = useState<any[]>([]);
+  const [groups, setGroups] = useState<any[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+  const [selectedGroup, setSelectedGroup] = useState<any>(null);
   const [templateVars, setTemplateVars] = useState<string[]>([]);
 
   // Target & Recipients
@@ -84,7 +91,6 @@ function LetterGeneratorContent() {
   // School Settings
   const { settings: schoolSettings, refresh: refreshSettings } = useSchoolSettings();
 
-  // Load Templates
   useEffect(() => {
     goGet("/api/eoffice/letter-templates?limit=100")
       .then((data: any) => {
@@ -93,7 +99,10 @@ function LetterGeneratorContent() {
           const tpl = data.data.find((t: any) => t.id === initialTemplateId);
           if (tpl) handleSelectTemplate(tpl);
         }
-      })
+      });
+      
+    goGet("/api/eoffice/template-groups")
+      .then((data: any) => setGroups(data.data || []))
       .finally(() => setLoading(false));
   }, [initialTemplateId]);
 
@@ -107,12 +116,34 @@ function LetterGeneratorContent() {
       setTemplateVars(varRes.variables || []);
       setSelectedClassification(fullTpl.classificationCode || "");
       
-      if (fullTpl.category === "STAFF") setTargetType("STAFF");
-      else if (fullTpl.category === "STUDENT") setTargetType("STUDENT");
-      
+      setTargetType("STUDENT");
+      setCreationMode("SINGLE");
       setStep(2);
     } catch (error) {
       toast.error("Gagal memuat detail template");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectGroup = async (group: any) => {
+    setLoading(true);
+    try {
+      const fullGroup: any = await goGet(`/api/eoffice/template-groups/${group.id}`);
+      setSelectedGroup(fullGroup.data);
+      setTargetType("STUDENT");
+      setCreationMode("GROUP");
+      
+      const allVars = new Set<string>();
+      for (const item of fullGroup.data.items) {
+          const varRes: any = await goGet(`/api/eoffice/letter-templates/${item.templateId}/variables`);
+          varRes.variables?.forEach((v: string) => allVars.add(v));
+      }
+      setTemplateVars(Array.from(allVars));
+      setSelectedClassification(""); 
+      setStep(2);
+    } catch (error) {
+      toast.error("Gagal memuat detail grup template");
     } finally {
       setLoading(false);
     }
@@ -217,43 +248,64 @@ function LetterGeneratorContent() {
 
   const handleDownload = async () => {
     if (!generatedPreviewData) return;
-    if (!selectedTemplate?.filePath) {
-      toast.error("Template ini belum memiliki file DOCX. Gunakan fitur import template Word terlebih dahulu.");
-      return;
-    }
 
     setLoading(true);
     try {
-      if (selectedRecipients.length > 1) {
-        // ZIP Generation
-        const zip = new JSZip();
-        for (const [index, rec] of selectedRecipients.entries()) {
-          const recData = { ...generatedPreviewData };
+      const zip = new JSZip();
+      let fileCount = 0;
+
+      const processTemplate = async (tpl: any, baseData: any, idxOffset: number) => {
+        if (!tpl.filePath) return;
+        for (const [recIdx, rec] of selectedRecipients.entries()) {
+          const recData = { ...baseData };
           if (generatedLetterMeta) {
-            const sequenceNumber = generatedLetterMeta.nextSequence + index;
-            const clsCode = generatedLetterMeta.classificationCode || selectedTemplate?.classificationCode || "";
+            const sequenceNumber = generatedLetterMeta.nextSequence + recIdx + idxOffset;
+            const clsCode = generatedLetterMeta.classificationCode || tpl.classificationCode || "";
             const letterNumber = formatLetterNumber(schoolSettings?.letter_number_format, sequenceNumber, clsCode);
             recData.nomor_surat_otomatis = letterNumber;
             recData.nomor_surat = manualInputs.nomor_surat || letterNumber;
           }
           mergeRecipientData(recData, rec);
-          const blob = await createDocumentBlob(selectedTemplate.filePath, recData);
-          zip.file(`${recipientLabel(rec).replace(/\s+/g, "_")}.docx`, blob);
+          const blob = await createDocumentBlob(tpl.filePath, recData);
+          zip.file(`${tpl.name}_${recipientLabel(rec).replace(/\s+/g, "_")}.docx`, blob);
+          fileCount++;
+          await logGeneratedLetter(rec, recIdx + idxOffset);
         }
+      };
+
+      if (creationMode === "GROUP" && selectedGroup) {
+        for (let i = 0; i < selectedGroup.items.length; i++) {
+          await processTemplate(selectedGroup.items[i].template, generatedPreviewData, i * selectedRecipients.length);
+        }
+      } else if (selectedTemplate) {
+        if (!selectedTemplate.filePath) {
+          toast.error("Template ini belum memiliki file DOCX.");
+          setLoading(false);
+          return;
+        }
+        if (selectedRecipients.length > 1) {
+          await processTemplate(selectedTemplate, generatedPreviewData, 0);
+        } else {
+          // Single Download
+          const recData = { ...generatedPreviewData };
+          mergeRecipientData(recData, selectedRecipients[0]);
+          const fileName = `${selectedTemplate.name}_${recData.siswa_nama || recData.penerima_nama || "Output"}.docx`;
+          await generateDocument(selectedTemplate.filePath, recData, fileName);
+          await logGeneratedLetter(selectedRecipients[0], 0);
+          toast.success("Dokumen berhasil diunduh.");
+          refreshSettings();
+          setLoading(false);
+          return;
+        }
+      }
+
+      if (fileCount > 0) {
         const zipBlob = await zip.generateAsync({ type: "blob" });
-        saveAs(zipBlob, `Batch_${selectedTemplate.name}_${format(new Date(), "yyyyMMdd")}.zip`);
-        await Promise.all(selectedRecipients.map((rec, index) => logGeneratedLetter(rec, index)));
-        toast.success(`Berhasil mengunduh ${selectedRecipients.length} dokumen.`);
-      } else {
-        // Single Download
-        const fileName = `${selectedTemplate.name}_${generatedPreviewData.siswa_nama || "Output"}.docx`;
-        await generateDocument(selectedTemplate.filePath, generatedPreviewData, fileName);
-        await logGeneratedLetter(selectedRecipients[0], 0);
-        toast.success("Dokumen berhasil diunduh.");
+        saveAs(zipBlob, `Batch_${creationMode === "GROUP" ? selectedGroup.name : selectedTemplate.name}_${format(new Date(), "yyyyMMdd")}.zip`);
+        toast.success(`Berhasil mengunduh ${fileCount} dokumen.`);
       }
 
       refreshSettings();
-
     } catch (error) {
       toast.error("Gagal membuat dokumen.");
     } finally {
@@ -262,47 +314,58 @@ function LetterGeneratorContent() {
   };
 
   const handleSubmitToVerification = async () => {
-    if (!generatedPreviewData || !selectedTemplate) return;
-    if (!selectedTemplate?.filePath) {
+    if (!generatedPreviewData) return;
+    if (creationMode === "SINGLE" && !selectedTemplate?.filePath) {
       toast.error("Template ini belum memiliki file DOCX.");
       return;
     }
-    if (!selectedClassification && !selectedTemplate?.classificationCode) {
-      toast.error("Pilih klasifikasi surat terlebih dahulu.");
-      return;
-    }
+    
     setSubmitting(true);
     try {
-      const clsCode = selectedClassification || selectedTemplate?.classificationCode || "";
-      const recName = selectedRecipients[0]?.name || selectedRecipients[0]?.fullName || generatedPreviewData.siswa_nama || "Penerima";
-      // Generate DOCX blob
-      const blob = await createDocumentBlob(selectedTemplate.filePath, generatedPreviewData);
-      // Upload the blob as a file
-      const docxFile = new File([blob], `${selectedTemplate.name}_${recName}.docx`, { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
-      const uploadForm = new FormData();
-      uploadForm.append("file", docxFile);
-      // Upload to a temp endpoint to store the DOCX
-      const uploadResult: any = await goPost("/api/eoffice/upload-docx", uploadForm);
-      const filePath = uploadResult?.filePath || uploadResult?.path || "";
-      if (!filePath) throw new Error("Gagal mengupload file");
+      if (creationMode === "GROUP") {
+        const recName = selectedRecipients[0]?.name || selectedRecipients[0]?.fullName || generatedPreviewData.siswa_nama || "Penerima";
+        await goPost("/api/eoffice/template-groups/generate", {
+          groupId: selectedGroup.id,
+          classificationCode: selectedClassification,
+          recipient: recName,
+          subjectPrefix: manualInputs.perihal_surat || "",
+          mailNumber: generatedLetterMeta?.letterNumber || "",
+          dateOfLetter: format(new Date(), "yyyy-MM-dd"),
+        });
+        toast.success("Grup surat berhasil dikirim ke verifikasi!");
+      } else {
+        const clsCode = selectedClassification || selectedTemplate?.classificationCode || "";
+        const recName = selectedRecipients[0]?.name || selectedRecipients[0]?.fullName || generatedPreviewData.siswa_nama || "Penerima";
+        // Generate DOCX blob
+        const blob = await createDocumentBlob(selectedTemplate.filePath, generatedPreviewData);
+        // Upload the blob as a file
+        const docxFile = new File([blob], `${selectedTemplate.name}_${recName}.docx`, { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+        const uploadForm = new FormData();
+        uploadForm.append("file", docxFile);
+        // Upload to a temp endpoint to store the DOCX
+        const uploadResult: any = await goPost("/api/eoffice/upload-docx", uploadForm);
+        const filePath = uploadResult?.filePath || uploadResult?.path || "";
+        if (!filePath) throw new Error("Gagal mengupload file");
 
-      await goPost("/api/eoffice/letter-generate-submit", {
-        templateId: selectedTemplate.id,
-        classificationCode: clsCode,
-        recipient: recName,
-        subject: generatedPreviewData.perihal_surat || `Surat ${selectedTemplate.name}`,
-        mailNumber: generatedLetterMeta?.letterNumber || "",
-        dateOfLetter: format(new Date(), "yyyy-MM-dd"),
-        filePath,
-      });
+        await goPost("/api/eoffice/letter-generate-submit", {
+          templateId: selectedTemplate.id,
+          classificationCode: clsCode,
+          recipient: recName,
+          subject: generatedPreviewData.perihal_surat || `Surat ${selectedTemplate.name}`,
+          mailNumber: generatedLetterMeta?.letterNumber || "",
+          dateOfLetter: format(new Date(), "yyyy-MM-dd"),
+          filePath,
+        });
 
-      // Log increment
-      if (generatedLetterMeta) {
-        await logGeneratedLetter(selectedRecipients[0], 0);
+        // Log increment
+        if (generatedLetterMeta) {
+          await logGeneratedLetter(selectedRecipients[0], 0);
+        }
+
+        toast.success("Surat berhasil dikirim ke verifikasi!");
       }
-
-      toast.success("Surat berhasil dikirim ke verifikasi!");
-      router.push("/arsip/surat-keluar");
+      
+      router.push("/admin/surat");
     } catch (error) {
       toast.error("Gagal mengirim surat ke verifikasi.");
     } finally {
@@ -348,7 +411,42 @@ function LetterGeneratorContent() {
       </div>
 
       {step === 1 && (
-        <TemplateSelector templates={templates} loading={loading} onSelect={handleSelectTemplate} />
+        <Tabs defaultValue="tunggal" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="tunggal">Template Tunggal</TabsTrigger>
+            <TabsTrigger value="grup">Paket Surat (Grup)</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="tunggal">
+            <TemplateSelector templates={templates} loading={loading} onSelect={handleSelectTemplate} />
+          </TabsContent>
+
+          <TabsContent value="grup">
+            {loading ? (
+              <div className="text-center py-8">Memuat grup...</div>
+            ) : groups.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">Belum ada grup template.</div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {groups.map((grp) => (
+                  <Card
+                    key={grp.id}
+                    className="cursor-pointer hover:border-purple-500 transition-colors"
+                    onClick={() => handleSelectGroup(grp)}
+                  >
+                    <CardHeader>
+                      <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/20 rounded-lg flex items-center justify-center mb-2 text-purple-600">
+                        <Layers className="h-5 w-5" />
+                      </div>
+                      <CardTitle className="text-base">{grp.name}</CardTitle>
+                      <CardDescription>{grp.items?.length || 0} Template</CardDescription>
+                    </CardHeader>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       )}
 
       {step === 2 && (
@@ -372,8 +470,8 @@ function LetterGeneratorContent() {
           </div>
           <div className="space-y-4">
             <div className="p-4 rounded-lg border bg-zinc-50 dark:bg-zinc-900 space-y-2 text-sm">
-              <h4 className="font-semibold">Info Template</h4>
-              <p className="text-muted-foreground">{selectedTemplate?.name}</p>
+              <h4 className="font-semibold">{creationMode === "GROUP" ? "Info Grup" : "Info Template"}</h4>
+              <p className="text-muted-foreground">{creationMode === "GROUP" ? selectedGroup?.name : selectedTemplate?.name}</p>
               <div className="pt-2 border-t space-y-2">
                 <div>
                   <p className="text-xs text-muted-foreground">Klasifikasi Surat</p>

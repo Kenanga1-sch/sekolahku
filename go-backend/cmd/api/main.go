@@ -319,8 +319,10 @@ func main() {
 	publicRepo := repository.NewPublicRepository(db)
 	faqRepo := repository.NewFAQRepository(db)
 	contactRepo := repository.NewContactRepository(db)
+	syncRepo := repository.NewSyncRepository(db)
 
 	// Handlers
+	syncHandler := handlers.NewSyncHandler(syncRepo)
 	authHandler := handlers.NewAuthHandler(userRepo, auditLogRepo)
 	academicHandler := handlers.NewAcademicHandler(academicRepo)
 	financeHandler := handlers.NewFinanceHandler(financeRepo)
@@ -408,6 +410,9 @@ func main() {
 	publicGroup.POST("/kiosk/attendance", attendanceHandler.KioskRecordAttendance)
 	publicGroup.POST("/kiosk/savings-deposit", savingsHandler.KioskDeposit)
 	publicGroup.GET("/kiosk/savings-lookup", savingsHandler.GetSiswa)
+
+	// Dapodik Sync
+	publicGroup.POST("/sync/dapodik/students", syncHandler.SyncDapodikStudents)
 
 	// Public compatibility aliases used by static public pages.
 	server.POST("/api/mutasi/request", mutasiHandler.CreateMutasiRequest)
@@ -699,6 +704,14 @@ func main() {
 	auth.PATCH("/eoffice/letter-templates/:id", eofficeHandler.UpdateLetterTemplate)
 	auth.POST("/eoffice/letter-batch-generate", eofficeHandler.GenerateBatch)
 	auth.DELETE("/eoffice/letter-templates/:id", eofficeHandler.DeleteLetterTemplate)
+
+	// Template Groups
+	auth.GET("/eoffice/template-groups", eofficeHandler.GetTemplateGroups)
+	auth.GET("/eoffice/template-groups/:id", eofficeHandler.GetTemplateGroupByID)
+	auth.POST("/eoffice/template-groups", eofficeHandler.CreateTemplateGroup)
+	auth.PUT("/eoffice/template-groups/:id", eofficeHandler.UpdateTemplateGroup)
+	auth.DELETE("/eoffice/template-groups/:id", eofficeHandler.DeleteTemplateGroup)
+	auth.POST("/eoffice/template-groups/generate", eofficeHandler.GenerateGroupAndSubmit)
 	auth.POST("/eoffice/letter-generate-submit", eofficeHandler.GenerateAndSubmit)
 	auth.POST("/eoffice/surat-keluar/verify", eofficeHandler.VerifySuratKeluar)
 	auth.POST("/eoffice/surat-keluar/revision", eofficeHandler.SetSuratKeluarRevision)

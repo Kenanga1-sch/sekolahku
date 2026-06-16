@@ -135,10 +135,26 @@ export default function ArsipDashboard() {
                     </Card>
                 </Link>
 
-                <Card className="hover:bg-slate-50 transition-colors cursor-pointer border-l-4 border-l-purple-500 opacity-70">
+                <Link href="/admin/surat/template">
+                    <Card className="hover:bg-slate-50 transition-colors cursor-pointer border-l-4 border-l-purple-500">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <FileText className="h-5 w-5 text-purple-500" />
+                                Template Surat
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-sm text-muted-foreground">
+                                Kelola template surat dan grup template untuk pembuatan surat massal otomatis.
+                            </p>
+                        </CardContent>
+                    </Card>
+                </Link>
+
+                <Card className="hover:bg-slate-50 transition-colors cursor-pointer border-l-4 border-l-orange-500 opacity-70">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <BookOpen className="h-5 w-5 text-purple-500" />
+                            <BookOpen className="h-5 w-5 text-orange-500" />
                             Buku Agenda (Laporan)
                         </CardTitle>
                     </CardHeader>
