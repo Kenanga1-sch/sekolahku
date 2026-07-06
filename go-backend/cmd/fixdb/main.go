@@ -47,6 +47,9 @@ func main() {
 		{Table: "school_settings", Name: "school_history_achievements", SQLType: "TEXT"},
 		{Table: "school_settings", Name: "school_curriculum", SQLType: "TEXT"},
 		{Table: "school_settings", Name: "school_extracurriculars", SQLType: "TEXT"},
+		{Table: "school_settings", Name: "landing_tagline", SQLType: "TEXT"},
+		{Table: "school_settings", Name: "landing_description", SQLType: "TEXT"},
+		{Table: "school_settings", Name: "landing_texts", SQLType: "TEXT"},
 
 		// students
 		{Table: "students", Name: "nik", SQLType: "TEXT"},
@@ -61,6 +64,7 @@ func main() {
 		{Table: "students", Name: "class_id", SQLType: "TEXT"},
 		{Table: "students", Name: "status", SQLType: "TEXT", Default: "'active'"},
 		{Table: "students", Name: "meta_data", SQLType: "TEXT"},
+		{Table: "students", Name: "kip", SQLType: "TEXT"},
 
 		// faqs
 		{Table: "faqs", Name: "order_rank", SQLType: "INTEGER", Default: "0"},

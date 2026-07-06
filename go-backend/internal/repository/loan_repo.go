@@ -42,9 +42,10 @@ func (r *LoanRepository) GetLoans(borrowerType string, page, perPage int) ([]mod
 		       COALESCE(l.description, ''), COALESCE(l.type, ''), l.amount_requested, COALESCE(l.amount_approved, 0),
 		       l.tenor_months, COALESCE(l.admin_fee, 0), l.status, COALESCE(l.rejection_reason, ''),
 		       COALESCE(l.notes, ''), COALESCE(l.disbursed_at, 0), l.created_at, COALESCE(l.updated_at, 0),
-		       COALESCE(e.name, '')
+		       COALESCE(u.name, '')
 		FROM loans l
 		LEFT JOIN employee_details e ON l.employee_detail_id = e.id
+		LEFT JOIN users u ON e.user_id = u.id
 		WHERE ` + where + ` ORDER BY l.created_at DESC LIMIT ? OFFSET ?`
 	listArgs := append(args, perPage, offset)
 

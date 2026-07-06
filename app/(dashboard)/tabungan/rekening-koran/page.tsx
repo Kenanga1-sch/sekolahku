@@ -166,7 +166,7 @@ export default function RekeningKoranPage() {
             {/* Header - Hidden on print */}
             <div className="flex items-center justify-between print:hidden">
                 <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" asChild>
+                    <Button variant="outline" size="icon" asChild className="border-slate-200 bg-white shadow-sm hover:bg-slate-50">
                         <Link href="/tabungan">
                             <ArrowLeft className="h-5 w-5" />
                         </Link>

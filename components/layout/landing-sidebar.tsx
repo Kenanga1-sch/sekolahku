@@ -18,6 +18,7 @@ import {
   ChevronDown,
   Menu,
   User,
+  Sparkles,
 } from "lucide-react";
 import { Sidebar, SidebarBody, SidebarLink, useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
@@ -46,6 +47,7 @@ import { motion } from "framer-motion";
 
 const navLinks = [
   { href: "/", label: "Halaman Depan", icon: Home },
+  { href: "/demo", label: "Demo", icon: Sparkles },
   {
     label: "Profil",
     icon: Building2,
@@ -175,9 +177,37 @@ function SidebarContent({ setIsDropdownOpen }: { setIsDropdownOpen: (v: boolean)
 }
 
 function NavGroup({ link, open, animate, setOpen }: { link: any, open: boolean, animate: boolean, setOpen: (v: boolean) => void }) {
+    const [mounted, setMounted] = useState(false);
+    React.useEffect(() => {
+        setMounted(true);
+    }, []);
+
     // Nested items implementation
     // If closed: show icon in dropdown
     // If open: show collapsible
+    
+    if (!mounted) {
+        if (animate && !open) {
+            return (
+                <div className="flex items-center justify-start gap-2 group/sidebar py-2 cursor-pointer">
+                    <link.icon className="text-neutral-700 dark:text-neutral-200 h-5 w-5 flex-shrink-0" />
+                </div>
+            );
+        }
+        return (
+            <div className="group/collapsible">
+                <div className="flex items-center justify-start gap-2 group/sidebar py-2 cursor-pointer w-full">
+                    <link.icon className="text-neutral-700 dark:text-neutral-200 h-5 w-5 flex-shrink-0" />
+                     <div className="flex-1 flex items-center justify-between overflow-hidden">
+                        <span className="text-neutral-700 dark:text-neutral-200 text-sm whitespace-pre">
+                            {link.label}
+                        </span>
+                        <ChevronDown className="h-4 w-4 text-neutral-500 transition-transform duration-200" />
+                     </div>
+                </div>
+            </div>
+        );
+    }
     
     if (animate && !open) {
         return (

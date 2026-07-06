@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { PDFViewer } from "@/components/arsip/pdf-viewer";
 import { toast } from "sonner";
-import { formatDate } from "@/lib/utils";
+import { formatDate, normalizePublicPath } from "@/lib/utils";
 import { goGet, goPatch } from "@/lib/api-client";
 
 interface SuratKeluarDetail {
@@ -87,26 +87,39 @@ export default function SuratKeluarDetailPage() {
     const isDraft = data.status === "Draft";
     const hasFinalFile = !!data.finalFilePath;
 
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case "Draft": return "bg-gray-500";
+            case "Terverifikasi": return "bg-green-600";
+            default: return "bg-blue-600";
+        }
+    };
+
     return (
         <div className="h-[calc(100vh-100px)] flex flex-col gap-4">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="space-y-2">
                     <Link href="/arsip/surat-keluar">
-                        <Button variant="ghost" size="icon">
-                            <ArrowLeft className="h-5 w-5" />
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="p-0 h-auto text-muted-foreground hover:text-slate-900 dark:hover:text-white hover:bg-transparent -ml-1 flex items-center gap-1.5 transition-colors"
+                        >
+                            <ArrowLeft className="h-4 w-4" />
+                            Kembali ke Surat Keluar
                         </Button>
                     </Link>
                     <div>
-                        <h1 className="text-xl font-bold font-mono tracking-tight text-blue-600">
+                        <h1 className="text-xl font-bold flex items-center gap-2">
                             {data.mailNumber}
+                            <Badge className={getStatusColor(data.status)}>{data.status}</Badge>
                         </h1>
-                        <div className="flex items-center gap-2 mt-1">
-                             <Badge variant={isDraft ? "secondary" : "default"} className={!isDraft ? "bg-blue-600" : ""}>
-                                {data.status}
-                             </Badge>
-                             <span className="text-muted-foreground text-sm">• {formatDate(data.dateOfLetter)}</span>
-                        </div>
+                        <p className="text-muted-foreground text-sm flex items-center gap-2">
+                            <span>Penerima: {data.recipient}</span>
+                            <span>•</span>
+                            <span>{formatDate(data.dateOfLetter)}</span>
+                        </p>
                     </div>
                 </div>
             </div>
@@ -262,7 +275,7 @@ export default function SuratKeluarDetailPage() {
                 {/* Mobile PDF Link */}
                  <div className="lg:hidden">
                     {(data.finalFilePath || data.filePath) ? (
-                        <Button variant="outline" className="w-full" onClick={() => window.open(data.finalFilePath || data.filePath || "", "_blank")}>
+                        <Button variant="outline" className="w-full" onClick={() => window.open(normalizePublicPath(data.finalFilePath || data.filePath), "_blank")}>
                             Lihat File PDF
                         </Button>
                     ) : (

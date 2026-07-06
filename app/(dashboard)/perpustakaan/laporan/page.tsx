@@ -263,7 +263,7 @@ export default function LaporanPage() {
                     </Button>
                 </Link>
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
+                    <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-zinc-50">
                         Laporan Perpustakaan
                     </h1>
                     <p className="text-muted-foreground">

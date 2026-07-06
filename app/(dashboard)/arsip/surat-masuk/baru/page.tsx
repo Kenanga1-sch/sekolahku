@@ -12,10 +12,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PDFViewer } from "@/components/arsip/pdf-viewer";
 import { toast } from "sonner";
 import { goPost } from "@/lib/api-client";
+import { cn } from "@/lib/utils";
 
 export default function CreateSuratMasukPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
+    const [analyzing, setAnalyzing] = useState(false);
+    const [isDragOver, setIsDragOver] = useState(false);
     const [file, setFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     
@@ -29,15 +32,76 @@ export default function CreateSuratMasukPage() {
         classificationCode: ""
     });
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const processUploadedFile = async (selectedFile: File) => {
+        const allowedTypes = ["application/pdf", "image/jpeg", "image/png", "image/jpg"];
+        if (!allowedTypes.includes(selectedFile.type)) {
+            toast.error("Hanya file PDF atau Gambar (JPG, PNG) yang diperbolehkan");
+            return;
+        }
+        setFile(selectedFile);
+        setPreviewUrl(URL.createObjectURL(selectedFile));
+
+        // Memicu analisis AI secara otomatis
+        setAnalyzing(true);
+        const uploadToast = toast.loading("Gemini AI sedang membaca dan mengekstrak dokumen...");
+
+        try {
+            const data = new FormData();
+            data.append("file", selectedFile);
+
+            const res: any = await goPost("/api/arsip/surat-masuk/analyze-ai", data);
+            toast.dismiss(uploadToast);
+
+            if (res.error) {
+                throw new Error(res.error);
+            }
+
+            if (res.ai_enabled === false) {
+                toast.info("AI tidak aktif (API Key belum diatur). Silakan isi data secara manual.");
+            } else if (res.data) {
+                const ext = res.data;
+                setFormData(prev => ({
+                    ...prev,
+                    originalNumber: ext.originalNumber || prev.originalNumber,
+                    sender: ext.sender || prev.sender,
+                    subject: ext.subject || prev.subject,
+                    dateOfLetter: ext.dateOfLetter || prev.dateOfLetter,
+                    classificationCode: ext.classificationCode || prev.classificationCode,
+                    notes: ext.notes || prev.notes,
+                }));
+                toast.success("AI berhasil mengekstrak data surat!");
+            }
+        } catch (err: any) {
+            toast.dismiss(uploadToast);
+            console.error("AI Analysis failed:", err);
+            toast.error("Gagal melakukan analisis AI. Silakan isi formulir secara manual.");
+        } finally {
+            setAnalyzing(false);
+        }
+    };
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
         if (selectedFile) {
-            if (selectedFile.type !== "application/pdf") {
-                toast.error("Hanya file PDF yang diperbolehkan");
-                return;
-            }
-            setFile(selectedFile);
-            setPreviewUrl(URL.createObjectURL(selectedFile));
+            await processUploadedFile(selectedFile);
+        }
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragOver(true);
+    };
+
+    const handleDragLeave = () => {
+        setIsDragOver(false);
+    };
+
+    const handleDrop = async (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragOver(false);
+        const droppedFile = e.dataTransfer.files?.[0];
+        if (droppedFile) {
+            await processUploadedFile(droppedFile);
         }
     };
 
@@ -78,10 +142,15 @@ export default function CreateSuratMasukPage() {
 
     return (
         <div className="h-[calc(100vh-100px)] flex flex-col gap-4">
-            <div className="flex items-center gap-4">
-                <Link href="/arsip/surat-masuk">
-                    <Button variant="ghost" size="icon">
-                        <ArrowLeft className="h-5 w-5" />
+            <div className="space-y-2">
+                <Link href="/arsip">
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="p-0 h-auto text-muted-foreground hover:text-slate-900 dark:hover:text-white hover:bg-transparent -ml-1 flex items-center gap-1.5 transition-colors"
+                    >
+                        <ArrowLeft className="h-4 w-4" />
+                        Kembali ke E-Arsip
                     </Button>
                 </Link>
                 <div>
@@ -92,7 +161,18 @@ export default function CreateSuratMasukPage() {
 
             <div className="grid lg:grid-cols-2 gap-6 h-full min-h-0">
                 {/* Left: Form */}
-                <Card className="overflow-y-auto h-full scrollbar-thin">
+                <Card className="overflow-y-auto h-full scrollbar-thin relative">
+                    {analyzing && (
+                        <div className="absolute inset-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center space-y-4 rounded-xl">
+                            <div className="w-12 h-12 rounded-full border-4 border-slate-200 dark:border-zinc-800 border-t-indigo-600 animate-spin" />
+                            <div className="text-center space-y-1">
+                                <h4 className="font-bold text-slate-800 dark:text-slate-200">Gemini AI sedang bekerja</h4>
+                                <p className="text-xs text-muted-foreground max-w-xs px-6">
+                                    Membaca isi berkas PDF dan mengekstrak metadata surat (nomor, tanggal, pengirim, dll.) secara otomatis...
+                                </p>
+                            </div>
+                        </div>
+                    )}
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <FileText className="h-5 w-5 text-blue-600" />
@@ -102,18 +182,36 @@ export default function CreateSuratMasukPage() {
                     <CardContent>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div className="space-y-2">
-                                <Label>File Scan Surat (PDF) *</Label>
-                                <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 flex flex-col items-center justify-center text-center hover:bg-slate-50 transition cursor-pointer relative">
+                                <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">File Scan Surat (PDF / Gambar) *</Label>
+                                <div 
+                                    onDragOver={handleDragOver}
+                                    onDragLeave={handleDragLeave}
+                                    onDrop={handleDrop}
+                                    className={cn(
+                                        "border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center transition-all duration-200 cursor-pointer relative min-h-[160px]",
+                                        isDragOver 
+                                            ? "border-indigo-600 bg-indigo-50/30 dark:bg-indigo-950/20 scale-[1.01] shadow-md shadow-indigo-100 dark:shadow-none" 
+                                            : "border-slate-300 dark:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-900"
+                                    )}
+                                >
                                     <Input 
                                         type="file" 
                                         className="absolute inset-0 opacity-0 cursor-pointer" 
-                                        accept="application/pdf"
+                                        accept="application/pdf,image/jpeg,image/png,image/jpg"
                                         onChange={handleFileChange}
-                                        required
+                                        required={!file}
                                     />
-                                    <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                                    <p className="text-sm font-medium">{file ? file.name : "Klik untuk upload PDF"}</p>
-                                    <p className="text-xs text-muted-foreground">Maksimal 10MB</p>
+                                    <Upload className={cn("h-10 w-10 mb-3 transition-colors", isDragOver ? "text-indigo-600 animate-bounce" : "text-muted-foreground")} />
+                                    {isDragOver ? (
+                                        <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">Lepaskan berkas untuk mengunggah...</p>
+                                    ) : (
+                                        <>
+                                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                                                {file ? file.name : "Klik atau seret berkas ke sini"}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground mt-1">PDF atau Gambar (Maksimal 10MB)</p>
+                                        </>
+                                    )}
                                 </div>
                             </div>
 
@@ -209,9 +307,21 @@ export default function CreateSuratMasukPage() {
                     </CardContent>
                 </Card>
 
-                {/* Right: PDF Preview */}
-                <div className="h-full min-h-[400px]">
-                    <PDFViewer url={previewUrl} className="h-full shadow-md" />
+                {/* Right: Preview (PDF or Image) */}
+                <div className="h-full min-h-[400px] border dark:border-zinc-800 rounded-xl overflow-hidden bg-slate-50 dark:bg-zinc-950 flex items-center justify-center p-2">
+                    {previewUrl ? (
+                        file?.type.startsWith("image/") ? (
+                            <img src={previewUrl} alt="Preview scan surat" className="max-w-full max-h-full object-contain rounded-lg shadow-md border" />
+                        ) : (
+                            <PDFViewer url={previewUrl} className="w-full h-full shadow-md rounded-lg" />
+                        )
+                    ) : (
+                        <div className="text-muted-foreground text-sm text-center p-8 space-y-2">
+                            <Upload className="h-10 w-10 text-slate-300 dark:text-zinc-700 mx-auto" />
+                            <p className="font-medium">Belum ada dokumen yang diunggah</p>
+                            <p className="text-xs text-slate-400">Pilih berkas PDF atau foto scan surat masuk untuk melihat pratinjau</p>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

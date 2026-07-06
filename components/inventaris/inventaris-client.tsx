@@ -37,6 +37,38 @@ const QuickActionsPanel = dynamic(
     }
 );
 
+const CategoryChart = dynamic(
+    () => import("@/components/inventaris/charts").then(mod => ({ default: mod.CategoryChart })),
+    {
+        loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[250px] w-full" /></CardContent></Card>,
+        ssr: false
+    }
+);
+
+const ConditionChart = dynamic(
+    () => import("@/components/inventaris/charts").then(mod => ({ default: mod.ConditionChart })),
+    {
+        loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[250px] w-full" /></CardContent></Card>,
+        ssr: false
+    }
+);
+
+const RecentAuditFeed = dynamic(
+    () => import("@/components/inventaris/recent-audit").then(mod => ({ default: mod.RecentAuditFeed })),
+    {
+        loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[320px] w-full" /></CardContent></Card>,
+        ssr: false
+    }
+);
+
+const TopRoomsWidget = dynamic(
+    () => import("@/components/inventaris/top-rooms").then(mod => ({ default: mod.TopRoomsWidget })),
+    {
+        loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[280px] w-full" /></CardContent></Card>,
+        ssr: false
+    }
+);
+
 
 
 interface InventarisClientProps {
@@ -191,7 +223,17 @@ export default function InventarisClient({ initialStats, initialConsumableStats,
                         </Card>
                     )}
 
+                    {/* Charts Grid */}
+                    <div className="grid gap-6 md:grid-cols-2">
+                        <CategoryChart />
+                        <ConditionChart />
+                    </div>
 
+                    {/* Audits & Rooms Grid */}
+                    <div className="grid gap-6 md:grid-cols-2">
+                        <RecentAuditFeed />
+                        <TopRoomsWidget />
+                    </div>
 
                 </TabsContent>
 

@@ -237,3 +237,13 @@ func (h *StudentHandler) SimpleSearch(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": students})
 }
+
+func (h *StudentHandler) GetStudentGrades(c echo.Context) error {
+	studentID := c.Param("id")
+	grades, err := h.Repo.GetStudentGrades(studentID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": grades})
+}
+

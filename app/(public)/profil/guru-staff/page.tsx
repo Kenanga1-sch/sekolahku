@@ -3,7 +3,6 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { Loader2, Quote } from "lucide-react";
-import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { Badge } from "@/components/ui/badge";
@@ -60,7 +59,7 @@ export default function PublicStaffPage() {
   return (
     <div className="container py-12 space-y-12">
       <div className="text-center space-y-4 max-w-2xl mx-auto">
-        <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+        <h1 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-zinc-50">
             Pendidik & Tenaga Kependidikan
         </h1>
         <p className="text-muted-foreground text-lg">
@@ -96,11 +95,10 @@ export default function PublicStaffPage() {
             className="group relative w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl overflow-hidden shadow-2xl border border-zinc-200 dark:border-zinc-800"
           >
             <div className="aspect-[4/5] relative">
-                <Image 
+                <img 
                     src={kepsek.photoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${kepsek.name}`}
                     alt={kepsek.name}
-                    fill
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    className="object-cover transition-transform duration-500 group-hover:scale-105 w-full h-full absolute inset-0"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                 <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
@@ -135,11 +133,10 @@ export default function PublicStaffPage() {
                 >
                     <Card className="h-full overflow-hidden hover:shadow-lg transition-shadow border-zinc-200 dark:border-zinc-800 group flex flex-col">
                         <div className="aspect-[3/4] relative bg-zinc-100 dark:bg-zinc-800 transition-all">
-                             <Image 
+                             <img 
                                 src={staff.photoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${staff.name}`}
                                 alt={staff.name}
-                                fill
-                                className="object-cover object-top transition-transform duration-500 group-hover:scale-105"
+                                className="object-cover object-top transition-transform duration-500 group-hover:scale-105 w-full h-full absolute inset-0"
                             />
                         </div>
                         <CardHeader className="p-4 space-y-1">

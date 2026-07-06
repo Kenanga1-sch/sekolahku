@@ -69,7 +69,7 @@ export function EmployeeFormDialog({ open, onOpenChange, employeeId, onSuccess }
       joinDate: "",
       phone: "",
       photoUrl: "",
-      category: "",
+      category: "none",
       degree: "",
       quote: "",
       displayOrder: 0,
@@ -103,7 +103,7 @@ export function EmployeeFormDialog({ open, onOpenChange, employeeId, onSuccess }
                     joinDate: formattedDate,
                     phone: data.phone || "",
                     photoUrl: data.photoUrl || "",
-                    category: data.category || "",
+                    category: data.category || "none",
                     degree: data.degree || "",
                     quote: data.quote || "",
                     displayOrder: data.displayOrder ?? 0,
@@ -124,7 +124,7 @@ export function EmployeeFormDialog({ open, onOpenChange, employeeId, onSuccess }
             joinDate: "",
             phone: "",
             photoUrl: "",
-            category: "",
+            category: "none",
             degree: "",
             quote: "",
             displayOrder: 0,
@@ -178,6 +178,7 @@ export function EmployeeFormDialog({ open, onOpenChange, employeeId, onSuccess }
     try {
         const payload = {
             ...data,
+            category: data.category === "none" ? "" : data.category,
             displayOrder: data.displayOrder ?? 0,
         };
 
@@ -402,14 +403,14 @@ export function EmployeeFormDialog({ open, onOpenChange, employeeId, onSuccess }
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Kategori Publik</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value || ""}>
+                                    <Select onValueChange={field.onChange} value={field.value || "none"}>
                                         <FormControl>
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Pilih kategori" />
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                            <SelectItem value="">Tidak ditampilkan</SelectItem>
+                                            <SelectItem value="none">Tidak ditampilkan</SelectItem>
                                             <SelectItem value="kepsek">Kepala Sekolah</SelectItem>
                                             <SelectItem value="guru">Tenaga Pendidik (Guru)</SelectItem>
                                             <SelectItem value="staff">Tenaga Kependidikan (TU/Operator)</SelectItem>

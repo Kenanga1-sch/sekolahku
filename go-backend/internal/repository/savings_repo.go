@@ -3,6 +3,8 @@ package repository
 import (
 	"database/sql"
 	"errors"
+	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -167,12 +169,13 @@ func (r *SavingsRepository) GetSaldoByKelas() ([]models.SaldoByKelasItem, error)
 // Students
 func (r *SavingsRepository) GetSiswa(page, limit int, search, classId string) ([]models.TabunganSiswa, int, error) {
 	offset := (page - 1) * limit
+	// BUG-7 FIX: Default to only active students
 	query := `
 		SELECT s.id, s.nisn, s.nama, s.kelas_id, s.saldo_terakhir, s.qr_code, s.foto, s.is_active, s.created_at,
 		       k.id as k_id, k.nama as k_nama
 		FROM tabungan_siswa s
 		JOIN tabungan_kelas k ON s.kelas_id = k.id
-		WHERE 1=1
+		WHERE s.is_active = 1
 	`
 	var args []interface{}
 	if search != "" {
@@ -350,6 +353,14 @@ func (r *SavingsRepository) UpdateKelas(id string, nama string, waliKelas *strin
 }
 
 func (r *SavingsRepository) DeleteKelas(id string) error {
+	// BUG-8 FIX: Check if there are active students in this class before deleting
+	var count int
+	if err := r.DB.QueryRow("SELECT COUNT(*) FROM tabungan_siswa WHERE kelas_id = ? AND is_active = 1", id).Scan(&count); err != nil {
+		return err
+	}
+	if count > 0 {
+		return errors.New("Tidak dapat menghapus kelas yang masih memiliki " + strconv.Itoa(count) + " siswa aktif")
+	}
 	_, err := r.DB.Exec("DELETE FROM tabungan_kelas WHERE id = ?", id)
 	return err
 }
@@ -687,41 +698,63 @@ func (r *SavingsRepository) VerifySetoran(req models.VerifySetoranRequest) error
 		if err != nil {
 			return err
 		}
+
+		// BUG-5 FIX: Collect all transactions first, then validate total withdrawals per student
+		type txItem struct {
+			ID, SiswaID, Tipe string
+			Nominal           int
+		}
+		var items []txItem
 		for rows.Next() {
-			var tid, sid, tp string
-			var n int
-			if err := rows.Scan(&tid, &sid, &tp, &n); err != nil {
+			var item txItem
+			if err := rows.Scan(&item.ID, &item.SiswaID, &item.Tipe, &item.Nominal); err != nil {
 				rows.Close()
 				return err
 			}
-			if tp == "tarik" {
+			items = append(items, item)
+		}
+		rows.Close()
+
+		// Calculate net change per student to validate withdrawals won't cause negative balance
+		netPerSiswa := make(map[string]int)
+		for _, item := range items {
+			if item.Tipe == "setor" {
+				netPerSiswa[item.SiswaID] += item.Nominal
+			} else {
+				netPerSiswa[item.SiswaID] -= item.Nominal
+			}
+		}
+
+		// Validate: for students with net withdrawal, check balance
+		for sid, net := range netPerSiswa {
+			if net < 0 {
 				var saldo int
 				if err := tx.QueryRow("SELECT saldo_terakhir FROM tabungan_siswa WHERE id = ?", sid).Scan(&saldo); err != nil {
-					rows.Close()
 					return err
 				}
-				if saldo < n {
-					rows.Close()
-					return errors.New("Saldo siswa tidak cukup untuk verifikasi penarikan")
+				if saldo+net < 0 {
+					var nama string
+					tx.QueryRow("SELECT nama FROM tabungan_siswa WHERE id = ?", sid).Scan(&nama)
+					return errors.New("Saldo siswa " + nama + " tidak cukup untuk verifikasi penarikan")
 				}
 			}
-			if _, err := tx.Exec("UPDATE tabungan_transaksi SET status = 'verified', verified_by = ?, verified_at = ?, updated_at = ? WHERE id = ?", req.BendaharaID, now, now, tid); err != nil {
-				rows.Close()
+		}
+
+		// All validations passed, now apply
+		for _, item := range items {
+			if _, err := tx.Exec("UPDATE tabungan_transaksi SET status = 'verified', verified_by = ?, verified_at = ?, updated_at = ? WHERE id = ?", req.BendaharaID, now, now, item.ID); err != nil {
 				return err
 			}
-			if tp == "setor" {
-				if _, err := tx.Exec("UPDATE tabungan_siswa SET saldo_terakhir = saldo_terakhir + ?, updated_at = ? WHERE id = ?", n, now, sid); err != nil {
-					rows.Close()
+			if item.Tipe == "setor" {
+				if _, err := tx.Exec("UPDATE tabungan_siswa SET saldo_terakhir = saldo_terakhir + ?, updated_at = ? WHERE id = ?", item.Nominal, now, item.SiswaID); err != nil {
 					return err
 				}
 			} else {
-				if _, err := tx.Exec("UPDATE tabungan_siswa SET saldo_terakhir = saldo_terakhir - ?, updated_at = ? WHERE id = ?", n, now, sid); err != nil {
-					rows.Close()
+				if _, err := tx.Exec("UPDATE tabungan_siswa SET saldo_terakhir = saldo_terakhir - ?, updated_at = ? WHERE id = ?", item.Nominal, now, item.SiswaID); err != nil {
 					return err
 				}
 			}
 		}
-		rows.Close()
 
 		// Vault update
 		var bId string
@@ -931,7 +964,7 @@ func (r *SavingsRepository) UpdateSavingsTreasurer(userId string) error {
 // Hutang
 func (r *SavingsRepository) GetHutang(siswaId string) ([]models.TabunganHutang, error) {
 	query := `
-		SELECT h.id, h.siswa_id, h.nama_barang, h.kategori, h.nominal, h.jumlah, h.dicatat_oleh, h.status, h.created_at,
+		SELECT h.id, h.siswa_id, h.nama_barang, h.kategori, h.nominal, h.jumlah, h.terbayar, h.dicatat_oleh, h.status, h.created_at,
 		       s.nama as s_nama
 		FROM tabungan_hutang h
 		JOIN tabungan_siswa s ON h.siswa_id = s.id
@@ -954,7 +987,7 @@ func (r *SavingsRepository) GetHutang(siswaId string) ([]models.TabunganHutang, 
 		var h models.TabunganHutang
 		var crAt sql.NullInt64
 		var sName string
-		rows.Scan(&h.ID, &h.SiswaID, &h.NamaBarang, &h.Kategori, &h.Nominal, &h.Jumlah, &h.DicatatOleh, &h.Status, &crAt, &sName)
+		rows.Scan(&h.ID, &h.SiswaID, &h.NamaBarang, &h.Kategori, &h.Nominal, &h.Jumlah, &h.Terbayar, &h.DicatatOleh, &h.Status, &crAt, &sName)
 		h.Siswa = &models.TabunganSiswa{Nama: sName}
 		cTime := ToTime(crAt)
 		h.CreatedAt = &cTime
@@ -982,8 +1015,8 @@ func (r *SavingsRepository) CreateHutang(h models.TabunganHutang) error {
 	}
 	now := UnixMilli()
 	_, err := r.DB.Exec(`
-		INSERT INTO tabungan_hutang (id, siswa_id, nama_barang, kategori, nominal, jumlah, dicatat_oleh, status, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO tabungan_hutang (id, siswa_id, nama_barang, kategori, nominal, jumlah, terbayar, dicatat_oleh, status, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
 	`, h.ID, h.SiswaID, h.NamaBarang, h.Kategori, h.Nominal, h.Jumlah, h.DicatatOleh, "aktif", now, now)
 	return err
 }
@@ -997,7 +1030,6 @@ func (r *SavingsRepository) UpdateHutang(id string, input models.UpdateHutangReq
 }
 
 func (r *SavingsRepository) DeleteHutang(id string) error {
-	// Restore saldo if hutang was settled from savings
 	tx, err := r.DB.Begin()
 	if err != nil {
 		return err
@@ -1014,114 +1046,260 @@ func (r *SavingsRepository) DeleteHutang(id string) error {
 		return err
 	}
 
-	now := UnixMilli()
-	if status == "lunas" && sid != "" {
-		total := nominal * jumlah
-		tx.Exec("UPDATE tabungan_siswa SET saldo_terakhir = saldo_terakhir + ?, updated_at = ? WHERE id = ?", total, now, sid)
+	if status == "batal" {
+		return errors.New("hutang sudah dibatalkan sebelumnya")
 	}
 
-	_, err = tx.Exec("UPDATE tabungan_hutang SET status = 'batal', updated_at = ? WHERE id = ?", now, id)
-	if err != nil {
+	now := UnixMilli()
+
+	// 1. Calculate and refund savings payments
+	var tabunganRefund int
+	tx.QueryRow("SELECT COALESCE(SUM(nominal), 0) FROM tabungan_hutang_pembayaran WHERE hutang_id = ? AND metode = 'tabungan'", id).Scan(&tabunganRefund)
+	if tabunganRefund > 0 && sid != "" {
+		if _, err := tx.Exec("UPDATE tabungan_siswa SET saldo_terakhir = saldo_terakhir + ?, updated_at = ? WHERE id = ?", tabunganRefund, now, sid); err != nil {
+			return err
+		}
+		// Insert refund transaction in tabungan_transaksi
+		if _, err := tx.Exec("INSERT INTO tabungan_transaksi (id, siswa_id, tipe, nominal, status, catatan, created_at, updated_at) VALUES (?, ?, 'setor', ?, 'verified', ?, ?, ?)",
+			cuid2.Generate(), sid, tabunganRefund, fmt.Sprintf("Refund pembatalan hutang (ID Hutang: %s)", id), now, now); err != nil {
+			return err
+		}
+	}
+
+	// 2. Calculate and deduct cash payments from brankas
+	var cashDeduction int
+	tx.QueryRow("SELECT COALESCE(SUM(nominal), 0) FROM tabungan_hutang_pembayaran WHERE hutang_id = ? AND metode = 'cash'", id).Scan(&cashDeduction)
+	if cashDeduction > 0 {
+		var bId string
+		tx.QueryRow("SELECT id FROM tabungan_brankas WHERE tipe = 'cash' LIMIT 1").Scan(&bId)
+		if bId != "" {
+			if _, err := tx.Exec("UPDATE tabungan_brankas SET saldo = saldo - ?, updated_at = ? WHERE id = ?", cashDeduction, now, bId); err != nil {
+				return err
+			}
+			if _, err := tx.Exec("INSERT INTO tabungan_brankas_transaksi (id, tipe, nominal, catatan, created_at) VALUES (?, 'pengeluaran_refund', ?, ?, ?)",
+				cuid2.Generate(), cashDeduction, fmt.Sprintf("Refund pembatalan hutang tunai (ID Hutang: %s)", id), now); err != nil {
+				return err
+			}
+		}
+	}
+
+	// 3. Mark debt as cancelled
+	if _, err = tx.Exec("UPDATE tabungan_hutang SET status = 'batal', updated_at = ? WHERE id = ?", now, id); err != nil {
 		return err
 	}
+
 	return tx.Commit()
 }
 
-func (r *SavingsRepository) PayHutangCash(id string, amount int) error {
+func (r *SavingsRepository) PayHutangCash(id string, amount int, operatorID string) error {
 	tx, err := r.DB.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	var nominal, jumlah int
-	err = tx.QueryRow("SELECT nominal, jumlah FROM tabungan_hutang WHERE id = ?", id).Scan(&nominal, &jumlah)
+	var nominal, jumlah, terbayar int
+	var hutangStatus string
+	err = tx.QueryRow("SELECT nominal, jumlah, terbayar, status FROM tabungan_hutang WHERE id = ?", id).Scan(&nominal, &jumlah, &terbayar, &hutangStatus)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.New("hutang tidak ditemukan")
+		}
 		return err
 	}
 
+	if hutangStatus == "lunas" || hutangStatus == "batal" {
+		return errors.New("hutang sudah diselesaikan atau dibatalkan")
+	}
+
 	total := nominal * jumlah
-	if amount < total {
-		return errors.New("pembayaran harus lunas (sementara)")
+	sisa := total - terbayar
+	if amount <= 0 {
+		return errors.New("nominal pembayaran harus lebih dari 0")
+	}
+	if amount > sisa {
+		return fmt.Errorf("nominal pembayaran melebihi sisa hutang (sisa: Rp%d)", sisa)
 	}
 
 	now := UnixMilli()
-	tx.Exec("UPDATE tabungan_hutang SET status = 'lunas', updated_at = ? WHERE id = ?", now, id)
+	newTerbayar := terbayar + amount
+	newStatus := "cicilan"
+	if newTerbayar >= total {
+		newStatus = "lunas"
+	}
 
-	// Add to Cash Vault
+	// 1. Update tabungan_hutang
+	if _, err := tx.Exec("UPDATE tabungan_hutang SET terbayar = ?, status = ?, updated_at = ? WHERE id = ?", newTerbayar, newStatus, now, id); err != nil {
+		return err
+	}
+
+	// 2. Record payment history
+	paymentID := cuid2.Generate()
+	if _, err := tx.Exec(`
+		INSERT INTO tabungan_hutang_pembayaran (id, hutang_id, nominal, metode, dicatat_oleh, created_at)
+		VALUES (?, ?, ?, 'cash', ?, ?)
+	`, paymentID, id, amount, operatorID, now); err != nil {
+		return err
+	}
+
+	// 3. Add to Cash Vault
 	var bId string
 	tx.QueryRow("SELECT id FROM tabungan_brankas WHERE tipe = 'cash' LIMIT 1").Scan(&bId)
 	if bId != "" {
-		tx.Exec("UPDATE tabungan_brankas SET saldo = saldo + ?, updated_at = ? WHERE id = ?", amount, now, bId)
-		tx.Exec("INSERT INTO tabungan_brankas_transaksi (id, tipe, nominal, catatan, created_at) VALUES (?, 'penerimaan_hutang', ?, ?, ?)",
-			cuid2.Generate(), amount, "Pembayaran hutang tunai", now)
+		if _, err := tx.Exec("UPDATE tabungan_brankas SET saldo = saldo + ?, updated_at = ? WHERE id = ?", amount, now, bId); err != nil {
+			return err
+		}
+		if _, err := tx.Exec("INSERT INTO tabungan_brankas_transaksi (id, tipe, nominal, catatan, created_at) VALUES (?, 'penerimaan_hutang', ?, ?, ?)",
+			cuid2.Generate(), amount, fmt.Sprintf("Pembayaran cicilan hutang tunai (ID Hutang: %s)", id), now); err != nil {
+			return err
+		}
 	}
 
 	return tx.Commit()
 }
 
-func (r *SavingsRepository) SettleHutangFromSavings(id string) error {
+func (r *SavingsRepository) SettleHutangFromSavings(id string, amount int, operatorID string) error {
 	tx, err := r.DB.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
-	var sid string
-	var nominal, jumlah int
-	err = tx.QueryRow("SELECT siswa_id, nominal, jumlah FROM tabungan_hutang WHERE id = ?", id).Scan(&sid, &nominal, &jumlah)
+	var sid, hutangStatus string
+	var nominal, jumlah, terbayar int
+	err = tx.QueryRow("SELECT siswa_id, nominal, jumlah, terbayar, status FROM tabungan_hutang WHERE id = ?", id).Scan(&sid, &nominal, &jumlah, &terbayar, &hutangStatus)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.New("hutang tidak ditemukan")
+		}
 		return err
 	}
 
+	if hutangStatus == "lunas" || hutangStatus == "batal" {
+		return errors.New("hutang sudah diselesaikan atau dibatalkan")
+	}
+
 	total := nominal * jumlah
+	sisa := total - terbayar
+	if amount <= 0 {
+		return errors.New("nominal pembayaran harus lebih dari 0")
+	}
+	if amount > sisa {
+		return fmt.Errorf("nominal pembayaran melebihi sisa hutang (sisa: Rp%d)", sisa)
+	}
+
+	// Check savings balance
 	var saldo int
-	tx.QueryRow("SELECT saldo_terakhir FROM tabungan_siswa WHERE id = ?", sid).Scan(&saldo)
-	if saldo < total {
+	if err := tx.QueryRow("SELECT saldo_terakhir FROM tabungan_siswa WHERE id = ?", sid).Scan(&saldo); err != nil {
+		return errors.New("siswa tabungan tidak ditemukan")
+	}
+	if saldo < amount {
 		return errors.New("saldo tabungan tidak mencukupi")
 	}
 
 	now := UnixMilli()
-	// 1. Mark debt paid
-	tx.Exec("UPDATE tabungan_hutang SET status = 'lunas', updated_at = ? WHERE id = ?", now, id)
+	newTerbayar := terbayar + amount
+	newStatus := "cicilan"
+	if newTerbayar >= total {
+		newStatus = "lunas"
+	}
+
+	// 1. Update tabungan_hutang
+	if _, err := tx.Exec("UPDATE tabungan_hutang SET terbayar = ?, status = ?, updated_at = ? WHERE id = ?", newTerbayar, newStatus, now, id); err != nil {
+		return err
+	}
 
 	// 2. Deduct savings
-	tx.Exec("UPDATE tabungan_siswa SET saldo_terakhir = saldo_terakhir - ?, updated_at = ? WHERE id = ?", total, now, sid)
+	if _, err := tx.Exec("UPDATE tabungan_siswa SET saldo_terakhir = saldo_terakhir - ?, updated_at = ? WHERE id = ?", amount, now, sid); err != nil {
+		return err
+	}
 
-	// 3. Add transaction record
-	tx.Exec("INSERT INTO tabungan_transaksi (id, siswa_id, tipe, nominal, status, catatan, created_at, updated_at) VALUES (?, ?, 'tarik', ?, 'verified', ?, ?, ?)",
-		cuid2.Generate(), sid, total, "Pelunasan hutang dari tabungan", now, now)
+	// 3. Add savings transaction record
+	txID := cuid2.Generate()
+	if _, err := tx.Exec("INSERT INTO tabungan_transaksi (id, siswa_id, tipe, nominal, status, catatan, created_at, updated_at) VALUES (?, ?, 'tarik', ?, 'verified', ?, ?, ?)",
+		txID, sid, amount, fmt.Sprintf("Pembayaran cicilan hutang via tabungan (ID Hutang: %s)", id), now, now); err != nil {
+		return err
+	}
 
-	// 4. Add to Vault
+	// 4. Record payment history
+	paymentID := cuid2.Generate()
+	if _, err := tx.Exec(`
+		INSERT INTO tabungan_hutang_pembayaran (id, hutang_id, nominal, metode, transaksi_id, dicatat_oleh, created_at)
+		VALUES (?, ?, ?, 'tabungan', ?, ?, ?)
+	`, paymentID, id, amount, txID, operatorID, now); err != nil {
+		return err
+	}
+
+	// 5. Add to Vault
 	var bId string
 	tx.QueryRow("SELECT id FROM tabungan_brankas WHERE tipe = 'cash' LIMIT 1").Scan(&bId)
 	if bId != "" {
-		tx.Exec("UPDATE tabungan_brankas SET saldo = saldo + ?, updated_at = ? WHERE id = ?", total, now, bId)
-		tx.Exec("INSERT INTO tabungan_brankas_transaksi (id, tipe, nominal, catatan, created_at) VALUES (?, 'penerimaan_hutang', ?, ?, ?)",
-			cuid2.Generate(), total, "Pelunasan hutang via tabungan", now)
+		if _, err := tx.Exec("UPDATE tabungan_brankas SET saldo = saldo + ?, updated_at = ? WHERE id = ?", amount, now, bId); err != nil {
+			return err
+		}
+		if _, err := tx.Exec("INSERT INTO tabungan_brankas_transaksi (id, tipe, nominal, catatan, created_at) VALUES (?, 'penerimaan_hutang', ?, ?, ?)",
+			cuid2.Generate(), amount, fmt.Sprintf("Pelunasan cicilan hutang via tabungan (ID Hutang: %s)", id), now); err != nil {
+			return err
+		}
 	}
 
 	return tx.Commit()
+}
+
+func (r *SavingsRepository) GetHutangPayments(hutangID string) ([]models.TabunganHutangPembayaran, error) {
+	query := `
+		SELECT id, hutang_id, nominal, metode, transaksi_id, COALESCE(dicatat_oleh, ''), created_at
+		FROM tabungan_hutang_pembayaran
+		WHERE hutang_id = ?
+		ORDER BY created_at DESC
+	`
+	rows, err := r.DB.Query(query, hutangID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var res []models.TabunganHutangPembayaran
+	for rows.Next() {
+		var p models.TabunganHutangPembayaran
+		var crAt int64
+		var txID sql.NullString
+		err := rows.Scan(&p.ID, &p.HutangID, &p.Nominal, &p.Metode, &txID, &p.DicatatOleh, &crAt)
+		if err != nil {
+			return nil, err
+		}
+		if txID.Valid {
+			p.TransaksiID = &txID.String
+		}
+		cTime := ToTime(sql.NullInt64{Int64: crAt, Valid: true})
+		p.CreatedAt = &cTime
+		res = append(res, p)
+	}
+	if res == nil {
+		res = []models.TabunganHutangPembayaran{}
+	}
+	return res, nil
 }
 
 func (r *SavingsRepository) GetStudentFinancialClearance(studentID string) (int, int, error) {
 	var balance int
 	var debt int
+	var savingsID string
 
-	// Get Balance
-	err := r.DB.QueryRow("SELECT saldo_terakhir FROM tabungan_siswa WHERE id = ?", studentID).Scan(&balance)
+	// Get Balance and savings account ID
+	err := r.DB.QueryRow("SELECT id, saldo_terakhir FROM tabungan_siswa WHERE student_id = ?", studentID).Scan(&savingsID, &balance)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			balance = 0
-		} else {
-			return 0, 0, err
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, 0, nil
 		}
+		return 0, 0, err
 	}
 
-	// Get Total Active Debt
-	err = r.DB.QueryRow("SELECT SUM(nominal * jumlah) FROM tabungan_hutang WHERE siswa_id = ? AND status = 'aktif'", studentID).Scan(&debt)
-	if err != nil {
-		debt = 0
+	// Get Total Active Debt using savingsID
+	var nullDebt sql.NullInt64
+	err = r.DB.QueryRow("SELECT SUM(nominal * jumlah) FROM tabungan_hutang WHERE siswa_id = ? AND status = 'aktif'", savingsID).Scan(&nullDebt)
+	if err == nil && nullDebt.Valid {
+		debt = int(nullDebt.Int64)
 	}
 
 	return balance, debt, nil
@@ -1513,4 +1691,97 @@ func (r *SavingsRepository) GetPublicBalance(identifier, birthDate string) (*mod
 	}
 
 	return &s, nil
+}
+
+// SyncFromStudents links existing tabungan_siswa to students and inserts missing ones
+func (r *SavingsRepository) SyncFromStudents() (int, error) {
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	// 1. Link existing tabungan_siswa that have NULL or empty student_id by matching NISN or Nama
+	_, err = tx.Exec(`
+		UPDATE tabungan_siswa
+		SET student_id = (
+			SELECT s.id FROM students s 
+			WHERE s.nisn = tabungan_siswa.nisn AND s.nisn IS NOT NULL AND s.nisn != ''
+			LIMIT 1
+		)
+		WHERE student_id IS NULL OR student_id = ''
+	`)
+	if err != nil {
+		return 0, err
+	}
+
+	// 2. Find active students who do not have a record in tabungan_siswa
+	rows, err := tx.Query(`
+		SELECT id, nisn, full_name, COALESCE(class_name, ''), 
+		       CASE WHEN qr_code IS NOT NULL AND TRIM(qr_code) != '' THEN qr_code ELSE id END
+		FROM students
+		WHERE (is_active = 1 OR status = 'active' OR status = 'aktif')
+			AND id NOT IN (SELECT student_id FROM tabungan_siswa WHERE student_id IS NOT NULL)
+			AND (nisn IS NOT NULL AND nisn != '' AND nisn NOT IN (SELECT nisn FROM tabungan_siswa WHERE nisn IS NOT NULL))
+	`)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	type stubStudent struct {
+		ID        string
+		NISN      string
+		FullName  string
+		ClassName string
+		QRCode    string
+	}
+	var toAdd []stubStudent
+	for rows.Next() {
+		var s stubStudent
+		if err := rows.Scan(&s.ID, &s.NISN, &s.FullName, &s.ClassName, &s.QRCode); err == nil {
+			toAdd = append(toAdd, s)
+		}
+	}
+	rows.Close()
+
+	now := time.Now().UnixMilli()
+	count := 0
+
+	for _, s := range toAdd {
+		// Try to find matching tabungan_kelas ID by class name
+		var tabunganKelasID string
+		err := tx.QueryRow("SELECT id FROM tabungan_kelas WHERE nama = ?", s.ClassName).Scan(&tabunganKelasID)
+		if err != nil && err != sql.ErrNoRows {
+			continue
+		}
+
+		// If not found, create a new tabungan_kelas record
+		if tabunganKelasID == "" {
+			tabunganKelasID = cuid2.Generate()
+			_, err = tx.Exec(`
+				INSERT INTO tabungan_kelas (id, nama, wali_kelas, created_at, updated_at)
+				VALUES (?, ?, '', ?, ?)
+			`, tabunganKelasID, s.ClassName, now, now)
+			if err != nil {
+				continue
+			}
+		}
+
+		// Insert new tabungan_siswa record
+		id := cuid2.Generate()
+		qrCode := "TAB-" + id
+		if s.QRCode != "" {
+			qrCode = s.QRCode
+		}
+		_, err = tx.Exec(`
+			INSERT INTO tabungan_siswa (id, student_id, nisn, nama, kelas_id, saldo_terakhir, qr_code, is_active, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, 0, ?, 1, ?, ?)
+		`, id, s.ID, s.NISN, s.FullName, tabunganKelasID, qrCode, now, now)
+		if err == nil {
+			count++
+		}
+	}
+
+	return count, tx.Commit()
 }

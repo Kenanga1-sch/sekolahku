@@ -118,7 +118,7 @@ export default function TabunganRiwayatPage() {
             {/* Header */}
             <div className="flex items-center gap-4">
                 <Link href="/tabungan">
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Button variant="outline" size="icon" className="h-8 w-8 border-slate-200 bg-white shadow-sm hover:bg-slate-50">
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
                 </Link>

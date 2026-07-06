@@ -70,9 +70,9 @@ func (r *AlumniRepository) SeedDocumentTypes() {
 
 // ───────── List ─────────
 
-func (r *AlumniRepository) GetAlumni(page, limit int, search, year string) ([]models.Alumni, int, error) {
+func (r *AlumniRepository) GetAlumni(page, limit int, search, year, statusFilter string) ([]models.Alumni, int, error) {
 	offset := (page - 1) * limit
-	query := "SELECT id, nisn, nis, full_name, gender, graduation_year, final_class, photo, next_school, nik, enrolled_year, religion, address, created_at FROM alumni WHERE 1=1"
+	query := "SELECT id, nisn, nis, full_name, gender, graduation_year, final_class, photo, next_school, nik, enrolled_year, religion, address, status, created_at FROM alumni WHERE 1=1"
 	var args []interface{}
 
 	if search != "" {
@@ -83,6 +83,10 @@ func (r *AlumniRepository) GetAlumni(page, limit int, search, year string) ([]mo
 	if year != "" {
 		query += " AND graduation_year = ?"
 		args = append(args, year)
+	}
+	if statusFilter != "" {
+		query += " AND status = ?"
+		args = append(args, statusFilter)
 	}
 
 	var total int
@@ -100,10 +104,10 @@ func (r *AlumniRepository) GetAlumni(page, limit int, search, year string) ([]mo
 	var results []models.Alumni
 	for rows.Next() {
 		var a models.Alumni
-		var nisn, nis, gender, fClass, photo, nSchool, nik, eYear, rel, addr sql.NullString
+		var nisn, nis, gender, fClass, photo, nSchool, nik, eYear, rel, addr, status sql.NullString
 		var crAt sql.NullInt64
 		err := rows.Scan(&a.ID, &nisn, &nis, &a.FullName, &gender, &a.GraduationYear, &fClass, &photo, &nSchool,
-			&nik, &eYear, &rel, &addr, &crAt)
+			&nik, &eYear, &rel, &addr, &status, &crAt)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -117,6 +121,10 @@ func (r *AlumniRepository) GetAlumni(page, limit int, search, year string) ([]mo
 		a.EnrolledYear = optionalString(eYear)
 		a.Religion = optionalString(rel)
 		a.Address = optionalString(addr)
+		a.Status = status.String
+		if a.Status == "" {
+			a.Status = "graduated"
+		}
 		a.CreatedAt = SafeTime(crAt)
 		results = append(results, a)
 	}
@@ -139,7 +147,13 @@ func (r *AlumniRepository) GetAlumniByID(id string) (*models.Alumni, error) {
 		       mother_name, mother_nik, mother_education, mother_job,
 		       guardian_name, guardian_nik, guardian_relation, guardian_job, guardian_phone,
 		       sibling_count, child_order, height, weight, blood_type, medical_notes, special_needs,
-		       current_occupation, current_institution, last_education_level, final_grade_avg
+		       current_occupation, current_institution, last_education_level, final_grade_avg, status,
+		       nickname, citizenship, sibling_kandung, sibling_tiri, sibling_angkat,
+		       daily_language, living_with, guardian_education, previous_school_address,
+		       previous_school_cert_no, previous_school_cert_date,
+		       mutasi_masuk_asal_sekolah, mutasi_masuk_dari_kelas, mutasi_masuk_diterima_tanggal, mutasi_masuk_di_kelas,
+		       scholarship_info, mutation_out_class, mutation_out_to_school, mutation_out_to_class, mutation_out_date,
+		       dropped_out_date, dropped_out_reason
 		FROM alumni WHERE id = ?
 	`
 	var a models.Alumni
@@ -153,6 +167,13 @@ func (r *AlumniRepository) GetAlumniByID(id string) (*models.Alumni, error) {
 	var bt, medN, specN sql.NullString
 	var coOcc, coInst, lel sql.NullString
 	var fga sql.NullFloat64
+	var status sql.NullString
+
+	// Extensions
+	var nick, citizenship, dailyLang, livingWith, guardEdu, prevSchoolAddr, prevSchoolCertNo, prevSchoolCertDate sql.NullString
+	var mutMasukAsal, mutMasukDari, mutMasukDiterima, mutMasukDi sql.NullString
+	var scholar, mutOutClass, mutOutToSchool, mutOutToClass, mutOutDate, dropDate, dropReason sql.NullString
+	var sibKandung, sibTiri, sibAngkat sql.NullInt64
 
 	err := r.DB.QueryRow(query, id).Scan(
 		&a.ID, &sid, &nisn, &nis, &a.FullName, &gender, &bp, &bd,
@@ -163,7 +184,13 @@ func (r *AlumniRepository) GetAlumniByID(id string) (*models.Alumni, error) {
 		&mn, &mnNik, &mnEdu, &mnJob,
 		&gn, &gnNik, &gnRel, &gnJob, &gnPhone,
 		&sib, &co, &hgt, &wgt, &bt, &medN, &specN,
-		&coOcc, &coInst, &lel, &fga,
+		&coOcc, &coInst, &lel, &fga, &status,
+		&nick, &citizenship, &sibKandung, &sibTiri, &sibAngkat,
+		&dailyLang, &livingWith, &guardEdu, &prevSchoolAddr,
+		&prevSchoolCertNo, &prevSchoolCertDate,
+		&mutMasukAsal, &mutMasukDari, &mutMasukDiterima, &mutMasukDi,
+		&scholar, &mutOutClass, &mutOutToSchool, &mutOutToClass, &mutOutDate,
+		&dropDate, &dropReason,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -173,6 +200,10 @@ func (r *AlumniRepository) GetAlumniByID(id string) (*models.Alumni, error) {
 	}
 
 	a.StudentID = optionalString(sid)
+	a.Status = status.String
+	if a.Status == "" {
+		a.Status = "graduated"
+	}
 	a.NISN = optionalString(nisn)
 	a.NIS = optionalString(nis)
 	a.Gender = optionalString(gender)
@@ -217,6 +248,30 @@ func (r *AlumniRepository) GetAlumniByID(id string) (*models.Alumni, error) {
 	a.LastEduLevel = optionalString(lel)
 	if fga.Valid { a.FinalGradeAvg = &fga.Float64 }
 
+	// Extension mappings
+	a.Nickname = optionalString(nick)
+	a.Citizenship = optionalString(citizenship)
+	a.SiblingKandung = int(sibKandung.Int64)
+	a.SiblingTiri = int(sibTiri.Int64)
+	a.SiblingAngkat = int(sibAngkat.Int64)
+	a.DailyLanguage = optionalString(dailyLang)
+	a.LivingWith = optionalString(livingWith)
+	a.GuardianEducation = optionalString(guardEdu)
+	a.PreviousSchoolAddress = optionalString(prevSchoolAddr)
+	a.PreviousSchoolCertNo = optionalString(prevSchoolCertNo)
+	a.PreviousSchoolCertDate = optionalString(prevSchoolCertDate)
+	a.MutasiMasukAsalSekolah = optionalString(mutMasukAsal)
+	a.MutasiMasukDariKelas = optionalString(mutMasukDari)
+	a.MutasiMasukDiterimaTanggal = optionalString(mutMasukDiterima)
+	a.MutasiMasukDiKelas = optionalString(mutMasukDi)
+	a.ScholarshipInfo = optionalString(scholar)
+	a.MutationOutClass = optionalString(mutOutClass)
+	a.MutationOutToSchool = optionalString(mutOutToSchool)
+	a.MutationOutToClass = optionalString(mutOutToClass)
+	a.MutationOutDate = optionalString(mutOutDate)
+	a.DroppedOutDate = optionalString(dropDate)
+	a.DroppedOutReason = optionalString(dropReason)
+
 	a.GraduationDate = SafeTime(gd)
 	a.CreatedAt = SafeTime(crat)
 	a.UpdatedAt = SafeTime(upat)
@@ -227,6 +282,7 @@ func (r *AlumniRepository) GetAlumniByID(id string) (*models.Alumni, error) {
 	a.Achievements, _ = r.GetAchievements(id)
 	a.Extracurriculars, _ = r.GetExtracurriculars(id)
 	a.AttendanceSummaries, _ = r.GetAttendanceSummaries(id)
+	a.HealthRecords, _ = r.GetHealthRecords(id)
 
 	return &a, nil
 }
@@ -236,6 +292,10 @@ func (r *AlumniRepository) GetAlumniByID(id string) (*models.Alumni, error) {
 func (r *AlumniRepository) CreateAlumni(a models.Alumni) (string, error) {
 	id := cuid2.Generate()
 	now := time.Now().UnixMilli()
+	statusVal := a.Status
+	if statusVal == "" {
+		statusVal = "graduated"
+	}
 	_, err := r.DB.Exec(`
 		INSERT INTO alumni (
 			id, student_id, nisn, nis, full_name, gender, birth_place, birth_date,
@@ -247,10 +307,17 @@ func (r *AlumniRepository) CreateAlumni(a models.Alumni) (string, error) {
 			guardian_name, guardian_nik, guardian_relation, guardian_job, guardian_phone,
 			sibling_count, child_order, height, weight, blood_type, medical_notes, special_needs,
 			current_occupation, current_institution, last_education_level, final_grade_avg,
-			created_at, updated_at
+			status, created_at, updated_at,
+			nickname, citizenship, sibling_kandung, sibling_tiri, sibling_angkat,
+			daily_language, living_with, guardian_education, previous_school_address,
+			previous_school_cert_no, previous_school_cert_date,
+			mutasi_masuk_asal_sekolah, mutasi_masuk_dari_kelas, mutasi_masuk_diterima_tanggal, mutasi_masuk_di_kelas,
+			scholarship_info, mutation_out_class, mutation_out_to_school, mutation_out_to_class, mutation_out_date,
+			dropped_out_date, dropped_out_reason
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
 		          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-		          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+		          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, id, a.StudentID, a.NISN, a.NIS, a.FullName, a.Gender, a.BirthPlace, a.BirthDate,
 		a.GraduationYear, timeToUnixMilli(a.GraduationDate), a.FinalClass, a.Photo, a.ParentName, a.ParentPhone,
 		a.CurrentAddress, a.CurrentPhone, a.CurrentEmail, a.NextSchool, a.Notes,
@@ -260,7 +327,13 @@ func (r *AlumniRepository) CreateAlumni(a models.Alumni) (string, error) {
 		a.GuardianName, a.GuardianNIK, a.GuardianRel, a.GuardianJob, a.GuardianPhone,
 		a.SiblingCount, a.ChildOrder, a.Height, a.Weight, a.BloodType, a.MedicalN, a.SpecialN,
 		a.CurrentOccupation, a.CurrentInst, a.LastEduLevel, a.FinalGradeAvg,
-		now, now,
+		statusVal, now, now,
+		a.Nickname, a.Citizenship, a.SiblingKandung, a.SiblingTiri, a.SiblingAngkat,
+		a.DailyLanguage, a.LivingWith, a.GuardianEducation, a.PreviousSchoolAddress,
+		a.PreviousSchoolCertNo, a.PreviousSchoolCertDate,
+		a.MutasiMasukAsalSekolah, a.MutasiMasukDariKelas, a.MutasiMasukDiterimaTanggal, a.MutasiMasukDiKelas,
+		a.ScholarshipInfo, a.MutationOutClass, a.MutationOutToSchool, a.MutationOutToClass, a.MutationOutDate,
+		a.DroppedOutDate, a.DroppedOutReason,
 	)
 	return id, err
 }
@@ -269,6 +342,10 @@ func (r *AlumniRepository) CreateAlumni(a models.Alumni) (string, error) {
 
 func (r *AlumniRepository) UpdateAlumni(id string, a models.Alumni) error {
 	now := time.Now().UnixMilli()
+	statusVal := a.Status
+	if statusVal == "" {
+		statusVal = "graduated"
+	}
 	_, err := r.DB.Exec(`
 		UPDATE alumni SET
 			nisn=?, nis=?, full_name=?, gender=?, birth_place=?, birth_date=?,
@@ -281,7 +358,13 @@ func (r *AlumniRepository) UpdateAlumni(id string, a models.Alumni) error {
 			guardian_name=?, guardian_nik=?, guardian_relation=?, guardian_job=?, guardian_phone=?,
 			sibling_count=?, child_order=?, height=?, weight=?, blood_type=?, medical_notes=?, special_needs=?,
 			current_occupation=?, current_institution=?, last_education_level=?, final_grade_avg=?,
-			updated_at=?
+			status=?, updated_at=?,
+			nickname=?, citizenship=?, sibling_kandung=?, sibling_tiri=?, sibling_angkat=?,
+			daily_language=?, living_with=?, guardian_education=?, previous_school_address=?,
+			previous_school_cert_no=?, previous_school_cert_date=?,
+			mutasi_masuk_asal_sekolah=?, mutasi_masuk_dari_kelas=?, mutasi_masuk_diterima_tanggal=?, mutasi_masuk_di_kelas=?,
+			scholarship_info=?, mutation_out_class=?, mutation_out_to_school=?, mutation_out_to_class=?, mutation_out_date=?,
+			dropped_out_date=?, dropped_out_reason=?
 		WHERE id=?
 	`, a.NISN, a.NIS, a.FullName, a.Gender, a.BirthPlace, a.BirthDate,
 		a.GraduationYear, timeToUnixMilli(a.GraduationDate), a.FinalClass, a.Photo,
@@ -293,7 +376,14 @@ func (r *AlumniRepository) UpdateAlumni(id string, a models.Alumni) error {
 		a.GuardianName, a.GuardianNIK, a.GuardianRel, a.GuardianJob, a.GuardianPhone,
 		a.SiblingCount, a.ChildOrder, a.Height, a.Weight, a.BloodType, a.MedicalN, a.SpecialN,
 		a.CurrentOccupation, a.CurrentInst, a.LastEduLevel, a.FinalGradeAvg,
-		now, id,
+		statusVal, now,
+		a.Nickname, a.Citizenship, a.SiblingKandung, a.SiblingTiri, a.SiblingAngkat,
+		a.DailyLanguage, a.LivingWith, a.GuardianEducation, a.PreviousSchoolAddress,
+		a.PreviousSchoolCertNo, a.PreviousSchoolCertDate,
+		a.MutasiMasukAsalSekolah, a.MutasiMasukDariKelas, a.MutasiMasukDiterimaTanggal, a.MutasiMasukDiKelas,
+		a.ScholarshipInfo, a.MutationOutClass, a.MutationOutToSchool, a.MutationOutToClass, a.MutationOutDate,
+		a.DroppedOutDate, a.DroppedOutReason,
+		id,
 	)
 	return err
 }
@@ -515,6 +605,16 @@ func (r *AlumniRepository) GraduateStudents(studentIDs []string, graduationYear 
 		}
 
 		if deactivateStudents {
+			clear, reason, err := CheckStudentClearance(tx, studentID)
+			if err != nil {
+				return nil, created, deactivated, err
+			}
+			if !clear {
+				var name string
+				_ = tx.QueryRow("SELECT full_name FROM students WHERE id = ?", studentID).Scan(&name)
+				return nil, created, deactivated, fmt.Errorf("Gagal meluluskan %s: %s", name, reason)
+			}
+
 			res, err := tx.Exec(`UPDATE students SET status='graduated', is_active=0, class_id=NULL, class_name=NULL, updated_at=? WHERE id=? AND (is_active=1 OR status!='graduated')`, now, studentID)
 			if err != nil {
 				return nil, created, deactivated, err
@@ -601,6 +701,10 @@ func (r *AlumniRepository) GetAlumniStats() (*models.AlumniStats, error) {
 	r.DB.QueryRow("SELECT COUNT(*) FROM alumni").Scan(&stats.TotalAlumni)
 	r.DB.QueryRow("SELECT COUNT(*) FROM alumni_documents").Scan(&stats.TotalDocuments)
 	r.DB.QueryRow("SELECT COUNT(*) FROM alumni_documents WHERE verification_status='pending'").Scan(&stats.PendingVerification)
+	r.DB.QueryRow("SELECT COUNT(*) FROM alumni WHERE status='active'").Scan(&stats.ActiveCount)
+	r.DB.QueryRow("SELECT COUNT(*) FROM alumni WHERE status='graduated' OR status='' OR status IS NULL").Scan(&stats.GraduatedCount)
+	r.DB.QueryRow("SELECT COUNT(*) FROM alumni WHERE status='transferred'").Scan(&stats.TransferredCount)
+	r.DB.QueryRow("SELECT COUNT(*) FROM alumni WHERE status='dropped'").Scan(&stats.DroppedCount)
 	return stats, nil
 }
 
@@ -987,4 +1091,401 @@ func (r *AlumniRepository) GetAttendanceSummaries(alumniID string) ([]models.Alu
 		res = []models.AlumniAttendanceSummary{}
 	}
 	return res, nil
+}
+
+func (r *AlumniRepository) UpdateTranscript(id string, t models.AlumniTranscript) error {
+	now := time.Now().UnixMilli()
+	_, err := r.DB.Exec(`UPDATE alumni_transcripts SET academic_year=?, semester=?, subject_name=?, subject_code=?, score=?, score_letter=?, notes=?, updated_at=? WHERE id=?`,
+		t.AcYear, t.Semester, t.SubjectName, t.SubjectCode, t.Score, t.ScoreLetter, t.Notes, now, id)
+	return err
+}
+
+func (r *AlumniRepository) CreateAttendanceSummary(s models.AlumniAttendanceSummary) (string, error) {
+	id := cuid2.Generate()
+	now := time.Now().UnixMilli()
+	totalDays := s.Present + s.Sick + s.Permission + s.Absent
+	_, err := r.DB.Exec(`INSERT INTO alumni_attendance_summary (id, alumni_id, academic_year, semester, present, sick, permission, absent, total_days, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		id, s.AlumniID, s.AcYear, s.Semester, s.Present, s.Sick, s.Permission, s.Absent, totalDays, now, now)
+	return id, err
+}
+
+func (r *AlumniRepository) UpdateAttendanceSummary(id string, s models.AlumniAttendanceSummary) error {
+	now := time.Now().UnixMilli()
+	totalDays := s.Present + s.Sick + s.Permission + s.Absent
+	_, err := r.DB.Exec(`UPDATE alumni_attendance_summary SET academic_year=?, semester=?, present=?, sick=?, permission=?, absent=?, total_days=?, updated_at=? WHERE id=?`,
+		s.AcYear, s.Semester, s.Present, s.Sick, s.Permission, s.Absent, totalDays, now, id)
+	return err
+}
+
+func (r *AlumniRepository) DeleteAttendanceSummary(id string) error {
+	_, err := r.DB.Exec("DELETE FROM alumni_attendance_summary WHERE id=?", id)
+	return err
+}
+
+func (r *AlumniRepository) SyncFromStudents() (int, error) {
+	rows, err := r.DB.Query("SELECT id FROM students WHERE is_active=1 OR status='active' OR status='aktif'")
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	var studentIDs []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err == nil {
+			studentIDs = append(studentIDs, id)
+		}
+	}
+	rows.Close()
+
+	count := 0
+	for _, id := range studentIDs {
+		if err := AutoSyncStudentToBukuInduk(r.DB, id); err == nil {
+			count++
+		}
+	}
+	return count, nil
+}
+
+// ───────── Health Records ─────────
+
+func (r *AlumniRepository) GetHealthRecords(alumniID string) ([]models.AlumniHealthRecord, error) {
+	rows, err := r.DB.Query(`SELECT id, alumni_id, year, weight, height, illness, abnormality, created_at, updated_at FROM alumni_health_records WHERE alumni_id=? ORDER BY year`, alumniID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []models.AlumniHealthRecord
+	for rows.Next() {
+		var hr models.AlumniHealthRecord
+		var w, h sql.NullInt64
+		var ill, abn sql.NullString
+		var cr, up sql.NullInt64
+
+		err = rows.Scan(&hr.ID, &hr.AlumniID, &hr.Year, &w, &h, &ill, &abn, &cr, &up)
+		if err != nil {
+			return nil, err
+		}
+
+		if w.Valid { hr.Weight = intPtr(int(w.Int64)) }
+		if h.Valid { hr.Height = intPtr(int(h.Int64)) }
+		hr.Illness = optionalString(ill)
+		hr.Abnormality = optionalString(abn)
+		hr.CreatedAt = SafeTime(cr)
+		hr.UpdatedAt = SafeTime(up)
+
+		list = append(list, hr)
+	}
+	if list == nil {
+		list = []models.AlumniHealthRecord{}
+	}
+	return list, nil
+}
+
+func (r *AlumniRepository) CreateHealthRecord(hr models.AlumniHealthRecord) (string, error) {
+	id := cuid2.Generate()
+	now := time.Now().UnixMilli()
+	
+	var w, h interface{}
+	if hr.Weight != nil { w = *hr.Weight }
+	if hr.Height != nil { h = *hr.Height }
+
+	_, err := r.DB.Exec(`INSERT INTO alumni_health_records (id, alumni_id, year, weight, height, illness, abnormality, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		id, hr.AlumniID, hr.Year, w, h, hr.Illness, hr.Abnormality, now, now)
+	return id, err
+}
+
+func (r *AlumniRepository) UpdateHealthRecord(id string, hr models.AlumniHealthRecord) error {
+	now := time.Now().UnixMilli()
+	
+	var w, h interface{}
+	if hr.Weight != nil { w = *hr.Weight }
+	if hr.Height != nil { h = *hr.Height }
+
+	_, err := r.DB.Exec(`UPDATE alumni_health_records SET year=?, weight=?, height=?, illness=?, abnormality=?, updated_at=? WHERE id=?`,
+		hr.Year, w, h, hr.Illness, hr.Abnormality, now, id)
+	return err
+}
+
+func (r *AlumniRepository) DeleteHealthRecord(id string) error {
+	_, err := r.DB.Exec("DELETE FROM alumni_health_records WHERE id=?", id)
+	return err
+}
+
+func (r *AlumniRepository) ImportBulkAlumni(alumniList []models.Alumni) (int, int, []string, error) {
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return 0, 0, nil, err
+	}
+	defer tx.Rollback()
+
+	inserted := 0
+	updated := 0
+	var logs []string
+	now := time.Now().UnixMilli()
+
+	for idx, a := range alumniList {
+		if a.FullName == "" {
+			logs = append(logs, fmt.Sprintf("Baris %d: Nama Lengkap kosong, dilewati", idx+1))
+			continue
+		}
+
+		var existingID string
+		var queryStr string
+		var queryArg interface{}
+
+		if a.NISN != nil && *a.NISN != "" {
+			queryStr = "SELECT id FROM alumni WHERE nisn = ?"
+			queryArg = *a.NISN
+		} else if a.NIS != nil && *a.NIS != "" {
+			queryStr = "SELECT id FROM alumni WHERE nis = ?"
+			queryArg = *a.NIS
+		} else if a.NIK != nil && *a.NIK != "" {
+			queryStr = "SELECT id FROM alumni WHERE nik = ?"
+			queryArg = *a.NIK
+		} else {
+			queryStr = "SELECT id FROM alumni WHERE LOWER(full_name) = LOWER(?)"
+			queryArg = a.FullName
+		}
+
+		err := tx.QueryRow(queryStr, queryArg).Scan(&existingID)
+		if err != nil && err != sql.ErrNoRows {
+			logs = append(logs, fmt.Sprintf("Baris %d (%s): Gagal mencari data existing - %v", idx+1, a.FullName, err))
+			continue
+		}
+
+		if existingID != "" {
+			// Update existing record
+			statusVal := a.Status
+			if statusVal == "" {
+				statusVal = "active"
+			}
+			_, err = tx.Exec(`
+				UPDATE alumni SET
+					nisn=COALESCE(?, nisn), nis=COALESCE(?, nis), full_name=?, gender=COALESCE(?, gender),
+					birth_place=COALESCE(?, birth_place), birth_date=COALESCE(?, birth_date),
+					graduation_year=COALESCE(?, graduation_year), graduation_date=COALESCE(?, graduation_date),
+					final_class=COALESCE(?, final_class), parent_name=COALESCE(?, parent_name),
+					parent_phone=COALESCE(?, parent_phone), current_address=COALESCE(?, current_address),
+					current_phone=COALESCE(?, current_phone), current_email=COALESCE(?, current_email),
+					next_school=COALESCE(?, next_school), notes=COALESCE(?, notes),
+					nik=COALESCE(?, nik), religion=COALESCE(?, religion), address=COALESCE(?, address),
+					enrolled_year=COALESCE(?, enrolled_year), previous_school=COALESCE(?, previous_school),
+					father_name=COALESCE(?, father_name), father_nik=COALESCE(?, father_nik),
+					father_education=COALESCE(?, father_education), father_job=COALESCE(?, father_job),
+					mother_name=COALESCE(?, mother_name), mother_nik=COALESCE(?, mother_nik),
+					mother_education=COALESCE(?, mother_education), mother_job=COALESCE(?, mother_job),
+					guardian_name=COALESCE(?, guardian_name), guardian_nik=COALESCE(?, guardian_nik),
+					guardian_relation=COALESCE(?, guardian_relation), guardian_job=COALESCE(?, guardian_job),
+					guardian_phone=COALESCE(?, guardian_phone), sibling_count=COALESCE(?, sibling_count),
+					child_order=COALESCE(?, child_order), height=COALESCE(?, height), weight=COALESCE(?, weight),
+					blood_type=COALESCE(?, blood_type), medical_notes=COALESCE(?, medical_notes),
+					special_needs=COALESCE(?, special_needs), current_occupation=COALESCE(?, current_occupation),
+					current_institution=COALESCE(?, current_institution), last_education_level=COALESCE(?, last_education_level),
+					status=?, updated_at=?,
+					nickname=COALESCE(?, nickname), citizenship=COALESCE(?, citizenship),
+					sibling_kandung=?, sibling_tiri=?, sibling_angkat=?,
+					daily_language=COALESCE(?, daily_language), living_with=COALESCE(?, living_with),
+					guardian_education=COALESCE(?, guardian_education), previous_school_address=COALESCE(?, previous_school_address),
+					previous_school_cert_no=COALESCE(?, previous_school_cert_no), previous_school_cert_date=COALESCE(?, previous_school_cert_date),
+					mutasi_masuk_asal_sekolah=COALESCE(?, mutasi_masuk_asal_sekolah), mutasi_masuk_dari_kelas=COALESCE(?, mutasi_masuk_dari_kelas),
+					mutasi_masuk_diterima_tanggal=COALESCE(?, mutasi_masuk_diterima_tanggal), mutasi_masuk_di_kelas=COALESCE(?, mutasi_masuk_di_kelas),
+					scholarship_info=COALESCE(?, scholarship_info), mutation_out_class=COALESCE(?, mutation_out_class),
+					mutation_out_to_school=COALESCE(?, mutation_out_to_school), mutation_out_to_class=COALESCE(?, mutation_out_to_class),
+					mutation_out_date=COALESCE(?, mutation_out_date), dropped_out_date=COALESCE(?, dropped_out_date),
+					dropped_out_reason=COALESCE(?, dropped_out_reason)
+				WHERE id=?
+			`, a.NISN, a.NIS, a.FullName, a.Gender,
+				a.BirthPlace, a.BirthDate,
+				a.GraduationYear, timeToUnixMilli(a.GraduationDate),
+				a.FinalClass, a.ParentName,
+				a.ParentPhone, a.CurrentAddress,
+				a.CurrentPhone, a.CurrentEmail,
+				a.NextSchool, a.Notes,
+				a.NIK, a.Religion, a.Address,
+				a.EnrolledYear, a.PreviousSchool,
+				a.FatherName, a.FatherNIK,
+				a.FatherEducation, a.FatherJob,
+				a.MotherName, a.MotherNIK,
+				a.MotherEducation, a.MotherJob,
+				a.GuardianName, a.GuardianNIK,
+				a.GuardianRel, a.GuardianJob, a.GuardianPhone,
+				a.SiblingCount, a.ChildOrder, a.Height, a.Weight,
+				a.BloodType, a.MedicalN, a.SpecialN, a.CurrentOccupation,
+				a.CurrentInst, a.LastEduLevel,
+				statusVal, now,
+				a.Nickname, a.Citizenship,
+				a.SiblingKandung, a.SiblingTiri, a.SiblingAngkat,
+				a.DailyLanguage, a.LivingWith, a.GuardianEducation, a.PreviousSchoolAddress,
+				a.PreviousSchoolCertNo, a.PreviousSchoolCertDate,
+				a.MutasiMasukAsalSekolah, a.MutasiMasukDariKelas, a.MutasiMasukDiterimaTanggal, a.MutasiMasukDiKelas,
+				a.ScholarshipInfo, a.MutationOutClass, a.MutationOutToSchool, a.MutationOutToClass, a.MutationOutDate,
+				a.DroppedOutDate, a.DroppedOutReason,
+				existingID,
+			)
+			if err != nil {
+				logs = append(logs, fmt.Sprintf("Baris %d (%s): Gagal update - %v", idx+1, a.FullName, err))
+				continue
+			}
+			updated++
+		} else {
+			// Insert new record
+			id := cuid2.Generate()
+			statusVal := a.Status
+			if statusVal == "" {
+				statusVal = "active"
+			}
+			_, err = tx.Exec(`
+				INSERT INTO alumni (
+					id, student_id, nisn, nis, full_name, gender, birth_place, birth_date,
+					graduation_year, graduation_date, final_class, photo, parent_name, parent_phone,
+					current_address, current_phone, current_email, next_school, notes,
+					nik, religion, address, enrolled_year, previous_school,
+					father_name, father_nik, father_education, father_job,
+					mother_name, mother_nik, mother_education, mother_job,
+					guardian_name, guardian_nik, guardian_relation, guardian_job, guardian_phone,
+					sibling_count, child_order, height, weight, blood_type, medical_notes, special_needs,
+					current_occupation, current_institution, last_education_level, final_grade_avg,
+					status, created_at, updated_at,
+					nickname, citizenship, sibling_kandung, sibling_tiri, sibling_angkat,
+					daily_language, living_with, guardian_education, previous_school_address,
+					previous_school_cert_no, previous_school_cert_date,
+					mutasi_masuk_asal_sekolah, mutasi_masuk_dari_kelas, mutasi_masuk_diterima_tanggal, mutasi_masuk_di_kelas,
+					scholarship_info, mutation_out_class, mutation_out_to_school, mutation_out_to_class, mutation_out_date,
+					dropped_out_date, dropped_out_reason
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+				          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+				          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+				          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			`, id, a.StudentID, a.NISN, a.NIS, a.FullName, a.Gender, a.BirthPlace, a.BirthDate,
+				a.GraduationYear, timeToUnixMilli(a.GraduationDate), a.FinalClass, a.Photo, a.ParentName, a.ParentPhone,
+				a.CurrentAddress, a.CurrentPhone, a.CurrentEmail, a.NextSchool, a.Notes,
+				a.NIK, a.Religion, a.Address, a.EnrolledYear, a.PreviousSchool,
+				a.FatherName, a.FatherNIK, a.FatherEducation, a.FatherJob,
+				a.MotherName, a.MotherNIK, a.MotherEducation, a.MotherJob,
+				a.GuardianName, a.GuardianNIK, a.GuardianRel, a.GuardianJob, a.GuardianPhone,
+				a.SiblingCount, a.ChildOrder, a.Height, a.Weight, a.BloodType, a.MedicalN, a.SpecialN,
+				a.CurrentOccupation, a.CurrentInst, a.LastEduLevel, a.FinalGradeAvg,
+				statusVal, now, now,
+				a.Nickname, a.Citizenship, a.SiblingKandung, a.SiblingTiri, a.SiblingAngkat,
+				a.DailyLanguage, a.LivingWith, a.GuardianEducation, a.PreviousSchoolAddress,
+				a.PreviousSchoolCertNo, a.PreviousSchoolCertDate,
+				a.MutasiMasukAsalSekolah, a.MutasiMasukDariKelas, a.MutasiMasukDiterimaTanggal, a.MutasiMasukDiKelas,
+				a.ScholarshipInfo, a.MutationOutClass, a.MutationOutToSchool, a.MutationOutToClass, a.MutationOutDate,
+				a.DroppedOutDate, a.DroppedOutReason,
+			)
+			if err != nil {
+				logs = append(logs, fmt.Sprintf("Baris %d (%s): Gagal insert - %v", idx+1, a.FullName, err))
+				continue
+			}
+			inserted++
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return 0, 0, nil, err
+	}
+
+	return inserted, updated, logs, nil
+}
+
+func (r *AlumniRepository) ImportBulkGrades(gradesList []models.ImportGradeRow) (int, int, []string, error) {
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return 0, 0, nil, err
+	}
+	defer tx.Rollback()
+
+	inserted := 0
+	updated := 0
+	var logs []string
+	now := time.Now().UnixMilli()
+
+	studentCache := make(map[string]string)
+
+	for idx, g := range gradesList {
+		if g.FullName == "" && g.NISN == "" && g.NIS == "" {
+			logs = append(logs, fmt.Sprintf("Baris %d: Identitas siswa kosong, dilewati", idx+1))
+			continue
+		}
+		if g.AcademicYear == "" || g.Semester == "" || g.SubjectName == "" {
+			logs = append(logs, fmt.Sprintf("Baris %d: Tahun ajaran, semester, atau mata pelajaran kosong, dilewati", idx+1))
+			continue
+		}
+
+		cacheKey := fmt.Sprintf("%s|%s|%s", g.NISN, g.NIS, g.FullName)
+		alumniID, found := studentCache[cacheKey]
+		if !found {
+			var queryStr string
+			var queryArg interface{}
+
+			if g.NISN != "" {
+				queryStr = "SELECT id FROM alumni WHERE nisn = ?"
+				queryArg = g.NISN
+			} else if g.NIS != "" {
+				queryStr = "SELECT id FROM alumni WHERE nis = ?"
+				queryArg = g.NIS
+			} else {
+				queryStr = "SELECT id FROM alumni WHERE LOWER(full_name) = LOWER(?)"
+				queryArg = g.FullName
+			}
+
+			err := tx.QueryRow(queryStr, queryArg).Scan(&alumniID)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					logs = append(logs, fmt.Sprintf("Baris %d: Siswa '%s' (NISN: %s, NIS: %s) tidak ditemukan di Buku Induk", idx+1, g.FullName, g.NISN, g.NIS))
+					continue
+				}
+				logs = append(logs, fmt.Sprintf("Baris %d: Gagal mencari siswa - %v", idx+1, err))
+				continue
+			}
+			studentCache[cacheKey] = alumniID
+		}
+
+		var transcriptID string
+		err = tx.QueryRow(`
+			SELECT id FROM alumni_transcripts 
+			WHERE alumni_id = ? AND academic_year = ? AND semester = ? AND subject_name = ?
+		`, alumniID, g.AcademicYear, g.Semester, g.SubjectName).Scan(&transcriptID)
+
+		if err != nil && err != sql.ErrNoRows {
+			logs = append(logs, fmt.Sprintf("Baris %d: Gagal memeriksa nilai existing - %v", idx+1, err))
+			continue
+		}
+
+		scoreLetter := scoreToLetter(g.Score)
+
+		if transcriptID != "" {
+			_, err = tx.Exec(`
+				UPDATE alumni_transcripts 
+				SET score = ?, score_letter = ?, notes = ?, updated_at = ? 
+				WHERE id = ?
+			`, g.Score, scoreLetter, g.Notes, now, transcriptID)
+			if err != nil {
+				logs = append(logs, fmt.Sprintf("Baris %d: Gagal update nilai - %v", idx+1, err))
+				continue
+			}
+			updated++
+		} else {
+			newTransID := cuid2.Generate()
+			_, err = tx.Exec(`
+				INSERT INTO alumni_transcripts (id, alumni_id, academic_year, semester, subject_name, subject_code, score, score_letter, notes, created_at, updated_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			`, newTransID, alumniID, g.AcademicYear, g.Semester, g.SubjectName, g.SubjectCode, g.Score, scoreLetter, g.Notes, now, now)
+			if err != nil {
+				logs = append(logs, fmt.Sprintf("Baris %d: Gagal insert nilai - %v", idx+1, err))
+				continue
+			}
+			inserted++
+		}
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return 0, 0, nil, err
+	}
+
+	return inserted, updated, logs, nil
 }

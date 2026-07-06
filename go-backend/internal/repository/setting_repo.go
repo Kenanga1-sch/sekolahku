@@ -5,7 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nrednav/cuid2"
 	"github.com/sekolahku/go-backend/internal/models"
 )
 
@@ -36,14 +35,17 @@ func (r *SettingRepository) GetSettings() (*models.SchoolSettings, error) {
 		       school_vision, school_mission, school_indicators,
 		       school_history_timeline, school_history_achievements,
 		       school_curriculum, school_extracurriculars,
+		       landing_tagline, landing_description, landing_texts,
 		       created_at, updated_at
-		FROM school_settings LIMIT 1
+		FROM school_settings 
+		ORDER BY CASE WHEN id = 'default' THEN 0 ELSE 1 END LIMIT 1
 	`
 	var s models.SchoolSettings
 	var npsn, addr, phone, email, web, logo, pName, pNip, treasurerId sql.NullString
 	var vision, mission, indicators sql.NullString
 	var historyTimeline, historyAchievements sql.NullString
 	var curriculum, extras sql.NullString
+	var landingTagline, landingDesc, landingTexts sql.NullString
 	var lat, lng, dist sql.NullFloat64
 	var crAt, upAt sql.NullInt64
 
@@ -54,6 +56,7 @@ func (r *SettingRepository) GetSettings() (*models.SchoolSettings, error) {
 		&s.IsMaintenance, &s.LastLetterNumber, &s.LetterNumberFormat, &treasurerId,
 		&vision, &mission, &indicators, &historyTimeline, &historyAchievements,
 		&curriculum, &extras,
+		&landingTagline, &landingDesc, &landingTexts,
 		&crAt, &upAt,
 	)
 
@@ -126,6 +129,15 @@ func (r *SettingRepository) GetSettings() (*models.SchoolSettings, error) {
 	}
 	if extras.Valid {
 		s.SchoolExtracurriculars = &extras.String
+	}
+	if landingTagline.Valid {
+		s.LandingTagline = &landingTagline.String
+	}
+	if landingDesc.Valid {
+		s.LandingDescription = &landingDesc.String
+	}
+	if landingTexts.Valid {
+		s.LandingTexts = &landingTexts.String
 	}
 
 	cTime := ToTime(crAt)
@@ -211,6 +223,15 @@ func mergeSchoolSettingsPatch(next *models.SchoolSettings, existing *models.Scho
 	if next.SchoolExtracurriculars == nil {
 		next.SchoolExtracurriculars = existing.SchoolExtracurriculars
 	}
+	if next.LandingTagline == nil {
+		next.LandingTagline = existing.LandingTagline
+	}
+	if next.LandingDescription == nil {
+		next.LandingDescription = existing.LandingDescription
+	}
+	if next.LandingTexts == nil {
+		next.LandingTexts = existing.LandingTexts
+	}
 }
 
 func (r *SettingRepository) UpdateSettings(s models.SchoolSettings) (*models.SchoolSettings, error) {
@@ -218,7 +239,7 @@ func (r *SettingRepository) UpdateSettings(s models.SchoolSettings) (*models.Sch
 
 	// Check if exists
 	var existingID string
-	err := r.DB.QueryRow("SELECT id FROM school_settings LIMIT 1").Scan(&existingID)
+	err := r.DB.QueryRow("SELECT id FROM school_settings ORDER BY CASE WHEN id = 'default' THEN 0 ELSE 1 END LIMIT 1").Scan(&existingID)
 	if err != nil && err != sql.ErrNoRows {
 		return nil, err
 	}
@@ -226,7 +247,7 @@ func (r *SettingRepository) UpdateSettings(s models.SchoolSettings) (*models.Sch
 	if err == sql.ErrNoRows {
 		// Insert
 		if s.ID == "" {
-			s.ID = cuid2.Generate()
+			s.ID = "default"
 		}
 		_, err = r.DB.Exec(`
 			INSERT INTO school_settings (
@@ -237,8 +258,9 @@ func (r *SettingRepository) UpdateSettings(s models.SchoolSettings) (*models.Sch
 				school_vision, school_mission, school_indicators,
 				school_history_timeline, school_history_achievements,
 				school_curriculum, school_extracurriculars,
+				landing_tagline, landing_description, landing_texts,
 				created_at, updated_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`, s.ID, s.SchoolName, s.SchoolNPSN, s.SchoolAddress, s.SchoolPhone, s.SchoolEmail,
 			s.SchoolWebsite, s.SchoolLogo, s.SchoolLat, s.SchoolLng, s.MaxDistanceKM,
 			s.SPMBIsOpen, s.CurrentAcademicYear, s.PrincipalName, s.PrincipalNIP,
@@ -246,6 +268,7 @@ func (r *SettingRepository) UpdateSettings(s models.SchoolSettings) (*models.Sch
 			s.SchoolVision, s.SchoolMission, s.SchoolIndicators,
 			s.SchoolHistoryTimeline, s.SchoolHistoryAchievements,
 			s.SchoolCurriculum, s.SchoolExtracurriculars,
+			s.LandingTagline, s.LandingDescription, s.LandingTexts,
 			now, now)
 	} else {
 		existing, getErr := r.GetSettings()
@@ -253,6 +276,12 @@ func (r *SettingRepository) UpdateSettings(s models.SchoolSettings) (*models.Sch
 			return nil, getErr
 		}
 		mergeSchoolSettingsPatch(&s, existing)
+
+		// Clean up any duplicate settings rows to prevent issues
+		_, _ = r.DB.Exec("DELETE FROM school_settings WHERE id != ?", existingID)
+
+		// Clean up any generated_letters logs that are greater than the new last_letter_number setting
+		_, _ = r.DB.Exec("DELETE FROM generated_letters WHERE sequence_number > ?", s.LastLetterNumber)
 
 		// Update
 		_, err = r.DB.Exec(`
@@ -264,6 +293,7 @@ func (r *SettingRepository) UpdateSettings(s models.SchoolSettings) (*models.Sch
 				school_vision=?, school_mission=?, school_indicators=?,
 				school_history_timeline=?, school_history_achievements=?,
 				school_curriculum=?, school_extracurriculars=?,
+				landing_tagline=?, landing_description=?, landing_texts=?,
 				updated_at=?
 			WHERE id=?
 		`, s.SchoolName, s.SchoolNPSN, s.SchoolAddress, s.SchoolPhone, s.SchoolEmail,
@@ -273,6 +303,7 @@ func (r *SettingRepository) UpdateSettings(s models.SchoolSettings) (*models.Sch
 			s.SchoolVision, s.SchoolMission, s.SchoolIndicators,
 			s.SchoolHistoryTimeline, s.SchoolHistoryAchievements,
 			s.SchoolCurriculum, s.SchoolExtracurriculars,
+			s.LandingTagline, s.LandingDescription, s.LandingTexts,
 			now, existingID)
 	}
 

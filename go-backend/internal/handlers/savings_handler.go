@@ -119,29 +119,80 @@ func (h *SavingsHandler) KioskDeposit(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Siswa tidak ditemukan"})
 	}
 
-	txReq := models.CreateTransaksiRequest{
-		SiswaID: s.ID,
-		Tipe:    "setor",
-		Nominal: req.Nominal,
+	// BUG-2 FIX: Resolve a system/kiosk UserID so CreateTransaksi doesn't fail.
+	var kioskUserID string
+	_ = h.Repo.DB.QueryRow("SELECT id FROM users WHERE role = 'kiosk' OR username = 'kiosk' LIMIT 1").Scan(&kioskUserID)
+	if kioskUserID == "" {
+		// Fallback: use any admin user
+		_ = h.Repo.DB.QueryRow("SELECT id FROM users WHERE role IN ('admin','superadmin') ORDER BY id LIMIT 1").Scan(&kioskUserID)
 	}
-	if err := h.Repo.CreateTransaksi(txReq); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal mencatat setoran"})
+	if kioskUserID == "" {
+		kioskUserID = "system-kiosk"
 	}
 
+	txReq := models.CreateTransaksiRequest{
+		SiswaID: s.ID,
+		UserID:  kioskUserID,
+		Tipe:    "setor",
+		Nominal: req.Nominal,
+		Catatan: strPtr("Setoran via kiosk"),
+	}
+	if err := h.Repo.CreateTransaksi(txReq); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal mencatat setoran: " + err.Error()})
+	}
+
+	// BUG-1 FIX: Show real current balance, not inflated fake balance.
+	// The deposit is status=collected, balance only changes after verification.
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"success": true,
-		"message": "Setoran berhasil dicatat",
-		"balance": s.SaldoTerakhir + req.Nominal,
+		"success":        true,
+		"message":        "Setoran berhasil dicatat dan menunggu verifikasi bendahara",
+		"balance":        s.SaldoTerakhir,
+		"pendingDeposit": req.Nominal,
 	})
 }
 
 func (h *SavingsHandler) GetDetailSiswa(c echo.Context) error {
-	id := c.Param("id") // Could be ID or QR Code
+	id := c.Param("id") // Could be ID or QR Code or NISN
 	s, err := h.Repo.GetSiswaByQR(id)
 	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+	}
+	if s == nil {
+		// Try to auto-create from active student if exists
+		var studentID string
+		var isActive int
+		var status string
+		err = h.Repo.DB.QueryRow(`
+			SELECT id, is_active, COALESCE(status, '') 
+			FROM students 
+			WHERE id = ? OR nisn = ? OR qr_code = ?
+		`, id, id, id).Scan(&studentID, &isActive, &status)
+		if err == nil && (isActive == 1 || status == "active" || status == "aktif") {
+			// Auto sync!
+			_ = repository.AutoSyncStudentToSavingsAndLibrary(h.Repo.DB, studentID)
+			// Re-query
+			s, err = h.Repo.GetSiswaByQR(id)
+			if err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+			}
+		}
+	}
+	if s == nil {
 		return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Siswa tidak ditemukan"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": s})
+}
+
+func (h *SavingsHandler) SyncSavings(c echo.Context) error {
+	count, err := h.Repo.SyncFromStudents()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": strconv.Itoa(count) + " siswa berhasil disinkronisasi ke Tabungan",
+		"count":   count,
+	})
 }
 
 func (h *SavingsHandler) CreateSiswa(c echo.Context) error {
@@ -374,13 +425,12 @@ func (h *SavingsHandler) CancelHutang(c echo.Context) error {
 
 func (h *SavingsHandler) PayHutangCash(c echo.Context) error {
 	id := c.Param("id")
-	var req struct {
-		Amount int `json:"amount"`
-	}
+	var req models.PayHutangRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid input"})
 	}
-	if err := h.Repo.PayHutangCash(id, req.Amount); err != nil {
+	operatorID, _ := c.Get("user_id").(string)
+	if err := h.Repo.PayHutangCash(id, req.Amount, operatorID); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "message": "Pembayaran berhasil"})
@@ -388,11 +438,26 @@ func (h *SavingsHandler) PayHutangCash(c echo.Context) error {
 
 func (h *SavingsHandler) SettleHutangFromTabungan(c echo.Context) error {
 	id := c.Param("id")
-	if err := h.Repo.SettleHutangFromSavings(id); err != nil {
+	var req models.PayHutangRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid input"})
+	}
+	operatorID, _ := c.Get("user_id").(string)
+	if err := h.Repo.SettleHutangFromSavings(id, req.Amount, operatorID); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "message": "Pelunasan dari tabungan berhasil"})
 }
+
+func (h *SavingsHandler) GetHutangPayments(c echo.Context) error {
+	id := c.Param("id")
+	payments, err := h.Repo.GetHutangPayments(id)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, payments)
+}
+
 
 func (h *SavingsHandler) CreateTransaksi(c echo.Context) error {
 	var req models.CreateTransaksiRequest
@@ -567,6 +632,10 @@ func (h *SavingsHandler) CheckPublicBalance(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Data siswa tidak ditemukan atau data tidak cocok"})
 	}
+	// BUG-9 FIX: Check nil before accessing fields
+	if s == nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Data siswa tidak ditemukan atau data tidak cocok"})
+	}
 
 	className := "-"
 	if s.Kelas != nil {
@@ -582,4 +651,8 @@ func (h *SavingsHandler) CheckPublicBalance(c echo.Context) error {
 			"lastUpdate": s.UpdatedAt,
 		},
 	})
+}
+
+func strPtr(s string) *string {
+	return &s
 }

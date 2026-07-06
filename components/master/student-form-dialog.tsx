@@ -70,7 +70,16 @@ export function StudentFormDialog({ open, onOpenChange, studentId, onSuccess }: 
         goGet(`/api/master/students/${studentId}`)
             .then((response: any) => {
                 const data = response?.data ?? response;
-                form.reset(data as any); // Auto-fill
+                
+                // Map null values to empty strings to satisfy Zod schema and prevent warnings
+                const cleanedData = { ...data };
+                Object.keys(cleanedData).forEach((key) => {
+                    if (cleanedData[key] === null) {
+                        cleanedData[key] = "";
+                    }
+                });
+                
+                form.reset(cleanedData as any); // Auto-fill
             })
             .catch(err => showError("Gagal memuat data siswa"))
             .finally(() => setIsLoading(false));
@@ -97,6 +106,13 @@ export function StudentFormDialog({ open, onOpenChange, studentId, onSuccess }: 
         setIsLoading(false);
     }
   };
+
+  // Log form errors to console to assist debugging validation failures
+  useEffect(() => {
+    if (Object.keys(form.formState.errors).length > 0) {
+        console.log("Validation errors in StudentFormDialog:", form.formState.errors);
+    }
+  }, [form.formState.errors]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -172,7 +188,7 @@ export function StudentFormDialog({ open, onOpenChange, studentId, onSuccess }: 
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Jenis Kelamin</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <Select onValueChange={field.onChange} value={field.value}>
                                         <FormControl>
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Pilih..." />

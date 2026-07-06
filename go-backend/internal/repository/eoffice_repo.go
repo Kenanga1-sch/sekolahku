@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -29,6 +30,33 @@ func monthRoman(month time.Month) string {
 		return "I"
 	}
 	return romans[idx]
+}
+
+func formatLetterNumber(pattern string, sequence int, classificationCode string, date time.Time) string {
+	padded3 := fmt.Sprintf("%03d", sequence)
+	padded2 := fmt.Sprintf("%02d", sequence)
+	padded4 := fmt.Sprintf("%04d", sequence)
+	rawSeq := strconv.Itoa(sequence)
+	year := strconv.Itoa(date.Year())
+	month := monthRoman(date.Month())
+	monthNumeric := fmt.Sprintf("%02d", int(date.Month()))
+
+	res := pattern
+	res = strings.ReplaceAll(res, "{kode_klasifikasi}", classificationCode)
+	res = strings.ReplaceAll(res, "{nomor_urut_raw}", rawSeq)
+	res = strings.ReplaceAll(res, "{nomor_raw}", rawSeq)
+	res = strings.ReplaceAll(res, "{no_raw}", rawSeq)
+	res = strings.ReplaceAll(res, "{nomor_urut_2}", padded2)
+	res = strings.ReplaceAll(res, "{nomor_urut_3}", padded3)
+	res = strings.ReplaceAll(res, "{nomor_urut_4}", padded4)
+	res = strings.ReplaceAll(res, "{nomor_urut}", padded3)
+	res = strings.ReplaceAll(res, "{nomor}", padded3)
+	res = strings.ReplaceAll(res, "{no}", padded3)
+	res = strings.ReplaceAll(res, "{bulan_angka}", monthNumeric)
+	res = strings.ReplaceAll(res, "{bulan}", month)
+	res = strings.ReplaceAll(res, "{bulan_romawi}", month)
+	res = strings.ReplaceAll(res, "{tahun}", year)
+	return res
 }
 
 func parseLetterDate(value string) time.Time {
@@ -99,6 +127,13 @@ func (r *EOfficeRepository) CalculateNextLetterSequence(req models.NumberingRequ
 		currentMax = int(maxSeq.Int64)
 	}
 
+	// Respect last_letter_number from settings as a fallback/minimum base sequence
+	var last sql.NullInt64
+	_ = r.DB.QueryRow(`SELECT last_letter_number FROM school_settings ORDER BY CASE WHEN id = 'default' THEN 0 ELSE 1 END LIMIT 1`).Scan(&last)
+	if last.Valid && int(last.Int64) > currentMax {
+		currentMax = int(last.Int64)
+	}
+
 	return currentMax + 1, nil
 }
 
@@ -133,8 +168,12 @@ func (r *EOfficeRepository) IncrementLetterSequence(req models.IncrementRequest)
 }
 
 // Archive - Klasifikasi
-func (r *EOfficeRepository) GetKlasifikasi() ([]models.KlasifikasiSurat, error) {
-	rows, err := r.DB.Query("SELECT code, name, description, is_active FROM klasifikasi_surat WHERE is_active = 1 ORDER BY code ASC")
+func (r *EOfficeRepository) GetKlasifikasi(includeInactive bool) ([]models.KlasifikasiSurat, error) {
+	query := "SELECT code, name, description, is_active FROM klasifikasi_surat WHERE is_active = 1 ORDER BY code ASC"
+	if includeInactive {
+		query = "SELECT code, name, description, is_active FROM klasifikasi_surat ORDER BY code ASC"
+	}
+	rows, err := r.DB.Query(query)
 	if err != nil {
 		return nil, err
 	}
@@ -157,6 +196,49 @@ func (r *EOfficeRepository) GetKlasifikasi() ([]models.KlasifikasiSurat, error) 
 		results = []models.KlasifikasiSurat{}
 	}
 	return results, nil
+}
+
+func (r *EOfficeRepository) CreateKlasifikasi(k models.KlasifikasiSurat) error {
+	desc := ""
+	if k.Description != nil {
+		desc = *k.Description
+	}
+	_, err := r.DB.Exec(`
+		INSERT INTO klasifikasi_surat (code, name, description, is_active)
+		VALUES (?, ?, ?, 1)
+	`, k.Code, k.Name, desc)
+	return err
+}
+
+func (r *EOfficeRepository) UpdateKlasifikasi(code string, k models.KlasifikasiSurat) error {
+	desc := ""
+	if k.Description != nil {
+		desc = *k.Description
+	}
+	_, err := r.DB.Exec(`
+		UPDATE klasifikasi_surat
+		SET name = ?, description = ?, is_active = ?
+		WHERE code = ?
+	`, k.Name, desc, k.IsActive, code)
+	return err
+}
+
+func (r *EOfficeRepository) DeleteKlasifikasi(code string) error {
+	// First check if it is used in letters. If yes, soft delete (set is_active = 0).
+	// If no, hard delete.
+	var count int
+	_ = r.DB.QueryRow(`
+		SELECT (SELECT COUNT(*) FROM surat_masuk WHERE classification_code = ?) +
+		       (SELECT COUNT(*) FROM surat_keluar WHERE classification_code = ?)
+	`, code, code).Scan(&count)
+
+	if count > 0 {
+		_, err := r.DB.Exec("UPDATE klasifikasi_surat SET is_active = 0 WHERE code = ?", code)
+		return err
+	}
+
+	_, err := r.DB.Exec("DELETE FROM klasifikasi_surat WHERE code = ?", code)
+	return err
 }
 
 // Archive - Surat Masuk
@@ -223,6 +305,21 @@ func (r *EOfficeRepository) GetSuratMasuk(page, limit int, search string) ([]mod
 		results = []models.SuratMasuk{}
 	}
 	return results, total, nil
+}
+
+func (r *EOfficeRepository) validateClassificationCode(code *string) error {
+	if code == nil || *code == "" {
+		return nil
+	}
+	var exists int
+	err := r.DB.QueryRow("SELECT COUNT(*) FROM klasifikasi_surat WHERE code = ?", *code).Scan(&exists)
+	if err != nil {
+		return err
+	}
+	if exists == 0 {
+		return fmt.Errorf("Kode klasifikasi '%s' tidak terdaftar. Silakan daftarkan kode ini terlebih dahulu di Pengaturan Persuratan atau kosongkan kolom ini.", *code)
+	}
+	return nil
 }
 
 func (r *EOfficeRepository) CreateSuratMasuk(s models.SuratMasuk) (string, error) {
@@ -522,6 +619,9 @@ func (r *EOfficeRepository) DeleteLetterTemplate(id string) error {
 
 // CreateSuratKeluarFromTemplate creates a surat_keluar from letter generator with status "Menunggu Verifikasi"
 func (r *EOfficeRepository) CreateSuratKeluarFromTemplate(req models.SuratKeluar) (string, error) {
+	if err := r.validateClassificationCode(req.ClassificationCode); err != nil {
+		return "", err
+	}
 	if req.ID == "" {
 		req.ID = cuid2.Generate()
 	}
@@ -577,8 +677,58 @@ func (r *EOfficeRepository) SetSuratKeluarRevision(id, revisionNote string) erro
 	return nil
 }
 
+func extractSequenceNumber(mailNumber string, classCode string) int {
+	mailNumber = strings.TrimSpace(mailNumber)
+	if mailNumber == "" {
+		return 1
+	}
+
+	// Try Sscanf at the beginning (for format like 055/...)
+	var seq int
+	if n, err := fmt.Sscanf(mailNumber, "%d/", &seq); n == 1 && err == nil && seq > 0 {
+		seqStr := strconv.Itoa(seq)
+		trimmedClass := strings.TrimLeft(classCode, "0")
+		if trimmedClass == "" {
+			trimmedClass = "0"
+		}
+		// If the scanned number is a prefix of the classification code, skip it
+		if !strings.HasPrefix(trimmedClass, seqStr) {
+			return seq
+		}
+	}
+
+	// Try splitting by slash "/"
+	parts := strings.Split(mailNumber, "/")
+	for _, part := range parts {
+		// Skip classification code segment
+		if part == classCode || strings.HasPrefix(part, "400.3") || strings.HasPrefix(part, "421") {
+			continue
+		}
+		// Try parsing the segment or leading digits of the segment
+		var cleanPart string
+		for _, char := range part {
+			if char >= '0' && char <= '9' {
+				cleanPart += string(char)
+			} else if len(cleanPart) > 0 {
+				break
+			}
+		}
+		if cleanPart != "" {
+			if val, err := strconv.Atoi(cleanPart); err == nil && val > 0 {
+				return val
+			}
+		}
+	}
+
+	return 1
+}
+
+
 // CreateSuratKeluar creates a new outgoing letter
 func (r *EOfficeRepository) CreateSuratKeluar(s models.SuratKeluar) (string, string, error) {
+	if err := r.validateClassificationCode(s.ClassificationCode); err != nil {
+		return "", "", err
+	}
 	if s.ID == "" {
 		s.ID = cuid2.Generate()
 	}
@@ -602,7 +752,16 @@ func (r *EOfficeRepository) CreateSuratKeluar(s models.SuratKeluar) (string, str
 		if !maxSeq.Valid {
 			seq = 1
 		}
-		s.MailNumber = fmt.Sprintf("%s/%03d/SDN1-KNG/%s/%d", classCode, seq, monthRoman(letterDate.Month()), letterDate.Year())
+
+		// Load custom format pattern from settings if available
+		var formatPattern sql.NullString
+		_ = r.DB.QueryRow(`SELECT letter_number_format FROM school_settings ORDER BY CASE WHEN id = 'default' THEN 0 ELSE 1 END LIMIT 1`).Scan(&formatPattern)
+		pattern := "421/{nomor}/SDN1-KNG/{bulan}/{tahun}"
+		if formatPattern.Valid && strings.TrimSpace(formatPattern.String) != "" {
+			pattern = formatPattern.String
+		}
+
+		s.MailNumber = formatLetterNumber(pattern, seq, classCode, letterDate)
 	}
 
 	tx, err := r.DB.Begin()
@@ -620,10 +779,7 @@ func (r *EOfficeRepository) CreateSuratKeluar(s models.SuratKeluar) (string, str
 	}
 
 	if seq == 0 {
-		_, _ = fmt.Sscanf(s.MailNumber, classCode+"/%03d/", &seq)
-		if seq == 0 {
-			seq = 1
-		}
+		seq = extractSequenceNumber(s.MailNumber, classCode)
 	}
 	recipient := s.Recipient
 	if _, err := tx.Exec(`
@@ -817,6 +973,9 @@ func (r *EOfficeRepository) GetDisposisiBySuratMasukID(suratID string) ([]models
 
 // UpdateSuratKeluar updates an existing outgoing letter
 func (r *EOfficeRepository) UpdateSuratKeluar(id string, s models.SuratKeluar) error {
+	if err := r.validateClassificationCode(s.ClassificationCode); err != nil {
+		return err
+	}
 	now := UnixMilli()
 	_, err := r.DB.Exec(`
 		UPDATE surat_keluar SET mail_number = ?, recipient = ?, subject = ?, date_of_letter = ?,

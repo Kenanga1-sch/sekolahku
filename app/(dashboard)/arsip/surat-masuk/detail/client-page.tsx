@@ -24,7 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { formatDate } from "@/lib/utils";
+import { formatDate, normalizePublicPath } from "@/lib/utils";
 import { goGet, goPost } from "@/lib/api-client";
 
 interface Disposition {
@@ -137,11 +137,16 @@ export default function SuratMasukDetailPage() {
     return (
         <div className="h-[calc(100vh-100px)] flex flex-col gap-4">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="space-y-2">
                     <Link href="/arsip/surat-masuk">
-                        <Button variant="ghost" size="icon">
-                            <ArrowLeft className="h-5 w-5" />
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="p-0 h-auto text-muted-foreground hover:text-slate-900 dark:hover:text-white hover:bg-transparent -ml-1 flex items-center gap-1.5 transition-colors"
+                        >
+                            <ArrowLeft className="h-4 w-4" />
+                            Kembali ke Surat Masuk
                         </Button>
                     </Link>
                     <div>
@@ -326,7 +331,7 @@ export default function SuratMasukDetailPage() {
                 </div>
                  {/* Mobile PDF Link shown only on small screens */}
                 <div className="lg:hidden">
-                    <Button variant="outline" className="w-full" onClick={() => window.open(data.filePath, "_blank")}>
+                    <Button variant="outline" className="w-full" onClick={() => window.open(normalizePublicPath(data.filePath), "_blank")}>
                         Lihat File PDF
                     </Button>
                 </div>

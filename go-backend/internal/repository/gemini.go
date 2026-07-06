@@ -35,8 +35,14 @@ type geminiGenConfig struct {
 	ResponseSchema   *geminiSchema `json:"responseSchema"`
 }
 
+type geminiInlineData struct {
+	MimeType string `json:"mimeType"`
+	Data     string `json:"data"` // base64
+}
+
 type geminiPart struct {
-	Text string `json:"text"`
+	Text       string            `json:"text,omitempty"`
+	InlineData *geminiInlineData `json:"inlineData,omitempty"`
 }
 
 type geminiContent struct {
@@ -132,7 +138,7 @@ Aturan Tambahan:
 		return nil, fmt.Errorf("marshal request failed: %w", err)
 	}
 
-	endpoint := "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey
+	endpoint := "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + apiKey
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(payloadBytes))
 	if err != nil {
 		return nil, fmt.Errorf("create HTTP request failed: %w", err)

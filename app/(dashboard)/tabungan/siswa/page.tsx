@@ -217,7 +217,7 @@ export default function TabunganSiswaPage() {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <Link href="/tabungan">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button variant="outline" size="icon" className="h-8 w-8 border-slate-200 bg-white shadow-sm hover:bg-slate-50">
                             <ArrowLeft className="h-4 w-4" />
                         </Button>
                     </Link>
@@ -337,7 +337,7 @@ export default function TabunganSiswaPage() {
                                         <TableCell>
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="icon">
+                                                    <Button variant="outline" size="icon-sm" className="h-8 w-8 border-slate-200 bg-white shadow-sm hover:bg-slate-50 text-muted-foreground hover:text-foreground">
                                                         <MoreHorizontal className="h-4 w-4" />
                                                     </Button>
                                                 </DropdownMenuTrigger>

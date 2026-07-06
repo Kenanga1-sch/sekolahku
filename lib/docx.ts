@@ -106,3 +106,110 @@ export const generateDocument = async (
     saveAs(blob, outputName);
     return true;
 };
+
+export const mergeDocxFiles = (files: ArrayBuffer[]): Blob => {
+  if (files.length === 0) {
+    throw new Error("Tidak ada berkas untuk digabungkan.");
+  }
+  if (files.length === 1) {
+    const zip = new PizZip(files[0]);
+    return zip.generate({
+      type: "blob",
+      mimeType:
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
+  }
+
+  // Load first document
+  const mainZip = new PizZip(files[0]);
+  const mainFile = mainZip.file("word/document.xml");
+  if (!mainFile) {
+    throw new Error("Berkas word/document.xml tidak ditemukan pada dokumen dasar.");
+  }
+  const mainXmlText = mainFile.asText();
+
+  if (typeof window === "undefined") {
+    throw new Error("Penggabungan dokumen hanya didukung di lingkungan browser.");
+  }
+
+  const parser = new DOMParser();
+  const mainDoc = parser.parseFromString(mainXmlText, "application/xml");
+  const mainBody = mainDoc.getElementsByTagName("w:body")[0];
+  if (!mainBody) {
+    throw new Error("Format dokumen dasar tidak valid: w:body tidak ditemukan.");
+  }
+
+  // Find the last sectPr element in mainBody (page margins, layout size settings)
+  const mainSectPr = mainBody.getElementsByTagName("w:sectPr")[0];
+
+  for (let i = 1; i < files.length; i++) {
+    const zip = new PizZip(files[i]);
+    const docFile = zip.file("word/document.xml");
+    if (!docFile) continue;
+    const xmlText = docFile.asText();
+    const doc = parser.parseFromString(xmlText, "application/xml");
+    const body = doc.getElementsByTagName("w:body")[0];
+    if (!body) continue;
+
+    // Create a page break element
+    // <w:p><w:r><w:br w:type="page"/></w:r></w:p>
+    const pBreak = mainDoc.createElementNS(
+      "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
+      "w:p"
+    );
+    const rBreak = mainDoc.createElementNS(
+      "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
+      "w:r"
+    );
+    const brBreak = mainDoc.createElementNS(
+      "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
+      "w:br"
+    );
+    brBreak.setAttributeNS(
+      "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
+      "w:type",
+      "page"
+    );
+    rBreak.appendChild(brBreak);
+    pBreak.appendChild(rBreak);
+
+    // Insert page break before mainSectPr
+    if (mainSectPr) {
+      mainBody.insertBefore(pBreak, mainSectPr);
+    } else {
+      mainBody.appendChild(pBreak);
+    }
+
+    // Append all child nodes of body (except the final w:sectPr)
+    const childNodes = Array.from(body.childNodes);
+    for (let j = 0; j < childNodes.length; j++) {
+      const child = childNodes[j] as Element;
+      // Skip the last w:sectPr (keep only body content paragraphs and tables)
+      if (child.nodeName === "w:sectPr") {
+        continue;
+      }
+
+      const importedNode = mainDoc.importNode(child, true);
+      if (mainSectPr) {
+        mainBody.insertBefore(importedNode, mainSectPr);
+      } else {
+        mainBody.appendChild(importedNode);
+      }
+    }
+  }
+
+  // Serialize the main document back to XML
+  const serializer = new XMLSerializer();
+  const serializedXml = serializer.serializeToString(mainDoc);
+
+  // Write back to the main zip
+  mainZip.file("word/document.xml", serializedXml);
+
+  // Generate output blob
+  return mainZip.generate({
+    type: "blob",
+    mimeType:
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  });
+};
+

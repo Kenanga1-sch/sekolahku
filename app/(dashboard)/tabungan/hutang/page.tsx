@@ -11,8 +11,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { RefreshCw, Plus, Trash2, CreditCard, Loader2, ArrowLeft, Search } from "lucide-react";
+import { RefreshCw, Plus, Trash2, CreditCard, Loader2, ArrowLeft, Search, ChevronDown, ChevronUp, History, Coins, Ban } from "lucide-react";
 import Link from "next/link";
 import { goGet, goPost, goDelete } from "@/lib/api-client";
 
@@ -23,6 +24,7 @@ interface Hutang {
     kategori: string;
     nominal: number;
     jumlah: number;
+    terbayar: number;
     status: string;
     tanggalAmbil: string | null;
     catatan: string | null;
@@ -37,6 +39,17 @@ interface Siswa {
     nisn: string;
     kelasId: string;
     kelas?: { nama: string } | null;
+    saldoTerakhir?: number;
+}
+
+interface PaymentHistoryItem {
+    id: string;
+    hutangId: string;
+    nominal: number;
+    metode: "cash" | "tabungan";
+    transaksiId?: string | null;
+    dicatatOleh: string;
+    createdAt: number;
 }
 
 const KATEGORI_OPTIONS = [
@@ -48,9 +61,10 @@ const KATEGORI_OPTIONS = [
 ];
 
 const STATUS_COLORS: Record<string, string> = {
-    aktif: "bg-yellow-500",
-    lunas: "bg-green-600",
-    dibatalkan: "bg-gray-500",
+    aktif: "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-900/50",
+    cicilan: "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-900/50",
+    lunas: "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-900/50",
+    batal: "bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-900/50",
 };
 
 const formatRupiah = (num: number) => {
@@ -60,6 +74,18 @@ const formatRupiah = (num: number) => {
 const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "-";
     return new Date(dateStr).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+};
+
+const formatDateTime = (timestamp: number) => {
+    // If timestamp is in milliseconds vs seconds
+    const date = new Date(timestamp > 9999999999 ? timestamp : timestamp * 1000);
+    return date.toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+    });
 };
 
 export default function HutangManagementPage() {
@@ -95,8 +121,19 @@ export default function HutangManagementPage() {
     const [batchJumlah, setBatchJumlah] = useState("1");
     const [batchCatatan, setBatchCatatan] = useState("");
 
-    // Dialog state
-    const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; id: string; action: "cancel" | "pay_cash" } | null>(null);
+    // Payment Dialog state
+    const [payDialog, setPayDialog] = useState<{ open: boolean; hutang: Hutang } | null>(null);
+    const [paymentMethod, setPaymentMethod] = useState<"cash" | "tabungan">("cash");
+    const [payAmount, setPayAmount] = useState("");
+    const [isPaying, setIsPaying] = useState(false);
+
+    // Cancel Dialog state
+    const [cancelDialog, setCancelDialog] = useState<{ open: boolean; hutangId: string; studentName: string; itemName: string } | null>(null);
+
+    // Expanded rows state for payment history
+    const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
+    const [paymentsCache, setPaymentsCache] = useState<Record<string, PaymentHistoryItem[]>>({});
+    const [loadingPayments, setLoadingPayments] = useState<Record<string, boolean>>({});
 
     const fetchHutang = useCallback(async () => {
         setIsLoading(true);
@@ -239,22 +276,107 @@ export default function HutangManagementPage() {
         }
     };
 
-    const handleDelete = async () => {
-        if (!deleteDialog) return;
-        
+    const handlePayHutang = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!payDialog) return;
+
+        const amount = parseInt(payAmount.replace(/\D/g, ""));
+        const remaining = (payDialog.hutang.nominal * payDialog.hutang.jumlah) - payDialog.hutang.terbayar;
+
+        if (!amount || amount <= 0) {
+            toast.error("Nominal pembayaran harus lebih dari 0");
+            return;
+        }
+
+        if (amount > remaining) {
+            toast.error(`Nominal pembayaran tidak boleh melebihi sisa hutang (${formatRupiah(remaining)})`);
+            return;
+        }
+
+        if (paymentMethod === "tabungan") {
+            const balance = getStudentSavingsBalance(payDialog.hutang.siswaId);
+            if (amount > balance) {
+                toast.error(`Saldo tabungan tidak mencukupi (${formatRupiah(balance)})`);
+                return;
+            }
+        }
+
+        setIsPaying(true);
         try {
-            const data: any = await goDelete(`/api/tabungan/hutang/${deleteDialog.id}?action=${deleteDialog.action}`);
+            const endpoint = paymentMethod === "cash" 
+                ? `/api/tabungan/hutang/${payDialog.hutang.id}/pay-cash`
+                : `/api/tabungan/hutang/${payDialog.hutang.id}/settle-savings`;
+
+            const data: any = await goPost(endpoint, { amount });
             if (data.success) {
-                toast.success(deleteDialog.action === "pay_cash" ? "Hutang dilunasi via cash" : "Hutang dibatalkan");
+                toast.success(paymentMethod === "cash" ? "Berhasil membayar cicilan tunai" : "Berhasil memotong saldo tabungan");
+                
+                // Clear payments cache for this item to force refetch when expanded
+                setPaymentsCache(prev => {
+                    const next = { ...prev };
+                    delete next[payDialog.hutang.id];
+                    return next;
+                });
+                
+                setPayDialog(null);
                 fetchHutang();
+                fetchSiswa(); // refresh balance
+            } else {
+                toast.error(data.error || "Gagal memproses pembayaran");
+            }
+        } catch (error) {
+            toast.error("Terjadi kesalahan saat memproses pembayaran");
+        } finally {
+            setIsPaying(false);
+        }
+    };
+
+    const handleCancelHutang = async () => {
+        if (!cancelDialog) return;
+
+        setIsSubmitting(true);
+        try {
+            const data: any = await goDelete(`/api/tabungan/hutang/${cancelDialog.hutangId}`);
+            if (data.success) {
+                toast.success("Hutang berhasil dibatalkan dan nominal terbayar di-refund");
+                setCancelDialog(null);
+                fetchHutang();
+                fetchSiswa(); // refresh balance in case of refund
             } else {
                 toast.error(data.error || "Gagal memproses");
             }
         } catch {
             toast.error("Terjadi kesalahan");
         } finally {
-            setDeleteDialog(null);
+            setIsSubmitting(false);
         }
+    };
+
+    const toggleRow = async (hutangId: string) => {
+        const isExpanded = !expandedRows[hutangId];
+        setExpandedRows(prev => ({ ...prev, [hutangId]: isExpanded }));
+
+        if (isExpanded && !paymentsCache[hutangId]) {
+            setLoadingPayments(prev => ({ ...prev, [hutangId]: true }));
+            try {
+                const data = await goGet(`/api/tabungan/hutang/${hutangId}/payments`);
+                if (Array.isArray(data)) {
+                    setPaymentsCache(prev => ({ ...prev, [hutangId]: data }));
+                } else {
+                    setPaymentsCache(prev => ({ ...prev, [hutangId]: [] }));
+                }
+            } catch (error) {
+                console.error("Failed to fetch payments:", error);
+                toast.error("Gagal mengambil riwayat pembayaran");
+            } finally {
+                setLoadingPayments(prev => ({ ...prev, [hutangId]: false }));
+            }
+        }
+    };
+
+    const getStudentSavingsBalance = (siswaId: string): number => {
+        const siswa = siswaList.find(s => s.id === siswaId);
+        return siswa?.saldoTerakhir ?? 0;
     };
 
     const filteredHutang = hutangList.filter((h) => {
@@ -267,19 +389,32 @@ export default function HutangManagementPage() {
         );
     });
 
+    // Dynamic Stats Calculations
+    const stats = {
+        totalPiutangAktif: hutangList.reduce((acc, h) => {
+            if (h.status === "aktif" || h.status === "cicilan") {
+                return acc + ((h.nominal * h.jumlah) - h.terbayar);
+            }
+            return acc;
+        }, 0),
+        totalTerbayar: hutangList.reduce((acc, h) => acc + h.terbayar, 0),
+        belumLunasCount: hutangList.filter(h => h.status === "aktif" || h.status === "cicilan").length
+    };
+
     return (
         <div className="container mx-auto p-6 space-y-6">
+            {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" asChild>
+                    <Button variant="outline" size="icon" asChild className="border-slate-200 bg-white shadow-sm hover:bg-slate-50">
                         <Link href="/tabungan">
                             <ArrowLeft className="h-5 w-5" />
                         </Link>
                     </Button>
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight">Manajemen Hutang Siswa</h1>
+                        <h1 className="text-2xl font-bold tracking-tight">Manajemen Hutang & Cicilan Siswa</h1>
                         <p className="text-muted-foreground">
-                            Catat dan kelola hutang atribut/buku siswa
+                            Pencatatan komprehensif piutang atribut sekolah dan fasilitas pembayaran cicilan siswa
                         </p>
                     </div>
                 </div>
@@ -287,6 +422,43 @@ export default function HutangManagementPage() {
                     <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
                     Refresh
                 </Button>
+            </div>
+
+            {/* Dynamic Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 text-white shadow-md relative overflow-hidden border-0">
+                    <CardHeader className="pb-2">
+                        <CardDescription className="text-slate-400 font-medium">Total Sisa Piutang Aktif</CardDescription>
+                        <CardTitle className="text-3xl font-bold tracking-tight font-mono">{formatRupiah(stats.totalPiutangAktif)}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-xs text-slate-400">
+                            Dari total {stats.belumLunasCount} catatan hutang belum lunas
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
+                    <CardHeader className="pb-2">
+                        <CardDescription className="text-muted-foreground font-medium">Total Piutang Terbayar</CardDescription>
+                        <CardTitle className="text-3xl font-bold tracking-tight text-emerald-600 font-mono">{formatRupiah(stats.totalTerbayar)}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-xs text-muted-foreground">
+                            Akumulasi seluruh cicilan dan pelunasan terkumpul
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card className="bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 shadow-sm relative overflow-hidden">
+                    <CardHeader className="pb-2">
+                        <CardDescription className="text-muted-foreground font-medium">Jumlah Hutang Aktif</CardDescription>
+                        <CardTitle className="text-3xl font-bold tracking-tight text-amber-600 font-mono">{stats.belumLunasCount}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-xs text-muted-foreground">
+                            Siswa aktif dengan kewajiban pembayaran tertunggak
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -305,30 +477,31 @@ export default function HutangManagementPage() {
                 <TabsContent value="list">
                     <Card>
                         <CardHeader>
-                            <div className="flex items-center justify-between">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                 <div>
-                                    <CardTitle>Daftar Hutang</CardTitle>
-                                    <CardDescription>Semua catatan hutang siswa</CardDescription>
+                                    <CardTitle>Catatan Piutang Siswa</CardTitle>
+                                    <CardDescription>Gunakan tabel di bawah untuk melihat sisa tagihan, riwayat cicilan, dan melakukan pembayaran.</CardDescription>
                                 </div>
-                                <div className="flex items-center gap-4">
-                                    <div className="relative">
+                                <div className="flex flex-col sm:flex-row items-center gap-4">
+                                    <div className="relative w-full sm:w-[220px]">
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                         <Input
                                             placeholder="Cari nama/NISN..."
-                                            className="pl-9 w-[200px]"
+                                            className="pl-9 w-full"
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
                                         />
                                     </div>
                                     <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                        <SelectTrigger className="w-[150px]">
+                                        <SelectTrigger className="w-full sm:w-[150px]">
                                             <SelectValue placeholder="Status" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="all">Semua</SelectItem>
-                                            <SelectItem value="aktif">Aktif</SelectItem>
+                                            <SelectItem value="all">Semua Status</SelectItem>
+                                            <SelectItem value="aktif">Belum Dibayar (Aktif)</SelectItem>
+                                            <SelectItem value="cicilan">Cicilan Parsial</SelectItem>
                                             <SelectItem value="lunas">Lunas</SelectItem>
-                                            <SelectItem value="dibatalkan">Dibatalkan</SelectItem>
+                                            <SelectItem value="batal">Batal / Dihapus</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -338,11 +511,14 @@ export default function HutangManagementPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
+                                        <TableHead className="w-[40px]"></TableHead>
                                         <TableHead>Siswa</TableHead>
                                         <TableHead>Barang</TableHead>
                                         <TableHead>Kategori</TableHead>
-                                        <TableHead className="text-right">Nominal</TableHead>
-                                        <TableHead>Tanggal</TableHead>
+                                        <TableHead className="text-right">Total Hutang</TableHead>
+                                        <TableHead className="text-right">Terbayar</TableHead>
+                                        <TableHead className="text-right">Sisa Tagihan</TableHead>
+                                        <TableHead>Tanggal Ambil</TableHead>
                                         <TableHead>Status</TableHead>
                                         <TableHead className="text-right">Aksi</TableHead>
                                     </TableRow>
@@ -350,70 +526,183 @@ export default function HutangManagementPage() {
                                 <TableBody>
                                     {isLoading ? (
                                         <TableRow>
-                                            <TableCell colSpan={7} className="h-24 text-center">
+                                            <TableCell colSpan={10} className="h-24 text-center">
                                                 <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                                             </TableCell>
                                         </TableRow>
                                     ) : filteredHutang.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
-                                                Tidak ada data hutang
+                                            <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
+                                                Tidak ada data hutang ditemukan
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        filteredHutang.map((h) => (
-                                            <TableRow key={h.id}>
-                                                <TableCell>
-                                                    <div className="flex flex-col">
-                                                        <span className="font-medium">{h.siswa?.nama || "-"}</span>
-                                                        <span className="text-xs text-muted-foreground">{h.siswa?.kelas}</span>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex flex-col">
-                                                        <span className="font-medium">{h.namaBarang}</span>
-                                                        {h.jumlah > 1 && (
-                                                            <span className="text-xs text-muted-foreground">x{h.jumlah}</span>
-                                                        )}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge variant="outline" className="capitalize">
-                                                        {h.kategori}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="text-right font-mono">
-                                                    {formatRupiah(h.nominal * h.jumlah)}
-                                                </TableCell>
-                                                <TableCell>{formatDate(h.tanggalAmbil)}</TableCell>
-                                                <TableCell>
-                                                    <Badge className={`${STATUS_COLORS[h.status]} capitalize`}>
-                                                        {h.status}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    {h.status === "aktif" && (
-                                                        <div className="flex justify-end gap-2">
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => setDeleteDialog({ open: true, id: h.id, action: "pay_cash" })}
-                                                            >
-                                                                <CreditCard className="h-3 w-3 mr-1" />
-                                                                Bayar Cash
-                                                            </Button>
+                                        filteredHutang.map((h) => {
+                                            const totalHutang = h.nominal * h.jumlah;
+                                            const sisaHutang = totalHutang - h.terbayar;
+                                            const isExpanded = !!expandedRows[h.id];
+
+                                            return (
+                                                <>
+                                                    <TableRow key={h.id} className={isExpanded ? "bg-slate-50/40 dark:bg-slate-900/10" : ""}>
+                                                        <TableCell className="p-0 text-center">
                                                             <Button
                                                                 variant="ghost"
-                                                                size="sm"
-                                                                onClick={() => setDeleteDialog({ open: true, id: h.id, action: "cancel" })}
+                                                                size="icon"
+                                                                className="h-8 w-8"
+                                                                onClick={() => toggleRow(h.id)}
+                                                                title="Lihat Riwayat Pembayaran"
                                                             >
-                                                                <Trash2 className="h-3 w-3" />
+                                                                {isExpanded ? (
+                                                                    <ChevronUp className="h-4 w-4 text-slate-500" />
+                                                                ) : (
+                                                                    <ChevronDown className="h-4 w-4 text-slate-500" />
+                                                                )}
                                                             </Button>
-                                                        </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="flex flex-col">
+                                                                <span className="font-semibold text-slate-800 dark:text-slate-200">{h.siswa?.nama || "-"}</span>
+                                                                <span className="text-xs text-muted-foreground">NISN: {h.siswa?.nisn || "-"} • Kelas {h.siswa?.kelas || "-"}</span>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="flex flex-col">
+                                                                <span className="font-medium">{h.namaBarang}</span>
+                                                                <span className="text-xs text-muted-foreground">
+                                                                    {formatRupiah(h.nominal)} x{h.jumlah}
+                                                                </span>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Badge variant="secondary" className="capitalize text-[11px] font-normal px-2 py-0.5">
+                                                                {h.kategori}
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-mono font-semibold">
+                                                            {formatRupiah(totalHutang)}
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-mono text-emerald-600">
+                                                            {formatRupiah(h.terbayar)}
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-mono font-bold text-slate-900 dark:text-white">
+                                                            {formatRupiah(sisaHutang)}
+                                                        </TableCell>
+                                                        <TableCell className="text-sm">
+                                                            {formatDate(h.tanggalAmbil)}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Badge variant="outline" className={`capitalize font-medium text-[11px] px-2 py-0.5 ${STATUS_COLORS[h.status]}`}>
+                                                                {h.status}
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            <div className="flex justify-end items-center gap-1.5">
+                                                                {(h.status === "aktif" || h.status === "cicilan") && (
+                                                                    <>
+                                                                        <Button
+                                                                            variant="default"
+                                                                            size="sm"
+                                                                            className="h-8 shadow-sm"
+                                                                            onClick={() => {
+                                                                                setPayDialog({ open: true, hutang: h });
+                                                                                setPayAmount(sisaHutang.toString());
+                                                                                setPaymentMethod("cash");
+                                                                            }}
+                                                                        >
+                                                                            <Coins className="h-3.5 w-3.5 mr-1" />
+                                                                            Bayar
+                                                                        </Button>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                                                                            onClick={() => setCancelDialog({
+                                                                                open: true,
+                                                                                hutangId: h.id,
+                                                                                studentName: h.siswa?.nama || "Siswa",
+                                                                                itemName: h.namaBarang
+                                                                            })}
+                                                                            title="Batalkan Hutang"
+                                                                        >
+                                                                            <Ban className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                    
+                                                    {/* Expanded Row for Payments History */}
+                                                    {isExpanded && (
+                                                        <TableRow className="bg-slate-50/30 hover:bg-slate-50/30 dark:bg-slate-900/5 dark:hover:bg-slate-900/5">
+                                                            <TableCell colSpan={10} className="p-4 border-t border-slate-100 dark:border-slate-800">
+                                                                <div className="pl-8 pr-4 py-2 space-y-3">
+                                                                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                                                        <History className="h-3.5 w-3.5" />
+                                                                        <span>Riwayat Transaksi Pembayaran Cicilan</span>
+                                                                    </div>
+                                                                    
+                                                                    {loadingPayments[h.id] ? (
+                                                                        <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                                                                            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                                                            Memuat data cicilan...
+                                                                        </div>
+                                                                    ) : !paymentsCache[h.id] || paymentsCache[h.id].length === 0 ? (
+                                                                        <div className="text-sm text-muted-foreground py-2 pl-2 border-l-2 border-slate-200">
+                                                                            Belum ada riwayat cicilan untuk tagihan ini.
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="border border-slate-100 dark:border-slate-800 rounded-md overflow-hidden bg-white dark:bg-slate-950 max-w-3xl">
+                                                                            <Table>
+                                                                                <TableHeader className="bg-slate-50/50 dark:bg-slate-900/50">
+                                                                                    <TableRow>
+                                                                                        <TableHead className="text-xs py-2">Tanggal</TableHead>
+                                                                                        <TableHead className="text-xs py-2 text-right">Nominal Cicilan</TableHead>
+                                                                                        <TableHead className="text-xs py-2">Metode</TableHead>
+                                                                                        <TableHead className="text-xs py-2">Operator</TableHead>
+                                                                                    </TableRow>
+                                                                                </TableHeader>
+                                                                                <TableBody>
+                                                                                    {paymentsCache[h.id].map((payment) => (
+                                                                                        <TableRow key={payment.id} className="hover:bg-slate-50/20 dark:hover:bg-slate-900/20">
+                                                                                            <TableCell className="py-2 text-xs font-medium">
+                                                                                                {formatDateTime(payment.createdAt)}
+                                                                                            </TableCell>
+                                                                                            <TableCell className="py-2 text-xs text-right font-mono font-bold text-emerald-600">
+                                                                                                {formatRupiah(payment.nominal)}
+                                                                                            </TableCell>
+                                                                                            <TableCell className="py-2 text-xs">
+                                                                                                <Badge variant="outline" className={`text-[10px] uppercase font-semibold py-0.5 px-1.5 ${
+                                                                                                    payment.metode === "cash" 
+                                                                                                        ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400" 
+                                                                                                        : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/20 dark:text-blue-400"
+                                                                                                }`}>
+                                                                                                    {payment.metode === "cash" ? "Tunai (Cash)" : "Tabungan"}
+                                                                                                </Badge>
+                                                                                            </TableCell>
+                                                                                            <TableCell className="py-2 text-xs text-muted-foreground">
+                                                                                                {payment.dicatatOleh || "Sistem"}
+                                                                                            </TableCell>
+                                                                                        </TableRow>
+                                                                                    ))}
+                                                                                </TableBody>
+                                                                            </Table>
+                                                                        </div>
+                                                                    )}
+                                                                    {h.catatan && (
+                                                                        <div className="text-xs text-muted-foreground bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded border border-slate-100 dark:border-slate-800 max-w-3xl">
+                                                                            <span className="font-semibold text-slate-700 dark:text-slate-300 block mb-0.5">Catatan Internal:</span>
+                                                                            {h.catatan}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </TableCell>
+                                                        </TableRow>
                                                     )}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
+                                                </>
+                                            );
+                                        })
                                     )}
                                 </TableBody>
                             </Table>
@@ -736,7 +1025,7 @@ export default function HutangManagementPage() {
                                     <div className="flex items-center justify-between p-4 bg-primary/5 rounded-lg border border-primary/20">
                                         <div>
                                             <p className="text-sm text-muted-foreground">Total Estimasi Piutang:</p>
-                                            <p className="text-2xl font-bold text-primary">
+                                            <p className="text-2xl font-bold text-primary font-mono">
                                                 {formatRupiah(
                                                     parseInt(batchNominal.replace(/\D/g, "") || "0") * 
                                                     parseInt(batchJumlah || "1") * 
@@ -761,22 +1050,151 @@ export default function HutangManagementPage() {
                 </TabsContent>
             </Tabs>
 
-            <AlertDialog open={!!deleteDialog} onOpenChange={(open) => !open && setDeleteDialog(null)}>
+            {/* Comprehensive Payment Modal */}
+            <Dialog open={!!payDialog} onOpenChange={(open) => !open && setPayDialog(null)}>
+                <DialogContent className="sm:max-w-[420px]">
+                    <DialogHeader>
+                        <DialogTitle>Form Pembayaran Cicilan</DialogTitle>
+                        <DialogDescription>
+                            Pilih metode pembayaran (Tunai vs Potong Tabungan) dan masukkan nominal bayar.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {payDialog && (
+                        <form onSubmit={handlePayHutang} className="space-y-4 pt-3">
+                            <div className="space-y-1">
+                                <Label className="text-xs text-muted-foreground">Nama Siswa</Label>
+                                <div className="font-semibold text-slate-800 dark:text-slate-200 text-sm">
+                                    {payDialog.hutang.siswa?.nama || "-"}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                    NISN: {payDialog.hutang.siswa?.nisn || "-"} • Kelas {payDialog.hutang.siswa?.kelas || "-"}
+                                </div>
+                            </div>
+
+                            <div className="space-y-1.5 border-t dark:border-slate-800 pt-3">
+                                <Label className="text-xs text-muted-foreground">Detail Hutang</Label>
+                                <div className="font-medium text-slate-800 dark:text-slate-200 text-sm">{payDialog.hutang.namaBarang}</div>
+                                <div className="text-xs flex justify-between">
+                                    <span>Total Tagihan ({payDialog.hutang.jumlah}x):</span>
+                                    <span className="font-mono">{formatRupiah(payDialog.hutang.nominal * payDialog.hutang.jumlah)}</span>
+                                </div>
+                                <div className="text-xs flex justify-between text-emerald-600">
+                                    <span>Sudah Dibayar:</span>
+                                    <span className="font-mono">{formatRupiah(payDialog.hutang.terbayar)}</span>
+                                </div>
+                                <div className="text-xs flex justify-between font-bold text-amber-600 border-t dark:border-slate-800 pt-1.5">
+                                    <span>Sisa Tagihan:</span>
+                                    <span className="font-mono">{formatRupiah((payDialog.hutang.nominal * payDialog.hutang.jumlah) - payDialog.hutang.terbayar)}</span>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2 border-t dark:border-slate-800 pt-3">
+                                <Label>Metode Pembayaran</Label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <Button
+                                        type="button"
+                                        variant={paymentMethod === "cash" ? "default" : "outline"}
+                                        onClick={() => setPaymentMethod("cash")}
+                                        className="w-full flex items-center justify-center gap-1.5 h-9"
+                                    >
+                                        <Coins className="h-4 w-4" />
+                                        Tunai (Cash)
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant={paymentMethod === "tabungan" ? "default" : "outline"}
+                                        onClick={() => setPaymentMethod("tabungan")}
+                                        className="w-full flex items-center justify-center gap-1.5 h-9"
+                                    >
+                                        <CreditCard className="h-4 w-4" />
+                                        Potong Tabungan
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {paymentMethod === "tabungan" && (
+                                <div className="p-3 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-lg space-y-1.5">
+                                    <div className="text-xs text-muted-foreground flex justify-between items-center">
+                                        <span>Saldo Tabungan Siswa:</span>
+                                        {getStudentSavingsBalance(payDialog.hutang.siswaId) < ((payDialog.hutang.nominal * payDialog.hutang.jumlah) - payDialog.hutang.terbayar) && (
+                                            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold uppercase">Saldo Kurang untuk Pelunasan</span>
+                                        )}
+                                    </div>
+                                    <div className="text-lg font-bold text-primary font-mono">
+                                        {formatRupiah(getStudentSavingsBalance(payDialog.hutang.siswaId))}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="space-y-2">
+                                <div className="flex justify-between items-center">
+                                    <Label htmlFor="payAmount">Nominal Pembayaran (Rp)</Label>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        onClick={() => {
+                                            const remaining = (payDialog.hutang.nominal * payDialog.hutang.jumlah) - payDialog.hutang.terbayar;
+                                            if (paymentMethod === "tabungan") {
+                                                const balance = getStudentSavingsBalance(payDialog.hutang.siswaId);
+                                                setPayAmount(Math.min(remaining, balance).toString());
+                                            } else {
+                                                setPayAmount(remaining.toString());
+                                            }
+                                        }}
+                                        className="text-[11px] h-6 px-2 text-slate-500 hover:text-slate-800"
+                                    >
+                                        Set Maksimal / Lunas
+                                    </Button>
+                                </div>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-mono text-sm">Rp</span>
+                                    <Input
+                                        id="payAmount"
+                                        className="pl-9 font-mono text-sm"
+                                        value={payAmount}
+                                        onChange={(e) => {
+                                            const val = e.target.value.replace(/\D/g, "");
+                                            setPayAmount(val ? parseInt(val).toLocaleString("id-ID") : "");
+                                        }}
+                                        placeholder="0"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            <DialogFooter className="border-t dark:border-slate-800 pt-3 flex gap-2">
+                                <Button type="button" variant="outline" onClick={() => setPayDialog(null)}>
+                                    Batal
+                                </Button>
+                                <Button type="submit" disabled={isPaying}>
+                                    {isPaying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Proses Bayar
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Cancel/Refund Confirmation Dialog */}
+            <AlertDialog open={!!cancelDialog} onOpenChange={(open) => !open && setCancelDialog(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>
-                            {deleteDialog?.action === "pay_cash" ? "Lunasi Hutang via Cash?" : "Batalkan Hutang?"}
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                            {deleteDialog?.action === "pay_cash"
-                                ? "Hutang akan ditandai lunas karena dibayar tunai (bukan dari tabungan)."
-                                : "Hutang akan dibatalkan dan tidak akan dipotong dari tabungan."}
+                        <AlertDialogTitle>Batalkan Catatan Hutang?</AlertDialogTitle>
+                        <AlertDialogDescription className="space-y-3">
+                            <div>
+                                Apakah Anda yakin ingin membatalkan catatan hutang siswa <span className="font-semibold text-slate-800 dark:text-slate-200">{cancelDialog?.studentName}</span> untuk pembelian <span className="font-semibold text-slate-800 dark:text-slate-200">{cancelDialog?.itemName}</span>?
+                            </div>
+                            <div className="bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30 p-3 rounded text-xs text-rose-700 dark:text-rose-400">
+                                <strong>PENTING:</strong> Menghapus/membatalkan hutang akan otomatis mengembalikan (refund) seluruh saldo tabungan yang telah dipotong dan menyunting kas brankas sekolah. Tindakan ini permanen.
+                            </div>
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Batal</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDelete}>
-                            {deleteDialog?.action === "pay_cash" ? "Ya, Lunasi" : "Ya, Batalkan"}
+                        <AlertDialogAction onClick={handleCancelHutang} className="bg-rose-600 hover:bg-rose-700 text-white dark:bg-rose-900 dark:hover:bg-rose-800">
+                            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                            Ya, Batalkan & Refund
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
@@ -784,4 +1202,3 @@ export default function HutangManagementPage() {
         </div>
     );
 }
-

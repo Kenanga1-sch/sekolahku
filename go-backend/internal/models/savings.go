@@ -128,11 +128,26 @@ type TabunganHutang struct {
 	Kategori       string         `json:"kategori"`
 	Nominal        int            `json:"nominal"`
 	Jumlah         int            `json:"jumlah"`
+	Terbayar       int            `json:"terbayar"`
 	DicatatOleh    string         `json:"dicatatOleh"`
-	Status         string         `json:"status"` // aktif, lunas
+	Status         string         `json:"status"` // aktif, lunas, cicilan, batal
 	TanggalLunas   *time.Time     `json:"tanggalLunas"`
 	DilunaskanDari *string        `json:"dilunaskanDari"` // saldo_tabungan, tunai
 	CreatedAt      *time.Time     `json:"createdAt"`
+}
+
+type TabunganHutangPembayaran struct {
+	ID          string     `json:"id"`
+	HutangID    string     `json:"hutangId"`
+	Nominal     int        `json:"nominal"`
+	Metode      string     `json:"metode"` // cash, tabungan
+	TransaksiID *string    `json:"transaksiId"`
+	DicatatOleh string     `json:"dicatatOleh"`
+	CreatedAt   *time.Time `json:"createdAt"`
+}
+
+type PayHutangRequest struct {
+	Amount int `json:"amount"`
 }
 
 // CreateBrankasRequest represents request to create/update a vault

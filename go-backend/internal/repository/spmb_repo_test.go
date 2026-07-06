@@ -206,7 +206,7 @@ func TestSPMBRepositoryRegistrantsAllFilterAndStats(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	items, total, err := repo.GetRegistrantsAdmin(1, 10, "all", "")
+	items, total, err := repo.GetRegistrantsAdmin(1, 10, "all", "", "")
 	if err != nil {
 		t.Fatalf("get registrants: %v", err)
 	}
@@ -214,7 +214,7 @@ func TestSPMBRepositoryRegistrantsAllFilterAndStats(t *testing.T) {
 		t.Fatalf("unexpected registrants result total=%d items=%+v", total, items)
 	}
 
-	stats, err := repo.GetSPMBStats()
+	stats, err := repo.GetSPMBStats("")
 	if err != nil {
 		t.Fatalf("stats: %v", err)
 	}

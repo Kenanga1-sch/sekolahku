@@ -56,6 +56,8 @@ func setupEOfficeTestDB(t *testing.T) *sql.DB {
 			paper_size TEXT,
 			orientation TEXT,
 			is_active INTEGER DEFAULT 1,
+			classification_code TEXT,
+			letter_number_format TEXT,
 			created_at INTEGER,
 			updated_at INTEGER
 		);
@@ -78,6 +80,12 @@ func setupEOfficeTestDB(t *testing.T) *sql.DB {
 			file_path TEXT,
 			final_file_path TEXT,
 			status TEXT DEFAULT 'Draft' NOT NULL,
+			agenda_number TEXT,
+			verified_by TEXT,
+			verified_at INTEGER,
+			digital_signature TEXT,
+			revision_note TEXT,
+			template_id TEXT,
 			created_by TEXT,
 			created_at INTEGER,
 			updated_at INTEGER,
@@ -316,3 +324,31 @@ func TestEOfficeRepositoryOutgoingArchiveFlow(t *testing.T) {
 		t.Fatalf("expected final PDF path to be stored")
 	}
 }
+
+func TestExtractSequenceNumber(t *testing.T) {
+	tests := []struct {
+		mailNumber string
+		classCode  string
+		expected   int
+	}{
+		{"400.3.5/50-SD", "400.3.5", 50},
+		{"400.3.5/050-SD", "400.3.5", 50},
+		{"055/400.3.5.02/SDN1-KNG/VI/2026", "400.3.5.02", 55},
+		{"421/050/SDN1-KNG/VI/2026", "421", 50},
+		{"50/055-SD", "055", 50},
+		{"055/50-SD", "055", 50},
+		{"055.2/50-SD", "055.2", 50},
+		{"", "400.3.5", 1},
+		{"InvalidFormat", "400.3.5", 1},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.mailNumber+"_with_"+tc.classCode, func(t *testing.T) {
+			res := extractSequenceNumber(tc.mailNumber, tc.classCode)
+			if res != tc.expected {
+				t.Errorf("extractSequenceNumber(%q, %q) = %d; want %d", tc.mailNumber, tc.classCode, res, tc.expected)
+			}
+		})
+	}
+}
+

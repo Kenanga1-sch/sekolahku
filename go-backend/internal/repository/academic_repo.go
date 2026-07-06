@@ -353,6 +353,17 @@ func (r *AcademicRepository) ProcessPromotion(req models.PromotionRequest) (int,
 				return count, err
 			}
 		case "graduation":
+			// Check clearance before graduation
+			clear, reason, err := CheckStudentClearance(tx, studentId)
+			if err != nil {
+				return count, err
+			}
+			if !clear {
+				var name string
+				_ = tx.QueryRow("SELECT full_name FROM students WHERE id = ?", studentId).Scan(&name)
+				return count, fmt.Errorf("Gagal meluluskan %s: %s", name, reason)
+			}
+
 			// Update student
 			_, err = tx.Exec(`UPDATE students SET status = 'graduated', is_active = 0, class_id = NULL, class_name = NULL, updated_at = ? WHERE id = ?`, now, studentId)
 			if err != nil {

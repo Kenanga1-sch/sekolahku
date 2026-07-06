@@ -8,13 +8,11 @@ import {
   LayoutDashboard,
   Users,
   CalendarDays,
-  Settings,
   GraduationCap,
   Bell,
   LogOut,
   User,
   Home,
-  Activity,
   BookOpen,
   ExternalLink,
   Package,
@@ -22,6 +20,7 @@ import {
   IdCard,
   ClipboardList,
   Mail,
+  Megaphone,
   Image as ImageIcon,
   ArrowRightLeft,
   FileText,
@@ -32,6 +31,8 @@ import {
   Banknote,
   PanelLeftClose,
   PanelLeftOpen,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
@@ -60,11 +61,19 @@ import {
 import type { SchoolSettings } from "@/types";
 
 // --- Navigation Config (Preserved) ---
-interface NavItem {
+interface SubNavItem {
   href: string;
+  label: string;
+  icon?: any;
+  roles?: UserRole[];
+}
+
+interface NavItem {
+  href?: string;
   label: string;
   icon: any;
   roles?: UserRole[];
+  items?: SubNavItem[];
 }
 
 interface NavGroup {
@@ -92,83 +101,70 @@ const navGroups: NavGroup[] = [
   {
       label: "Keuangan",
       items: [
-          { href: "/keuangan/arus-kas", label: "Bendahara BOS", icon: Banknote, roles: ADMIN_ROLES },
           { href: "/tabungan", label: "Tabungan Siswa", icon: Wallet, roles: TABUNGAN_ROLES },
-          { href: "/keuangan/tabungan/bendahara", label: "Bendahara Tabungan", icon: ShieldCheck, roles: ADMIN_ROLES },
       ]
   },
   {
       label: "Pusat Data",
       items: [
-          { href: "/admin/master/sekolah", label: "Profil Sekolah", icon: Home, roles: ADMIN_ROLES },
-          { href: "/admin/master/siswa", label: "Direktori Siswa", icon: Users, roles: ADMIN_ROLES },
           { href: "/admin/master/gtk", label: "Direktori GTK", icon: IdCard, roles: ADMIN_ROLES },
-          { href: "/admin/pendidikan/kelas", label: "Data Kelas", icon: BookOpen, roles: ADMIN_ROLES },
-          { href: "/admin/pendidikan/kenaikan-kelas", label: "Kenaikan/Kelulusan", icon: ArrowRight, roles: ADMIN_ROLES },
-          { href: "/admin/master/akademik", label: "Ref. Akademik", icon: Library, roles: ADMIN_ROLES },
+          { href: "/admin/akademik", label: "Kelas & Akademik", icon: BookOpen, roles: ADMIN_ROLES },
       ]
   },
 
-  {
-    label: "Akademik",
-    items: [
-      { href: "/spmb-admin", label: "Pendaftar", icon: Users, roles: ADMIN_ROLES },
-      { href: "/spmb-admin/periods", label: "Periode SPMB", icon: CalendarDays, roles: ADMIN_ROLES },
-    ],
-  },
+
   {
     label: "Kesiswaan",
     items: [
-      { href: "/peserta-didik", label: "Kartu Siswa", icon: IdCard, roles: ADMIN_ROLES },
+      { href: "/admin/siswa", label: "Manajemen Siswa", icon: Users, roles: ADMIN_ROLES },
       { href: "/presensi", label: "Presensi", icon: ClipboardList, roles: GURU_ACCESS_ROLES },
-      { href: "/arsip-alumni", label: "Arsip Alumni", icon: GraduationCap, roles: ADMIN_ROLES },
-      { href: "/admin/mutasi", label: "Mutasi Masuk", icon: ArrowRightLeft, roles: ADMIN_ROLES },
-      { href: "/admin/mutasi-keluar", label: "Mutasi Keluar", icon: ExternalLink, roles: ADMIN_ROLES },
     ],
   },
   {
-    label: "Komunikasi",
+    label: "Komunikasi & Konten",
     items: [
-      { href: "/messages", label: "Pesan Masuk", icon: Mail, roles: ADMIN_ROLES },
-      
+      { href: "/admin/konten-informasi", label: "Pusat Informasi", icon: Megaphone, roles: ADMIN_ROLES },
     ],
   },
-  {
-    label: "Konten",
-    items: [
-       { href: "/admin/galeri", label: "Galeri Foto", icon: ImageIcon, roles: ADMIN_ROLES },
-       { href: "/announcements", label: "Pengumuman", icon: Bell, roles: ADMIN_ROLES },
-    ],
-  },
-  {
-    label: "Sistem",
-    items: [
-      { href: "/users", label: "Pengguna", icon: User, roles: SYSTEM_ADMIN_ROLES },
-      { href: "/activity-log", label: "Log Aktivitas", icon: Activity, roles: ADMIN_ROLES },
-      { href: "/profile", label: "Profil Saya", icon: User },
-      { href: "/admin/master/sekolah", label: "Pengaturan", icon: Settings, roles: ADMIN_ROLES },
-    ],
-  },
+
 ];
 
 function filterNavByRole(groups: NavGroup[], userRole?: UserRole): NavGroup[] {
+  if (!userRole) return [];
+  const normalizedUserRole = userRole.toLowerCase();
+  const isUserAdmin = normalizedUserRole === "admin" || normalizedUserRole === "superadmin";
+
+  const hasAccess = (roles?: UserRole[]) => {
+    if (!roles) return true;
+    return roles.some((role) => {
+      const normalizedRole = role.toLowerCase();
+      if (isUserAdmin && (normalizedRole === "admin" || normalizedRole === "superadmin")) return true;
+      return normalizedRole === normalizedUserRole;
+    });
+  };
+
   return groups
-    .map((group) => ({
-      ...group,
-      items: group.items.filter((item) => {
-        if (!item.roles) return true;
-        if (!userRole) return false;
-        const normalizedUserRole = userRole.toLowerCase();
-        // Allow BOTH admin and superadmin to access things labeled with either
-        const isUserAdmin = normalizedUserRole === "admin" || normalizedUserRole === "superadmin";
-        
-        return item.roles.some((role) => {
-          const normalizedRole = role.toLowerCase();
-          if (isUserAdmin && (normalizedRole === "admin" || normalizedRole === "superadmin")) return true;
-          return normalizedRole === normalizedUserRole;
-        });
-      }),
-    }))
+    .map((group) => {
+      const filteredItems = group.items
+        .map((item) => {
+          if (item.items) {
+            const filteredSubItems = item.items.filter((subItem) => hasAccess(subItem.roles));
+            if (filteredSubItems.length === 0) return null;
+            return {
+              ...item,
+              items: filteredSubItems,
+            };
+          }
+          if (!hasAccess(item.roles)) return null;
+          return item;
+        })
+        .filter((item): item is NavItem => item !== null);
+
+      return {
+        ...group,
+        items: filteredItems,
+      };
+    })
     .filter((group) => group.items.length > 0);
 }
 
@@ -186,6 +182,11 @@ export default function DashboardLayoutClient({
   const [open, setOpen] = useState(false); // Sidebar open state
   const [isDropdownOpen, setIsDropdownOpen] = useState(false); // Track dropdown state
   const [sidebarVisible, setSidebarVisible] = useState(true); // Sidebar completely hidden/visible
+  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({});
+
+  const toggleMenu = (label: string) => {
+    setOpenMenus((prev) => ({ ...prev, [label]: !prev[label] }));
+  };
 
   // Custom setOpen handler to prevent closing when dropdown is open
   const handleSetOpen = (value: boolean | ((prevState: boolean) => boolean)) => {
@@ -220,6 +221,9 @@ export default function DashboardLayoutClient({
   const filteredNav = normalizedRaw ? filterNavByRole(navGroups, normalizedRaw as UserRole) : [];
   const displayName = isReallyMounted && user?.name ? user.name : "Admin";
   const displayInitials = isReallyMounted && user?.name ? user.name.substring(0, 2).toUpperCase() : "A";
+  const userImage = isReallyMounted && user?.image
+    ? (user.image.startsWith("http") || user.image.startsWith("/") ? user.image : `/uploads/${user.image}`)
+    : `https://api.dicebear.com/7.x/avataaars/svg?seed=${displayName}`;
   
   const { settings } = useSchoolSettings();
   const schoolName = settings?.school_name || "Sekolahku";
@@ -239,7 +243,7 @@ export default function DashboardLayoutClient({
       <button
         onClick={() => setSidebarVisible((prev) => !prev)}
         className={cn(
-          "fixed top-1/2 -translate-y-1/2 z-[60] h-12 w-5 rounded-r-md border border-l-0 border-neutral-200 dark:border-neutral-700 shadow-sm flex items-center justify-center transition-all cursor-pointer group",
+          "hidden md:flex fixed top-1/2 -translate-y-1/2 z-[60] h-12 w-5 rounded-r-md border border-l-0 border-neutral-200 dark:border-neutral-700 shadow-sm items-center justify-center transition-all cursor-pointer group",
           "bg-white dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700",
           sidebarVisible
             ? "left-[280px] xl:left-[300px]"
@@ -250,7 +254,7 @@ export default function DashboardLayoutClient({
         <PanelLeftClose className={cn("h-3.5 w-3.5 transition-transform", !sidebarVisible && "rotate-180")} />
       </button>
 
-      <div className={cn("flex-shrink-0 transition-all duration-300 ease-in-out overflow-hidden", sidebarVisible ? "max-w-[300px]" : "max-w-0")}>
+      <div className={cn("flex-shrink-0 transition-all duration-300 ease-in-out overflow-hidden h-0 md:h-full", sidebarVisible ? "max-w-[300px]" : "max-w-0")}>
       <Sidebar open={open} setOpen={handleSetOpen} animate={false}>
         <SidebarBody className="justify-between gap-10">
           <div className="flex flex-col flex-1 overflow-hidden">
@@ -282,16 +286,61 @@ export default function DashboardLayoutClient({
               ) : (
                 filteredNav.map((group) => (
                    <div key={group.label} className="flex flex-col gap-1">
-                      <p className="text-[10px] uppercase font-bold text-neutral-500 mb-1 px-1 truncate">
-                          {group.label}
-                      </p>
-                      {group.items.map((link) => (
-                          <SidebarLink key={link.href} link={{
+                      {group.items.map((link) => {
+                        if (link.items) {
+                          const isOpen = !!openMenus[link.label];
+                          return (
+                            <div key={link.label} className="flex flex-col">
+                              <button
+                                onClick={() => toggleMenu(link.label)}
+                                className="flex items-center justify-between w-full py-2 text-left group/sidebar cursor-pointer"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <link.icon className="text-neutral-700 dark:text-neutral-200 h-[18px] w-[18px] md:h-5 md:w-5 flex-shrink-0" />
+                                  <span className="min-w-0 truncate text-neutral-700 dark:text-neutral-200 text-sm group-hover/sidebar:translate-x-1 transition duration-150 whitespace-pre">
+                                    {link.label}
+                                  </span>
+                                </div>
+                                {isOpen ? (
+                                  <ChevronUp className="h-4 w-4 text-neutral-500 dark:text-neutral-400 mr-1" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4 text-neutral-500 dark:text-neutral-400 mr-1" />
+                                )}
+                              </button>
+                              {isOpen && (
+                                <div className="pl-6 flex flex-col border-l border-neutral-200 dark:border-neutral-700 ml-3.5 gap-1 mt-1">
+                                  {link.items.map((subItem) => (
+                                    <SidebarLink
+                                      key={subItem.href}
+                                      link={{
+                                        label: subItem.label,
+                                        href: subItem.href,
+                                        icon: subItem.icon ? (
+                                          <subItem.icon className="text-neutral-500 dark:text-neutral-400 h-4 w-4 flex-shrink-0" />
+                                        ) : (
+                                          <div className="h-1.5 w-1.5 rounded-full bg-neutral-400 dark:bg-neutral-500 ml-1.5 mr-1 flex-shrink-0" />
+                                        ),
+                                      }}
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+                        return (
+                          <SidebarLink
+                            key={link.href}
+                            link={{
                               label: link.label,
-                              href: link.href,
-                              icon: <link.icon className="text-neutral-700 dark:text-neutral-200 h-[18px] w-[18px] md:h-5 md:w-5 flex-shrink-0" />
-                          }} />
-                      ))}
+                              href: link.href!,
+                              icon: (
+                                <link.icon className="text-neutral-700 dark:text-neutral-200 h-[18px] w-[18px] md:h-5 md:w-5 flex-shrink-0" />
+                              ),
+                            }}
+                          />
+                        );
+                      })}
                    </div>
                 ))
               )}
@@ -321,7 +370,7 @@ export default function DashboardLayoutClient({
                   <Button variant="ghost" className="relative h-9 w-9 sm:h-10 sm:w-10 md:h-auto md:w-auto rounded-full md:rounded-xl p-0 md:px-3 md:py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:ring-0 focus-visible:ring-offset-0">
                      <div className="h-9 w-9 md:h-8 md:w-8 flex-shrink-0 rounded-full bg-neutral-200 dark:bg-neutral-700 overflow-hidden ring-2 ring-transparent transition-all">
                         <Avatar className="h-full w-full">
-                           <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${displayName}`} />
+                           <AvatarImage src={userImage} className="object-cover" />
                            <AvatarFallback>{displayInitials}</AvatarFallback>
                         </Avatar>
                      </div>
@@ -336,12 +385,12 @@ export default function DashboardLayoutClient({
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => router.push("/profile")}>
                     <User className="mr-2 h-4 w-4" />
-                    <span>Profil</span>
+                    <span>Profil Saya</span>
                   </DropdownMenuItem>
                   
                   <DropdownMenuItem onClick={() => router.push("/")}>
                     <Globe className="mr-2 h-4 w-4" />
-                    <span>Halaman Depan</span>
+                    <span>Kunjungi Website</span>
                   </DropdownMenuItem>
                   
                   <DropdownMenuSeparator />

@@ -43,6 +43,7 @@ type alumniPayload struct {
 	CurrentPhone   string `json:"currentPhone"`
 	CurrentEmail   string `json:"currentEmail"`
 	NextSchool     string `json:"nextSchool"`
+	Status         string `json:"status"`
 	Notes          string `json:"notes"`
 }
 
@@ -73,6 +74,10 @@ func (p alumniPayload) ToModel() (models.Alumni, error) {
 	if err != nil {
 		return models.Alumni{}, err
 	}
+	statusVal := strings.TrimSpace(p.Status)
+	if statusVal == "" {
+		statusVal = "graduated"
+	}
 	return models.Alumni{
 		StudentID:      stringPtr(p.StudentID),
 		NISN:           stringPtr(p.NISN),
@@ -91,6 +96,7 @@ func (p alumniPayload) ToModel() (models.Alumni, error) {
 		CurrentPhone:   stringPtr(p.CurrentPhone),
 		CurrentEmail:   stringPtr(p.CurrentEmail),
 		NextSchool:     stringPtr(p.NextSchool),
+		Status:         statusVal,
 		Notes:          stringPtr(p.Notes),
 	}, nil
 }
@@ -136,8 +142,9 @@ func (h *AlumniHandler) GetAlumni(c echo.Context) error {
 	}
 	search := c.QueryParam("search")
 	year := c.QueryParam("graduationYear")
+	statusFilter := c.QueryParam("status")
 
-	items, total, err := h.Repo.GetAlumni(page, limit, search, year)
+	items, total, err := h.Repo.GetAlumni(page, limit, search, year, statusFilter)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
@@ -649,4 +656,322 @@ func (h *AlumniHandler) DeleteExtracurricular(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 	return c.JSON(http.StatusOK, map[string]bool{"success": true})
+}
+
+func scoreToLetter(score float64) string {
+	switch {
+	case score >= 90:
+		return "A"
+	case score >= 78:
+		return "B"
+	case score >= 65:
+		return "C"
+	case score >= 50:
+		return "D"
+	default:
+		return "E"
+	}
+}
+
+// ───────── Transcripts CRUD ─────────
+
+func (h *AlumniHandler) GetTranscripts(c echo.Context) error {
+	alumniID := c.Param("id")
+	list, err := h.Repo.GetTranscripts(alumniID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, list)
+}
+
+func (h *AlumniHandler) CreateTranscript(c echo.Context) error {
+	alumniID := c.Param("id")
+	var req struct {
+		AcademicYear string  `json:"academicYear"`
+		Semester     string  `json:"semester"`
+		SubjectName  string  `json:"subjectName"`
+		SubjectCode  *string `json:"subjectCode"`
+		Score        float64 `json:"score"`
+		ScoreLetter  *string `json:"scoreLetter"`
+		Notes        *string `json:"notes"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
+	}
+	if strings.TrimSpace(req.AcademicYear) == "" || strings.TrimSpace(req.Semester) == "" || strings.TrimSpace(req.SubjectName) == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Tahun ajaran, semester, dan mata pelajaran wajib diisi"})
+	}
+
+	scoreLetter := req.ScoreLetter
+	if scoreLetter == nil || *scoreLetter == "" {
+		sl := scoreToLetter(req.Score)
+		scoreLetter = &sl
+	}
+
+	t := models.AlumniTranscript{
+		AlumniID:    alumniID,
+		AcYear:      strings.TrimSpace(req.AcademicYear),
+		Semester:    strings.TrimSpace(req.Semester),
+		SubjectName: strings.TrimSpace(req.SubjectName),
+		SubjectCode: req.SubjectCode,
+		Score:       req.Score,
+		ScoreLetter: scoreLetter,
+		Notes:       req.Notes,
+	}
+	id, err := h.Repo.CreateTranscript(t)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true, "id": id})
+}
+
+func (h *AlumniHandler) UpdateTranscript(c echo.Context) error {
+	id := c.Param("transId")
+	var req struct {
+		AcademicYear *string  `json:"academicYear"`
+		Semester     *string  `json:"semester"`
+		SubjectName  *string  `json:"subjectName"`
+		SubjectCode  *string  `json:"subjectCode"`
+		Score        *float64 `json:"score"`
+		ScoreLetter  *string  `json:"scoreLetter"`
+		Notes        *string  `json:"notes"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
+	}
+
+	t := models.AlumniTranscript{}
+	if req.AcademicYear != nil { t.AcYear = strings.TrimSpace(*req.AcademicYear) }
+	if req.Semester != nil { t.Semester = strings.TrimSpace(*req.Semester) }
+	if req.SubjectName != nil { t.SubjectName = strings.TrimSpace(*req.SubjectName) }
+	if req.SubjectCode != nil { t.SubjectCode = req.SubjectCode }
+	if req.Score != nil {
+		t.Score = *req.Score
+		if req.ScoreLetter == nil || *req.ScoreLetter == "" {
+			sl := scoreToLetter(*req.Score)
+			t.ScoreLetter = &sl
+		}
+	}
+	if req.ScoreLetter != nil && *req.ScoreLetter != "" { t.ScoreLetter = req.ScoreLetter }
+	if req.Notes != nil { t.Notes = req.Notes }
+
+	if err := h.Repo.UpdateTranscript(id, t); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]bool{"success": true})
+}
+
+func (h *AlumniHandler) DeleteTranscript(c echo.Context) error {
+	if err := h.Repo.DeleteTranscript(c.Param("transId")); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]bool{"success": true})
+}
+
+// ───────── Attendance Summaries CRUD ─────────
+
+func (h *AlumniHandler) GetAttendanceSummaries(c echo.Context) error {
+	alumniID := c.Param("id")
+	list, err := h.Repo.GetAttendanceSummaries(alumniID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, list)
+}
+
+func (h *AlumniHandler) CreateAttendanceSummary(c echo.Context) error {
+	alumniID := c.Param("id")
+	var req struct {
+		AcademicYear string `json:"academicYear"`
+		Semester     string `json:"semester"`
+		Present      int    `json:"present"`
+		Sick         int    `json:"sick"`
+		Permission   int    `json:"permission"`
+		Absent       int    `json:"absent"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
+	}
+	if strings.TrimSpace(req.AcademicYear) == "" || strings.TrimSpace(req.Semester) == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Tahun ajaran dan semester wajib diisi"})
+	}
+
+	s := models.AlumniAttendanceSummary{
+		AlumniID:   alumniID,
+		AcYear:     strings.TrimSpace(req.AcademicYear),
+		Semester:   strings.TrimSpace(req.Semester),
+		Present:    req.Present,
+		Sick:       req.Sick,
+		Permission: req.Permission,
+		Absent:     req.Absent,
+	}
+	id, err := h.Repo.CreateAttendanceSummary(s)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true, "id": id})
+}
+
+func (h *AlumniHandler) UpdateAttendanceSummary(c echo.Context) error {
+	id := c.Param("attId")
+	var req struct {
+		AcademicYear *string `json:"academicYear"`
+		Semester     *string `json:"semester"`
+		Present      *int    `json:"present"`
+		Sick         *int    `json:"sick"`
+		Permission   *int    `json:"permission"`
+		Absent       *int    `json:"absent"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
+	}
+
+	s := models.AlumniAttendanceSummary{}
+	if req.AcademicYear != nil { s.AcYear = strings.TrimSpace(*req.AcademicYear) }
+	if req.Semester != nil { s.Semester = strings.TrimSpace(*req.Semester) }
+	if req.Present != nil { s.Present = *req.Present }
+	if req.Sick != nil { s.Sick = *req.Sick }
+	if req.Permission != nil { s.Permission = *req.Permission }
+	if req.Absent != nil { s.Absent = *req.Absent }
+
+	if err := h.Repo.UpdateAttendanceSummary(id, s); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]bool{"success": true})
+}
+
+func (h *AlumniHandler) DeleteAttendanceSummary(c echo.Context) error {
+	if err := h.Repo.DeleteAttendanceSummary(c.Param("attId")); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]bool{"success": true})
+}
+
+// ───────── Health Records Handlers ─────────
+
+func (h *AlumniHandler) GetHealthRecords(c echo.Context) error {
+	alumniID := c.Param("id")
+	list, err := h.Repo.GetHealthRecords(alumniID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, list)
+}
+
+func (h *AlumniHandler) CreateHealthRecord(c echo.Context) error {
+	alumniID := c.Param("id")
+	var req struct {
+		Year        string  `json:"year"`
+		Weight      *int    `json:"weight"`
+		Height      *int    `json:"height"`
+		Illness     *string `json:"illness"`
+		Abnormality *string `json:"abnormality"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
+	}
+	if strings.TrimSpace(req.Year) == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Tahun / Kelas wajib diisi"})
+	}
+
+	hr := models.AlumniHealthRecord{
+		AlumniID:    alumniID,
+		Year:        strings.TrimSpace(req.Year),
+		Weight:      req.Weight,
+		Height:      req.Height,
+		Illness:     req.Illness,
+		Abnormality: req.Abnormality,
+	}
+	id, err := h.Repo.CreateHealthRecord(hr)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true, "id": id})
+}
+
+func (h *AlumniHandler) UpdateHealthRecord(c echo.Context) error {
+	id := c.Param("hrId")
+	var req struct {
+		Year        string  `json:"year"`
+		Weight      *int    `json:"weight"`
+		Height      *int    `json:"height"`
+		Illness     *string `json:"illness"`
+		Abnormality *string `json:"abnormality"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
+	}
+	if strings.TrimSpace(req.Year) == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Tahun / Kelas wajib diisi"})
+	}
+
+	hr := models.AlumniHealthRecord{
+		Year:        strings.TrimSpace(req.Year),
+		Weight:      req.Weight,
+		Height:      req.Height,
+		Illness:     req.Illness,
+		Abnormality: req.Abnormality,
+	}
+	err := h.Repo.UpdateHealthRecord(id, hr)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
+}
+
+func (h *AlumniHandler) DeleteHealthRecord(c echo.Context) error {
+	id := c.Param("hrId")
+	err := h.Repo.DeleteHealthRecord(id)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
+}
+
+func (h *AlumniHandler) ImportBulkAlumni(c echo.Context) error {
+	var req struct {
+		Alumni []models.Alumni `json:"alumni"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload format"})
+	}
+	if len(req.Alumni) == 0 {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Tidak ada data Buku Induk untuk diimport"})
+	}
+
+	inserted, updated, logs, err := h.Repo.ImportBulkAlumni(req.Alumni)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success":  true,
+		"inserted": inserted,
+		"updated":  updated,
+		"logs":     logs,
+	})
+}
+
+func (h *AlumniHandler) ImportBulkGrades(c echo.Context) error {
+	var req struct {
+		Grades []models.ImportGradeRow `json:"grades"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload format"})
+	}
+	if len(req.Grades) == 0 {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Tidak ada data nilai untuk diimport"})
+	}
+
+	inserted, updated, logs, err := h.Repo.ImportBulkGrades(req.Grades)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success":  true,
+		"inserted": inserted,
+		"updated":  updated,
+		"logs":     logs,
+	})
 }

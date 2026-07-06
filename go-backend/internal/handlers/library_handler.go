@@ -121,6 +121,23 @@ func (h *LibraryHandler) GetMembers(c echo.Context) error {
 	}
 	search := c.QueryParam("search")
 
+	if search != "" {
+		// Check if there is an active student with this ID, NISN, or QR Code who does not have a library member record yet
+		var studentID string
+		var isActive int
+		var status string
+		err := h.Repo.DB.QueryRow(`
+			SELECT id, is_active, COALESCE(status, '') 
+			FROM students 
+			WHERE (id = ? OR nisn = ? OR qr_code = ?)
+			  AND id NOT IN (SELECT student_id FROM library_members WHERE student_id IS NOT NULL)
+		`, search, search, search).Scan(&studentID, &isActive, &status)
+		if err == nil && (isActive == 1 || status == "active" || status == "aktif") {
+			// Auto sync!
+			_ = repository.AutoSyncStudentToSavingsAndLibrary(h.Repo.DB, studentID)
+		}
+	}
+
 	items, total, err := h.Repo.GetMembers(page, perPage, search)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -186,16 +203,18 @@ func (h *LibraryHandler) SyncLibrary(c echo.Context) error {
 func (h *LibraryHandler) GetLoans(c echo.Context) error {
 	loanType := c.QueryParam("type")
 	page, _ := strconv.Atoi(c.QueryParam("page"))
+	if page < 1 {
+		page = 1
+	}
 	perPage, _ := strconv.Atoi(c.QueryParam("perPage"))
+	if perPage < 1 {
+		perPage = 20
+	}
 	loans, total, err := h.Repo.GetLoans(loanType, page, perPage)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 	totalPages := (total + perPage - 1) / perPage
-	if perPage < 1 {
-		perPage = 20
-		totalPages = 1
-	}
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success":    true,
 		"items":      loans,
@@ -533,7 +552,25 @@ func (h *LibraryHandler) BindAsset(c echo.Context) error {
 }
 
 func (h *LibraryHandler) GetMemberByQRCode(c echo.Context) error {
-	member, err := h.Repo.GetMemberByCode(c.Param("code"))
+	code := c.Param("code")
+	member, err := h.Repo.GetMemberByCode(code)
+	if errors.Is(err, sql.ErrNoRows) {
+		// Try to auto-create if the code is actually student ID, NISN, or student QR Code!
+		var studentID string
+		var isActive int
+		var status string
+		err = h.Repo.DB.QueryRow(`
+			SELECT id, is_active, COALESCE(status, '') 
+			FROM students 
+			WHERE id = ? OR nisn = ? OR qr_code = ?
+		`, code, code, code).Scan(&studentID, &isActive, &status)
+		if err == nil && (isActive == 1 || status == "active" || status == "aktif") {
+			// Auto sync!
+			_ = repository.AutoSyncStudentToSavingsAndLibrary(h.Repo.DB, studentID)
+			// Re-query
+			member, err = h.Repo.GetMemberByCode(code)
+		}
+	}
 	if errors.Is(err, sql.ErrNoRows) {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Anggota tidak ditemukan"})
 	}

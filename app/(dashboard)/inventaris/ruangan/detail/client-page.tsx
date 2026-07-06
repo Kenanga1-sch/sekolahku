@@ -86,7 +86,7 @@ export default function RoomDetailPage() {
     return (
         <div className="space-y-6">
             <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" onClick={() => router.back()}>
+                <Button variant="outline" size="icon" onClick={() => router.back()} className="border-slate-200 bg-white shadow-sm hover:bg-slate-50">
                     <ArrowLeft className="h-4 w-4" />
                 </Button>
                 <div>

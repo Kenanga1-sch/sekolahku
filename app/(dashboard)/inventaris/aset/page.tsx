@@ -226,7 +226,7 @@ export default function AsetPage() {
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <Link href="/inventaris">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button variant="outline" size="icon" className="h-8 w-8 border-slate-200 bg-white shadow-sm hover:bg-slate-50">
                             <ArrowLeft className="h-4 w-4" />
                         </Button>
                     </Link>
@@ -491,7 +491,7 @@ export default function AsetPage() {
                                         <TableCell>
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="icon">
+                                                    <Button variant="outline" size="icon-sm" className="h-8 w-8 border-slate-200 bg-white shadow-sm hover:bg-slate-50 text-muted-foreground hover:text-foreground">
                                                         <MoreHorizontal className="h-4 w-4" />
                                                     </Button>
                                                 </DropdownMenuTrigger>

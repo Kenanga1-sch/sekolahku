@@ -223,8 +223,8 @@ export function OverviewClient({
   ];
 
   const quickActions = [
-    { label: "Verifikasi SPMB", icon: Clock, href: "/spmb-admin", color: "bg-blue-100 text-blue-600", badge: safeStats.pending || 0 },
-    { label: "Kelola Periode", icon: Calendar, href: "/spmb-admin/periods", color: "bg-purple-100 text-purple-600" },
+    { label: "Verifikasi SPMB", icon: Clock, href: "/admin/siswa?tab=spmb", color: "bg-blue-100 text-blue-600", badge: safeStats.pending || 0 },
+    { label: "Kelola Periode", icon: Calendar, href: "/admin/siswa?tab=spmb&sub=periods", color: "bg-purple-100 text-purple-600" },
     { label: "Peminjaman Buku", icon: BookMarked, href: "/perpustakaan/peminjaman", color: "bg-indigo-100 text-indigo-600" },
     { label: "Stock Opname", icon: Boxes, href: "/inventaris/opname", color: "bg-amber-100 text-amber-600" },
     { label: "Transaksi Tabungan", icon: DollarSign, href: "/tabungan/scan", color: "bg-emerald-100 text-emerald-600" },
@@ -359,7 +359,7 @@ export function OverviewClient({
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-bold sm:text-xl">Pendaftar Terbaru</h2>
             <Button asChild variant="ghost" className="w-fit text-primary hover:text-primary/80">
-              <Link href="/spmb-admin">
+              <Link href="/admin/siswa?tab=spmb">
                 Lihat Semua <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>

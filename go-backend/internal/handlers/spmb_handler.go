@@ -636,8 +636,9 @@ func (h *SPMBHandler) GetRegistrantsAdmin(c echo.Context) error {
 
 	status := c.QueryParam("status")
 	search := c.QueryParam("search")
+	periodID := c.QueryParam("periodId")
 
-	registrants, total, err := h.Repo.GetRegistrantsAdmin(page, perPage, status, search)
+	registrants, total, err := h.Repo.GetRegistrantsAdmin(page, perPage, status, search, periodID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal mengambil data pendaftar"})
 	}
@@ -656,7 +657,8 @@ func (h *SPMBHandler) GetRegistrantsAdmin(c echo.Context) error {
 }
 
 func (h *SPMBHandler) GetStats(c echo.Context) error {
-	stats, err := h.Repo.GetSPMBStats()
+	periodID := c.QueryParam("periodId")
+	stats, err := h.Repo.GetSPMBStats(periodID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
 	}

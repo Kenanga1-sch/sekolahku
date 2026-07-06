@@ -271,6 +271,10 @@ func (r *StudentRepository) GetStudents(page, limit int, query, status, classID 
 	var totalActive int
 	r.DB.QueryRow("SELECT COUNT(*) FROM students WHERE status = 'active'").Scan(&totalActive)
 
+	var totalMale, totalFemale int
+	r.DB.QueryRow("SELECT COUNT(*) FROM students WHERE status = 'active' AND gender = 'L'").Scan(&totalMale)
+	r.DB.QueryRow("SELECT COUNT(*) FROM students WHERE status = 'active' AND gender = 'P'").Scan(&totalFemale)
+
 	countRows, _ := r.DB.Query(`
 		SELECT class_name, COUNT(*) as count 
 		FROM students 
@@ -302,6 +306,8 @@ func (r *StudentRepository) GetStudents(page, limit int, query, status, classID 
 		Summary: models.StudentSummary{
 			Total:   total,
 			Active:  totalActive,
+			Male:    totalMale,
+			Female:  totalFemale,
 			ByClass: byClass,
 		},
 	}, nil
@@ -444,6 +450,11 @@ func (r *StudentRepository) CreateStudent(s models.Student) (string, error) {
 		s.GuardianName, s.GuardianNIK, s.GuardianJob, s.ParentPhone, s.ClassName, s.ClassID,
 		s.Status, s.Photo, s.QRCode, s.IsActive, s.MetaData, s.EnrolledAt, now, now, s.KIP)
 
+	if err == nil {
+		_ = AutoSyncStudentToSavingsAndLibrary(r.DB, s.ID)
+		_ = AutoSyncStudentToBukuInduk(r.DB, s.ID)
+	}
+
 	return s.ID, err
 }
 
@@ -457,6 +468,20 @@ func (r *StudentRepository) UpdateStudent(id string, s models.Student) error {
 		return sql.ErrNoRows
 	}
 	mergeStudentDefaults(&s, existing)
+
+	// Enforce student obligations clearance before deactivating
+	wasActive := existing.IsActive || existing.Status == "active" || existing.Status == "aktif"
+	isNowActive := s.IsActive || s.Status == "active" || s.Status == "aktif"
+	if wasActive && !isNowActive {
+		clear, reason, err := CheckStudentClearance(r.DB, id)
+		if err != nil {
+			return err
+		}
+		if !clear {
+			return fmt.Errorf("siswa masih memiliki sangkutan yang belum diselesaikan: %s", reason)
+		}
+	}
+
 
 	if s.ClassID != nil && *s.ClassID != "" {
 		var className string
@@ -476,6 +501,12 @@ func (r *StudentRepository) UpdateStudent(id string, s models.Student) error {
 		s.Address, s.ParentName, s.FatherName, s.FatherNIK, s.MotherName, s.MotherNIK,
 		s.GuardianName, s.GuardianNIK, s.GuardianJob, s.ParentPhone, s.ClassName, s.ClassID,
 		s.Status, s.Photo, s.IsActive, s.MetaData, now, s.KIP, id)
+
+	if err == nil {
+		_ = AutoSyncStudentToSavingsAndLibrary(r.DB, id)
+		_ = AutoSyncStudentToBukuInduk(r.DB, id)
+	}
+
 	return err
 }
 
@@ -735,3 +766,29 @@ func (r *StudentRepository) SimpleSearch(query, className string) ([]models.Stud
 	}
 	return students, nil
 }
+
+func (r *StudentRepository) GetStudentGrades(studentID string) ([]models.StudentSubjectGrade, error) {
+	rows, err := r.DB.Query(`
+		SELECT COALESCE(tp.subject, 'Umum') AS subject, tp.semester, AVG(CAST(g.score AS REAL)) AS avg_score
+		FROM student_grades g
+		JOIN teacher_tp tp ON g.tp_id = tp.id
+		WHERE g.student_id = ? AND g.score IS NOT NULL
+		GROUP BY tp.subject, tp.semester
+		ORDER BY tp.semester, tp.subject
+	`, studentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var grades []models.StudentSubjectGrade
+	for rows.Next() {
+		var g models.StudentSubjectGrade
+		if err := rows.Scan(&g.Subject, &g.Semester, &g.AvgScore); err == nil {
+			g.AvgScore = math.Round(g.AvgScore*100) / 100
+			grades = append(grades, g)
+		}
+	}
+	return grades, nil
+}
+

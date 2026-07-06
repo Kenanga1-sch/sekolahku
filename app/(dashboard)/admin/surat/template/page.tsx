@@ -12,7 +12,8 @@ import {
   Download,
   Upload,
   RotateCcw,
-  FileJson
+  FileJson,
+  ArrowLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -134,11 +135,22 @@ export default function TemplateListPage() {
       <ImportDialog open={isImportOpen} onOpenChange={setIsImportOpen} onImported={fetchTemplates} />
 
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Template & Paket Surat</h1>
-          <p className="text-muted-foreground">
-            Kelola desain dan kelompok surat (paket) untuk efisiensi.
-          </p>
+        <div className="space-y-2">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => router.push("/arsip")} 
+            className="p-0 h-auto text-muted-foreground hover:text-slate-900 dark:hover:text-white hover:bg-transparent -ml-1 flex items-center gap-1.5 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Kembali ke E-Arsip
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Template & Paket Surat</h1>
+            <p className="text-muted-foreground text-sm">
+              Kelola desain dan kelompok surat (paket) untuk efisiensi.
+            </p>
+          </div>
         </div>
         <div className="flex gap-2">
             <Button variant="outline" size="icon" onClick={fetchTemplates} disabled={loading} title="Refresh Data">
@@ -224,7 +236,7 @@ export default function TemplateListPage() {
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Button variant="outline" size="icon-sm" className="h-8 w-8 text-muted-foreground hover:text-foreground bg-white border-slate-200 shadow-sm">
                             <MoreVertical className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>

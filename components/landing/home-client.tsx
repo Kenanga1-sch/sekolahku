@@ -14,19 +14,27 @@ import {
   LayoutDashboard,
   ShieldCheck,
   Zap,
+  BadgeCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import dynamic from 'next/dynamic';
-import { AuroraBackground } from "@/components/ui/aurora-background";
 import { BentoGrid, BentoGridItem } from "@/components/ui/bento-grid";
-import { StarsBackground } from "@/components/ui/stars-background";
 
 const SchoolMap = dynamic(() => import('@/components/landing/school-map'), {
   ssr: false,
   loading: () => <div className="w-full h-full bg-zinc-100 dark:bg-zinc-800 animate-pulse" />
+});
+
+const Hero3DCanvas = dynamic(() => import("./hero-3d-canvas"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-[320px] sm:h-[450px] md:h-[550px] lg:h-[600px] xl:h-[650px] flex items-center justify-center bg-zinc-50 dark:bg-zinc-950/20 rounded-2xl border border-zinc-200/50">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
+    </div>
+  ),
 });
 
 interface HomeClientProps {
@@ -51,69 +59,105 @@ export function HomeClient({ settings, news, activePeriod, studentCount }: HomeC
     {
       title: "Kurikulum Merdeka",
       description: "Pembelajaran berpusat pada siswa dengan fleksibilitas tinggi.",
-      header: <div className="flex flex-1 w-full h-full min-h-[6rem] rounded-xl bg-gradient-to-br from-neutral-200 dark:from-neutral-900 dark:to-neutral-800 to-neutral-100 items-center justify-center"><BookOpen className="h-10 w-10 text-neutral-500" /></div>,
-      icon: <LayoutDashboard className="h-4 w-4 text-neutral-500" />,
+      header: (
+        <div className="flex flex-1 w-full h-full min-h-[10rem] rounded-xl overflow-hidden relative group">
+          <img 
+            src="/images/kurikulum_merdeka.png" 
+            alt="Kurikulum Merdeka"
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        </div>
+      ),
+      icon: <LayoutDashboard className="h-4 w-4 text-blue-500" />,
     },
     {
       title: "Fasilitas Modern",
       description: "Laboratorium komputer, perpustakaan digital, dan ruang kelas AC.",
-      header: <div className="flex flex-1 w-full h-full min-h-[6rem] rounded-xl bg-gradient-to-br from-neutral-200 dark:from-neutral-900 dark:to-neutral-800 to-neutral-100 items-center justify-center"><Zap className="h-10 w-10 text-neutral-500" /></div>,
-      icon: <Sparkles className="h-4 w-4 text-neutral-500" />,
+      header: (
+        <div className="flex flex-1 w-full h-full min-h-[10rem] rounded-xl overflow-hidden relative group">
+          <img 
+            src="/images/fasilitas_modern.png" 
+            alt="Fasilitas Modern"
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        </div>
+      ),
+      icon: <Sparkles className="h-4 w-4 text-amber-500" />,
     },
     {
       title: "Lingkungan Aman",
       description: "Pengawasan CCTV 24 jam dan sistem keamanan terpadu satu pintu.",
-      header: <div className="flex flex-1 w-full h-full min-h-[6rem] rounded-xl bg-gradient-to-br from-neutral-200 dark:from-neutral-900 dark:to-neutral-800 to-neutral-100 items-center justify-center"><ShieldCheck className="h-10 w-10 text-neutral-500" /></div>,
-      icon: <CheckCircle className="h-4 w-4 text-neutral-500" />,
+      header: (
+        <div className="flex flex-1 w-full h-full min-h-[10rem] rounded-xl overflow-hidden relative group">
+          <img 
+            src="/images/lingkungan_aman.png" 
+            alt="Lingkungan Aman"
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        </div>
+      ),
+      icon: <CheckCircle className="h-4 w-4 text-green-500" />,
     },
   ];
 
   return (
     <div className="flex flex-col min-h-screen bg-white dark:bg-black">
       
-      {/* 1. ACETERNITY HERO: Aurora Background with Stars */}
-      <AuroraBackground className="min-h-[100svh] py-24 sm:py-28 lg:py-32">
-        {/* Stars Animation - visible in both modes via CSS variables */}
-        <StarsBackground className="z-0" />
+      {/* 1. HERO SECTION: Split Screen with 3D Canvas */}
+      <section className="relative w-full overflow-hidden bg-slate-50 dark:bg-zinc-950 border-b border-zinc-200/50 dark:border-zinc-800/20">
+        {/* Playful background blobs */}
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] aspect-square rounded-full bg-blue-200/10 dark:bg-blue-900/5 blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[35%] aspect-square rounded-full bg-amber-200/10 dark:bg-amber-900/5 blur-[100px] pointer-events-none" />
         
-        <motion.div
-          initial={{ opacity: 0.0, y: 40 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{
-            delay: 0.3,
-            duration: 0.8,
-            ease: "easeInOut",
-          }}
-          className="relative z-10 flex min-h-[calc(100svh-12rem)] flex-col items-center justify-center gap-5 px-4 pb-10 text-center sm:pb-14 lg:pb-16"
-        >
-          <div className="space-y-5">
-            <h1 className="text-4xl font-bold leading-tight tracking-tight text-zinc-950 dark:text-white sm:text-5xl md:text-6xl lg:text-7xl">
-              {schoolName}
-            </h1>
-            <p className="text-lg font-semibold text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-600 sm:text-2xl md:text-3xl">
-              Cerdas, Berkarakter, Berdaya Saing
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-4 sm:gap-4 sm:pt-5">
-             {settings?.spmb_is_open && (
-                <Link href="/spmb/daftar">
-                    <Button size="lg" className="h-12 rounded-full bg-black px-6 text-base font-bold text-white shadow-xl transition-transform hover:scale-105 dark:bg-white dark:text-black sm:h-14 sm:px-8 sm:text-lg">
+        {/* Grid overlay */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#e2e8f0_1px,transparent_1px),linear-gradient(to_bottom,#e2e8f0_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#1f2937_1px,transparent_1px),linear-gradient(to_bottom,#1f2937_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-20 pointer-events-none" />
+        
+        <div className="container px-4 md:px-6 relative z-10 mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center min-h-[100dvh] pt-24 pb-12 lg:py-32">
+            
+            {/* Left Column: Typography & CTAs */}
+            <div className="lg:col-span-7 flex flex-col justify-center text-left space-y-6">
+              <div className="inline-flex items-center gap-1.5 self-start px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/40 border border-blue-200/30 dark:border-blue-900/30 text-xs font-semibold text-blue-600 dark:text-blue-400">
+                <BadgeCheck className="h-3.5 w-3.5" />
+                Terakreditasi A (Unggul)
+              </div>
+              
+              <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900 dark:text-zinc-50 leading-[1.15]">
+                Membentuk Generasi <span className="text-blue-600 dark:text-blue-400">Cerdas</span>, Berkarakter & <span className="text-amber-500">Berprestasi</span>
+              </h1>
+              
+              <p className="text-lg text-slate-600 dark:text-zinc-400 max-w-[50ch] leading-relaxed">
+                Selamat datang di {schoolName}. Kami menyediakan lingkungan belajar yang aman, suportif, dan inovatif untuk menumbuhkan potensi terbaik setiap anak didik sejak dini.
+              </p>
+              
+              <div className="flex flex-wrap items-center gap-4 pt-2">
+                {settings?.spmb_is_open && (
+                  <Link href="/spmb/daftar">
+                    <Button size="lg" className="h-12 px-8 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all shadow-lg shadow-blue-500/20 active:scale-[0.98]">
                       Daftar Sekarang
+                      <ArrowRight className="h-4 w-4 ml-2" />
                     </Button>
+                  </Link>
+                )}
+                <Link href="/profil/visi-misi">
+                  <Button variant="outline" size="lg" className="h-12 px-8 rounded-full border-zinc-200 dark:border-zinc-800 bg-white/50 dark:bg-zinc-900/50 hover:bg-zinc-100 text-slate-700 dark:text-zinc-200 font-semibold active:scale-[0.98]">
+                    Tentang Kami
+                  </Button>
                 </Link>
-             )}
-              <Link href="/profil/visi-misi">
-                <Button variant="outline" size="lg" className="h-12 rounded-full border-2 border-zinc-900/10 bg-white/10 px-6 text-base font-semibold text-zinc-900 shadow-sm backdrop-blur-sm transition-all hover:scale-105 hover:bg-white/20 dark:border-white/20 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 sm:h-14 sm:px-8 sm:text-lg">
-                     Tentang Kami
-                </Button>
-              </Link>
+              </div>
+            </div>
+            
+            {/* Right Column: 3D Interactive Scene */}
+            <div className="lg:col-span-5 relative flex items-center justify-center">
+              <Hero3DCanvas />
+            </div>
+            
           </div>
-        </motion.div>
-      </AuroraBackground>
+        </div>
+      </section>
 
       {/* Stats Section */}
-      <section className="container relative z-10 px-4 pt-6 pb-12 sm:pt-8 sm:pb-16 md:px-6">
+      <section className="container relative z-10 px-4 pt-6 pb-12 sm:pt-8 sm:pb-16 md:px-6 mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -122,14 +166,14 @@ export function HomeClient({ settings, news, activePeriod, studentCount }: HomeC
           className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 lg:grid-cols-4 lg:gap-6"
         >
           {displayStats.map((stat, index) => (
-            <Card key={index} className="border-none shadow-xl shadow-gray-200/50 dark:shadow-none bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl">
+            <Card key={index} className="border border-zinc-200/50 dark:border-zinc-850 shadow-md bg-white dark:bg-zinc-900">
               <CardContent className="flex flex-col items-center space-y-3 p-4 text-center sm:p-5 lg:space-y-4 lg:p-6">
                 <div className={`rounded-2xl p-3 sm:p-4 ${stat.bg} ${stat.color}`}>
                   <stat.icon className="h-5 w-5 sm:h-6 sm:w-6" />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-bold tracking-tight sm:text-3xl">{stat.value}</h3>
-                  <p className="text-sm font-medium text-muted-foreground mt-1">{stat.label}</p>
+                  <h3 className="text-2xl font-bold tracking-tight sm:text-3xl text-slate-900 dark:text-zinc-550">{stat.value}</h3>
+                  <p className="text-sm font-medium text-slate-500 dark:text-zinc-400 mt-1">{stat.label}</p>
                 </div>
               </CardContent>
             </Card>
@@ -139,10 +183,10 @@ export function HomeClient({ settings, news, activePeriod, studentCount }: HomeC
 
       {/* 2. ACETERNITY FEATURE: Bento Grid */}
       <section className="w-full bg-white pt-8 pb-16 dark:bg-black sm:pt-10 md:pt-14 md:pb-28">
-         <div className="container px-4 md:px-6">
+         <div className="container px-4 md:px-6 mx-auto">
             <div className="text-center mb-16">
-                 <h2 className="text-3xl md:text-5xl font-bold mb-4">Keunggulan Kami</h2>
-                 <p className="text-muted-foreground text-lg max-w-2xl mx-auto">Fasilitas dan program unggulan untuk mendukung tumbuh kembang siswa.</p>
+                 <h2 className="text-3xl md:text-5xl font-bold mb-4 text-slate-900 dark:text-zinc-50">Keunggulan Kami</h2>
+                 <p className="text-muted-foreground text-lg max-w-2xl mx-auto">Fasilitas dan program unggulan untuk mendukung tumbuh kembang siswa secara maksimal.</p>
             </div>
             <BentoGrid className="max-w-4xl mx-auto">
                 {features.map((item, i) => (
@@ -159,13 +203,12 @@ export function HomeClient({ settings, news, activePeriod, studentCount }: HomeC
          </div>
       </section>
 
-
       {/* SPMB CTA Section */}
       <section className="py-12 md:py-20 bg-gradient-to-br from-zinc-50 to-zinc-100 dark:from-zinc-900 dark:to-zinc-950 text-zinc-900 dark:text-white relative overflow-hidden">
         {/* Background Pattern */}
         <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#ffffff22_1px,transparent_1px)] [background-size:20px_20px] opacity-50" />
         
-        <div className="container relative z-10 px-4 md:px-6">
+        <div className="container relative z-10 px-4 md:px-6 mx-auto">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-8">
               <Badge className="bg-primary/10 text-primary hover:bg-primary/20 dark:bg-white/10 dark:text-white dark:hover:bg-white/20 border-none backdrop-blur-md px-4 py-1.5 text-sm">

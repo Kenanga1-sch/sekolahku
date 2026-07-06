@@ -343,7 +343,7 @@ function SidebarContent({
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem asChild>
-                <Link href="/admin/master/sekolah" className="cursor-pointer gap-2">
+                <Link href="/admin/sekolah" className="cursor-pointer gap-2">
                   <Settings className="h-4 w-4" />
                   Pengaturan
                 </Link>

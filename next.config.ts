@@ -1,10 +1,11 @@
 import type { NextConfig } from "next";
 
+const isProd = process.env.NODE_ENV === "production";
+
 const nextConfig: NextConfig = {
   // === STATIC EXPORT MODE ===
   // Required for embedding in Go binary via "out" folder
-  output: "export",
-
+  ...(isProd ? { output: "export" as const } : {}),
 
   // No source maps in production
   productionBrowserSourceMaps: false,
@@ -38,6 +39,24 @@ const nextConfig: NextConfig = {
 
   // Reduce build output size
   compress: true,
+
+  // Configure rewrites in development mode to proxy /api and /uploads requests to Go backend
+  ...(!isProd
+    ? {
+        async rewrites() {
+          return [
+            {
+              source: "/api/:path*",
+              destination: "http://localhost:8181/api/:path*",
+            },
+            {
+              source: "/uploads/:path*",
+              destination: "http://localhost:8181/uploads/:path*",
+            },
+          ];
+        },
+      }
+    : {}),
 };
 
 export default nextConfig;

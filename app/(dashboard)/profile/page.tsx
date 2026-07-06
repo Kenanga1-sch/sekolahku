@@ -29,11 +29,16 @@ import {
     Globe,
     ChevronRight,
     Sparkles,
+    Settings,
+    Users,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { goGet, goPatch, goPost } from "@/lib/api-client";
 import { compressImage } from "@/lib/utils";
 import { toast } from "sonner";
+import TabSekolah from "./tab-sekolah";
+import TabUsers from "./tab-users";
+import TabSystemLogs from "./tab-system-logs";
 
 export default function ProfilePage() {
     const router = useRouter();
@@ -354,7 +359,7 @@ export default function ProfilePage() {
         <div className="space-y-6 max-w-5xl mx-auto pb-10">
             {/* Header Profil Premium */}
             <Card className="overflow-hidden border-slate-200/80 dark:border-zinc-800/80 shadow-md bg-white dark:bg-zinc-950 relative">
-                <div className="h-36 bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 relative overflow-hidden">
+                <div className="h-36 bg-blue-600 relative overflow-hidden">
                     {/* Decorative Blobs */}
                     <div className="absolute top-[-50px] right-[-50px] w-48 h-48 rounded-full bg-white/10 blur-xl pointer-events-none" />
                     <div className="absolute bottom-[-30px] left-[10%] w-32 h-32 rounded-full bg-black/10 blur-lg pointer-events-none" />
@@ -364,7 +369,7 @@ export default function ProfilePage() {
                     <div className="relative group h-28 w-28 rounded-full border-4 border-white dark:border-zinc-950 shadow-2xl overflow-hidden bg-slate-100 dark:bg-zinc-900 shrink-0">
                         <Avatar className="h-full w-full">
                             <AvatarImage src={resolveImageUrl(profile.image)} className="object-cover" />
-                            <AvatarFallback className="text-3xl font-extrabold bg-gradient-to-br from-violet-100 to-indigo-100 text-violet-700 dark:from-violet-950 dark:to-indigo-950 dark:text-violet-300">
+                            <AvatarFallback className="text-3xl font-extrabold bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
                                 {profile.name ? profile.name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase() : "U"}
                             </AvatarFallback>
                         </Avatar>
@@ -409,25 +414,41 @@ export default function ProfilePage() {
             </Card>
 
             <Tabs defaultValue="personal" onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid grid-cols-3 w-full max-w-lg mx-auto mb-6 bg-slate-150/80 dark:bg-zinc-900/80 border border-slate-200/40 dark:border-zinc-800/40 p-1 rounded-xl">
-                    <TabsTrigger value="personal" className="flex items-center gap-1.5 py-2.5 rounded-lg transition-all">
+                <TabsList className="flex flex-wrap w-full justify-start gap-1.5 mb-6 bg-slate-150/80 dark:bg-zinc-900/80 border border-slate-200/40 dark:border-zinc-800/40 p-1.5 rounded-xl h-auto">
+                    <TabsTrigger value="personal" className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all cursor-pointer flex-1 min-w-[120px] whitespace-nowrap text-xs">
                         <User className="h-4 w-4" />
                         Profil Saya
                     </TabsTrigger>
-                    <TabsTrigger value="security" className="flex items-center gap-1.5 py-2.5 rounded-lg transition-all">
+                    <TabsTrigger value="security" className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all cursor-pointer flex-1 min-w-[120px] whitespace-nowrap text-xs">
                         <Shield className="h-4 w-4" />
                         Keamanan
                     </TabsTrigger>
-                    <TabsTrigger value="activity" className="flex items-center gap-1.5 py-2.5 rounded-lg transition-all">
+                    <TabsTrigger value="activity" className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all cursor-pointer flex-1 min-w-[120px] whitespace-nowrap text-xs">
                         <History className="h-4 w-4" />
-                        Aktivitas
+                        Aktivitas Saya
                     </TabsTrigger>
+                    {(user.role === "admin" || user.role === "superadmin") && (
+                        <>
+                            <TabsTrigger value="sekolah" className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all cursor-pointer flex-1 min-w-[120px] whitespace-nowrap text-xs">
+                                <Settings className="h-4 w-4" />
+                                Pengaturan Sekolah
+                            </TabsTrigger>
+                            <TabsTrigger value="users" className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all cursor-pointer flex-1 min-w-[120px] whitespace-nowrap text-xs">
+                                <Users className="h-4 w-4" />
+                                Manajemen Pengguna
+                            </TabsTrigger>
+                            <TabsTrigger value="system-logs" className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all cursor-pointer flex-1 min-w-[120px] whitespace-nowrap text-xs">
+                                <Activity className="h-4 w-4" />
+                                Log Aktivitas Sistem
+                            </TabsTrigger>
+                        </>
+                    )}
                 </TabsList>
 
                 {/* Personal Tab */}
                 <TabsContent value="personal" className="space-y-6">
-                    <div className="grid lg:grid-cols-3 gap-6">
-                        <div className="lg:col-span-2">
+                    <div className="flex flex-col gap-6">
+                        <div className="w-full">
                             <Card className="border-slate-200/80 dark:border-zinc-800/80 shadow-xs bg-white dark:bg-zinc-950">
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2 text-lg font-bold">
@@ -532,7 +553,7 @@ export default function ProfilePage() {
                                     <Button 
                                         onClick={handleSaveProfile} 
                                         disabled={isSaving} 
-                                        className="w-full gap-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white font-semibold shadow-md shadow-violet-500/10 py-5 transition-all duration-300"
+                                        className="w-full gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-sm active:scale-[0.98] py-5 transition-all duration-300"
                                     >
                                         {isSaving ? (
                                             <Loader2 className="h-4.5 w-4.5 animate-spin" />
@@ -592,8 +613,8 @@ export default function ProfilePage() {
 
                 {/* Security Tab */}
                 <TabsContent value="security" className="space-y-6">
-                    <div className="grid lg:grid-cols-3 gap-6">
-                        <div className="lg:col-span-2">
+                    <div className="flex flex-col gap-6">
+                        <div className="w-full">
                             <Card className="border-slate-200/80 dark:border-zinc-800/80 shadow-xs bg-white dark:bg-zinc-950">
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2 text-lg font-bold">
@@ -813,6 +834,21 @@ export default function ProfilePage() {
                         </CardContent>
                     </Card>
                 </TabsContent>
+
+                {/* Admin-only Tabs */}
+                {(user.role === "admin" || user.role === "superadmin") && (
+                    <>
+                        <TabsContent value="sekolah" className="space-y-6">
+                            <TabSekolah />
+                        </TabsContent>
+                        <TabsContent value="users" className="space-y-6">
+                            <TabUsers />
+                        </TabsContent>
+                        <TabsContent value="system-logs" className="space-y-6">
+                            <TabSystemLogs />
+                        </TabsContent>
+                    </>
+                )}
             </Tabs>
         </div>
     );

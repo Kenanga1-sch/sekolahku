@@ -522,51 +522,54 @@ export default function KioskPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex flex-col">
             {/* Header */}
-            <header className="p-4 flex items-center justify-between">
+            <header className="p-3 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-b border-white/5">
                 <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl bg-blue-500 flex items-center justify-center">
                         <BookOpen className="h-6 w-6 text-white" />
                     </div>
                     <div>
-                        <h1 className="text-xl font-bold text-white">SmartLib</h1>
-                        <p className="text-blue-200 text-xs">Self-Service Kiosk</p>
+                        <h1 className="text-xl font-bold text-white leading-none">SmartLib</h1>
+                        <p className="text-blue-200 text-[10px] sm:text-xs mt-1">Self-Service Kiosk</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2.5 sm:gap-4 flex-wrap justify-center sm:justify-end w-full sm:w-auto">
                     <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => setCameraFacing(prev => prev === "environment" ? "user" : "environment")}
-                        className="text-blue-200"
+                        className="text-blue-200 hover:bg-white/5 h-8 px-2 sm:h-9 sm:px-3 text-xs"
                         title="Ganti Kamera (Depan/Belakang)"
                     >
-                        <RefreshCw className="h-4 w-4" />
+                        <RefreshCw className="h-4 w-4 sm:mr-1" />
+                        <span className="hidden sm:inline">Ganti Kamera</span>
                     </Button>
                     <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => setCameraEnabled(!cameraEnabled)}
-                        className="text-blue-200"
+                        className="text-blue-200 hover:bg-white/5 h-8 px-2 sm:h-9 sm:px-3 text-xs"
                     >
-                        {cameraEnabled ? <Camera className="h-4 w-4" /> : <CameraOff className="h-4 w-4" />}
+                        {cameraEnabled ? <Camera className="h-4 w-4 sm:mr-1" /> : <CameraOff className="h-4 w-4 sm:mr-1" />}
+                        <span className="hidden sm:inline">{cameraEnabled ? "Matikan Kamera" : "Aktifkan Kamera"}</span>
                     </Button>
                     <Link href="/overview">
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="text-blue-200 hover:text-white hover:bg-white/10"
+                            className="text-blue-200 hover:text-white hover:bg-white/10 h-8 px-2 sm:h-9 sm:px-3 text-xs"
                             title="Kembali ke Admin Panel"
                         >
-                            <LayoutDashboard className="h-4 w-4" />
+                            <LayoutDashboard className="h-4 w-4 sm:mr-1" />
+                            <span className="hidden sm:inline">Admin</span>
                         </Button>
                     </Link>
-                    <div className="text-right">
-                        <div className="text-blue-200 text-xs">
+                    <div className="text-center sm:text-right pl-2 border-l border-white/10">
+                        <div className="text-blue-200 text-[10px] sm:text-xs">
                             <Clock className="inline h-3 w-3 mr-1" />
                             {new Date().toLocaleDateString("id-ID", { weekday: "short", day: "numeric", month: "short" })}
                         </div>
                         {countdown > 0 && (
-                            <div className="text-yellow-400 text-xs">Sesi: {countdown}s</div>
+                            <div className="text-yellow-400 text-[10px] sm:text-xs font-bold">Sesi: {countdown}s</div>
                         )}
                     </div>
                 </div>

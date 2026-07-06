@@ -57,17 +57,10 @@ Write-Host "=== 2. Copying archive to server ==="
 & sshpass -p $password scp -o StrictHostKeyChecking=no $tempTar "$username@$hostname`:$remoteDir/archive.tar.gz"
 
 Write-Host "=== 3. Extracting on server ==="
-& sshpass -p $password ssh -o StrictHostKeyChecking=no $username@$hostname @"
-    cd $remoteDir
-    tar -xzf archive.tar.gz
-    rm archive.tar.gz
-"@
+& sshpass -p $password ssh -o StrictHostKeyChecking=no $username@$hostname "cd $remoteDir && tar -xzf archive.tar.gz && rm archive.tar.gz"
 
 Write-Host "=== 4. Rebuilding Docker containers ==="
-& sshpass -p $password ssh -o StrictHostKeyChecking=no $username@$hostname @"
-    echo '$password' | sudo -S docker compose -f $remoteDir/docker-compose.yml down 2>/dev/null
-    echo '$password' | sudo -S docker compose -f $remoteDir/docker-compose.yml up -d --build
-"@
+& sshpass -p $password ssh -o StrictHostKeyChecking=no $username@$hostname "echo '$password' | sudo -S docker compose -f $remoteDir/docker-compose.yml down 2>/dev/null; echo '$password' | sudo -S docker compose -f $remoteDir/docker-compose.yml up -d --build"
 
 Write-Host "=== Deployment complete! ==="
 Write-Host "Check http://100.97.52.50:3000"

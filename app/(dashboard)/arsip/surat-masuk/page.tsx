@@ -9,7 +9,10 @@ import {
     Calendar,
     FileText,
     MoreHorizontal,
-    ArrowRight
+    ArrowRight,
+    ArrowLeft,
+    Download,
+    Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,7 +32,10 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { formatDate } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "sonner";
+import JSZip from "jszip";
+import { formatDate, normalizePublicPath, extractFilename } from "@/lib/utils";
 import { goGet } from "@/lib/api-client";
 
 interface SuratMasuk {
@@ -41,6 +47,7 @@ interface SuratMasuk {
     receivedAt: string;
     status: string;
     classification: { name: string; code: string } | null;
+    filePath?: string;
 }
 
 export default function SuratMasukPage() {
@@ -49,6 +56,8 @@ export default function SuratMasukPage() {
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [downloadingBatch, setDownloadingBatch] = useState(false);
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -73,6 +82,129 @@ export default function SuratMasukPage() {
         loadData();
     }, [loadData]);
 
+    const toggleSelectAll = () => {
+        if (selectedIds.length === data.length) {
+            setSelectedIds([]);
+        } else {
+            setSelectedIds(data.map(item => item.id));
+        }
+    };
+
+    const toggleSelectOne = (id: string) => {
+        setSelectedIds(prev => 
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    };
+
+    const handleDownloadSingle = async (item: SuratMasuk) => {
+        const filePath = item.filePath;
+        if (!filePath) {
+            toast.error("File tidak tersedia");
+            return;
+        }
+        const normalizedPath = normalizePublicPath(filePath);
+        const filename = extractFilename(filePath) || "surat.pdf";
+        
+        let cleanName = filename;
+        const hyphenIndex = cleanName.indexOf("-");
+        if (hyphenIndex !== -1 && !isNaN(Number(cleanName.substring(0, hyphenIndex)))) {
+            cleanName = cleanName.substring(hyphenIndex + 1);
+        }
+        
+        const prefix = item.agendaNumber;
+        const uniqueName = prefix ? `${prefix.replace(/[\/\\]/g, "_")}_${cleanName}` : cleanName;
+
+        const toastId = toast.loading("Mengunduh berkas...");
+        try {
+            const response = await fetch(normalizedPath);
+            if (!response.ok) throw new Error("Gagal mengambil file");
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = blobUrl;
+            link.download = uniqueName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
+            toast.success("Unduhan berhasil!");
+        } catch (error) {
+            console.error(error);
+            toast.error("Gagal mendownload file");
+        } finally {
+            toast.dismiss(toastId);
+        }
+    };
+
+    const handleDownloadBatch = async () => {
+        if (selectedIds.length === 0) return;
+        setDownloadingBatch(true);
+        const toastId = toast.loading("Mengunduh berkas terpilih...");
+        
+        try {
+            const zip = new JSZip();
+            let addedCount = 0;
+
+            await Promise.all(selectedIds.map(async (id) => {
+                const item = data.find(d => d.id === id);
+                if (!item) return;
+
+                const filePath = item.filePath;
+                if (!filePath) return;
+
+                try {
+                    const normalizedPath = normalizePublicPath(filePath);
+                    const response = await fetch(normalizedPath);
+                    if (!response.ok) throw new Error("Gagal mengambil file");
+                    const blob = await response.blob();
+                    
+                    const originalName = extractFilename(filePath) || "dokumen";
+                    let cleanName = originalName;
+                    const hyphenIndex = cleanName.indexOf("-");
+                    if (hyphenIndex !== -1 && !isNaN(Number(cleanName.substring(0, hyphenIndex)))) {
+                        cleanName = cleanName.substring(hyphenIndex + 1);
+                    }
+
+                    const prefix = item.agendaNumber;
+                    const uniqueName = prefix ? `${prefix.replace(/[\/\\]/g, "_")}_${cleanName}` : cleanName;
+
+                    zip.file(uniqueName, blob);
+                    addedCount++;
+                } catch (err) {
+                    console.error(`Gagal mendownload ${filePath}:`, err);
+                }
+            }));
+
+            if (addedCount === 0) {
+                toast.error("Tidak ada file yang berhasil diunduh.");
+                toast.dismiss(toastId);
+                return;
+            }
+
+            const content = await zip.generateAsync({ type: "blob" });
+            const blobUrl = window.URL.createObjectURL(content);
+            const link = document.createElement("a");
+            link.href = blobUrl;
+            
+            const dateStr = new Date().toISOString().slice(0, 10);
+            link.download = `Batch_Surat_Masuk_${dateStr}.zip`;
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
+
+            toast.success(`Berhasil mengunduh ${addedCount} berkas dalam file ZIP!`);
+        } catch (error) {
+            console.error("Batch download failed:", error);
+            toast.error("Terjadi kesalahan saat memproses unduhan batch.");
+        } finally {
+            setDownloadingBatch(false);
+            toast.dismiss(toastId);
+            setSelectedIds([]);
+        }
+    };
+
     const getStatusColor = (status: string) => {
         switch (status) {
             case "Menunggu Disposisi": return "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
@@ -86,11 +218,23 @@ export default function SuratMasukPage() {
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Surat Masuk</h1>
-                    <p className="text-muted-foreground text-sm">
-                        Daftar surat yang diterima (In-Coming Mail)
-                    </p>
+                <div className="space-y-2">
+                    <Link href="/arsip">
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="p-0 h-auto text-muted-foreground hover:text-slate-900 dark:hover:text-white hover:bg-transparent -ml-1 flex items-center gap-1.5 transition-colors"
+                        >
+                            <ArrowLeft className="h-4 w-4" />
+                            Kembali ke E-Arsip
+                        </Button>
+                    </Link>
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight">Surat Masuk</h1>
+                        <p className="text-muted-foreground text-sm">
+                            Daftar surat yang diterima (In-Coming Mail)
+                        </p>
+                    </div>
                 </div>
                 <Link href="/arsip/surat-masuk/baru">
                     <Button className="gap-2 bg-blue-600 hover:bg-blue-700">
@@ -128,6 +272,12 @@ export default function SuratMasukPage() {
                 <Table>
                     <TableHeader className="bg-muted/50">
                         <TableRow>
+                            <TableHead className="w-[40px]">
+                                <Checkbox 
+                                    checked={data.length > 0 && selectedIds.length === data.length}
+                                    onCheckedChange={toggleSelectAll}
+                                />
+                            </TableHead>
                             <TableHead>No. Agenda</TableHead>
                             <TableHead>Pengirim</TableHead>
                             <TableHead className="w-[40%]">Perihal</TableHead>
@@ -139,19 +289,25 @@ export default function SuratMasukPage() {
                     <TableBody>
                         {loading ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="text-center py-8">
+                                <TableCell colSpan={7} className="text-center py-8">
                                     Memuat data...
                                 </TableCell>
                             </TableRow>
                         ) : data.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                                <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
                                     Belum ada surat masuk.
                                 </TableCell>
                             </TableRow>
                         ) : (
                             data.map((item) => (
                                 <TableRow key={item.id} className="hover:bg-muted/50 cursor-pointer" onClick={() => window.location.href = `/arsip/surat-masuk/detail?id=${item.id}`}>
+                                    <TableCell onClick={(e) => e.stopPropagation()} className="w-[40px]">
+                                        <Checkbox 
+                                            checked={selectedIds.includes(item.id)}
+                                            onCheckedChange={() => toggleSelectOne(item.id)}
+                                        />
+                                    </TableCell>
                                     <TableCell className="font-mono text-sm font-medium">
                                         {item.agendaNumber}
                                     </TableCell>
@@ -178,7 +334,7 @@ export default function SuratMasukPage() {
                                     <TableCell>
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                <Button variant="outline" size="icon-sm" className="h-8 w-8 text-muted-foreground hover:text-foreground bg-white border-slate-200 shadow-sm" onClick={(e) => e.stopPropagation()}>
                                                     <MoreHorizontal className="h-4 w-4" />
                                                 </Button>
                                             </DropdownMenuTrigger>
@@ -189,6 +345,12 @@ export default function SuratMasukPage() {
                                                         Detail & Disposisi
                                                     </Link>
                                                 </DropdownMenuItem>
+                                                {item.filePath && (
+                                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDownloadSingle(item); }}>
+                                                        <Download className="h-4 w-4 mr-2" />
+                                                        Download File
+                                                    </DropdownMenuItem>
+                                                )}
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </TableCell>
@@ -198,6 +360,39 @@ export default function SuratMasukPage() {
                     </TableBody>
                 </Table>
             </Card>
+
+            {/* Floating Batch Actions Bar */}
+            {selectedIds.length > 0 && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-6 py-4 rounded-full shadow-2xl flex items-center gap-6 animate-in slide-in-from-bottom-4 duration-300">
+                    <span className="text-sm font-medium">
+                        {selectedIds.length} surat terpilih
+                    </span>
+                    <div className="h-4 w-[1px] bg-slate-700" />
+                    <div className="flex gap-2">
+                        <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            className="text-slate-300 hover:text-white hover:bg-slate-800"
+                            onClick={() => setSelectedIds([])}
+                        >
+                            Batal
+                        </Button>
+                        <Button 
+                            size="sm" 
+                            className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
+                            onClick={handleDownloadBatch}
+                            disabled={downloadingBatch}
+                        >
+                            {downloadingBatch ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <Download className="h-4 w-4" />
+                            )}
+                            Download (ZIP)
+                        </Button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

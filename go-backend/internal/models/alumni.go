@@ -9,6 +9,7 @@ type Alumni struct {
 	NISN           *string           `json:"nisn"`
 	NIS            *string           `json:"nis"`
 	NIK            *string           `json:"nik"`
+	Status         string            `json:"status"`
 	FullName       string            `json:"fullName"`
 	Gender         *string           `json:"gender"`
 	BirthPlace     *string           `json:"birthPlace"`
@@ -64,8 +65,32 @@ type Alumni struct {
 	Achievements        []AlumniAchievement        `json:"achievements,omitempty"`
 	Extracurriculars    []AlumniExtracurricular    `json:"extracurriculars,omitempty"`
 	AttendanceSummaries []AlumniAttendanceSummary  `json:"attendanceSummaries,omitempty"`
-	CreatedAt           *time.Time                 `json:"createdAt"`
-	UpdatedAt           *time.Time                 `json:"updatedAt"`
+	HealthRecords       []AlumniHealthRecord       `json:"healthRecords,omitempty"`
+	// Physical register specific extensions
+	Nickname                   *string `json:"nickname"`
+	Citizenship                *string `json:"citizenship"`
+	SiblingKandung             int     `json:"siblingKandung"`
+	SiblingTiri                int     `json:"siblingTiri"`
+	SiblingAngkat              int     `json:"siblingAngkat"`
+	DailyLanguage              *string `json:"dailyLanguage"`
+	LivingWith                 *string `json:"livingWith"`
+	GuardianEducation          *string `json:"guardianEducation"`
+	PreviousSchoolAddress      *string `json:"previousSchoolAddress"`
+	PreviousSchoolCertNo       *string `json:"previousSchoolCertNo"`
+	PreviousSchoolCertDate     *string `json:"previousSchoolCertDate"`
+	MutasiMasukAsalSekolah     *string `json:"mutasiMasukAsalSekolah"`
+	MutasiMasukDariKelas       *string `json:"mutasiMasukDariKelas"`
+	MutasiMasukDiterimaTanggal *string `json:"mutasiMasukDiterimaTanggal"`
+	MutasiMasukDiKelas         *string `json:"mutasiMasukDiKelas"`
+	ScholarshipInfo            *string `json:"scholarshipInfo"`
+	MutationOutClass           *string `json:"mutationOutClass"`
+	MutationOutToSchool        *string `json:"mutationOutToSchool"`
+	MutationOutToClass         *string `json:"mutationOutToClass"`
+	MutationOutDate            *string `json:"mutationOutDate"`
+	DroppedOutDate             *string `json:"droppedOutDate"`
+	DroppedOutReason           *string `json:"droppedOutReason"`
+	CreatedAt                  *time.Time                 `json:"createdAt"`
+	UpdatedAt                  *time.Time                 `json:"updatedAt"`
 }
 
 // AlumniTranscript stores final score per subject per semester
@@ -127,6 +152,19 @@ type AlumniAttendanceSummary struct {
 	UpdatedAt   *time.Time `json:"updatedAt"`
 }
 
+// AlumniHealthRecord stores annual student physical details (Grade I to VI)
+type AlumniHealthRecord struct {
+	ID          string     `json:"id"`
+	AlumniID    string     `json:"alumniId"`
+	Year        string     `json:"year"` // e.g. "Kelas I", "Kelas II"
+	Weight      *int       `json:"weight"`
+	Height      *int       `json:"height"`
+	Illness     *string    `json:"illness"`
+	Abnormality *string    `json:"abnormality"`
+	CreatedAt   *time.Time `json:"createdAt"`
+	UpdatedAt   *time.Time `json:"updatedAt"`
+}
+
 // AlumniDocumentType defines types of documents e.g. Ijazah, SKHUN
 type AlumniDocumentType struct {
 	ID            string  `json:"id"`
@@ -184,4 +222,21 @@ type AlumniStats struct {
 	TotalAlumni         int `json:"totalAlumni"`
 	TotalDocuments      int `json:"totalDocuments"`
 	PendingVerification int `json:"pendingVerification"`
+	ActiveCount         int `json:"activeCount"`
+	GraduatedCount      int `json:"graduatedCount"`
+	TransferredCount    int `json:"transferredCount"`
+	DroppedCount        int `json:"droppedCount"`
+}
+
+// ImportGradeRow represents a single grade record imported from e-Rapor
+type ImportGradeRow struct {
+	NISN         string  `json:"nisn"`
+	NIS          string  `json:"nis"`
+	FullName     string  `json:"fullName"`
+	AcademicYear string  `json:"academicYear"`
+	Semester     string  `json:"semester"`
+	SubjectName  string  `json:"subjectName"`
+	SubjectCode  *string `json:"subjectCode"`
+	Score        float64 `json:"score"`
+	Notes        *string `json:"notes"`
 }

@@ -45,8 +45,8 @@ export function useSchoolSettings() {
         fetcher,
         {
             fallbackData: defaultSettings,
-            revalidateOnFocus: false,
-            dedupingInterval: 60000, // 1 minute
+            revalidateOnFocus: true,
+            dedupingInterval: 2000, // 2 seconds
         }
     );
 

@@ -33,7 +33,68 @@ import (
 //go:embed all:dist
 var frontendFiles embed.FS
 
+func loadEnv() {
+	envFiles := []string{
+		".env",
+		".env.local",
+		"../.env",
+		"../.env.local",
+		"go-backend/.env",
+		"go-backend/.env.local",
+	}
+
+	for _, filepath := range envFiles {
+		file, err := os.Open(filepath)
+		if err != nil {
+			continue // Skip if file doesn't exist
+		}
+		defer file.Close()
+
+		data, err := io.ReadAll(file)
+		if err != nil {
+			continue
+		}
+
+		lines := strings.Split(string(data), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			// Skip empty lines and comments
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+
+			// Split key and value
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) != 2 {
+				continue
+			}
+
+			key := strings.TrimSpace(parts[0])
+			val := strings.TrimSpace(parts[1])
+
+			// Strip quotes if present
+			if (strings.HasPrefix(val, "\"") && strings.HasSuffix(val, "\"")) ||
+				(strings.HasPrefix(val, "'") && strings.HasSuffix(val, "'")) {
+				if len(val) >= 2 {
+					val = val[1 : len(val)-1]
+				}
+			}
+
+			// Only set if not already set in environment
+			if os.Getenv(key) == "" {
+				os.Setenv(key, val)
+				if key == "GEMINI_API_KEY" {
+					log.Printf("[ENV] Loaded GEMINI_API_KEY from %s (length: %d)", filepath, len(val))
+				}
+			} else if key == "GEMINI_API_KEY" {
+				log.Printf("[ENV] GEMINI_API_KEY already set in environment (length: %d)", len(os.Getenv(key)))
+			}
+		}
+	}
+}
+
 func main() {
+	loadEnv()
 	startTime := time.Now()
 	server := echo.New()
 
@@ -86,6 +147,9 @@ func main() {
 
 	// Database initialization
 	dbDir := "data"
+	if _, err := os.Stat("go-backend"); err == nil {
+		dbDir = filepath.Join("go-backend", "data")
+	}
 	if err := os.MkdirAll(dbDir, 0755); err != nil {
 		server.Logger.Fatal("Failed to create data directory:", err)
 	}
@@ -171,6 +235,7 @@ func main() {
 
 	// Seed default admin if users table is empty
 	SeedDefaultAdmin(db, server.Logger)
+	SeedDefaultKlasifikasi(db, server.Logger)
 
 	// Create database indexes and constraints for performance and integrity
 	_, err = db.Exec(`
@@ -179,8 +244,8 @@ func main() {
 		CREATE INDEX IF NOT EXISTS idx_students_status ON students(status);
 		CREATE INDEX IF NOT EXISTS idx_spmb_registrants_period ON spmb_registrants(period_id);
 		CREATE UNIQUE INDEX IF NOT EXISTS idx_spmb_registrants_reg_number ON spmb_registrants(registration_number);
-		CREATE INDEX IF NOT EXISTS idx_library_books_title ON library_books(title);
-		CREATE INDEX IF NOT EXISTS idx_library_books_category ON library_books(category);
+		CREATE INDEX IF NOT EXISTS idx_library_catalog_title ON library_catalog(title);
+		CREATE INDEX IF NOT EXISTS idx_library_catalog_category ON library_catalog(category);
 		CREATE INDEX IF NOT EXISTS idx_library_visits_created ON library_visits(created_at);
 		CREATE INDEX IF NOT EXISTS idx_tabungan_transaksi_siswa ON tabungan_transaksi(siswa_id);
 		CREATE INDEX IF NOT EXISTS idx_tabungan_transaksi_created ON tabungan_transaksi(created_at);
@@ -191,7 +256,7 @@ func main() {
 		CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(is_read);
 		CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at);
 		CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON audit_logs(user_id);
-		CREATE INDEX IF NOT EXISTS idx_attendance_sessions_date ON attendance_sessions(session_date);
+		CREATE INDEX IF NOT EXISTS idx_attendance_sessions_date ON attendance_sessions(date);
 		CREATE INDEX IF NOT EXISTS idx_letter_templates_type ON letter_templates(type);
 		CREATE INDEX IF NOT EXISTS idx_gallery_category ON gallery(category);
 		CREATE INDEX IF NOT EXISTS idx_gallery_created ON gallery(created_at);
@@ -201,10 +266,8 @@ func main() {
 		CREATE INDEX IF NOT EXISTS idx_faqs_category ON faqs(category);
 		CREATE INDEX IF NOT EXISTS idx_faqs_order ON faqs(order_rank);
 		CREATE INDEX IF NOT EXISTS idx_contact_messages_created ON contact_messages(created_at);
-		CREATE INDEX IF NOT EXISTS idx_mutasi_requests_status ON mutasi_requests(status);
+		CREATE INDEX IF NOT EXISTS idx_mutasi_requests_status ON mutasi_requests(status_approval);
 		CREATE INDEX IF NOT EXISTS idx_mutasi_out_requests_status ON mutasi_out_requests(status);
-		CREATE INDEX IF NOT EXISTS idx_finance_transactions_account ON finance_transactions(account_id_source);
-		CREATE INDEX IF NOT EXISTS idx_savings_transactions_siswa ON savings_transactions(siswa_id);
 		CREATE INDEX IF NOT EXISTS idx_library_loans_status ON library_loans(status);
 	`)
 	if err != nil {
@@ -217,6 +280,10 @@ func main() {
 		VALUES ('default', 'UPTD SDN 1 Kenanga', '2026/2027', 1, 3.0)
 	`); err != nil {
 		server.Logger.Warn("Failed to initialize default settings:", err)
+	}
+	// Clean up any duplicate settings rows
+	if _, err := db.Exec("DELETE FROM school_settings WHERE id != 'default'"); err != nil {
+		server.Logger.Warn("Failed to clean up duplicate settings rows:", err)
 	}
 
 	// 5. Create Alumni Buku Induk tables
@@ -280,9 +347,60 @@ func main() {
 		CREATE INDEX IF NOT EXISTS idx_alumni_achievements_alumni ON alumni_achievements(alumni_id);
 		CREATE INDEX IF NOT EXISTS idx_alumni_extracurriculars_alumni ON alumni_extracurriculars(alumni_id);
 		CREATE INDEX IF NOT EXISTS idx_alumni_attendance_summary_alumni ON alumni_attendance_summary(alumni_id);
+		CREATE TABLE IF NOT EXISTS integration_settings (
+			id TEXT PRIMARY KEY,
+			dapodik_url TEXT,
+			dapodik_token TEXT,
+			dapodik_npsn TEXT,
+			erapor_url TEXT,
+			erapor_token TEXT,
+			erapor_db_host TEXT,
+			erapor_db_port TEXT,
+			erapor_db_user TEXT,
+			erapor_db_pass TEXT,
+			erapor_db_name TEXT,
+			is_sandbox INTEGER DEFAULT 1,
+			last_synced_at INTEGER,
+			created_at INTEGER,
+			updated_at INTEGER
+		);
 	`); err != nil {
 		server.Logger.Warn("Failed to create alumni Buku Induk tables:", err)
 	}
+
+	if _, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS admin_notifications (
+			id TEXT PRIMARY KEY,
+			user_id TEXT,
+			type TEXT,
+			category TEXT,
+			title TEXT,
+			message TEXT,
+			target_url TEXT,
+			is_read INTEGER DEFAULT 0,
+			metadata TEXT,
+			created_at INTEGER
+		);
+		CREATE INDEX IF NOT EXISTS idx_admin_notifications_user_id ON admin_notifications(user_id);
+	`); err != nil {
+		server.Logger.Warn("Failed to create admin_notifications table:", err)
+	}
+
+
+	// Seed default integration settings if table is empty
+	var integrationCount int
+	if err := db.QueryRow("SELECT COUNT(*) FROM integration_settings").Scan(&integrationCount); err == nil && integrationCount == 0 {
+		now := time.Now().UnixMilli()
+		_, err = db.Exec(`
+			INSERT INTO integration_settings (
+				id, dapodik_url, dapodik_token, dapodik_npsn, erapor_url, erapor_token, is_sandbox, created_at, updated_at
+			) VALUES ('default', 'http://localhost:5774', '', '12345678', 'http://localhost:8080', '', 1, ?, ?)
+		`, now, now)
+		if err != nil {
+			server.Logger.Warn("Failed to seed default integration settings:", err)
+		}
+	}
+
 	server.Logger.Info("Database initialized with default settings and core tables")
 
 	// Start background scheduler
@@ -293,10 +411,6 @@ func main() {
 	// Repositories
 	userRepo := repository.NewUserRepository(db)
 	academicRepo := repository.NewAcademicRepository(db)
-	financeRepo := repository.NewFinanceRepository(db)
-	if err := financeRepo.EnsureDefaults(); err != nil {
-		server.Logger.Warn("Failed to initialize default BOS finance data:", err)
-	}
 	inventoryRepo := repository.NewInventoryRepository(db)
 	spmbRepo := repository.NewSPMBRepository(db)
 	studentRepo := repository.NewStudentRepository(db)
@@ -320,12 +434,33 @@ func main() {
 	faqRepo := repository.NewFAQRepository(db)
 	contactRepo := repository.NewContactRepository(db)
 	syncRepo := repository.NewSyncRepository(db)
+	integrationRepo := repository.NewIntegrationRepository(db)
+	documentRepo := repository.NewDocumentRepository(db)
+
+	// Auto sync students on startup to savings and library
+	log.Println("[Startup] Running initial synchronization of active students to savings and library...")
+	if syncCount, err := savingsRepo.SyncFromStudents(); err != nil {
+		log.Printf("[Startup] Warning: Savings initial sync failed: %v", err)
+	} else {
+		log.Printf("[Startup] Savings initial sync completed, %d active students synchronized.", syncCount)
+	}
+	if syncCount, err := libraryRepo.SyncFromStudents(); err != nil {
+		log.Printf("[Startup] Warning: Library initial sync failed: %v", err)
+	} else {
+		log.Printf("[Startup] Library initial sync completed, %d active students synchronized.", syncCount)
+	}
+
+	log.Println("[Startup] Running initial synchronization of active students to Buku Induk...")
+	if syncCount, err := alumniRepo.SyncFromStudents(); err != nil {
+		log.Printf("[Startup] Warning: Buku Induk initial sync failed: %v", err)
+	} else {
+		log.Printf("[Startup] Buku Induk initial sync completed, %d students synchronized.", syncCount)
+	}
 
 	// Handlers
 	syncHandler := handlers.NewSyncHandler(syncRepo)
 	authHandler := handlers.NewAuthHandler(userRepo, auditLogRepo)
 	academicHandler := handlers.NewAcademicHandler(academicRepo)
-	financeHandler := handlers.NewFinanceHandler(financeRepo)
 	inventoryHandler := handlers.NewInventoryHandler(inventoryRepo)
 	spmbHandler := handlers.NewSPMBHandler(spmbRepo)
 	studentHandler := handlers.NewStudentHandler(studentRepo)
@@ -350,6 +485,8 @@ func main() {
 	faqHandler := handlers.NewFAQHandler(faqRepo)
 	contactHandler := handlers.NewContactHandler(contactRepo)
 	uploadHandler := handlers.NewUploadHandler()
+	integrationHandler := handlers.NewIntegrationHandler(integrationRepo)
+	documentHandler := handlers.NewDocumentHandler(documentRepo)
 
 	// ==========================================
 	// Routes
@@ -449,22 +586,6 @@ func main() {
 	auth.POST("/academic/promotion", academicHandler.ProcessPromotion)
 	auth.GET("/classes/stats", academicHandler.GetClassesStats)
 
-	// Finance Admin
-	auth.GET("/finance/stats", financeHandler.GetStats)
-	auth.GET("/finance/dashboard", financeHandler.GetDashboard)
-	auth.GET("/finance/accounts", financeHandler.GetAccounts)
-	auth.POST("/finance/accounts", financeHandler.CreateAccount)
-	auth.PUT("/finance/accounts/:id", financeHandler.UpdateAccount)
-	auth.DELETE("/finance/accounts/:id", financeHandler.DeleteAccount)
-	auth.GET("/finance/categories", financeHandler.GetCategories)
-	auth.POST("/finance/categories", financeHandler.CreateCategory)
-	auth.PUT("/finance/categories/:id", financeHandler.UpdateCategory)
-	auth.DELETE("/finance/categories/:id", financeHandler.DeleteCategory)
-	auth.GET("/finance/transactions", financeHandler.GetTransactions)
-	auth.POST("/finance/transactions", financeHandler.CreateTransaction)
-	auth.PUT("/finance/transactions/:id", financeHandler.UpdateTransaction)
-	auth.DELETE("/finance/transactions/:id", financeHandler.DeleteTransaction)
-
 	// Inventory Admin
 	auth.GET("/inventory/stats", inventoryHandler.GetStats)
 	auth.GET("/inventory/rooms", inventoryHandler.GetRooms)
@@ -511,6 +632,7 @@ func main() {
 	auth.POST("/master/students/print", studentHandler.GetStudentsForPrint)
 	auth.POST("/master/students/bulk", studentHandler.BulkCreateStudents)
 	auth.GET("/master/students/:id", studentHandler.GetStudentByID)
+	auth.GET("/master/students/:id/grades", studentHandler.GetStudentGrades)
 	auth.POST("/master/students", studentHandler.CreateStudent)
 	auth.PUT("/master/students/:id", studentHandler.UpdateStudent)
 	auth.DELETE("/master/students/:id", studentHandler.DeleteStudent)
@@ -550,6 +672,7 @@ func main() {
 	auth.GET("/savings/stats", savingsHandler.GetStats)
 	auth.GET("/savings/students", savingsHandler.GetSiswa)
 	auth.POST("/savings/students", savingsHandler.CreateSiswa)
+	auth.POST("/savings/students/sync", savingsHandler.SyncSavings)
 	auth.GET("/savings/students/:id", savingsHandler.GetDetailSiswa)
 	auth.PUT("/savings/students/:id", savingsHandler.UpdateSiswa)
 	auth.DELETE("/savings/students/:id", savingsHandler.DeleteSiswa)
@@ -569,6 +692,7 @@ func main() {
 	auth.DELETE("/savings/hutang/:id", savingsHandler.CancelHutang)
 	auth.POST("/savings/hutang/:id/pay-cash", savingsHandler.PayHutangCash)
 	auth.POST("/savings/hutang/:id/settle-savings", savingsHandler.SettleHutangFromTabungan)
+	auth.GET("/savings/hutang/:id/payments", savingsHandler.GetHutangPayments)
 	auth.GET("/savings/kelas", savingsHandler.GetClassesWithReps)
 	auth.POST("/savings/kelas", savingsHandler.CreateKelas)
 	auth.PUT("/savings/kelas/:id", savingsHandler.UpdateKelas)
@@ -588,8 +712,10 @@ func main() {
 	tabunganGroup.GET("/data", savingsHandler.GetStats)
 	tabunganGroup.GET("/students", savingsHandler.GetSiswa)
 	tabunganGroup.POST("/students", savingsHandler.CreateSiswa)
+	tabunganGroup.POST("/students/sync", savingsHandler.SyncSavings)
 	tabunganGroup.GET("/siswa", savingsHandler.GetSiswa)
 	tabunganGroup.POST("/siswa", savingsHandler.CreateSiswa)
+	tabunganGroup.POST("/siswa/sync", savingsHandler.SyncSavings)
 	tabunganGroup.GET("/siswa/:id", savingsHandler.GetDetailSiswa)
 	tabunganGroup.PUT("/siswa/:id", savingsHandler.UpdateSiswa)
 	tabunganGroup.DELETE("/siswa/:id", savingsHandler.DeleteSiswa)
@@ -615,6 +741,7 @@ func main() {
 	tabunganGroup.DELETE("/hutang/:id", savingsHandler.CancelHutang)
 	tabunganGroup.POST("/hutang/:id/pay-cash", savingsHandler.PayHutangCash)
 	tabunganGroup.POST("/hutang/:id/settle-savings", savingsHandler.SettleHutangFromTabungan)
+	tabunganGroup.GET("/hutang/:id/payments", savingsHandler.GetHutangPayments)
 	tabunganGroup.GET("/kelas", savingsHandler.GetClassesWithReps)
 	tabunganGroup.POST("/kelas", savingsHandler.CreateKelas)
 	tabunganGroup.PUT("/kelas/:id", savingsHandler.UpdateKelas)
@@ -687,10 +814,14 @@ func main() {
 	// E-Office Admin
 	auth.GET("/eoffice/arsip/stats", eofficeHandler.GetArsipStats)
 	auth.GET("/eoffice/klasifikasi", eofficeHandler.GetKlasifikasi)
+	auth.POST("/eoffice/klasifikasi", eofficeHandler.CreateKlasifikasi)
+	auth.PUT("/eoffice/klasifikasi/:code", eofficeHandler.UpdateKlasifikasi)
+	auth.DELETE("/eoffice/klasifikasi/:code", eofficeHandler.DeleteKlasifikasi)
 	auth.POST("/eoffice/letter-numbering", eofficeHandler.Numbering)
 	auth.POST("/eoffice/letter-increment", eofficeHandler.Increment)
 	auth.GET("/eoffice/surat-masuk", eofficeHandler.GetSuratMasuk)
 	auth.POST("/eoffice/surat-masuk", eofficeHandler.CreateSuratMasuk)
+	auth.POST("/eoffice/surat-masuk/analyze-ai", eofficeHandler.AIAnalyzeSuratMasuk)
 	auth.GET("/eoffice/surat-keluar", eofficeHandler.GetSuratKeluar)
 	auth.POST("/eoffice/surat-keluar", eofficeHandler.CreateSuratKeluar)
 	auth.GET("/eoffice/surat-masuk/detail", eofficeHandler.GetSuratMasukDetail)
@@ -722,6 +853,7 @@ func main() {
 	auth.GET("/arsip/surat-masuk", eofficeHandler.GetSuratMasuk)
 	auth.GET("/arsip/surat-masuk/detail", eofficeHandler.GetSuratMasukDetail)
 	auth.POST("/arsip/surat-masuk", eofficeHandler.CreateSuratMasuk)
+	auth.POST("/arsip/surat-masuk/analyze-ai", eofficeHandler.AIAnalyzeSuratMasuk)
 	auth.GET("/arsip/surat-keluar", eofficeHandler.GetSuratKeluar)
 	auth.GET("/arsip/surat-keluar/detail", eofficeHandler.GetSuratKeluarDetail)
 	auth.POST("/arsip/surat-keluar", eofficeHandler.CreateSuratKeluar)
@@ -730,6 +862,12 @@ func main() {
 	auth.GET("/arsip/klasifikasi", eofficeHandler.GetKlasifikasi)
 	auth.POST("/arsip/surat-keluar/verify", eofficeHandler.VerifySuratKeluar)
 	auth.POST("/arsip/surat-keluar/revision", eofficeHandler.SetSuratKeluarRevision)
+	auth.POST("/arsip/dokumen", documentHandler.Create)
+	auth.GET("/arsip/dokumen", documentHandler.List)
+	auth.GET("/arsip/dokumen/:id", documentHandler.GetByID)
+	auth.PUT("/arsip/dokumen/:id", documentHandler.Update)
+	auth.DELETE("/arsip/dokumen/:id", documentHandler.Delete)
+	auth.GET("/arsip/daftar-1", eofficeHandler.GetDaftar1Stats)
 
 	// Academic Advanced Admin
 	auth.POST("/academic/adv/scan", academicAdvHandler.RecordQRScan)
@@ -758,6 +896,12 @@ func main() {
 	auth.GET("/alumni/stats", alumniHandler.GetAlumniStats)
 	auth.GET("/alumni/document-types", alumniHandler.GetDocumentTypes)
 	auth.POST("/alumni/graduate", alumniHandler.GraduateStudents)
+	auth.POST("/alumni/import-bulk", alumniHandler.ImportBulkAlumni)
+	auth.POST("/alumni/import-grades-bulk", alumniHandler.ImportBulkGrades)
+	auth.GET("/integrations/settings", integrationHandler.GetSettings)
+	auth.POST("/integrations/settings", integrationHandler.UpdateSettings)
+	auth.POST("/integrations/test-connection", integrationHandler.TestConnection)
+	auth.POST("/integrations/sync", integrationHandler.SyncNow)
 	auth.GET("/alumni", alumniHandler.GetAlumni)
 	auth.POST("/alumni", alumniHandler.CreateAlumni)
 	auth.GET("/alumni/documents/:docId/download", alumniHandler.DownloadDocument)
@@ -781,6 +925,24 @@ func main() {
 	auth.POST("/alumni/:id/extracurriculars", alumniHandler.CreateExtracurricular)
 	auth.PUT("/alumni/extracurriculars/:exId", alumniHandler.UpdateExtracurricular)
 	auth.DELETE("/alumni/extracurriculars/:exId", alumniHandler.DeleteExtracurricular)
+
+	// Buku Induk: Transcripts
+	auth.GET("/alumni/:id/transcripts", alumniHandler.GetTranscripts)
+	auth.POST("/alumni/:id/transcripts", alumniHandler.CreateTranscript)
+	auth.PUT("/alumni/transcripts/:transId", alumniHandler.UpdateTranscript)
+	auth.DELETE("/alumni/transcripts/:transId", alumniHandler.DeleteTranscript)
+
+	// Buku Induk: Attendance Summaries
+	auth.GET("/alumni/:id/attendance", alumniHandler.GetAttendanceSummaries)
+	auth.POST("/alumni/:id/attendance", alumniHandler.CreateAttendanceSummary)
+	auth.PUT("/alumni/attendance/:attId", alumniHandler.UpdateAttendanceSummary)
+	auth.DELETE("/alumni/attendance/:attId", alumniHandler.DeleteAttendanceSummary)
+
+	// Buku Induk: Health Records
+	auth.GET("/alumni/:id/health-records", alumniHandler.GetHealthRecords)
+	auth.POST("/alumni/:id/health-records", alumniHandler.CreateHealthRecord)
+	auth.PUT("/alumni/health-records/:hrId", alumniHandler.UpdateHealthRecord)
+	auth.DELETE("/alumni/health-records/:hrId", alumniHandler.DeleteHealthRecord)
 
 	// Mutasi Admin Pages (admin only)
 	adminGroup.GET("/admin/mutasi", mutasiHandler.GetMutasiRequests)
@@ -983,8 +1145,8 @@ func serveEmbeddedFile(c echo.Context, fsys http.FileSystem, name string) error 
 
 func resolvePublicUploadsDir() string {
 	candidates := []string{
-		filepath.Join("..", "public", "uploads"),
 		filepath.Join("public", "uploads"),
+		filepath.Join("..", "public", "uploads"),
 	}
 
 	for _, candidate := range candidates {
@@ -1041,6 +1203,7 @@ func RepairDatabase(db *sql.DB, logger echo.Logger) {
 		{Table: "students", Name: "status", SQLType: "TEXT", Default: "'active'"},
 		{Table: "students", Name: "meta_data", SQLType: "TEXT"},
 		{Table: "students", Name: "is_active", SQLType: "INTEGER", Default: "1"},
+		{Table: "students", Name: "kip", SQLType: "TEXT"},
 
 		// library_loans
 		{Table: "library_loans", Name: "status", SQLType: "TEXT", Default: "'borrowed'"},
@@ -1083,6 +1246,9 @@ func RepairDatabase(db *sql.DB, logger echo.Logger) {
 		{Table: "school_settings", Name: "school_history_achievements", SQLType: "TEXT"},
 		{Table: "school_settings", Name: "school_curriculum", SQLType: "TEXT"},
 		{Table: "school_settings", Name: "school_extracurriculars", SQLType: "TEXT"},
+		{Table: "school_settings", Name: "landing_tagline", SQLType: "TEXT"},
+		{Table: "school_settings", Name: "landing_description", SQLType: "TEXT"},
+		{Table: "school_settings", Name: "landing_texts", SQLType: "TEXT"},
 		{Table: "school_settings", Name: "principal_name", SQLType: "TEXT"},
 		{Table: "school_settings", Name: "principal_nip", SQLType: "TEXT"},
 		{Table: "school_settings", Name: "last_letter_number", SQLType: "INTEGER", Default: "0"},
@@ -1182,6 +1348,7 @@ func RepairDatabase(db *sql.DB, logger echo.Logger) {
 		{Table: "spmb_registrants", Name: "updated_at", SQLType: "INTEGER"},
 
 		// alumni buku induk
+		{Table: "alumni", Name: "status", SQLType: "TEXT", Default: "'graduated'"},
 		{Table: "alumni", Name: "nik", SQLType: "TEXT"},
 		{Table: "alumni", Name: "religion", SQLType: "TEXT"},
 		{Table: "alumni", Name: "address", SQLType: "TEXT"},
@@ -1220,10 +1387,20 @@ func RepairDatabase(db *sql.DB, logger echo.Logger) {
 		{Table: "announcements", Name: "is_featured", SQLType: "INTEGER"},
 		{Table: "announcements", Name: "published_at", SQLType: "INTEGER"},
 		{Table: "announcements", Name: "author_id", SQLType: "TEXT"},
+		{Table: "announcements", Name: "cover_image", SQLType: "TEXT"},
+		{Table: "announcements", Name: "status", SQLType: "TEXT", Default: "'PUBLISHED'"},
 
 		// savings
 		{Table: "tabungan_transaksi", Name: "setoran_id", SQLType: "TEXT"},
 		{Table: "tabungan_brankas", Name: "pic_id", SQLType: "TEXT"},
+
+		// employee_details
+		{Table: "employee_details", Name: "category", SQLType: "TEXT"},
+		{Table: "employee_details", Name: "degree", SQLType: "TEXT"},
+		{Table: "employee_details", Name: "quote", SQLType: "TEXT"},
+		{Table: "employee_details", Name: "photo_url", SQLType: "TEXT"},
+		{Table: "employee_details", Name: "display_order", SQLType: "INTEGER", Default: "0"},
+		{Table: "employee_details", Name: "name_without_degree", SQLType: "TEXT"},
 	}
 
 	for _, col := range fixes {
@@ -1355,4 +1532,59 @@ func SeedDefaultAdmin(db *sql.DB, logger echo.Logger) {
 		return
 	}
 	logger.Info("Default admin user created (admin@sekolah.sch.id / admin123)")
+}
+
+func SeedDefaultKlasifikasi(db *sql.DB, logger echo.Logger) {
+	var count int
+	if err := db.QueryRow("SELECT COUNT(*) FROM klasifikasi_surat").Scan(&count); err != nil || count > 0 {
+		return
+	}
+
+	presets := []struct {
+		Code        string
+		Name        string
+		Description string
+	}{
+		{"400.3.5.01", "Penerimaan Peserta Didik Baru (PPDB)", "Surat dan berkas administrasi penerimaan siswa baru."},
+		{"400.3.5.02", "Kelulusan dan Kenaikan Kelas", "Surat keterangan kelulusan, kenaikan kelas, rapat kelulusan, dsb."},
+		{"400.3.5.03", "Proses Belajar Mengajar & Kurikulum", "Rencana pembelajaran, pembagian tugas mengajar, kalender akademik."},
+		{"400.3.5.04", "Penilaian, Ujian, dan Evaluasi", "Administrasi ujian sekolah, penilaian harian, tengah semester, dsb."},
+		{"400.3.5.05", "Kegiatan Ekstrakurikuler & OSIS", "Surat izin kegiatan kesiswaan di luar jam sekolah, kepramukaan, dsb."},
+		{"400.3.5.06", "Beasiswa & Bantuan Siswa", "Administrasi PIP, KIP, beasiswa berprestasi, dsb."},
+		{"400.3.5.07", "Pelaporan Kemajuan Belajar (Rapor)", "Surat undangan pembagian rapor, laporan berkala, dsb."},
+		{"400.3.5.08", "Pendidik & Tenaga Kependidikan", "Berkas penugasan guru, surat tugas pelatihan, pembinaan PTK."},
+		{"400.3.5.09", "Mutasi dan Pindahan Siswa", "Surat keterangan pindah sekolah (keluar/masuk) beserta kelengkapannya."},
+		{"400.3.5.10", "Ijazah & Sertifikat Kelulusan", "Administrasi penyerahan ijazah, penulisan ijazah, ralat ijazah, dsb."},
+		{"400.3.5.11", "Tata Tertib & Kedisiplinan Siswa", "Surat pemanggilan orang tua, surat peringatan siswa, tata tertib sekolah."},
+		{"400.3.5.12", "Administrasi Personalia & SK", "Surat Keputusan (SK) Kepala Sekolah, SK pembagian tugas, dsb."},
+		{"421", "Umum / Pendidikan", "Klasifikasi umum penyelenggaraan pendidikan dinas sekolah."},
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		logger.Warnf("Failed to start transaction for seeding classifications: %v", err)
+		return
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare("INSERT INTO klasifikasi_surat (code, name, description, is_active) VALUES (?, ?, ?, 1)")
+	if err != nil {
+		logger.Warnf("Failed to prepare statement for seeding classifications: %v", err)
+		return
+	}
+	defer stmt.Close()
+
+	for _, p := range presets {
+		if _, err := stmt.Exec(p.Code, p.Name, p.Description); err != nil {
+			logger.Warnf("Failed to seed classification %s: %v", p.Code, err)
+			return
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		logger.Warnf("Failed to commit transaction for seeding classifications: %v", err)
+		return
+	}
+
+	logger.Info("Default letter classification codes seeded successfully!")
 }

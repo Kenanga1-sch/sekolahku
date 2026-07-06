@@ -47,12 +47,17 @@ func (h *SyncHandler) SyncDapodikStudents(c echo.Context) error {
 		}
 
 		if student.ClassName != nil && *student.ClassName != "" {
-			h.Repo.EnsureClass(*student.ClassName)
+			if err := h.Repo.EnsureClass(*student.ClassName); err != nil {
+				// Log the error but don't fail the whole sync
+				println("Sync warning - failed to ensure class:", err.Error())
+			}
 		}
 
 		err := h.Repo.UpsertStudent(student)
 		if err == nil {
 			successCount++
+		} else {
+			println("Sync error - failed to upsert student:", err.Error())
 		}
 	}
 

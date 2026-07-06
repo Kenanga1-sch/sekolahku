@@ -143,6 +143,9 @@ func (r *DashboardRepository) GetSystemHealth() (*models.SystemHealth, error) {
 	health.Database.Status = "Online"
 
 	dbFile := "data/sekolahku.db"
+	if _, err := os.Stat("go-backend"); err == nil {
+		dbFile = "go-backend/data/sekolahku.db"
+	}
 	fileInfo, err := os.Stat(dbFile)
 	if err == nil {
 		sizeMB := float64(fileInfo.Size()) / (1024 * 1024)

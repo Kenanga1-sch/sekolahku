@@ -256,6 +256,16 @@ func (r *MutasiRepository) UpdateMutasiOutStatus(id string, status string) error
 		if err := tx.QueryRow("SELECT student_id FROM mutasi_out_requests WHERE id = ?", id).Scan(&studentID); err != nil {
 			return err
 		}
+
+		// Enforce student obligations clearance before transfer
+		clear, reason, err := CheckStudentClearance(tx, studentID)
+		if err != nil {
+			return err
+		}
+		if !clear {
+			return fmt.Errorf("siswa masih memiliki sangkutan yang belum diselesaikan: %s", reason)
+		}
+
 		_, err = tx.Exec(`
 			UPDATE students
 			SET status = 'transferred', is_active = 0, class_id = NULL, class_name = NULL, updated_at = ?

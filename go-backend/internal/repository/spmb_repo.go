@@ -597,10 +597,16 @@ func (r *SPMBRepository) GetRegistrantByNumber(number string) (*models.SPMBRegis
 	return &reg, nil
 }
 
-func (r *SPMBRepository) GetRegistrantsAdmin(page, perPage int, status, search string) ([]models.SPMBRegistrant, int, error) {
+func (r *SPMBRepository) GetRegistrantsAdmin(page, perPage int, status, search, periodID string) ([]models.SPMBRegistrant, int, error) {
 	offset := (page - 1) * perPage
 	whereClause := "1=1"
 	var args []interface{}
+
+	periodID = strings.TrimSpace(periodID)
+	if periodID != "" && periodID != "all" {
+		whereClause += " AND period_id = ?"
+		args = append(args, periodID)
+	}
 
 	status = strings.ToLower(strings.TrimSpace(status))
 	if status != "" && status != "all" {
@@ -735,13 +741,35 @@ func (r *SPMBRepository) DeleteRegistrant(id string) error {
 	return err
 }
 
-func (r *SPMBRepository) GetSPMBStats() (models.SPMBStats, error) {
+func (r *SPMBRepository) GetSPMBStats(periodID string) (models.SPMBStats, error) {
 	var stats models.SPMBStats
-	_ = r.DB.QueryRow(`SELECT count(*) FROM spmb_registrants`).Scan(&stats.TotalRegistrants)
-	_ = r.DB.QueryRow(`SELECT count(*) FROM spmb_registrants WHERE status = 'verified'`).Scan(&stats.VerifiedRegistrants)
-	_ = r.DB.QueryRow(`SELECT count(*) FROM spmb_registrants WHERE status = 'pending'`).Scan(&stats.PendingRegistrants)
-	_ = r.DB.QueryRow(`SELECT count(*) FROM spmb_registrants WHERE status IN ('accepted', 'promoted')`).Scan(&stats.AcceptedRegistrants)
-	_ = r.DB.QueryRow(`SELECT count(*) FROM spmb_registrants WHERE status = 'rejected'`).Scan(&stats.RejectedRegistrants)
+	whereClause := ""
+	var args []interface{}
+	periodID = strings.TrimSpace(periodID)
+	if periodID != "" && periodID != "all" {
+		whereClause = " WHERE period_id = ?"
+		args = append(args, periodID)
+	}
+
+	runQuery := func(queryBase string, extraWhere string, dest interface{}) {
+		query := queryBase
+		qArgs := args
+		if whereClause != "" {
+			query += whereClause
+			if extraWhere != "" {
+				query += " AND " + extraWhere
+			}
+		} else if extraWhere != "" {
+			query += " WHERE " + extraWhere
+		}
+		_ = r.DB.QueryRow(query, qArgs...).Scan(dest)
+	}
+
+	runQuery("SELECT count(*) FROM spmb_registrants", "", &stats.TotalRegistrants)
+	runQuery("SELECT count(*) FROM spmb_registrants", "status = 'verified'", &stats.VerifiedRegistrants)
+	runQuery("SELECT count(*) FROM spmb_registrants", "status = 'pending'", &stats.PendingRegistrants)
+	runQuery("SELECT count(*) FROM spmb_registrants", "status IN ('accepted', 'promoted')", &stats.AcceptedRegistrants)
+	runQuery("SELECT count(*) FROM spmb_registrants", "status = 'rejected'", &stats.RejectedRegistrants)
 	return stats, nil
 }
 

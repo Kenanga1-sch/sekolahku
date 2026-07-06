@@ -113,3 +113,19 @@ export async function compressImage(file: File, maxWidth = 1024, quality = 0.85)
     reader.onerror = () => resolve(file);
   });
 }
+
+export function normalizePublicPath(path: string | null | undefined): string {
+  if (!path) return "";
+  let normalized = path.replace(/\\/g, "/");
+  if (!normalized.startsWith("/") && !normalized.startsWith("http://") && !normalized.startsWith("https://") && !normalized.startsWith("blob:")) {
+    normalized = "/" + normalized;
+  }
+  return normalized;
+}
+
+export function extractFilename(path: string | null | undefined): string {
+  if (!path) return "";
+  const normalized = path.replace(/\\/g, "/");
+  return normalized.split("/").pop() || "";
+}
+

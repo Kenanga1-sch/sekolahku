@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Printer } from "lucide-react";
+import { Printer, ArrowLeft } from "lucide-react";
+import Link from "next/link";
 
 export default function LaporanPage() {
     const [month, setMonth] = useState<string>(new Date().getMonth().toString());
@@ -16,12 +17,23 @@ export default function LaporanPage() {
         const url = `/arsip/laporan/print?type=${type}&month=${month}&year=${year}`;
         window.open(url, "_blank");
     };
-
     return (
         <div className="max-w-xl mx-auto space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold">Laporan & Buku Agenda</h1>
-                <p className="text-muted-foreground text-sm">Cetak buku agenda surat masuk dan keluar per bulan</p>
+            <div className="space-y-2">
+                <Link href="/arsip">
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="p-0 h-auto text-muted-foreground hover:text-slate-900 dark:hover:text-white hover:bg-transparent -ml-1 flex items-center gap-1.5 transition-colors"
+                    >
+                        <ArrowLeft className="h-4 w-4" />
+                        Kembali ke E-Arsip
+                    </Button>
+                </Link>
+                <div>
+                    <h1 className="text-2xl font-bold">Laporan & Buku Agenda</h1>
+                    <p className="text-muted-foreground text-sm">Cetak buku agenda surat masuk dan keluar per bulan</p>
+                </div>
             </div>
 
             <Card>
