@@ -165,7 +165,7 @@ const defaultAchievements = [
   { value: "12", label: "Ekstrakurikuler", icon: Trophy },
 ];
 
-function getCategoryColor(category: string) {
+function getCategoryColor(category?: string) {
   return "bg-zinc-900/80 text-zinc-300 border border-zinc-800/80";
 }
 
