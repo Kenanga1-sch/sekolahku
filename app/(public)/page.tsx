@@ -926,7 +926,7 @@ export default function HomePage() {
                         </Badge>
                         <span className="text-zinc-500 flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
-                          {new Date(item.published_at).toLocaleDateString("id-ID")}
+                          {new Date(item.published_at || 0).toLocaleDateString("id-ID")}
                         </span>
                       </div>
                       <h4 className="font-bold text-sm text-zinc-100 line-clamp-2 leading-snug group-hover:text-blue-400 transition-colors">
@@ -1368,7 +1368,7 @@ export default function HomePage() {
                   </Badge>
                   <span className="text-zinc-500 flex items-center gap-1.5">
                     <Calendar className="h-3.5 w-3.5" />
-                    {new Date(selectedNews.published_at).toLocaleDateString("id-ID", {
+                    {new Date(selectedNews.published_at || 0).toLocaleDateString("id-ID", {
                       day: "numeric",
                       month: "long",
                       year: "numeric"
@@ -1393,7 +1393,7 @@ export default function HomePage() {
                 )}
                 <div 
                   className="text-xs sm:text-sm text-zinc-300 leading-relaxed space-y-4 font-normal"
-                  dangerouslySetInnerHTML={{ __html: selectedNews.content }}
+                  dangerouslySetInnerHTML={{ __html: selectedNews.content || "" }}
                 />
               </div>
             </>
@@ -1457,7 +1457,7 @@ export default function HomePage() {
                       {item.category}
                     </Badge>
                     <span className="text-zinc-500">
-                      {new Date(item.published_at).toLocaleDateString("id-ID")}
+                      {new Date(item.published_at || 0).toLocaleDateString("id-ID")}
                     </span>
                   </div>
                   <h4 className="font-bold text-xs text-zinc-100 line-clamp-1">{item.title}</h4>
