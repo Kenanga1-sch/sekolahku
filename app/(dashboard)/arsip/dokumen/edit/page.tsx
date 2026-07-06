@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
     ArrowLeft,
     Loader2,
@@ -38,8 +38,8 @@ interface SchoolDocument {
 
 export default function EditDocumentPage() {
     const router = useRouter();
-    const params = useParams();
-    const docId = params.id as string;
+    const searchParams = useSearchParams();
+    const docId = searchParams.get("id") as string;
 
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);

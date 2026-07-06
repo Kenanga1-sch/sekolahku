@@ -334,7 +334,7 @@ export default function SchoolDocumentsPage() {
                                                         <Download className="h-4 w-4 mr-2" /> Download Berkas
                                                     </DropdownMenuItem>
                                                     <DropdownMenuSeparator />
-                                                    <DropdownMenuItem onClick={() => router.push(`/arsip/dokumen/edit/${item.id}`)}>
+                                                    <DropdownMenuItem onClick={() => router.push(`/arsip/dokumen/edit?id=${item.id}`)}>
                                                         <Pencil className="h-4 w-4 mr-2" /> Edit Metadata
                                                     </DropdownMenuItem>
                                                     <DropdownMenuSeparator />
