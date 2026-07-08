@@ -35,12 +35,6 @@ export const metadata: Metadata = {
   authors: [{ name: "UPTD SDN 1 Kenanga" }],
   creator: "Website Sekolah Terpadu",
   manifest: "/manifest.json",
-  icons: {
-    icon: [
-      { url: "/logo.png?v=2", sizes: "any" },
-    ],
-    apple: "/logo.png?v=2",
-  },
   openGraph: {
     type: "website",
     locale: "id_ID",

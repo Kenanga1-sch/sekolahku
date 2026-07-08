@@ -48,7 +48,8 @@ import {
   School,
   Download,
   FileText,
-  Building
+  Building,
+  Star
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -279,6 +280,15 @@ export default function HomePage() {
       return { ...defaults, ...parsed };
     } catch (e) {
       return defaults;
+    }
+  }, [settings]);
+
+  const landingSections = React.useMemo(() => {
+    if (!settings?.landing_sections) return {};
+    try {
+      return JSON.parse(settings.landing_sections);
+    } catch (e) {
+      return {};
     }
   }, [settings]);
 
@@ -1022,40 +1032,67 @@ export default function HomePage() {
             className="space-y-8 max-w-xl bg-zinc-950/70 sm:bg-zinc-950/85 backdrop-blur-2xl border border-zinc-800/60 p-5 sm:p-10 rounded-3xl shadow-2xl relative z-30 ml-0 sm:ml-6"
           >
             <motion.div variants={itemVariants} className="space-y-4">
-              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Fasilitas & Ekosistem Unggulan</h2>
+              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+                {landingSections.fasilitas?.heading || "Fasilitas & Ekosistem Unggulan"}
+              </h2>
               <p className="text-zinc-400 leading-relaxed text-sm">
-                {landingTexts.excellence_desc}
+                {landingSections.fasilitas?.subheading || landingTexts.excellence_desc}
               </p>
             </motion.div>
 
             <motion.div variants={itemVariants} className="space-y-4">
-              <div className="group relative rounded-2xl overflow-hidden border border-zinc-800/60 bg-zinc-900/40 shadow-lg backdrop-blur-md">
-                <div className="h-36 w-full relative overflow-hidden">
-                  <img src="/images/kurikulum_merdeka.png" alt="Kurikulum" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-102" />
-                </div>
-                <div className="p-5">
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <BookOpen className="h-4 w-4 text-blue-400" /> Kurikulum Merdeka Terpadu
-                  </h3>
-                  <p className="text-zinc-400 text-xs mt-1.5 leading-relaxed">
-                    Pembelajaran yang berpusat pada murid, mendorong pemikiran kritis dan kreatif dengan bimbingan penuh kasih dari para guru.
-                  </p>
-                </div>
-              </div>
+              {landingSections.fasilitas?.items?.length > 0 ? (
+                landingSections.fasilitas.items.map((item: any, idx: number) => {
+                  const Icon = item.icon === "Sparkles" ? Sparkles : item.icon === "BookOpen" ? BookOpen : Star;
+                  return (
+                    <div key={idx} className="group relative rounded-2xl overflow-hidden border border-zinc-800/60 bg-zinc-900/40 shadow-lg backdrop-blur-md">
+                      {item.image && (
+                        <div className="h-36 w-full relative overflow-hidden">
+                          <img src={item.image} alt={item.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-102" />
+                        </div>
+                      )}
+                      <div className="p-5">
+                        <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                          <Icon className="h-4 w-4 text-amber-400" /> {item.title}
+                        </h3>
+                        <p className="text-zinc-400 text-xs mt-1.5 leading-relaxed">
+                          {item.desc}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <>
+                  <div className="group relative rounded-2xl overflow-hidden border border-zinc-800/60 bg-zinc-900/40 shadow-lg backdrop-blur-md">
+                    <div className="h-36 w-full relative overflow-hidden">
+                      <img src="/images/kurikulum_merdeka.png" alt="Kurikulum" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-102" />
+                    </div>
+                    <div className="p-5">
+                      <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                        <BookOpen className="h-4 w-4 text-blue-400" /> Kurikulum Merdeka Terpadu
+                      </h3>
+                      <p className="text-zinc-400 text-xs mt-1.5 leading-relaxed">
+                        Pembelajaran yang berpusat pada murid, mendorong pemikiran kritis dan kreatif dengan bimbingan penuh kasih dari para guru.
+                      </p>
+                    </div>
+                  </div>
 
-              <div className="group relative rounded-2xl overflow-hidden border border-zinc-800/60 bg-zinc-900/40 shadow-lg backdrop-blur-md">
-                <div className="h-36 w-full relative overflow-hidden">
-                  <img src="/images/fasilitas_modern.png" alt="Fasilitas" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-102" />
-                </div>
-                <div className="p-5">
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-amber-400" /> Fasilitas & Laboratorium Modern
-                  </h3>
-                  <p className="text-zinc-400 text-xs mt-1.5 leading-relaxed">
-                    Akses ke koleksi buku lengkap, ruang komputer modern, serta program sains dasar ramah anak untuk memuaskan rasa ingin tahu mereka.
-                  </p>
-                </div>
-              </div>
+                  <div className="group relative rounded-2xl overflow-hidden border border-zinc-800/60 bg-zinc-900/40 shadow-lg backdrop-blur-md">
+                    <div className="h-36 w-full relative overflow-hidden">
+                      <img src="/images/fasilitas_modern.png" alt="Fasilitas" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-102" />
+                    </div>
+                    <div className="p-5">
+                      <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-amber-400" /> Fasilitas & Laboratorium Modern
+                      </h3>
+                      <p className="text-zinc-400 text-xs mt-1.5 leading-relaxed">
+                        Akses ke koleksi buku lengkap, ruang komputer modern, serta program sains dasar ramah anak untuk memuaskan rasa ingin tahu mereka.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
             </motion.div>
           </motion.div>
         </section>
@@ -1070,9 +1107,11 @@ export default function HomePage() {
             className="space-y-8 max-w-xl bg-zinc-950/70 sm:bg-zinc-950/85 backdrop-blur-2xl border border-zinc-800/60 p-5 sm:p-10 rounded-3xl shadow-2xl relative z-30 ml-0 sm:ml-6"
           >
             <motion.div variants={itemVariants} className="space-y-4">
-              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Layanan Administratif</h2>
+              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+                {landingSections.layanan?.heading || "Layanan Administratif"}
+              </h2>
               <p className="text-zinc-400 leading-relaxed text-sm">
-                {landingTexts.services_desc}
+                {landingSections.layanan?.subheading || landingTexts.services_desc}
               </p>
             </motion.div>
 
@@ -1136,18 +1175,20 @@ export default function HomePage() {
             <motion.div variants={itemVariants} className="space-y-4">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-950/30 border border-blue-900/30 text-xs font-semibold text-blue-400">
                 <Users className="h-3.5 w-3.5" />
-                Penerimaan Siswa Baru
+                {landingSections.spmb?.heading || "Penerimaan Siswa Baru"}
               </div>
-              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">Penerimaan Siswa Baru (SPMB)</h2>
+              <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+                {landingSections.spmb?.heading || "Penerimaan Siswa Baru (SPMB)"}
+              </h2>
               <p className="text-zinc-400 leading-relaxed text-sm">
-                {landingTexts.spmb_desc}
+                {landingSections.spmb?.subheading || landingTexts.spmb_desc}
               </p>
             </motion.div>
 
             <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4">
-              <Link href="/spmb/daftar" className="flex-1">
+              <Link href={landingSections.spmb?.button?.url || "/spmb/daftar"} className="flex-1">
                 <Button size="lg" className="w-full h-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all shadow-xl shadow-blue-500/20 active:scale-[0.98] active:translate-y-[1px]">
-                  Pendaftaran Online
+                  {landingSections.spmb?.button?.label || "Pendaftaran Online"}
                 </Button>
               </Link>
               <button 

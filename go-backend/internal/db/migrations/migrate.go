@@ -68,6 +68,10 @@ func RunMigrations(db *sql.DB) error {
 			}
 			_, err = db.Exec(stmt)
 			if err != nil {
+				if strings.Contains(err.Error(), "duplicate column name") {
+					log.Printf("Ignoring duplicate column error in %s: %v", fName, err)
+					continue
+				}
 				return fmt.Errorf("failed migration %s: %w", fName, err)
 			}
 		}

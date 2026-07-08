@@ -255,3 +255,68 @@ func (h *MutasiHandler) CreatePublicMutasiOutRequest(c echo.Context) error {
 		"success": true,
 	})
 }
+
+func (h *MutasiHandler) GetMutasiLogs(c echo.Context) error {
+	page, _ := strconv.Atoi(c.QueryParam("page"))
+	perPage, _ := strconv.Atoi(c.QueryParam("perPage"))
+
+	list, total, err := h.Repo.GetMutasiLogs(page, perPage)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data":    list,
+		"total":   total,
+	})
+}
+
+func (h *MutasiHandler) DirectMutasiMasuk(c echo.Context) error {
+	var payload struct {
+		Student models.Student `json:"student"`
+		Reason  string         `json:"reason"`
+	}
+	if err := c.Bind(&payload); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
+	}
+
+	if payload.Student.FullName == "" || payload.Student.NISN == nil || *payload.Student.NISN == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Nama dan NISN wajib diisi"})
+	}
+
+	err := h.Repo.DirectMutasiMasuk(payload.Student, payload.Reason)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Mutasi masuk berhasil diproses",
+	})
+}
+
+func (h *MutasiHandler) DirectMutasiKeluar(c echo.Context) error {
+	var payload struct {
+		StudentID         string `json:"studentId"`
+		DestinationSchool string `json:"destinationSchool"`
+		Reason            string `json:"reason"`
+	}
+	if err := c.Bind(&payload); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
+	}
+
+	if payload.StudentID == "" || payload.DestinationSchool == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ID Siswa dan Sekolah Tujuan wajib diisi"})
+	}
+
+	err := h.Repo.DirectMutasiKeluar(payload.StudentID, payload.DestinationSchool, payload.Reason)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Mutasi keluar berhasil diproses",
+	})
+}

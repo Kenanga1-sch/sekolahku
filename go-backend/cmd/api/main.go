@@ -950,6 +950,9 @@ func main() {
 	adminGroup.GET("/admin/mutasi-keluar", mutasiHandler.GetMutasiOutRequests)
 	adminGroup.GET("/admin/mutasi-keluar/:id/check", mutasiHandler.CheckStudentLiability)
 	adminGroup.PATCH("/admin/mutasi-keluar/:id", mutasiHandler.UpdateMutasiOutStatus)
+	adminGroup.POST("/admin/mutasi/masuk/langsung", mutasiHandler.DirectMutasiMasuk)
+	adminGroup.POST("/admin/mutasi-keluar/langsung", mutasiHandler.DirectMutasiKeluar)
+	adminGroup.GET("/admin/mutasi/logs", mutasiHandler.GetMutasiLogs)
 
 	// Notifications (Protected)
 	notifs := server.Group("/api/notifications")

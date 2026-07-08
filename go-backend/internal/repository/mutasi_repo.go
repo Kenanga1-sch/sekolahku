@@ -387,3 +387,163 @@ func (r *MutasiRepository) GetSchoolName() string {
 	}
 	return name
 }
+
+func (r *MutasiRepository) DirectMutasiMasuk(s models.Student, reason string) error {
+	now := time.Now().UnixMilli()
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if s.ID == "" {
+		s.ID = cuid2.Generate()
+	}
+	if s.QRCode == "" {
+		s.QRCode = s.ID
+	}
+	s.Status = "active"
+	s.IsActive = true
+    
+	if s.ClassID != nil && *s.ClassID != "" {
+		var className string
+		if err := tx.QueryRow("SELECT name FROM student_classes WHERE id = ?", *s.ClassID).Scan(&className); err == nil {
+			s.ClassName = &className
+		}
+	}
+
+	_, err = tx.Exec(`
+		INSERT INTO students (
+			id, nisn, full_name, gender, class_name, class_id,
+			status, qr_code, is_active, created_at, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, s.ID, s.NISN, s.FullName, s.Gender, s.ClassName, s.ClassID,
+		s.Status, s.QRCode, s.IsActive, now, now)
+	if err != nil {
+		return err
+	}
+
+	var meta string
+	if s.MetaData != nil {
+		meta = *s.MetaData
+	}
+
+	logID := cuid2.Generate()
+	_, err = tx.Exec(`
+		INSERT INTO mutasi_logs (
+			id, mutasi_type, student_id, student_name, nisn, gender,
+			origin_or_destination, mutation_date, reason, created_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, logID, "masuk", s.ID, s.FullName, s.NISN, s.Gender,
+		meta, now, reason, now) // meta_data can store origin school
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (r *MutasiRepository) DirectMutasiKeluar(studentID string, destinationSchool, reason string) error {
+	now := time.Now().UnixMilli()
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	clear, clearanceReason, err := CheckStudentClearance(tx, studentID)
+	if err != nil {
+		return err
+	}
+	if !clear {
+		return fmt.Errorf("siswa masih memiliki sangkutan yang belum diselesaikan: %s", clearanceReason)
+	}
+
+	var studentName, nisn, gender sql.NullString
+	if err := tx.QueryRow("SELECT full_name, nisn, gender FROM students WHERE id = ?", studentID).Scan(&studentName, &nisn, &gender); err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(`
+		UPDATE students
+		SET status = 'transferred', is_active = 0, class_id = NULL, class_name = NULL, updated_at = ?
+		WHERE id = ?
+	`, now, studentID)
+	if err != nil {
+		return err
+	}
+
+	logID := cuid2.Generate()
+	_, err = tx.Exec(`
+		INSERT INTO mutasi_logs (
+			id, mutasi_type, student_id, student_name, nisn, gender,
+			origin_or_destination, mutation_date, reason, created_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, logID, "keluar", studentID, studentName.String, nisn.String, gender.String,
+		destinationSchool, now, reason, now)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (r *MutasiRepository) GetMutasiLogs(page, perPage int) ([]models.MutasiLog, int, error) {
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 || perPage > 100 {
+		perPage = 20
+	}
+	offset := (page - 1) * perPage
+
+	var total int
+	r.DB.QueryRow("SELECT COUNT(*) FROM mutasi_logs").Scan(&total)
+
+	query := `
+		SELECT id, mutasi_type, student_id, student_name, nisn, gender,
+		       origin_or_destination, mutation_date, reason, created_at
+		FROM mutasi_logs
+		ORDER BY created_at DESC
+		LIMIT ? OFFSET ?
+	`
+	rows, err := r.DB.Query(query, perPage, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var results []models.MutasiLog
+	for rows.Next() {
+		var m models.MutasiLog
+		var sid, gender, reason sql.NullString
+		var mutDate, crAt sql.NullInt64
+
+		err := rows.Scan(
+			&m.ID, &m.MutasiType, &sid, &m.StudentName, &m.NISN, &gender,
+			&m.OriginOrDestination, &mutDate, &reason, &crAt,
+		)
+		if err != nil {
+			return nil, 0, err
+		}
+
+		if sid.Valid {
+			m.StudentID = &sid.String
+		}
+		if gender.Valid {
+			m.Gender = &gender.String
+		}
+		if reason.Valid {
+			m.Reason = &reason.String
+		}
+
+		m.MutationDate = SafeTime(mutDate)
+		m.CreatedAt = SafeTime(crAt)
+
+		results = append(results, m)
+	}
+	if results == nil {
+		results = []models.MutasiLog{}
+	}
+	return results, total, nil
+}

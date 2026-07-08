@@ -35,7 +35,7 @@ func (r *SettingRepository) GetSettings() (*models.SchoolSettings, error) {
 		       school_vision, school_mission, school_indicators,
 		       school_history_timeline, school_history_achievements,
 		       school_curriculum, school_extracurriculars,
-		       landing_tagline, landing_description, landing_texts,
+		       landing_tagline, landing_description, landing_texts, landing_sections,
 		       created_at, updated_at
 		FROM school_settings 
 		ORDER BY CASE WHEN id = 'default' THEN 0 ELSE 1 END LIMIT 1
@@ -45,7 +45,7 @@ func (r *SettingRepository) GetSettings() (*models.SchoolSettings, error) {
 	var vision, mission, indicators sql.NullString
 	var historyTimeline, historyAchievements sql.NullString
 	var curriculum, extras sql.NullString
-	var landingTagline, landingDesc, landingTexts sql.NullString
+	var landingTagline, landingDesc, landingTexts, landingSections sql.NullString
 	var lat, lng, dist sql.NullFloat64
 	var crAt, upAt sql.NullInt64
 
@@ -56,7 +56,7 @@ func (r *SettingRepository) GetSettings() (*models.SchoolSettings, error) {
 		&s.IsMaintenance, &s.LastLetterNumber, &s.LetterNumberFormat, &treasurerId,
 		&vision, &mission, &indicators, &historyTimeline, &historyAchievements,
 		&curriculum, &extras,
-		&landingTagline, &landingDesc, &landingTexts,
+		&landingTagline, &landingDesc, &landingTexts, &landingSections,
 		&crAt, &upAt,
 	)
 
@@ -138,6 +138,9 @@ func (r *SettingRepository) GetSettings() (*models.SchoolSettings, error) {
 	}
 	if landingTexts.Valid {
 		s.LandingTexts = &landingTexts.String
+	}
+	if landingSections.Valid {
+		s.LandingSections = &landingSections.String
 	}
 
 	cTime := ToTime(crAt)
@@ -232,6 +235,9 @@ func mergeSchoolSettingsPatch(next *models.SchoolSettings, existing *models.Scho
 	if next.LandingTexts == nil {
 		next.LandingTexts = existing.LandingTexts
 	}
+	if next.LandingSections == nil {
+		next.LandingSections = existing.LandingSections
+	}
 }
 
 func (r *SettingRepository) UpdateSettings(s models.SchoolSettings) (*models.SchoolSettings, error) {
@@ -258,9 +264,9 @@ func (r *SettingRepository) UpdateSettings(s models.SchoolSettings) (*models.Sch
 				school_vision, school_mission, school_indicators,
 				school_history_timeline, school_history_achievements,
 				school_curriculum, school_extracurriculars,
-				landing_tagline, landing_description, landing_texts,
+				landing_tagline, landing_description, landing_texts, landing_sections,
 				created_at, updated_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`, s.ID, s.SchoolName, s.SchoolNPSN, s.SchoolAddress, s.SchoolPhone, s.SchoolEmail,
 			s.SchoolWebsite, s.SchoolLogo, s.SchoolLat, s.SchoolLng, s.MaxDistanceKM,
 			s.SPMBIsOpen, s.CurrentAcademicYear, s.PrincipalName, s.PrincipalNIP,
@@ -268,7 +274,7 @@ func (r *SettingRepository) UpdateSettings(s models.SchoolSettings) (*models.Sch
 			s.SchoolVision, s.SchoolMission, s.SchoolIndicators,
 			s.SchoolHistoryTimeline, s.SchoolHistoryAchievements,
 			s.SchoolCurriculum, s.SchoolExtracurriculars,
-			s.LandingTagline, s.LandingDescription, s.LandingTexts,
+			s.LandingTagline, s.LandingDescription, s.LandingTexts, s.LandingSections,
 			now, now)
 	} else {
 		existing, getErr := r.GetSettings()
@@ -293,7 +299,7 @@ func (r *SettingRepository) UpdateSettings(s models.SchoolSettings) (*models.Sch
 				school_vision=?, school_mission=?, school_indicators=?,
 				school_history_timeline=?, school_history_achievements=?,
 				school_curriculum=?, school_extracurriculars=?,
-				landing_tagline=?, landing_description=?, landing_texts=?,
+				landing_tagline=?, landing_description=?, landing_texts=?, landing_sections=?,
 				updated_at=?
 			WHERE id=?
 		`, s.SchoolName, s.SchoolNPSN, s.SchoolAddress, s.SchoolPhone, s.SchoolEmail,
@@ -303,7 +309,7 @@ func (r *SettingRepository) UpdateSettings(s models.SchoolSettings) (*models.Sch
 			s.SchoolVision, s.SchoolMission, s.SchoolIndicators,
 			s.SchoolHistoryTimeline, s.SchoolHistoryAchievements,
 			s.SchoolCurriculum, s.SchoolExtracurriculars,
-			s.LandingTagline, s.LandingDescription, s.LandingTexts,
+			s.LandingTagline, s.LandingDescription, s.LandingTexts, s.LandingSections,
 			now, existingID)
 	}
 

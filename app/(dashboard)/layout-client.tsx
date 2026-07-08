@@ -126,7 +126,12 @@ const navGroups: NavGroup[] = [
       { href: "/admin/konten-informasi", label: "Pusat Informasi", icon: Megaphone, roles: ADMIN_ROLES },
     ],
   },
-
+  {
+    label: "Pengaturan Website",
+    items: [
+      { href: "/admin/halaman-depan", label: "Halaman Depan", icon: LayoutDashboard, roles: ADMIN_ROLES },
+    ],
+  },
 ];
 
 function filterNavByRole(groups: NavGroup[], userRole?: UserRole): NavGroup[] {

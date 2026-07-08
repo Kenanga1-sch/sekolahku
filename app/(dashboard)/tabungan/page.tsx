@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -60,7 +60,7 @@ export default function TabunganDashboardPage() {
     const [isCheckingRights, setIsCheckingRights] = useState(true);
     const [activeTab, setActiveTab] = useState<"dashboard" | "bendahara">("dashboard");
 
-    async function fetchStats() {
+    const fetchStats = useCallback(async () => {
         try {
             const data: any = await goGet("/api/tabungan/data");
             setStats(data.data ?? data);
@@ -70,9 +70,9 @@ export default function TabunganDashboardPage() {
             setIsLoading(false);
             setRefreshing(false);
         }
-    }
+    }, []);
 
-    async function checkRights() {
+    const checkRights = useCallback(async () => {
         try {
             const res = await getSavingsTreasurer();
             const data = res?.data ?? res;
@@ -82,7 +82,7 @@ export default function TabunganDashboardPage() {
         } finally {
             setIsCheckingRights(false);
         }
-    }
+    }, []);
 
     useEffect(() => {
         fetchStats();

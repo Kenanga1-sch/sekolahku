@@ -14,7 +14,9 @@ import {
   Download,
   Building,
   CheckCircle,
-  ArrowRightLeft
+  ArrowRightLeft,
+  PlusCircle,
+  ArrowRightCircle
 } from "lucide-react";
 
 import {
@@ -44,13 +46,14 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { goGet, goPatch } from "@/lib/api-client";
+import { Input } from "@/components/ui/input";
+import { goGet, goPatch, goPost } from "@/lib/api-client";
 
 const fetcher = (url: string) => goGet(url);
 
 export default function TabMutasi() {
-  // Tab State: "masuk" (Incoming) or "keluar" (Outgoing)
-  const [activeTab, setActiveTab] = useState<"masuk" | "keluar">("masuk");
+  // Tab State: "masuk" (Incoming), "keluar" (Outgoing), or "buku" (Buku Mutasi)
+  const [activeTab, setActiveTab] = useState<"masuk" | "keluar" | "buku">("masuk");
 
   // --- MUTASI MASUK (INCOMING) STATE & HOOKS ---
   const { data: dataRequestsIn, error: errorRequestsIn, isLoading: loadingRequestsIn } = useSWR(
@@ -138,6 +141,16 @@ export default function TabMutasi() {
     "/api/admin/mutasi-keluar",
     fetcher
   );
+  // Fetch active students for Mutasi Keluar Langsung dropdown
+  const { data: dataStudents } = useSWR("/api/students?limit=500&status=active", fetcher);
+  const activeStudents = dataStudents?.data || [];
+
+  // --- BUKU MUTASI (LOGS) STATE & HOOKS ---
+  const { data: dataLogs, error: errorLogs, isLoading: loadingLogs } = useSWR(
+    "/api/admin/mutasi/logs",
+    fetcher
+  );
+  const mutasiLogs = dataLogs?.data || [];
 
   const requestsOut = dataRequestsOut?.data || [];
 
@@ -226,11 +239,24 @@ export default function TabMutasi() {
         >
           Mutasi Keluar
         </button>
+        <button
+          onClick={() => setActiveTab("buku")}
+          className={`pb-3 px-4 text-sm font-medium border-b-2 transition-colors -mb-[2px] ${
+            activeTab === "buku"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Buku Mutasi
+        </button>
       </div>
 
       {/* Tab Contents */}
       {activeTab === "masuk" ? (
         <Card>
+          <div className="p-4 flex justify-end border-b">
+             <DialogMutasiMasukLangsung classStats={classStats} />
+          </div>
           <Table>
             <TableHeader>
               <TableRow>
@@ -430,8 +456,11 @@ export default function TabMutasi() {
             </TableBody>
           </Table>
         </Card>
-      ) : (
+      ) : activeTab === "keluar" ? (
         <Card>
+          <div className="p-4 flex justify-end border-b">
+             <DialogMutasiKeluarLangsung students={activeStudents} />
+          </div>
           <Table>
             <TableHeader>
               <TableRow>
@@ -609,7 +638,296 @@ export default function TabMutasi() {
             </TableBody>
           </Table>
         </Card>
-      )}
+      ) : activeTab === "buku" ? (
+        <Card>
+          <div className="p-4 flex justify-between items-center border-b">
+            <h3 className="font-semibold">Buku Mutasi Bulanan</h3>
+            <Button size="sm" onClick={() => window.print()}>
+              <Download className="mr-2 h-4 w-4" /> Cetak Buku Mutasi
+            </Button>
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tanggal</TableHead>
+                <TableHead>Jenis</TableHead>
+                <TableHead>Nama Siswa</TableHead>
+                <TableHead>NISN</TableHead>
+                <TableHead>Asal/Tujuan</TableHead>
+                <TableHead>Keterangan</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loadingLogs ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                  </TableCell>
+                </TableRow>
+              ) : errorLogs ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-destructive">
+                    Gagal memuat buku mutasi.
+                  </TableCell>
+                </TableRow>
+              ) : mutasiLogs.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8">
+                    Tidak ada riwayat mutasi.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                mutasiLogs.map((log: any) => (
+                  <TableRow key={log.id}>
+                    <TableCell>
+                      {format(new Date(log.mutationDate), "dd/MM/yyyy")}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={log.mutasiType === "masuk" ? "default" : "secondary"}>
+                        {log.mutasiType === "masuk" ? "Masuk" : "Keluar"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {log.studentName}
+                    </TableCell>
+                    <TableCell>{log.nisn}</TableCell>
+                    <TableCell>{log.originOrDestination}</TableCell>
+                    <TableCell>{log.reason}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </Card>
+      ) : null}
     </div>
+  );
+}
+
+function DialogMutasiMasukLangsung({ classStats }: { classStats: any[] }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({
+    fullName: "",
+    nisn: "",
+    gender: "L",
+    metaData: "", // used for origin school
+    classId: "",
+    reason: ""
+  });
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.fullName || !form.nisn || !form.classId) {
+      toast.error("Nama, NISN, dan Kelas tujuan wajib diisi");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const payload = {
+        student: {
+          fullName: form.fullName,
+          nisn: form.nisn,
+          gender: form.gender,
+          metaData: form.metaData,
+          classId: form.classId
+        },
+        reason: form.reason
+      };
+
+      await goPost("/api/admin/mutasi/masuk/langsung", payload);
+      toast.success("Mutasi masuk berhasil diproses");
+      setOpen(false);
+      mutate("/api/admin/mutasi/logs");
+      mutate("/api/classes/stats");
+      // Reset
+      setForm({ fullName: "", nisn: "", gender: "L", metaData: "", classId: "", reason: "" });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Gagal memproses mutasi masuk");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm">
+          <PlusCircle className="mr-2 h-4 w-4" /> Proses Mutasi Masuk
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Mutasi Masuk Langsung</DialogTitle>
+          <DialogDescription>
+            Eksekusi mutasi masuk seketika dan daftarkan siswa ke kelas tanpa melalui permohonan publik.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={onSubmit} className="space-y-4 py-2">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Nama Siswa *</Label>
+              <Input 
+                value={form.fullName} 
+                onChange={(e) => setForm({...form, fullName: e.target.value})} 
+                placeholder="Nama Lengkap" 
+                required 
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>NISN *</Label>
+              <Input 
+                value={form.nisn} 
+                onChange={(e) => setForm({...form, nisn: e.target.value})} 
+                placeholder="NISN" 
+                required 
+              />
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Jenis Kelamin</Label>
+              <Select value={form.gender} onValueChange={(v) => setForm({...form, gender: v})}>
+                <SelectTrigger><SelectValue/></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="L">Laki-laki</SelectItem>
+                  <SelectItem value="P">Perempuan</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Kelas Tujuan *</Label>
+              <Select value={form.classId} onValueChange={(v) => setForm({...form, classId: v})} required>
+                <SelectTrigger><SelectValue placeholder="Pilih Kelas"/></SelectTrigger>
+                <SelectContent>
+                  {classStats.map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Asal Sekolah</Label>
+            <Input 
+              value={form.metaData} 
+              onChange={(e) => setForm({...form, metaData: e.target.value})} 
+              placeholder="SDN Contoh..." 
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label>Keterangan Tambahan (Alasan)</Label>
+            <Input 
+              value={form.reason} 
+              onChange={(e) => setForm({...form, reason: e.target.value})} 
+              placeholder="Pindah domisili..." 
+            />
+          </div>
+
+          <div className="pt-4 flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Batal</Button>
+            <Button type="submit" disabled={loading}>
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Proses Mutasi
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DialogMutasiKeluarLangsung({ students }: { students: any[] }) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({
+    studentId: "",
+    destinationSchool: "",
+    reason: ""
+  });
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.studentId || !form.destinationSchool) {
+      toast.error("Siswa dan Sekolah Tujuan wajib diisi");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await goPost("/api/admin/mutasi-keluar/langsung", form);
+      toast.success("Mutasi keluar berhasil diproses");
+      setOpen(false);
+      mutate("/api/admin/mutasi/logs");
+      // Reset
+      setForm({ studentId: "", destinationSchool: "", reason: "" });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Gagal memproses mutasi keluar. Pastikan tidak ada sangkutan.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700">
+          <ArrowRightCircle className="mr-2 h-4 w-4" /> Proses Mutasi Keluar
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Mutasi Keluar Langsung</DialogTitle>
+          <DialogDescription>
+            Keluarkan siswa dari sekolah secara langsung tanpa pengajuan dari wali murid.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={onSubmit} className="space-y-4 py-2">
+          
+          <div className="space-y-2">
+            <Label>Pilih Siswa (Aktif) *</Label>
+            <Select value={form.studentId} onValueChange={(v) => setForm({...form, studentId: v})} required>
+              <SelectTrigger><SelectValue placeholder="Pilih Siswa"/></SelectTrigger>
+              <SelectContent>
+                {students.map((s: any) => (
+                  <SelectItem key={s.id} value={s.id}>{s.fullName} ({s.className})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Sekolah Tujuan *</Label>
+            <Input 
+              value={form.destinationSchool} 
+              onChange={(e) => setForm({...form, destinationSchool: e.target.value})} 
+              placeholder="SDN Tujuan..." 
+              required
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label>Alasan Pindah</Label>
+            <Input 
+              value={form.reason} 
+              onChange={(e) => setForm({...form, reason: e.target.value})} 
+              placeholder="Ikut Orang Tua..." 
+            />
+          </div>
+
+          <div className="pt-4 flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Batal</Button>
+            <Button type="submit" disabled={loading} variant="destructive">
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Keluarkan Siswa
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

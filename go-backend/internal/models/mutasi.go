@@ -39,6 +39,21 @@ type MutasiOutRequest struct {
 	UpdatedAt         *time.Time `json:"updatedAt"`
 }
 
+// MutasiLog represents a finalised mutation entry in the Buku Mutasi
+type MutasiLog struct {
+	ID                  string     `json:"id"`
+	MutasiType          string     `json:"mutasiType"` // "masuk" or "keluar"
+	StudentID           *string    `json:"studentId"`
+	StudentName         string     `json:"studentName"`
+	NISN                string     `json:"nisn"`
+	Gender              *string    `json:"gender"`
+	OriginOrDestination string     `json:"originOrDestination"`
+	MutationDate        *time.Time `json:"mutationDate"`
+	Reason              *string    `json:"reason"`
+	CreatedAt           *time.Time `json:"createdAt"`
+}
+
+
 // ClassStats represents enrollment statistics for a specific class
 type ClassStats struct {
 	ID           string `json:"id"`
