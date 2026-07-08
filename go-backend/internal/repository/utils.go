@@ -337,6 +337,12 @@ func AutoSyncStudentToBukuInduk(db *sql.DB, studentID string) error {
 	if alumniID == "" {
 		// Insert
 		alumniID = cuid2.Generate()
+		
+		gradYear := ""
+		if mappedStatus == "graduated" {
+			gradYear = fmt.Sprintf("%d", time.Now().Year())
+		}
+		
 		_, err = db.Exec(`
 			INSERT INTO alumni (
 				id, student_id, nisn, nis, full_name, gender, birth_place, birth_date,
@@ -353,7 +359,7 @@ func AutoSyncStudentToBukuInduk(db *sql.DB, studentID string) error {
 		`, alumniID, studentID,
 			optionalString(nisn), optionalString(nis), fullName,
 			optionalString(gender), optionalString(bp), optionalString(bd),
-			"", nil, optionalString(cn), optionalString(photo),
+			gradYear, nil, optionalString(cn), optionalString(photo),
 			optionalString(pn), optionalString(pp), optionalString(addr), nil, nil, nil, nil,
 			optionalString(nik), optionalString(rel), optionalString(addr), optionalString(sql.NullString{String: enrolledYear, Valid: enrolledYear != ""}),
 			optionalString(prevSch),
@@ -369,25 +375,34 @@ func AutoSyncStudentToBukuInduk(db *sql.DB, studentID string) error {
 		}
 	} else {
 		updateClass := cn.String
+		var existingFinalClass sql.NullString
+		var existingGradYear sql.NullString
+		db.QueryRow("SELECT final_class, graduation_year FROM alumni WHERE student_id = ?", studentID).Scan(&existingFinalClass, &existingGradYear)
+		
 		if mappedStatus != "active" {
-			var existingFinalClass sql.NullString
-			db.QueryRow("SELECT final_class FROM alumni WHERE student_id = ?", studentID).Scan(&existingFinalClass)
 			if existingFinalClass.Valid && existingFinalClass.String != "" {
 				updateClass = existingFinalClass.String
 			}
 		}
+		
+		updateGradYear := existingGradYear.String
+		if mappedStatus == "graduated" && (updateGradYear == "" || !existingGradYear.Valid) {
+			updateGradYear = fmt.Sprintf("%d", time.Now().Year())
+		}
 
-		// Update (only update core personal details, not graduation / post-grad details)
+		// Update (only update core personal details, not graduation / post-grad details unless empty)
 		_, err = db.Exec(`
 			UPDATE alumni SET
 				nisn=?, nis=?, full_name=?, gender=?, birth_place=?, birth_date=?,
-				final_class=?, photo=?, parent_name=?, parent_phone=?, address=?,
+				final_class=?, graduation_year=?, photo=?, parent_name=?, parent_phone=?, address=?,
 				nik=?, religion=?, enrolled_year=?, previous_school=?,
 				father_name=?, father_nik=?, mother_name=?, mother_nik=?,
 				guardian_name=?, guardian_nik=?, guardian_job=?, status=?, updated_at=?
 			WHERE student_id=?
 		`, optionalString(nisn), optionalString(nis), fullName, optionalString(gender), optionalString(bp), optionalString(bd),
-			optionalString(sql.NullString{String: updateClass, Valid: updateClass != ""}), optionalString(photo), optionalString(pn), optionalString(pp), optionalString(addr),
+			optionalString(sql.NullString{String: updateClass, Valid: updateClass != ""}), 
+			optionalString(sql.NullString{String: updateGradYear, Valid: updateGradYear != ""}), 
+			optionalString(photo), optionalString(pn), optionalString(pp), optionalString(addr),
 			optionalString(nik), optionalString(rel), optionalString(sql.NullString{String: enrolledYear, Valid: enrolledYear != ""}), optionalString(prevSch),
 			optionalString(fn), optionalString(fnik), optionalString(mn), optionalString(mnik),
 			optionalString(gn), optionalString(gnik), optionalString(gjob), mappedStatus, now, studentID)
