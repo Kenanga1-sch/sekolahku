@@ -49,7 +49,7 @@ import {
   Upload,
 } from "lucide-react";
 import Link from "next/link";
-import { goGet, goDelete } from "@/lib/api-client";
+import { goGet, goDelete, goPost } from "@/lib/api-client";
 import { useSortableData } from "@/hooks/use-sortable-data";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
 
@@ -123,6 +123,7 @@ export default function TabAlumni() {
   const [statusFilter, setStatusFilter] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
+  const [syncing, setSyncing] = useState(false);
 
   const { sortedData: sortedAlumni, sortConfig, requestSort } = useSortableData(alumni);
 
@@ -191,6 +192,23 @@ export default function TabAlumni() {
     setExpandedRows((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const handleSync = async () => {
+    if (!confirm("Apakah Anda yakin ingin menyinkronkan seluruh data siswa aktif ke Buku Induk? Data yang sudah ada tidak akan diduplikasi.")) return;
+    
+    setSyncing(true);
+    try {
+      const res = await goPost("/api/students/sync-buku-induk", {});
+      fetchAlumni();
+      fetchStats();
+      alert(res.message || "Sinkronisasi berhasil!");
+    } catch (error: any) {
+      console.error("Error syncing to buku induk:", error);
+      alert(error.message || "Terjadi kesalahan saat sinkronisasi.");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const currentYear = new Date().getFullYear();
   const yearOptions = Array.from({ length: 10 }, (_, i) => {
     const year = currentYear - i;
@@ -228,6 +246,10 @@ export default function TabAlumni() {
               Impor Dapodik / e-Rapor
             </Button>
           </Link>
+          <Button variant="outline" size="sm" className="h-9 text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 dark:border-emerald-900/50 dark:hover:bg-emerald-900/20 dark:text-emerald-400" onClick={handleSync} disabled={syncing}>
+            <RefreshCcw className={`h-4 w-4 mr-1 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Menyinkronkan...' : 'Sinkronisasi Data Siswa'}
+          </Button>
           <Link href="/admin/siswa/alumni-tambah">
             <Button size="sm" className="h-9">
               <Plus className="h-4 w-4 mr-1" />

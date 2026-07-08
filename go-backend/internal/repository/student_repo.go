@@ -430,6 +430,10 @@ func (r *StudentRepository) CreateStudent(s models.Student) (string, error) {
 	} // Simplified QR for now
 	now := time.Now().UnixMilli()
 
+	if err := r.checkDuplicateNISAndNISN("", s.NIS, s.NISN); err != nil {
+		return "", err
+	}
+
 	// Get Class Name if classId is provided
 	if s.ClassID != nil && *s.ClassID != "" {
 		var className string
@@ -468,6 +472,10 @@ func (r *StudentRepository) UpdateStudent(id string, s models.Student) error {
 		return sql.ErrNoRows
 	}
 	mergeStudentDefaults(&s, existing)
+
+	if err := r.checkDuplicateNISAndNISN(id, s.NIS, s.NISN); err != nil {
+		return err
+	}
 
 	// Enforce student obligations clearance before deactivating
 	wasActive := existing.IsActive || existing.Status == "active" || existing.Status == "aktif"
@@ -508,6 +516,37 @@ func (r *StudentRepository) UpdateStudent(id string, s models.Student) error {
 	}
 
 	return err
+}
+
+func (r *StudentRepository) checkDuplicateNISAndNISN(excludeID string, nis *string, nisn *string) error {
+	if nis != nil && *nis != "" {
+		var name string
+		query := "SELECT full_name FROM students WHERE nis = ?"
+		args := []interface{}{*nis}
+		if excludeID != "" {
+			query += " AND id != ?"
+			args = append(args, excludeID)
+		}
+		err := r.DB.QueryRow(query, args...).Scan(&name)
+		if err == nil {
+			return fmt.Errorf("NIS %s sudah digunakan oleh siswa atas nama %s", *nis, name)
+		}
+	}
+
+	if nisn != nil && *nisn != "" {
+		var name string
+		query := "SELECT full_name FROM students WHERE nisn = ?"
+		args := []interface{}{*nisn}
+		if excludeID != "" {
+			query += " AND id != ?"
+			args = append(args, excludeID)
+		}
+		err := r.DB.QueryRow(query, args...).Scan(&name)
+		if err == nil {
+			return fmt.Errorf("NISN %s sudah digunakan oleh siswa atas nama %s", *nisn, name)
+		}
+	}
+	return nil
 }
 
 func (r *StudentRepository) GetStudentHealth() (*models.StudentHealth, error) {
@@ -792,3 +831,28 @@ func (r *StudentRepository) GetStudentGrades(studentID string) ([]models.Student
 	return grades, nil
 }
 
+// SyncAllToBukuInduk synchronizes all existing students to the alumni (Buku Induk) table.
+func (r *StudentRepository) SyncAllToBukuInduk() (int, error) {
+	rows, err := r.DB.Query("SELECT id FROM students")
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err == nil {
+			ids = append(ids, id)
+		}
+	}
+
+	syncedCount := 0
+	for _, id := range ids {
+		if err := AutoSyncStudentToBukuInduk(r.DB, id); err == nil {
+			syncedCount++
+		}
+	}
+
+	return syncedCount, nil
+}

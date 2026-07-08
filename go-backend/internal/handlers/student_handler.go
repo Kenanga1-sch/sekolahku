@@ -89,8 +89,18 @@ func (h *StudentHandler) CreateStudent(c echo.Context) error {
 
 	id, err := h.Repo.CreateStudent(s)
 	if err != nil {
+		if strings.Contains(err.Error(), "sudah digunakan oleh siswa atas nama") {
+			return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": err.Error()})
+		}
+		if strings.Contains(err.Error(), "UNIQUE constraint failed: students.nisn") {
+			return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "NISN sudah terdaftar pada siswa lain"})
+		}
+		if strings.Contains(err.Error(), "UNIQUE constraint failed: students.nis") {
+			return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "NIS sudah terdaftar pada siswa lain"})
+		}
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
 	}
+
 
 	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true, "id": id})
 }
@@ -172,8 +182,18 @@ func (h *StudentHandler) UpdateStudent(c echo.Context) error {
 
 	err := h.Repo.UpdateStudent(id, s)
 	if err != nil {
+		if strings.Contains(err.Error(), "sudah digunakan oleh siswa atas nama") {
+			return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": err.Error()})
+		}
+		if strings.Contains(err.Error(), "UNIQUE constraint failed: students.nisn") {
+			return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "NISN sudah terdaftar pada siswa lain"})
+		}
+		if strings.Contains(err.Error(), "UNIQUE constraint failed: students.nis") {
+			return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "NIS sudah terdaftar pada siswa lain"})
+		}
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
 	}
+
 
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
@@ -247,3 +267,15 @@ func (h *StudentHandler) GetStudentGrades(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": grades})
 }
 
+// SyncBukuInduk synchronizes all students to the Buku Induk table
+func (h *StudentHandler) SyncBukuInduk(c echo.Context) error {
+	count, err := h.Repo.SyncAllToBukuInduk()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": fmt.Sprintf("Berhasil mensinkronkan %d siswa ke Buku Induk", count),
+		"count":   count,
+	})
+}

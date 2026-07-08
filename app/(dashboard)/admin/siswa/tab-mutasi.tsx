@@ -143,7 +143,7 @@ export default function TabMutasi() {
   );
   // Fetch active students for Mutasi Keluar Langsung dropdown
   const { data: dataStudents } = useSWR("/api/students?limit=500&status=active", fetcher);
-  const activeStudents = dataStudents?.data || [];
+  const activeStudents = dataStudents?.data?.data || [];
 
   // --- BUKU MUTASI (LOGS) STATE & HOOKS ---
   const { data: dataLogs, error: errorLogs, isLoading: loadingLogs } = useSWR(

@@ -288,6 +288,114 @@ func main() {
 
 	// 5. Create Alumni Buku Induk tables
 	if _, err := db.Exec(`
+		CREATE TABLE IF NOT EXISTS alumni (
+			id TEXT PRIMARY KEY,
+			student_id TEXT,
+			nisn TEXT,
+			nis TEXT,
+			nik TEXT,
+			full_name TEXT NOT NULL,
+			gender TEXT,
+			birth_place TEXT,
+			birth_date TEXT,
+			religion TEXT,
+			address TEXT,
+			enrolled_year TEXT,
+			previous_school TEXT,
+			graduation_year TEXT,
+			graduation_date INTEGER,
+			final_class TEXT,
+			final_grade_avg REAL,
+			photo TEXT,
+			parent_name TEXT,
+			parent_phone TEXT,
+			father_name TEXT,
+			father_nik TEXT,
+			father_education TEXT,
+			father_job TEXT,
+			mother_name TEXT,
+			mother_nik TEXT,
+			mother_education TEXT,
+			mother_job TEXT,
+			guardian_name TEXT,
+			guardian_nik TEXT,
+			guardian_relation TEXT,
+			guardian_job TEXT,
+			guardian_phone TEXT,
+			sibling_count INTEGER DEFAULT 0,
+			child_order INTEGER DEFAULT 0,
+			height INTEGER DEFAULT 0,
+			weight INTEGER DEFAULT 0,
+			blood_type TEXT,
+			medical_notes TEXT,
+			special_needs TEXT,
+			current_address TEXT,
+			current_phone TEXT,
+			current_email TEXT,
+			next_school TEXT,
+			current_occupation TEXT,
+			current_institution TEXT,
+			last_education_level TEXT,
+			notes TEXT,
+			created_at INTEGER,
+			updated_at INTEGER
+		);
+		CREATE TABLE IF NOT EXISTS alumni_document_types (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			code TEXT NOT NULL,
+			description TEXT,
+			is_required INTEGER DEFAULT 0,
+			max_file_size_mb INTEGER DEFAULT 5,
+			allowed_types TEXT DEFAULT '["application/pdf","image/jpeg","image/png"]',
+			sort_order INTEGER DEFAULT 0,
+			is_active INTEGER DEFAULT 1,
+			created_at INTEGER,
+			updated_at INTEGER
+		);
+		CREATE TABLE IF NOT EXISTS alumni_documents (
+			id TEXT PRIMARY KEY,
+			alumni_id TEXT NOT NULL,
+			document_type_id TEXT NOT NULL,
+			file_name TEXT NOT NULL,
+			file_path TEXT NOT NULL,
+			file_size INTEGER,
+			mime_type TEXT,
+			document_number TEXT,
+			issue_date TEXT,
+			verification_status TEXT DEFAULT 'pending',
+			verified_by TEXT,
+			verified_at INTEGER,
+			verification_notes TEXT,
+			notes TEXT,
+			uploaded_by TEXT,
+			created_at INTEGER,
+			updated_at INTEGER
+		);
+		CREATE TABLE IF NOT EXISTS document_pickups (
+			id TEXT PRIMARY KEY,
+			alumni_id TEXT NOT NULL,
+			document_type_id TEXT,
+			recipient_name TEXT NOT NULL,
+			recipient_relation TEXT,
+			recipient_id_number TEXT,
+			recipient_phone TEXT,
+			pickup_date INTEGER NOT NULL,
+			signature_path TEXT,
+			photo_proof_path TEXT,
+			notes TEXT,
+			handed_over_by TEXT,
+			created_at INTEGER
+		);
+		CREATE TABLE IF NOT EXISTS student_class_history (
+			id TEXT PRIMARY KEY,
+			student_id TEXT NOT NULL,
+			class_id TEXT,
+			class_name TEXT,
+			academic_year TEXT,
+			status TEXT,
+			record_date INTEGER
+		);
 		CREATE TABLE IF NOT EXISTS alumni_transcripts (
 			id TEXT PRIMARY KEY,
 			alumni_id TEXT NOT NULL,
@@ -626,6 +734,8 @@ func main() {
 	adminGroup.POST("/spmb/process", spmbHandler.ProcessAcceptanceExecute)
 
 	// Master Data Admin
+	students := auth.Group("/students")
+	students.POST("/sync-buku-induk", studentHandler.SyncBukuInduk)
 	auth.GET("/master/students", studentHandler.GetStudents)
 	auth.GET("/master/students/health", studentHandler.GetStudentHealth)
 	auth.GET("/master/students/simple-search", studentHandler.SimpleSearch)
