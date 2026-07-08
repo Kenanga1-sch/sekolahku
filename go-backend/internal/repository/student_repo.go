@@ -877,7 +877,9 @@ func (r *StudentRepository) SyncAllToBukuInduk() (int, error) {
 
 	syncedCount := 0
 	for _, id := range ids {
-		if err := AutoSyncStudentToBukuInduk(r.DB, id); err == nil {
+		if err := AutoSyncStudentToBukuInduk(r.DB, id); err != nil {
+			log.Printf("[SyncBukuInduk] Failed to sync student %s: %v", id, err)
+		} else {
 			syncedCount++
 		}
 	}
