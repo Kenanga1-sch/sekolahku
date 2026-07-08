@@ -225,35 +225,46 @@ export default function TabAlumni() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4">
-        <div>
+      <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+        <div className="max-w-xl">
           <h2 className="text-xl font-semibold flex items-center gap-2">
             <GraduationCap className="h-6 w-6 text-primary" />
             Buku Induk Siswa
           </h2>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted-foreground text-sm mt-1">
             Catatan riwayat siswa aktif, alumni, pindahan, dan keluar sejak berdirinya sekolah
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => { fetchAlumni(); fetchStats(); }} className="h-9">
-            <RefreshCcw className="h-4 w-4 mr-1" />
+        
+        {/* Action Buttons Container - Placed below text on small screens, right aligned on large screens */}
+        <div className="flex flex-wrap items-center gap-3 mt-2 md:mt-0 w-full md:w-auto">
+          <Button variant="outline" size="sm" onClick={() => { fetchAlumni(); fetchStats(); }} className="h-9 shadow-sm hover:bg-slate-50 flex-1 md:flex-none">
+            <RefreshCcw className="h-4 w-4 mr-2 text-slate-500" />
             Refresh
           </Button>
-          <Link href="/admin/siswa/import">
-            <Button variant="outline" size="sm" className="h-9">
-              <Upload className="h-4 w-4 mr-1" />
+          
+          <Link href="/admin/siswa/import" className="flex-1 md:flex-none">
+            <Button variant="outline" size="sm" className="h-9 w-full shadow-sm hover:bg-slate-50">
+              <Upload className="h-4 w-4 mr-2 text-slate-500" />
               Impor Dapodik / e-Rapor
             </Button>
           </Link>
-          <Button variant="outline" size="sm" className="h-9 text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 dark:border-emerald-900/50 dark:hover:bg-emerald-900/20 dark:text-emerald-400" onClick={handleSync} disabled={syncing}>
-            <RefreshCcw className={`h-4 w-4 mr-1 ${syncing ? 'animate-spin' : ''}`} />
-            {syncing ? 'Sinkronisasi...' : 'Sinkronkan dari Data Master'}
+          
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="h-9 shadow-sm text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300 dark:border-emerald-900/50 dark:hover:bg-emerald-900/30 flex-1 md:flex-none w-full md:w-auto font-medium" 
+            onClick={handleSync} 
+            disabled={syncing}
+          >
+            <RefreshCcw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Sinkronisasi...' : 'Sinkronisasi Data Siswa'}
           </Button>
-          <Link href="/admin/siswa/alumni-tambah">
-            <Button size="sm" className="h-9">
-              <Plus className="h-4 w-4 mr-1" />
-              Tambah Data
+          
+          <Link href="/admin/siswa/alumni-tambah" className="flex-1 md:flex-none">
+            <Button size="sm" className="h-9 w-full shadow-sm bg-blue-600 hover:bg-blue-700 text-white border-0 font-medium">
+              <Plus className="h-4 w-4 mr-2" />
+              Tambah Data Buku Induk
             </Button>
           </Link>
         </div>
