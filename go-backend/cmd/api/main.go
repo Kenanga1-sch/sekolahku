@@ -224,9 +224,7 @@ func main() {
 		server.Logger.Warn("Failed to create core tables:", err)
 	}
 
-	// 3. Automated Schema Repair (Add missing columns to existing DB)
-	RepairDatabase(db, server.Logger)
-
+	// Automated Schema Repair moved to after all CREATE TABLEs
 	// Enable foreign keys
 	_, err = db.Exec(`PRAGMA foreign_keys = ON`)
 	if err != nil {
@@ -336,6 +334,7 @@ func main() {
 			current_occupation TEXT,
 			current_institution TEXT,
 			last_education_level TEXT,
+			status TEXT DEFAULT 'graduated',
 			notes TEXT,
 			created_at INTEGER,
 			updated_at INTEGER
@@ -508,6 +507,9 @@ func main() {
 			server.Logger.Warn("Failed to seed default integration settings:", err)
 		}
 	}
+
+	// 3. Automated Schema Repair (Add missing columns to existing DB)
+	RepairDatabase(db, server.Logger)
 
 	server.Logger.Info("Database initialized with default settings and core tables")
 

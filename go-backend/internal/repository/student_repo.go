@@ -521,6 +521,8 @@ func (r *StudentRepository) UpdateStudent(id string, s models.Student) error {
 func (r *StudentRepository) checkDuplicateNISAndNISN(excludeID string, nis *string, nisn *string) error {
 	if nis != nil && *nis != "" {
 		var name string
+		
+		// Check students table
 		query := "SELECT full_name FROM students WHERE nis = ?"
 		args := []interface{}{*nis}
 		if excludeID != "" {
@@ -529,12 +531,26 @@ func (r *StudentRepository) checkDuplicateNISAndNISN(excludeID string, nis *stri
 		}
 		err := r.DB.QueryRow(query, args...).Scan(&name)
 		if err == nil {
-			return fmt.Errorf("NIS %s sudah digunakan oleh siswa atas nama %s", *nis, name)
+			return fmt.Errorf("NIS %s sudah digunakan oleh siswa aktif atas nama %s", *nis, name)
+		}
+
+		// Check alumni table
+		queryAlumni := "SELECT full_name FROM alumni WHERE nis = ?"
+		argsAlumni := []interface{}{*nis}
+		if excludeID != "" {
+			queryAlumni += " AND student_id != ?"
+			argsAlumni = append(argsAlumni, excludeID)
+		}
+		err = r.DB.QueryRow(queryAlumni, argsAlumni...).Scan(&name)
+		if err == nil {
+			return fmt.Errorf("NIS %s sudah digunakan oleh alumni/mutasi atas nama %s", *nis, name)
 		}
 	}
 
 	if nisn != nil && *nisn != "" {
 		var name string
+		
+		// Check students table
 		query := "SELECT full_name FROM students WHERE nisn = ?"
 		args := []interface{}{*nisn}
 		if excludeID != "" {
@@ -543,7 +559,19 @@ func (r *StudentRepository) checkDuplicateNISAndNISN(excludeID string, nis *stri
 		}
 		err := r.DB.QueryRow(query, args...).Scan(&name)
 		if err == nil {
-			return fmt.Errorf("NISN %s sudah digunakan oleh siswa atas nama %s", *nisn, name)
+			return fmt.Errorf("NISN %s sudah digunakan oleh siswa aktif atas nama %s", *nisn, name)
+		}
+
+		// Check alumni table
+		queryAlumni := "SELECT full_name FROM alumni WHERE nisn = ?"
+		argsAlumni := []interface{}{*nisn}
+		if excludeID != "" {
+			queryAlumni += " AND student_id != ?"
+			argsAlumni = append(argsAlumni, excludeID)
+		}
+		err = r.DB.QueryRow(queryAlumni, argsAlumni...).Scan(&name)
+		if err == nil {
+			return fmt.Errorf("NISN %s sudah digunakan oleh alumni/mutasi atas nama %s", *nisn, name)
 		}
 	}
 	return nil
