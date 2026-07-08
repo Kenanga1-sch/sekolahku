@@ -368,6 +368,15 @@ func AutoSyncStudentToBukuInduk(db *sql.DB, studentID string) error {
 			return err
 		}
 	} else {
+		updateClass := cn.String
+		if mappedStatus != "active" {
+			var existingFinalClass sql.NullString
+			db.QueryRow("SELECT final_class FROM alumni WHERE student_id = ?", studentID).Scan(&existingFinalClass)
+			if existingFinalClass.Valid && existingFinalClass.String != "" {
+				updateClass = existingFinalClass.String
+			}
+		}
+
 		// Update (only update core personal details, not graduation / post-grad details)
 		_, err = db.Exec(`
 			UPDATE alumni SET
@@ -378,7 +387,7 @@ func AutoSyncStudentToBukuInduk(db *sql.DB, studentID string) error {
 				guardian_name=?, guardian_nik=?, guardian_job=?, status=?, updated_at=?
 			WHERE student_id=?
 		`, optionalString(nisn), optionalString(nis), fullName, optionalString(gender), optionalString(bp), optionalString(bd),
-			optionalString(cn), optionalString(photo), optionalString(pn), optionalString(pp), optionalString(addr),
+			optionalString(sql.NullString{String: updateClass, Valid: updateClass != ""}), optionalString(photo), optionalString(pn), optionalString(pp), optionalString(addr),
 			optionalString(nik), optionalString(rel), optionalString(sql.NullString{String: enrolledYear, Valid: enrolledYear != ""}), optionalString(prevSch),
 			optionalString(fn), optionalString(fnik), optionalString(mn), optionalString(mnik),
 			optionalString(gn), optionalString(gnik), optionalString(gjob), mappedStatus, now, studentID)

@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -263,27 +264,7 @@ export default function TambahAlumniPage() {
         </div>
       </div>
 
-      {/* Stepper Progress */}
-      <div className="grid grid-cols-3 gap-2 border-y py-4 my-2 bg-slate-50/50 dark:bg-zinc-900/30 rounded-lg text-center">
-        <div className="flex flex-col md:flex-row items-center justify-center gap-2">
-          <div className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold ${currentStep === 1 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-            1
-          </div>
-          <span className={`text-xs font-semibold ${currentStep === 1 ? "text-primary text-foreground" : "text-muted-foreground"}`}>Identitas Siswa</span>
-        </div>
-        <div className="flex flex-col md:flex-row items-center justify-center gap-2 border-x">
-          <div className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold ${currentStep === 2 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-            2
-          </div>
-          <span className={`text-xs font-semibold ${currentStep === 2 ? "text-primary text-foreground" : "text-muted-foreground"}`}>Status & Akademik</span>
-        </div>
-        <div className="flex flex-col md:flex-row items-center justify-center gap-2">
-          <div className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold ${currentStep === 3 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-            3
-          </div>
-          <span className={`text-xs font-semibold ${currentStep === 3 ? "text-primary text-foreground" : "text-muted-foreground"}`}>Orang Tua & Wali</span>
-        </div>
-      </div>
+      {/* Tabs Layout */}
 
       {error && (
         <Alert variant="destructive">
@@ -292,10 +273,14 @@ export default function TambahAlumniPage() {
       )}
 
       <form ref={formRef} onKeyDown={handleFormKeyDown} onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        <AnimatePresence mode="wait">
-          {/* STEP 1: IDENTITAS SISWA */}
-          {currentStep === 1 && (
-            <motion.div key="step1" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}>
+        <Tabs defaultValue="identitas" className="w-full space-y-6">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="identitas">Identitas Siswa</TabsTrigger>
+            <TabsTrigger value="akademik">Status & Akademik</TabsTrigger>
+            <TabsTrigger value="keluarga">Orang Tua & Wali</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="identitas">
               <Card className="border-slate-200 dark:border-zinc-800 shadow-sm">
                 <CardHeader>
                   <CardTitle className="text-base">Langkah 1: Identitas Diri Siswa</CardTitle>
@@ -429,12 +414,10 @@ export default function TambahAlumniPage() {
                   </div>
                 </CardContent>
               </Card>
-            </motion.div>
-          )}
+          </TabsContent>
 
-          {/* STEP 2: STATUS & RIWAYAT AKADEMIK */}
-          {currentStep === 2 && (
-            <motion.div key="step2" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}>
+          {/* STEP 2: STATUS & AKADEMIK */}
+          <TabsContent value="akademik">
               <Card className="border-slate-200 dark:border-zinc-800 shadow-sm">
                 <CardHeader>
                   <CardTitle className="text-base">Langkah 2: Riwayat Akademik & Status Siswa</CardTitle>
@@ -577,12 +560,10 @@ export default function TambahAlumniPage() {
                   )}
                 </CardContent>
               </Card>
-            </motion.div>
-          )}
+          </TabsContent>
 
-          {/* STEP 3: KELUARGA & KONTAK */}
-          {currentStep === 3 && (
-            <motion.div key="step3" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="space-y-6">
+          {/* STEP 3: ORANG TUA & WALI */}
+          <TabsContent value="keluarga" className="space-y-6">
               {/* Orang Tua Kandung */}
               <Card className="border-slate-200 dark:border-zinc-800 shadow-sm">
                 <CardHeader>
@@ -718,46 +699,29 @@ export default function TambahAlumniPage() {
                   </div>
                 </CardContent>
               </Card>
-            </motion.div>
-          )}
-        </AnimatePresence>
+          </TabsContent>
+        </Tabs>
 
-        {/* Navigation Buttons */}
-        <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-zinc-800">
-          <div>
-            {currentStep > 1 && (
-              <Button type="button" variant="outline" onClick={handlePrev} className="h-9">
-                Sebelumnya
-              </Button>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <Link href="/admin/siswa">
-              <Button type="button" variant="ghost" className="h-9">
-                Batal
-              </Button>
-            </Link>
-            {currentStep < 3 ? (
-              <Button type="button" onClick={handleNext} className="h-9 flex items-center gap-1">
-                Selanjutnya
-                <ArrowRight className="h-4 w-4" />
-              </Button>
+        {/* Submit Button */}
+        <div className="flex justify-end gap-2 pt-4 border-t">
+          <Link href="/admin/siswa">
+            <Button type="button" variant="ghost" className="h-9">
+              Batal
+            </Button>
+          </Link>
+          <Button type="submit" disabled={loading} className="h-9 flex items-center gap-1">
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Menyimpan...
+              </>
             ) : (
-              <Button type="submit" disabled={loading} className="h-9 flex items-center gap-1">
-                {loading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Menyimpan...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4" />
-                    Simpan ke Buku Induk
-                  </>
-                )}
-              </Button>
+              <>
+                <Save className="h-4 w-4" />
+                Simpan Data Buku Induk
+              </>
             )}
-          </div>
+          </Button>
         </div>
       </form>
     </div>

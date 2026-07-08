@@ -225,7 +225,7 @@ export default function TabAlumni() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="flex flex-col gap-4">
         <div>
           <h2 className="text-xl font-semibold flex items-center gap-2">
             <GraduationCap className="h-6 w-6 text-primary" />
@@ -235,7 +235,7 @@ export default function TabAlumni() {
             Catatan riwayat siswa aktif, alumni, pindahan, dan keluar sejak berdirinya sekolah
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => { fetchAlumni(); fetchStats(); }} className="h-9">
             <RefreshCcw className="h-4 w-4 mr-1" />
             Refresh
@@ -248,12 +248,12 @@ export default function TabAlumni() {
           </Link>
           <Button variant="outline" size="sm" className="h-9 text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 dark:border-emerald-900/50 dark:hover:bg-emerald-900/20 dark:text-emerald-400" onClick={handleSync} disabled={syncing}>
             <RefreshCcw className={`h-4 w-4 mr-1 ${syncing ? 'animate-spin' : ''}`} />
-            {syncing ? 'Menyinkronkan...' : 'Sinkronisasi Data Siswa'}
+            {syncing ? 'Sinkronisasi...' : 'Sinkronkan dari Data Master'}
           </Button>
           <Link href="/admin/siswa/alumni-tambah">
             <Button size="sm" className="h-9">
               <Plus className="h-4 w-4 mr-1" />
-              Tambah Data Buku Induk
+              Tambah Data
             </Button>
           </Link>
         </div>
