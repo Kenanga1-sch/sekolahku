@@ -299,7 +299,7 @@ export default function TabDirektori() {
                                 <SortableTableHead label="NIS / NISN" sortKey="nisn" sortConfig={sortConfig} onSort={requestSort} />
                                 <SortableTableHead label="Kelas" sortKey="className" sortConfig={sortConfig} onSort={requestSort} />
                                 <SortableTableHead label="Status" sortKey="status" sortConfig={sortConfig} onSort={requestSort} />
-                                <TableHead className="text-right pr-6">Aksi</TableHead>
+                                <TableHead className="text-right pr-6 sticky right-0 bg-slate-50/95 dark:bg-zinc-900/95 backdrop-blur-sm border-l border-slate-100 dark:border-zinc-800 z-10 shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.1)]">Aksi</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -327,7 +327,7 @@ export default function TabDirektori() {
                                         <TableCell>
                                             <Skeleton className="h-6 w-16 rounded-full" />
                                         </TableCell>
-                                        <TableCell className="text-right pr-6">
+                                        <TableCell className="text-right pr-6 sticky right-0 bg-white dark:bg-zinc-950 border-l border-slate-100 dark:border-zinc-800 shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.1)]">
                                             <Skeleton className="h-8 w-8 rounded-md ml-auto" />
                                         </TableCell>
                                     </TableRow>
@@ -403,7 +403,7 @@ export default function TabDirektori() {
                                                  student.status.toUpperCase()}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="text-right pr-6">
+                                        <TableCell className="text-right pr-6 sticky right-0 bg-white dark:bg-zinc-950 border-l border-slate-100 dark:border-zinc-800 shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.1)]">
                                              <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
                                                     <Button variant="outline" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground bg-background/50 border-slate-200 dark:border-zinc-800">

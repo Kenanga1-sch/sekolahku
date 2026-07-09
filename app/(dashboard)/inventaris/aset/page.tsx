@@ -452,7 +452,7 @@ export default function AsetPage() {
                                 <TableHead>Lokasi</TableHead>
                                 <TableHead>Jumlah</TableHead>
                                 <TableHead>Kondisi</TableHead>
-                                <TableHead className="w-[50px]"></TableHead>
+                                <TableHead className="w-[50px] sticky right-0 bg-white dark:bg-zinc-950 border-l border-slate-100 dark:border-zinc-800 z-10 shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.1)]"></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -488,7 +488,7 @@ export default function AsetPage() {
                                                 {(asset.condition_lost ?? 0) > 0 && <span className="text-gray-600 bg-gray-100 px-2 py-0.5 rounded">{asset.condition_lost ?? 0} H</span>}
                                             </div>
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell className="sticky right-0 bg-white dark:bg-zinc-950 border-l border-slate-100 dark:border-zinc-800 shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.1)]">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
                                                     <Button variant="outline" size="icon-sm" className="h-8 w-8 border-slate-200 bg-white shadow-sm hover:bg-slate-50 text-muted-foreground hover:text-foreground">

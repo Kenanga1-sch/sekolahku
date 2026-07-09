@@ -390,16 +390,9 @@ export default function DashboardLayoutClient({
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           {/* Top Navigation Bar */}
           <header className="sticky top-0 md:static flex items-center justify-between gap-2 p-2.5 sm:p-3 md:p-4 w-full z-40 bg-gray-100/80 dark:bg-neutral-800/80 backdrop-blur-xl md:bg-transparent md:dark:bg-transparent border-b border-neutral-200/50 dark:border-neutral-700/50 md:border-0">
-            {/* Left: Hamburger + Page Title (mobile only) */}
-            <div className="flex items-center gap-3 md:hidden">
-              <button
-                onClick={() => handleSetOpen(true)}
-                className="p-1.5 -ml-1 rounded-lg hover:bg-neutral-200/60 dark:hover:bg-neutral-700/60 active:scale-95 transition-all"
-                aria-label="Buka menu"
-              >
-                <Menu className="h-5 w-5 text-neutral-700 dark:text-neutral-200" />
-              </button>
-              <h1 className="text-sm font-semibold text-neutral-800 dark:text-neutral-100 truncate">
+            {/* Left: Page Title (mobile only) */}
+            <div className="flex items-center gap-3 md:hidden pl-2">
+              <h1 className="text-lg font-bold text-neutral-800 dark:text-neutral-100 truncate">
                 {pageTitle}
               </h1>
             </div>

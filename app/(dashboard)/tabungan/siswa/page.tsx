@@ -292,7 +292,7 @@ export default function TabunganSiswaPage() {
                                 <SortableTableHead label="Nama" sortKey="nama" sortConfig={sortConfig} onSort={requestSort} />
                                 <SortableTableHead label="Kelas" sortKey="kelas.nama" sortConfig={sortConfig} onSort={requestSort} />
                                 <SortableTableHead label="Saldo" sortKey="saldoTerakhir" sortConfig={sortConfig} onSort={requestSort} className="text-right" />
-                                <TableHead className="w-12"></TableHead>
+                                <TableHead className="w-12 sticky right-0 bg-white dark:bg-zinc-950 border-l border-slate-100 dark:border-zinc-800 z-10 shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.1)]"></TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -303,7 +303,7 @@ export default function TabunganSiswaPage() {
                                         <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                                         <TableCell><Skeleton className="h-6 w-12" /></TableCell>
                                         <TableCell><Skeleton className="h-4 w-24 ml-auto" /></TableCell>
-                                        <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                                        <TableCell className="sticky right-0 bg-white dark:bg-zinc-950 border-l border-slate-100 dark:border-zinc-800 shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.1)]"><Skeleton className="h-8 w-8" /></TableCell>
                                     </TableRow>
                                 ))
                             ) : siswa.length === 0 ? (
@@ -334,7 +334,7 @@ export default function TabunganSiswaPage() {
                                                 </span>
                                             </div>
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell className="sticky right-0 bg-white dark:bg-zinc-950 border-l border-slate-100 dark:border-zinc-800 shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.1)]">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
                                                     <Button variant="outline" size="icon-sm" className="h-8 w-8 border-slate-200 bg-white shadow-sm hover:bg-slate-50 text-muted-foreground hover:text-foreground">
