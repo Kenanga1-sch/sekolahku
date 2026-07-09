@@ -142,12 +142,12 @@ export default function InventarisClient({ initialStats, initialConsumableStats,
     return (
         <div className="space-y-8">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
+                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
                         Inventaris & ATK
                     </h1>
-                    <p className="text-muted-foreground">
+                    <p className="text-muted-foreground text-sm sm:text-base">
                         Sistem manajemen aset sekolah dan barang habis pakai (ATK)
                     </p>
                 </div>
@@ -156,6 +156,7 @@ export default function InventarisClient({ initialStats, initialConsumableStats,
                     size="icon"
                     onClick={handleRefresh}
                     disabled={refreshing}
+                    className="self-end sm:self-auto"
                 >
                     <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
                 </Button>

@@ -119,46 +119,56 @@ export const MobileSidebar = ({
 }: React.ComponentProps<typeof motion.div>) => {
   const { open, setOpen } = useSidebar();
   return (
-    <>
-      <motion.div
-        className={cn(
-          "h-14 px-3 py-3 flex flex-row md:hidden items-center justify-start fixed top-0 left-0 z-[100] w-auto pointer-events-none"
-        )}
-        {...props}
-      >
-        <div className="flex justify-start z-50 w-auto pointer-events-auto pl-1">
-          <IconMenu2
-            className="h-6 w-6 text-neutral-800 dark:text-neutral-200 cursor-pointer pointer-events-auto"
-            onClick={() => setOpen(!open)}
-          />
-        </div>
-        <AnimatePresence>
-          {open && (
+    <div className="md:hidden">
+      <AnimatePresence>
+        {open && (
+          <>
+            {/* Backdrop */}
             <motion.div
-              initial={{ x: "-100%", opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: "-100%", opacity: 0 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-[90] bg-black/40 backdrop-blur-[2px]"
+              onClick={() => setOpen(false)}
+            />
+            {/* Drawer Panel */}
+            <motion.div
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
               transition={{
-                duration: 0.3,
-                ease: "easeInOut",
+                duration: 0.28,
+                ease: [0.32, 0.72, 0, 1],
               }}
               className={cn(
-                "fixed inset-0 h-dvh w-full bg-white dark:bg-neutral-900 p-5 pt-14 sm:p-8 z-[100] flex flex-col justify-between pointer-events-auto overflow-y-auto",
+                "fixed inset-y-0 left-0 z-[100] w-[85%] max-w-[320px] h-dvh",
+                "bg-white dark:bg-neutral-900",
+                "shadow-2xl shadow-black/20",
+                "flex flex-col overflow-hidden",
                 className
               )}
+              {...props}
             >
-              <div
-                className="absolute right-5 top-5 sm:right-8 sm:top-8 z-50 text-neutral-800 dark:text-neutral-200"
-                onClick={() => setOpen(!open)}
-              >
-                <IconX className="h-6 w-6" />
+              {/* Drawer Header */}
+              <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-neutral-100 dark:border-neutral-800">
+                <span className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">Menu Navigasi</span>
+                <button
+                  onClick={() => setOpen(false)}
+                  className="p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                >
+                  <IconX className="h-5 w-5 text-neutral-600 dark:text-neutral-400" />
+                </button>
               </div>
-              {children as any}
+              {/* Drawer Content */}
+              <div className="flex-1 overflow-y-auto overflow-x-hidden p-5 pb-24">
+                {children as any}
+              </div>
             </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
-    </>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
   );
 };
 

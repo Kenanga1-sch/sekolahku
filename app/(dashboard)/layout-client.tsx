@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
@@ -33,13 +33,15 @@ import {
   PanelLeftOpen,
   ChevronDown,
   ChevronUp,
+  Menu,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types";
-import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/sidebar";
-import { ThemeToggle } from "@/components/ui/theme-toggle"; // Keep theme toggle access
+import { Sidebar, SidebarBody, SidebarLink, useSidebar } from "@/components/ui/sidebar";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { BottomNav } from "@/components/ui/bottom-nav";
 import { Button } from "@/components/ui/button";
 import dynamic from "next/dynamic";
 const NotificationPopover = dynamic(
@@ -59,6 +61,35 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { SchoolSettings } from "@/types";
+
+// Page title mapping for mobile header
+const PAGE_TITLES: Record<string, string> = {
+  "/overview": "Beranda",
+  "/perpustakaan": "Perpustakaan",
+  "/inventaris": "Inventaris",
+  "/arsip": "E-Arsip",
+  "/tabungan": "Tabungan",
+  "/admin/master/gtk": "Direktori GTK",
+  "/admin/akademik": "Akademik",
+  "/admin/siswa": "Manajemen Siswa",
+  "/presensi": "Presensi",
+  "/admin/konten-informasi": "Informasi",
+  "/admin/halaman-depan": "Halaman Depan",
+  "/profile": "Profil",
+  "/admin/notifikasi": "Notifikasi",
+  "/admin/surat": "Surat",
+};
+
+function getPageTitle(pathname: string): string {
+  // Exact match first
+  if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
+  // Prefix match (longest match first)
+  const sorted = Object.keys(PAGE_TITLES).sort((a, b) => b.length - a.length);
+  for (const key of sorted) {
+    if (pathname.startsWith(key)) return PAGE_TITLES[key];
+  }
+  return "Dashboard";
+}
 
 // --- Navigation Config (Preserved) ---
 interface SubNavItem {
@@ -212,6 +243,8 @@ export default function DashboardLayoutClient({
     }
   };
   const router = useRouter();
+  const pathname = usePathname();
+  const pageTitle = getPageTitle(pathname);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -355,9 +388,24 @@ export default function DashboardLayoutClient({
       </Sidebar>
       </div>
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          {/* Top Navigation Bar - Static/Relative */}
-          <header className="sticky top-0 md:static flex items-center justify-end gap-2 p-2.5 sm:p-3 md:p-4 w-full z-40 bg-gray-100/80 dark:bg-neutral-800/80 backdrop-blur md:bg-transparent md:dark:bg-transparent">
-            <div className="flex items-center gap-2 sm:gap-3 md:gap-4 p-1 md:p-2">
+          {/* Top Navigation Bar */}
+          <header className="sticky top-0 md:static flex items-center justify-between gap-2 p-2.5 sm:p-3 md:p-4 w-full z-40 bg-gray-100/80 dark:bg-neutral-800/80 backdrop-blur-xl md:bg-transparent md:dark:bg-transparent border-b border-neutral-200/50 dark:border-neutral-700/50 md:border-0">
+            {/* Left: Hamburger + Page Title (mobile only) */}
+            <div className="flex items-center gap-3 md:hidden">
+              <button
+                onClick={() => handleSetOpen(true)}
+                className="p-1.5 -ml-1 rounded-lg hover:bg-neutral-200/60 dark:hover:bg-neutral-700/60 active:scale-95 transition-all"
+                aria-label="Buka menu"
+              >
+                <Menu className="h-5 w-5 text-neutral-700 dark:text-neutral-200" />
+              </button>
+              <h1 className="text-sm font-semibold text-neutral-800 dark:text-neutral-100 truncate">
+                {pageTitle}
+              </h1>
+            </div>
+
+            {/* Right: Actions */}
+            <div className="flex items-center gap-2 sm:gap-3 md:gap-4 p-1 md:p-2 ml-auto">
              {/* Theme Toggle */}
              <div className="flex items-center justify-center">
                 <ThemeToggle />
@@ -365,15 +413,15 @@ export default function DashboardLayoutClient({
 
              {/* Notification */}
              <div className={cn("flex items-center justify-center")}>
-                <NotificationPopover className="h-6 w-6 md:h-5 md:w-5 text-neutral-700 dark:text-neutral-200 hover:text-neutral-900 dark:hover:text-white transition-colors" />
+                <NotificationPopover className="h-5 w-5 text-neutral-700 dark:text-neutral-200 hover:text-neutral-900 dark:hover:text-white transition-colors" />
              </div>
 
              {/* Profile Dropdown */}
             {mounted ? (
               <DropdownMenu onOpenChange={setIsDropdownOpen}>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-9 w-9 sm:h-10 sm:w-10 md:h-auto md:w-auto rounded-full md:rounded-xl p-0 md:px-3 md:py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:ring-0 focus-visible:ring-offset-0">
-                     <div className="h-9 w-9 md:h-8 md:w-8 flex-shrink-0 rounded-full bg-neutral-200 dark:bg-neutral-700 overflow-hidden ring-2 ring-transparent transition-all">
+                  <Button variant="ghost" className="relative h-8 w-8 sm:h-9 sm:w-9 md:h-auto md:w-auto rounded-full md:rounded-xl p-0 md:px-3 md:py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:ring-0 focus-visible:ring-offset-0">
+                     <div className="h-8 w-8 sm:h-9 sm:w-9 md:h-8 md:w-8 flex-shrink-0 rounded-full bg-neutral-200 dark:bg-neutral-700 overflow-hidden ring-2 ring-transparent transition-all">
                         <Avatar className="h-full w-full">
                            <AvatarImage src={userImage} className="object-cover" />
                            <AvatarFallback>{displayInitials}</AvatarFallback>
@@ -411,10 +459,13 @@ export default function DashboardLayoutClient({
             </div>
           </header>
 
-         <main id="main-content" className="flex min-w-0 flex-1 flex-col gap-2 overflow-x-hidden px-3 pb-4 pt-2 sm:px-4 md:h-full md:overflow-y-auto md:rounded-tl-2xl md:px-5 md:pb-6 md:pt-4 lg:px-6 xl:px-8">
+         <main id="main-content" className="flex min-w-0 flex-1 flex-col gap-2 overflow-x-hidden px-3 pb-20 pt-2 sm:px-4 md:h-full md:overflow-y-auto md:rounded-tl-2xl md:px-5 md:pb-6 md:pt-4 lg:px-6 xl:px-8">
             {children}
          </main>
       </div>
+
+      {/* Bottom Navigation - Mobile Only */}
+      <BottomNav onMenuClick={() => handleSetOpen(true)} />
     </div>
   );
 }

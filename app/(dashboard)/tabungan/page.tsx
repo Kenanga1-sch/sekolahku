@@ -158,13 +158,13 @@ export default function TabunganDashboardPage() {
     }
 
     return (
-        <div className="space-y-6 p-6">
+        <div className="space-y-6 p-4 sm:p-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="flex flex-col gap-1">
-                    <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-zinc-50 flex items-center gap-3">
+                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-zinc-50 flex items-center gap-3">
                         <div className="p-2 bg-emerald-50 dark:bg-zinc-900 rounded-xl text-emerald-600 dark:text-emerald-400 border border-emerald-100/30 dark:border-zinc-800">
-                            <Wallet className="h-6 w-6" />
+                            <Wallet className="h-5 w-5 sm:h-6 sm:w-6" />
                         </div>
                         Tabungan Siswa
                     </h1>
@@ -177,7 +177,7 @@ export default function TabunganDashboardPage() {
                     size="icon"
                     onClick={handleRefresh}
                     disabled={refreshing}
-                    className="border-slate-200 hover:bg-slate-50"
+                    className="border-slate-200 hover:bg-slate-50 self-end sm:self-auto"
                 >
                     <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
                 </Button>

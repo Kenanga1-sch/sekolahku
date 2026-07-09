@@ -94,19 +94,19 @@ export default function PresensiDashboardPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <ClipboardList className="h-6 w-6 text-primary" />
+          <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+            <ClipboardList className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
             Presensi Siswa
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             {format(today, "EEEE, d MMMM yyyy", { locale: localeId })}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Link href="/presensi/scan">
-            <Button>
+          <Link href="/presensi/scan" className="w-full sm:w-auto">
+            <Button className="w-full sm:w-auto">
               <QrCode className="h-4 w-4 mr-2" />
               Scan QR
             </Button>
