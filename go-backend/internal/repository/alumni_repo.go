@@ -104,13 +104,14 @@ func (r *AlumniRepository) GetAlumni(page, limit int, search, year, statusFilter
 	var results []models.Alumni
 	for rows.Next() {
 		var a models.Alumni
-		var nisn, nis, gender, fClass, photo, nSchool, nik, eYear, rel, addr, status sql.NullString
+		var nisn, nis, gender, gradYear, fClass, photo, nSchool, nik, eYear, rel, addr, status sql.NullString
 		var crAt sql.NullInt64
-		err := rows.Scan(&a.ID, &nisn, &nis, &a.FullName, &gender, &a.GraduationYear, &fClass, &photo, &nSchool,
+		err := rows.Scan(&a.ID, &nisn, &nis, &a.FullName, &gender, &gradYear, &fClass, &photo, &nSchool,
 			&nik, &eYear, &rel, &addr, &status, &crAt)
 		if err != nil {
 			return nil, 0, err
 		}
+		a.GraduationYear = gradYear.String
 		a.NISN = optionalString(nisn)
 		a.NIS = optionalString(nis)
 		a.Gender = optionalString(gender)
@@ -157,7 +158,7 @@ func (r *AlumniRepository) GetAlumniByID(id string) (*models.Alumni, error) {
 		FROM alumni WHERE id = ?
 	`
 	var a models.Alumni
-	var sid, nisn, nis, gender, bp, bd, fclass, photo, pn, pp, ca, cp, ce, ns, notes sql.NullString
+	var sid, nisn, nis, gender, bp, bd, gy, fclass, photo, pn, pp, ca, cp, ce, ns, notes sql.NullString
 	var gd, crat, upat sql.NullInt64
 	var nik, rel, addr, eYear, prevSch sql.NullString
 	var fn, fnNik, fnEdu, fnJob sql.NullString
@@ -177,7 +178,7 @@ func (r *AlumniRepository) GetAlumniByID(id string) (*models.Alumni, error) {
 
 	err := r.DB.QueryRow(query, id).Scan(
 		&a.ID, &sid, &nisn, &nis, &a.FullName, &gender, &bp, &bd,
-		&a.GraduationYear, &gd, &fclass, &photo, &pn, &pp, &ca, &cp,
+		&gy, &gd, &fclass, &photo, &pn, &pp, &ca, &cp,
 		&ce, &ns, &notes, &crat, &upat,
 		&nik, &rel, &addr, &eYear, &prevSch,
 		&fn, &fnNik, &fnEdu, &fnJob,
@@ -200,6 +201,7 @@ func (r *AlumniRepository) GetAlumniByID(id string) (*models.Alumni, error) {
 	}
 
 	a.StudentID = optionalString(sid)
+	a.GraduationYear = gy.String
 	a.Status = status.String
 	if a.Status == "" {
 		a.Status = "graduated"
