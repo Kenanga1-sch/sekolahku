@@ -50,7 +50,8 @@ export const SidebarProvider = ({
 
   useEffect(() => {
     setOpen(false);
-  }, [pathname, setOpen]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   return (
     <SidebarContext.Provider value={{ open, setOpen, animate }}>

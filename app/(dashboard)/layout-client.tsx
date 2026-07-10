@@ -225,7 +225,7 @@ export default function DashboardLayoutClient({
   };
 
   // Custom setOpen handler to prevent closing when dropdown is open
-  const handleSetOpen = (value: boolean | ((prevState: boolean) => boolean)) => {
+  const handleSetOpen = React.useCallback((value: boolean | ((prevState: boolean) => boolean)) => {
     if (typeof value === "function") {
       setOpen((prev) => {
         const next = value(prev);
@@ -241,7 +241,7 @@ export default function DashboardLayoutClient({
       }
       setOpen(value);
     }
-  };
+  }, [isDropdownOpen]);
   const router = useRouter();
   const pathname = usePathname();
   const pageTitle = getPageTitle(pathname);
