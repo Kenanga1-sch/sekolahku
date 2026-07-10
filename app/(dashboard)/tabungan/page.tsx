@@ -185,7 +185,7 @@ export default function TabunganDashboardPage() {
 
             {/* Main Tabs (only if Admin or Treasurer) */}
             {canManage && (
-                <div className="flex border-b border-muted">
+                <div className="flex overflow-x-auto flex-nowrap shrink-0 whitespace-nowrap border-b border-muted -mx-4 px-4 sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     <button
                         onClick={() => setActiveTab("dashboard")}
                         className={`pb-3 px-4 text-sm font-medium border-b-2 transition-colors -mb-[2px] flex items-center gap-2 ${

@@ -132,20 +132,20 @@ export const MobileSidebar = ({
               className="fixed inset-0 z-[90] bg-black/40 backdrop-blur-[2px]"
               onClick={() => setOpen(false)}
             />
-            {/* Drawer Panel */}
+            {/* Drawer Panel / Bottom Sheet */}
             <motion.div
-              initial={{ x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
               transition={{
-                duration: 0.28,
+                duration: 0.3,
                 ease: [0.32, 0.72, 0, 1],
               }}
               className={cn(
-                "fixed inset-y-0 left-0 z-[100] w-[85%] max-w-[320px] h-dvh",
-                "bg-white dark:bg-neutral-900",
-                "shadow-2xl shadow-black/20",
-                "flex flex-col overflow-hidden",
+                "fixed bottom-0 left-0 right-0 z-[100] w-full max-h-[85vh]",
+                "bg-white dark:bg-neutral-900 rounded-t-3xl",
+                "shadow-[0_-8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_-8px_30px_rgba(0,0,0,0.5)]",
+                "flex flex-col overflow-hidden pb-[env(safe-area-inset-bottom)]",
                 className
               )}
               {...props}
