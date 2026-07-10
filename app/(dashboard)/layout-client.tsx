@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
@@ -225,7 +225,7 @@ export default function DashboardLayoutClient({
   };
 
   // Custom setOpen handler to prevent closing when dropdown is open
-  const handleSetOpen = React.useCallback((value: boolean | ((prevState: boolean) => boolean)) => {
+  const handleSetOpen = useCallback((value: boolean | ((prevState: boolean) => boolean)) => {
     if (typeof value === "function") {
       setOpen((prev) => {
         const next = value(prev);
