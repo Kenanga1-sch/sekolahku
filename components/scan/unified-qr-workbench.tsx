@@ -95,6 +95,7 @@ interface UnifiedQRWorkbenchProps {
   backLabel: string;
   title?: string;
   description?: string;
+  variant?: "default" | "tabungan" | "presensi";
 }
 
 const SAME_CODE_BLOCK_MS = 3000;
@@ -158,6 +159,7 @@ export function UnifiedQRWorkbench({
   backLabel,
   title = "Scan QR Presensi & Tabungan",
   description = "Satu tempat scan untuk mencatat kehadiran dan setoran tabungan tanpa keluar dari layar antrean.",
+  variant = "default",
 }: UnifiedQRWorkbenchProps) {
   const searchParams = useSearchParams();
   const { user } = useAuthStore();
@@ -652,7 +654,10 @@ export function UnifiedQRWorkbench({
         </div>
 
         {/* Real-time counters */}
-        <div className="grid grid-cols-3 gap-2 sm:min-w-[360px] shadow-sm">
+        <div className={cn(
+          "grid grid-cols-3 gap-2 sm:min-w-[360px] shadow-sm",
+          variant === "tabungan" && "hidden md:grid"
+        )}>
           <div className="rounded-lg border bg-white dark:bg-slate-900 px-3.5 py-2">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
               <UserCheck className="h-3.5 w-3.5 text-emerald-500" />
@@ -682,7 +687,10 @@ export function UnifiedQRWorkbench({
           
           {/* Left Side: Scanner & Sesi */}
           <div className="flex min-w-0 flex-col gap-3">
-            <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white dark:bg-slate-900 p-3 sm:flex-row sm:items-end shadow-sm">
+            <div className={cn(
+              "flex flex-col gap-2 rounded-lg border border-slate-200 bg-white dark:bg-slate-900 p-3 sm:flex-row sm:items-end shadow-sm",
+              variant === "tabungan" && "hidden md:flex"
+            )}>
               <div className="min-w-0 flex-1">
                 <Label className="text-xs font-semibold text-slate-500">Sesi Presensi Aktif Hari Ini</Label>
                 <Select
@@ -804,7 +812,7 @@ export function UnifiedQRWorkbench({
           </div>
 
           {/* Right Side: Scan Results & Actions */}
-          <div className="flex min-w-0 flex-col gap-3">
+          <div className={cn("flex min-w-0 flex-col gap-3", currentScan && "order-first lg:order-none")}>
             
             {/* Live Scan Result Area */}
             <Card className="rounded-lg border-slate-200/80 shadow-sm overflow-hidden bg-white">
