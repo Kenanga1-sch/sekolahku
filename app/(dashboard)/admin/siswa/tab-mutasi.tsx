@@ -196,12 +196,12 @@ export default function TabMutasi() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-xl font-semibold flex items-center gap-2">
             <ArrowRightLeft className="h-5 w-5 text-primary" /> Kelola Mutasi Siswa
           </h2>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted-foreground text-xs sm:text-sm hidden sm:block">
             Manajemen permohonan mutasi masuk dan mutasi keluar siswa.
           </p>
         </div>
@@ -212,39 +212,40 @@ export default function TabMutasi() {
           }} 
           variant="outline" 
           size="sm"
+          className="w-full sm:w-auto"
         >
           <RefreshCw className="mr-2 h-4 w-4" /> Refresh
         </Button>
       </div>
 
       {/* Tabs Navigation */}
-      <div className="flex border-b border-muted">
+      <div className="flex border-b border-slate-100 dark:border-zinc-800 overflow-x-auto whitespace-nowrap scrollbar-none bg-slate-50/50 dark:bg-zinc-950/20 p-1 rounded-xl gap-0.5 max-w-fit">
         <button
           onClick={() => setActiveTab("masuk")}
-          className={`pb-3 px-4 text-sm font-medium border-b-2 transition-colors -mb-[2px] ${
+          className={`py-1.5 px-3 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 cursor-pointer ${
             activeTab === "masuk"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
+              ? "bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/50 dark:border-zinc-800"
+              : "text-muted-foreground hover:text-foreground hover:bg-slate-100/50 dark:hover:bg-zinc-900/30"
           }`}
         >
           Mutasi Masuk
         </button>
         <button
           onClick={() => setActiveTab("keluar")}
-          className={`pb-3 px-4 text-sm font-medium border-b-2 transition-colors -mb-[2px] ${
+          className={`py-1.5 px-3 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 cursor-pointer ${
             activeTab === "keluar"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
+              ? "bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/50 dark:border-zinc-800"
+              : "text-muted-foreground hover:text-foreground hover:bg-slate-100/50 dark:hover:bg-zinc-900/30"
           }`}
         >
           Mutasi Keluar
         </button>
         <button
           onClick={() => setActiveTab("buku")}
-          className={`pb-3 px-4 text-sm font-medium border-b-2 transition-colors -mb-[2px] ${
+          className={`py-1.5 px-3 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 cursor-pointer ${
             activeTab === "buku"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
+              ? "bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/50 dark:border-zinc-800"
+              : "text-muted-foreground hover:text-foreground hover:bg-slate-100/50 dark:hover:bg-zinc-900/30"
           }`}
         >
           Buku Mutasi
@@ -259,9 +260,9 @@ export default function TabMutasi() {
           </div>
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Tgl Masuk</TableHead>
-                <TableHead>No. Registrasi</TableHead>
+             <TableRow>
+                <TableHead className="hidden sm:table-cell">Tgl Masuk</TableHead>
+                <TableHead className="hidden sm:table-cell">No. Registrasi</TableHead>
                 <TableHead>Nama Siswa</TableHead>
                 <TableHead>Kelas Tujuan</TableHead>
                 <TableHead>Status</TableHead>
@@ -290,12 +291,12 @@ export default function TabMutasi() {
               ) : (
                 requestsIn.map((req: any) => (
                   <TableRow key={req.id}>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       {format(new Date(req.createdAt), "dd/MM/yyyy")}
                     </TableCell>
-                    <TableCell>{req.registrationNumber}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{req.registrationNumber}</TableCell>
                     <TableCell>
-                      <div className="font-medium">{req.studentName}</div>
+                      <div className="font-semibold text-slate-800 dark:text-zinc-200">{req.studentName}</div>
                       <div className="text-xs text-muted-foreground">{req.originSchool}</div>
                     </TableCell>
                     <TableCell>Kelas {req.targetGrade}</TableCell>
@@ -464,11 +465,11 @@ export default function TabMutasi() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Tanggal</TableHead>
-                <TableHead>NISN</TableHead>
+                <TableHead className="hidden sm:table-cell">Tanggal</TableHead>
+                <TableHead className="hidden sm:table-cell">NISN</TableHead>
                 <TableHead>Nama Siswa</TableHead>
                 <TableHead>Sekolah Tujuan</TableHead>
-                <TableHead>Alasan</TableHead>
+                <TableHead className="hidden md:table-cell">Alasan</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Aksi</TableHead>
               </TableRow>
@@ -495,16 +496,16 @@ export default function TabMutasi() {
               ) : (
                 requestsOut.map((req: any) => (
                   <TableRow key={req.id}>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       {format(new Date(req.createdAt), "dd/MM/yyyy")}
                     </TableCell>
-                    <TableCell>{req.nisn}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{req.nisn}</TableCell>
                     <TableCell>
-                      <div className="font-medium">{req.studentName}</div>
+                      <div className="font-semibold text-slate-800 dark:text-zinc-200">{req.studentName}</div>
                       <div className="text-xs text-muted-foreground">{req.className}</div>
                     </TableCell>
                     <TableCell>{req.destinationSchool}</TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       {req.reason === "domisili" ? "Pindah Domisili" : 
                        req.reason === "tugas_orangtua" ? "Tugas Ortu" : "Lainnya"}
                     </TableCell>
@@ -640,21 +641,21 @@ export default function TabMutasi() {
         </Card>
       ) : activeTab === "buku" ? (
         <Card>
-          <div className="p-4 flex justify-between items-center border-b">
-            <h3 className="font-semibold">Buku Mutasi Bulanan</h3>
-            <Button size="sm" onClick={() => window.print()}>
+          <div className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b">
+            <h3 className="font-semibold text-slate-800 dark:text-zinc-200">Buku Mutasi Bulanan</h3>
+            <Button size="sm" onClick={() => window.print()} className="w-full sm:w-auto">
               <Download className="mr-2 h-4 w-4" /> Cetak Buku Mutasi
             </Button>
           </div>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Tanggal</TableHead>
+                <TableHead className="hidden sm:table-cell">Tanggal</TableHead>
                 <TableHead>Jenis</TableHead>
                 <TableHead>Nama Siswa</TableHead>
-                <TableHead>NISN</TableHead>
+                <TableHead className="hidden sm:table-cell">NISN</TableHead>
                 <TableHead>Asal/Tujuan</TableHead>
-                <TableHead>Keterangan</TableHead>
+                <TableHead className="hidden md:table-cell">Keterangan</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -679,7 +680,7 @@ export default function TabMutasi() {
               ) : (
                 mutasiLogs.map((log: any) => (
                   <TableRow key={log.id}>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       {format(new Date(log.mutationDate), "dd/MM/yyyy")}
                     </TableCell>
                     <TableCell>
@@ -687,12 +688,12 @@ export default function TabMutasi() {
                         {log.mutasiType === "masuk" ? "Masuk" : "Keluar"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="font-medium">
+                    <TableCell className="font-semibold text-slate-800 dark:text-zinc-200">
                       {log.studentName}
                     </TableCell>
-                    <TableCell>{log.nisn}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{log.nisn}</TableCell>
                     <TableCell>{log.originOrDestination}</TableCell>
-                    <TableCell>{log.reason}</TableCell>
+                    <TableCell className="hidden md:table-cell">{log.reason}</TableCell>
                   </TableRow>
                 ))
               )}

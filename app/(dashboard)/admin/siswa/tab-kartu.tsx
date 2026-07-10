@@ -192,12 +192,12 @@ export default function TabKartu() {
           <h2 className="text-xl font-semibold flex items-center gap-2">
             <Printer className="h-6 w-6 text-primary" /> Cetak Kartu Siswa
           </h2>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted-foreground text-xs sm:text-sm hidden sm:block">
             Pilih siswa, cetak kartu pelajar/NISN/KIP, dan lihat QR code.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={fetchStudents}>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button variant="outline" size="sm" onClick={fetchStudents} className="w-full sm:w-auto">
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
           </Button>
@@ -205,6 +205,7 @@ export default function TabKartu() {
             size="sm"
             onClick={handlePrintCards}
             disabled={selectedStudents.length === 0}
+            className="w-full sm:w-auto"
           >
             <Printer className="h-4 w-4 mr-2" />
             Cetak Kartu ({selectedStudents.length})
@@ -289,8 +290,8 @@ export default function TabKartu() {
         </CardHeader>
         <CardContent>
           {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="relative flex-1">
+          <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 mb-6">
+            <div className="relative col-span-2 sm:flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Cari nama, NISN, atau NIS..."
@@ -309,7 +310,7 @@ export default function TabKartu() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-full sm:w-[150px]">
                 <SelectValue placeholder="Kelas" />
               </SelectTrigger>
               <SelectContent>
@@ -328,7 +329,7 @@ export default function TabKartu() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger className="w-full sm:w-[150px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -344,7 +345,7 @@ export default function TabKartu() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="w-[120px]">
+              <SelectTrigger className="col-span-2 sm:col-span-1 w-full sm:w-[120px]">
                 <SelectValue placeholder="Baris" />
               </SelectTrigger>
               <SelectContent>
@@ -371,7 +372,7 @@ export default function TabKartu() {
                     />
                   </TableHead>
                   <SortableTableHead label="Siswa" sortKey="fullName" sortConfig={sortConfig} onSort={requestSort} />
-                  <SortableTableHead label="NISN" sortKey="nisn" sortConfig={sortConfig} onSort={requestSort} />
+                  <SortableTableHead label="NISN" sortKey="nisn" sortConfig={sortConfig} onSort={requestSort} className="hidden sm:table-cell" />
                   <SortableTableHead label="Kelas" sortKey="className" sortConfig={sortConfig} onSort={requestSort} />
                   <SortableTableHead label="Status" sortKey="isActive" sortConfig={sortConfig} onSort={requestSort} />
                   <TableHead className="text-right">Aksi</TableHead>
@@ -421,8 +422,8 @@ export default function TabKartu() {
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="font-medium">{student.fullName}</p>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="font-semibold text-slate-800 dark:text-zinc-200">{student.fullName}</p>
+                            <p className="text-xs text-muted-foreground hidden sm:block">
                               {student.gender === "L"
                                 ? "Laki-laki"
                                 : student.gender === "P"
@@ -432,8 +433,8 @@ export default function TabKartu() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <code className="text-sm bg-muted px-2 py-1 rounded">
+                      <TableCell className="hidden sm:table-cell">
+                        <code className="text-xs bg-muted px-2 py-1 rounded">
                           {student.nisn || "-"}
                         </code>
                       </TableCell>

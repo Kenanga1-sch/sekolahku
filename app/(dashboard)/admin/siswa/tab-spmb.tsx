@@ -546,13 +546,13 @@ export default function TabSPMB() {
       />
 
       {/* Global Settings & Main Controls */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-end gap-4">
-        <div className="flex gap-3 flex-wrap items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-50 dark:bg-zinc-950/20 p-3 rounded-xl border border-slate-100 dark:border-zinc-900">
+        <div className="flex flex-col sm:flex-row gap-2.5 w-full sm:w-auto items-stretch sm:items-center">
           {/* Active Period Dropdown Filter */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-muted-foreground">Gelombang:</span>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <span className="text-xs sm:text-sm font-semibold text-slate-500 dark:text-zinc-400 shrink-0">Gelombang:</span>
             <Select value={selectedPeriodId} onValueChange={(v) => { setSelectedPeriodId(v); setPage(1); }}>
-              <SelectTrigger className="w-[220px] bg-white dark:bg-zinc-900 border shadow-sm">
+              <SelectTrigger className="w-full sm:w-[220px] bg-white dark:bg-zinc-900 border shadow-sm">
                 <SelectValue placeholder="Pilih Gelombang" />
               </SelectTrigger>
               <SelectContent>
@@ -567,8 +567,8 @@ export default function TabSPMB() {
           </div>
 
           {/* Global Open/Close Switch */}
-          <div className="flex items-center gap-2 bg-white dark:bg-zinc-900 border px-3 py-1.5 rounded-lg shadow-sm">
-            <span className="text-sm font-medium">Pendaftaran Online:</span>
+          <div className="flex items-center justify-between gap-2 bg-white dark:bg-zinc-900 border px-3 py-2 rounded-lg shadow-sm w-full sm:w-auto">
+            <span className="text-xs sm:text-sm font-semibold">Pendaftaran Online:</span>
             {isGlobalLoading ? (
               <Skeleton className="h-5 w-10" />
             ) : (
@@ -578,27 +578,27 @@ export default function TabSPMB() {
               />
             )}
           </div>
-
-          <Button variant="outline" onClick={handleRefresh} disabled={isRefreshing}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
         </div>
+
+        <Button variant="outline" onClick={handleRefresh} disabled={isRefreshing} className="w-full sm:w-auto">
+          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex border-b border-zinc-200 dark:border-zinc-800">
+      <div className="flex border-b border-slate-100 dark:border-zinc-800 overflow-x-auto whitespace-nowrap scrollbar-none bg-slate-50/50 dark:bg-zinc-950/20 p-1 rounded-xl gap-0.5 max-w-fit mb-6">
         <button 
           onClick={() => setActiveTab("registrants")} 
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-[2px] cursor-pointer ${activeTab === "registrants" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+          className={`py-1.5 px-3 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 cursor-pointer ${activeTab === "registrants" ? "bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/50 dark:border-zinc-800" : "text-muted-foreground hover:text-foreground hover:bg-slate-100/50 dark:hover:bg-zinc-900/30"}`}
         >
           Daftar Pendaftar
         </button>
         <button 
           onClick={() => setActiveTab("periods")} 
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-[2px] cursor-pointer ${activeTab === "periods" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+          className={`py-1.5 px-3 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 cursor-pointer ${activeTab === "periods" ? "bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/50 dark:border-zinc-800" : "text-muted-foreground hover:text-foreground hover:bg-slate-100/50 dark:hover:bg-zinc-900/30"}`}
         >
-          Kelola Gelombang Pendaftaran
+          Gelombang Pendaftaran
         </button>
       </div>
 
@@ -660,9 +660,9 @@ export default function TabSPMB() {
                   />
                 </div>
                 
-                <div className="flex gap-2 w-full md:w-auto flex-wrap">
+                 <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 w-full sm:w-auto flex-wrap">
                   <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-                    <SelectTrigger className="w-full md:w-48 bg-white dark:bg-zinc-900 border">
+                    <SelectTrigger className="w-full sm:w-48 bg-white dark:bg-zinc-900 border">
                       <Filter className="h-4 w-4 mr-2" />
                       <SelectValue placeholder="Filter Status" />
                     </SelectTrigger>
@@ -682,7 +682,7 @@ export default function TabSPMB() {
                       setPage(1);
                     }}
                   >
-                    <SelectTrigger className="w-full md:w-[120px] bg-white dark:bg-zinc-900 border">
+                    <SelectTrigger className="w-full sm:w-[120px] bg-white dark:bg-zinc-900 border">
                       <SelectValue placeholder="Baris" />
                     </SelectTrigger>
                     <SelectContent>
@@ -695,7 +695,7 @@ export default function TabSPMB() {
 
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button className="gap-2" variant="outline" disabled={actionLoading === "export"}>
+                      <Button className="col-span-2 sm:col-span-1 w-full sm:w-auto gap-2" variant="outline" disabled={actionLoading === "export"}>
                          {actionLoading === "export" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                         Export Data
                       </Button>
@@ -820,9 +820,9 @@ export default function TabSPMB() {
                           onCheckedChange={toggleSelectAll}
                         />
                       </TableHead>
-                      <SortableTableHead label="No. Pendaftaran" sortKey="registrationNumber" sortConfig={sortConfig} onSort={requestSort} />
+                      <SortableTableHead label="No. Pendaftaran" sortKey="registrationNumber" sortConfig={sortConfig} onSort={requestSort} className="hidden sm:table-cell" />
                       <SortableTableHead label="Nama Lengkap" sortKey="fullName" sortConfig={sortConfig} onSort={requestSort} />
-                      <TableHead>
+                      <TableHead className="hidden sm:table-cell">
                         <div className="flex items-center gap-1">
                             Prioritas Usia
                             <TooltipProvider>
@@ -842,7 +842,7 @@ export default function TabSPMB() {
                             </TooltipProvider>
                         </div>
                       </TableHead>
-                      <SortableTableHead label="Usia" sortKey="birthDate" sortConfig={sortConfig} onSort={requestSort} />
+                      <SortableTableHead label="Usia" sortKey="birthDate" sortConfig={sortConfig} onSort={requestSort} className="hidden sm:table-cell" />
                       <SortableTableHead label="Jarak" sortKey="distanceToSchool" sortConfig={sortConfig} onSort={requestSort} className="hidden md:table-cell" />
                       <TableHead className="hidden lg:table-cell">Domisili</TableHead>
                       <SortableTableHead label="Tanggal" sortKey="createdAt" sortConfig={sortConfig} onSort={requestSort} className="hidden md:table-cell" />
@@ -855,10 +855,10 @@ export default function TabSPMB() {
                       Array.from({ length: 5 }).map((_, i) => (
                         <TableRow key={i}>
                           <TableCell><Skeleton className="h-4 w-4" /></TableCell>
-                          <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                          <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-28" /></TableCell>
                           <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                          <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                          <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
+                          <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-16" /></TableCell>
                           <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-16" /></TableCell>
                           <TableCell className="hidden lg:table-cell"><Skeleton className="h-6 w-16" /></TableCell>
                           <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
@@ -884,23 +884,23 @@ export default function TabSPMB() {
                               onCheckedChange={() => toggleSelect(r.id)}
                             />
                           </TableCell>
-                          <TableCell className="font-mono text-sm">
+                          <TableCell className="hidden sm:table-cell font-mono text-sm">
                             {r.registrationNumber}
                           </TableCell>
                           <TableCell>
                             <div>
-                              <p className="font-medium">{r.fullName}</p>
+                              <p className="font-semibold text-slate-800 dark:text-zinc-200">{r.fullName}</p>
                               <p className="text-xs text-muted-foreground">
                                 {r.gender === "L" ? "Laki-laki" : "Perempuan"}
                               </p>
                             </div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="hidden sm:table-cell">
                             <Badge variant="outline" className={getAgePriorityClass(r.ageEligibility)}>
                                 {getAgePriorityLabel(r.ageEligibility)}
                             </Badge>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="hidden sm:table-cell">
                             {(() => {
                                 if (!r.birthDate) return <span className="text-muted-foreground">-</span>;
                                 const dob = new Date(r.birthDate);
@@ -1057,13 +1057,13 @@ export default function TabSPMB() {
                 <TableHeader>
                   <TableRow className="bg-muted/50">
                     <TableHead>Nama Gelombang</TableHead>
-                    <TableHead>Tahun Akademik</TableHead>
-                    <TableHead>Mulai</TableHead>
-                    <TableHead>Selesai</TableHead>
-                    <TableHead className="text-center">Kuota</TableHead>
-                    <TableHead className="text-center">Terdaftar</TableHead>
+                    <TableHead className="hidden sm:table-cell">Tahun Akademik</TableHead>
+                    <TableHead className="hidden sm:table-cell">Mulai</TableHead>
+                    <TableHead className="hidden sm:table-cell">Selesai</TableHead>
+                    <TableHead className="hidden sm:table-cell text-center">Kuota</TableHead>
+                    <TableHead className="hidden sm:table-cell text-center">Terdaftar</TableHead>
                     <TableHead className="text-center">Status</TableHead>
-                    <TableHead className="text-center">Proses Seleksi</TableHead>
+                    <TableHead className="hidden sm:table-cell text-center">Proses Seleksi</TableHead>
                     <TableHead className="text-right">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1072,13 +1072,13 @@ export default function TabSPMB() {
                     Array.from({ length: 3 }).map((_, i) => (
                       <TableRow key={i}>
                         <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-12 mx-auto" /></TableCell>
-                        <TableCell><Skeleton className="h-4 w-12 mx-auto" /></TableCell>
-                        <TableCell><Skeleton className="h-6 w-16 mx-auto" /></TableCell>
-                        <TableCell><Skeleton className="h-8 w-28 mx-auto" /></TableCell>
+                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-12 mx-auto" /></TableCell>
+                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-12 mx-auto" /></TableCell>
+                        <TableCell className="text-center"><Skeleton className="h-6 w-16 mx-auto" /></TableCell>
+                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-8 w-28 mx-auto" /></TableCell>
                         <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                       </TableRow>
                     ))
@@ -1093,11 +1093,11 @@ export default function TabSPMB() {
                     periods.map((p) => (
                       <TableRow key={p.id} className={p.isActive ? "bg-primary/5" : ""}>
                         <TableCell className="font-semibold">{p.name}</TableCell>
-                        <TableCell>{p.academicYear}</TableCell>
-                        <TableCell>{p.startDate ? new Date(p.startDate).toLocaleDateString("id-ID") : "-"}</TableCell>
-                        <TableCell>{p.endDate ? new Date(p.endDate).toLocaleDateString("id-ID") : "-"}</TableCell>
-                        <TableCell className="text-center font-mono">{p.quota}</TableCell>
-                        <TableCell className="text-center font-mono">
+                        <TableCell className="hidden sm:table-cell">{p.academicYear}</TableCell>
+                        <TableCell className="hidden sm:table-cell">{p.startDate ? new Date(p.startDate).toLocaleDateString("id-ID") : "-"}</TableCell>
+                        <TableCell className="hidden sm:table-cell">{p.endDate ? new Date(p.endDate).toLocaleDateString("id-ID") : "-"}</TableCell>
+                        <TableCell className="hidden sm:table-cell text-center font-mono">{p.quota}</TableCell>
+                        <TableCell className="hidden sm:table-cell text-center font-mono">
                           <Badge variant="secondary">{p.registered}</Badge>
                         </TableCell>
                         <TableCell className="text-center">
@@ -1105,7 +1105,7 @@ export default function TabSPMB() {
                             {p.isActive ? "Aktif" : "Tidak Aktif"}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="hidden sm:table-cell text-center">
                           <ProcessAcceptanceDialog 
                             periodId={p.id} 
                             periodName={p.name} 

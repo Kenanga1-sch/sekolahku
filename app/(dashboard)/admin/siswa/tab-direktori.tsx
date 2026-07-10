@@ -137,16 +137,16 @@ export default function TabDirektori() {
             />
 
             {/* Header Area */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-zinc-50">Direktori Siswa Utama</h2>
-                    <p className="text-muted-foreground text-sm mt-0.5 font-medium">Pusat data seluruh siswa sekolah (Active & Alumni).</p>
+                    <p className="text-muted-foreground text-xs sm:text-sm mt-0.5 font-medium hidden sm:block">Pusat data seluruh siswa sekolah (Active & Alumni).</p>
                 </div>
-                <div className="flex items-center gap-2.5 w-full md:w-auto">
-                    <Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)} className="flex-1 md:flex-none shadow-sm font-medium">
+                <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+                    <Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)} className="w-full sm:w-auto shadow-sm font-medium">
                         <FileDown className="mr-2 h-4 w-4 text-slate-500" /> Import Excel
                     </Button>
-                    <Button size="sm" onClick={handleCreate} className="flex-1 md:flex-none shadow-sm font-medium bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white border-0 transition-all">
+                    <Button size="sm" onClick={handleCreate} className="w-full sm:w-auto shadow-sm font-medium bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white border-0 transition-all">
                         <Plus className="mr-2 h-4 w-4" /> Tambah Siswa Baru
                     </Button>
                 </div>
@@ -232,9 +232,9 @@ export default function TabDirektori() {
                                 onChange={e => setSearchTerm(e.target.value)}
                             />
                         </div>
-                        <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                        <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 w-full sm:w-auto">
                             <Select value={classFilter} onValueChange={(val) => setClassFilter(val === "all" ? "" : val)}>
-                                <SelectTrigger className="w-[140px] bg-background">
+                                <SelectTrigger className="w-full sm:w-[140px] bg-background">
                                     <SelectValue placeholder="Semua Kelas" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -248,7 +248,7 @@ export default function TabDirektori() {
                             </Select>
 
                             <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                <SelectTrigger className="w-[140px] bg-background">
+                                <SelectTrigger className="w-full sm:w-[140px] bg-background">
                                     <SelectValue placeholder="Semua Status" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -268,7 +268,7 @@ export default function TabDirektori() {
                                     setPage(1);
                                 }}
                             >
-                                <SelectTrigger className="w-[110px] bg-background">
+                                <SelectTrigger className="col-span-2 sm:col-span-1 w-full sm:w-[110px] bg-background">
                                     <SelectValue placeholder="Baris" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -284,8 +284,9 @@ export default function TabDirektori() {
                                     setStatusFilter("");
                                     setClassFilter("");
                                     setSearchTerm("");
-                                }} className="hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/20 dark:hover:text-red-400">
-                                    <Filter className="h-4 w-4 text-red-500 dark:text-red-400" />
+                                }} className="col-span-2 sm:col-span-1 h-9 sm:h-10 w-full sm:w-10 flex items-center justify-center hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/20 dark:hover:text-red-400 border sm:border-0 rounded-lg">
+                                    <Filter className="h-4 w-4 text-red-500 dark:text-red-400 mr-2 sm:mr-0" />
+                                    <span className="sm:hidden text-xs text-red-500 dark:text-red-400 font-medium">Reset Filter</span>
                                 </Button>
                             )}
                         </div>
@@ -296,7 +297,7 @@ export default function TabDirektori() {
                         <TableHeader>
                             <TableRow className="bg-slate-50/70 dark:bg-zinc-900/50">
                                 <SortableTableHead label="Nama Lengkap" sortKey="fullName" sortConfig={sortConfig} onSort={requestSort} />
-                                <SortableTableHead label="NIS / NISN" sortKey="nisn" sortConfig={sortConfig} onSort={requestSort} />
+                                <SortableTableHead label="NIS / NISN" sortKey="nisn" sortConfig={sortConfig} onSort={requestSort} className="hidden sm:table-cell" />
                                 <SortableTableHead label="Kelas" sortKey="className" sortConfig={sortConfig} onSort={requestSort} />
                                 <SortableTableHead label="Status" sortKey="status" sortConfig={sortConfig} onSort={requestSort} />
                                 <TableHead className="text-right pr-6 sticky right-0 bg-slate-50/95 dark:bg-zinc-900/95 backdrop-blur-sm border-l border-slate-100 dark:border-zinc-800 z-10 shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.1)]">Aksi</TableHead>
@@ -375,7 +376,7 @@ export default function TabDirektori() {
                                                 </div>
                                             </div>
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell className="hidden sm:table-cell">
                                             <div className="flex flex-col">
                                                 <code className="text-xs font-mono font-semibold text-slate-700 dark:text-zinc-300">
                                                     {student.nisn || '-'}

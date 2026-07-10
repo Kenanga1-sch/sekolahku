@@ -225,46 +225,46 @@ export default function TabAlumni() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="max-w-xl">
           <h2 className="text-xl font-semibold flex items-center gap-2">
             <GraduationCap className="h-6 w-6 text-primary" />
             Buku Induk Siswa
           </h2>
-          <p className="text-muted-foreground text-sm mt-1">
+          <p className="text-muted-foreground text-xs sm:text-sm mt-1 hidden sm:block">
             Catatan riwayat siswa aktif, alumni, pindahan, dan keluar sejak berdirinya sekolah
           </p>
         </div>
         
-        {/* Action Buttons Container - Placed below text on small screens, right aligned on large screens */}
-        <div className="flex flex-wrap items-center gap-3 mt-2 md:mt-0 w-full md:w-auto">
-          <Button variant="outline" size="sm" onClick={() => { fetchAlumni(); fetchStats(); }} className="h-9 shadow-sm hover:bg-slate-50 flex-1 md:flex-none">
+        {/* Action Buttons Container - Placed in a responsive grid on mobile, flex on desktop */}
+        <div className="grid grid-cols-2 sm:flex sm:flex-row items-center gap-2 w-full sm:w-auto mt-2 md:mt-0">
+          <Button variant="outline" size="sm" onClick={() => { fetchAlumni(); fetchStats(); }} className="h-9 w-full shadow-sm hover:bg-slate-50">
             <RefreshCcw className="h-4 w-4 mr-2 text-slate-500" />
             Refresh
           </Button>
           
-          <Link href="/admin/siswa/import" className="flex-1 md:flex-none">
+          <Link href="/admin/siswa/import" className="w-full">
             <Button variant="outline" size="sm" className="h-9 w-full shadow-sm hover:bg-slate-50">
               <Upload className="h-4 w-4 mr-2 text-slate-500" />
-              Impor Dapodik / e-Rapor
+              Impor e-Rapor
             </Button>
           </Link>
           
           <Button 
             variant="outline" 
             size="sm" 
-            className="h-9 shadow-sm text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300 dark:border-emerald-900/50 dark:hover:bg-emerald-900/30 flex-1 md:flex-none w-full md:w-auto font-medium" 
+            className="h-9 w-full shadow-sm text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300 dark:border-emerald-900/50 dark:hover:bg-emerald-900/30 font-medium" 
             onClick={handleSync} 
             disabled={syncing}
           >
             <RefreshCcw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-            {syncing ? 'Sinkronisasi...' : 'Sinkronisasi Data Siswa'}
+            Sync Siswa
           </Button>
           
-          <Link href="/admin/siswa/alumni-tambah" className="flex-1 md:flex-none">
+          <Link href="/admin/siswa/alumni-tambah" className="w-full">
             <Button size="sm" className="h-9 w-full shadow-sm bg-blue-600 hover:bg-blue-700 text-white border-0 font-medium">
               <Plus className="h-4 w-4 mr-2" />
-              Tambah Data Buku Induk
+              Tambah Data
             </Button>
           </Link>
         </div>
@@ -394,11 +394,11 @@ export default function TabAlumni() {
 
       {/* Search & Filter Bar */}
       <div className="space-y-3">
-        <div className="flex flex-col md:flex-row gap-3">
-          <div className="relative flex-1">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1 w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Ketik untuk mencari nama, NISN, atau NIS..."
+              placeholder="Cari nama, NISN, atau NIS..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 h-10 border-slate-200 dark:border-zinc-800"
@@ -408,10 +408,10 @@ export default function TabAlumni() {
             )}
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 w-full sm:w-auto">
             <DropdownMenu open={filterOpen} onOpenChange={setFilterOpen}>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="h-10 px-3 flex items-center gap-2 border-slate-200 dark:border-zinc-800">
+                <Button variant="outline" className="h-10 flex-1 sm:flex-none px-3 flex items-center gap-2 border-slate-200 dark:border-zinc-800 justify-center">
                   <Filter className="h-4 w-4 text-muted-foreground" />
                   Filter Kategori
                   {(statusFilter || graduationYear) && (
@@ -477,7 +477,7 @@ export default function TabAlumni() {
                 setPagination((prev) => ({ ...prev, limit: parseInt(val), page: 1 }));
               }}
             >
-              <SelectTrigger className="w-[110px] h-10 border-slate-200 dark:border-zinc-800">
+              <SelectTrigger className="w-24 sm:w-[110px] h-10 border-slate-200 dark:border-zinc-800">
                 <SelectValue placeholder="Baris" />
               </SelectTrigger>
               <SelectContent>
@@ -523,11 +523,11 @@ export default function TabAlumni() {
             <TableHeader className="bg-zinc-50/50 dark:bg-zinc-900/30">
               <TableRow>
                 <SortableTableHead label="Nama Lengkap" sortKey="fullName" sortConfig={sortConfig} onSort={requestSort} />
-                <SortableTableHead label="NISN / NIS" sortKey="nisn" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableTableHead label="NISN / NIS" sortKey="nisn" sortConfig={sortConfig} onSort={requestSort} className="hidden sm:table-cell" />
                 <SortableTableHead label="Status" sortKey="status" sortConfig={sortConfig} onSort={requestSort} />
-                <SortableTableHead label="Tahun Lulus/Keluar" sortKey="graduationYear" sortConfig={sortConfig} onSort={requestSort} />
-                <SortableTableHead label="Kelas Akhir" sortKey="finalClass" sortConfig={sortConfig} onSort={requestSort} />
-                <SortableTableHead label="Sekolah Lanjutan" sortKey="nextSchool" sortConfig={sortConfig} onSort={requestSort} />
+                <SortableTableHead label="Tahun Lulus/Keluar" sortKey="graduationYear" sortConfig={sortConfig} onSort={requestSort} className="hidden sm:table-cell" />
+                <SortableTableHead label="Kelas Akhir" sortKey="finalClass" sortConfig={sortConfig} onSort={requestSort} className="hidden sm:table-cell" />
+                <SortableTableHead label="Sekolah Lanjutan" sortKey="nextSchool" sortConfig={sortConfig} onSort={requestSort} className="hidden md:table-cell" />
                 <TableHead className="text-right">Aksi</TableHead>
               </TableRow>
             </TableHeader>
@@ -577,7 +577,7 @@ export default function TabAlumni() {
                             {item.fullName}
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden sm:table-cell">
                           <div className="text-xs font-mono">
                             {item.nisn && <div>NISN: {item.nisn}</div>}
                             {item.nis && <div className="text-muted-foreground">NIS: {item.nis}</div>}
@@ -588,15 +588,15 @@ export default function TabAlumni() {
                             {details.label}
                           </Badge>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden sm:table-cell">
                           {item.status === "active" ? (
                             <span className="text-muted-foreground text-xs">-</span>
                           ) : (
                             <Badge variant="secondary" className="font-mono text-xs">{item.graduationYear || "-"}</Badge>
                           )}
                         </TableCell>
-                        <TableCell className="font-medium">{item.finalClass || "-"}</TableCell>
-                        <TableCell className="max-w-[150px] truncate">{item.nextSchool || "-"}</TableCell>
+                        <TableCell className="hidden sm:table-cell font-medium">{item.finalClass || "-"}</TableCell>
+                        <TableCell className="hidden md:table-cell max-w-[150px] truncate">{item.nextSchool || "-"}</TableCell>
                         <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
