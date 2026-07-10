@@ -34,13 +34,13 @@ function SiswaTabsContent() {
   return (
     <div className="space-y-6">
       {/* Tabs Navigation */}
-      <div className="flex border-b border-slate-100 dark:border-zinc-800 overflow-x-auto whitespace-nowrap scrollbar-none bg-slate-50/50 dark:bg-zinc-950/20 p-1 rounded-xl gap-0.5">
+      <div className="flex overflow-x-auto whitespace-nowrap scrollbar-none bg-slate-100/60 dark:bg-zinc-900/40 p-1 rounded-xl gap-1.5 border border-slate-200/40 dark:border-zinc-800/40">
         <button
           onClick={() => setActiveTab("direktori")}
-          className={`py-1.5 sm:py-2 px-3 sm:px-4 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-1.5 cursor-pointer ${
+          className={`shrink-0 py-1.5 sm:py-2 px-3 sm:px-4 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-1.5 cursor-pointer border ${
             activeTab === "direktori"
-              ? "bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/50 dark:border-zinc-800"
-              : "text-muted-foreground hover:text-foreground hover:bg-slate-100/50 dark:hover:bg-zinc-900/30"
+              ? "bg-white dark:bg-zinc-950 text-blue-600 dark:text-blue-400 shadow-sm border-slate-200/80 dark:border-zinc-800"
+              : "text-muted-foreground hover:text-foreground hover:bg-slate-200/40 dark:hover:bg-zinc-900/30 border-transparent"
           }`}
         >
           <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -48,10 +48,10 @@ function SiswaTabsContent() {
         </button>
         <button
           onClick={() => setActiveTab("kartu")}
-          className={`py-1.5 sm:py-2 px-3 sm:px-4 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-1.5 cursor-pointer ${
+          className={`shrink-0 py-1.5 sm:py-2 px-3 sm:px-4 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-1.5 cursor-pointer border ${
             activeTab === "kartu"
-              ? "bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/50 dark:border-zinc-800"
-              : "text-muted-foreground hover:text-foreground hover:bg-slate-100/50 dark:hover:bg-zinc-900/30"
+              ? "bg-white dark:bg-zinc-950 text-blue-600 dark:text-blue-400 shadow-sm border-slate-200/80 dark:border-zinc-800"
+              : "text-muted-foreground hover:text-foreground hover:bg-slate-200/40 dark:hover:bg-zinc-900/30 border-transparent"
           }`}
         >
           <Printer className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -59,10 +59,10 @@ function SiswaTabsContent() {
         </button>
         <button
           onClick={() => setActiveTab("mutasi")}
-          className={`py-1.5 sm:py-2 px-3 sm:px-4 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-1.5 cursor-pointer ${
+          className={`shrink-0 py-1.5 sm:py-2 px-3 sm:px-4 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-1.5 cursor-pointer border ${
             activeTab === "mutasi"
-              ? "bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/50 dark:border-zinc-800"
-              : "text-muted-foreground hover:text-foreground hover:bg-slate-100/50 dark:hover:bg-zinc-900/30"
+              ? "bg-white dark:bg-zinc-950 text-blue-600 dark:text-blue-400 shadow-sm border-slate-200/80 dark:border-zinc-800"
+              : "text-muted-foreground hover:text-foreground hover:bg-slate-200/40 dark:hover:bg-zinc-900/30 border-transparent"
           }`}
         >
           <ArrowRightLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -70,10 +70,10 @@ function SiswaTabsContent() {
         </button>
         <button
           onClick={() => setActiveTab("alumni")}
-          className={`py-1.5 sm:py-2 px-3 sm:px-4 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-1.5 cursor-pointer ${
+          className={`shrink-0 py-1.5 sm:py-2 px-3 sm:px-4 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-1.5 cursor-pointer border ${
             activeTab === "alumni"
-              ? "bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/50 dark:border-zinc-800"
-              : "text-muted-foreground hover:text-foreground hover:bg-slate-100/50 dark:hover:bg-zinc-900/30"
+              ? "bg-white dark:bg-zinc-950 text-blue-600 dark:text-blue-400 shadow-sm border-slate-200/80 dark:border-zinc-800"
+              : "text-muted-foreground hover:text-foreground hover:bg-slate-200/40 dark:hover:bg-zinc-900/30 border-transparent"
           }`}
         >
           <GraduationCap className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -81,10 +81,10 @@ function SiswaTabsContent() {
         </button>
         <button
           onClick={() => setActiveTab("spmb")}
-          className={`py-1.5 sm:py-2 px-3 sm:px-4 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-1.5 cursor-pointer ${
+          className={`shrink-0 py-1.5 sm:py-2 px-3 sm:px-4 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-1.5 cursor-pointer border ${
             activeTab === "spmb"
-              ? "bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-sm border border-slate-200/50 dark:border-zinc-800"
-              : "text-muted-foreground hover:text-foreground hover:bg-slate-100/50 dark:hover:bg-zinc-900/30"
+              ? "bg-white dark:bg-zinc-950 text-blue-600 dark:text-blue-400 shadow-sm border-slate-200/80 dark:border-zinc-800"
+              : "text-muted-foreground hover:text-foreground hover:bg-slate-200/40 dark:hover:bg-zinc-900/30 border-transparent"
           }`}
         >
           <UserCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
