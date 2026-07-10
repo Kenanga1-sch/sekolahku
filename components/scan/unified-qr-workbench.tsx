@@ -38,6 +38,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { goGet, goPost } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { showError, showSuccess, showWarning } from "@/lib/toast";
+import { cn } from "@/lib/utils";
 import type { TabunganSiswaWithRelations } from "@/types/tabungan";
 
 type ScanMode = "camera" | "manual";
