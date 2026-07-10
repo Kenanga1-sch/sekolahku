@@ -101,7 +101,7 @@ export function CommandMenu() {
                             <Wallet className="mr-2 h-4 w-4" />
                             <span>Dashboard Tabungan</span>
                         </CommandItem>
-                        <CommandItem onSelect={() => runCommand(() => router.push("/tabungan/scan"))}>
+                        <CommandItem onSelect={() => runCommand(() => router.push("/kiosk-kelas"))}>
                             <QrCode className="mr-2 h-4 w-4" />
                             <span>Scan Transaksi</span>
                             <CommandShortcut>SCN</CommandShortcut>

@@ -19,7 +19,7 @@ const QUICK_ACTIONS = [
         title: "Scan QR",
         description: "Transaksi cepat",
         icon: QrCode,
-        href: "/tabungan/scan",
+        href: "/kiosk-kelas",
         color: "text-green-500",
         bgColor: "bg-green-500/10 hover:bg-green-500/20",
     },

@@ -199,7 +199,7 @@ export default function SesiDetailPage() {
           </Badge>
           {session.status === "open" && (
             <>
-              <Link href={`/presensi/scan?sessionId=${session.id}`}>
+              <Link href={`/kiosk-kelas?sessionId=${session.id}`}>
                 <Button variant="outline" size="sm">
                   <QrCode className="h-4 w-4 mr-1" />
                   Scan

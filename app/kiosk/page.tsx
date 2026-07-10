@@ -575,25 +575,6 @@ export default function KioskPage() {
                 </div>
             </header>
 
-            {/* Mode Tabs */}
-            <div className="px-4 pb-2">
-                <div className="flex gap-1 bg-white/5 rounded-lg p-1 w-fit mx-auto">
-                    <button
-                        onClick={() => { setMode("library"); clearTimers(); setState({ type: "idle" }); setAttState({ type: "idle" }); }}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${mode === "library" ? "bg-blue-500 text-white" : "text-blue-200 hover:text-white hover:bg-white/10"}`}
-                    >
-                        <BookOpen className="h-4 w-4" />
-                        Perpustakaan
-                    </button>
-                    <button
-                        onClick={() => { setMode("attendance"); clearTimers(); setState({ type: "idle" }); setAttState({ type: "idle" }); }}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${mode === "attendance" ? "bg-emerald-500 text-white" : "text-blue-200 hover:text-white hover:bg-white/10"}`}
-                    >
-                        <ClipboardCheck className="h-4 w-4" />
-                        Presensi & Tabungan
-                    </button>
-                </div>
-            </div>
 
             {/* Main Content */}
             <main className="flex-1 flex flex-col lg:flex-row gap-4 p-4">

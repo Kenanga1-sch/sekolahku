@@ -227,7 +227,7 @@ export function OverviewClient({
     { label: "Kelola Periode", icon: Calendar, href: "/admin/siswa?tab=spmb&sub=periods", color: "bg-purple-100 text-purple-600" },
     { label: "Peminjaman Buku", icon: BookMarked, href: "/perpustakaan/peminjaman", color: "bg-indigo-100 text-indigo-600" },
     { label: "Stock Opname", icon: Boxes, href: "/inventaris/opname", color: "bg-amber-100 text-amber-600" },
-    { label: "Transaksi Tabungan", icon: DollarSign, href: "/tabungan/scan", color: "bg-emerald-100 text-emerald-600" },
+    { label: "Transaksi Tabungan", icon: DollarSign, href: "/kiosk-kelas", color: "bg-emerald-100 text-emerald-600" },
     { label: "Pengumuman", icon: Bell, href: "/announcements", color: "bg-red-100 text-red-600" },
   ];
 

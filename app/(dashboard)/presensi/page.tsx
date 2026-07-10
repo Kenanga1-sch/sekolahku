@@ -105,7 +105,7 @@ export default function PresensiDashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Link href="/presensi/scan" className="w-full sm:w-auto">
+          <Link href="/kiosk-kelas" className="w-full sm:w-auto">
             <Button className="w-full sm:w-auto">
               <QrCode className="h-4 w-4 mr-2" />
               Scan QR
@@ -257,7 +257,7 @@ export default function PresensiDashboardPage() {
             <CardDescription>Menu navigasi presensi</CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-3">
-            <Link href="/presensi/scan">
+            <Link href="/kiosk-kelas">
               <Button variant="outline" className="w-full h-20 flex-col gap-1">
                 <QrCode className="h-6 w-6" />
                 <span>Scan QR</span>
