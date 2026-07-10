@@ -104,14 +104,7 @@ export default function PresensiDashboardPage() {
             {format(today, "EEEE, d MMMM yyyy", { locale: localeId })}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Link href="/kiosk-kelas" className="w-full sm:w-auto">
-            <Button className="w-full sm:w-auto">
-              <QrCode className="h-4 w-4 mr-2" />
-              Scan QR
-            </Button>
-          </Link>
-        </div>
+
       </div>
 
       {/* Stats Cards */}

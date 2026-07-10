@@ -605,7 +605,7 @@ export default function TabSPMB() {
       {activeTab === "registrants" ? (
         <>
           {/* Stats Summary */}
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
             <Card className="p-4 flex flex-col justify-between space-y-2">
               <div className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <div className="text-sm font-medium text-muted-foreground">Total Pendaftar</div>

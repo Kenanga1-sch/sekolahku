@@ -146,7 +146,7 @@ export function StudentFormDialog({ open, onOpenChange, studentId, onSuccess }: 
                             </FormItem>
                         )}
                     />
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <FormField
                             control={form.control as any}
                             name="nisn"
@@ -170,7 +170,7 @@ export function StudentFormDialog({ open, onOpenChange, studentId, onSuccess }: 
                             )}
                         />
                     </div>
-                     <div className="grid grid-cols-2 gap-4">
+                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                          <FormField
                             control={form.control as any}
                             name="nik"
@@ -245,7 +245,7 @@ export function StudentFormDialog({ open, onOpenChange, studentId, onSuccess }: 
 
                 {/* TAB 3: PARENTS */}
                 <TabsContent value="parents" className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <FormField
                             control={form.control as any}
                             name="fatherName"

@@ -765,7 +765,7 @@ function DialogMutasiMasukLangsung({ classStats }: { classStats: any[] }) {
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4 py-2">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Nama Siswa *</Label>
               <Input 
@@ -786,7 +786,7 @@ function DialogMutasiMasukLangsung({ classStats }: { classStats: any[] }) {
             </div>
           </div>
           
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Jenis Kelamin</Label>
               <Select value={form.gender} onValueChange={(v) => setForm({...form, gender: v})}>

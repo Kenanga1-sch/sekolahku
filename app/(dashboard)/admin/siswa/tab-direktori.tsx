@@ -153,7 +153,7 @@ export default function TabDirektori() {
             </div>
 
             {/* Stats Dashboard Grid */}
-            <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
                 <Card className="bg-white dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800 shadow-sm hover:border-blue-500/30 dark:hover:border-blue-400/30 transition-colors duration-300">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <span className="text-sm font-semibold text-slate-500 dark:text-zinc-400">Total Siswa</span>
