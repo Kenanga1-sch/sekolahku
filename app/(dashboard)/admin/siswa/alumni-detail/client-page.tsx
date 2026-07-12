@@ -287,6 +287,388 @@ export default function AlumniDetailPage() {
 
   const [submitting, setSubmitting] = useState(false);
 
+  // Spreadsheet States
+  const [selectedYear, setSelectedYear] = useState("");
+  const [selectedSemester, setSelectedSemester] = useState("Ganjil");
+  const [columns, setColumns] = useState<Array<{ key: string; label: string; isCustom?: boolean }>>([
+    { key: "subjectName", label: "Mata Pelajaran" },
+    { key: "subjectCode", label: "Kode MP" },
+    { key: "score", label: "Nilai Angka" },
+    { key: "scoreLetter", label: "Nilai Huruf" },
+    { key: "notes", label: "Catatan" }
+  ]);
+  const [gridRows, setGridRows] = useState<Array<Record<string, any>>>([]);
+  const [savingTranscripts, setSavingTranscripts] = useState(false);
+
+  // Column management states
+  const [columnsOpen, setColumnsOpen] = useState(false);
+  const [newColLabel, setNewColLabel] = useState("");
+
+  // Template management states
+  interface SavedTemplate {
+    id: string;
+    name: string;
+    columns: Array<{ key: string; label: string; isCustom?: boolean }>;
+    subjects: Array<Record<string, any>>;
+  }
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
+
+  // Load custom templates on mount
+  useEffect(() => {
+    const stored = localStorage.getItem("sekolahku_custom_templates");
+    if (stored) {
+      try {
+        setSavedTemplates(JSON.parse(stored));
+      } catch (e) {
+        console.error("Error parsing templates:", e);
+      }
+    }
+  }, []);
+
+  const getAcademicYearOptions = () => {
+    const options: string[] = [];
+    const baseYear = alumni?.enrolledYear ? parseInt(alumni.enrolledYear) : 2018;
+    const currentYear = new Date().getFullYear();
+    const startYear = Math.min(baseYear - 1, currentYear - 8);
+    const endYear = Math.max(baseYear + 8, currentYear + 2);
+
+    for (let y = startYear; y <= endYear; y++) {
+      options.push(`${y}/${y + 1}`);
+    }
+    return options.reverse();
+  };
+
+  // Synchronize database records to columns and gridRows
+  useEffect(() => {
+    if (!alumni) return;
+    
+    let activeYear = selectedYear;
+    if (!activeYear) {
+      if (alumni.transcripts && alumni.transcripts.length > 0) {
+        activeYear = alumni.transcripts[alumni.transcripts.length - 1].academicYear;
+      } else if (alumni.enrolledYear) {
+        activeYear = `${alumni.enrolledYear}/${parseInt(alumni.enrolledYear) + 1}`;
+      } else {
+        const curYear = new Date().getFullYear();
+        activeYear = `${curYear - 1}/${curYear}`;
+      }
+      setSelectedYear(activeYear);
+    }
+
+    const filtered = alumni.transcripts.filter(
+      (t) => t.academicYear === activeYear && t.semester === selectedSemester
+    );
+
+    if (filtered.length > 0) {
+      // 1. Detect any custom columns from the JSON in notes
+      const activeCustomCols: Record<string, string> = {};
+      const rowsData = filtered.map((t) => {
+        let notesText = t.notes || "";
+        let customValues: Record<string, string> = {};
+
+        if (t.notes && t.notes.trim().startsWith("{")) {
+          try {
+            const parsed = JSON.parse(t.notes);
+            notesText = parsed.notes ?? "";
+            customValues = parsed.custom ?? {};
+          } catch (e) {
+            // Treat as raw notes on error
+          }
+        }
+
+        Object.keys(customValues).forEach(label => {
+          const colKey = `custom_${label.toLowerCase().replace(/[^a-z0-9]/g, "_")}`;
+          activeCustomCols[colKey] = label;
+        });
+
+        return {
+          subjectName: t.subjectName,
+          subjectCode: t.subjectCode || "",
+          score: t.score,
+          scoreLetter: t.scoreLetter || "",
+          notes: notesText,
+          ...customValues
+        };
+      });
+
+      // 2. Register custom columns that aren't present yet
+      setColumns((prev) => {
+        const nextCols = [...prev];
+        Object.entries(activeCustomCols).forEach(([key, label]) => {
+          if (!nextCols.some(c => c.label === label)) {
+            nextCols.push({ key, label, isCustom: true });
+          }
+        });
+        return nextCols;
+      });
+
+      // 3. Align rows data keys
+      const finalRows = rowsData.map((r: any) => {
+        const finalRow: Record<string, any> = { ...r };
+        Object.entries(activeCustomCols).forEach(([key, label]) => {
+          if (r[label] !== undefined) {
+            finalRow[key] = r[label];
+            delete finalRow[label];
+          }
+        });
+        return finalRow;
+      });
+
+      setGridRows(finalRows);
+    } else {
+      setGridRows([]);
+    }
+  }, [alumni, selectedYear, selectedSemester]);
+
+  const handleCellChange = (rowIndex: number, field: string, value: string) => {
+    const updated = [...gridRows];
+    updated[rowIndex] = { ...updated[rowIndex], [field]: value };
+
+    if (field === "score") {
+      const num = parseFloat(value);
+      if (!isNaN(num) && num >= 0 && num <= 100) {
+        let letter = "E";
+        if (num >= 86) letter = "A";
+        else if (num >= 71) letter = "B";
+        else if (num >= 56) letter = "C";
+        else if (num >= 41) letter = "D";
+        updated[rowIndex].scoreLetter = letter;
+      } else if (value === "") {
+        updated[rowIndex].scoreLetter = "";
+      }
+    }
+    setGridRows(updated);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, rowIndex: number, colIndex: number) => {
+    const totalCols = columns.length;
+    const totalRows = gridRows.length;
+
+    let targetRow = rowIndex;
+    let targetCol = colIndex;
+
+    switch (e.key) {
+      case "ArrowUp":
+        e.preventDefault();
+        targetRow = Math.max(0, rowIndex - 1);
+        break;
+      case "ArrowDown":
+        e.preventDefault();
+        targetRow = Math.min(totalRows - 1, rowIndex + 1);
+        break;
+      case "ArrowLeft":
+        if (e.currentTarget.selectionStart === 0) {
+          e.preventDefault();
+          targetCol = Math.max(0, colIndex - 1);
+        } else {
+          return;
+        }
+        break;
+      case "ArrowRight":
+        if (e.currentTarget.selectionEnd === e.currentTarget.value.length) {
+          e.preventDefault();
+          targetCol = Math.min(totalCols - 1, colIndex + 1);
+        } else {
+          return;
+        }
+        break;
+      case "Enter":
+        e.preventDefault();
+        targetRow = Math.min(totalRows - 1, rowIndex + 1);
+        break;
+      default:
+        return;
+    }
+
+    if (targetRow !== rowIndex || targetCol !== colIndex) {
+      const targetId = `cell-${targetRow}-${targetCol}`;
+      const el = document.getElementById(targetId) as HTMLInputElement | null;
+      if (el) {
+        el.focus();
+        el.select();
+      }
+    }
+  };
+
+  const loadSDTemplate = () => {
+    const template = [
+      { subjectName: "Pendidikan Agama & Budi Pekerti", subjectCode: "PABP", score: "", scoreLetter: "", notes: "" },
+      { subjectName: "Pendidikan Pancasila & Kewarganegaraan", subjectCode: "PPKn", score: "", scoreLetter: "", notes: "" },
+      { subjectName: "Bahasa Indonesia", subjectCode: "BIN", score: "", scoreLetter: "", notes: "" },
+      { subjectName: "Matematika", subjectCode: "MAT", score: "", scoreLetter: "", notes: "" },
+      { subjectName: "Ilmu Pengetahuan Alam", subjectCode: "IPA", score: "", scoreLetter: "", notes: "" },
+      { subjectName: "Ilmu Pengetahuan Sosial", subjectCode: "IPS", score: "", scoreLetter: "", notes: "" },
+      { subjectName: "Seni Budaya & Prakarya", subjectCode: "SBdP", score: "", scoreLetter: "", notes: "" },
+      { subjectName: "Pendidikan Jasmani, Olahraga, & Kesehatan", subjectCode: "PJOK", score: "", scoreLetter: "", notes: "" },
+      { subjectName: "Bahasa Sunda / Daerah", subjectCode: "BSND", score: "", scoreLetter: "", notes: "" },
+      { subjectName: "Mulok Keagamaan", subjectCode: "MLK", score: "", scoreLetter: "", notes: "" },
+    ];
+    
+    if (gridRows.length > 0 && gridRows.some(r => r.subjectName !== "" || r.score !== "")) {
+      if (!confirm("Muat template akan menggantikan data yang sedang diedit. Lanjutkan?")) return;
+    }
+    setGridRows(template);
+  };
+
+  const handleRemoveRow = (index: number) => {
+    const updated = [...gridRows];
+    updated.splice(index, 1);
+    setGridRows(updated);
+  };
+
+  const addCustomColumn = () => {
+    const label = newColLabel.trim();
+    if (!label) return;
+    if (columns.some(col => col.label.toLowerCase() === label.toLowerCase())) {
+      alert("Kolom dengan nama tersebut sudah ada!");
+      return;
+    }
+    const key = `custom_${label.toLowerCase().replace(/[^a-z0-9]/g, "_")}`;
+    setColumns([...columns, { key, label, isCustom: true }]);
+    setNewColLabel("");
+  };
+
+  const removeColumn = (colKey: string) => {
+    if (colKey === "subjectName" || colKey === "score") {
+      alert("Kolom ini wajib dan tidak dapat dihapus!");
+      return;
+    }
+    if (!confirm("Apakah Anda yakin ingin menghapus kolom ini? Seluruh data pada kolom ini akan hilang.")) return;
+    setColumns(columns.filter(col => col.key !== colKey));
+    setGridRows(gridRows.map(row => {
+      const updated = { ...row };
+      delete updated[colKey];
+      return updated;
+    }));
+  };
+
+  const toggleStandardColumn = (key: string, label: string) => {
+    if (columns.some(col => col.key === key)) {
+      if (!confirm(`Sembunyikan kolom "${label}"?`)) return;
+      setColumns(columns.filter(col => col.key !== key));
+    } else {
+      const defaultOrder = ["subjectName", "subjectCode", "score", "scoreLetter", "notes"];
+      const newCols = [...columns, { key, label }];
+      newCols.sort((a, b) => {
+        const idxA = defaultOrder.indexOf(a.key);
+        const idxB = defaultOrder.indexOf(b.key);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return 0;
+      });
+      setColumns(newCols);
+    }
+  };
+
+  const saveCurrentAsTemplate = () => {
+    const name = newTemplateName.trim();
+    if (!name) return;
+    if (savedTemplates.some(t => t.name.toLowerCase() === name.toLowerCase())) {
+      if (!confirm("Template dengan nama tersebut sudah ada. Tindih template?")) return;
+    }
+
+    const newTemplate: SavedTemplate = {
+      id: Date.now().toString(),
+      name,
+      columns: columns.map(c => ({ key: c.key, label: c.label, isCustom: c.isCustom })),
+      subjects: gridRows.map(row => {
+        const item: Record<string, any> = {};
+        columns.forEach(col => {
+          item[col.key] = row[col.key] || "";
+        });
+        return item;
+      })
+    };
+
+    const updated = savedTemplates.filter(t => t.name.toLowerCase() !== name.toLowerCase());
+    updated.push(newTemplate);
+
+    localStorage.setItem("sekolahku_custom_templates", JSON.stringify(updated));
+    setSavedTemplates(updated);
+    setNewTemplateName("");
+    alert("Template berhasil disimpan!");
+  };
+
+  const loadCustomTemplate = (template: SavedTemplate) => {
+    if (gridRows.length > 0 && gridRows.some(r => r.subjectName !== "" || r.score !== "")) {
+      if (!confirm(`Muat template "${template.name}" akan menggantikan seluruh lembar kerja saat ini. Lanjutkan?`)) return;
+    }
+    setColumns(template.columns);
+    const newRows = template.subjects.map(subj => {
+      const row: Record<string, any> = {};
+      template.columns.forEach(col => {
+        row[col.key] = subj[col.key] || "";
+      });
+      return row;
+    });
+    setGridRows(newRows);
+    setTemplatesOpen(false);
+  };
+
+  const deleteTemplate = (id: string) => {
+    if (!confirm("Hapus template ini?")) return;
+    const updated = savedTemplates.filter(t => t.id !== id);
+    localStorage.setItem("sekolahku_custom_templates", JSON.stringify(updated));
+    setSavedTemplates(updated);
+  };
+
+  const handleSaveTranscriptsBulk = async () => {
+    if (!selectedYear || !selectedSemester) {
+      alert("Tahun Ajaran dan Semester wajib diisi!");
+      return;
+    }
+
+    const validGrades = gridRows.filter(r => r.subjectName.trim() !== "");
+    if (validGrades.length === 0) {
+      alert("Belum ada mata pelajaran dan nilai untuk disimpan.");
+      return;
+    }
+
+    setSavingTranscripts(true);
+    try {
+      const payload = {
+        academicYear: selectedYear,
+        semester: selectedSemester,
+        grades: validGrades.map(r => {
+          const customData: Record<string, string> = {};
+          columns.forEach(col => {
+            if (col.isCustom) {
+              customData[col.label] = String(r[col.key] || "");
+            }
+          });
+
+          let finalNotes = r.notes || "";
+          if (Object.keys(customData).length > 0) {
+            finalNotes = JSON.stringify({
+              notes: r.notes || "",
+              custom: customData
+            });
+          }
+
+          return {
+            subjectName: r.subjectName.trim(),
+            subjectCode: r.subjectCode.trim() || null,
+            score: parseFloat(r.score as string) || 0,
+            scoreLetter: r.scoreLetter.trim() || null,
+            notes: finalNotes || null
+          };
+        })
+      };
+
+      await goPost(`/api/alumni/${alumni?.id}/transcripts/bulk`, payload);
+      alert("Transkrip nilai berhasil disimpan!");
+      fetchAlumni();
+    } catch (err: any) {
+      console.error(err);
+      alert("Gagal menyimpan transkrip nilai: " + (err.message || err));
+    } finally {
+      setSavingTranscripts(false);
+    }
+  };
+
   const fetchAlumni = async () => {
     try {
       const data: any = await goGet(`/api/alumni/${searchParams.get('id')}`);
@@ -619,72 +1001,74 @@ export default function AlumniDetailPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Profile Card */}
+      <div className="space-y-6">
+        {/* Profile Card (Horizontal Top Banner) */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex flex-col items-center text-center">
-                <Avatar className="h-24 w-24 mb-4">
+          <Card className="border-slate-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+            <CardContent className="p-6">
+              <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
+                <Avatar className="h-20 w-20 shrink-0 border-2 border-slate-100 dark:border-zinc-800">
                   <AvatarImage src={alumni.photo || undefined} />
-                  <AvatarFallback className="text-2xl">
+                  <AvatarFallback className="text-xl font-bold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300">
                     {alumni.fullName.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
-                <h3 className="text-lg font-semibold">{alumni.fullName}</h3>
                 
-                {alumni.status === "graduated" && (
-                  <Badge variant="secondary" className="mt-1">
-                    Lulus {alumni.graduationYear}
-                  </Badge>
-                )}
+                <div className="flex-1 w-full text-center md:text-left space-y-4">
+                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
+                    <h3 className="text-xl font-bold text-slate-800 dark:text-zinc-100">{alumni.fullName}</h3>
+                    {alumni.status === "graduated" ? (
+                      <Badge className="bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border-blue-500/20 font-medium">
+                        Alumni (Lulus {alumni.graduationYear})
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border-emerald-500/20 font-medium">
+                        Siswa Aktif
+                      </Badge>
+                    )}
+                  </div>
 
-                <div className="w-full mt-6 space-y-3 text-left">
-                  {alumni.nisn && (
-                    <div className="flex items-center gap-3 text-sm">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      <span>NISN: {alumni.nisn}</span>
-                    </div>
-                  )}
-                  {alumni.nis && (
-                    <div className="flex items-center gap-3 text-sm">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      <span>NIS: {alumni.nis}</span>
-                    </div>
-                  )}
-                  {alumni.finalClass && (
-                    <div className="flex items-center gap-3 text-sm">
-                      <School className="h-4 w-4 text-muted-foreground" />
-                      <span>Kelas Akhir: {alumni.finalClass}</span>
-                    </div>
-                  )}
-                  {alumni.nextSchool && alumni.status === "graduated" && (
-                    <div className="flex items-center gap-3 text-sm">
-                      <GraduationCap className="h-4 w-4 text-muted-foreground" />
-                      <span>Sekolah Lanjutan: {alumni.nextSchool}</span>
-                    </div>
-                  )}
-                  {alumni.currentPhone && (
-                    <div className="flex items-center gap-3 text-sm">
-                      <Phone className="h-4 w-4 text-muted-foreground" />
-                      <span>{alumni.currentPhone}</span>
-                    </div>
-                  )}
-                  {alumni.currentEmail && (
-                    <div className="flex items-center gap-3 text-sm">
-                      <Mail className="h-4 w-4 text-muted-foreground" />
-                      <span>{alumni.currentEmail}</span>
-                    </div>
-                  )}
-                  {alumni.currentAddress && (
-                    <div className="flex items-center gap-3 text-sm">
-                      <MapPin className="h-4 w-4 text-muted-foreground" />
-                      <span className="line-clamp-2">{alumni.currentAddress}</span>
-                    </div>
-                  )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-slate-100 dark:border-zinc-900/50">
+                    {alumni.nisn && (
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">NISN / NIS</span>
+                        <div className="text-sm font-semibold flex items-center justify-center md:justify-start gap-2 text-slate-700 dark:text-zinc-300">
+                          <User className="h-4 w-4 text-slate-400 shrink-0" />
+                          {alumni.nisn} {alumni.nis ? `/ ${alumni.nis}` : ""}
+                        </div>
+                      </div>
+                    )}
+                    {alumni.finalClass && (
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Kelas Akhir</span>
+                        <div className="text-sm font-semibold flex items-center justify-center md:justify-start gap-2 text-slate-700 dark:text-zinc-300">
+                          <School className="h-4 w-4 text-slate-400 shrink-0" />
+                          Kelas {alumni.finalClass}
+                        </div>
+                      </div>
+                    )}
+                    {(alumni.currentPhone || alumni.currentEmail) && (
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Kontak</span>
+                        <div className="text-sm font-semibold flex items-center justify-center md:justify-start gap-2 text-slate-700 dark:text-zinc-300 truncate">
+                          <Phone className="h-4 w-4 text-slate-400 shrink-0" />
+                          {alumni.currentPhone || alumni.currentEmail}
+                        </div>
+                      </div>
+                    )}
+                    {alumni.currentAddress && (
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Alamat</span>
+                        <div className="text-sm font-semibold flex items-center justify-center md:justify-start gap-2 text-slate-700 dark:text-zinc-300 truncate">
+                          <MapPin className="h-4 w-4 text-slate-400 shrink-0" />
+                          {alumni.currentAddress}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -696,7 +1080,7 @@ export default function AlumniDetailPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="lg:col-span-2"
+          className="w-full"
         >
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="w-full flex flex-wrap h-auto gap-1 bg-muted p-1 rounded-lg justify-start md:grid md:grid-cols-7 md:h-10">
@@ -745,72 +1129,162 @@ export default function AlumniDetailPage() {
               {activeTab === "transcripts" && (
                 <TabsContent value="transcripts" className="mt-4">
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.15 }}>
-                    <Card>
-                      <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle className="text-base flex items-center gap-2">
-                          <BookOpen className="h-5 w-5 text-primary" />
-                          Transkrip Nilai Semester
-                        </CardTitle>
-                        <Button size="sm" onClick={() => {
-                          setEditingTranscript(null);
-                          setTranscriptMode("add");
-                          setTranscriptOpen(true);
-                        }}>
-                          <Plus className="h-4 w-4 mr-1" />
-                          Tambah Nilai
-                        </Button>
+                    <Card className="border-slate-200 dark:border-zinc-800 shadow-sm">
+                      <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-100 dark:border-zinc-800/80">
+                        <div className="space-y-1">
+                          <CardTitle className="text-base flex items-center gap-2">
+                            <BookOpen className="h-5 w-5 text-primary" />
+                            Transkrip Nilai (Spreadsheet Grid)
+                          </CardTitle>
+                          <p className="text-xs text-muted-foreground">
+                            Pilih Tahun & Semester, gunakan navigasi sel Excel-like (tombol arah / Enter), lalu Simpan Semua.
+                          </p>
+                        </div>
+                        
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button variant="outline" size="sm" onClick={() => setTemplatesOpen(true)} className="h-9 shadow-sm hover:bg-slate-50">
+                            Kelola Template
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => setColumnsOpen(true)} className="h-9 shadow-sm hover:bg-slate-50">
+                            Kelola Kolom
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => {
+                            const emptyRow: Record<string, any> = {};
+                            columns.forEach(col => {
+                              emptyRow[col.key] = "";
+                            });
+                            setGridRows([...gridRows, emptyRow]);
+                          }} className="h-9 shadow-sm hover:bg-slate-50">
+                            <Plus className="h-4 w-4 mr-1" />
+                            Tambah Baris
+                          </Button>
+                          <Button size="sm" className="h-9 bg-blue-600 hover:bg-blue-700 text-white border-0 font-medium shadow-sm" onClick={handleSaveTranscriptsBulk} disabled={savingTranscripts}>
+                            {savingTranscripts ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Menyimpan...
+                              </>
+                            ) : (
+                              "Simpan Semua Nilai"
+                            )}
+                          </Button>
+                        </div>
                       </CardHeader>
-                      <CardContent>
-                        {alumni.transcripts.length === 0 ? (
-                          <div className="text-center py-8 text-muted-foreground">
-                            <BookOpen className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                            <p>Belum ada transkrip nilai disimpan</p>
+                      
+                      <CardContent className="pt-4 space-y-4">
+                        {/* Selector Controls */}
+                        <div className="flex flex-wrap gap-4 items-center bg-slate-50 dark:bg-zinc-950/20 p-3 rounded-lg border border-slate-100 dark:border-zinc-900">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-muted-foreground shrink-0">Tahun Ajaran:</span>
+                            <Select value={selectedYear} onValueChange={setSelectedYear}>
+                              <SelectTrigger className="w-[150px] h-9 bg-white dark:bg-zinc-900 border shadow-sm">
+                                <SelectValue placeholder="Pilih Tahun" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {getAcademicYearOptions().map((y) => (
+                                  <SelectItem key={y} value={y}>{y}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
-                        ) : (
-                          <div className="overflow-x-auto border rounded-lg">
-                            <Table>
-                              <TableHeader>
+                          
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-muted-foreground shrink-0">Semester:</span>
+                            <Select value={selectedSemester} onValueChange={setSelectedSemester}>
+                              <SelectTrigger className="w-[120px] h-9 bg-white dark:bg-zinc-900 border shadow-sm">
+                                <SelectValue placeholder="Semester" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Ganjil">Ganjil</SelectItem>
+                                <SelectItem value="Genap">Genap</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        {/* Spreadsheet Grid */}
+                        <div className="overflow-x-auto border border-slate-200 dark:border-zinc-800 rounded-lg max-h-[500px] overflow-y-auto">
+                          <Table className="border-collapse min-w-[800px]">
+                            <TableHeader className="bg-slate-50 dark:bg-zinc-900/50 sticky top-0 z-10">
+                              <TableRow>
+                                {columns.map((col) => (
+                                  <TableHead key={col.key} className="border border-slate-200 dark:border-zinc-800 font-bold text-slate-800 dark:text-zinc-200 py-2.5 px-3">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span>{col.label}</span>
+                                      {col.isCustom && (
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-5 w-5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            removeColumn(col.key);
+                                          }}
+                                        >
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </TableHead>
+                                ))}
+                                <TableHead className="w-[60px] border border-slate-200 dark:border-zinc-800 text-center py-2.5 px-3">Hapus</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {gridRows.length === 0 ? (
                                 <TableRow>
-                                  <TableHead>Tahun Ajaran</TableHead>
-                                  <TableHead>Semester</TableHead>
-                                  <TableHead>Mata Pelajaran</TableHead>
-                                  <TableHead>Kode</TableHead>
-                                  <TableHead>Angka</TableHead>
-                                  <TableHead>Huruf</TableHead>
-                                  <TableHead>Catatan</TableHead>
-                                  <TableHead className="text-right">Aksi</TableHead>
+                                  <TableCell colSpan={columns.length + 1} className="text-center py-12 text-muted-foreground">
+                                    <BookOpen className="h-10 w-10 mx-auto mb-2 opacity-40 text-slate-400" />
+                                    <p className="text-sm font-semibold">Belum ada mata pelajaran untuk semester ini.</p>
+                                    <p className="text-xs text-muted-foreground mt-1">Silakan klik tombol <strong>Kelola Template</strong> atau <strong>Tambah Baris</strong> untuk mulai menginput.</p>
+                                  </TableCell>
                                 </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {alumni.transcripts.map((t) => (
-                                  <TableRow key={t.id}>
-                                    <TableCell className="font-medium">{t.academicYear}</TableCell>
-                                    <TableCell>{t.semester}</TableCell>
-                                    <TableCell className="font-semibold">{t.subjectName}</TableCell>
-                                    <TableCell className="font-mono text-xs">{t.subjectCode || "-"}</TableCell>
-                                    <TableCell>{t.score.toFixed(1)}</TableCell>
-                                    <TableCell>
-                                      <Badge variant="secondary">{t.scoreLetter || "-"}</Badge>
-                                    </TableCell>
-                                    <TableCell className="text-xs text-muted-foreground max-w-xs truncate">{t.notes || "-"}</TableCell>
-                                    <TableCell className="text-right space-x-1 whitespace-nowrap">
-                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => {
-                                        setEditingTranscript(t);
-                                        setTranscriptMode("edit");
-                                        setTranscriptOpen(true);
-                                      }}>
-                                        <Edit className="h-4 w-4" />
-                                      </Button>
-                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleTranscriptDelete(t.id)}>
+                              ) : (
+                                gridRows.map((row, rIndex) => (
+                                  <TableRow key={rIndex} className="hover:bg-slate-50/50 dark:hover:bg-zinc-900/30 transition-colors">
+                                    {columns.map((col, cIndex) => {
+                                      const isSubjectName = col.key === "subjectName";
+                                      const isScore = col.key === "score";
+                                      const isScoreLetter = col.key === "scoreLetter";
+                                      
+                                      return (
+                                        <TableCell key={col.key} className="p-0 border border-slate-200 dark:border-zinc-800">
+                                          <input
+                                            id={`cell-${rIndex}-${cIndex}`}
+                                            type={isScore ? "number" : "text"}
+                                            min={isScore ? "0" : undefined}
+                                            max={isScore ? "100" : undefined}
+                                            step={isScore ? "0.1" : undefined}
+                                            value={row[col.key] ?? ""}
+                                            onChange={(e) => handleCellChange(rIndex, col.key, e.target.value)}
+                                            onKeyDown={(e) => handleKeyDown(e, rIndex, cIndex)}
+                                            placeholder={
+                                              isSubjectName ? "Nama mata pelajaran..." :
+                                              isScore ? "0-100" :
+                                              isScoreLetter ? "A, B, C..." :
+                                              `Ketik ${col.label}...`
+                                            }
+                                            className={`w-full h-10 px-3 py-1 bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white dark:focus:bg-zinc-900 text-sm ${
+                                              isSubjectName ? "font-semibold text-slate-800 dark:text-zinc-200" :
+                                              isScore ? "text-center font-bold text-blue-600 dark:text-blue-400" :
+                                              isScoreLetter ? "text-center font-bold text-slate-700 dark:text-zinc-300" :
+                                              "text-slate-600 dark:text-zinc-400"
+                                            }`}
+                                          />
+                                        </TableCell>
+                                      );
+                                    })}
+                                    <TableCell className="p-1 border border-slate-200 dark:border-zinc-800 text-center">
+                                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => handleRemoveRow(rIndex)}>
                                         <Trash2 className="h-4 w-4" />
                                       </Button>
                                     </TableCell>
                                   </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </div>
-                        )}
+                                ))
+                              )}
+                            </TableBody>
+                          </Table>
+                        </div>
                       </CardContent>
                     </Card>
                   </motion.div>
@@ -1518,6 +1992,142 @@ export default function AlumniDetailPage() {
           </Tabs>
         </motion.div>
       </div>
+
+      {/* DIALOG: KELOLA KOLOM */}
+      <Dialog open={columnsOpen} onOpenChange={setColumnsOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Kelola Kolom Spreadsheet</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 pt-2">
+            {/* Standard Columns Toggle */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Kolom Standar</h4>
+              <div className="space-y-2">
+                {[
+                  { key: "subjectCode", label: "Kode MP" },
+                  { key: "scoreLetter", label: "Nilai Huruf" },
+                  { key: "notes", label: "Catatan" }
+                ].map(col => {
+                  const isActive = columns.some(c => c.key === col.key);
+                  return (
+                    <label key={col.key} className="flex items-center gap-2 text-sm font-medium cursor-pointer p-2 rounded hover:bg-slate-50 dark:hover:bg-zinc-900 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={isActive}
+                        onChange={() => toggleStandardColumn(col.key, col.label)}
+                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span>Tampilkan Kolom "{col.label}"</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Custom Columns List */}
+            <div className="space-y-3 border-t pt-4">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Kolom Kustom</h4>
+              <div className="space-y-2">
+                {columns.filter(col => col.isCustom).length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">Belum ada kolom kustom yang ditambahkan.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {columns.filter(col => col.isCustom).map(col => (
+                      <Badge key={col.key} variant="secondary" className="flex items-center gap-1.5 py-1 pl-2.5 pr-1.5 font-medium text-xs">
+                        {col.label}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-4 w-4 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full"
+                          onClick={() => removeColumn(col.key)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Add Custom Column Input */}
+              <div className="flex gap-2 pt-1">
+                <Input
+                  placeholder="Nama kolom (misal: KKM, Bobot)"
+                  value={newColLabel}
+                  onChange={(e) => setNewColLabel(e.target.value)}
+                  className="h-9"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addCustomColumn();
+                    }
+                  }}
+                />
+                <Button size="sm" onClick={addCustomColumn} className="h-9 shrink-0">
+                  Tambah
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIALOG: KELOLA TEMPLATE */}
+      <Dialog open={templatesOpen} onOpenChange={setTemplatesOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Kelola Template Mapel</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6 pt-2">
+            {/* Save Current as Template */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Simpan Layout & Mapel Saat Ini</h4>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Nama template (misal: KTSP Kelas 4)"
+                  value={newTemplateName}
+                  onChange={(e) => setNewTemplateName(e.target.value)}
+                  className="h-9"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      saveCurrentAsTemplate();
+                    }
+                  }}
+                />
+                <Button size="sm" onClick={saveCurrentAsTemplate} className="h-9 shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white border-0">
+                  Simpan
+                </Button>
+              </div>
+            </div>
+
+            {/* Template List */}
+            <div className="space-y-3 border-t pt-4">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Daftar Template Tersimpan</h4>
+              {savedTemplates.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic py-2">Belum ada template kustom disimpan di browser ini.</p>
+              ) : (
+                <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                  {savedTemplates.map(t => (
+                    <div key={t.id} className="flex items-center justify-between p-2.5 rounded-lg border border-slate-100 dark:border-zinc-900 bg-slate-50/50 dark:bg-zinc-950/20 hover:bg-slate-50 dark:hover:bg-zinc-950/40 transition-colors">
+                      <div className="space-y-0.5 cursor-pointer flex-1" onClick={() => loadCustomTemplate(t)}>
+                        <div className="text-sm font-semibold text-slate-800 dark:text-zinc-200">{t.name}</div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {t.subjects.length} Mapel • {t.columns.length} Kolom
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => deleteTemplate(t.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* DIALOG MODAL: TRANSKRIP NILAI */}
       <Dialog open={transcriptOpen} onOpenChange={setTranscriptOpen}>

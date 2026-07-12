@@ -970,6 +970,38 @@ func (r *AlumniRepository) DeleteTranscript(id string) error {
 	return err
 }
 
+func (r *AlumniRepository) SaveTranscriptsBulk(alumniID, acYear, semester string, transcripts []models.AlumniTranscript) error {
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// 1. Delete all existing transcripts for this student, year, and semester
+	_, err = tx.Exec("DELETE FROM alumni_transcripts WHERE alumni_id = ? AND academic_year = ? AND semester = ?", alumniID, acYear, semester)
+	if err != nil {
+		return err
+	}
+
+	// 2. Insert new ones
+	now := time.Now().UnixMilli()
+	stmt, err := tx.Prepare(`INSERT INTO alumni_transcripts (id, alumni_id, academic_year, semester, subject_name, subject_code, score, score_letter, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, t := range transcripts {
+		id := cuid2.Generate()
+		_, err = stmt.Exec(id, alumniID, acYear, semester, t.SubjectName, t.SubjectCode, t.Score, t.ScoreLetter, t.Notes, now, now)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
 // ─── Achievements ───
 
 func (r *AlumniRepository) GetAchievements(alumniID string) ([]models.AlumniAchievement, error) {

@@ -725,6 +725,56 @@ func (h *AlumniHandler) CreateTranscript(c echo.Context) error {
 	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true, "id": id})
 }
 
+func (h *AlumniHandler) SaveTranscriptsBulk(c echo.Context) error {
+	alumniID := c.Param("id")
+	var req struct {
+		AcademicYear string `json:"academicYear"`
+		Semester     string `json:"semester"`
+		Grades       []struct {
+			SubjectName string  `json:"subjectName"`
+			SubjectCode *string `json:"subjectCode"`
+			Score       float64 `json:"score"`
+			ScoreLetter *string `json:"scoreLetter"`
+			Notes       *string `json:"notes"`
+		} `json:"grades"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
+	}
+	if strings.TrimSpace(req.AcademicYear) == "" || strings.TrimSpace(req.Semester) == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Tahun ajaran dan semester wajib diisi"})
+	}
+
+	var transcripts []models.AlumniTranscript
+	for _, g := range req.Grades {
+		if strings.TrimSpace(g.SubjectName) == "" {
+			continue // Skip blank subject names
+		}
+		scoreLetter := g.ScoreLetter
+		if scoreLetter == nil || *scoreLetter == "" {
+			sl := scoreToLetter(g.Score)
+			scoreLetter = &sl
+		}
+		transcripts = append(transcripts, models.AlumniTranscript{
+			AlumniID:    alumniID,
+			AcYear:      strings.TrimSpace(req.AcademicYear),
+			Semester:    strings.TrimSpace(req.Semester),
+			SubjectName: strings.TrimSpace(g.SubjectName),
+			SubjectCode: g.SubjectCode,
+			Score:       g.Score,
+			ScoreLetter: scoreLetter,
+			Notes:       g.Notes,
+		})
+	}
+
+	err := h.Repo.SaveTranscriptsBulk(alumniID, strings.TrimSpace(req.AcademicYear), strings.TrimSpace(req.Semester), transcripts)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
+}
+
 func (h *AlumniHandler) UpdateTranscript(c echo.Context) error {
 	id := c.Param("transId")
 	var req struct {

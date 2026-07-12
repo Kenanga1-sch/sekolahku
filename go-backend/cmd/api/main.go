@@ -1041,6 +1041,7 @@ func main() {
 	// Buku Induk: Transcripts
 	auth.GET("/alumni/:id/transcripts", alumniHandler.GetTranscripts)
 	auth.POST("/alumni/:id/transcripts", alumniHandler.CreateTranscript)
+	auth.POST("/alumni/:id/transcripts/bulk", alumniHandler.SaveTranscriptsBulk)
 	auth.PUT("/alumni/transcripts/:transId", alumniHandler.UpdateTranscript)
 	auth.DELETE("/alumni/transcripts/:transId", alumniHandler.DeleteTranscript)
 
