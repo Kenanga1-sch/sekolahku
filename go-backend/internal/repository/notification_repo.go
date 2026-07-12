@@ -30,7 +30,7 @@ func (r *NotificationRepository) GetNotifications(userID string, limit int) ([]m
 	}
 	defer rows.Close()
 
-	var notifications []models.Notification
+	notifications := make([]models.Notification, 0)
 	for rows.Next() {
 		var n models.Notification
 		var uID, target, meta sql.NullString

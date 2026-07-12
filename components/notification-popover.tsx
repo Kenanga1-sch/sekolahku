@@ -70,7 +70,7 @@ export function NotificationPopover({ className }: { className?: string }) {
     setIsLoading(true);
     try {
       const data = await goGet<AdminNotification[]>("/api/notifications?limit=20");
-      setNotifications(data);
+      setNotifications(data || []);
     } catch (error) {
       console.error("Failed to fetch notifications", error);
     } finally {
