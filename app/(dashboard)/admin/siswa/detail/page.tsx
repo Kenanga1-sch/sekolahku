@@ -321,19 +321,31 @@ export default function StudentDetailPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" onClick={() => router.back()}>
-                    <ArrowLeft className="h-4 w-4" />
-                </Button>
-                <div>
-                    <h1 className="text-2xl font-bold">{student.fullName}</h1>
-                    <div className="flex gap-2 text-muted-foreground text-sm">
-                        <span>{student.nisn || "No NISN"}</span>
-                        <span>•</span>
-                        <span>{student.className || "Tanpa Kelas"}</span>
-                        <span>•</span>
-                        <Badge variant={student.status === 'active' ? 'default' : 'secondary'}>{student.status}</Badge>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                    <Button variant="ghost" size="icon" onClick={() => router.back()}>
+                        <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                    <div>
+                        <h1 className="text-2xl font-bold">{student.fullName}</h1>
+                        <div className="flex gap-2 text-muted-foreground text-sm">
+                            <span>{student.nisn || "No NISN"}</span>
+                            <span>•</span>
+                            <span>{student.className || "Tanpa Kelas"}</span>
+                            <span>•</span>
+                            <Badge variant={student.status === 'active' ? 'default' : 'secondary'}>{student.status}</Badge>
+                        </div>
                     </div>
+                </div>
+                <div className="flex gap-2 pl-12 sm:pl-0">
+                    <Button variant="outline" size="sm" onClick={() => window.open(`/admin/siswa/buku-induk/print?id=${studentId}`, '_blank')}>
+                        <FileText className="h-4 w-4 mr-2" />
+                        Cetak Buku Induk
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => window.open(`/admin/siswa/buku-induk/print-prestasi?id=${studentId}`, '_blank')}>
+                        <FileText className="h-4 w-4 mr-2" />
+                        Cetak Prestasi
+                    </Button>
                 </div>
             </div>
 
