@@ -98,6 +98,16 @@ NEXT_PUBLIC_DEFAULT_LNG=106.816666
 docker-compose up -d
 ```
 
+### Update Workflow (Deployment)
+1. Push changes to GitHub (`git push origin main`)
+2. SSH into your server
+3. Pull the latest code and rebuild:
+```bash
+git pull origin main
+docker compose down
+docker compose up -d --build
+```
+
 ### Memory Limits (For 4GB Server)
 | Service | Memory Limit |
 |---------|--------------|

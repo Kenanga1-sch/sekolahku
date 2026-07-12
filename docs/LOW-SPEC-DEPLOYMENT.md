@@ -161,6 +161,30 @@ NODE_OPTIONS="--max-old-space-size=1024" npm run build
 mkdir -p data
 ```
 
+### Alur Update Aplikasi (Deployment)
+
+Setiap kali Anda selesai melakukan perubahan pada kode, ikuti langkah ini untuk melakukan deployment:
+
+1. **Commit & Push ke GitHub** (dari komputer lokal)
+   ```bash
+   git add .
+   git commit -m "Update fitur X"
+   git push origin main
+   ```
+
+2. **Pull & Build di Server** (via SSH)
+   ```bash
+   # Masuk ke direktori aplikasi
+   cd /var/www/sekolahku
+   
+   # Ambil pembaruan terbaru
+   git pull origin main
+   
+   # Build ulang menggunakan Docker Compose
+   sudo docker compose down
+   sudo docker compose up -d --build
+   ```
+
 ### 4. Configure Systemd Service
 
 ```bash
