@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"net/http"
 	"strconv"
 	"strings"
@@ -42,6 +44,17 @@ func (h *EmployeeHandler) GetEmployees(c echo.Context) error {
 	return c.JSON(http.StatusOK, res)
 }
 
+// GetEmployeesWithoutAccount returns GTK entries not yet linked to a user account
+func (h *EmployeeHandler) GetEmployeesWithoutAccount(c echo.Context) error {
+	employees, err := h.Repo.GetEmployeesWithoutAccount()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal memuat data GTK"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"items": employees,
+	})
+}
+
 func (h *EmployeeHandler) CreateEmployee(c echo.Context) error {
 	var req models.CreateEmployeeRequest
 	if err := c.Bind(&req); err != nil {
@@ -52,14 +65,23 @@ func (h *EmployeeHandler) CreateEmployee(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Email, Nama, dan Role wajib diisi"})
 	}
 
-	if err := h.Repo.CreateEmployee(req); err != nil {
+	// Only allow guru, staff, admin roles via GTK form
+	role := strings.ToLower(strings.TrimSpace(req.Role))
+	if role != "guru" && role != "staff" && role != "admin" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Role harus guru, staff, atau admin"})
+	}
+	req.Role = role
+
+	id, err := h.Repo.CreateEmployee(req)
+	if err != nil {
 		c.Logger().Error("Failed to create employee:", err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal menyimpan data atau Email/NIP sudah terdaftar"})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal menyimpan data atau Email sudah terdaftar"})
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
-		"message": "Pegawai berhasil ditambahkan (Password: 123456)",
+		"id":      id,
+		"message": "Data GTK berhasil ditambahkan. Akun belum dibuat — buka Manajemen Pengguna untuk membuat akun.",
 	})
 }
 
@@ -105,7 +127,7 @@ func (h *EmployeeHandler) BulkImportEmployees(c echo.Context) error {
 			JoinDate:         optionalImportStringPtr(importString(row, "TanggalMasuk", "joinDate")),
 		}
 
-		if err := h.Repo.CreateEmployee(req); err != nil {
+		if _, err := h.Repo.CreateEmployee(req); err != nil {
 			errors = append(errors, "Baris "+strconv.Itoa(index+1)+": "+err.Error())
 			continue
 		}
@@ -116,6 +138,7 @@ func (h *EmployeeHandler) BulkImportEmployees(c echo.Context) error {
 		"success":      true,
 		"successCount": successCount,
 		"errors":       errors,
+		"message":      "Data GTK berhasil diimport. Buka Manajemen Pengguna untuk membuat akun.",
 	})
 }
 
@@ -148,4 +171,11 @@ func (h *EmployeeHandler) DeleteEmployee(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal menghapus data"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
+}
+
+// generateRandomPassword generates a random 8-char alphanumeric password
+func generateRandomPassword() string {
+	b := make([]byte, 6)
+	rand.Read(b)
+	return hex.EncodeToString(b)[:8]
 }

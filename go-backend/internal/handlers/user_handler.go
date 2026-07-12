@@ -89,6 +89,7 @@ func (h *UserHandler) CreateUser(c echo.Context) error {
 		PasswordConfirm string `json:"passwordConfirm"`
 		Role            string `json:"role"`
 		Phone           string `json:"phone"`
+		EmployeeID      string `json:"employeeId"`
 	}
 
 	if err := c.Bind(&req); err != nil {
@@ -101,6 +102,12 @@ func (h *UserHandler) CreateUser(c echo.Context) error {
 	req.Phone = strings.TrimSpace(req.Phone)
 	role, ok := normalizeUserRole(req.Role)
 
+	// Auto-generate random password if not provided
+	password := req.Password
+	if password == "" {
+		password = generateRandomPassword()
+	}
+
 	if req.Name == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Nama wajib diisi"})
 	}
@@ -110,14 +117,14 @@ func (h *UserHandler) CreateUser(c echo.Context) error {
 	if !ok {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Role tidak valid"})
 	}
-	if len(req.Password) < 8 {
+	if len(password) < 8 {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Password minimal 8 karakter"})
 	}
-	if req.PasswordConfirm != "" && req.Password != req.PasswordConfirm {
+	if req.PasswordConfirm != "" && password != req.PasswordConfirm {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Konfirmasi password tidak cocok"})
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), 10)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal membuat password"})
 	}
@@ -129,14 +136,15 @@ func (h *UserHandler) CreateUser(c echo.Context) error {
 	}
 
 	user := models.User{
-		Name:         &req.Name,
-		Email:        req.Email,
-		Username:     username,
-		FullName:     &req.Name,
-		PasswordHash: &passwordHash,
-		Role:         role,
-		Phone:        &req.Phone,
-		IsActive:     true,
+		Name:               &req.Name,
+		Email:              req.Email,
+		Username:           username,
+		FullName:           &req.Name,
+		PasswordHash:       &passwordHash,
+		Role:               role,
+		Phone:              &req.Phone,
+		IsActive:           true,
+		MustChangePassword: req.Password == "", // must change if auto-generated
 	}
 
 	id, err := h.UserRepo.CreateUser(user)
@@ -145,6 +153,13 @@ func (h *UserHandler) CreateUser(c echo.Context) error {
 			return c.JSON(http.StatusConflict, map[string]string{"error": "Email atau username sudah digunakan"})
 		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	// Link to employee if employeeId is provided
+	if req.EmployeeID != "" {
+		if err := h.UserRepo.LinkEmployeeToUser(req.EmployeeID, id); err != nil {
+			c.Logger().Error("Failed to link employee:", err)
+		}
 	}
 
 	ip := c.RealIP()
@@ -160,7 +175,13 @@ func (h *UserHandler) CreateUser(c echo.Context) error {
 		UserAgent: &ua,
 	})
 
-	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true, "id": id})
+	return c.JSON(http.StatusCreated, map[string]interface{}{
+		"success":  true,
+		"id":       id,
+		"password": password,
+		"message":  "Akun berhasil dibuat. Catat password ini — hanya ditampilkan sekali.",
+		"mustChangePassword": user.MustChangePassword,
+	})
 }
 
 func (h *UserHandler) UpdateUser(c echo.Context) error {
@@ -317,21 +338,35 @@ func (h *UserHandler) GenerateAccounts(c echo.Context) error {
 			}
 		}
 	} else if req.Type == "staff-auto" {
-		// Fetch all staff
-		res, err := h.EmployeeRepo.GetEmployees(1, 1000, "")
+		employees, err := h.EmployeeRepo.GetEmployeesWithoutAccount()
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
 
-		for _, e := range res.Data {
-			// Staff already have user accounts usually, but let's check mode
-			if req.Mode == "overwrite" {
-				hash, _ := bcrypt.GenerateFromPassword([]byte("12345678"), 10)
-				pwHash := string(hash)
-				h.UserRepo.UpdateUser(e.ID, models.User{PasswordHash: &pwHash})
-				count++
-			} else {
-				// Safe mode: just check if they exist (they should)
+		for _, e := range employees {
+			pw := generateRandomPassword()
+			hash, _ := bcrypt.GenerateFromPassword([]byte(pw), 10)
+			pwHash := string(hash)
+
+			name := e.Name
+			email := e.Email
+			role := e.Role
+			if role == "" {
+				role = "guru"
+			}
+
+			u := models.User{
+				Name:               &name,
+				Email:              email,
+				FullName:           &name,
+				PasswordHash:       &pwHash,
+				Role:               role,
+				IsActive:           true,
+				MustChangePassword: true,
+			}
+			userId, err := h.UserRepo.CreateUser(u)
+			if err == nil {
+				h.UserRepo.LinkEmployeeToUser(e.ID, userId)
 				count++
 			}
 		}

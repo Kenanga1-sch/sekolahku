@@ -21,22 +21,22 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 
 func (r *UserRepository) GetUserByEmail(email string) (*models.User, error) {
 	query := `
-		SELECT id, name, email, email_verified, image, username, password_hash, role, full_name, phone, is_active, created_at, updated_at
+		SELECT id, name, email, email_verified, image, username, password_hash, role, full_name, phone, is_active, must_change_password, created_at, updated_at
 		FROM users
 		WHERE email = ? OR username = ? LIMIT 1
 	`
 	var u models.User
 	var emailVerified, createdAt, updatedAt sql.NullInt64
 	var name, image, username, passwordHash, fullName, phone sql.NullString
-	var isActive sql.NullInt64 // sqlite boolean is stored as integer
+	var isActive, mustChange sql.NullInt64
 
 	err := r.DB.QueryRow(query, email, email).Scan(
-		&u.ID, &name, &u.Email, &emailVerified, &image, &username, &passwordHash, &u.Role, &fullName, &phone, &isActive, &createdAt, &updatedAt,
+		&u.ID, &name, &u.Email, &emailVerified, &image, &username, &passwordHash, &u.Role, &fullName, &phone, &isActive, &mustChange, &createdAt, &updatedAt,
 	)
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil // User not found
+			return nil, nil
 		}
 		return nil, err
 	}
@@ -60,6 +60,7 @@ func (r *UserRepository) GetUserByEmail(email string) (*models.User, error) {
 		u.Phone = &phone.String
 	}
 	u.IsActive = isActive.Int64 != 0
+	u.MustChangePassword = mustChange.Int64 != 0
 	u.EmailVerified = SafeTime(emailVerified)
 	u.CreatedAt = SafeTime(createdAt)
 	u.UpdatedAt = SafeTime(updatedAt)
@@ -140,15 +141,15 @@ func (r *UserRepository) GetUsers(page, limit int, search string) ([]models.User
 
 func (r *UserRepository) GetUserByID(id string) (*models.User, error) {
 	query := `
-		SELECT id, name, email, role, phone, username, full_name, password_hash, is_active, created_at, updated_at, image
+		SELECT id, name, email, role, phone, username, full_name, password_hash, is_active, must_change_password, created_at, updated_at, image
 		FROM users WHERE id = ?
 	`
 	var u models.User
 	var name, username, phone, fullName, passwordHash, image sql.NullString
-	var crAt, upAt, isActive sql.NullInt64
+	var crAt, upAt, isActive, mustChange sql.NullInt64
 
 	err := r.DB.QueryRow(query, id).Scan(
-		&u.ID, &name, &u.Email, &u.Role, &phone, &username, &fullName, &passwordHash, &isActive, &crAt, &upAt, &image,
+		&u.ID, &name, &u.Email, &u.Role, &phone, &username, &fullName, &passwordHash, &isActive, &mustChange, &crAt, &upAt, &image,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -176,6 +177,7 @@ func (r *UserRepository) GetUserByID(id string) (*models.User, error) {
 		u.Image = &image.String
 	}
 	u.IsActive = isActive.Int64 != 0
+	u.MustChangePassword = mustChange.Int64 != 0
 	u.CreatedAt = SafeTime(crAt)
 	u.UpdatedAt = SafeTime(upAt)
 
@@ -192,12 +194,16 @@ func (r *UserRepository) CreateUser(u models.User) (string, error) {
 	if u.IsActive {
 		isActiveInt = 1
 	}
+	mustChangeInt := 0
+	if u.MustChangePassword {
+		mustChangeInt = 1
+	}
 
 	query := `
-		INSERT INTO users (id, name, full_name, email, username, password_hash, role, phone, is_active, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO users (id, name, full_name, email, username, password_hash, role, phone, is_active, must_change_password, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	_, err := r.DB.Exec(query, u.ID, u.Name, u.FullName, u.Email, u.Username, u.PasswordHash, u.Role, u.Phone, isActiveInt, now, now)
+	_, err := r.DB.Exec(query, u.ID, u.Name, u.FullName, u.Email, u.Username, u.PasswordHash, u.Role, u.Phone, isActiveInt, mustChangeInt, now, now)
 	if err != nil {
 		return "", err
 	}
@@ -289,7 +295,7 @@ func (r *UserRepository) DeleteUser(id string) error {
 
 func (r *UserRepository) UpdatePassword(id string, newHash string) error {
 	now := time.Now().UnixMilli()
-	res, err := r.DB.Exec("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?", newHash, now, id)
+	res, err := r.DB.Exec("UPDATE users SET password_hash = ?, must_change_password = 0, updated_at = ? WHERE id = ?", newHash, now, id)
 	if err != nil {
 		return err
 	}
@@ -297,5 +303,11 @@ func (r *UserRepository) UpdatePassword(id string, newHash string) error {
 	if err == nil && rowsAffected == 0 {
 		return sql.ErrNoRows
 	}
+	return err
+}
+
+// LinkEmployeeToUser links an employee_detail record to a users record
+func (r *UserRepository) LinkEmployeeToUser(employeeID string, userID string) error {
+	_, err := r.DB.Exec("UPDATE employee_details SET user_id = ? WHERE id = ?", userID, employeeID)
 	return err
 }

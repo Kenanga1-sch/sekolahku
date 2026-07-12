@@ -126,10 +126,11 @@ func (h *AuthHandler) Login(c echo.Context) error {
 
 	// Return token and user object
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"success":     true,
-		"token":       tokenString,
-		"user":        user,
-		"public_info": userInfo,
+		"success":             true,
+		"token":               tokenString,
+		"user":                user,
+		"public_info":         userInfo,
+		"mustChangePassword":  user.MustChangePassword,
 	})
 }
 

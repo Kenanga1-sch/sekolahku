@@ -204,7 +204,7 @@ export function EmployeeFormDialog({ open, onOpenChange, employeeId, onSuccess }
         <DialogHeader>
           <DialogTitle>{employeeId ? "Edit Data GTK" : "Tambah GTK Baru"}</DialogTitle>
           <DialogDescription>
-            Detail Guru & Tenaga Kependidikan. { !employeeId && "Password default: 123456" }
+            Data biodata Guru & Tenaga Kependidikan. Akun login dibuat terpisah di Manajemen Pengguna.
           </DialogDescription>
         </DialogHeader>
 

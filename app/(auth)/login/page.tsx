@@ -177,6 +177,15 @@ export default function LoginPage() {
         // Sync the global auth state before redirecting
         await refreshSession();
         
+        // Check if must change password
+        const mustChangePassword = (res as any).mustChangePassword;
+        
+        // If user must change password (first login), redirect to password change page
+        if (mustChangePassword) {
+            window.location.href = "/profil/ganti-password";
+            return;
+        }
+        
         // Use the returned data to determine role immediately
         const userRole = (res as any).user?.role || "user";
         

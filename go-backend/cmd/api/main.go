@@ -759,6 +759,7 @@ func main() {
 	adminGroup.DELETE("/students/:id", studentHandler.DeleteStudent)
 	auth.GET("/classes", studentHandler.GetClasses)
 	adminGroup.GET("/master/employees", employeeHandler.GetEmployees)
+	adminGroup.GET("/master/employees/without-account", employeeHandler.GetEmployeesWithoutAccount)
 	adminGroup.POST("/master/employees/import", employeeHandler.BulkImportEmployees)
 	adminGroup.GET("/master/employees/:id", employeeHandler.GetEmployeeByID)
 	adminGroup.POST("/master/employees", employeeHandler.CreateEmployee)
@@ -1640,14 +1641,14 @@ func SeedDefaultAdmin(db *sql.DB, logger echo.Logger) {
 
 	id := cuid2.Generate()
 	now := time.Now().UnixMilli()
-	_, err = db.Exec(`INSERT OR IGNORE INTO users (id, email, username, password_hash, role, name, full_name, is_active, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+	_, err = db.Exec(`INSERT OR IGNORE INTO users (id, email, username, password_hash, role, name, full_name, is_active, must_change_password, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?)`,
 		id, "admin@sekolah.sch.id", "admin", string(hash), "superadmin", "Administrator", "Administrator Sekolah", now, now)
 	if err != nil {
 		logger.Warnf("Failed to seed admin user: %v", err)
 		return
 	}
-	logger.Info("Default admin user created (admin@sekolah.sch.id / admin123)")
+	logger.Info("Default admin user created (admin@sekolah.sch.id / admin123) — wajib ganti password setelah login pertama.")
 }
 
 func SeedDefaultKlasifikasi(db *sql.DB, logger echo.Logger) {

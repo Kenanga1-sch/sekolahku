@@ -21,6 +21,7 @@ type Employee struct {
 	PhotoUrl         *string `json:"photoUrl"`
 	DisplayOrder     *int    `json:"displayOrder"`
 	UserID           *string `json:"userId"`
+	HasAccount       bool    `json:"hasAccount"`
 	EmployeeDetailID *string `json:"employeeDetailId"`
 }
 

@@ -8,7 +8,6 @@ import (
 
 	"github.com/nrednav/cuid2"
 	"github.com/sekolahku/go-backend/internal/models"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type EmployeeRepository struct {
@@ -22,24 +21,23 @@ func NewEmployeeRepository(db *sql.DB) *EmployeeRepository {
 func (r *EmployeeRepository) GetEmployees(page, limit int, search string) (*models.EmployeeResponse, error) {
 	offset := (page - 1) * limit
 
-	whereClause := "u.role IN ('guru', 'admin', 'staff')"
+	whereClause := "1=1"
 	var args []interface{}
 
 	if search != "" {
-		whereClause += " AND (u.name LIKE ? OR u.email LIKE ? OR e.nip LIKE ? OR e.nuptk LIKE ?)"
+		whereClause += " AND (e.name LIKE ? OR e.email LIKE ? OR e.nip LIKE ? OR e.nuptk LIKE ?)"
 		likeQ := "%" + search + "%"
 		args = append(args, likeQ, likeQ, likeQ, likeQ)
 	}
 
-	// 1. Data Query
 	query := fmt.Sprintf(`
-		SELECT u.id, u.name, u.full_name, u.email, u.role, 
-		       e.id, e.nip, e.nuptk, e.employment_status, e.job_type, e.user_id,
-		       e.category, e.degree, e.quote, e.photo_url, e.display_order
-		FROM users u
-		LEFT JOIN employee_details e ON u.id = e.user_id
+		SELECT e.id, e.name, e.email, e.role, e.nip, e.nuptk, e.nik,
+		       e.employment_status, e.job_type, e.join_date,
+		       e.category, e.degree, e.quote, e.photo_url, e.display_order,
+		       e.user_id
+		FROM employee_details e
 		WHERE %s
-		ORDER BY u.created_at DESC
+		ORDER BY e.created_at DESC
 		LIMIT ? OFFSET ?
 	`, whereClause)
 
@@ -53,21 +51,28 @@ func (r *EmployeeRepository) GetEmployees(page, limit int, search string) (*mode
 	var employees []models.Employee
 	for rows.Next() {
 		var e models.Employee
-		var fn, detailId, nip, nuptk, empStatus, jobType, uId sql.NullString
-		var cat, deg, quot, photo sql.NullString
+		var name, email, role, nip, nuptk, nik, empStatus, jobType, joinDate sql.NullString
+		var cat, deg, quot, photo, uId sql.NullString
 		var displayOrder sql.NullInt64
 
 		err := rows.Scan(
-			&e.ID, &e.Name, &fn, &e.Email, &e.Role,
-			&detailId, &nip, &nuptk, &empStatus, &jobType, &uId,
+			&e.ID, &name, &email, &role, &nip, &nuptk, &nik,
+			&empStatus, &jobType, &joinDate,
 			&cat, &deg, &quot, &photo, &displayOrder,
+			&uId,
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		if fn.Valid {
-			e.FullName = &fn.String
+		if name.Valid {
+			e.Name = name.String
+		}
+		if email.Valid {
+			e.Email = email.String
+		}
+		if role.Valid {
+			e.Role = role.String
 		}
 		if nip.Valid {
 			e.NIP = &nip.String
@@ -75,17 +80,21 @@ func (r *EmployeeRepository) GetEmployees(page, limit int, search string) (*mode
 		if nuptk.Valid {
 			e.NUPTK = &nuptk.String
 		}
+		if nik.Valid {
+			e.NIK = &nik.String
+		}
 		if empStatus.Valid {
 			e.EmploymentStatus = &empStatus.String
 		}
 		if jobType.Valid {
 			e.JobType = &jobType.String
 		}
+		if joinDate.Valid {
+			e.JoinDate = &joinDate.String
+		}
 		if uId.Valid {
 			e.UserID = &uId.String
-		}
-		if detailId.Valid {
-			e.EmployeeDetailID = &detailId.String
+			e.HasAccount = true
 		}
 		if cat.Valid {
 			e.Category = &cat.String
@@ -110,14 +119,7 @@ func (r *EmployeeRepository) GetEmployees(page, limit int, search string) (*mode
 		employees = []models.Employee{}
 	}
 
-	// 2. Count Query
-	countQuery := fmt.Sprintf(`
-		SELECT COUNT(*) 
-		FROM users u
-		LEFT JOIN employee_details e ON u.id = e.user_id
-		WHERE %s
-	`, whereClause)
-
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM employee_details e WHERE %s", whereClause)
 	var total int
 	err = r.DB.QueryRow(countQuery, args...).Scan(&total)
 	if err != nil {
@@ -137,34 +139,10 @@ func (r *EmployeeRepository) GetEmployees(page, limit int, search string) (*mode
 	}, nil
 }
 
-func (r *EmployeeRepository) CreateEmployee(req models.CreateEmployeeRequest) error {
-	tx, err := r.DB.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	// 1. Hash Default Password
-	hash, err := bcrypt.GenerateFromPassword([]byte("123456"), 10)
-	if err != nil {
-		return err
-	}
-
-	// 2. Insert User
-	userId := cuid2.Generate()
-	now := time.Now()
-
-	userQuery := `
-		INSERT INTO users (id, name, full_name, email, role, phone, password_hash, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`
-	_, err = tx.Exec(userQuery, userId, req.FullName, req.FullName, req.Email, req.Role, req.Phone, string(hash), now, now)
-	if err != nil {
-		return err // Could be UNIQUE constraint violation
-	}
-
-	// 3. Insert Employee Detail
+func (r *EmployeeRepository) CreateEmployee(req models.CreateEmployeeRequest) (string, error) {
 	detailId := cuid2.Generate()
+	now := time.Now().UnixMilli()
+
 	empStatus := "GTY"
 	if req.EmploymentStatus != nil && *req.EmploymentStatus != "" {
 		empStatus = *req.EmploymentStatus
@@ -173,47 +151,95 @@ func (r *EmployeeRepository) CreateEmployee(req models.CreateEmployeeRequest) er
 	if req.JobType != nil && *req.JobType != "" {
 		jobType = *req.JobType
 	}
-
-	detailQuery := `
-		INSERT INTO employee_details (id, user_id, nip, nuptk, nik, employment_status, job_type, join_date, category, degree, quote, photo_url, display_order, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`
-	_, err = tx.Exec(detailQuery, detailId, userId, req.NIP, req.NUPTK, req.NIK, empStatus, jobType, req.JoinDate, req.Category, req.Degree, req.Quote, req.PhotoUrl, req.DisplayOrder, now, now)
-	if err != nil {
-		return err
+	role := req.Role
+	if role == "" {
+		role = "guru"
 	}
 
-	return tx.Commit()
+	query := `
+		INSERT INTO employee_details (id, name, email, role, nip, nuptk, nik, employment_status, job_type, join_date, category, degree, quote, photo_url, display_order, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+	_, err := r.DB.Exec(query, detailId, req.FullName, req.Email, role, req.NIP, req.NUPTK, req.NIK, empStatus, jobType, req.JoinDate, req.Category, req.Degree, req.Quote, req.PhotoUrl, req.DisplayOrder, now, now)
+	if err != nil {
+		return "", err
+	}
+	return detailId, nil
+}
+
+// GetEmployeesWithoutAccount returns employees not yet linked to a user account
+func (r *EmployeeRepository) GetEmployeesWithoutAccount() ([]models.Employee, error) {
+	query := `
+		SELECT e.id, e.name, e.email, e.role, e.nip
+		FROM employee_details e
+		WHERE e.user_id IS NULL
+		ORDER BY e.name ASC
+	`
+	rows, err := r.DB.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var employees []models.Employee
+	for rows.Next() {
+		var e models.Employee
+		var name, email, role, nip sql.NullString
+		if err := rows.Scan(&e.ID, &name, &email, &role, &nip); err != nil {
+			return nil, err
+		}
+		if name.Valid {
+			e.Name = name.String
+		}
+		if email.Valid {
+			e.Email = email.String
+		}
+		if role.Valid {
+			e.Role = role.String
+		}
+		if nip.Valid {
+			e.NIP = &nip.String
+		}
+		employees = append(employees, e)
+	}
+	if employees == nil {
+		employees = []models.Employee{}
+	}
+	return employees, nil
 }
 
 func (r *EmployeeRepository) GetEmployeeByID(id string) (*models.Employee, error) {
 	query := `
-		SELECT u.id, u.name, u.full_name, u.email, u.role, u.phone,
+		SELECT e.id, e.name, e.email, e.role,
 		       e.nip, e.nuptk, e.nik, e.employment_status, e.job_type, e.join_date,
-		       e.category, e.degree, e.quote, e.photo_url, e.display_order
-		FROM users u
-		LEFT JOIN employee_details e ON u.id = e.user_id
-		WHERE u.id = ?
+		       e.category, e.degree, e.quote, e.photo_url, e.display_order,
+		       e.user_id
+		FROM employee_details e
+		WHERE e.id = ?
 	`
 	var e models.Employee
-	var fn, phone, nip, nuptk, nik, empStatus, jobType, joinDate sql.NullString
-	var cat, deg, quot, photo sql.NullString
+	var name, email, role, nip, nuptk, nik, empStatus, jobType, joinDate sql.NullString
+	var cat, deg, quot, photo, uId sql.NullString
 	var displayOrder sql.NullInt64
 
 	err := r.DB.QueryRow(query, id).Scan(
-		&e.ID, &e.Name, &fn, &e.Email, &e.Role, &phone,
+		&e.ID, &name, &email, &role,
 		&nip, &nuptk, &nik, &empStatus, &jobType, &joinDate,
 		&cat, &deg, &quot, &photo, &displayOrder,
+		&uId,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	if fn.Valid {
-		e.FullName = &fn.String
+	if name.Valid {
+		e.Name = name.String
 	}
-	if phone.Valid {
-		e.Phone = &phone.String
+	if email.Valid {
+		e.Email = email.String
+	}
+	if role.Valid {
+		e.Role = role.String
 	}
 	if nip.Valid {
 		e.NIP = &nip.String
@@ -232,6 +258,10 @@ func (r *EmployeeRepository) GetEmployeeByID(id string) (*models.Employee, error
 	}
 	if joinDate.Valid {
 		e.JoinDate = &joinDate.String
+	}
+	if uId.Valid {
+		e.UserID = &uId.String
+		e.HasAccount = true
 	}
 	if cat.Valid {
 		e.Category = &cat.String
@@ -254,68 +284,23 @@ func (r *EmployeeRepository) GetEmployeeByID(id string) (*models.Employee, error
 }
 
 func (r *EmployeeRepository) UpdateEmployee(id string, req models.CreateEmployeeRequest) error {
-	tx, err := r.DB.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
+	now := time.Now().UnixMilli()
 
-	now := time.Now()
-
-	// 1. Update User
-	userQuery := `
-		UPDATE users SET name=?, full_name=?, email=?, role=?, phone=?, updated_at=?
+	query := `
+		UPDATE employee_details SET name=?, email=?, role=?, nip=?, nuptk=?, nik=?, employment_status=?, job_type=?, join_date=?, category=?, degree=?, quote=?, photo_url=?, display_order=?, updated_at=?
 		WHERE id=?
 	`
-	_, err = tx.Exec(userQuery, req.FullName, req.FullName, req.Email, req.Role, req.Phone, now, id)
-	if err != nil {
-		return err
-	}
-
-	// 2. Update/Insert Employee Detail
-	// Check if detail exists
-	var detailExists bool
-	r.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM employee_details WHERE user_id=?)", id).Scan(&detailExists)
-
-	if detailExists {
-		detailQuery := `
-			UPDATE employee_details SET nip=?, nuptk=?, nik=?, employment_status=?, job_type=?, join_date=?, category=?, degree=?, quote=?, photo_url=?, display_order=?, updated_at=?
-			WHERE user_id=?
-		`
-		_, err = tx.Exec(detailQuery, req.NIP, req.NUPTK, req.NIK, req.EmploymentStatus, req.JobType, req.JoinDate, req.Category, req.Degree, req.Quote, req.PhotoUrl, req.DisplayOrder, now, id)
-	} else {
-		detailId := cuid2.Generate()
-		detailQuery := `
-			INSERT INTO employee_details (id, user_id, nip, nuptk, nik, employment_status, job_type, join_date, category, degree, quote, photo_url, display_order, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		`
-		_, err = tx.Exec(detailQuery, detailId, id, req.NIP, req.NUPTK, req.NIK, req.EmploymentStatus, req.JobType, req.JoinDate, req.Category, req.Degree, req.Quote, req.PhotoUrl, req.DisplayOrder, now, now)
-	}
-
-	if err != nil {
-		return err
-	}
-
-	return tx.Commit()
+	_, err := r.DB.Exec(query, req.FullName, req.Email, req.Role, req.NIP, req.NUPTK, req.NIK, req.EmploymentStatus, req.JobType, req.JoinDate, req.Category, req.Degree, req.Quote, req.PhotoUrl, req.DisplayOrder, now, id)
+	return err
 }
 
 func (r *EmployeeRepository) DeleteEmployee(id string) error {
-	tx, err := r.DB.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
+	// id here is the employee_details.id (detailId)
+	_, err := r.DB.Exec("DELETE FROM employee_details WHERE id = ?", id)
+	return err
+}
 
-	// Order matters: delete child first or rely on cascade if any
-	_, err = tx.Exec("DELETE FROM employee_details WHERE user_id = ?", id)
-	if err != nil {
-		return err
-	}
-
-	_, err = tx.Exec("DELETE FROM users WHERE id = ?", id)
-	if err != nil {
-		return err
-	}
-
-	return tx.Commit()
+func (r *EmployeeRepository) DeleteEmployeeByUserID(userID string) error {
+	_, err := r.DB.Exec("DELETE FROM employee_details WHERE user_id = ?", userID)
+	return err
 }
