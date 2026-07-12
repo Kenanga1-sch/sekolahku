@@ -56,6 +56,7 @@ export default function TabSekolah() {
     landing_tagline: "",
     landing_description: "",
     landing_texts: "",
+    landing_sections: "",
   });
 
   useEffect(() => {
@@ -99,6 +100,7 @@ export default function TabSekolah() {
           landing_tagline: record.landing_tagline || "",
           landing_description: record.landing_description || "",
           landing_texts: record.landing_texts || "",
+          landing_sections: record.landing_sections || "",
         });
       }
     } catch (err) {
@@ -155,17 +157,18 @@ export default function TabSekolah() {
           <p className="text-muted-foreground text-xs">Kelola profil, visi misi, dan konfigurasi sistem sekolah.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={fetchSettings} className="border-slate-200 hover:bg-slate-50">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
+          <Button variant="outline" size="sm" onClick={fetchSettings} className="border-slate-200 hover:bg-slate-50 min-h-[40px]">
+            <RefreshCw className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Refresh</span>
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={isSaving} className="gap-2 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white transition-all shadow-sm">
+          <Button size="sm" onClick={handleSave} disabled={isSaving} className="gap-2 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white transition-all shadow-sm min-h-[40px]">
             {isSaving ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Save className="h-4 w-4" />
             )}
-            Simpan Perubahan
+            <span className="hidden sm:inline">Simpan Perubahan</span>
+            <span className="sm:hidden">Simpan</span>
           </Button>
         </div>
       </div>
@@ -189,9 +192,18 @@ export default function TabSekolah() {
       {/* Tabs Navigation */}
       <Tabs defaultValue="profil" className="w-full">
         <TabsList className="bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl w-full flex flex-wrap overflow-x-auto no-scrollbar mb-4">
-          <TabsTrigger value="profil" className="rounded-lg text-xs font-semibold cursor-pointer flex-1 whitespace-nowrap">Profil Sekolah</TabsTrigger>
-          <TabsTrigger value="konten" className="rounded-lg text-xs font-semibold cursor-pointer flex-1 whitespace-nowrap">Konten Publik & Visi Misi</TabsTrigger>
-          <TabsTrigger value="sistem" className="rounded-lg text-xs font-semibold cursor-pointer flex-1 whitespace-nowrap">Pengaturan Sistem</TabsTrigger>
+          <TabsTrigger value="profil" className="rounded-lg text-xs font-semibold cursor-pointer flex-1 whitespace-nowrap px-2 min-h-[40px]">
+            <span className="hidden sm:inline">Profil Sekolah</span>
+            <span className="sm:hidden">Profil</span>
+          </TabsTrigger>
+          <TabsTrigger value="konten" className="rounded-lg text-xs font-semibold cursor-pointer flex-1 whitespace-nowrap px-2 min-h-[40px]">
+            <span className="hidden sm:inline">Konten Publik & Visi Misi</span>
+            <span className="sm:hidden">Konten</span>
+          </TabsTrigger>
+          <TabsTrigger value="sistem" className="rounded-lg text-xs font-semibold cursor-pointer flex-1 whitespace-nowrap px-2 min-h-[40px]">
+            <span className="hidden sm:inline">Pengaturan Sistem</span>
+            <span className="sm:hidden">Sistem</span>
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="profil" className="pt-2">
           <TabProfil settings={settings} setSettings={setSettings} />

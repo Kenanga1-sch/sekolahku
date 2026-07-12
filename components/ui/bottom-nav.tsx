@@ -30,7 +30,7 @@ const leftItems: BottomNavItem[] = [
     href: "/admin/siswa",
     label: "Siswa",
     icon: Users,
-    matchPaths: ["/admin/siswa", "/admin/akademik", "/admin/master"],
+    matchPaths: ["/admin/siswa", "/admin/akademik", "/admin/master", "/presensi", "/tabungan"],
   },
 ];
 
@@ -70,6 +70,7 @@ export function BottomNav({ onMenuClick }: BottomNavProps) {
       <Link
         key={item.href}
         href={item.href}
+        aria-label={item.label}
         className={cn(
           "flex flex-col items-center justify-center gap-1 flex-1 min-w-0 py-1 transition-all duration-200 active:scale-95",
           active
@@ -79,7 +80,7 @@ export function BottomNav({ onMenuClick }: BottomNavProps) {
       >
         <div
           className={cn(
-            "flex items-center justify-center w-12 h-8 rounded-full transition-all duration-200",
+            "flex items-center justify-center w-12 h-9 rounded-full transition-all duration-200",
             active ? "bg-blue-100 dark:bg-blue-900/40" : "bg-transparent"
           )}
         >

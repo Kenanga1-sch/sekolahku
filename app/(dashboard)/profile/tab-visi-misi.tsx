@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2, ArrowUp, ArrowDown, Eye, Target, Calendar, Award, BookOpen, GraduationCap, Sparkles } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import TabLandingSections from "./tab-landing-sections";
 
 interface TabVisiMisiProps {
   settings: any;
@@ -234,9 +235,19 @@ export default function TabVisiMisi({ settings, setSettings }: TabVisiMisiProps)
   return (
     <Tabs defaultValue="visimisi" className="space-y-6">
       <TabsList className="bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl flex flex-wrap w-full">
-        <TabsTrigger value="visimisi" className="rounded-lg flex-1 whitespace-nowrap">Visi, Misi & Indikator</TabsTrigger>
-        <TabsTrigger value="sejarah" className="rounded-lg flex-1 whitespace-nowrap">Sejarah & Prestasi</TabsTrigger>
-        <TabsTrigger value="kurikulum" className="rounded-lg flex-1 whitespace-nowrap">Kurikulum & Ekstra</TabsTrigger>
+        <TabsTrigger value="visimisi" className="rounded-lg flex-1 whitespace-nowrap text-xs px-2">
+          <span className="hidden sm:inline">Visi, Misi & Indikator</span>
+          <span className="sm:hidden">Visi & Misi</span>
+        </TabsTrigger>
+        <TabsTrigger value="sejarah" className="rounded-lg flex-1 whitespace-nowrap text-xs px-2">
+          <span className="hidden sm:inline">Sejarah & Prestasi</span>
+          <span className="sm:hidden">Sejarah</span>
+        </TabsTrigger>
+        <TabsTrigger value="kurikulum" className="rounded-lg flex-1 whitespace-nowrap text-xs px-2">
+          <span className="hidden sm:inline">Kurikulum & Ekstra</span>
+          <span className="sm:hidden">Kurikulum</span>
+        </TabsTrigger>
+        <TabsTrigger value="landing" className="rounded-lg flex-1 whitespace-nowrap text-xs px-2">Landing</TabsTrigger>
       </TabsList>
 
       {/* TABS CONTENT 1: VISI MISI */}
@@ -705,6 +716,11 @@ export default function TabVisiMisi({ settings, setSettings }: TabVisiMisiProps)
             )}
           </CardContent>
         </Card>
+      </TabsContent>
+
+      {/* TABS CONTENT 4: LANDING PAGE SECTIONS */}
+      <TabsContent value="landing" className="pt-2">
+        <TabLandingSections settings={settings} setSettings={setSettings} />
       </TabsContent>
     </Tabs>
   );

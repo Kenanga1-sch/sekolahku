@@ -74,7 +74,6 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/siswa": "Manajemen Siswa",
   "/presensi": "Presensi",
   "/admin/konten-informasi": "Informasi",
-  "/admin/halaman-depan": "Halaman Depan",
   "/profile": "Profil",
   "/admin/notifikasi": "Notifikasi",
   "/admin/surat": "Surat",
@@ -128,39 +127,26 @@ const navGroups: NavGroup[] = [
       { href: "/inventaris", label: "Inventaris", icon: Package, roles: INVENTARIS_ROLES },
       { href: "/arsip", label: "E-Arsip", icon: FileText, roles: ADMIN_ROLES },
     ],
-  }, 
-  {
-      label: "Keuangan",
-      items: [
-          { href: "/tabungan", label: "Tabungan Siswa", icon: Wallet, roles: TABUNGAN_ROLES },
-      ]
   },
   {
-      label: "Pusat Data",
-      items: [
-          { href: "/admin/master/gtk", label: "Direktori GTK", icon: IdCard, roles: ADMIN_ROLES },
-          { href: "/admin/akademik", label: "Kelas & Akademik", icon: BookOpen, roles: ADMIN_ROLES },
-      ]
-  },
-
-
-  {
-    label: "Kesiswaan",
+    label: "Manajemen Siswa",
     items: [
       { href: "/admin/siswa", label: "Manajemen Siswa", icon: Users, roles: ADMIN_ROLES },
       { href: "/presensi", label: "Presensi", icon: ClipboardList, roles: GURU_ACCESS_ROLES },
+      { href: "/admin/akademik", label: "Kelas & Akademik", icon: BookOpen, roles: ADMIN_ROLES },
+      { href: "/tabungan", label: "Tabungan Siswa", icon: Wallet, roles: TABUNGAN_ROLES },
+    ],
+  },
+  {
+    label: "Pusat Data",
+    items: [
+      { href: "/admin/master/gtk", label: "Direktori GTK", icon: IdCard, roles: ADMIN_ROLES },
     ],
   },
   {
     label: "Komunikasi & Konten",
     items: [
       { href: "/admin/konten-informasi", label: "Pusat Informasi", icon: Megaphone, roles: ADMIN_ROLES },
-    ],
-  },
-  {
-    label: "Pengaturan Website",
-    items: [
-      { href: "/admin/halaman-depan", label: "Halaman Depan", icon: LayoutDashboard, roles: ADMIN_ROLES },
     ],
   },
 ];
@@ -398,14 +384,14 @@ export default function DashboardLayoutClient({
             </div>
 
             {/* Right: Actions */}
-            <div className="flex items-center gap-2 sm:gap-3 md:gap-4 p-1 md:p-2 ml-auto">
+            <div className="flex items-center gap-1 sm:gap-3 md:gap-4 ml-auto">
              {/* Theme Toggle */}
-             <div className="flex items-center justify-center">
+             <div className="flex items-center justify-center min-w-[44px] min-h-[44px]">
                 <ThemeToggle />
              </div>
 
              {/* Notification */}
-             <div className={cn("flex items-center justify-center")}>
+             <div className="flex items-center justify-center min-w-[44px] min-h-[44px]">
                 <NotificationPopover className="h-5 w-5 text-neutral-700 dark:text-neutral-200 hover:text-neutral-900 dark:hover:text-white transition-colors" />
              </div>
 
@@ -413,7 +399,7 @@ export default function DashboardLayoutClient({
             {mounted ? (
               <DropdownMenu onOpenChange={setIsDropdownOpen}>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-8 w-8 sm:h-9 sm:w-9 md:h-auto md:w-auto rounded-full md:rounded-xl p-0 md:px-3 md:py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:ring-0 focus-visible:ring-offset-0">
+                  <Button variant="ghost" className="relative min-w-[44px] min-h-[44px] md:h-auto md:w-auto rounded-full md:rounded-xl p-0 md:px-3 md:py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:ring-0 focus-visible:ring-offset-0">
                      <div className="h-8 w-8 sm:h-9 sm:w-9 md:h-8 md:w-8 flex-shrink-0 rounded-full bg-neutral-200 dark:bg-neutral-700 overflow-hidden ring-2 ring-transparent transition-all">
                         <Avatar className="h-full w-full">
                            <AvatarImage src={userImage} className="object-cover" />
