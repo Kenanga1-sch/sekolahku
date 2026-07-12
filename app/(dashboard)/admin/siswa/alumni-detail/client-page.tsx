@@ -43,6 +43,7 @@ import {
   Trophy,
   Activity,
   Plus,
+  Printer,
   Loader2,
   Award,
   Heart,
@@ -992,6 +993,12 @@ export default function AlumniDetailPage() {
             <Button variant="outline" size="sm">
               <Edit className="h-4 w-4 mr-1" />
               Edit
+            </Button>
+          </Link>
+          <Link href={`/admin/siswa/alumni-detail/cetak?id=${alumni.id}`} target="_blank">
+            <Button variant="outline" size="sm">
+              <Printer className="h-4 w-4 mr-1" />
+              Cetak Buku Induk
             </Button>
           </Link>
           <Button variant="destructive" size="sm" onClick={handleDelete}>
