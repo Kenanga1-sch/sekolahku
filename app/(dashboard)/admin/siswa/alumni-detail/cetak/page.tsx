@@ -135,7 +135,6 @@ interface AlumniDetail {
   ijazahDate: string | null;
   skhunNo: string | null;
   skhunDate: string | null;
-  scholarshipInfo: string | null;
   mutasiMasukAsalSekolah: string | null;
   mutasiMasukDariKelas: string | null;
   mutasiMasukDiterimaTanggal: string | null;
