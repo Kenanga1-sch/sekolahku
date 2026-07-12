@@ -42,6 +42,7 @@ import {
   RefreshCcw,
   X,
   Filter,
+  Printer,
   BookOpen,
   Calendar,
   ChevronDown,
@@ -260,6 +261,13 @@ export default function TabAlumni() {
             <RefreshCcw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
             Sync Siswa
           </Button>
+          
+          <Link href="/admin/siswa/cetak-batch" target="_blank" className="w-full">
+            <Button size="sm" variant="outline" className="h-9 w-full border-2 border-orange-300 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950 text-orange-700 dark:text-orange-300">
+              <Printer className="h-4 w-4 mr-2" />
+              Cetak Batch
+            </Button>
+          </Link>
           
           <Link href="/admin/siswa/alumni-tambah" className="w-full">
             <Button size="sm" className="h-9 w-full shadow-sm bg-blue-600 hover:bg-blue-700 text-white border-0 font-medium">

@@ -89,6 +89,15 @@ type Alumni struct {
 	MutationOutDate            *string `json:"mutationOutDate"`
 	DroppedOutDate             *string `json:"droppedOutDate"`
 	DroppedOutReason           *string `json:"droppedOutReason"`
+	// Tahap 2: dokumen resmi & penghasilan
+	IjazahNo        *string `json:"ijazahNo"`
+	IjazahDate      *string `json:"ijazahDate"`
+	SkhunNo         *string `json:"skhunNo"`
+	SkhunDate       *string `json:"skhunDate"`
+	FatherIncome    *string `json:"fatherIncome"`
+	MotherIncome    *string `json:"motherIncome"`
+	GuardianIncome  *string `json:"guardianIncome"`
+	ParentAddress   *string `json:"parentAddress"`
 	CreatedAt                  *time.Time                 `json:"createdAt"`
 	UpdatedAt                  *time.Time                 `json:"updatedAt"`
 }

@@ -1,0 +1,9 @@
+-- Tahap 2: Melengkapi field buku induk
+ALTER TABLE alumni ADD COLUMN ijazah_no TEXT;
+ALTER TABLE alumni ADD COLUMN ijazah_date TEXT;
+ALTER TABLE alumni ADD COLUMN skhun_no TEXT;
+ALTER TABLE alumni ADD COLUMN skhun_date TEXT;
+ALTER TABLE alumni ADD COLUMN father_income TEXT;
+ALTER TABLE alumni ADD COLUMN mother_income TEXT;
+ALTER TABLE alumni ADD COLUMN guardian_income TEXT;
+ALTER TABLE alumni ADD COLUMN parent_address TEXT;

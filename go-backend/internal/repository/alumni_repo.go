@@ -154,7 +154,9 @@ func (r *AlumniRepository) GetAlumniByID(id string) (*models.Alumni, error) {
 		       previous_school_cert_no, previous_school_cert_date,
 		       mutasi_masuk_asal_sekolah, mutasi_masuk_dari_kelas, mutasi_masuk_diterima_tanggal, mutasi_masuk_di_kelas,
 		       scholarship_info, mutation_out_class, mutation_out_to_school, mutation_out_to_class, mutation_out_date,
-		       dropped_out_date, dropped_out_reason
+		       dropped_out_date, dropped_out_reason,
+		       ijazah_no, ijazah_date, skhun_no, skhun_date,
+		       father_income, mother_income, guardian_income, parent_address
 		FROM alumni WHERE id = ?
 	`
 	var a models.Alumni
@@ -175,6 +177,9 @@ func (r *AlumniRepository) GetAlumniByID(id string) (*models.Alumni, error) {
 	var mutMasukAsal, mutMasukDari, mutMasukDiterima, mutMasukDi sql.NullString
 	var scholar, mutOutClass, mutOutToSchool, mutOutToClass, mutOutDate, dropDate, dropReason sql.NullString
 	var sibKandung, sibTiri, sibAngkat sql.NullInt64
+	// Tahap 2
+	var ijazahNo, ijazahDate, skhunNo, skhunDate sql.NullString
+	var fatherIncome, motherIncome, guardianIncome, parentAddr sql.NullString
 
 	err := r.DB.QueryRow(query, id).Scan(
 		&a.ID, &sid, &nisn, &nis, &a.FullName, &gender, &bp, &bd,
@@ -192,6 +197,8 @@ func (r *AlumniRepository) GetAlumniByID(id string) (*models.Alumni, error) {
 		&mutMasukAsal, &mutMasukDari, &mutMasukDiterima, &mutMasukDi,
 		&scholar, &mutOutClass, &mutOutToSchool, &mutOutToClass, &mutOutDate,
 		&dropDate, &dropReason,
+		&ijazahNo, &ijazahDate, &skhunNo, &skhunDate,
+		&fatherIncome, &motherIncome, &guardianIncome, &parentAddr,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -273,6 +280,14 @@ func (r *AlumniRepository) GetAlumniByID(id string) (*models.Alumni, error) {
 	a.MutationOutDate = optionalString(mutOutDate)
 	a.DroppedOutDate = optionalString(dropDate)
 	a.DroppedOutReason = optionalString(dropReason)
+	a.IjazahNo = optionalString(ijazahNo)
+	a.IjazahDate = optionalString(ijazahDate)
+	a.SkhunNo = optionalString(skhunNo)
+	a.SkhunDate = optionalString(skhunDate)
+	a.FatherIncome = optionalString(fatherIncome)
+	a.MotherIncome = optionalString(motherIncome)
+	a.GuardianIncome = optionalString(guardianIncome)
+	a.ParentAddress = optionalString(parentAddr)
 
 	a.GraduationDate = SafeTime(gd)
 	a.CreatedAt = SafeTime(crat)
@@ -315,11 +330,13 @@ func (r *AlumniRepository) CreateAlumni(a models.Alumni) (string, error) {
 			previous_school_cert_no, previous_school_cert_date,
 			mutasi_masuk_asal_sekolah, mutasi_masuk_dari_kelas, mutasi_masuk_diterima_tanggal, mutasi_masuk_di_kelas,
 			scholarship_info, mutation_out_class, mutation_out_to_school, mutation_out_to_class, mutation_out_date,
-			dropped_out_date, dropped_out_reason
+			dropped_out_date, dropped_out_reason,
+			ijazah_no, ijazah_date, skhun_no, skhun_date,
+			father_income, mother_income, guardian_income, parent_address
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
 		          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
 		          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-		          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, id, a.StudentID, a.NISN, a.NIS, a.FullName, a.Gender, a.BirthPlace, a.BirthDate,
 		a.GraduationYear, timeToUnixMilli(a.GraduationDate), a.FinalClass, a.Photo, a.ParentName, a.ParentPhone,
 		a.CurrentAddress, a.CurrentPhone, a.CurrentEmail, a.NextSchool, a.Notes,
@@ -336,6 +353,8 @@ func (r *AlumniRepository) CreateAlumni(a models.Alumni) (string, error) {
 		a.MutasiMasukAsalSekolah, a.MutasiMasukDariKelas, a.MutasiMasukDiterimaTanggal, a.MutasiMasukDiKelas,
 		a.ScholarshipInfo, a.MutationOutClass, a.MutationOutToSchool, a.MutationOutToClass, a.MutationOutDate,
 		a.DroppedOutDate, a.DroppedOutReason,
+		a.IjazahNo, a.IjazahDate, a.SkhunNo, a.SkhunDate,
+		a.FatherIncome, a.MotherIncome, a.GuardianIncome, a.ParentAddress,
 	)
 	return id, err
 }
@@ -366,7 +385,9 @@ func (r *AlumniRepository) UpdateAlumni(id string, a models.Alumni) error {
 			previous_school_cert_no=?, previous_school_cert_date=?,
 			mutasi_masuk_asal_sekolah=?, mutasi_masuk_dari_kelas=?, mutasi_masuk_diterima_tanggal=?, mutasi_masuk_di_kelas=?,
 			scholarship_info=?, mutation_out_class=?, mutation_out_to_school=?, mutation_out_to_class=?, mutation_out_date=?,
-			dropped_out_date=?, dropped_out_reason=?
+			dropped_out_date=?, dropped_out_reason=?,
+			ijazah_no=?, ijazah_date=?, skhun_no=?, skhun_date=?,
+			father_income=?, mother_income=?, guardian_income=?, parent_address=?
 		WHERE id=?
 	`, a.NISN, a.NIS, a.FullName, a.Gender, a.BirthPlace, a.BirthDate,
 		a.GraduationYear, timeToUnixMilli(a.GraduationDate), a.FinalClass, a.Photo,
@@ -385,6 +406,8 @@ func (r *AlumniRepository) UpdateAlumni(id string, a models.Alumni) error {
 		a.MutasiMasukAsalSekolah, a.MutasiMasukDariKelas, a.MutasiMasukDiterimaTanggal, a.MutasiMasukDiKelas,
 		a.ScholarshipInfo, a.MutationOutClass, a.MutationOutToSchool, a.MutationOutToClass, a.MutationOutDate,
 		a.DroppedOutDate, a.DroppedOutReason,
+		a.IjazahNo, a.IjazahDate, a.SkhunNo, a.SkhunDate,
+		a.FatherIncome, a.MotherIncome, a.GuardianIncome, a.ParentAddress,
 		id,
 	)
 	return err

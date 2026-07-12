@@ -88,18 +88,22 @@ interface AlumniDetail {
   fatherNik: string | null;
   fatherEducation: string | null;
   fatherJob: string | null;
+  fatherIncome: string | null;
   motherName: string | null;
   motherNik: string | null;
   motherEducation: string | null;
   motherJob: string | null;
+  motherIncome: string | null;
   guardianName: string | null;
   guardianNik: string | null;
   guardianRelation: string | null;
   guardianJob: string | null;
   guardianPhone: string | null;
   guardianEducation: string | null;
+  guardianIncome: string | null;
   parentName: string | null;
   parentPhone: string | null;
+  parentAddress: string | null;
   height: number | null;
   weight: number | null;
   bloodType: string | null;
@@ -117,6 +121,11 @@ interface AlumniDetail {
   mutationOutDate: string | null;
   droppedOutDate: string | null;
   droppedOutReason: string | null;
+  ijazahNo: string | null;
+  ijazahDate: string | null;
+  skhunNo: string | null;
+  skhunDate: string | null;
+  scholarshipInfo: string | null;
   mutasiMasukAsalSekolah: string | null;
   mutasiMasukDariKelas: string | null;
   mutasiMasukDiterimaTanggal: string | null;
@@ -310,12 +319,14 @@ export default function CetakBukuIndukPage() {
               <div>NIK: {val(alumni.fatherNik)}</div>
               <div>Pendidikan: {val(alumni.fatherEducation)}</div>
               <div>Pekerjaan: {val(alumni.fatherJob)}</div>
+              <div>Penghasilan: {val(alumni.fatherIncome)}</div>
             </div>
             <div className="text-[10px]">
               <div>Nama: {val(alumni.motherName)}</div>
               <div>NIK: {val(alumni.motherNik)}</div>
               <div>Pendidikan: {val(alumni.motherEducation)}</div>
               <div>Pekerjaan: {val(alumni.motherJob)}</div>
+              <div>Penghasilan: {val(alumni.motherIncome)}</div>
             </div>
             <div className="text-[10px]">
               <div>Nama: {val(alumni.guardianName)}</div>
@@ -324,10 +335,12 @@ export default function CetakBukuIndukPage() {
               <div>Pekerjaan: {val(alumni.guardianJob)}</div>
               <div>Pendidikan: {val(alumni.guardianEducation)}</div>
               <div>Telp: {val(alumni.guardianPhone)}</div>
+              <div>Penghasilan: {val(alumni.guardianIncome)}</div>
             </div>
           </div>
           <Row label="Nama Orang Tua (Kontak)" value={val(alumni.parentName)} />
           <Row label="No. Telepon Orang Tua" value={val(alumni.parentPhone)} />
+          <Row label="Alamat Orang Tua/Wali" value={val(alumni.parentAddress)} full />
         </Section>
 
         {/* ── SECTION C: RIWAYAT MASUK ──────────────── */}
@@ -570,6 +583,10 @@ export default function CetakBukuIndukPage() {
               <Row label="Tahun Lulus" value={val(alumni.graduationYear)} />
               <Row label="Tanggal Lulus" value={fmtDate(alumni.graduationDate)} />
               <Row label="Kelas Terakhir" value={val(alumni.finalClass)} />
+              <Row label="No. Ijazah" value={val(alumni.ijazahNo)} />
+              <Row label="Tanggal Ijazah" value={fmtDate(alumni.ijazahDate)} />
+              <Row label="No. SKHUN" value={val(alumni.skhunNo)} />
+              <Row label="Tanggal SKHUN" value={fmtDate(alumni.skhunDate)} />
               <Row label="Melanjutkan ke (SMP)" value={val(alumni.nextSchool)} full />
             </>
           )}

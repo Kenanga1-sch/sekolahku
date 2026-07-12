@@ -98,6 +98,17 @@ const alumniFormBaseSchema = z.object({
   guardianEducation: z.string().optional(),
   guardianJob: z.string().optional(),
   guardianPhone: z.string().optional(),
+  
+  // Tahap 2: Dokumen resmi & penghasilan
+  ijazahNo: z.string().optional(),
+  ijazahDate: z.string().optional(),
+  skhunNo: z.string().optional(),
+  skhunDate: z.string().optional(),
+  fatherIncome: z.string().optional(),
+  motherIncome: z.string().optional(),
+  guardianIncome: z.string().optional(),
+  parentAddress: z.string().optional(),
+  scholarshipInfo: z.string().optional(),
 });
 
 const alumniFormSchema = alumniFormBaseSchema.refine((data) => {
@@ -210,6 +221,15 @@ export default function EditAlumniPage() {
           guardianEducation: data.guardianEducation || "",
           guardianJob: data.guardianJob || "",
           guardianPhone: data.guardianPhone || "",
+          ijazahNo: data.ijazahNo || "",
+          ijazahDate: data.ijazahDate ? data.ijazahDate.split("T")[0] : "",
+          skhunNo: data.skhunNo || "",
+          skhunDate: data.skhunDate ? data.skhunDate.split("T")[0] : "",
+          fatherIncome: data.fatherIncome || "",
+          motherIncome: data.motherIncome || "",
+          guardianIncome: data.guardianIncome || "",
+          parentAddress: data.parentAddress || "",
+          scholarshipInfo: data.scholarshipInfo || "",
         });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Gagal memuat data");
@@ -671,6 +691,49 @@ export default function EditAlumniPage() {
                       </div>
                     </div>
                   )}
+
+                  {/* Tahap 2: Dokumen Resmi & Penghasilan */}
+                  <div className="space-y-4 border-t pt-4">
+                    <Label className="text-sm font-semibold block">Dokumen Resmi & Penghasilan Orang Tua</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div>
+                        <Label htmlFor="ijazahNo">No. Ijazah</Label>
+                        <Input id="ijazahNo" {...register("ijazahNo")} placeholder="No. Ijazah SD" />
+                      </div>
+                      <div>
+                        <Label htmlFor="ijazahDate">Tgl. Ijazah</Label>
+                        <Input id="ijazahDate" type="date" {...register("ijazahDate")} />
+                      </div>
+                      <div>
+                        <Label htmlFor="skhunNo">No. SKHUN</Label>
+                        <Input id="skhunNo" {...register("skhunNo")} placeholder="No. SKHUN" />
+                      </div>
+                      <div>
+                        <Label htmlFor="skhunDate">Tgl. SKHUN</Label>
+                        <Input id="skhunDate" type="date" {...register("skhunDate")} />
+                      </div>
+                      <div>
+                        <Label htmlFor="fatherIncome">Penghasilan Ayah</Label>
+                        <Input id="fatherIncome" {...register("fatherIncome")} placeholder="Rp/bulan" />
+                      </div>
+                      <div>
+                        <Label htmlFor="motherIncome">Penghasilan Ibu</Label>
+                        <Input id="motherIncome" {...register("motherIncome")} placeholder="Rp/bulan" />
+                      </div>
+                      <div>
+                        <Label htmlFor="guardianIncome">Penghasilan Wali</Label>
+                        <Input id="guardianIncome" {...register("guardianIncome")} placeholder="Rp/bulan" />
+                      </div>
+                      <div>
+                        <Label htmlFor="parentAddress">Alamat Orang Tua</Label>
+                        <Input id="parentAddress" {...register("parentAddress")} placeholder="Alamat ortu/wali" />
+                      </div>
+                      <div className="md:col-span-2">
+                        <Label htmlFor="scholarshipInfo">Informasi Beasiswa</Label>
+                        <Input id="scholarshipInfo" {...register("scholarshipInfo")} placeholder="Nama beasiswa, tahun, pemberi" />
+                      </div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
           </TabsContent>
