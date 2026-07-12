@@ -167,7 +167,7 @@ export default function CetakKartuPage() {
     ? (settings.school_logo.startsWith("http") || settings.school_logo.startsWith("/") 
       ? settings.school_logo 
       : `/uploads/${settings.school_logo}`) 
-    : "/logo.png";
+    : null;
 
   if (loading) {
     return (
@@ -509,14 +509,15 @@ function StudentCardPreview({
         />
 
         <div 
-          className="relative h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden"
+          className="relative h-12 w-12 flex items-center justify-center flex-shrink-0 overflow-hidden"
           style={{
             background: schoolLogo ? "white" : "linear-gradient(135deg, rgba(251,191,36,0.2) 0%, rgba(245,158,11,0.1) 100%)",
             border: "1.5px solid rgba(251,191,36,0.4)",
+            borderRadius: "8px",
           }}
         >
           {schoolLogo ? (
-            <img src={schoolLogo} alt="Logo" className="w-8 h-8 object-contain" />
+            <img src={schoolLogo} alt="Logo Sekolah" className="h-10 w-10 object-contain" />
           ) : (
             <span className="text-xs font-bold text-slate-300">SD</span>
           )}
