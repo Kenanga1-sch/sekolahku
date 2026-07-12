@@ -31,6 +31,7 @@ func (r *SettingRepository) GetSettings() (*models.SchoolSettings, error) {
 		SELECT id, school_name, school_npsn, school_address, school_phone, school_email, 
 		       school_website, school_logo, school_lat, school_lng, max_distance_km, 
 		       spmb_is_open, current_academic_year, principal_name, principal_nip, 
+		       supervisor_name, supervisor_nip,
 		       is_maintenance, last_letter_number, letter_number_format, savings_treasurer_id,
 		       school_vision, school_mission, school_indicators,
 		       school_history_timeline, school_history_achievements,
@@ -41,7 +42,7 @@ func (r *SettingRepository) GetSettings() (*models.SchoolSettings, error) {
 		ORDER BY CASE WHEN id = 'default' THEN 0 ELSE 1 END LIMIT 1
 	`
 	var s models.SchoolSettings
-	var npsn, addr, phone, email, web, logo, pName, pNip, treasurerId sql.NullString
+	var npsn, addr, phone, email, web, logo, pName, pNip, sName, sNip, treasurerId sql.NullString
 	var vision, mission, indicators sql.NullString
 	var historyTimeline, historyAchievements sql.NullString
 	var curriculum, extras sql.NullString
@@ -53,6 +54,7 @@ func (r *SettingRepository) GetSettings() (*models.SchoolSettings, error) {
 		&s.ID, &s.SchoolName, &npsn, &addr, &phone, &email,
 		&web, &logo, &lat, &lng, &dist,
 		&s.SPMBIsOpen, &s.CurrentAcademicYear, &pName, &pNip,
+		&sName, &sNip,
 		&s.IsMaintenance, &s.LastLetterNumber, &s.LetterNumberFormat, &treasurerId,
 		&vision, &mission, &indicators, &historyTimeline, &historyAchievements,
 		&curriculum, &extras,
@@ -105,6 +107,12 @@ func (r *SettingRepository) GetSettings() (*models.SchoolSettings, error) {
 	}
 	if pNip.Valid {
 		s.PrincipalNIP = &pNip.String
+	}
+	if sName.Valid {
+		s.SupervisorName = &sName.String
+	}
+	if sNip.Valid {
+		s.SupervisorNIP = &sNip.String
 	}
 	if treasurerId.Valid {
 		s.SavingsTreasurerID = &treasurerId.String
@@ -202,6 +210,12 @@ func mergeSchoolSettingsPatch(next *models.SchoolSettings, existing *models.Scho
 	if next.PrincipalNIP == nil {
 		next.PrincipalNIP = existing.PrincipalNIP
 	}
+	if next.SupervisorName == nil {
+		next.SupervisorName = existing.SupervisorName
+	}
+	if next.SupervisorNIP == nil {
+		next.SupervisorNIP = existing.SupervisorNIP
+	}
 	if next.SavingsTreasurerID == nil {
 		next.SavingsTreasurerID = existing.SavingsTreasurerID
 	}
@@ -260,16 +274,18 @@ func (r *SettingRepository) UpdateSettings(s models.SchoolSettings) (*models.Sch
 				id, school_name, school_npsn, school_address, school_phone, school_email,
 				school_website, school_logo, school_lat, school_lng, max_distance_km,
 				spmb_is_open, current_academic_year, principal_name, principal_nip,
+				supervisor_name, supervisor_nip,
 				is_maintenance, last_letter_number, letter_number_format, savings_treasurer_id,
 				school_vision, school_mission, school_indicators,
 				school_history_timeline, school_history_achievements,
 				school_curriculum, school_extracurriculars,
 				landing_tagline, landing_description, landing_texts, landing_sections,
 				created_at, updated_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`, s.ID, s.SchoolName, s.SchoolNPSN, s.SchoolAddress, s.SchoolPhone, s.SchoolEmail,
 			s.SchoolWebsite, s.SchoolLogo, s.SchoolLat, s.SchoolLng, s.MaxDistanceKM,
 			s.SPMBIsOpen, s.CurrentAcademicYear, s.PrincipalName, s.PrincipalNIP,
+			s.SupervisorName, s.SupervisorNIP,
 			s.IsMaintenance, s.LastLetterNumber, s.LetterNumberFormat, s.SavingsTreasurerID,
 			s.SchoolVision, s.SchoolMission, s.SchoolIndicators,
 			s.SchoolHistoryTimeline, s.SchoolHistoryAchievements,
@@ -295,6 +311,7 @@ func (r *SettingRepository) UpdateSettings(s models.SchoolSettings) (*models.Sch
 				school_name=?, school_npsn=?, school_address=?, school_phone=?, school_email=?,
 				school_website=?, school_logo=?, school_lat=?, school_lng=?, max_distance_km=?,
 				spmb_is_open=?, current_academic_year=?, principal_name=?, principal_nip=?,
+				supervisor_name=?, supervisor_nip=?,
 				is_maintenance=?, last_letter_number=?, letter_number_format=?, savings_treasurer_id=?,
 				school_vision=?, school_mission=?, school_indicators=?,
 				school_history_timeline=?, school_history_achievements=?,
@@ -305,6 +322,7 @@ func (r *SettingRepository) UpdateSettings(s models.SchoolSettings) (*models.Sch
 		`, s.SchoolName, s.SchoolNPSN, s.SchoolAddress, s.SchoolPhone, s.SchoolEmail,
 			s.SchoolWebsite, s.SchoolLogo, s.SchoolLat, s.SchoolLng, s.MaxDistanceKM,
 			s.SPMBIsOpen, s.CurrentAcademicYear, s.PrincipalName, s.PrincipalNIP,
+			s.SupervisorName, s.SupervisorNIP,
 			s.IsMaintenance, s.LastLetterNumber, s.LetterNumberFormat, s.SavingsTreasurerID,
 			s.SchoolVision, s.SchoolMission, s.SchoolIndicators,
 			s.SchoolHistoryTimeline, s.SchoolHistoryAchievements,

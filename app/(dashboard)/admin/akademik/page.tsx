@@ -11,7 +11,7 @@ import TabReferensi from "./tab-ref";
 
 type TabType = "kelas" | "kenaikan" | "referensi";
 
-function AkademikTabsContent() {
+export function AkademikTabsContent() {
   const searchParams = useSearchParams();
   const queryTab = searchParams.get("tab") as TabType | null;
 

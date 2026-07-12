@@ -21,6 +21,7 @@ import { goGet } from "@/lib/api-client";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate } from "@/lib/utils";
+import { QuickActionsPanel } from "@/components/arsip/quick-actions";
 
 type Letter = {
     id: string;
@@ -127,20 +128,6 @@ export default function ArsipDashboard() {
                         Sistem Informasi Manajemen Persuratan Sekolah & Laporan Digital berbasis AI
                     </p>
                 </div>
-                <div className="flex items-center gap-2 w-full md:w-auto">
-                    <Link href="/arsip/surat-masuk/baru" className="flex-1 md:flex-none">
-                        <Button className="w-full gap-2 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-semibold shadow-sm border-0 transition-all">
-                            <Plus className="h-4 w-4" />
-                            Registrasi Surat Masuk
-                        </Button>
-                    </Link>
-                    <Link href="/admin/surat/template" className="flex-1 md:flex-none">
-                        <Button variant="outline" className="w-full gap-2 font-semibold shadow-sm border-slate-200 dark:border-zinc-800 bg-background hover:bg-slate-50 dark:hover:bg-zinc-900">
-                            <Plus className="h-4 w-4 text-slate-500" />
-                            Buat Surat Keluar
-                        </Button>
-                    </Link>
-                </div>
             </div>
 
             {/* Stats Cards Dashboard */}
@@ -192,192 +179,7 @@ export default function ArsipDashboard() {
             </div>
 
             {/* Main Sections Grid */}
-            <div className="grid gap-6 lg:grid-cols-3">
-                {/* Modul Akses Cepat (Left side, takes 2 cols) */}
-                <div className="lg:col-span-2 space-y-4">
-                    <div className="flex items-center justify-between border-b pb-2 border-slate-100 dark:border-zinc-800">
-                        <h2 className="text-base font-bold text-slate-800 dark:text-zinc-200">
-                            Modul & Akses Cepat Persuratan
-                        </h2>
-                    </div>
-                    
-                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-                        {/* 1. Registrasi Surat Masuk (AI) */}
-                        <Link href="/arsip/surat-masuk/baru">
-                            <Card className="hover:shadow-md transition-all duration-300 cursor-pointer border-l-4 border-l-indigo-600 h-full flex flex-col justify-between group">
-                                <CardHeader className="pb-2">
-                                    <CardTitle className="flex items-center justify-between text-sm font-bold text-slate-800 dark:text-white">
-                                        <span className="flex items-center gap-2 text-indigo-700 dark:text-indigo-400 group-hover:translate-x-0.5 transition-transform">
-                                            <Plus className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                                            Registrasi Surat Masuk
-                                        </span>
-                                        <Badge className="bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-850/40 text-[9px] py-0 px-1.5 h-5">
-                                            <Sparkles className="h-2.5 w-2.5 inline mr-1 animate-pulse" /> AI Gemini
-                                        </Badge>
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <p className="text-xs text-muted-foreground leading-relaxed">
-                                        Unggah berkas surat masuk secara otomatis menggunakan AI Gemini untuk deteksi isi, nomor, pengirim, dan disposisi instan.
-                                    </p>
-                                </CardContent>
-                            </Card>
-                        </Link>
-
-                        {/* 2. Arsip Surat Masuk */}
-                        <Link href="/arsip/surat-masuk">
-                            <Card className="hover:shadow-md transition-all duration-300 cursor-pointer border-l-4 border-l-blue-500 h-full flex flex-col justify-between group">
-                                <CardHeader className="pb-2">
-                                    <CardTitle className="flex items-center text-sm font-bold text-slate-800 dark:text-white">
-                                        <span className="flex items-center gap-2 text-blue-700 dark:text-blue-400 group-hover:translate-x-0.5 transition-transform">
-                                            <Inbox className="h-4 w-4 text-blue-500" />
-                                            Arsip Surat Masuk
-                                        </span>
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <p className="text-xs text-muted-foreground leading-relaxed">
-                                        Kelola arsip surat masuk, status penanganan berkas, delegasi tugas staf, pencarian klasifikasi, dan unduh berkas ZIP.
-                                    </p>
-                                </CardContent>
-                            </Card>
-                        </Link>
-
-                        {/* 3. Buat Surat Keluar */}
-                        <Link href="/admin/surat/template">
-                            <Card className="hover:shadow-md transition-all duration-300 cursor-pointer border-l-4 border-l-purple-500 h-full flex flex-col justify-between group">
-                                <CardHeader className="pb-2">
-                                    <CardTitle className="flex items-center text-sm font-bold text-slate-800 dark:text-white">
-                                        <span className="flex items-center gap-2 text-purple-700 dark:text-purple-400 group-hover:translate-x-0.5 transition-transform">
-                                            <FileText className="h-4 w-4 text-purple-500" />
-                                            Buat Surat Keluar
-                                        </span>
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <p className="text-xs text-muted-foreground leading-relaxed">
-                                        Draf surat dinas keluar resmi dengan format baku penomoran otomatis dan template dinamis siap cetak.
-                                    </p>
-                                </CardContent>
-                            </Card>
-                        </Link>
-
-                        {/* 4. Arsip Surat Keluar & Verifikasi (TTE) */}
-                        <Link href="/arsip/surat-keluar">
-                            <Card className="hover:shadow-md transition-all duration-300 cursor-pointer border-l-4 border-l-green-500 h-full flex flex-col justify-between group">
-                                <CardHeader className="pb-2">
-                                    <CardTitle className="flex items-center justify-between text-sm font-bold text-slate-800 dark:text-white">
-                                        <span className="flex items-center gap-2 text-green-700 dark:text-green-400 group-hover:translate-x-0.5 transition-transform">
-                                            <Send className="h-4 w-4 text-green-500" />
-                                            Arsip Surat Keluar
-                                        </span>
-                                        <Badge className="bg-green-600/10 hover:bg-green-600/20 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-850/40 text-[9px] py-0 px-1.5 h-5">
-                                            TTE & QR
-                                        </Badge>
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <p className="text-xs text-muted-foreground leading-relaxed">
-                                        Persetujuan draf surat keluar, pembubuhan tanda tangan elektronik (TTE) lokal, dan pelacakan QR Code verifikasi.
-                                    </p>
-                                </CardContent>
-                            </Card>
-                        </Link>
-
-                        {/* 5. Buku Agenda (Laporan) */}
-                        <Link href="/arsip/laporan">
-                            <Card className="hover:shadow-md transition-all duration-300 cursor-pointer border-l-4 border-l-orange-500 h-full flex flex-col justify-between group">
-                                <CardHeader className="pb-2">
-                                    <CardTitle className="flex items-center text-sm font-bold text-slate-800 dark:text-white">
-                                        <span className="flex items-center gap-2 text-orange-700 dark:text-orange-400 group-hover:translate-x-0.5 transition-transform">
-                                            <BookOpen className="h-4 w-4 text-orange-500" />
-                                            Buku Agenda (Laporan)
-                                        </span>
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <p className="text-xs text-muted-foreground leading-relaxed">
-                                        Rekapitulasi berkas masuk/keluar per bulan dengan rekap kode klasifikasi untuk mempermudah laporan administrasi.
-                                    </p>
-                                </CardContent>
-                            </Card>
-                        </Link>
-
-                        {/* 6. Pengaturan Persuratan */}
-                        <Link href="/arsip/pengaturan">
-                            <Card className="hover:shadow-md transition-all duration-300 cursor-pointer border-l-4 border-l-rose-500 h-full flex flex-col justify-between group">
-                                <CardHeader className="pb-2">
-                                    <CardTitle className="flex items-center text-sm font-bold text-slate-800 dark:text-white">
-                                        <span className="flex items-center gap-2 text-rose-700 dark:text-rose-400 group-hover:translate-x-0.5 transition-transform">
-                                            <Settings className="h-4 w-4 text-rose-500" />
-                                            Pengaturan Persuratan
-                                        </span>
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <p className="text-xs text-muted-foreground leading-relaxed">
-                                        Konfigurasi kode klasifikasi surat dinas dan aturan format penomoran surat otomatis yang disesuaikan.
-                                    </p>
-                                </CardContent>
-                            </Card>
-                        </Link>
-
-                        {/* 7. Dokumen Sekolah */}
-                        <Link href="/arsip/dokumen">
-                            <Card className="hover:shadow-md transition-all duration-300 cursor-pointer border-l-4 border-l-teal-500 h-full flex flex-col justify-between group">
-                                <CardHeader className="pb-2">
-                                    <CardTitle className="flex items-center text-sm font-bold text-slate-800 dark:text-white">
-                                        <span className="flex items-center gap-2 text-teal-700 dark:text-teal-400 group-hover:translate-x-0.5 transition-transform">
-                                            <FileText className="h-4 w-4 text-teal-500" />
-                                            Dokumen Sekolah (DMS)
-                                        </span>
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <p className="text-xs text-muted-foreground leading-relaxed">
-                                        Buat dan kelola berkas sekolah non-surat seperti Transkrip Nilai, Daftar 1 (Buku Induk), atau Laporan Kegiatan.
-                                    </p>
-                                </CardContent>
-                            </Card>
-                        </Link>
-
-                    </div>
-                </div>
-
-                {/* Info Panel / Side Info (Right side, takes 1 col) */}
-                <div className="space-y-4">
-                    <div className="flex items-center justify-between border-b pb-2 border-slate-100 dark:border-zinc-800">
-                        <h2 className="text-base font-bold text-slate-800 dark:text-zinc-200">
-                            Status E-Arsip
-                        </h2>
-                    </div>
-                    <Card className="border-slate-100 dark:border-zinc-850/50 bg-slate-50/40 dark:bg-zinc-950/20 backdrop-blur-sm h-[calc(100%-38px)]">
-                        <CardContent className="p-4 space-y-4 text-xs leading-relaxed text-muted-foreground font-medium">
-                            <div className="flex items-start gap-2.5">
-                                <Sparkles className="h-4 w-4 text-indigo-500 shrink-0 mt-0.5" />
-                                <div>
-                                    <p className="font-bold text-slate-700 dark:text-zinc-300 text-xs">Pencatatan AI Gemini</p>
-                                    <p className="mt-0.5">Surat masuk yang diunggah dipindai secara instan oleh Gemini untuk mendeteksi nomor surat, perihal, dan tanggal surat.</p>
-                                </div>
-                            </div>
-                            <div className="flex items-start gap-2.5 pt-2 border-t border-slate-100 dark:border-zinc-800">
-                                <Send className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
-                                <div>
-                                    <p className="font-bold text-slate-700 dark:text-zinc-300 text-xs">TTE Lokal & QRCode</p>
-                                    <p className="mt-0.5">Surat keluar resmi dibubuhi TTE Lokal dan QRCode unik sebagai tanda keabsahan dokumen saat divalidasi publik.</p>
-                                </div>
-                            </div>
-                            <div className="flex items-start gap-2.5 pt-2 border-t border-slate-100 dark:border-zinc-800">
-                                <BookOpen className="h-4 w-4 text-orange-500 shrink-0 mt-0.5" />
-                                <div>
-                                    <p className="font-bold text-slate-700 dark:text-zinc-300 text-xs">Klasifikasi Kode Klas</p>
-                                    <p className="mt-0.5">Seluruh persuratan secara otomatis dikelompokkan berdasarkan agenda dan klasifikasi klas dinas baku.</p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-            </div>
+            <QuickActionsPanel />
 
             {/* Dokumen Terbaru Grid (Surat Masuk & Surat Keluar) */}
             <div className="grid gap-6 md:grid-cols-2 pt-4 border-t border-slate-100 dark:border-zinc-800">

@@ -133,7 +133,6 @@ const navGroups: NavGroup[] = [
     items: [
       { href: "/admin/siswa", label: "Manajemen Siswa", icon: Users, roles: ADMIN_ROLES },
       { href: "/presensi", label: "Presensi", icon: ClipboardList, roles: GURU_ACCESS_ROLES },
-      { href: "/admin/akademik", label: "Kelas & Akademik", icon: BookOpen, roles: ADMIN_ROLES },
       { href: "/tabungan", label: "Tabungan Siswa", icon: Wallet, roles: TABUNGAN_ROLES },
     ],
   },

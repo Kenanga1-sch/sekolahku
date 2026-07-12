@@ -213,6 +213,32 @@ export default function TabSistem({ settings, setSettings }: TabSistemProps) {
             </div>
           </div>
 
+          {/* Supervisor Info */}
+          <div className="grid md:grid-cols-2 gap-4 border-t pt-4">
+            <div className="space-y-2">
+              <Label htmlFor="supervisor_name">Nama Pengawas</Label>
+              <Input
+                id="supervisor_name"
+                value={settings.supervisor_name || ""}
+                onChange={(e) =>
+                  setSettings((prev: any) => ({ ...prev, supervisor_name: e.target.value }))
+                }
+                placeholder="Drs. H. Pengawas, M.Pd"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="supervisor_nip">NIP Pengawas</Label>
+              <Input
+                id="supervisor_nip"
+                value={settings.supervisor_nip || ""}
+                onChange={(e) =>
+                  setSettings((prev: any) => ({ ...prev, supervisor_nip: e.target.value }))
+                }
+                placeholder="19700101 200501 1 002"
+              />
+            </div>
+          </div>
+
           {/* Maintenance Mode */}
           <div className={`flex items-center justify-between rounded-lg border-l-4 p-4 border-l-red-500 bg-red-50/50 dark:bg-red-950/10`}>
             <div className="space-y-1">

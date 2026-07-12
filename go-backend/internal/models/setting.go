@@ -18,6 +18,8 @@ type SchoolSettings struct {
 	CurrentAcademicYear string     `json:"current_academic_year"`
 	PrincipalName       *string    `json:"principal_name"`
 	PrincipalNIP        *string    `json:"principal_nip"`
+	SupervisorName      *string    `json:"supervisor_name"`
+	SupervisorNIP       *string    `json:"supervisor_nip"`
 	IsMaintenance       bool       `json:"is_maintenance"`
 	LastLetterNumber    int        `json:"last_letter_number"`
 	LetterNumberFormat  string     `json:"letter_number_format"`
