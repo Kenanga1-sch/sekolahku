@@ -644,14 +644,14 @@ export default function TabSPMB() {
           </div>
 
           {/* Filters & Table */}
-          <Card>
-            <CardHeader>
+          <Card className="border-slate-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+            <CardHeader className="p-4 md:p-6 pb-4 border-b border-slate-100 dark:border-zinc-800 bg-white dark:bg-zinc-950">
               <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
                 <div className="relative flex-1 w-full">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Cari nama atau nomor pendaftaran..."
-                    className="pl-9"
+                    className="pl-9 h-10 border-slate-200 dark:border-zinc-800 bg-slate-50/40 dark:bg-zinc-900/40"
                     value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
@@ -662,7 +662,7 @@ export default function TabSPMB() {
                 
                  <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 w-full sm:w-auto flex-wrap">
                   <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-                    <SelectTrigger className="w-full sm:w-48 bg-white dark:bg-zinc-900 border">
+                    <SelectTrigger className="w-full sm:w-48 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800">
                       <Filter className="h-4 w-4 mr-2" />
                       <SelectValue placeholder="Filter Status" />
                     </SelectTrigger>
@@ -682,7 +682,7 @@ export default function TabSPMB() {
                       setPage(1);
                     }}
                   >
-                    <SelectTrigger className="w-full sm:w-[120px] bg-white dark:bg-zinc-900 border">
+                    <SelectTrigger className="w-full sm:w-[120px] bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800">
                       <SelectValue placeholder="Baris" />
                     </SelectTrigger>
                     <SelectContent>
@@ -695,7 +695,7 @@ export default function TabSPMB() {
 
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button className="col-span-2 sm:col-span-1 w-full sm:w-auto gap-2" variant="outline" disabled={actionLoading === "export"}>
+                      <Button className="col-span-2 sm:col-span-1 w-full sm:w-auto gap-2 border-slate-200 dark:border-zinc-800" variant="outline" disabled={actionLoading === "export"}>
                          {actionLoading === "export" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                         Export Data
                       </Button>
@@ -759,12 +759,10 @@ export default function TabSPMB() {
                   </DropdownMenu>
                 </div>
               </div>
-            </CardHeader>
-            
-            <CardContent>
+              
               {/* Batch Action Bar */}
               {selectedIds.length > 0 && (
-                <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 mb-4 flex items-center justify-between">
+                <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 mt-4 flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-200">
                   <span className="text-sm font-medium">
                     {selectedIds.length} pendaftar dipilih
                   </span>
@@ -774,6 +772,7 @@ export default function TabSPMB() {
                       variant="outline"
                       onClick={() => handleBatchUpdate("verified")}
                       disabled={batchLoading}
+                      className="bg-white/50 hover:bg-white dark:bg-zinc-900/50 dark:hover:bg-zinc-900"
                     >
                       {batchLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <CheckCircle className="h-4 w-4 mr-1" />}
                       Verifikasi
@@ -781,7 +780,7 @@ export default function TabSPMB() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="text-green-600 border-green-200 hover:bg-green-50"
+                      className="text-green-700 border-green-200 bg-green-50/50 hover:bg-green-100 dark:text-green-400 dark:border-green-900/50 dark:bg-green-900/20 dark:hover:bg-green-900/40"
                       onClick={() => handleBatchUpdate("accepted")}
                       disabled={batchLoading}
                     >
@@ -791,7 +790,7 @@ export default function TabSPMB() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="text-red-600 border-red-200 hover:bg-red-50"
+                      className="text-red-700 border-red-200 bg-red-50/50 hover:bg-red-100 dark:text-red-400 dark:border-red-900/50 dark:bg-red-900/20 dark:hover:bg-red-900/40"
                       onClick={() => handleBatchUpdate("rejected")}
                       disabled={batchLoading}
                     >
@@ -808,9 +807,11 @@ export default function TabSPMB() {
                   </div>
                 </div>
               )}
+            </CardHeader>
+            <CardContent className="p-0">
 
               {/* Table */}
-              <div className="rounded-lg border overflow-hidden">
+              <div className="overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/50">

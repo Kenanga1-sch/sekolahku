@@ -282,15 +282,14 @@ export default function TabKartu() {
 
       {/* Main Table Card */}
       <Card>
-        <CardHeader>
+        <CardHeader className="p-4 md:p-6 pb-4 border-b border-slate-100 dark:border-zinc-800 bg-white dark:bg-zinc-950">
           <CardTitle>Daftar Peserta Didik</CardTitle>
           <CardDescription>
             Data seluruh peserta didik yang terdaftar
           </CardDescription>
-        </CardHeader>
-        <CardContent>
+          
           {/* Filters */}
-          <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 mb-6">
+          <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 mt-4">
             <div className="relative col-span-2 sm:flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -300,7 +299,7 @@ export default function TabKartu() {
                   setSearch(e.target.value);
                   setPage(1);
                 }}
-                className="pl-9"
+                className="pl-9 h-10 border-slate-200 dark:border-zinc-800 bg-slate-50/40 dark:bg-zinc-900/40"
               />
             </div>
             <Select
@@ -356,9 +355,10 @@ export default function TabKartu() {
               </SelectContent>
             </Select>
           </div>
-
+        </CardHeader>
+        <CardContent className="p-0">
           {/* Table */}
-          <div className="rounded-lg border overflow-hidden">
+          <div className="overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">

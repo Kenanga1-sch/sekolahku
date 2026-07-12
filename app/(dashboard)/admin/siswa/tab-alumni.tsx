@@ -237,39 +237,41 @@ export default function TabAlumni() {
           </p>
         </div>
         
-        {/* Action Buttons Container - Placed in a responsive grid on mobile, flex on desktop */}
-        <div className="grid grid-cols-2 sm:flex sm:flex-row items-center gap-2 w-full sm:w-auto mt-2 md:mt-0">
-          <Button variant="outline" size="sm" onClick={() => { fetchAlumni(); fetchStats(); }} className="h-9 w-full shadow-sm hover:bg-slate-50">
+        {/* Action Buttons Container */}
+        <div className="flex flex-wrap items-center gap-2 mt-3 md:mt-0 w-full sm:w-auto">
+          <Button variant="outline" size="sm" onClick={() => { fetchAlumni(); fetchStats(); }} className="h-9 shadow-sm hover:bg-slate-50 flex-1 sm:flex-none">
             <RefreshCcw className="h-4 w-4 mr-2 text-slate-500" />
             Refresh
           </Button>
-          
-          <Link href="/admin/siswa/import" className="w-full">
-            <Button variant="outline" size="sm" className="h-9 w-full shadow-sm hover:bg-slate-50">
-              <Upload className="h-4 w-4 mr-2 text-slate-500" />
-              Impor e-Rapor
-            </Button>
-          </Link>
-          
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="h-9 w-full shadow-sm text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:border-emerald-300 dark:border-emerald-900/50 dark:hover:bg-emerald-900/30 font-medium" 
-            onClick={handleSync} 
-            disabled={syncing}
-          >
-            <RefreshCcw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-            Sync Siswa
-          </Button>
-          
-          <Link href="/admin/siswa/cetak-batch" target="_blank" className="w-full">
-            <Button size="sm" variant="outline" className="h-9 w-full border-2 border-orange-300 dark:border-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950 text-orange-700 dark:text-orange-300">
-              <Printer className="h-4 w-4 mr-2" />
-              Cetak Batch
-            </Button>
-          </Link>
-          
-          <Link href="/admin/siswa/alumni-tambah" className="w-full">
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 shadow-sm flex-1 sm:flex-none">
+                <MoreHorizontal className="h-4 w-4 mr-2 text-slate-500" />
+                Opsi Lainnya
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem asChild>
+                <Link href="/admin/siswa/import" className="flex items-center cursor-pointer">
+                  <Upload className="h-4 w-4 mr-2 text-slate-500" />
+                  Impor e-Rapor
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSync} disabled={syncing} className="flex items-center cursor-pointer text-emerald-600 focus:text-emerald-700">
+                <RefreshCcw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                Sync Siswa Aktif
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/siswa/cetak-batch" target="_blank" className="flex items-center cursor-pointer text-orange-600 focus:text-orange-700">
+                  <Printer className="h-4 w-4 mr-2" />
+                  Cetak Batch
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Link href="/admin/siswa/alumni-tambah" className="w-full sm:w-auto flex-1 sm:flex-none">
             <Button size="sm" className="h-9 w-full shadow-sm bg-blue-600 hover:bg-blue-700 text-white border-0 font-medium">
               <Plus className="h-4 w-4 mr-2" />
               Tambah Data
@@ -400,132 +402,133 @@ export default function TabAlumni() {
         </Card>
       )}
 
-      {/* Search & Filter Bar */}
-      <div className="space-y-3">
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="relative flex-1 w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Cari nama, NISN, atau NIS..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 h-10 border-slate-200 dark:border-zinc-800"
-            />
-            {search && (
-              <X className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground" onClick={() => setSearch("")} />
-            )}
-          </div>
-
-          <div className="flex gap-2 w-full sm:w-auto">
-            <DropdownMenu open={filterOpen} onOpenChange={setFilterOpen}>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="h-10 flex-1 sm:flex-none px-3 flex items-center gap-2 border-slate-200 dark:border-zinc-800 justify-center">
-                  <Filter className="h-4 w-4 text-muted-foreground" />
-                  Filter Kategori
-                  {(statusFilter || graduationYear) && (
-                    <Badge className="bg-primary text-primary-foreground px-1 py-0 h-4 min-w-4 flex items-center justify-center text-[10px]">
-                      {(statusFilter ? 1 : 0) + (graduationYear ? 1 : 0)}
-                    </Badge>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 p-3 space-y-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-muted-foreground">Status Siswa</label>
-                  <Select
-                    value={statusFilter || "all"}
-                    onValueChange={(val) => setStatusFilter(val === "all" ? "" : val)}
-                  >
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Pilih status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Semua Status</SelectItem>
-                      <SelectItem value="active">Aktif</SelectItem>
-                      <SelectItem value="graduated">Alumni</SelectItem>
-                      <SelectItem value="transferred">Pindahan</SelectItem>
-                      <SelectItem value="dropped">Keluar</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-muted-foreground">Tahun Kelulusan</label>
-                  <Select
-                    value={graduationYear || "all"}
-                    onValueChange={(val) => setGraduationYear(val === "all" ? "" : val)}
-                  >
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Pilih tahun" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Semua Tahun</SelectItem>
-                      {yearOptions.map((year) => (
-                        <SelectItem key={year} value={year}>{year}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="pt-2 border-t flex justify-end">
-                  <Button variant="ghost" size="sm" className="h-8 text-xs text-destructive hover:bg-destructive/10" onClick={() => {
-                    setStatusFilter("");
-                    setGraduationYear("");
-                    setFilterOpen(false);
-                  }}>
-                    Reset Filter
-                  </Button>
-                </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <Select
-              value={pagination.limit.toString()}
-              onValueChange={(val) => {
-                setPagination((prev) => ({ ...prev, limit: parseInt(val), page: 1 }));
-              }}
-            >
-              <SelectTrigger className="w-24 sm:w-[110px] h-10 border-slate-200 dark:border-zinc-800">
-                <SelectValue placeholder="Baris" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="10">10 Baris</SelectItem>
-                <SelectItem value="20">20 Baris</SelectItem>
-                <SelectItem value="50">50 Baris</SelectItem>
-                <SelectItem value="100">100 Baris</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Active Filter Badges */}
-        {(statusFilter || graduationYear) && (
-          <div className="flex flex-wrap items-center gap-2 pt-1 animate-in fade-in duration-200">
-            <span className="text-xs text-muted-foreground font-medium">Filter Aktif:</span>
-            {statusFilter && (
-              <Badge variant="secondary" className="flex items-center gap-1 text-xs py-0.5 px-2 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700">
-                Status: {statusFilter === "active" ? "Aktif" : statusFilter === "graduated" ? "Alumni" : statusFilter === "transferred" ? "Pindahan" : "Keluar"}
-                <X className="h-3 w-3 cursor-pointer text-muted-foreground hover:text-foreground ml-1" onClick={() => setStatusFilter("")} />
-              </Badge>
-            )}
-            {graduationYear && (
-              <Badge variant="secondary" className="flex items-center gap-1 text-xs py-0.5 px-2 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700">
-                Tahun: {graduationYear}
-                <X className="h-3 w-3 cursor-pointer text-muted-foreground hover:text-foreground ml-1" onClick={() => setGraduationYear("")} />
-              </Badge>
-            )}
-            <Button variant="link" size="sm" className="h-6 text-xs text-destructive hover:no-underline px-1" onClick={() => {
-              setStatusFilter("");
-              setGraduationYear("");
-            }}>
-              Bersihkan Semua
-            </Button>
-          </div>
-        )}
-      </div>
-
       {/* Data Table */}
       <Card className="border-slate-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+        <CardHeader className="p-4 md:p-6 pb-4 border-b border-slate-100 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+          {/* Search & Filter Bar */}
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="relative flex-1 w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Cari nama, NISN, atau NIS..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9 h-10 border-slate-200 dark:border-zinc-800 bg-slate-50/40 dark:bg-zinc-900/40"
+                />
+                {search && (
+                  <X className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground" onClick={() => setSearch("")} />
+                )}
+              </div>
+
+              <div className="flex gap-2 w-full sm:w-auto">
+                <DropdownMenu open={filterOpen} onOpenChange={setFilterOpen}>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="h-10 flex-1 sm:flex-none px-3 flex items-center gap-2 border-slate-200 dark:border-zinc-800 justify-center">
+                      <Filter className="h-4 w-4 text-muted-foreground" />
+                      Filter Kategori
+                      {(statusFilter || graduationYear) && (
+                        <Badge className="bg-primary text-primary-foreground px-1 py-0 h-4 min-w-4 flex items-center justify-center text-[10px]">
+                          {(statusFilter ? 1 : 0) + (graduationYear ? 1 : 0)}
+                        </Badge>
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56 p-3 space-y-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-muted-foreground">Status Siswa</label>
+                      <Select
+                        value={statusFilter || "all"}
+                        onValueChange={(val) => setStatusFilter(val === "all" ? "" : val)}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Pilih status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Semua Status</SelectItem>
+                          <SelectItem value="active">Aktif</SelectItem>
+                          <SelectItem value="graduated">Alumni</SelectItem>
+                          <SelectItem value="transferred">Pindahan</SelectItem>
+                          <SelectItem value="dropped">Keluar</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-muted-foreground">Tahun Kelulusan</label>
+                      <Select
+                        value={graduationYear || "all"}
+                        onValueChange={(val) => setGraduationYear(val === "all" ? "" : val)}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Pilih tahun" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Semua Tahun</SelectItem>
+                          {yearOptions.map((year) => (
+                            <SelectItem key={year} value={year}>{year}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="pt-2 border-t flex justify-end">
+                      <Button variant="ghost" size="sm" className="h-8 text-xs text-destructive hover:bg-destructive/10" onClick={() => {
+                        setStatusFilter("");
+                        setGraduationYear("");
+                        setFilterOpen(false);
+                      }}>
+                        Reset Filter
+                      </Button>
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <Select
+                  value={pagination.limit.toString()}
+                  onValueChange={(val) => {
+                    setPagination((prev) => ({ ...prev, limit: parseInt(val), page: 1 }));
+                  }}
+                >
+                  <SelectTrigger className="w-24 sm:w-[110px] h-10 border-slate-200 dark:border-zinc-800">
+                    <SelectValue placeholder="Baris" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10 Baris</SelectItem>
+                    <SelectItem value="20">20 Baris</SelectItem>
+                    <SelectItem value="50">50 Baris</SelectItem>
+                    <SelectItem value="100">100 Baris</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Active Filter Badges */}
+            {(statusFilter || graduationYear) && (
+              <div className="flex flex-wrap items-center gap-2 pt-1 animate-in fade-in duration-200">
+                <span className="text-xs text-muted-foreground font-medium">Filter Aktif:</span>
+                {statusFilter && (
+                  <Badge variant="secondary" className="flex items-center gap-1 text-xs py-0.5 px-2 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700">
+                    Status: {statusFilter === "active" ? "Aktif" : statusFilter === "graduated" ? "Alumni" : statusFilter === "transferred" ? "Pindahan" : "Keluar"}
+                    <X className="h-3 w-3 cursor-pointer text-muted-foreground hover:text-foreground ml-1" onClick={() => setStatusFilter("")} />
+                  </Badge>
+                )}
+                {graduationYear && (
+                  <Badge variant="secondary" className="flex items-center gap-1 text-xs py-0.5 px-2 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700">
+                    Tahun: {graduationYear}
+                    <X className="h-3 w-3 cursor-pointer text-muted-foreground hover:text-foreground ml-1" onClick={() => setGraduationYear("")} />
+                  </Badge>
+                )}
+                <Button variant="link" size="sm" className="h-6 text-xs text-destructive hover:no-underline px-1" onClick={() => {
+                  setStatusFilter("");
+                  setGraduationYear("");
+                }}>
+                  Bersihkan Semua
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader className="bg-zinc-50/50 dark:bg-zinc-900/30">
@@ -649,34 +652,34 @@ export default function TabAlumni() {
                                 transition={{ duration: 0.15 }}
                                 className="overflow-hidden"
                               >
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm text-muted-foreground py-1.5">
-                                  <div className="space-y-1">
+                                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 text-sm text-muted-foreground py-1.5">
+                                  <div className="md:col-span-4 space-y-1">
                                     <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/75">Profil Cepat</p>
                                     <p className="text-xs text-foreground">Gender: <strong className="font-semibold">{item.gender === "L" ? "Laki-laki" : item.gender === "P" ? "Perempuan" : "-"}</strong></p>
                                     <p className="text-xs text-foreground">Tahun Lulus/Keluar: <strong className="font-semibold">{item.graduationYear || "-"}</strong></p>
                                   </div>
-                                  <div className="space-y-1">
+                                  <div className="md:col-span-4 space-y-1">
                                     <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/75">Detail Pendidikan</p>
                                     <p className="text-xs text-foreground">Kelas Akhir: <strong className="font-semibold">{item.finalClass || "-"}</strong></p>
                                     {item.status === "graduated" && (
                                       <p className="text-xs text-foreground">Sekolah Lanjutan: <strong className="font-semibold">{item.nextSchool || "-"}</strong></p>
                                     )}
                                   </div>
-                                  <div className="flex flex-wrap gap-2 items-center md:justify-end">
-                                    <Link href={`/admin/siswa/alumni-detail?id=${item.id}&tab=transcripts`}>
-                                      <Button variant="outline" size="sm" className="h-8 text-xs font-semibold flex items-center gap-1 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800">
+                                  <div className="md:col-span-4 flex flex-col sm:flex-row flex-wrap gap-2 items-start md:justify-end">
+                                    <Link href={`/admin/siswa/alumni-detail?id=${item.id}&tab=transcripts`} className="w-full sm:w-auto">
+                                      <Button variant="outline" size="sm" className="w-full sm:w-auto h-8 text-xs font-semibold flex items-center justify-center gap-1 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800">
                                         <BookOpen className="h-3.5 w-3.5 text-primary" />
                                         Transkrip Nilai
                                       </Button>
                                     </Link>
-                                    <Link href={`/admin/siswa/alumni-detail?id=${item.id}&tab=attendance`}>
-                                      <Button variant="outline" size="sm" className="h-8 text-xs font-semibold flex items-center gap-1 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800">
+                                    <Link href={`/admin/siswa/alumni-detail?id=${item.id}&tab=attendance`} className="w-full sm:w-auto">
+                                      <Button variant="outline" size="sm" className="w-full sm:w-auto h-8 text-xs font-semibold flex items-center justify-center gap-1 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800">
                                         <Calendar className="h-3.5 w-3.5 text-emerald-500" />
                                         Rekap Absensi
                                       </Button>
                                     </Link>
-                                    <Link href={`/admin/siswa/alumni-detail?id=${item.id}`}>
-                                      <Button size="sm" className="h-8 text-xs font-semibold flex items-center gap-1">
+                                    <Link href={`/admin/siswa/alumni-detail?id=${item.id}`} className="w-full sm:w-auto">
+                                      <Button size="sm" className="w-full sm:w-auto h-8 text-xs font-semibold flex items-center justify-center gap-1">
                                         <Eye className="h-3.5 w-3.5" />
                                         Lihat Detail
                                       </Button>
