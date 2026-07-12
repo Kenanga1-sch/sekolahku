@@ -152,7 +152,7 @@ func (r *AttendanceRepository) GetSessions(date, status string, page, perPage in
 	offset := (page - 1) * perPage
 
 	listArgs := append(args, perPage, offset)
-	query := "SELECT id, date, class_name, COALESCE(teacher_name, ''), status, COALESCE(notes, ''), created_at FROM attendance_sessions WHERE " + where + " ORDER BY date DESC, created_at DESC LIMIT ? OFFSET ?"
+	query := "SELECT id, date, COALESCE(class_id,''), class_name, COALESCE(academic_year,''), COALESCE(teacher_name, ''), status, COALESCE(notes, ''), created_at FROM attendance_sessions WHERE " + where + " ORDER BY date DESC, created_at DESC LIMIT ? OFFSET ?"
 
 	rows, err := r.DB.Query(query, listArgs...)
 	if err != nil {
@@ -164,7 +164,7 @@ func (r *AttendanceRepository) GetSessions(date, status string, page, perPage in
 	for rows.Next() {
 		var s models.AttendanceSession
 		var crAt sql.NullInt64
-		if err := rows.Scan(&s.ID, &s.Date, &s.ClassName, &s.TeacherName, &s.Status, &s.Notes, &crAt); err != nil {
+		if err := rows.Scan(&s.ID, &s.Date, &s.ClassID, &s.ClassName, &s.AcademicYear, &s.TeacherName, &s.Status, &s.Notes, &crAt); err != nil {
 			return nil, 0, err
 		}
 
@@ -198,10 +198,26 @@ func (r *AttendanceRepository) CreateSession(req models.CreateAttendanceSessionR
 	teacherName := strings.TrimSpace(req.TeacherName)
 	notes := strings.TrimSpace(req.Notes)
 
+	// Resolve class_id and academic_year from student_classes
+	classID := strings.TrimSpace(req.ClassID)
+	var academicYear string
+	if classID == "" && className != "" {
+		r.DB.QueryRow("SELECT id, academic_year FROM student_classes WHERE name = ?", className).Scan(&classID, &academicYear)
+	} else if classID != "" {
+		r.DB.QueryRow("SELECT academic_year FROM student_classes WHERE id = ?", classID).Scan(&academicYear)
+	}
+	if academicYear == "" {
+		// Fallback: get active academic year
+		var activeYear string
+		if err := r.DB.QueryRow("SELECT name FROM academic_years WHERE is_active = 1 LIMIT 1").Scan(&activeYear); err == nil {
+			academicYear = activeYear
+		}
+	}
+
 	_, err = r.DB.Exec(`
-		INSERT INTO attendance_sessions (id, date, class_name, teacher_name, status, notes, opened_at, created_at, updated_at)
-		VALUES (?, ?, ?, ?, 'open', ?, ?, ?, ?)
-	`, id, today, className, teacherName, notes, now, now, now)
+		INSERT INTO attendance_sessions (id, date, class_id, class_name, academic_year, teacher_name, status, notes, opened_at, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?)
+	`, id, today, classID, className, academicYear, teacherName, notes, now, now, now)
 
 	return id, err
 }
@@ -210,10 +226,10 @@ func (r *AttendanceRepository) GetSessionByID(id string) (*models.AttendanceSess
 	var s models.AttendanceSession
 	var crAt, upAt, opAt, clAt sql.NullInt64
 	err := r.DB.QueryRow(`
-		SELECT id, date, class_name, COALESCE(teacher_name, ''), status, COALESCE(notes, ''), opened_at, closed_at, created_at, updated_at
+		SELECT id, date, COALESCE(class_id, ''), class_name, COALESCE(academic_year, ''), COALESCE(teacher_name, ''), status, COALESCE(notes, ''), opened_at, closed_at, created_at, updated_at
 		FROM attendance_sessions
 		WHERE id = ?
-	`, id).Scan(&s.ID, &s.Date, &s.ClassName, &s.TeacherName, &s.Status, &s.Notes, &opAt, &clAt, &crAt, &upAt)
+	`, id).Scan(&s.ID, &s.Date, &s.ClassID, &s.ClassName, &s.AcademicYear, &s.TeacherName, &s.Status, &s.Notes, &opAt, &clAt, &crAt, &upAt)
 	if err != nil {
 		return nil, err
 	}
@@ -663,4 +679,54 @@ func (r *AttendanceRepository) GetAttendanceReport(startDate, endDate, className
 	}
 
 	return report, nil
+}
+
+// GetStudentAttendanceSummary computes hadir/sakit/izin/alpha per academic year for a student
+func (r *AttendanceRepository) GetStudentAttendanceSummary(studentID string) ([]models.StudentAttendanceSummary, error) {
+	rows, err := r.DB.Query(`
+		SELECT COALESCE(s.academic_year, ''), ar.status, COUNT(*)
+		FROM attendance_records ar
+		JOIN attendance_sessions s ON ar.session_id = s.id
+		WHERE ar.student_id = ?
+		GROUP BY s.academic_year, ar.status
+		ORDER BY s.academic_year DESC
+	`, studentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	type key struct{ year, status string }
+	raw := make(map[key]int)
+	var years []string
+	yearsSeen := make(map[string]bool)
+
+	for rows.Next() {
+		var year, status string
+		var count int
+		if err := rows.Scan(&year, &status, &count); err != nil {
+			return nil, err
+		}
+		raw[key{year, status}] = count
+		if !yearsSeen[year] {
+			yearsSeen[year] = true
+			years = append(years, year)
+		}
+	}
+
+	var result []models.StudentAttendanceSummary
+	for _, y := range years {
+		s := models.StudentAttendanceSummary{AcademicYear: y}
+		s.Hadir = raw[key{y, "hadir"}]
+		s.Sakit = raw[key{y, "sakit"}]
+		s.Izin = raw[key{y, "izin"}]
+		s.Alpha = raw[key{y, "alpha"}]
+		s.TotalDays = s.Hadir + s.Sakit + s.Izin + s.Alpha
+		result = append(result, s)
+	}
+
+	if result == nil {
+		result = []models.StudentAttendanceSummary{}
+	}
+	return result, nil
 }

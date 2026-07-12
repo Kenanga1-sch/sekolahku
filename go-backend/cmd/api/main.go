@@ -997,6 +997,7 @@ func main() {
 	auth.POST("/attendance/scan", attendanceHandler.ScanQR)
 	auth.GET("/attendance/report", attendanceHandler.GetReport)
 	auth.GET("/attendance/export", attendanceHandler.ExportCSV)
+	auth.GET("/attendance/student-summary/:studentId", attendanceHandler.GetStudentSummary)
 
 	// Loan Admin (admin only)
 	adminGroup.GET("/loans", loanHandler.GetLoans)

@@ -435,11 +435,18 @@ func (r *StudentRepository) CreateStudent(s models.Student) (string, error) {
 		return "", err
 	}
 
-	// Get Class Name if classId is provided
+	// Resolve class linkage: classId ↔ className
 	if s.ClassID != nil && *s.ClassID != "" {
+		// classId provided → look up className
 		var className string
 		if err := r.DB.QueryRow("SELECT name FROM student_classes WHERE id = ?", *s.ClassID).Scan(&className); err == nil {
 			s.ClassName = &className
+		}
+	} else if s.ClassName != nil && *s.ClassName != "" {
+		// className provided but no classId → look up classId (bulk import scenario)
+		var classID string
+		if err := r.DB.QueryRow("SELECT id FROM student_classes WHERE name = ?", *s.ClassName).Scan(&classID); err == nil {
+			s.ClassID = &classID
 		}
 	}
 
@@ -456,6 +463,19 @@ func (r *StudentRepository) CreateStudent(s models.Student) (string, error) {
 		s.Status, s.Photo, s.QRCode, s.IsActive, s.MetaData, s.EnrolledAt, now, now, s.KIP)
 
 	if err == nil {
+		// Insert initial class history
+		if s.ClassID != nil && *s.ClassID != "" {
+			var grade int
+			var academicYear string
+			if err2 := r.DB.QueryRow("SELECT grade, academic_year FROM student_classes WHERE id = ?", *s.ClassID).Scan(&grade, &academicYear); err2 == nil {
+				historyID := cuid2.Generate()
+				r.DB.Exec(`
+					INSERT INTO student_class_history (id, student_id, class_id, class_name, academic_year, grade, status, record_date)
+					VALUES (?, ?, ?, ?, ?, ?, 'enrolled', ?)
+				`, historyID, s.ID, *s.ClassID, s.ClassName, academicYear, grade, time.Now().Unix())
+			}
+		}
+
 		_ = AutoSyncStudentToSavingsAndLibrary(r.DB, s.ID)
 		_ = AutoSyncStudentToBukuInduk(r.DB, s.ID)
 	}
@@ -492,10 +512,16 @@ func (r *StudentRepository) UpdateStudent(id string, s models.Student) error {
 	}
 
 
+	// Resolve class linkage: classId ↔ className
 	if s.ClassID != nil && *s.ClassID != "" {
 		var className string
 		if err := r.DB.QueryRow("SELECT name FROM student_classes WHERE id = ?", *s.ClassID).Scan(&className); err == nil {
 			s.ClassName = &className
+		}
+	} else if s.ClassName != nil && *s.ClassName != "" {
+		var classID string
+		if err := r.DB.QueryRow("SELECT id FROM student_classes WHERE name = ?", *s.ClassName).Scan(&classID); err == nil {
+			s.ClassID = &classID
 		}
 	}
 

@@ -3,19 +3,21 @@ package models
 import "time"
 
 type AttendanceSession struct {
-	ID          string             `json:"id"`
-	Date        string             `json:"date"`
-	ClassName   string             `json:"className"`
-	TeacherName string             `json:"teacherName"`
-	Status      string             `json:"status"` // open, closed
-	Notes       string             `json:"notes"`
-	OpenedAt    *time.Time         `json:"openedAt"`
-	ClosedAt    *time.Time         `json:"closedAt"`
-	RecordCount int                `json:"recordCount"`
-	CreatedAt   *time.Time         `json:"createdAt"`
-	UpdatedAt   *time.Time         `json:"updatedAt"`
-	Records     []AttendanceRecord `json:"records,omitempty"`
-	AllStudents []Student          `json:"allStudents,omitempty"`
+	ID           string             `json:"id"`
+	Date         string             `json:"date"`
+	ClassID      string             `json:"classId"`
+	ClassName    string             `json:"className"`
+	AcademicYear string             `json:"academicYear"`
+	TeacherName  string             `json:"teacherName"`
+	Status       string             `json:"status"` // open, closed
+	Notes        string             `json:"notes"`
+	OpenedAt     *time.Time         `json:"openedAt"`
+	ClosedAt     *time.Time         `json:"closedAt"`
+	RecordCount  int                `json:"recordCount"`
+	CreatedAt    *time.Time         `json:"createdAt"`
+	UpdatedAt    *time.Time         `json:"updatedAt"`
+	Records      []AttendanceRecord `json:"records,omitempty"`
+	AllStudents  []Student          `json:"allStudents,omitempty"`
 }
 
 type AttendanceRecord struct {
@@ -48,9 +50,10 @@ type DailyStats struct {
 }
 
 type CreateAttendanceSessionRequest struct {
-	ClassName   string `json:"className"`
+	ClassID    string `json:"classId"`
+	ClassName  string `json:"className"`
 	TeacherName string `json:"teacherName"`
-	Notes       string `json:"notes"`
+	Notes      string `json:"notes"`
 }
 
 type ScanResult struct {
@@ -98,4 +101,14 @@ type AttendanceReportSummary struct {
 type AttendanceReportResponse struct {
 	Records []AttendanceReportRecord `json:"records"`
 	Summary AttendanceReportSummary  `json:"summary"`
+}
+
+// StudentAttendanceSummary — rekap absensi per siswa per tahun ajaran
+type StudentAttendanceSummary struct {
+	AcademicYear string `json:"academicYear"`
+	Hadir        int    `json:"hadir"`
+	Sakit        int    `json:"sakit"`
+	Izin         int    `json:"izin"`
+	Alpha        int    `json:"alpha"`
+	TotalDays    int    `json:"totalDays"`
 }

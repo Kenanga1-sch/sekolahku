@@ -70,6 +70,7 @@ interface AlumniSummary {
   skhunNo: string | null;
   skhunDate: string | null;
   classHistory: { id: string; className: string | null; academicYear: string | null; status: string | null }[] | null;
+  attendanceSummaries: { academicYear: string; semester: string; present: number; sick: number; permission: number; absent: number; totalDays: number }[] | null;
 }
 
 const STATUS_LABEL: Record<string, string> = { active: "Aktif", graduated: "Lulus", transferred: "Pindah/Mutasi", dropped: "DO" };
@@ -244,6 +245,32 @@ export default function CetakBatchPage() {
                   <R label="SKHUN" val={`${val(a.skhunNo)} / ${fmtDate(a.skhunDate)}`} />
                   <R label="SMP Tujuan" val={val(a.nextSchool)} />
                 </>
+              )}
+            </M>
+
+            {/* Kehadiran */}
+            <M section="H. Kehadiran">
+              {a.attendanceSummaries && a.attendanceSummaries.length > 0 ? (
+                <table className="w-full border border-black text-[9px] mb-1">
+                  <thead><tr className="bg-gray-100">
+                    <th className="border px-0.5">Th Ajaran</th><th className="border px-0.5">Semester</th><th className="border px-0.5">H</th><th className="border px-0.5">S</th><th className="border px-0.5">I</th><th className="border px-0.5">A</th><th className="border px-0.5">Total</th>
+                  </tr></thead>
+                  <tbody>
+                    {a.attendanceSummaries.map((att, i) => (
+                      <tr key={i}>
+                        <td className="border px-0.5 text-center">{val(att.academicYear)}</td>
+                        <td className="border px-0.5 text-center">{val(att.semester)}</td>
+                        <td className="border px-0.5 text-center">{att.present}</td>
+                        <td className="border px-0.5 text-center">{att.sick}</td>
+                        <td className="border px-0.5 text-center">{att.permission}</td>
+                        <td className="border px-0.5 text-center">{att.absent}</td>
+                        <td className="border px-0.5 text-center">{att.totalDays}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-[9px] text-muted-foreground italic">Belum ada data kehadiran</p>
               )}
             </M>
 

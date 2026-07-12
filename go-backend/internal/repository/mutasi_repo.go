@@ -423,6 +423,19 @@ func (r *MutasiRepository) DirectMutasiMasuk(s models.Student, reason string) er
 		return err
 	}
 
+	// Insert class history for mutation
+	if s.ClassID != nil && *s.ClassID != "" {
+		var grade int
+		var academicYear string
+		if err2 := tx.QueryRow("SELECT grade, academic_year FROM student_classes WHERE id = ?", *s.ClassID).Scan(&grade, &academicYear); err2 == nil {
+			historyID := cuid2.Generate()
+			tx.Exec(`
+				INSERT INTO student_class_history (id, student_id, class_id, class_name, academic_year, grade, status, record_date)
+				VALUES (?, ?, ?, ?, ?, ?, 'mutated_in', ?)
+			`, historyID, s.ID, *s.ClassID, s.ClassName, academicYear, grade, time.Now().Unix())
+		}
+	}
+
 	var meta string
 	if s.MetaData != nil {
 		meta = *s.MetaData
@@ -460,8 +473,22 @@ func (r *MutasiRepository) DirectMutasiKeluar(studentID string, destinationSchoo
 	}
 
 	var studentName, nisn, gender sql.NullString
-	if err := tx.QueryRow("SELECT full_name, nisn, gender FROM students WHERE id = ?", studentID).Scan(&studentName, &nisn, &gender); err != nil {
+	var oldClassID, oldClassName sql.NullString
+	if err := tx.QueryRow("SELECT full_name, nisn, gender, class_id, class_name FROM students WHERE id = ?", studentID).Scan(&studentName, &nisn, &gender, &oldClassID, &oldClassName); err != nil {
 		return err
+	}
+
+	// Get class info for history before deactivating
+	if oldClassID.Valid && oldClassID.String != "" {
+		var grade int
+		var academicYear string
+		if err2 := tx.QueryRow("SELECT grade, academic_year FROM student_classes WHERE id = ?", oldClassID.String).Scan(&grade, &academicYear); err2 == nil {
+			historyID := cuid2.Generate()
+			tx.Exec(`
+				INSERT INTO student_class_history (id, student_id, class_id, class_name, academic_year, grade, status, record_date)
+				VALUES (?, ?, ?, ?, ?, ?, 'mutated_out', ?)
+			`, historyID, studentID, oldClassID.String, oldClassName.String, academicYear, grade, time.Now().Unix())
+		}
 	}
 
 	_, err = tx.Exec(`

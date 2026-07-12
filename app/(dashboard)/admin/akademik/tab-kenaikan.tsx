@@ -1,12 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ArrowRight, GraduationCap, Users, Loader2 } from "lucide-react";
+import { ArrowRight, Users, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { showSuccess, showError } from "@/lib/toast";
 import { Badge } from "@/components/ui/badge";
@@ -32,7 +31,6 @@ export default function TabKenaikan() {
     // Selection State
     const [sourceClassId, setSourceClassId] = useState("");
     const [targetClassId, setTargetClassId] = useState("");
-    const [actionType, setActionType] = useState<"promotion" | "graduation">("promotion");
     const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -89,17 +87,17 @@ export default function TabKenaikan() {
 
     const handleSubmit = async () => {
         if (selectedStudentIds.length === 0) return showError("Pilih minimal satu siswa");
-        if (actionType === "promotion" && !targetClassId) return showError("Pilih kelas tujuan");
-        if (actionType === "promotion" && sourceClassId === targetClassId) return showError("Kelas tujuan tidak boleh sama dengan kelas asal");
+        if (!targetClassId) return showError("Pilih kelas tujuan");
+        if (sourceClassId === targetClassId) return showError("Kelas tujuan tidak boleh sama dengan kelas asal");
 
-        if(!confirm(`Anda akan memproses ${selectedStudentIds.length} siswa. Lanjutkan?`)) return;
+        if(!confirm(`Anda akan menaikkan ${selectedStudentIds.length} siswa. Lanjutkan?`)) return;
 
         setIsSubmitting(true);
         try {
             const json: any = await goPost("/api/academic/promotion", {
                 studentIds: selectedStudentIds,
-                targetClassId: actionType === "promotion" ? targetClassId : null,
-                actionType
+                targetClassId,
+                actionType: "promotion"
             });
 
             showSuccess(`Berhasil memproses ${json.count} siswa`);
@@ -186,43 +184,19 @@ export default function TabKenaikan() {
                     <CardTitle className="text-base">3. Tujuan & Eksekusi</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                    <RadioGroup defaultValue="promotion" value={actionType} onValueChange={(v: any) => setActionType(v)}>
-                        <div className="flex items-center space-x-2 border p-3 rounded-md cursor-pointer hover:bg-muted/50">
-                            <RadioGroupItem value="promotion" id="r1" />
-                            <Label htmlFor="r1" className="flex-1 cursor-pointer flex items-center justify-between">
-                                <span>Naik Kelas</span>
-                                <ArrowRight className="h-4 w-4 text-blue-500" />
-                            </Label>
-                        </div>
-                        <div className="flex items-center space-x-2 border p-3 rounded-md cursor-pointer hover:bg-muted/50">
-                            <RadioGroupItem value="graduation" id="r2" />
-                            <Label htmlFor="r2" className="flex-1 cursor-pointer flex items-center justify-between">
-                                <span>Lulus Sekolah</span>
-                                <GraduationCap className="h-4 w-4 text-green-500" />
-                            </Label>
-                        </div>
-                    </RadioGroup>
-
-                    {actionType === "promotion" && (
-                        <div className="space-y-2">
-                            <Label>Pilih Kelas Tujuan</Label>
-                            <Select value={targetClassId} onValueChange={setTargetClassId}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Pilih Kelas..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {classes.filter((c: { id: string }) => c.id !== sourceClassId).map((cls: { id: string; name: string }) => (
-                                        <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    )}
-                     {actionType === "graduation" && (
-                        <div className="p-3 bg-green-500/10 text-green-700 text-sm rounded-md border border-green-200">
-                            Siswa yang dipilih akan diubah statusnya menjadi <strong>Alumni (Graduated)</strong> dan dikeluarkan dari kelas aktif.
-                        </div>
-                    )}
+                    <div className="space-y-2">
+                        <Label>Pilih Kelas Tujuan</Label>
+                        <Select value={targetClassId} onValueChange={setTargetClassId}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Pilih Kelas..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {classes.filter((c: { id: string }) => c.id !== sourceClassId).map((cls: { id: string; name: string }) => (
+                                    <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
 
                     <div className="pt-4 border-t">
                         <div className="flex justify-between items-center mb-4 text-sm">

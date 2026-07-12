@@ -132,6 +132,37 @@ func (r *AlumniRepository) GetAlumni(page, limit int, search, year, statusFilter
 	if results == nil {
 		results = []models.Alumni{}
 	}
+
+	// Batch-fetch attendance summaries for all returned alumni
+	if len(results) > 0 {
+		var ids []string
+		for _, a := range results {
+			ids = append(ids, a.ID)
+		}
+		// Build IN clause
+		placeholders := make([]string, len(ids))
+		args2 := make([]interface{}, len(ids))
+		for i, id := range ids {
+			placeholders[i] = "?"
+			args2[i] = id
+		}
+		query2 := fmt.Sprintf("SELECT alumni_id, academic_year, semester, present, sick, permission, absent, total_days FROM alumni_attendance_summary WHERE alumni_id IN (%s) ORDER BY academic_year DESC", strings.Join(placeholders, ","))
+		rows2, err := r.DB.Query(query2, args2...)
+		if err == nil {
+			defer rows2.Close()
+			summaries := make(map[string][]models.AlumniAttendanceSummary)
+			for rows2.Next() {
+				var s models.AlumniAttendanceSummary
+				if err := rows2.Scan(&s.AlumniID, &s.AcYear, &s.Semester, &s.Present, &s.Sick, &s.Permission, &s.Absent, &s.TotalDays); err == nil {
+					summaries[s.AlumniID] = append(summaries[s.AlumniID], s)
+				}
+			}
+			for i := range results {
+				results[i].AttendanceSummaries = summaries[results[i].ID]
+			}
+		}
+	}
+
 	return results, total, nil
 }
 

@@ -900,6 +900,17 @@ func (r *SPMBRepository) PromoteToStudent(registrantID string, req models.SPMBPr
 		return err
 	}
 
+	// Insert initial class history
+	var grade int
+	var academicYear string
+	if err2 := r.DB.QueryRow("SELECT grade, academic_year FROM student_classes WHERE id = ?", req.ClassID).Scan(&grade, &academicYear); err2 == nil {
+		historyID := cuid2.Generate()
+		r.DB.Exec(`
+			INSERT INTO student_class_history (id, student_id, class_id, class_name, academic_year, grade, status, record_date)
+			VALUES (?, ?, ?, ?, ?, ?, 'enrolled', ?)
+		`, historyID, studentID, req.ClassID, className.String, academicYear, grade, time.Now().Unix())
+	}
+
 	_, err = r.DB.Exec(`UPDATE spmb_registrants SET status = 'promoted', updated_at = ? WHERE id = ?`, now, registrantID)
 	return err
 }

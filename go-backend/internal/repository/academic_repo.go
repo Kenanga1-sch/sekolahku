@@ -52,8 +52,17 @@ func (r *AcademicRepository) GetActiveAcademicYear() (string, error) {
 }
 
 func (r *AcademicRepository) GetClasses() ([]models.AcademicClass, error) {
-	query := `SELECT id, name, grade, academic_year, teacher_name, capacity, is_active FROM student_classes ORDER BY grade ASC, name ASC`
-	rows, err := r.DB.Query(query)
+	// Default: filter by active academic year
+	activeYear, err := r.GetActiveAcademicYear()
+	if err != nil {
+		activeYear = "2024/2025"
+	}
+	return r.getClassesByYear(activeYear)
+}
+
+func (r *AcademicRepository) getClassesByYear(academicYear string) ([]models.AcademicClass, error) {
+	query := `SELECT id, name, grade, academic_year, teacher_name, capacity, is_active FROM student_classes WHERE academic_year = ? ORDER BY grade ASC, name ASC`
+	rows, err := r.DB.Query(query, academicYear)
 	if err != nil {
 		return nil, err
 	}
@@ -103,10 +112,27 @@ func (r *AcademicRepository) CreateClass(c models.AcademicClass) error {
 }
 
 func (r *AcademicRepository) UpdateClass(id string, c models.AcademicClass) error {
-	query := `UPDATE student_classes SET name = ?, grade = ?, capacity = ?, updated_at = ? WHERE id = ?`
 	now := time.Now().Unix()
+
+	// Get old name for cascade
+	var oldName string
+	if err := r.DB.QueryRow(`SELECT name FROM student_classes WHERE id = ?`, id).Scan(&oldName); err != nil {
+		return err
+	}
+
+	query := `UPDATE student_classes SET name = ?, grade = ?, capacity = ?, updated_at = ? WHERE id = ?`
 	_, err := r.DB.Exec(query, c.Name, c.Grade, c.Capacity, now, id)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Cascade rename to students
+	if c.Name != oldName {
+		r.DB.Exec(`UPDATE students SET class_name = ? WHERE class_id = ? AND is_active = 1`, c.Name, id)
+		r.DB.Exec(`UPDATE student_class_history SET class_name = ? WHERE class_id = ?`, c.Name, id)
+	}
+
+	return nil
 }
 
 func (r *AcademicRepository) DeleteClass(id string) error {
@@ -298,10 +324,7 @@ func (r *AcademicRepository) DeleteSubject(id string) error {
 }
 
 func (r *AcademicRepository) ProcessPromotion(req models.PromotionRequest) (int, error) {
-	if req.ActionType != "promotion" && req.ActionType != "graduation" {
-		return 0, fmt.Errorf("aksi kenaikan kelas tidak valid")
-	}
-	if req.ActionType == "promotion" && (req.TargetClassId == nil || *req.TargetClassId == "") {
+	if req.TargetClassId == nil || *req.TargetClassId == "" {
 		return 0, fmt.Errorf("kelas tujuan wajib dipilih")
 	}
 
@@ -314,71 +337,39 @@ func (r *AcademicRepository) ProcessPromotion(req models.PromotionRequest) (int,
 	now := time.Now().Unix()
 	count := 0
 
-	// 1. Get Target Class Info (if promotion)
+	// Get Target Class Info
 	var targetClassName string
 	var targetGrade int
 	var targetAcademicYear string
 	var targetCapacity int
-	if req.ActionType == "promotion" && req.TargetClassId != nil {
-		err := tx.QueryRow(`SELECT name, grade, academic_year, capacity FROM student_classes WHERE id = ?`, *req.TargetClassId).Scan(&targetClassName, &targetGrade, &targetAcademicYear, &targetCapacity)
-		if err != nil {
-			return 0, fmt.Errorf("Target class not found")
-		}
+	err = tx.QueryRow(`SELECT name, grade, academic_year, capacity FROM student_classes WHERE id = ?`, *req.TargetClassId).Scan(&targetClassName, &targetGrade, &targetAcademicYear, &targetCapacity)
+	if err != nil {
+		return 0, fmt.Errorf("Target class not found")
+	}
 
-		var currentCount int
-		if err := tx.QueryRow(`SELECT COUNT(*) FROM students WHERE class_id = ? AND status = 'active'`, *req.TargetClassId).Scan(&currentCount); err != nil {
-			return 0, err
-		}
-		if targetCapacity > 0 && currentCount+len(req.StudentIds) > targetCapacity {
-			return 0, fmt.Errorf("kapasitas kelas tujuan tidak mencukupi")
-		}
+	var currentCount int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM students WHERE class_id = ? AND status = 'active'`, *req.TargetClassId).Scan(&currentCount); err != nil {
+		return 0, err
+	}
+	if targetCapacity > 0 && currentCount+len(req.StudentIds) > targetCapacity {
+		return 0, fmt.Errorf("kapasitas kelas tujuan tidak mencukupi")
 	}
 
 	for _, studentId := range req.StudentIds {
-		switch req.ActionType {
-		case "promotion":
-			// Update student
-			_, err = tx.Exec(`UPDATE students SET class_id = ?, class_name = ?, updated_at = ? WHERE id = ?`, *req.TargetClassId, targetClassName, now, studentId)
-			if err != nil {
-				return count, err
-			}
+		// Update student
+		_, err = tx.Exec(`UPDATE students SET class_id = ?, class_name = ?, updated_at = ? WHERE id = ?`, *req.TargetClassId, targetClassName, now, studentId)
+		if err != nil {
+			return count, err
+		}
 
-			// Insert history
-			historyId := cuid2.Generate()
-			_, err = tx.Exec(`
-				INSERT INTO student_class_history (id, student_id, class_id, class_name, academic_year, grade, status, record_date)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-			`, historyId, studentId, *req.TargetClassId, targetClassName, targetAcademicYear, targetGrade, "promoted", now)
-			if err != nil {
-				return count, err
-			}
-		case "graduation":
-			// Check clearance before graduation
-			clear, reason, err := CheckStudentClearance(tx, studentId)
-			if err != nil {
-				return count, err
-			}
-			if !clear {
-				var name string
-				_ = tx.QueryRow("SELECT full_name FROM students WHERE id = ?", studentId).Scan(&name)
-				return count, fmt.Errorf("Gagal meluluskan %s: %s", name, reason)
-			}
-
-			// Update student
-			_, err = tx.Exec(`UPDATE students SET status = 'graduated', is_active = 0, class_id = NULL, class_name = NULL, updated_at = ? WHERE id = ?`, now, studentId)
-			if err != nil {
-				return count, err
-			}
-
-			// Insert history
-			historyId := cuid2.Generate()
-			_, err = tx.Exec(`
-				INSERT INTO student_class_history (id, student_id, status, record_date)
-				VALUES (?, ?, ?, ?)
-			`, historyId, studentId, "graduated", now)
-			if err != nil {
-				return count, err
-			}
+		// Insert history
+		historyId := cuid2.Generate()
+		_, err = tx.Exec(`
+			INSERT INTO student_class_history (id, student_id, class_id, class_name, academic_year, grade, status, record_date)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		`, historyId, studentId, *req.TargetClassId, targetClassName, targetAcademicYear, targetGrade, "promoted", now)
+		if err != nil {
+			return count, err
 		}
 		count++
 	}

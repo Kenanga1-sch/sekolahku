@@ -276,3 +276,21 @@ func (h *AttendanceHandler) ExportCSV(c echo.Context) error {
 	c.Response().Header().Set("Content-Disposition", "attachment; filename=laporan-presensi.csv")
 	return c.String(http.StatusOK, buf.String())
 }
+
+// GetStudentSummary returns attendance summary per academic year for a student
+func (h *AttendanceHandler) GetStudentSummary(c echo.Context) error {
+	studentID := c.Param("studentId")
+	if studentID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "studentId diperlukan"})
+	}
+
+	summary, err := h.Repo.GetStudentAttendanceSummary(studentID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data":    summary,
+	})
+}

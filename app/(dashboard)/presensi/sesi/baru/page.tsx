@@ -128,7 +128,9 @@ export default function BuatSesiPresensiPage() {
     setExistingSessionId(null);
 
     try {
+      const matchedClass = classes.find((c) => c.name === className);
       const data: any = await goPost("/api/attendance/sessions", {
+        classId: matchedClass?.id || "",
         className,
         teacherName,
         notes,
