@@ -995,12 +995,14 @@ export default function AlumniDetailPage() {
               Edit
             </Button>
           </Link>
-          <Link href={`/admin/siswa/alumni-detail/cetak?id=${alumni.id}`} target="_blank">
-            <Button variant="outline" size="sm">
-              <Printer className="h-4 w-4 mr-1" />
-              Cetak Buku Induk
-            </Button>
-          </Link>
+          <Button variant="outline" size="sm" onClick={() => window.open(`/admin/siswa/buku-induk/print?id=${alumni.id}`, '_blank')}>
+            <Printer className="h-4 w-4 mr-1" />
+            Cetak Biodata
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => window.open(`/admin/siswa/buku-induk/print-prestasi?id=${alumni.id}`, '_blank')}>
+            <Printer className="h-4 w-4 mr-1" />
+            Cetak Prestasi
+          </Button>
           <Button variant="destructive" size="sm" onClick={handleDelete}>
             <Trash2 className="h-4 w-4 mr-1" />
             Hapus
