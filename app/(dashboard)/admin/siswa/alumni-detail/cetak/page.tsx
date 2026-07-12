@@ -127,6 +127,7 @@ interface AlumniDetail {
   finalGradeAvg: number | null;
   nextSchool: string | null;
   mutationOutClass: string | null;
+  mutationOutToClass: string | null;
   mutationOutToSchool: string | null;
   mutationOutDate: string | null;
   droppedOutDate: string | null;
