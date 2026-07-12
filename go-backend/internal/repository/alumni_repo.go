@@ -300,6 +300,11 @@ func (r *AlumniRepository) GetAlumniByID(id string) (*models.Alumni, error) {
 	a.Extracurriculars, _ = r.GetExtracurriculars(id)
 	a.AttendanceSummaries, _ = r.GetAttendanceSummaries(id)
 	a.HealthRecords, _ = r.GetHealthRecords(id)
+	if a.StudentID != nil && *a.StudentID != "" {
+		a.ClassHistory, _ = r.GetClassHistory(*a.StudentID)
+	} else {
+		a.ClassHistory = []models.ClassHistoryEntry{}
+	}
 
 	return &a, nil
 }
@@ -1268,6 +1273,47 @@ func (r *AlumniRepository) UpdateHealthRecord(id string, hr models.AlumniHealthR
 func (r *AlumniRepository) DeleteHealthRecord(id string) error {
 	_, err := r.DB.Exec("DELETE FROM alumni_health_records WHERE id=?", id)
 	return err
+}
+
+func (r *AlumniRepository) GetClassHistory(studentID string) ([]models.ClassHistoryEntry, error) {
+	rows, err := r.DB.Query(
+		`SELECT id, student_id, class_id, class_name, academic_year, status, record_date
+		 FROM student_class_history WHERE student_id = ? ORDER BY record_date ASC`, studentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var entries []models.ClassHistoryEntry
+	for rows.Next() {
+		var e models.ClassHistoryEntry
+		var classID, className, academicYear, status sql.NullString
+		var recordDate sql.NullInt64
+		if err := rows.Scan(&e.ID, &e.StudentID, &classID, &className, &academicYear, &status, &recordDate); err != nil {
+			return nil, err
+		}
+		if classID.Valid {
+			e.ClassID = &classID.String
+		}
+		if className.Valid {
+			e.ClassName = &className.String
+		}
+		if academicYear.Valid {
+			e.AcademicYear = &academicYear.String
+		}
+		if status.Valid {
+			e.Status = &status.String
+		}
+		if recordDate.Valid {
+			rd := recordDate.Int64
+			e.RecordDate = &rd
+		}
+		entries = append(entries, e)
+	}
+	if entries == nil {
+		entries = []models.ClassHistoryEntry{}
+	}
+	return entries, nil
 }
 
 func (r *AlumniRepository) ImportBulkAlumni(alumniList []models.Alumni) (int, int, []string, error) {

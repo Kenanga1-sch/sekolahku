@@ -58,6 +58,16 @@ interface AlumniAttendanceSummary {
   totalDays: number;
 }
 
+interface ClassHistoryEntry {
+  id: string;
+  studentId: string;
+  classId: string | null;
+  className: string | null;
+  academicYear: string | null;
+  status: string | null;
+  recordDate: number | null;
+}
+
 interface AlumniDetail {
   id: string;
   nisn: string | null;
@@ -131,6 +141,7 @@ interface AlumniDetail {
   mutasiMasukDiterimaTanggal: string | null;
   mutasiMasukDiKelas: string | null;
   healthRecords: AlumniHealthRecord[];
+  classHistory: ClassHistoryEntry[];
   transcripts: AlumniTranscript[];
   achievements: AlumniAchievement[];
   extracurriculars: AlumniExtracurricular[];
@@ -373,20 +384,35 @@ export default function CetakBukuIndukPage() {
               </tr>
             </thead>
             <tbody>
-              {["I", "II", "III", "IV", "V", "VI"].map((kelas, i) => {
-                const year = alumni.enrolledYear ? parseInt(alumni.enrolledYear) + i : i + 1;
-                return (
-                  <tr key={kelas}>
-                    <td className="border border-black px-1 py-0.5 text-center">{kelas}</td>
-                    <td className="border border-black px-1 py-0.5 text-center">{year}/{year + 1}</td>
-                    <td className="border border-black px-1 py-0.5 text-center">...................................</td>
-                    <td className="border border-black px-1 py-0.5">...................................</td>
-                  </tr>
-                );
-              })}
+              {alumni.classHistory && alumni.classHistory.length > 0 ? (
+                alumni.classHistory
+                  .filter((h) => h.className)
+                  .map((h) => (
+                    <tr key={h.id}>
+                      <td className="border border-black px-1 py-0.5 text-center">{val(h.className)}</td>
+                      <td className="border border-black px-1 py-0.5 text-center">{val(h.academicYear)}</td>
+                      <td className="border border-black px-1 py-0.5 text-center">
+                        {h.status === "promoted" ? "Naik" : h.status === "graduated" ? "Lulus" : val(h.status, "...................................")}
+                      </td>
+                      <td className="border border-black px-1 py-0.5">...................................</td>
+                    </tr>
+                  ))
+              ) : (
+                ["I", "II", "III", "IV", "V", "VI"].map((kelas, i) => {
+                  const year = alumni.enrolledYear ? parseInt(alumni.enrolledYear) + i : i + 1;
+                  return (
+                    <tr key={kelas}>
+                      <td className="border border-black px-1 py-0.5 text-center">{kelas}</td>
+                      <td className="border border-black px-1 py-0.5 text-center">{year}/{year + 1}</td>
+                      <td className="border border-black px-1 py-0.5 text-center">...................................</td>
+                      <td className="border border-black px-1 py-0.5">...................................</td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
-          <Row label="Lama Belajar" value="6 tahun" />
+          <Row label="Lama Belajar" value={`${alumni.classHistory ? Math.min(alumni.classHistory.filter(h => h.className).length, 6) : 6} tahun`} />
         </Section>
 
         {/* ── SECTION E: KESEHATAN ──────────────────── */}

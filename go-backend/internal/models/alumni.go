@@ -66,6 +66,7 @@ type Alumni struct {
 	Extracurriculars    []AlumniExtracurricular    `json:"extracurriculars,omitempty"`
 	AttendanceSummaries []AlumniAttendanceSummary  `json:"attendanceSummaries,omitempty"`
 	HealthRecords       []AlumniHealthRecord       `json:"healthRecords,omitempty"`
+	ClassHistory        []ClassHistoryEntry         `json:"classHistory"`
 	// Physical register specific extensions
 	Nickname                   *string `json:"nickname"`
 	Citizenship                *string `json:"citizenship"`
@@ -172,6 +173,17 @@ type AlumniHealthRecord struct {
 	Abnormality *string    `json:"abnormality"`
 	CreatedAt   *time.Time `json:"createdAt"`
 	UpdatedAt   *time.Time `json:"updatedAt"`
+}
+
+// ClassHistoryEntry stores class history for a student / alumni
+type ClassHistoryEntry struct {
+	ID           string  `json:"id"`
+	StudentID    string  `json:"studentId"`
+	ClassID      *string `json:"classId"`
+	ClassName    *string `json:"className"`
+	AcademicYear *string `json:"academicYear"`
+	Status       *string `json:"status"`
+	RecordDate   *int64  `json:"recordDate"`
 }
 
 // AlumniDocumentType defines types of documents e.g. Ijazah, SKHUN

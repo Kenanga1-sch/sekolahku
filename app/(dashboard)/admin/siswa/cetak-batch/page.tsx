@@ -69,6 +69,7 @@ interface AlumniSummary {
   ijazahDate: string | null;
   skhunNo: string | null;
   skhunDate: string | null;
+  classHistory: { id: string; className: string | null; academicYear: string | null; status: string | null }[] | null;
 }
 
 const STATUS_LABEL: Record<string, string> = { active: "Aktif", graduated: "Lulus", transferred: "Pindah/Mutasi", dropped: "DO" };
@@ -202,15 +203,32 @@ export default function CetakBatchPage() {
             </M>
 
             {/* Riwayat Pendidikan */}
-            <M section="D. Riwayat Pendidikan 6 Tahun">
-              <table className="w-full border border-black text-[9px] mb-1">
-                <thead><tr className="bg-gray-100">
-                  {["I","II","III","IV","V","VI"].map(k => <th key={k} className="border px-0.5">{k}</th>)}
-                </tr></thead>
-                <tbody><tr>
-                  {["I","II","III","IV","V","VI"].map(k => <td key={k} className="border px-0.5 h-10 text-center"></td>)}
-                </tr></tbody>
-              </table>
+            <M section="D. Riwayat Pendidikan">
+              {a.classHistory && a.classHistory.length > 0 ? (
+                <table className="w-full border border-black text-[9px] mb-1">
+                  <thead><tr className="bg-gray-100">
+                    <th className="border px-0.5">Kelas</th><th className="border px-0.5">Th Ajaran</th><th className="border px-0.5">Status</th>
+                  </tr></thead>
+                  <tbody>
+                    {a.classHistory.filter(h => h.className).map(h => (
+                      <tr key={h.id}>
+                        <td className="border px-0.5 text-center">{val(h.className)}</td>
+                        <td className="border px-0.5 text-center">{val(h.academicYear)}</td>
+                        <td className="border px-0.5 text-center">{h.status === "promoted" ? "Naik" : h.status === "graduated" ? "Lulus" : val(h.status)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <table className="w-full border border-black text-[9px] mb-1">
+                  <thead><tr className="bg-gray-100">
+                    {["I","II","III","IV","V","VI"].map(k => <th key={k} className="border px-0.5">{k}</th>)}
+                  </tr></thead>
+                  <tbody><tr>
+                    {["I","II","III","IV","V","VI"].map(k => <td key={k} className="border px-0.5 h-10 text-center"></td>)}
+                  </tr></tbody>
+                </table>
+              )}
             </M>
 
             {/* Kesehatan & Status */}
