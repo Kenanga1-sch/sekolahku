@@ -256,7 +256,7 @@ export default function TabMutasi() {
       keterangan: monthlyLogs.length === 0 && grade === 1 ? "Nihil" : "",
     })).concat([
       {
-        grade: "Jumlah",
+        grade: "Jumlah" as any,
         awalL: "",
         awalP: "",
         awalJM: "",
