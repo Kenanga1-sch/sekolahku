@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR, { mutate } from "swr";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { toast } from "sonner";
@@ -48,12 +48,17 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { goGet, goPatch, goPost } from "@/lib/api-client";
+import { useSchoolSettings } from "@/lib/hooks/use-settings";
 
 const fetcher = (url: string) => goGet(url);
+const BOOK_ROW_COUNT = 18;
+const BOOK_RECAP_GRADES = [1, 2, 3, 4, 5, 6];
 
 export default function TabMutasi() {
   // Tab State: "masuk" (Incoming), "keluar" (Outgoing), or "buku" (Buku Mutasi)
   const [activeTab, setActiveTab] = useState<"masuk" | "keluar" | "buku">("masuk");
+  const [reportMonth, setReportMonth] = useState(format(new Date(), "yyyy-MM"));
+  const { settings: schoolSettings } = useSchoolSettings();
 
   // --- MUTASI MASUK (INCOMING) STATE & HOOKS ---
   const { data: dataRequestsIn, error: errorRequestsIn, isLoading: loadingRequestsIn } = useSWR(
@@ -147,7 +152,7 @@ export default function TabMutasi() {
 
   // --- BUKU MUTASI (LOGS) STATE & HOOKS ---
   const { data: dataLogs, error: errorLogs, isLoading: loadingLogs } = useSWR(
-    "/api/admin/mutasi/logs",
+    "/api/admin/mutasi/logs?perPage=500",
     fetcher
   );
   const mutasiLogs = dataLogs?.data || [];
@@ -159,6 +164,115 @@ export default function TabMutasi() {
   const [liabilityData, setLiabilityData] = useState<any>(null);
   const [checkingLiability, setCheckingLiability] = useState(false);
   const [updatingOut, setUpdatingOut] = useState(false);
+  const selectedReportDate = useMemo(() => {
+    const [year, month] = reportMonth.split("-");
+    const parsedYear = Number(year);
+    const parsedMonth = Number(month);
+    return new Date(parsedYear, Math.max(parsedMonth - 1, 0), 1);
+  }, [reportMonth]);
+  const monthlyLogs = useMemo(
+    () =>
+      mutasiLogs.filter((log: any) => {
+        if (!log?.mutationDate) return false;
+        const logDate = new Date(log.mutationDate);
+        return (
+          logDate.getFullYear() === selectedReportDate.getFullYear() &&
+          logDate.getMonth() === selectedReportDate.getMonth()
+        );
+      }),
+    [mutasiLogs, selectedReportDate]
+  );
+  const monthlyMasukLogs = useMemo(
+    () => monthlyLogs.filter((log: any) => log.mutasiType === "masuk"),
+    [monthlyLogs]
+  );
+  const monthlyKeluarLogs = useMemo(
+    () => monthlyLogs.filter((log: any) => log.mutasiType === "keluar"),
+    [monthlyLogs]
+  );
+  const reportMonthLabel = useMemo(
+    () => format(selectedReportDate, "MMMM yyyy", { locale: idLocale }).toUpperCase(),
+    [selectedReportDate]
+  );
+  const masukRows = useMemo(
+    () =>
+      padReportRows(
+        monthlyMasukLogs.map((log: any, index: number) => ({
+          no: index + 1,
+          tanggal: log.mutationDate ? format(new Date(log.mutationDate), "dd/MM/yyyy") : "",
+          nama: log.studentName || "",
+          lp: log.gender || "",
+          noInduk: "",
+          kelas: "",
+          sekolah: log.originOrDestination || "",
+          asalNoInduk: "",
+          asalKelas: "",
+          persetujuanTanggal: "",
+          persetujuanNomor: "",
+        })),
+        BOOK_ROW_COUNT,
+        monthlyMasukLogs.length === 0 ? "NIHIL" : undefined
+      ),
+    [monthlyMasukLogs]
+  );
+  const keluarRows = useMemo(
+    () =>
+      padReportRows(
+        monthlyKeluarLogs.map((log: any, index: number) => ({
+          no: index + 1,
+          tanggal: log.mutationDate ? format(new Date(log.mutationDate), "dd/MM/yyyy") : "",
+          nama: log.studentName || "",
+          noInduk: "",
+          lp: log.gender || "",
+          kelas: "",
+          nomorSurat: "",
+          tujuan: log.originOrDestination || "",
+        })),
+        BOOK_ROW_COUNT,
+        monthlyKeluarLogs.length === 0 ? "NIHIL" : undefined
+      ),
+    [monthlyKeluarLogs]
+  );
+  const rekapRows = useMemo(() => {
+    const totalMasukL = monthlyMasukLogs.filter((log: any) => log.gender === "L").length;
+    const totalMasukP = monthlyMasukLogs.filter((log: any) => log.gender === "P").length;
+    const totalKeluarL = monthlyKeluarLogs.filter((log: any) => log.gender === "L").length;
+    const totalKeluarP = monthlyKeluarLogs.filter((log: any) => log.gender === "P").length;
+
+    return BOOK_RECAP_GRADES.map((grade) => ({
+      grade,
+      awalL: "",
+      awalP: "",
+      awalJM: "",
+      masukL: "",
+      masukP: "",
+      masukJM: "",
+      keluarL: "",
+      keluarP: "",
+      keluarJM: "",
+      akhirL: "",
+      akhirP: "",
+      akhirJM: "",
+      keterangan: monthlyLogs.length === 0 && grade === 1 ? "Nihil" : "",
+    })).concat([
+      {
+        grade: "Jumlah",
+        awalL: "",
+        awalP: "",
+        awalJM: "",
+        masukL: totalMasukL || "",
+        masukP: totalMasukP || "",
+        masukJM: totalMasukL + totalMasukP || "",
+        keluarL: totalKeluarL || "",
+        keluarP: totalKeluarP || "",
+        keluarJM: totalKeluarL + totalKeluarP || "",
+        akhirL: "",
+        akhirP: "",
+        akhirJM: "",
+        keterangan: monthlyLogs.length === 0 ? "Laporan nihil" : "",
+      },
+    ]);
+  }, [monthlyKeluarLogs, monthlyLogs.length, monthlyMasukLogs]);
 
   const handleOpenDetailOut = async (req: any) => {
     setSelectedRequestOut(req);
@@ -641,68 +755,245 @@ export default function TabMutasi() {
         </Card>
       ) : activeTab === "buku" ? (
         <Card>
-          <div className="p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b">
-            <h3 className="font-semibold text-slate-800 dark:text-zinc-200">Buku Mutasi Bulanan</h3>
-            <Button size="sm" onClick={() => window.print()} className="w-full sm:w-auto">
-              <Download className="mr-2 h-4 w-4" /> Cetak Buku Mutasi
-            </Button>
+          <style jsx global>{`
+            @page {
+              size: A4 landscape;
+              margin: 10mm;
+            }
+
+            @media print {
+              body * {
+                visibility: hidden;
+              }
+
+              .mutasi-print-root,
+              .mutasi-print-root * {
+                visibility: visible;
+              }
+
+              .mutasi-print-root {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+              }
+
+              .no-print {
+                display: none !important;
+              }
+            }
+          `}</style>
+          <div className="no-print p-4 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 border-b">
+            <div className="space-y-1">
+              <h3 className="font-semibold text-slate-800 dark:text-zinc-200">Buku Mutasi Bulanan</h3>
+              <p className="text-xs text-muted-foreground">
+                Laporan tetap tersedia untuk setiap bulan, termasuk saat mutasi nihil.
+              </p>
+            </div>
+            <div className="flex w-full lg:w-auto flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <Input
+                type="month"
+                value={reportMonth}
+                onChange={(e) => setReportMonth(e.target.value)}
+                className="w-full sm:w-[200px]"
+              />
+              <Button size="sm" onClick={() => window.print()} className="w-full sm:w-auto">
+                <Download className="mr-2 h-4 w-4" /> Cetak Buku Mutasi
+              </Button>
+            </div>
           </div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="hidden sm:table-cell">Tanggal</TableHead>
-                <TableHead>Jenis</TableHead>
-                <TableHead>Nama Siswa</TableHead>
-                <TableHead className="hidden sm:table-cell">NISN</TableHead>
-                <TableHead>Asal/Tujuan</TableHead>
-                <TableHead className="hidden md:table-cell">Keterangan</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loadingLogs ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto" />
-                  </TableCell>
-                </TableRow>
-              ) : errorLogs ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-destructive">
-                    Gagal memuat buku mutasi.
-                  </TableCell>
-                </TableRow>
-              ) : mutasiLogs.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
-                    Tidak ada riwayat mutasi.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                mutasiLogs.map((log: any) => (
-                  <TableRow key={log.id}>
-                    <TableCell className="hidden sm:table-cell">
-                      {format(new Date(log.mutationDate), "dd/MM/yyyy")}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={log.mutasiType === "masuk" ? "default" : "secondary"}>
-                        {log.mutasiType === "masuk" ? "Masuk" : "Keluar"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-semibold text-slate-800 dark:text-zinc-200">
-                      {log.studentName}
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell">{log.nisn}</TableCell>
-                    <TableCell>{log.originOrDestination}</TableCell>
-                    <TableCell className="hidden md:table-cell">{log.reason}</TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+          <div className="no-print border-b px-4 py-3 text-xs text-muted-foreground">
+            {loadingLogs
+              ? "Memuat data buku mutasi..."
+              : errorLogs
+                ? "Gagal memuat buku mutasi."
+                : `Periode laporan: ${reportMonthLabel}${monthlyLogs.length === 0 ? " • Nihil" : ` • ${monthlyLogs.length} mutasi`}`}
+          </div>
+          <div className="mutasi-print-root bg-white p-4 text-black sm:p-6">
+            <div className="mx-auto max-w-[1200px] space-y-4">
+              <div className="text-center text-[20px] font-bold uppercase tracking-tight">
+                Buku Mutasi Murid
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[13px] font-semibold">
+                    <span>BULAN : {reportMonthLabel}</span>
+                    <span>MASUK</span>
+                  </div>
+                  <table className="w-full border-collapse text-[10px]">
+                    <thead>
+                      <tr>
+                        <th rowSpan={2} className="border border-black px-1 py-1">No.<br />Urut</th>
+                        <th rowSpan={2} className="border border-black px-1 py-1">Tanggal</th>
+                        <th rowSpan={2} className="border border-black px-1 py-1">Nama Siswa</th>
+                        <th rowSpan={2} className="border border-black px-1 py-1">L/P</th>
+                        <th rowSpan={2} className="border border-black px-1 py-1">No.<br />Induk</th>
+                        <th rowSpan={2} className="border border-black px-1 py-1">Kelas</th>
+                        <th colSpan={3} className="border border-black px-1 py-1">Berasal dari</th>
+                        <th colSpan={2} className="border border-black px-1 py-1">Persetujuan Kanwil/Kanko</th>
+                      </tr>
+                      <tr>
+                        <th className="border border-black px-1 py-1">Sekolah</th>
+                        <th className="border border-black px-1 py-1">No. Induk</th>
+                        <th className="border border-black px-1 py-1">Kelas</th>
+                        <th className="border border-black px-1 py-1">Tanggal</th>
+                        <th className="border border-black px-1 py-1">Nomor</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {masukRows.map((row, index) => (
+                        <tr key={`masuk-${index}`}>
+                          <td className="border border-black px-1 py-1 text-center">{row.no}</td>
+                          <td className="border border-black px-1 py-1">{row.tanggal}</td>
+                          <td className="border border-black px-1 py-1">{row.nama}</td>
+                          <td className="border border-black px-1 py-1 text-center">{row.lp}</td>
+                          <td className="border border-black px-1 py-1">{row.noInduk}</td>
+                          <td className="border border-black px-1 py-1 text-center">{row.kelas}</td>
+                          <td className="border border-black px-1 py-1">{row.sekolah}</td>
+                          <td className="border border-black px-1 py-1">{row.asalNoInduk}</td>
+                          <td className="border border-black px-1 py-1 text-center">{row.asalKelas}</td>
+                          <td className="border border-black px-1 py-1">{row.persetujuanTanggal}</td>
+                          <td className="border border-black px-1 py-1">{row.persetujuanNomor}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[13px] font-semibold">
+                    <span>BULAN : {reportMonthLabel}</span>
+                    <span>KELUAR</span>
+                  </div>
+                  <table className="w-full border-collapse text-[10px]">
+                    <thead>
+                      <tr>
+                        <th className="border border-black px-1 py-1">No.<br />Urut</th>
+                        <th className="border border-black px-1 py-1">Tanggal</th>
+                        <th className="border border-black px-1 py-1">Nama Siswa</th>
+                        <th className="border border-black px-1 py-1">No.<br />Induk</th>
+                        <th className="border border-black px-1 py-1">L/P</th>
+                        <th className="border border-black px-1 py-1">Kelas</th>
+                        <th className="border border-black px-1 py-1">Nomor Surat Pindah</th>
+                        <th className="border border-black px-1 py-1">Keterangan/Pindah ke..</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {keluarRows.map((row, index) => (
+                        <tr key={`keluar-${index}`}>
+                          <td className="border border-black px-1 py-1 text-center">{row.no}</td>
+                          <td className="border border-black px-1 py-1">{row.tanggal}</td>
+                          <td className="border border-black px-1 py-1">{row.nama}</td>
+                          <td className="border border-black px-1 py-1">{row.noInduk}</td>
+                          <td className="border border-black px-1 py-1 text-center">{row.lp}</td>
+                          <td className="border border-black px-1 py-1 text-center">{row.kelas}</td>
+                          <td className="border border-black px-1 py-1">{row.nomorSurat}</td>
+                          <td className="border border-black px-1 py-1">{row.tujuan}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-[1.1fr_1fr] gap-3 pt-1">
+                <div className="flex min-h-[180px] items-end justify-start">
+                  <div className="w-[230px] space-y-3 pl-8 text-[12px]">
+                    <div className="font-semibold">Pengawas Sekolah,</div>
+                    <div className="h-[72px]" />
+                    <div className="border-b border-black" />
+                    <div>NIP</div>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="text-[13px] font-semibold uppercase">Rekapitulasi</div>
+                  <table className="w-full border-collapse text-[10px]">
+                    <thead>
+                      <tr>
+                        <th rowSpan={2} className="border border-black px-1 py-1">Kelas</th>
+                        <th colSpan={3} className="border border-black px-1 py-1">Awal Bulan</th>
+                        <th colSpan={3} className="border border-black px-1 py-1">Masuk</th>
+                        <th colSpan={3} className="border border-black px-1 py-1">Keluar</th>
+                        <th colSpan={3} className="border border-black px-1 py-1">Akhir Bulan</th>
+                        <th rowSpan={2} className="border border-black px-1 py-1">Keterangan</th>
+                      </tr>
+                      <tr>
+                        <th className="border border-black px-1 py-1">L</th>
+                        <th className="border border-black px-1 py-1">P</th>
+                        <th className="border border-black px-1 py-1">JM</th>
+                        <th className="border border-black px-1 py-1">L</th>
+                        <th className="border border-black px-1 py-1">P</th>
+                        <th className="border border-black px-1 py-1">JM</th>
+                        <th className="border border-black px-1 py-1">L</th>
+                        <th className="border border-black px-1 py-1">P</th>
+                        <th className="border border-black px-1 py-1">JM</th>
+                        <th className="border border-black px-1 py-1">L</th>
+                        <th className="border border-black px-1 py-1">P</th>
+                        <th className="border border-black px-1 py-1">JM</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rekapRows.map((row) => (
+                        <tr key={`rekap-${row.grade}`}>
+                          <td className="border border-black px-1 py-1 text-center font-semibold">
+                            {typeof row.grade === "number" ? toRoman(row.grade) : row.grade}
+                          </td>
+                          <td className="border border-black px-1 py-1 text-center">{row.awalL}</td>
+                          <td className="border border-black px-1 py-1 text-center">{row.awalP}</td>
+                          <td className="border border-black px-1 py-1 text-center">{row.awalJM}</td>
+                          <td className="border border-black px-1 py-1 text-center">{row.masukL}</td>
+                          <td className="border border-black px-1 py-1 text-center">{row.masukP}</td>
+                          <td className="border border-black px-1 py-1 text-center">{row.masukJM}</td>
+                          <td className="border border-black px-1 py-1 text-center">{row.keluarL}</td>
+                          <td className="border border-black px-1 py-1 text-center">{row.keluarP}</td>
+                          <td className="border border-black px-1 py-1 text-center">{row.keluarJM}</td>
+                          <td className="border border-black px-1 py-1 text-center">{row.akhirL}</td>
+                          <td className="border border-black px-1 py-1 text-center">{row.akhirP}</td>
+                          <td className="border border-black px-1 py-1 text-center">{row.akhirJM}</td>
+                          <td className="border border-black px-1 py-1">{row.keterangan}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="no-print rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-2 text-[11px] text-slate-600">
+                {schoolSettings?.school_name || "Sekolah"} • Data yang belum tersedia di sistem sengaja dibiarkan kosong agar format cetak tetap mengikuti buku mutasi fisik.
+              </div>
+            </div>
+          </div>
         </Card>
       ) : null}
     </div>
   );
+}
+
+const ROMAN = ["", "I", "II", "III", "IV", "V", "VI"];
+const toRoman = (n: number) => ROMAN[n] ?? String(n);
+
+/** Pad rows to fixed count, filling empty rows with "..." or a custom label */
+function padReportRows<T extends Record<string, any>>(
+  rows: T[],
+  targetCount: number,
+  emptyLabel?: string
+): T[] {
+  const filled = [...rows];
+  const empty = {} as Record<string, any>;
+  const keys = rows.length > 0 ? Object.keys(rows[0]) : [];
+  keys.forEach((k) => (empty[k] = ""));
+  if (emptyLabel && filled.length === 0) {
+    empty["nama"] = emptyLabel;
+    filled.push(empty as T);
+  }
+  while (filled.length < targetCount) {
+    const filler = { ...empty };
+    keys.forEach((k) => (filler[k] = "..."));
+    filled.push(filler as T);
+  }
+  return filled;
 }
 
 function DialogMutasiMasukLangsung({ classStats }: { classStats: any[] }) {
