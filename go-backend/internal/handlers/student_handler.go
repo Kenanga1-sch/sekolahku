@@ -159,6 +159,25 @@ func (h *StudentHandler) BulkCreateStudents(c echo.Context) error {
 			IsActive:     status == "active",
 		}
 
+		// Coba Upsert (Update jika NISN atau NIK sudah ada)
+		var existingID string
+		if student.NISN != nil && *student.NISN != "" {
+			_ = h.Repo.DB.QueryRow("SELECT id FROM students WHERE nisn = ?", *student.NISN).Scan(&existingID)
+		}
+		if existingID == "" && student.NIK != nil && *student.NIK != "" {
+			_ = h.Repo.DB.QueryRow("SELECT id FROM students WHERE nik = ?", *student.NIK).Scan(&existingID)
+		}
+
+		if existingID != "" {
+			student.ID = existingID
+			if err := h.Repo.UpdateStudent(existingID, student); err != nil {
+				errors = append(errors, "Baris "+strconv.Itoa(index+1)+": "+err.Error())
+			} else {
+				count++
+			}
+			continue
+		}
+
 		if _, err := h.Repo.CreateStudent(student); err != nil {
 			errors = append(errors, "Baris "+strconv.Itoa(index+1)+": "+err.Error())
 			continue
