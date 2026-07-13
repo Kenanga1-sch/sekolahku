@@ -28,6 +28,7 @@ type Employee = {
     employmentStatus: string;
     jobType: string;
     photoUrl?: string;
+    phone?: string;
     category?: string;
     degree?: string;
     quote?: string;

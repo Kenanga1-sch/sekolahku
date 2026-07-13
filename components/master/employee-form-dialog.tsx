@@ -92,7 +92,7 @@ export function EmployeeFormDialog({ open, onOpenChange, employeeId, onSuccess }
                 }
 
                 form.reset({
-                    fullName: data.fullName || "",
+                    fullName: data.fullName || data.name || "",
                     email: data.email || "",
                     role: data.role || "guru",
                     employmentStatus: data.employmentStatus || "",
