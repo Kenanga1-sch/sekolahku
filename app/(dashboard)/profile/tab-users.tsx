@@ -80,6 +80,7 @@ interface GtkOption {
     email: string;
     role: string;
     nip?: string;
+    phone?: string;
 }
 
 const roles = [
@@ -196,6 +197,7 @@ export default function TabUsers() {
                 email: gtk.email,
                 role: gtk.role,
                 employeeId: gtk.id,
+                phone: gtk.phone || prev.phone,
             }));
         }
     };

@@ -157,10 +157,10 @@ func (r *EmployeeRepository) CreateEmployee(req models.CreateEmployeeRequest) (s
 	}
 
 	query := `
-		INSERT INTO employee_details (id, name, email, role, nip, nuptk, nik, employment_status, job_type, join_date, category, degree, quote, photo_url, display_order, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO employee_details (id, name, email, role, nip, nuptk, nik, employment_status, job_type, join_date, category, degree, quote, photo_url, display_order, phone, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	_, err := r.DB.Exec(query, detailId, req.FullName, req.Email, role, req.NIP, req.NUPTK, req.NIK, empStatus, jobType, req.JoinDate, req.Category, req.Degree, req.Quote, req.PhotoUrl, req.DisplayOrder, now, now)
+	_, err := r.DB.Exec(query, detailId, req.FullName, req.Email, role, req.NIP, req.NUPTK, req.NIK, empStatus, jobType, req.JoinDate, req.Category, req.Degree, req.Quote, req.PhotoUrl, req.DisplayOrder, req.Phone, now, now)
 	if err != nil {
 		return "", err
 	}
@@ -170,7 +170,7 @@ func (r *EmployeeRepository) CreateEmployee(req models.CreateEmployeeRequest) (s
 // GetEmployeesWithoutAccount returns employees not yet linked to a user account
 func (r *EmployeeRepository) GetEmployeesWithoutAccount() ([]models.Employee, error) {
 	query := `
-		SELECT e.id, e.name, e.email, e.role, e.nip
+		SELECT e.id, e.name, e.email, e.role, e.nip, e.phone
 		FROM employee_details e
 		WHERE e.user_id IS NULL
 		ORDER BY e.name ASC
@@ -184,8 +184,8 @@ func (r *EmployeeRepository) GetEmployeesWithoutAccount() ([]models.Employee, er
 	var employees []models.Employee
 	for rows.Next() {
 		var e models.Employee
-		var name, email, role, nip sql.NullString
-		if err := rows.Scan(&e.ID, &name, &email, &role, &nip); err != nil {
+		var name, email, role, nip, phone sql.NullString
+		if err := rows.Scan(&e.ID, &name, &email, &role, &nip, &phone); err != nil {
 			return nil, err
 		}
 		if name.Valid {
@@ -200,6 +200,9 @@ func (r *EmployeeRepository) GetEmployeesWithoutAccount() ([]models.Employee, er
 		if nip.Valid {
 			e.NIP = &nip.String
 		}
+		if phone.Valid {
+			e.Phone = &phone.String
+		}
 		employees = append(employees, e)
 	}
 	if employees == nil {
@@ -212,20 +215,20 @@ func (r *EmployeeRepository) GetEmployeeByID(id string) (*models.Employee, error
 	query := `
 		SELECT e.id, e.name, e.email, e.role,
 		       e.nip, e.nuptk, e.nik, e.employment_status, e.job_type, e.join_date,
-		       e.category, e.degree, e.quote, e.photo_url, e.display_order,
+		       e.category, e.degree, e.quote, e.photo_url, e.display_order, e.phone,
 		       e.user_id
 		FROM employee_details e
 		WHERE e.id = ?
 	`
 	var e models.Employee
-	var name, email, role, nip, nuptk, nik, empStatus, jobType, joinDate sql.NullString
+	var name, email, role, nip, nuptk, nik, empStatus, jobType, joinDate, phone sql.NullString
 	var cat, deg, quot, photo, uId sql.NullString
 	var displayOrder sql.NullInt64
 
 	err := r.DB.QueryRow(query, id).Scan(
 		&e.ID, &name, &email, &role,
 		&nip, &nuptk, &nik, &empStatus, &jobType, &joinDate,
-		&cat, &deg, &quot, &photo, &displayOrder,
+		&cat, &deg, &quot, &photo, &displayOrder, &phone,
 		&uId,
 	)
 	if err != nil {
@@ -259,6 +262,9 @@ func (r *EmployeeRepository) GetEmployeeByID(id string) (*models.Employee, error
 	if joinDate.Valid {
 		e.JoinDate = &joinDate.String
 	}
+	if phone.Valid {
+		e.Phone = &phone.String
+	}
 	if uId.Valid {
 		e.UserID = &uId.String
 		e.HasAccount = true
@@ -287,10 +293,10 @@ func (r *EmployeeRepository) UpdateEmployee(id string, req models.CreateEmployee
 	now := time.Now().UnixMilli()
 
 	query := `
-		UPDATE employee_details SET name=?, email=?, role=?, nip=?, nuptk=?, nik=?, employment_status=?, job_type=?, join_date=?, category=?, degree=?, quote=?, photo_url=?, display_order=?, updated_at=?
+		UPDATE employee_details SET name=?, email=?, role=?, nip=?, nuptk=?, nik=?, employment_status=?, job_type=?, join_date=?, category=?, degree=?, quote=?, photo_url=?, display_order=?, phone=?, updated_at=?
 		WHERE id=?
 	`
-	_, err := r.DB.Exec(query, req.FullName, req.Email, req.Role, req.NIP, req.NUPTK, req.NIK, req.EmploymentStatus, req.JobType, req.JoinDate, req.Category, req.Degree, req.Quote, req.PhotoUrl, req.DisplayOrder, now, id)
+	_, err := r.DB.Exec(query, req.FullName, req.Email, req.Role, req.NIP, req.NUPTK, req.NIK, req.EmploymentStatus, req.JobType, req.JoinDate, req.Category, req.Degree, req.Quote, req.PhotoUrl, req.DisplayOrder, req.Phone, now, id)
 	return err
 }
 
