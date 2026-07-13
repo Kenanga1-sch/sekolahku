@@ -535,8 +535,15 @@ function StudentCardPreview({
             {schoolName}
           </h2>
           <p 
-            className="leading-tight truncate mt-0.5"
-            style={{ fontSize: "7px", color: "rgba(203,213,225,0.9)" }}
+            className="leading-[1.2] mt-0.5 pr-2"
+            style={{ 
+              fontSize: "6.5px", 
+              color: "rgba(203,213,225,0.9)",
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden"
+            }}
           >
             {schoolAddress}
           </p>
