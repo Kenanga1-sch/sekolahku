@@ -61,7 +61,8 @@ export default function TabKenaikan() {
         try {
             const response: any = await goGet(`/api/master/students?classId=${classId}&limit=100&status=active`);
             const result = response?.data ?? response;
-            setStudents(result?.data ?? []);
+            const studentsArray = Array.isArray(result) ? result : (Array.isArray(result?.data) ? result.data : []);
+            setStudents(studentsArray);
         } catch (error) {
             showError("Gagal memuat data siswa");
         } finally {
@@ -158,7 +159,7 @@ export default function TabKenaikan() {
                     {students.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full text-muted-foreground text-sm border-2 border-dashed rounded-lg">
                             <Users className="h-8 w-8 mb-2 opacity-50" />
-                            Pilih kelas asal dulu
+                            {sourceClassId && !isLoadingStudents ? "Tidak ada siswa aktif di kelas ini" : "Pilih kelas asal dulu"}
                         </div>
                     ) : (
                         students.map((student: { id: string; fullName: string; nisn?: string; nis?: string }) => (
