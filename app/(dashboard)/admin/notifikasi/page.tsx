@@ -36,7 +36,7 @@ export default function NotificationsPage() {
     setIsLoading(true);
     try {
       const data = await goGet<AdminNotification[]>("/api/notifications?limit=50");
-      setNotifications(data);
+      setNotifications(Array.isArray(data) ? data : []);
     } catch (error) {
       toast.error("Gagal memuat notifikasi");
     } finally {
