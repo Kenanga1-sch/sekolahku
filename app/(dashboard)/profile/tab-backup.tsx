@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2, Save, Send, Database, AlertCircle, CheckCircle, Info, UploadCloud } from "lucide-react";
-import { goGet, goPut, goPost, goPostFormData } from "@/lib/api-client";
+import { goGet, goPut, goPost } from "@/lib/api-client";
 import { toast } from "sonner";
 
 interface BackupSettings {
@@ -127,7 +127,7 @@ export default function TabBackup() {
             const formData = new FormData();
             formData.append("backup_file", fileToRestore);
 
-            const res: any = await goPostFormData("/api/settings/backup/telegram/restore", formData);
+            const res: any = await goPost("/api/settings/backup/telegram/restore", formData);
             
             toast.success(res?.message || "Restore berhasil, sistem sedang direstart...");
             setSuccessMsg(res?.message || "Restore berhasil. Server sedang direstart. Halaman akan dimuat ulang.");
