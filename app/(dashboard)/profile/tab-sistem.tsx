@@ -134,7 +134,7 @@ export default function TabSistem({ settings, setSettings }: TabSistemProps) {
               <option value="">-- Pilih Bendahara --</option>
               {Array.isArray(employees) && employees.map((emp: any) => (
                 <option key={emp.id} value={emp.id}>
-                  {emp.fullName} ({emp.jobType || emp.role || "GTK"})
+                  {emp.fullName || emp.name} ({emp.jobType || emp.role || "GTK"})
                 </option>
               ))}
             </select>

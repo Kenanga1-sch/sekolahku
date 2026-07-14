@@ -65,13 +65,13 @@ export function TreasurerSelector({ currentTreasurer, employees, onChanged }: Tr
              <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center ring-1 ring-blue-500/20 shadow-sm">
                    <div className="h-6 w-6 text-blue-600 dark:text-blue-400 font-bold flex items-center justify-center">
-                      {selectedEmployee ? selectedEmployee.name.charAt(0) : "?"}
+                      {selectedEmployee ? (selectedEmployee.fullName || selectedEmployee.name)?.charAt(0) : "?"}
                    </div>
                 </div>
                 <div>
                   <h3 className="font-semibold text-lg">Bendahara Tabungan Utama</h3>
                    <p className="text-sm text-muted-foreground">
-                      {selectedEmployee ? `Saat ini: ${selectedEmployee.name}` : "Belum ada bendahara ditunjuk"}
+                      {selectedEmployee ? `Saat ini: ${selectedEmployee.fullName || selectedEmployee.name}` : "Belum ada bendahara ditunjuk"}
                    </p>
                 </div>
              </div>
@@ -86,7 +86,7 @@ export function TreasurerSelector({ currentTreasurer, employees, onChanged }: Tr
                   disabled={loading}
                 >
                   {value
-                    ? employees.find((emp) => emp.id === value)?.name
+                    ? (employees.find((emp) => emp.id === value)?.fullName || employees.find((emp) => emp.id === value)?.name)
                     : "Pilih Pegawai..."}
                   {loading ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />}
                 </Button>
@@ -100,7 +100,7 @@ export function TreasurerSelector({ currentTreasurer, employees, onChanged }: Tr
                       {employees.map((emp) => (
                           <CommandItem
                           key={emp.id}
-                          value={emp.name || ""}
+                          value={emp.fullName || emp.name || ""}
                           onSelect={() => {
                               if (emp.id) handleSelect(emp.id);
                           }}
@@ -111,7 +111,7 @@ export function TreasurerSelector({ currentTreasurer, employees, onChanged }: Tr
                               value === emp.id ? "opacity-100" : "opacity-0"
                               )}
                           />
-                          {emp.name}
+                          {emp.fullName || emp.name}
                           </CommandItem>
                       ))}
                       </CommandGroup>
