@@ -120,19 +120,28 @@ func (r *AcademicRepository) UpdateClass(id string, c models.AcademicClass) erro
 		return err
 	}
 
-	query := `UPDATE student_classes SET name = ?, grade = ?, capacity = ?, updated_at = ? WHERE id = ?`
-	_, err := r.DB.Exec(query, c.Name, c.Grade, c.Capacity, now, id)
+	tx, err := r.DB.Begin()
 	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	query := `UPDATE student_classes SET name = ?, grade = ?, capacity = ?, updated_at = ? WHERE id = ?`
+	if _, err := tx.Exec(query, c.Name, c.Grade, c.Capacity, now, id); err != nil {
 		return err
 	}
 
 	// Cascade rename to students
 	if c.Name != oldName {
-		r.DB.Exec(`UPDATE students SET class_name = ? WHERE class_id = ? AND is_active = 1`, c.Name, id)
-		r.DB.Exec(`UPDATE student_class_history SET class_name = ? WHERE class_id = ?`, c.Name, id)
+		if _, err := tx.Exec(`UPDATE students SET class_name = ? WHERE class_id = ?`, c.Name, id); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(`UPDATE student_class_history SET class_name = ? WHERE class_id = ?`, c.Name, id); err != nil {
+			return err
+		}
 	}
 
-	return nil
+	return tx.Commit()
 }
 
 func (r *AcademicRepository) DeleteClass(id string) error {

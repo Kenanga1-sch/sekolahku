@@ -826,20 +826,36 @@ export default function HomePage() {
                 </CardContent>
               </Card>
 
-              <div className="flex gap-3 pt-2">
-                <Button 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <Card 
                   onClick={() => setIsHistoryOpen(true)}
-                  variant="outline"
-                  className="flex-1 h-11 rounded-full border-zinc-800 bg-zinc-900/20 text-zinc-200 hover:bg-zinc-900/60 font-bold transition-all active:scale-[0.98] active:translate-y-[1px]"
+                  className="border border-zinc-800/60 bg-zinc-900/40 hover:bg-zinc-900/80 hover:border-zinc-700/80 backdrop-blur-md text-zinc-100 rounded-2xl cursor-pointer transition-all active:scale-[0.98] group"
                 >
-                  <History className="h-4 w-4 mr-2" /> Sejarah Sekolah
-                </Button>
-                <Button 
+                  <CardContent className="p-5 flex items-start gap-4">
+                    <div className="h-10 w-10 rounded-full bg-zinc-800/80 flex items-center justify-center shrink-0 group-hover:bg-zinc-700/80 transition-colors">
+                      <History className="h-5 w-5 text-zinc-300 group-hover:text-white transition-colors" />
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="text-sm font-bold text-white">Sejarah Sekolah</h4>
+                      <p className="text-[10px] text-zinc-400 leading-snug">Jejak langkah dan perjalanan sekolah kami.</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card 
                   onClick={() => setIsStaffOpen(true)}
-                  className="flex-1 h-11 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all active:scale-[0.98] active:translate-y-[1px]"
+                  className="border border-blue-900/30 bg-blue-950/20 hover:bg-blue-900/40 hover:border-blue-800/50 backdrop-blur-md text-zinc-100 rounded-2xl cursor-pointer transition-all active:scale-[0.98] group"
                 >
-                  <Users className="h-4 w-4 mr-2" /> Guru & Staff
-                </Button>
+                  <CardContent className="p-5 flex items-start gap-4">
+                    <div className="h-10 w-10 rounded-full bg-blue-900/50 flex items-center justify-center shrink-0 group-hover:bg-blue-800/60 transition-colors">
+                      <Users className="h-5 w-5 text-blue-400 group-hover:text-blue-300 transition-colors" />
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="text-sm font-bold text-blue-100">Guru & Staff</h4>
+                      <p className="text-[10px] text-blue-200/60 leading-snug">Profil pendidik dan tenaga kependidikan.</p>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             </motion.div>
           </motion.div>
