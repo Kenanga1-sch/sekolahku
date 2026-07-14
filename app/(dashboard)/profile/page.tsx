@@ -31,6 +31,7 @@ import {
     Sparkles,
     Settings,
     Users,
+    Database,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { goGet, goPatch, goPost } from "@/lib/api-client";
@@ -39,6 +40,7 @@ import { toast } from "sonner";
 import TabSekolah from "./tab-sekolah";
 import TabUsers from "./tab-users";
 import TabSystemLogs from "./tab-system-logs";
+import TabBackup from "./tab-backup";
 
 export default function ProfilePage() {
     const router = useRouter();
@@ -440,6 +442,10 @@ export default function ProfilePage() {
                             <TabsTrigger value="system-logs" className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all cursor-pointer flex-1 min-w-[120px] whitespace-nowrap text-xs">
                                 <Activity className="h-4 w-4" />
                                 Log Aktivitas Sistem
+                            </TabsTrigger>
+                            <TabsTrigger value="backup" className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all cursor-pointer flex-1 min-w-[120px] whitespace-nowrap text-xs">
+                                <Database className="h-4 w-4" />
+                                Backup Telegram
                             </TabsTrigger>
                         </>
                     )}
@@ -846,6 +852,9 @@ export default function ProfilePage() {
                         </TabsContent>
                         <TabsContent value="system-logs" className="space-y-6">
                             <TabSystemLogs />
+                        </TabsContent>
+                        <TabsContent value="backup" className="space-y-6">
+                            <TabBackup />
                         </TabsContent>
                     </>
                 )}

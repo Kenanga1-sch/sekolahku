@@ -8,8 +8,7 @@ ssh = paramiko.SSHClient()
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 ssh.connect('100.97.52.50', username='kenanga', password='20216609')
 
-cmd = 'curl -s http://localhost:8181/api/master/employees'
-stdin, stdout, stderr = ssh.exec_command(cmd)
-
+stdin, stdout, stderr = ssh.exec_command('tail -n 15 /home/kenanga/sekolahku/deploy2.log')
 print(stdout.read().decode())
+
 ssh.close()

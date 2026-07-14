@@ -4,6 +4,9 @@ import (
 	"database/sql"
 	"log"
 	"time"
+	
+	"github.com/sekolahku/go-backend/internal/handlers"
+	"github.com/sekolahku/go-backend/internal/repository"
 
 	"github.com/robfig/cron/v3"
 )
@@ -37,6 +40,12 @@ func (s *Scheduler) Start() {
 	s.cron.AddFunc("0 0 3 * * 0", func() {
 		log.Println("[CRON] Running SQLite incremental vacuum...")
 		s.vacuumDatabase()
+	})
+
+	// Telegram Backup - runs every day at 02:00
+	s.cron.AddFunc("0 0 2 * * *", func() {
+		log.Println("[CRON] Running daily Telegram backup check...")
+		s.backupToTelegram()
 	})
 
 	s.cron.Start()
@@ -112,4 +121,34 @@ func (s *Scheduler) vacuumDatabase() {
 		return
 	}
 	log.Println("[CRON] Incremental vacuum completed successfully")
+}
+
+// backupToTelegram handles sending db to telegram
+func (s *Scheduler) backupToTelegram() {
+	repo := repository.NewTelegramBackupRepository(s.db)
+	settings, err := repo.GetSettings()
+	if err != nil {
+		log.Printf("[CRON] Failed to get telegram backup settings: %v", err)
+		return
+	}
+
+	if !settings.IsEnabled {
+		log.Println("[CRON] Telegram backup is disabled, skipping")
+		return
+	}
+
+	if settings.BotToken == "" || settings.ChatID == "" {
+		log.Println("[CRON] Telegram backup is enabled but token/chatID is empty")
+		return
+	}
+
+	log.Println("[CRON] Sending backup to Telegram...")
+	err = handlers.SendBackupToTelegram(settings.BotToken, settings.ChatID)
+	if err != nil {
+		log.Printf("[CRON] Failed to send backup to Telegram: %v", err)
+		return
+	}
+
+	_ = repo.UpdateLastBackupTime()
+	log.Println("[CRON] Successfully sent backup to Telegram")
 }

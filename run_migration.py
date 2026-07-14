@@ -1,15 +1,9 @@
 import paramiko
-import sys
-import codecs
-
-sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
-
 ssh = paramiko.SSHClient()
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 ssh.connect('100.97.52.50', username='kenanga', password='20216609')
-
-cmd = 'curl -s http://localhost:8181/api/master/employees'
+sql = 'ALTER TABLE employee_details ADD COLUMN phone TEXT;'
+cmd = f'''sqlite3 /home/kenanga/sekolahku/data/sekolahku.db "{sql}"'''
 stdin, stdout, stderr = ssh.exec_command(cmd)
-
-print(stdout.read().decode())
-ssh.close()
+print("OUT:", stdout.read().decode())
+print("ERR:", stderr.read().decode())

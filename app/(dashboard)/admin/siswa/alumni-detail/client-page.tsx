@@ -997,11 +997,7 @@ export default function AlumniDetailPage() {
           </Link>
           <Button variant="outline" size="sm" onClick={() => window.open(`/admin/siswa/buku-induk/print?id=${alumni.id}`, '_blank')}>
             <Printer className="h-4 w-4 mr-1" />
-            Cetak Biodata
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => window.open(`/admin/siswa/buku-induk/print-prestasi?id=${alumni.id}`, '_blank')}>
-            <Printer className="h-4 w-4 mr-1" />
-            Cetak Prestasi
+            Cetak Buku Induk
           </Button>
           <Button variant="destructive" size="sm" onClick={handleDelete}>
             <Trash2 className="h-4 w-4 mr-1" />

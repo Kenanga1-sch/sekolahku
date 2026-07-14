@@ -342,10 +342,6 @@ export default function StudentDetailPage() {
                         <FileText className="h-4 w-4 mr-2" />
                         Cetak Buku Induk
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => window.open(`/admin/siswa/buku-induk/print-prestasi?id=${studentId}`, '_blank')}>
-                        <FileText className="h-4 w-4 mr-2" />
-                        Cetak Prestasi
-                    </Button>
                 </div>
             </div>
 
