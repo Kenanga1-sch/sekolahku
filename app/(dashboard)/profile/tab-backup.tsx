@@ -102,7 +102,10 @@ export default function TabBackup() {
             // Perbarui waktu lastBackupAt
             const res: any = await goGet("/api/settings/backup/telegram");
             if (res) {
-                setSettings(res);
+                setSettings(prev => ({
+                    ...prev,
+                    lastBackupAt: res.lastBackupAt
+                }));
             }
         } catch (err: any) {
             console.error("Gagal mengirim backup test:", err);
