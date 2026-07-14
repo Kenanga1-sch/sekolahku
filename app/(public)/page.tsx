@@ -178,6 +178,12 @@ export default function HomePage() {
   const [contactSettings, setContactSettings] = useState<any>(null);
   const [activeSection, setActiveSection] = useState("hero");
 
+  // State untuk Cek Saldo Tabungan
+  const [balanceNisn, setBalanceNisn] = useState("");
+  const [balanceBirthDate, setBalanceBirthDate] = useState("");
+  const [balanceLoading, setBalanceLoading] = useState(false);
+  const [balanceResult, setBalanceResult] = useState<any>(null);
+  const [balanceCooldown, setBalanceCooldown] = useState(0);
   // Fetch school settings context
   const { settings } = useSchoolSettings();
 
