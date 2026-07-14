@@ -41,9 +41,29 @@ export default function PublicLayoutClient({
       <div id="public-scroll-container" className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden relative no-scrollbar">
          {/* Top Navigation Bar */}
          <header 
-            className="fixed top-6 right-6 flex items-center justify-end gap-4 z-50 bg-transparent"
+            className="fixed top-6 left-6 right-6 flex items-center justify-between gap-4 z-50 bg-transparent pointer-events-none"
             suppressHydrationWarning
          >
+            {/* Main Public Navigation */}
+            <nav className="flex items-center gap-2 p-1.5 rounded-full bg-zinc-950/80 backdrop-blur-xl border border-zinc-800/80 shadow-2xl pointer-events-auto">
+               <Link href="/">
+                  <Button variant="ghost" className={cn("rounded-full px-4 h-8 text-[11px] font-bold uppercase tracking-wider", pathname === "/" ? "bg-blue-600 text-white hover:bg-blue-700" : "text-zinc-400 hover:text-white hover:bg-zinc-800/50")}>
+                     Beranda
+                  </Button>
+               </Link>
+               <Link href="/profil/sejarah">
+                  <Button variant="ghost" className={cn("rounded-full px-4 h-8 text-[11px] font-bold uppercase tracking-wider", pathname === "/profil/sejarah" ? "bg-blue-600 text-white hover:bg-blue-700" : "text-zinc-400 hover:text-white hover:bg-zinc-800/50")}>
+                     Sejarah Sekolah
+                  </Button>
+               </Link>
+               <Link href="/profil/guru-staff">
+                  <Button variant="ghost" className={cn("rounded-full px-4 h-8 text-[11px] font-bold uppercase tracking-wider", pathname === "/profil/guru-staff" ? "bg-blue-600 text-white hover:bg-blue-700" : "text-zinc-400 hover:text-white hover:bg-zinc-800/50")}>
+                     Guru & Staff
+                  </Button>
+               </Link>
+            </nav>
+
+            <div className="flex items-center gap-4 pointer-events-auto">
             {mounted && isAuthenticated && user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -93,6 +113,7 @@ export default function PublicLayoutClient({
                   </Button>
                </Link>
             )}
+            </div>
          </header>
 
          {/* Sticky Footer Scrollable Content Wrapper */}

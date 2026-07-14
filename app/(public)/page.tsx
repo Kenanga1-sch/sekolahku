@@ -299,9 +299,6 @@ export default function HomePage() {
   const [isAllFAQOpen, setIsAllFAQOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<any | null>(null);
   const [isCurriculumOpen, setIsCurriculumOpen] = useState(false);
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [isStaffOpen, setIsStaffOpen] = useState(false);
-
   // Layanan States
   const [isBalanceOpen, setIsBalanceOpen] = useState(false);
   const [isMutationOpen, setIsMutationOpen] = useState(false);
@@ -312,8 +309,6 @@ export default function HomePage() {
   const [newsFilter, setNewsFilter] = useState("all");
   const [activeGalleryCat, setActiveGalleryCat] = useState("all");
   const [faqSearch, setFaqSearch] = useState("");
-  const [staffFilter, setStaffFilter] = useState<"all" | "guru" | "staff" | "support">("all");
-
   // 1. Cek Saldo Form States
   const [balanceNisn, setBalanceNisn] = useState("");
   const [balanceBirthDate, setBalanceBirthDate] = useState("");
@@ -827,35 +822,33 @@ export default function HomePage() {
               </Card>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                <Card 
-                  onClick={() => setIsHistoryOpen(true)}
-                  className="border border-zinc-800/60 bg-zinc-900/40 hover:bg-zinc-900/80 hover:border-zinc-700/80 backdrop-blur-md text-zinc-100 rounded-2xl cursor-pointer transition-all active:scale-[0.98] group"
-                >
-                  <CardContent className="p-5 flex items-start gap-4">
-                    <div className="h-10 w-10 rounded-full bg-zinc-800/80 flex items-center justify-center shrink-0 group-hover:bg-zinc-700/80 transition-colors">
-                      <History className="h-5 w-5 text-zinc-300 group-hover:text-white transition-colors" />
-                    </div>
-                    <div className="space-y-1">
-                      <h4 className="text-sm font-bold text-white">Sejarah Sekolah</h4>
-                      <p className="text-[10px] text-zinc-400 leading-snug">Jejak langkah dan perjalanan sekolah kami.</p>
-                    </div>
-                  </CardContent>
-                </Card>
+                <Link href="/profil/sejarah" className="block outline-none">
+                  <Card className="border border-zinc-800/60 bg-zinc-900/40 hover:bg-zinc-900/80 hover:border-zinc-700/80 backdrop-blur-md text-zinc-100 rounded-2xl cursor-pointer transition-all active:scale-[0.98] group h-full">
+                    <CardContent className="p-5 flex items-start gap-4">
+                      <div className="h-10 w-10 rounded-full bg-zinc-800/80 flex items-center justify-center shrink-0 group-hover:bg-zinc-700/80 transition-colors">
+                        <History className="h-5 w-5 text-zinc-300 group-hover:text-white transition-colors" />
+                      </div>
+                      <div className="space-y-1">
+                        <h4 className="text-sm font-bold text-white">Sejarah Sekolah</h4>
+                        <p className="text-[10px] text-zinc-400 leading-snug">Jejak langkah dan perjalanan sekolah kami.</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
 
-                <Card 
-                  onClick={() => setIsStaffOpen(true)}
-                  className="border border-blue-900/30 bg-blue-950/20 hover:bg-blue-900/40 hover:border-blue-800/50 backdrop-blur-md text-zinc-100 rounded-2xl cursor-pointer transition-all active:scale-[0.98] group"
-                >
-                  <CardContent className="p-5 flex items-start gap-4">
-                    <div className="h-10 w-10 rounded-full bg-blue-900/50 flex items-center justify-center shrink-0 group-hover:bg-blue-800/60 transition-colors">
-                      <Users className="h-5 w-5 text-blue-400 group-hover:text-blue-300 transition-colors" />
-                    </div>
-                    <div className="space-y-1">
-                      <h4 className="text-sm font-bold text-blue-100">Guru & Staff</h4>
-                      <p className="text-[10px] text-blue-200/60 leading-snug">Profil pendidik dan tenaga kependidikan.</p>
-                    </div>
-                  </CardContent>
-                </Card>
+                <Link href="/profil/guru-staff" className="block outline-none">
+                  <Card className="border border-blue-900/30 bg-blue-950/20 hover:bg-blue-900/40 hover:border-blue-800/50 backdrop-blur-md text-zinc-100 rounded-2xl cursor-pointer transition-all active:scale-[0.98] group h-full">
+                    <CardContent className="p-5 flex items-start gap-4">
+                      <div className="h-10 w-10 rounded-full bg-blue-900/50 flex items-center justify-center shrink-0 group-hover:bg-blue-800/60 transition-colors">
+                        <Users className="h-5 w-5 text-blue-400 group-hover:text-blue-300 transition-colors" />
+                      </div>
+                      <div className="space-y-1">
+                        <h4 className="text-sm font-bold text-blue-100">Guru & Staff</h4>
+                        <p className="text-[10px] text-blue-200/60 leading-snug">Profil pendidik dan tenaga kependidikan.</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
               </div>
             </motion.div>
           </motion.div>
@@ -1721,77 +1714,6 @@ export default function HomePage() {
                 ))}
               </div>
             </div>
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* 8. GURU & STAFF DRAWER (SHEET) */}
-      <Sheet open={isStaffOpen} onOpenChange={setIsStaffOpen}>
-        <SheetContent side="left" className="w-full sm:max-w-xl bg-zinc-950/95 border-r border-zinc-800/80 text-zinc-100 backdrop-blur-xl flex flex-col p-6 h-full">
-          <SheetHeader className="pb-4 border-b border-zinc-800/60">
-            <SheetTitle className="text-xl font-bold text-white flex items-center gap-2 text-left">
-              <Users className="h-5 w-5 text-blue-400" /> Guru & Staff Pengajar
-            </SheetTitle>
-          </SheetHeader>
-
-          {/* Filters */}
-          <div className="py-4 flex gap-1.5 overflow-x-auto pb-1 no-scrollbar shrink-0">
-            {[
-              { id: "all", label: "Semua" },
-              { id: "guru", label: "Guru" },
-              { id: "staff", label: "Staff & TU" },
-              { id: "support", label: "Support" },
-            ].map((item) => (
-              <Button
-                key={item.id}
-                variant={staffFilter === item.id ? "default" : "outline"}
-                size="sm"
-                onClick={() => setStaffFilter(item.id as any)}
-                className="rounded-full text-[10px] h-7 px-3 border-zinc-800 active:scale-95"
-              >
-                {item.label}
-              </Button>
-            ))}
-          </div>
-
-          {/* List Content */}
-          <div className="flex-1 overflow-y-auto pr-1 no-scrollbar space-y-4 pb-6">
-            {isStaffLoading ? (
-              <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
-              </div>
-            ) : filteredStaff.length === 0 ? (
-              <div className="text-center py-20 text-xs text-zinc-500">
-                Belum ada data staff untuk kategori ini.
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
-                {filteredStaff.map((staff: any) => (
-                  <div key={staff.id} className="group relative rounded-2xl overflow-hidden border border-zinc-800/60 bg-zinc-900/40 flex flex-col">
-                    <div className="aspect-[3/4] relative bg-zinc-950 overflow-hidden shrink-0">
-                      <img 
-                        src={staff.photoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${staff.name}`}
-                        alt={staff.name}
-                        className="object-cover object-top transition-transform duration-500 group-hover:scale-103 w-full h-full absolute inset-0"
-                      />
-                    </div>
-                    <div className="p-3 flex-1 flex flex-col justify-between space-y-1">
-                      <div>
-                        <h4 className="font-bold text-[11px] leading-tight text-white line-clamp-2">
-                          {staff.name}{staff.degree ? `, ${staff.degree}` : ""}
-                        </h4>
-                        <span className="text-[9px] text-zinc-500 mt-0.5 block">{staff.position}</span>
-                      </div>
-                      {staff.quote && (
-                        <p className="text-[9px] text-zinc-400 italic line-clamp-2 border-t border-zinc-900 pt-1.5 mt-1.5">
-                          &quot;{staff.quote}&quot;
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </SheetContent>
       </Sheet>
