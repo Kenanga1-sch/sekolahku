@@ -44,6 +44,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 const STATUS_COLORS: Record<string, string> = {
     PNS: "bg-emerald-50 text-emerald-700 border-emerald-250 dark:bg-emerald-950/20 dark:text-emerald-400",
+    P3K: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/20 dark:text-teal-400",
     GTY: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/20 dark:text-blue-400",
     GTT: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/20 dark:text-purple-400",
     PTT: "bg-orange-55 text-orange-700 border-orange-200 dark:bg-orange-950/20 dark:text-orange-400",
@@ -140,8 +141,8 @@ export default function MasterGTKPage() {
     const stats = {
         totalGTK: totalEmployees,
         totalGuru: employees.filter(e => e.category === 'guru').length || 0,
-        totalPNS: employees.filter(e => e.employmentStatus === 'PNS').length || 0,
-        totalHonorer: employees.filter(e => e.employmentStatus && e.employmentStatus !== 'PNS').length || 0,
+        totalPNS: employees.filter(e => e.employmentStatus === 'PNS' || e.employmentStatus === 'P3K').length || 0,
+        totalHonorer: employees.filter(e => e.employmentStatus && e.employmentStatus !== 'PNS' && e.employmentStatus !== 'P3K').length || 0,
     };
 
     return (
