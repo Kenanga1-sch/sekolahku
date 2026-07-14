@@ -8,7 +8,7 @@ ssh = paramiko.SSHClient()
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 ssh.connect('100.97.52.50', username='kenanga', password='20216609')
 
-cmd = 'cd /home/kenanga/sekolahku && git pull && echo "20216609" | sudo -S docker compose build --no-cache && echo "20216609" | sudo -S docker compose up -d --force-recreate'
+cmd = 'cd /home/kenanga/sekolahku && git fetch && git reset --hard origin/main && echo "20216609" | sudo -S docker compose build --no-cache && echo "20216609" | sudo -S docker compose up -d --force-recreate'
 
 stdin, stdout, stderr = ssh.exec_command(cmd)
 

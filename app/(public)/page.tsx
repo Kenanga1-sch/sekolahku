@@ -294,26 +294,14 @@ export default function HomePage() {
 
   // Modals & Drawers States
   const [selectedNews, setSelectedNews] = useState<Announcement | null>(null);
-  const [isAllNewsOpen, setIsAllNewsOpen] = useState(false);
-  const [isAllGalleryOpen, setIsAllGalleryOpen] = useState(false);
-  const [isAllFAQOpen, setIsAllFAQOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<any | null>(null);
-  const [isCurriculumOpen, setIsCurriculumOpen] = useState(false);
   // Layanan States
-  const [isBalanceOpen, setIsBalanceOpen] = useState(false);
-  const [isMutationOpen, setIsMutationOpen] = useState(false);
-  const [mutationActiveTab, setMutationActiveTab] = useState<"masuk" | "keluar" | "lacak">("masuk");
-
   // Search & Filter States
   const [newsSearch, setNewsSearch] = useState("");
   const [newsFilter, setNewsFilter] = useState("all");
   const [activeGalleryCat, setActiveGalleryCat] = useState("all");
-  const [faqSearch, setFaqSearch] = useState("");
   // 1. Cek Saldo Form States
-  const [balanceNisn, setBalanceNisn] = useState("");
   const [balanceBirthDate, setBalanceBirthDate] = useState("");
-  const [balanceLoading, setBalanceLoading] = useState(false);
-  const [balanceResult, setBalanceResult] = useState<any>(null);
   const [balanceCooldown, setBalanceCooldown] = useState(0);
 
   // 2. Mutasi Masuk Form States
@@ -342,9 +330,6 @@ export default function HomePage() {
   // 4. Lacak Status Mutasi Form States
   const [trackRegNum, setTrackRegNum] = useState("");
   const [trackNisn, setTrackNisn] = useState("");
-  const [trackLoading, setTrackLoading] = useState(false);
-  const [trackResult, setTrackResult] = useState<any>(null);
-
   // Gallery Fetch via SWR
   const { data: galleryData, isLoading: isGalleryLoading } = useSWR(
     `/api/public/gallery?category=${activeGalleryCat}`,
@@ -891,12 +876,11 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <Button 
-                onClick={() => setIsCurriculumOpen(true)}
+              <Link href="/kurikulum" className="block w-full"><Button 
                 className="w-full h-11 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all mt-2 active:scale-[0.98] active:translate-y-[1px]"
               >
                 Lihat Detail Kurikulum & Ekskul
-              </Button>
+              </Button></Link>
             </motion.div>
           </motion.div>
         </section>
@@ -959,13 +943,12 @@ export default function HomePage() {
                 ))
               )}
 
-              <Button 
-                onClick={() => setIsAllNewsOpen(true)}
+              <Link href="/berita" className="block"><Button 
                 variant="outline" 
                 className="w-full h-11 rounded-full border-zinc-800 bg-zinc-900/20 text-zinc-200 hover:bg-zinc-900/60 font-bold transition-all mt-2 active:scale-[0.98] active:translate-y-[1px]"
               >
                 Lihat Semua Berita & Pengumuman
-              </Button>
+              </Button></Link>
             </motion.div>
           </motion.div>
         </section>
@@ -1021,12 +1004,11 @@ export default function HomePage() {
                 </div>
               )}
 
-              <Button 
-                onClick={() => setIsAllGalleryOpen(true)}
+              <Link href="/galeri" className="block"><Button 
                 className="w-full h-11 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition-all mt-2 active:scale-[0.98] active:translate-y-[1px]"
               >
                 Buka Galeri Lengkap
-              </Button>
+              </Button></Link>
             </motion.div>
           </motion.div>
         </section>
@@ -1132,24 +1114,8 @@ export default function HomePage() {
                     <p className="text-xs text-zinc-400 leading-relaxed">Ajukan perpindahan sekolah murid masuk/keluar secara online, serta pantau status verifikasinya.</p>
                   </div>
                   <div className="flex flex-col gap-1.5 pt-2">
-                    <button 
-                      onClick={() => {
-                        setMutationActiveTab("masuk");
-                        setIsMutationOpen(true);
-                      }}
-                      className="inline-flex items-center text-xs text-blue-400 font-bold hover:underline cursor-pointer text-left"
-                    >
-                      Urus Mutasi <ArrowRight className="h-3.5 w-3.5 ml-1" />
-                    </button>
-                    <button 
-                      onClick={() => {
-                        setMutationActiveTab("lacak");
-                        setIsMutationOpen(true);
-                      }}
-                      className="inline-flex items-center text-[10px] text-zinc-400 font-medium hover:text-white cursor-pointer text-left"
-                    >
-                      Lacak Status Permohonan <ChevronRight className="h-3 w-3 ml-0.5" />
-                    </button>
+                    <Link href="/layanan/mutasi-masuk" className="inline-flex items-center text-xs text-blue-400 font-bold hover:underline cursor-pointer text-left">Urus Mutasi <ArrowRight className="h-3.5 w-3.5 ml-1" /></Link>
+                    <Link href="/layanan/mutasi-masuk/status" className="inline-flex items-center text-[10px] text-zinc-400 font-medium hover:text-white cursor-pointer text-left">Lacak Status Permohonan <ChevronRight className="h-3 w-3 ml-0.5" /></Link>
                   </div>
                 </CardContent>
               </Card>
@@ -1160,12 +1126,7 @@ export default function HomePage() {
                     <h4 className="font-bold text-sm text-white">Cek Saldo Mandiri</h4>
                     <p className="text-xs text-zinc-400 leading-relaxed">Lacak riwayat uang jajan dan saldo tabungan brankas sekolah murid secara transparan untuk melatih hemat.</p>
                   </div>
-                  <button 
-                    onClick={() => setIsBalanceOpen(true)}
-                    className="inline-flex items-center text-xs text-blue-400 font-bold hover:underline pt-2 cursor-pointer text-left"
-                  >
-                    Periksa Saldo <ArrowRight className="h-3.5 w-3.5 ml-1" />
-                  </button>
+                  <Link href="/layanan/cek-saldo" className="inline-flex items-center text-xs text-blue-400 font-bold hover:underline pt-2 cursor-pointer text-left">Periksa Saldo <ArrowRight className="h-3.5 w-3.5 ml-1" /></Link>
                 </CardContent>
               </Card>
             </motion.div>
@@ -1256,12 +1217,11 @@ export default function HomePage() {
                 </AccordionItem>
               </Accordion>
 
-              <Button 
-                onClick={() => setIsAllFAQOpen(true)}
+              <Link href="/faq" className="block"><Button 
                 className="w-full h-11 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all mt-2 active:scale-[0.98] active:translate-y-[1px]"
               >
                 Lihat Semua Tanya Jawab
-              </Button>
+              </Button></Link>
             </motion.div>
           </motion.div>
         </section>
@@ -1353,230 +1313,16 @@ export default function HomePage() {
           ═══════════════════════════════════════ */}
 
       {/* 1. CURRICULUM DETAIL DRAWER (SHEET) */}
-      <Sheet open={isCurriculumOpen} onOpenChange={setIsCurriculumOpen}>
-        <SheetContent side="left" className="w-full sm:max-w-2xl bg-zinc-950/95 border-r border-zinc-800/80 text-zinc-100 backdrop-blur-xl flex flex-col p-6 h-full">
-          <SheetHeader className="pb-4 border-b border-zinc-800/60">
-            <SheetTitle className="text-2xl font-bold text-white flex items-center gap-2 text-left">
-              <GraduationCap className="h-6 w-6 text-blue-400" /> Detail Program Sekolah
-            </SheetTitle>
-          </SheetHeader>
-          <div className="flex-1 overflow-y-auto mt-6 space-y-6 pr-1 no-scrollbar">
-            <div>
-              <h4 className="font-bold text-sm text-zinc-100 mb-2 border-b border-zinc-800/60 pb-1 flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-blue-400" /> Kurikulum Sekolah
-              </h4>
-              <p className="text-xs text-zinc-400 leading-relaxed">
-                Kami menerapkan kurikulum terpadu yang berfokus pada pengembangan karakter, literasi, numerasi, dan kompetensi murid melalui pembelajaran aktif berbasis proyek.
-              </p>
-              <div className="grid grid-cols-2 gap-2 mt-3">
-                {schoolSubjects.map((sub: any, i: number) => (
-                  <div key={i} className="flex items-center gap-2 p-2.5 rounded-xl bg-zinc-900/5 border border-zinc-800/60 text-xs">
-                    <sub.icon className="h-3.5 w-3.5 text-zinc-400" />
-                    <span className="text-zinc-300">{sub.name}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <h4 className="font-bold text-sm text-zinc-100 mb-2 border-b border-zinc-800/60 pb-1 flex items-center gap-2">
-                <Trophy className="h-4 w-4 text-blue-400" /> Kegiatan Ekstrakurikuler
-              </h4>
-              <p className="text-xs text-zinc-400 leading-relaxed mb-3">
-                Wadah penyaluran hobi, kebugaran fisik, kreativitas, dan pengembangan karakter kerja tim di luar jam pelajaran kelas.
-              </p>
-              <div className="space-y-2">
-                {schoolEkskul.map((ekskul: any, i: number) => (
-                  <div key={i} className="flex justify-between items-center p-3 rounded-xl bg-zinc-900/50 border border-zinc-800/60">
-                    <div className="flex items-center gap-3">
-                      <ekskul.icon className="h-4 w-4 text-zinc-400" />
-                      <div>
-                        <span className="text-xs font-bold block text-white">{ekskul.name}</span>
-                        <span className="text-[10px] text-zinc-500">{ekskul.description || ekskul.category}</span>
-                      </div>
-                    </div>
-                    <Badge variant="outline" className="border-zinc-850 text-[9px] text-zinc-400 bg-zinc-950/40">
-                      {ekskul.schedule || "Terjadwal"}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+      
 
       {/* 2. NEWS DETAIL DRAWER (SHEET) */}
-      <Sheet open={!!selectedNews} onOpenChange={(open) => !open && setSelectedNews(null)}>
-        <SheetContent side="left" className="w-full sm:max-w-2xl bg-zinc-950/95 border-r border-zinc-800/80 text-zinc-100 backdrop-blur-xl flex flex-col p-6 h-full">
-          {selectedNews && (
-            <>
-              <SheetHeader className="pb-4 border-b border-zinc-800/60">
-                <div className="flex justify-between items-center text-[10px] mb-2">
-                  <Badge className={getCategoryColor(selectedNews.category)}>
-                    {selectedNews.category}
-                  </Badge>
-                  <span className="text-zinc-500 flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5" />
-                    {new Date(selectedNews.published_at || 0).toLocaleDateString("id-ID", {
-                      day: "numeric",
-                      month: "long",
-                      year: "numeric"
-                    })}
-                  </span>
-                </div>
-                <SheetTitle className="text-xl sm:text-2xl font-bold leading-snug text-white text-left">
-                  {selectedNews.title}
-                </SheetTitle>
-              </SheetHeader>
-
-              {/* News Body Image & Content */}
-              <div className="flex-1 overflow-y-auto mt-4 space-y-4 pr-1 no-scrollbar">
-                {selectedNews.thumbnail && (
-                  <div className="h-60 w-full relative overflow-hidden rounded-2xl border border-zinc-800/60 bg-zinc-950">
-                    <img 
-                      src={selectedNews.thumbnail} 
-                      alt={selectedNews.title} 
-                      className="w-full h-full object-cover" 
-                    />
-                  </div>
-                )}
-                <div 
-                  className="text-xs sm:text-sm text-zinc-300 leading-relaxed space-y-4 font-normal"
-                  dangerouslySetInnerHTML={{ __html: selectedNews.content || "" }}
-                />
-              </div>
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
+      
 
       {/* 3. ALL NEWS LIST DRAWER */}
-      <Sheet open={isAllNewsOpen} onOpenChange={setIsAllNewsOpen}>
-        <SheetContent side="left" className="w-full sm:max-w-lg bg-zinc-950/95 border-r border-zinc-800/80 text-zinc-100 backdrop-blur-xl flex flex-col p-6 h-full">
-          <SheetHeader className="pb-4 border-b border-zinc-800/60">
-            <SheetTitle className="text-xl font-bold text-white flex items-center gap-2">
-              <Newspaper className="h-5 w-5 text-blue-400" /> Kabar & Pengumuman Sekolah
-            </SheetTitle>
-          </SheetHeader>
-          
-          {/* Search & Category Filter */}
-          <div className="py-4 space-y-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-              <Input 
-                placeholder="Cari kabar sekolah..." 
-                className="pl-9 h-10 bg-zinc-900/50 border-zinc-800 text-xs rounded-xl focus-visible:ring-blue-500 text-zinc-100" 
-                value={newsSearch}
-                onChange={(e) => setNewsSearch(e.target.value)}
-              />
-            </div>
-            
-            <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-              {newsCategories.map((cat) => (
-                <Button
-                  key={cat.value}
-                  variant={newsFilter === cat.value ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => newsFilter === cat.value ? setNewsFilter("all") : setNewsFilter(cat.value)}
-                  className="rounded-full text-[10px] h-7 px-3 border-zinc-800 active:scale-95"
-                >
-                  {cat.label}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          {/* List Content */}
-          <div className="flex-1 overflow-y-auto space-y-3 pr-1 no-scrollbar">
-            {filteredNews.length === 0 ? (
-              <div className="text-center py-20 text-xs text-zinc-500">
-                Tidak ada kabar/pengumuman ditemukan.
-              </div>
-            ) : (
-              filteredNews.map((item) => (
-                <div 
-                  key={item.id}
-                  onClick={() => {
-                    setSelectedNews(item);
-                  }}
-                  className="p-4 rounded-xl border border-zinc-800/60 bg-zinc-900/30 hover:bg-zinc-900/60 active:scale-[0.99] active:translate-y-[1px] cursor-pointer space-y-1.5 transition-all"
-                >
-                  <div className="flex justify-between items-center text-[9px]">
-                    <Badge className={getCategoryColor(item.category)}>
-                      {item.category}
-                    </Badge>
-                    <span className="text-zinc-500">
-                      {new Date(item.published_at || 0).toLocaleDateString("id-ID")}
-                    </span>
-                  </div>
-                  <h4 className="font-bold text-xs text-zinc-100 line-clamp-1">{item.title}</h4>
-                  <p className="text-[10px] text-zinc-400 line-clamp-2 leading-relaxed">{item.excerpt}</p>
-                </div>
-              ))
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
+      
 
       {/* 4. ALL GALLERY LIST DRAWER */}
-      <Sheet open={isAllGalleryOpen} onOpenChange={setIsAllGalleryOpen}>
-        <SheetContent side="left" className="w-full sm:max-w-xl bg-zinc-950/95 border-r border-zinc-800/80 text-zinc-100 backdrop-blur-xl flex flex-col p-6 h-full">
-          <SheetHeader className="pb-4 border-b border-zinc-800/60">
-            <SheetTitle className="text-xl font-bold text-white flex items-center gap-2">
-              <Camera className="h-5 w-5 text-emerald-400" /> Galeri Dokumentasi Lengkap
-            </SheetTitle>
-          </SheetHeader>
-
-          {/* Filter Categories */}
-          <div className="py-4 flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-            {galleryCategories.map((cat) => (
-              <Button
-                key={cat.id}
-                variant={activeGalleryCat === cat.id ? "default" : "outline"}
-                size="sm"
-                onClick={() => setActiveGalleryCat(cat.id)}
-                className="rounded-full text-[10px] h-7 px-3 border-zinc-800 active:scale-95"
-              >
-                {cat.label}
-              </Button>
-            ))}
-          </div>
-
-          {/* Grid Content */}
-          <div className="flex-1 overflow-y-auto pr-1 no-scrollbar">
-            {isGalleryLoading ? (
-              <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
-              </div>
-            ) : galleryItems.length === 0 ? (
-              <div className="text-center py-20 text-xs text-zinc-500">
-                Belum ada foto dalam kategori ini.
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3 pb-6">
-                {galleryItems.map((item: any) => (
-                  <div 
-                    key={item.id} 
-                    onClick={() => setSelectedImage(item)}
-                    className="group relative aspect-[4/3] rounded-xl overflow-hidden cursor-pointer border border-zinc-800/60 bg-zinc-900/50 active:scale-[0.98] active:translate-y-[1px] transition-all"
-                  >
-                    <Image 
-                      src={item.imageUrl} 
-                      alt={item.title} 
-                      fill 
-                      className="object-cover transition-transform duration-500 group-hover:scale-105" 
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
-                      <span className="text-[10px] font-medium text-white truncate w-full">{item.title}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
+      
 
       {/* 5. IMAGE LIGHTBOX DIALOG */}
       <Dialog open={!!selectedImage} onOpenChange={(open) => !open && setSelectedImage(null)}>
@@ -1614,674 +1360,22 @@ export default function HomePage() {
       </Dialog>
 
       {/* 6. ALL FAQ DRAWER */}
-      <Sheet open={isAllFAQOpen} onOpenChange={setIsAllFAQOpen}>
-        <SheetContent side="left" className="w-full sm:max-w-lg bg-zinc-950/95 border-r border-zinc-800/80 text-zinc-100 backdrop-blur-xl flex flex-col p-6 h-full">
-          <SheetHeader className="pb-4 border-b border-zinc-800/60">
-            <SheetTitle className="text-xl font-bold text-white flex items-center gap-2">
-              <HelpCircle className="h-5 w-5 text-blue-400" /> Tanya Jawab Lengkap
-            </SheetTitle>
-          </SheetHeader>
-
-          {/* Search Box */}
-          <div className="py-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-              <Input 
-                placeholder="Cari pertanyaan umum..." 
-                className="pl-9 h-10 bg-zinc-900/50 border-zinc-800 text-xs rounded-xl focus-visible:ring-blue-500 text-zinc-100" 
-                value={faqSearch}
-                onChange={(e) => setFaqSearch(e.target.value)}
-              />
-            </div>
-          </div>
-
-          {/* Accordion List Content */}
-          <div className="flex-1 overflow-y-auto space-y-4 pr-1 no-scrollbar">
-            {filteredFaqs.length === 0 ? (
-              <div className="text-center py-20 text-xs text-zinc-500">
-                Tidak ada tanya jawab ditemukan.
-              </div>
-            ) : (
-              filteredFaqs.map((category: any) => (
-                <div key={category.id} className="space-y-2">
-                  <h4 className="text-xs font-bold text-blue-400 tracking-wider uppercase border-b border-zinc-900 pb-1">
-                    {category.title}
-                  </h4>
-                  <Accordion type="single" collapsible className="space-y-1.5">
-                    {category.questions.map((faq: any, idx: number) => (
-                      <AccordionItem 
-                        key={idx} 
-                        value={`${category.id}-${idx}`}
-                        className="border border-zinc-900 bg-zinc-900/20 rounded-xl px-4"
-                      >
-                        <AccordionTrigger className="text-xs font-semibold hover:no-underline text-zinc-200 py-3 text-left">
-                          {faq.q}
-                        </AccordionTrigger>
-                        <AccordionContent className="text-zinc-400 text-[11px] leading-relaxed pb-3">
-                          {faq.a}
-                        </AccordionContent>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
-                </div>
-              ))
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
+      
 
       {/* 7. SEJARAH DRAWER (SHEET) */}
-      <Sheet open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
-        <SheetContent side="left" className="w-full sm:max-w-xl bg-zinc-950/95 border-r border-zinc-800/80 text-zinc-100 backdrop-blur-xl flex flex-col p-6 h-full">
-          <SheetHeader className="pb-4 border-b border-zinc-800/60">
-            <SheetTitle className="text-xl font-bold text-white flex items-center gap-2 text-left">
-              <History className="h-5 w-5 text-blue-400" /> Sejarah & Perjalanan Sekolah
-            </SheetTitle>
-          </SheetHeader>
-
-          <div className="flex-1 overflow-y-auto mt-6 space-y-6 pr-1 no-scrollbar pb-6">
-            {/* Stats Achievements */}
-            <div className="grid grid-cols-2 gap-3">
-              {schoolAchievements.map((item: any, idx: number) => (
-                <div key={idx} className="p-4 rounded-2xl border border-zinc-800/60 bg-zinc-900/40 text-center flex flex-col items-center justify-center space-y-1">
-                  <div className="h-9 w-9 rounded-xl bg-blue-950/50 border border-blue-900/30 flex items-center justify-center">
-                    <item.icon className="h-4 w-4 text-blue-400" />
-                  </div>
-                  <span className="text-lg font-black text-white block pt-1">{item.value}</span>
-                  <span className="text-[10px] text-zinc-400 font-medium">{item.label}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Timeline */}
-            <div className="space-y-4">
-              <h4 className="text-xs font-bold text-blue-400 tracking-wider uppercase border-b border-zinc-900 pb-1">
-                Linimasa Sejarah
-              </h4>
-              <div className="relative border-l border-zinc-800 pl-4 ml-2 space-y-6">
-                {schoolTimeline.map((item: any, idx: number) => (
-                  <div key={idx} className="relative">
-                    {/* Circle marker */}
-                    <div className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-blue-500 ring-4 ring-zinc-950" />
-                    <div className="space-y-1">
-                      <span className="font-mono text-[10px] font-black text-blue-400 bg-blue-950/40 px-2 py-0.5 rounded-md border border-blue-900/20">
-                        {item.year}
-                      </span>
-                      <h5 className="text-xs font-bold text-white pt-1">{item.title}</h5>
-                      <p className="text-[11px] text-zinc-400 leading-relaxed">{item.description}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+      
 
       {/* 9. CEK SALDO TABUNGAN DRAWER (SHEET) */}
-      <Sheet open={isBalanceOpen} onOpenChange={setIsBalanceOpen}>
-        <SheetContent side="left" className="w-full sm:max-w-md bg-zinc-950/95 border-r border-zinc-800/80 text-zinc-100 backdrop-blur-xl flex flex-col p-6 h-full">
-          <SheetHeader className="pb-4 border-b border-zinc-800/60">
-            <SheetTitle className="text-xl font-bold text-white flex items-center gap-2 text-left">
-              <CreditCard className="h-5 w-5 text-blue-400" /> Periksa Saldo Tabungan Siswa
-            </SheetTitle>
-          </SheetHeader>
-
-          <div className="flex-1 overflow-y-auto mt-6 pr-1 no-scrollbar pb-6">
-            {balanceResult ? (
-              <div className="space-y-6">
-                <div className="p-5 rounded-2xl border border-zinc-800/60 bg-zinc-900/40 text-center space-y-4">
-                  <div className="mx-auto bg-blue-950/50 border border-blue-900/30 p-3 rounded-full w-14 h-14 flex items-center justify-center">
-                    <CreditCard className="h-6 w-6 text-blue-400" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-zinc-500 uppercase font-mono tracking-wider">Nama Siswa</span>
-                    <h4 className="font-bold text-sm text-white">{balanceResult.name}</h4>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-zinc-500 uppercase font-mono tracking-wider">Kelas</span>
-                    <p className="text-xs text-zinc-300 font-medium">{balanceResult.className}</p>
-                  </div>
-                  <div className="bg-zinc-950/80 py-4 rounded-xl border border-zinc-900">
-                    <span className="text-[10px] text-zinc-500 uppercase font-mono tracking-wider block mb-1">Total Saldo</span>
-                    <p className="text-2xl font-black text-blue-400">
-                      Rp {balanceResult.balance.toLocaleString("id-ID")}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <p className="text-[10px] text-center text-zinc-500">
-                    Keterangan: Data per {new Date(balanceResult.lastUpdate).toLocaleString("id-ID")}. <br />
-                    Layar akan tereset otomatis dalam {balanceCooldown} detik.
-                  </p>
-                  <Button 
-                    onClick={() => {
-                      setBalanceResult(null);
-                      setBalanceCooldown(0);
-                    }} 
-                    className="w-full h-11 rounded-full bg-zinc-900 hover:bg-zinc-850 text-zinc-200 border border-zinc-800 font-bold transition-all active:scale-[0.98]"
-                  >
-                    <RefreshCw className="mr-2 h-4 w-4" /> Cek Kartu Lain
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <form onSubmit={handleCheckBalance} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-300">NISN (10 digit)</label>
-                  <Input 
-                    placeholder="Masukkan Nomor Induk Siswa Nasional" 
-                    value={balanceNisn}
-                    onChange={(e) => setBalanceNisn(e.target.value)}
-                    maxLength={10}
-                    className="bg-zinc-900/50 border-zinc-800 text-xs rounded-xl focus-visible:ring-blue-500 text-zinc-100"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-300">Tanggal Lahir</label>
-                  <Input 
-                    type="date"
-                    value={balanceBirthDate}
-                    onChange={(e) => setBalanceBirthDate(e.target.value)}
-                    className="bg-zinc-900/50 border-zinc-800 text-xs rounded-xl focus-visible:ring-blue-500 text-zinc-100"
-                    required
-                  />
-                </div>
-
-                <Button type="submit" className="w-full h-11 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all mt-4 active:scale-[0.98]" disabled={balanceLoading}>
-                  {balanceLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                  Periksa Saldo
-                </Button>
-              </form>
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
+      
 
       {/* 10. ADMINISTRASI MUTASI DRAWER (SHEET) */}
-      <Sheet open={isMutationOpen} onOpenChange={setIsMutationOpen}>
-        <SheetContent side="left" className="w-full sm:max-w-xl bg-zinc-950/95 border-r border-zinc-800/80 text-zinc-100 backdrop-blur-xl flex flex-col p-6 h-full">
-          <SheetHeader className="pb-2 border-b border-zinc-800/60">
-            <SheetTitle className="text-xl font-bold text-white flex items-center gap-2 text-left">
-              <Building className="h-5 w-5 text-blue-400" /> Layanan Administrasi Mutasi
-            </SheetTitle>
-          </SheetHeader>
-
-          {/* Drawer Tabs */}
-          <div className="py-3 flex gap-1.5 overflow-x-auto pb-1 no-scrollbar shrink-0 border-b border-zinc-900">
-            {[
-              { id: "masuk", label: "Mutasi Masuk" },
-              { id: "keluar", label: "Mutasi Keluar" },
-              { id: "lacak", label: "Lacak Status" },
-            ].map((tab) => (
-              <Button
-                key={tab.id}
-                variant={mutationActiveTab === tab.id ? "default" : "outline"}
-                size="sm"
-                onClick={() => setMutationActiveTab(tab.id as any)}
-                className="rounded-full text-[10px] h-7 px-3 border-zinc-800 active:scale-95"
-              >
-                {tab.label}
-              </Button>
-            ))}
-          </div>
-
-          <div className="flex-1 overflow-y-auto mt-4 pr-1 no-scrollbar pb-6">
-            
-            {/* TAB 1: MUTASI MASUK */}
-            {mutationActiveTab === "masuk" && (
-              inSuccessRegNum ? (
-                <div className="space-y-6 text-center">
-                  <div className="bg-zinc-900/40 border border-zinc-800/60 p-6 rounded-2xl space-y-4">
-                    <div className="mx-auto bg-green-950/50 border border-green-900/30 p-3 rounded-full w-14 h-14 flex items-center justify-center">
-                      <CheckCircle2 className="h-6 w-6 text-green-400" />
-                    </div>
-                    <div className="space-y-1">
-                      <h4 className="text-sm font-bold text-white">Permohonan Terkirim</h4>
-                      <p className="text-[11px] text-zinc-400">Silakan simpan nomor registrasi di bawah untuk melacak berkas:</p>
-                    </div>
-                    <div className="bg-zinc-950/80 py-3 rounded-xl border border-zinc-900 flex items-center justify-center gap-2">
-                      <span className="text-2xl font-black text-blue-400 tracking-wider font-mono">{inSuccessRegNum}</span>
-                      <Button 
-                        size="icon" 
-                        variant="ghost" 
-                        className="h-8 w-8 text-zinc-400 hover:text-white"
-                        onClick={() => {
-                          navigator.clipboard.writeText(inSuccessRegNum);
-                          toast.success("Nomor registrasi disalin!");
-                        }}
-                      >
-                        <FileText className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                  <Button 
-                    onClick={() => {
-                      setInSuccessRegNum(null);
-                      setInName("");
-                      setInNisn("");
-                      setInOriginSchool("");
-                      setInOriginAddress("");
-                      setInParent("");
-                      setInWhatsapp("");
-                    }}
-                    className="w-full h-11 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all active:scale-[0.98]"
-                  >
-                    Buat Permohonan Baru
-                  </Button>
-                </div>
-              ) : (
-                <form onSubmit={handleMutasiMasukSubmit} className="space-y-3">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-zinc-300">Nama Lengkap Siswa</label>
-                    <Input 
-                      placeholder="Masukkan nama sesuai akta lahir" 
-                      value={inName}
-                      onChange={(e) => setInName(e.target.value)}
-                      className="bg-zinc-900/50 border-zinc-800 text-xs rounded-xl focus-visible:ring-blue-500"
-                      required
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-zinc-300">NISN (10 digit)</label>
-                      <Input 
-                        placeholder="NISN" 
-                        value={inNisn}
-                        onChange={(e) => setInNisn(e.target.value)}
-                        maxLength={10}
-                        className="bg-zinc-900/50 border-zinc-800 text-xs rounded-xl focus-visible:ring-blue-500"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-zinc-300">Jenis Kelamin</label>
-                      <Select value={inGender} onValueChange={(val: any) => setInGender(val)}>
-                        <SelectTrigger className="bg-zinc-900/50 border-zinc-800 text-xs rounded-xl">
-                          <SelectValue placeholder="Pilih" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-zinc-900 border-zinc-850 text-white text-xs">
-                          <SelectItem value="L">Laki-laki</SelectItem>
-                          <SelectItem value="P">Perempuan</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-zinc-300">Sekolah Asal</label>
-                    <Input 
-                      placeholder="Nama SD/MI asal" 
-                      value={inOriginSchool}
-                      onChange={(e) => setInOriginSchool(e.target.value)}
-                      className="bg-zinc-900/50 border-zinc-800 text-xs rounded-xl focus-visible:ring-blue-500"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-zinc-300">Alamat Lengkap Sekolah Asal</label>
-                    <Input 
-                      placeholder="Alamat sekolah asal" 
-                      value={inOriginAddress}
-                      onChange={(e) => setInOriginAddress(e.target.value)}
-                      className="bg-zinc-900/50 border-zinc-800 text-xs rounded-xl focus-visible:ring-blue-500"
-                      required
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-zinc-300">Tingkat Kelas Tujuan</label>
-                      <Select value={inGrade} onValueChange={setInGrade}>
-                        <SelectTrigger className="bg-zinc-900/50 border-zinc-800 text-xs rounded-xl">
-                          <SelectValue placeholder="Pilih Kelas" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-zinc-900 border-zinc-850 text-white text-xs">
-                          {["1", "2", "3", "4", "5", "6"].map((g) => (
-                            <SelectItem key={g} value={g}>Kelas {g}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-zinc-300">Nama Orang Tua / Wali</label>
-                      <Input 
-                        placeholder="Nama wali murid" 
-                        value={inParent}
-                        onChange={(e) => setInParent(e.target.value)}
-                        className="bg-zinc-900/50 border-zinc-800 text-xs rounded-xl focus-visible:ring-blue-500"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-zinc-300">Nomor WhatsApp Aktif</label>
-                    <Input 
-                      placeholder="Contoh: 081234567890" 
-                      value={inWhatsapp}
-                      onChange={(e) => setInWhatsapp(e.target.value)}
-                      className="bg-zinc-900/50 border-zinc-800 text-xs rounded-xl focus-visible:ring-blue-500"
-                      required
-                    />
-                  </div>
-
-                  <Button type="submit" className="w-full h-11 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all mt-4 active:scale-[0.98]" disabled={inLoading}>
-                    {inLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Kirim Permohonan Mutasi Masuk
-                  </Button>
-                </form>
-              )
-            )}
-
-            {/* TAB 2: MUTASI KELUAR */}
-            {mutationActiveTab === "keluar" && (
-              outStep === "validate" && (
-                <form onSubmit={handleMutasiKeluarValidate} className="space-y-4">
-                  <div className="p-4 rounded-xl border border-blue-900/20 bg-blue-950/20 text-xs text-zinc-300 leading-relaxed">
-                    Catatan: Fitur ini hanya berlaku untuk siswa aktif yang sudah terdaftar di pangkalan data {settings?.school_name || "UPTD SDN 1 Kenanga"}.
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-zinc-300">NISN Siswa (10 digit)</label>
-                    <Input 
-                      placeholder="Masukkan NISN siswa aktif" 
-                      value={outNisn}
-                      onChange={(e) => setOutNisn(e.target.value)}
-                      maxLength={10}
-                      className="bg-zinc-900/50 border-zinc-800 text-xs rounded-xl focus-visible:ring-blue-500"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-zinc-300">Tanggal Lahir Siswa</label>
-                    <Input 
-                      type="date"
-                      value={outBirthDate}
-                      onChange={(e) => setOutBirthDate(e.target.value)}
-                      className="bg-zinc-900/50 border-zinc-800 text-xs rounded-xl focus-visible:ring-blue-500"
-                      required
-                    />
-                  </div>
-                  <Button type="submit" className="w-full h-11 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all mt-2 active:scale-[0.98]" disabled={outValidateLoading}>
-                    {outValidateLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Validasi Data Siswa
-                  </Button>
-                </form>
-              )
-            )}
-
-            {mutationActiveTab === "keluar" && outStep === "form" && outStudentData && (
-              <form onSubmit={handleMutasiKeluarSubmit} className="space-y-4">
-                <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/40 space-y-2 text-xs">
-                  <h5 className="font-bold text-white border-b border-zinc-800 pb-1 uppercase font-mono tracking-wide">Data Terverifikasi</h5>
-                  <div><span className="text-zinc-500">Nama:</span> <strong className="text-zinc-300">{outStudentData.fullName}</strong></div>
-                  <div><span className="text-zinc-500">Kelas:</span> <strong className="text-zinc-300">{outStudentData.className}</strong></div>
-                  <div><span className="text-zinc-500">Wali:</span> <strong className="text-zinc-300">{outStudentData.parentName}</strong></div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-300">Sekolah Tujuan</label>
-                  <Input 
-                    placeholder="Masukkan nama SD/MI sekolah tujuan" 
-                    value={outDestinationSchool}
-                    onChange={(e) => setOutDestinationSchool(e.target.value)}
-                    className="bg-zinc-900/50 border-zinc-800 text-xs rounded-xl focus-visible:ring-blue-500"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-300">Alasan Pindah Sekolah</label>
-                  <Select value={outReason} onValueChange={(val: any) => setOutReason(val)}>
-                    <SelectTrigger className="bg-zinc-900/50 border-zinc-800 text-xs rounded-xl">
-                      <SelectValue placeholder="Pilih Alasan" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-zinc-900 border-zinc-850 text-white text-xs">
-                      <SelectItem value="domisili">Pindah Domisili</SelectItem>
-                      <SelectItem value="tugas_orangtua">Mengikuti Tugas Orang Tua / Pekerjaan</SelectItem>
-                      <SelectItem value="lainnya">Lainnya (Tulis detail di bawah)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-zinc-300">Keterangan Tambahan / Alasan Detail</label>
-                  <Input 
-                    placeholder="Tulis alasan jika memilih Lainnya" 
-                    value={outReasonDetail}
-                    onChange={(e) => setOutReasonDetail(e.target.value)}
-                    className="bg-zinc-900/50 border-zinc-800 text-xs rounded-xl focus-visible:ring-blue-500"
-                  />
-                </div>
-
-                <Button type="submit" className="w-full h-11 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all mt-4 active:scale-[0.98]" disabled={outSubmitLoading}>
-                  {outSubmitLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-                  Proses & Unduh Surat Permohonan
-                </Button>
-              </form>
-            )}
-
-            {mutationActiveTab === "keluar" && outStep === "success" && (
-              <div className="space-y-6 text-center">
-                <div className="bg-zinc-900/40 border border-zinc-800 p-6 rounded-2xl space-y-4">
-                  <div className="mx-auto bg-green-950/50 border border-green-900/30 p-3 rounded-full w-14 h-14 flex items-center justify-center">
-                    <CheckCircle2 className="h-6 w-6 text-green-400" />
-                  </div>
-                  <div className="space-y-1">
-                    <h4 className="text-sm font-bold text-white">Surat Permohonan Dibuat</h4>
-                    <p className="text-[11px] text-zinc-400 leading-relaxed">
-                      Dokumen PDF permohonan mutasi keluar siswa telah berhasil diunduh ke perangkat Anda. <br />
-                      Silakan serahkan cetakan surat bertanda tangan wali murid ke bagian Tata Usaha sekolah.
-                    </p>
-                  </div>
-                </div>
-                <Button 
-                  onClick={() => {
-                    setOutStep("validate");
-                    setOutNisn("");
-                    setOutBirthDate("");
-                    setOutStudentData(null);
-                    setOutDestinationSchool("");
-                    setOutReason("domisili");
-                    setOutReasonDetail("");
-                  }}
-                  className="w-full h-11 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all active:scale-[0.98]"
-                >
-                  Cek Data Siswa Lain
-                </Button>
-              </div>
-            )}
-
-            {/* TAB 3: LACAK STATUS MUTASI */}
-            {mutationActiveTab === "lacak" && (
-              <div className="space-y-6">
-                <form onSubmit={handleTrackMutation} className="space-y-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-zinc-300">Nomor Registrasi Permohonan</label>
-                    <Input 
-                      placeholder="Contoh: MUT-2026-XXXXX" 
-                      value={trackRegNum}
-                      onChange={(e) => setTrackRegNum(e.target.value)}
-                      className="bg-zinc-900/50 border-zinc-800 text-xs rounded-xl focus-visible:ring-blue-500"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-zinc-300">NISN Siswa (10 digit)</label>
-                    <Input 
-                      placeholder="Masukkan NISN siswa pendaftar" 
-                      value={trackNisn}
-                      onChange={(e) => setTrackNisn(e.target.value)}
-                      maxLength={10}
-                      className="bg-zinc-900/50 border-zinc-800 text-xs rounded-xl focus-visible:ring-blue-500"
-                      required
-                    />
-                  </div>
-
-                  <Button type="submit" className="w-full h-11 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all active:scale-[0.98]" disabled={trackLoading}>
-                    {trackLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                    Lacak Status Permohonan
-                  </Button>
-                </form>
-
-                {trackResult && (
-                  <div className="p-5 rounded-2xl border border-zinc-800/60 bg-zinc-900/40 space-y-4">
-                    <div className="flex justify-between items-center border-b border-zinc-850 pb-2.5">
-                      <span className="text-[10px] font-mono text-zinc-500">{trackResult.registrationNumber}</span>
-                      <Badge className={cn("text-[9px] font-bold py-0.5 px-2.5 rounded-full border", statusConfig[trackResult.statusApproval]?.color || "bg-zinc-800 text-zinc-400 border-zinc-700")}>
-                        {statusConfig[trackResult.statusApproval]?.label || trackResult.statusApproval}
-                      </Badge>
-                    </div>
-
-                    <div className="space-y-2 text-xs">
-                      <div>
-                        <span className="text-zinc-500 text-[10px] block">Nama Siswa</span>
-                        <strong className="text-zinc-200">{trackResult.studentName}</strong>
-                      </div>
-                      <div>
-                        <span className="text-zinc-500 text-[10px] block">Sekolah Asal</span>
-                        <p className="text-zinc-300 leading-tight">{trackResult.originSchool}</p>
-                      </div>
-                      <div>
-                        <span className="text-zinc-500 text-[10px] block">Keterangan Tahap</span>
-                        <p className="text-zinc-400 text-[10.5px] leading-relaxed pt-0.5">
-                          {statusConfig[trackResult.statusApproval]?.desc || "Data sedang dikaji."}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-          </div>
-        </SheetContent>
-      </Sheet>
+      
 
       {/* 11. SEJARAH DRAWER (SHEET) */}
-      <Sheet open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
-        <SheetContent side="left" className="w-full sm:max-w-xl bg-zinc-950/95 border-r border-zinc-800/80 text-zinc-100 backdrop-blur-xl flex flex-col p-6 h-full">
-          <SheetHeader className="pb-4 border-b border-zinc-800/60">
-            <SheetTitle className="text-xl font-bold text-white flex items-center gap-2 text-left">
-              <History className="h-5 w-5 text-blue-400" /> Sejarah & Perjalanan Sekolah
-            </SheetTitle>
-          </SheetHeader>
-
-          <div className="flex-1 overflow-y-auto mt-6 space-y-6 pr-1 no-scrollbar pb-6">
-            {/* Stats Achievements */}
-            <div className="grid grid-cols-2 gap-3">
-              {schoolAchievements.map((item: any, idx: number) => (
-                <div key={idx} className="p-4 rounded-2xl border border-zinc-800/60 bg-zinc-900/40 text-center flex flex-col items-center justify-center space-y-1">
-                  <div className="h-9 w-9 rounded-xl bg-blue-950/50 border border-blue-900/30 flex items-center justify-center">
-                    <item.icon className="h-4 w-4 text-blue-400" />
-                  </div>
-                  <span className="text-lg font-black text-white block pt-1">{item.value}</span>
-                  <span className="text-[10px] text-zinc-400 font-medium">{item.label}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Timeline */}
-            <div className="space-y-4">
-              <h4 className="text-xs font-bold text-blue-400 tracking-wider uppercase border-b border-zinc-900 pb-1">
-                Linimasa Sejarah
-              </h4>
-              <div className="relative border-l border-zinc-800 pl-4 ml-2 space-y-6">
-                {schoolTimeline.map((item: any, idx: number) => (
-                  <div key={idx} className="relative">
-                    {/* Circle marker */}
-                    <div className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-blue-500 ring-4 ring-zinc-950" />
-                    <div className="space-y-1">
-                      <span className="font-mono text-[10px] font-black text-blue-400 bg-blue-950/40 px-2 py-0.5 rounded-md border border-blue-900/20">
-                        {item.year}
-                      </span>
-                      <h5 className="text-xs font-bold text-white pt-1">{item.title}</h5>
-                      <p className="text-[11px] text-zinc-400 leading-relaxed">{item.description}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </SheetContent>
-      </Sheet>
+      
 
       {/* 12. GURU & STAFF DRAWER (SHEET) */}
-      <Sheet open={isStaffOpen} onOpenChange={setIsStaffOpen}>
-        <SheetContent side="left" className="w-full sm:max-w-xl bg-zinc-950/95 border-r border-zinc-800/80 text-zinc-100 backdrop-blur-xl flex flex-col p-6 h-full">
-          <SheetHeader className="pb-4 border-b border-zinc-800/60">
-            <SheetTitle className="text-xl font-bold text-white flex items-center gap-2 text-left">
-              <Users className="h-5 w-5 text-blue-400" /> Guru & Staff Pengajar
-            </SheetTitle>
-          </SheetHeader>
-
-          {/* Filters */}
-          <div className="py-4 flex gap-1.5 overflow-x-auto pb-1 no-scrollbar shrink-0">
-            {[
-              { id: "all", label: "Semua" },
-              { id: "guru", label: "Guru" },
-              { id: "staff", label: "Staff & TU" },
-              { id: "support", label: "Support" },
-            ].map((item) => (
-              <Button
-                key={item.id}
-                variant={staffFilter === item.id ? "default" : "outline"}
-                size="sm"
-                onClick={() => setStaffFilter(item.id as any)}
-                className="rounded-full text-[10px] h-7 px-3 border-zinc-800 active:scale-95"
-              >
-                {item.label}
-              </Button>
-            ))}
-          </div>
-
-          {/* List Content */}
-          <div className="flex-1 overflow-y-auto pr-1 no-scrollbar space-y-4 pb-6">
-            {isStaffLoading ? (
-              <div className="flex items-center justify-center py-20">
-                <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
-              </div>
-            ) : filteredStaff.length === 0 ? (
-              <div className="text-center py-20 text-xs text-zinc-500">
-                Belum ada data staff untuk kategori ini.
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3">
-                {filteredStaff.map((staff: any) => (
-                  <div key={staff.id} className="group relative rounded-2xl overflow-hidden border border-zinc-800/60 bg-zinc-900/40 flex flex-col">
-                    <div className="aspect-[3/4] relative bg-zinc-950 overflow-hidden shrink-0">
-                      <img 
-                        src={staff.photoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${staff.name}`}
-                        alt={staff.name}
-                        className="object-cover object-top transition-transform duration-500 group-hover:scale-103 w-full h-full absolute inset-0"
-                      />
-                    </div>
-                    <div className="p-3 flex-1 flex flex-col justify-between space-y-1">
-                      <div>
-                        <h4 className="font-bold text-[11px] leading-tight text-white line-clamp-2">
-                          {staff.name}{staff.degree ? `, ${staff.degree}` : ""}
-                        </h4>
-                        <span className="text-[9px] text-zinc-500 mt-0.5 block">{staff.position}</span>
-                      </div>
-                      {staff.quote && (
-                        <p className="text-[9px] text-zinc-400 italic line-clamp-2 border-t border-zinc-900 pt-1.5 mt-1.5">
-                          &quot;{staff.quote}&quot;
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
+      
 
     </div>
   );
