@@ -8,6 +8,7 @@ export default function BukuIndukGabunganPrintPage() {
     const searchParams = useSearchParams();
     const studentId = searchParams.get('id');
     const studentIdsParam = searchParams.get('ids');
+    const typeParam = searchParams.get('type');
     
     const [students, setStudents] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -22,15 +23,19 @@ export default function BukuIndukGabunganPrintPage() {
         const fetchAll = async () => {
             try {
                 const results = await Promise.all(
-                    ids.map(id => goGet(`/api/master/students/${id}`).catch(() => null))
+                    ids.map(id => {
+                        const endpoint = typeParam === 'alumni' ? `/api/alumni/${id}` : `/api/master/students/${id}`;
+                        return goGet(endpoint).catch(() => null);
+                    })
                 );
                 
-                const validStudents = results.filter(s => s !== null).map(s => {
+                const validStudents = results.filter(s => s && s.data).map(s => {
+                    const student = s.data;
                     let meta = {};
-                    if (s.metaData) {
-                        try { meta = JSON.parse(s.metaData); } catch(e) {}
+                    if (student.metaData) {
+                        try { meta = JSON.parse(student.metaData); } catch(e) {}
                     }
-                    return { ...s, meta };
+                    return { ...student, meta };
                 });
                 
                 setStudents(validStudents);
@@ -79,14 +84,14 @@ export default function BukuIndukGabunganPrintPage() {
                             <div className="text-center font-bold text-lg mb-4 underline">BUKU INDUK SISWA</div>
                             
                             <div className="text-center mb-8 font-semibold text-sm">
-                                Nomor Induk : {student.nis || "......................"} &nbsp;&nbsp;&nbsp;&nbsp; Tahun Masuk : {meta.tahunMasuk || "......................"}
+                                Nomor Induk : {student.nis || "-"} &nbsp;&nbsp;&nbsp;&nbsp; Tahun Masuk : {meta.tahunMasuk || "-"}
                             </div>
 
                             {/* A. KETERANGAN SISWA */}
                             <div className="mb-4 font-bold">A. KETERANGAN SISWA</div>
                             
                             <div className="flex relative text-[11pt] leading-relaxed">
-                                <div className="flex-1 z-10">
+                                <div className="flex-1 z-10 pr-[3.5cm]">
                                     <table className="layout-table w-full">
                                         <tbody>
                                             <tr>
@@ -234,7 +239,7 @@ export default function BukuIndukGabunganPrintPage() {
                             <div className="mt-6 mb-4 font-bold">B. KETERANGAN ORANG TUA/WALI SISWA</div>
                             
                             <div className="flex relative text-[11pt] leading-relaxed">
-                                <div className="flex-1 z-10">
+                                <div className="flex-1 z-10 pr-[3.5cm]">
                                     <table className="layout-table w-full">
                                         <tbody>
                                             <tr>
@@ -372,7 +377,7 @@ export default function BukuIndukGabunganPrintPage() {
                         {/* ================= PAGE 2 (PORTRAIT) ================= */}
                         <div className="page portrait-page">
                             <div className="flex relative text-[11pt] leading-relaxed pt-8">
-                                <div className="flex-1 z-10">
+                                <div className="flex-1 z-10 pr-[3.5cm]">
                                     <table className="layout-table w-full">
                                         <tbody>
                                             <tr>
@@ -587,13 +592,13 @@ export default function BukuIndukGabunganPrintPage() {
                                     <tr>
                                         <th className="border border-black p-1 align-middle whitespace-nowrap" rowSpan={3}>TAHUN PELAJARAN</th>
                                         {classes.map((c, i) => (
-                                            <th key={`tahun-${i}`} className="border border-black p-1" colSpan={4}>......... / .........</th>
+                                            <th key={`tahun-${i}`} className="border border-black p-1" colSpan={4}>- / -</th>
                                         ))}
                                     </tr>
                                     <tr>
                                         <th className="border border-black p-1" rowSpan={2}>MATA PELAJARAN</th>
                                         {classes.map((c, i) => (
-                                            <th key={`kelas-${i}`} className="border border-black p-1" colSpan={4}>KELAS ............</th>
+                                            <th key={`kelas-${i}`} className="border border-black p-1" colSpan={4}>KELAS -</th>
                                         ))}
                                     </tr>
                                     <tr>
@@ -686,7 +691,7 @@ export default function BukuIndukGabunganPrintPage() {
                                         {classes.map((c, i) => (
                                             <td key={`naik-${i}`} className="border border-black p-1 text-[8pt] whitespace-nowrap" colSpan={4}>
                                                 NAIK/TIDAK NAIK KE<br/>
-                                                KELAS ..............
+                                                KELAS -
                                             </td>
                                         ))}
                                     </tr>
@@ -742,7 +747,6 @@ export default function BukuIndukGabunganPrintPage() {
                 }
 
                 .dotted-line {
-                    border-bottom: 1px dotted black;
                     height: 1em;
                 }
 
@@ -755,6 +759,8 @@ export default function BukuIndukGabunganPrintPage() {
                     align-items: center;
                     justify-content: center;
                     font-size: 9pt;
+                    background-color: white; /* Prevent dotted lines from showing through */
+                    z-index: 20;
                 }
                 
                 @page portrait-page {
@@ -768,6 +774,22 @@ export default function BukuIndukGabunganPrintPage() {
                 }
                 
                 @media print {
+                    /* Sembunyikan semua elemen layout (header, sidebar, nav) */
+                    body * {
+                        visibility: hidden;
+                    }
+                    .print-root, .print-root * {
+                        visibility: visible;
+                    }
+                    .print-root {
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                    }
+                    
                     body {
                         background-color: white;
                     }
@@ -781,17 +803,18 @@ export default function BukuIndukGabunganPrintPage() {
 
                     .portrait-page {
                         page: portrait-page;
-                        width: auto;
-                        min-height: 0;
+                        width: 21cm !important;
+                        max-height: 29.7cm !important;
+                        overflow: hidden; /* Mencegah tumpah ke halaman ke-4 */
                     }
 
                     .landscape-page {
                         page: landscape-page;
-                        width: auto;
-                        min-height: 0;
+                        width: 29.7cm !important;
+                        max-height: 21cm !important;
+                        overflow: hidden;
                     }
 
-                    /* Important: ensure tables break correctly if needed, though they shouldn't here */
                     table { page-break-inside: avoid; }
                 }
             `}</style>

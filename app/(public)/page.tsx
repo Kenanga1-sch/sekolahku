@@ -82,6 +82,7 @@ import {
 import { toast } from "sonner";
 import { ContactForm } from "@/components/contact/contact-form";
 import { goGet, goPost } from "@/lib/api-client";
+import { MediaEmbed } from "@/components/ui/media-embed";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import type { Announcement } from "@/types";
 import { cn } from "@/lib/utils";
@@ -301,8 +302,10 @@ export default function HomePage() {
   const [newsFilter, setNewsFilter] = useState("all");
   const [activeGalleryCat, setActiveGalleryCat] = useState("all");
   // 1. Cek Saldo Form States
+  const [balanceNisn, setBalanceNisn] = useState("");
   const [balanceBirthDate, setBalanceBirthDate] = useState("");
   const [balanceCooldown, setBalanceCooldown] = useState(0);
+  const [balanceResult, setBalanceResult] = useState<any>(null);
 
   // 2. Mutasi Masuk Form States
   const [inName, setInName] = useState("");
@@ -342,15 +345,6 @@ export default function HomePage() {
     "/api/public/staff",
     (url) => goGet<any>(url)
   );
-  const allStaff = staffData?.data || [];
-  const activeStaff = allStaff.filter((s: any) => s.isActive);
-  const filteredStaff = activeStaff
-    .sort((a: any, b: any) => {
-      if (a.category === "kepsek") return -1;
-      if (b.category === "kepsek") return 1;
-      return 0;
-    })
-    .filter((s: any) => staffFilter === "all" || s.category === staffFilter);
 
   useEffect(() => {
     setMounted(true);
@@ -692,23 +686,7 @@ export default function HomePage() {
   return (
     <div className="relative min-h-screen bg-zinc-950 text-zinc-50 overflow-hidden font-sans selection:bg-blue-500 selection:text-white">
       
-      {/* Floating Glassmorphic Sub-Navigation Bar */}
-      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 hidden xl:flex items-center gap-1.5 p-1.5 rounded-full bg-zinc-950/80 backdrop-blur-xl border border-zinc-800/80 shadow-2xl">
-        {navItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => handleScrollTo(item.id)}
-            className={cn(
-              "px-3.5 py-1.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider transition-all duration-300 cursor-pointer select-none active:scale-95",
-              activeSection === item.id
-                ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
-                : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
-            )}
-          >
-            {item.id === "visi-misi" ? "Profil" : item.label}
-          </button>
-        ))}
-      </div>
+
 
       {/* 3D Fixed Background Canvas */}
       <div className="fixed inset-0 w-full h-screen z-10 pointer-events-none opacity-90 md:opacity-100">
@@ -915,10 +893,11 @@ export default function HomePage() {
                   >
                     {item.thumbnail && (
                       <div className="h-44 w-full relative overflow-hidden bg-zinc-950 shrink-0">
-                        <img 
-                          src={item.thumbnail} 
-                          alt={item.title} 
-                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-103" 
+                        <MediaEmbed
+                          url={item.thumbnail}
+                          alt={item.title}
+                          fill
+                          className="absolute inset-0 w-full h-full transition-transform group-hover:scale-105 duration-500"
                         />
                       </div>
                     )}
@@ -990,8 +969,8 @@ export default function HomePage() {
                       onClick={() => setSelectedImage(item)}
                       className="group relative aspect-[4/3] rounded-xl overflow-hidden cursor-pointer border border-zinc-800/60 bg-zinc-900/50 active:scale-[0.98] active:translate-y-[1px] transition-all duration-300"
                     >
-                      <Image 
-                        src={item.imageUrl} 
+                      <MediaEmbed 
+                        url={item.imageUrl} 
                         alt={item.title} 
                         fill 
                         className="object-cover transition-transform duration-500 group-hover:scale-105" 
@@ -1331,8 +1310,8 @@ export default function HomePage() {
           <div className="relative w-full h-[70vh] flex flex-col">
             <div className="relative flex-1 w-full bg-black/40">
               {selectedImage && (
-                <Image
-                  src={selectedImage.imageUrl}
+                <MediaEmbed
+                  url={selectedImage.imageUrl}
                   alt={selectedImage.title}
                   fill
                   className="object-contain"

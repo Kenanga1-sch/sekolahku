@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { MediaEmbed } from "@/components/ui/media-embed";
 import {
     ArrowLeft,
     Calendar,
@@ -216,9 +217,10 @@ export default function BeritaDetailPage() {
                     >
                         {article.thumbnail ? (
                              <div className="aspect-video relative rounded-xl overflow-hidden mb-8 shadow-md border">
-                                <img 
-                                    src={article.thumbnail} 
-                                    alt={article.title} 
+                                <MediaEmbed
+                                    url={article.thumbnail}
+                                    alt={article.title}
+                                    fill
                                     className="w-full h-full object-cover"
                                 />
                              </div>

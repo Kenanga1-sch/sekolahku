@@ -54,76 +54,89 @@ func (h *GalleryHandler) GetStats(c echo.Context) error {
 }
 
 func (h *GalleryHandler) Upload(c echo.Context) error {
-	file, err := c.FormFile("file")
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "No file uploaded"})
-	}
-
+	url := strings.TrimSpace(c.FormValue("url"))
 	title := strings.TrimSpace(c.FormValue("title"))
-	if title == "" {
-		title = strings.TrimSuffix(file.Filename, filepath.Ext(file.Filename))
-	}
 	category := normalizeGalleryCategory(c.FormValue("category"))
 
-	// Max size 5MB
-	if file.Size > 5*1024*1024 {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "File too large (max 5MB)"})
-	}
+	var imageURL string
 
-	src, err := file.Open()
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Cannot open file"})
-	}
-	defer src.Close()
+	if url != "" {
+		// External URL mode (YouTube, Instagram)
+		if title == "" {
+			title = "External Media"
+		}
+		imageURL = url
+	} else {
+		// File upload mode
+		file, err := c.FormFile("file")
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "No file or url provided"})
+		}
 
-	// Detect content type
-	buf := make([]byte, 512)
-	n, _ := src.Read(buf)
-	contentType := http.DetectContentType(buf[:n])
-	src.Seek(0, io.SeekStart)
-	if !strings.HasPrefix(contentType, "image/") {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "File harus berupa gambar"})
-	}
+		if title == "" {
+			title = strings.TrimSuffix(file.Filename, filepath.Ext(file.Filename))
+		}
 
-	ext := "jpg"
-	if strings.HasSuffix(contentType, "png") {
-		ext = "png"
-	}
-	if strings.HasSuffix(contentType, "webp") {
-		ext = "webp"
-	}
-	if strings.HasSuffix(contentType, "gif") {
-		ext = "gif"
-	}
+		// Max size 5MB
+		if file.Size > 5*1024*1024 {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "File too large (max 5MB)"})
+		}
 
-	// Create directory
-	uploadDir := filepath.Join("public", "uploads", "gallery")
-	if err := os.MkdirAll(uploadDir, 0755); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Cannot create directory"})
+		src, err := file.Open()
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Cannot open file"})
+		}
+		defer src.Close()
+
+		// Detect content type
+		buf := make([]byte, 512)
+		n, _ := src.Read(buf)
+		contentType := http.DetectContentType(buf[:n])
+		src.Seek(0, io.SeekStart)
+		if !strings.HasPrefix(contentType, "image/") {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "File harus berupa gambar"})
+		}
+
+		ext := "jpg"
+		if strings.HasSuffix(contentType, "png") {
+			ext = "png"
+		}
+		if strings.HasSuffix(contentType, "webp") {
+			ext = "webp"
+		}
+		if strings.HasSuffix(contentType, "gif") {
+			ext = "gif"
+		}
+
+		// Create directory
+		uploadDir := filepath.Join("public", "uploads", "gallery")
+		if err := os.MkdirAll(uploadDir, 0755); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Cannot create directory"})
+		}
+
+		// Generate filename
+		b := make([]byte, 12)
+		rand.Read(b)
+		filename := fmt.Sprintf("%d-%s.%s", time.Now().UnixMilli(), hex.EncodeToString(b), ext)
+		dstPath := filepath.Join(uploadDir, filename)
+
+		dst, err := os.Create(dstPath)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Cannot save file"})
+		}
+		defer dst.Close()
+
+		if _, err = io.Copy(dst, src); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Cannot write file"})
+		}
+		dst.Close()
+
+		// Generate thumbnail
+		thumbDir := filepath.Join("public", "uploads", "gallery", "thumbs")
+		util.GenerateThumbnail(dstPath, thumbDir, util.DefaultThumbnailConfig)
+
+		imageURL = fmt.Sprintf("/uploads/gallery/%s", filename)
 	}
-
-	// Generate filename
-	b := make([]byte, 12)
-	rand.Read(b)
-	filename := fmt.Sprintf("%d-%s.%s", time.Now().UnixMilli(), hex.EncodeToString(b), ext)
-	dstPath := filepath.Join(uploadDir, filename)
-
-	dst, err := os.Create(dstPath)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Cannot save file"})
-	}
-	defer dst.Close()
-
-	if _, err = io.Copy(dst, src); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Cannot write file"})
-	}
-	dst.Close()
-
-	// Generate thumbnail
-	thumbDir := filepath.Join("public", "uploads", "gallery", "thumbs")
-	util.GenerateThumbnail(dstPath, thumbDir, util.DefaultThumbnailConfig)
-
-	imageURL := fmt.Sprintf("/uploads/gallery/%s", filename)
 
 	// Save to DB
 	item := models.GalleryItem{
@@ -134,8 +147,10 @@ func (h *GalleryHandler) Upload(c echo.Context) error {
 
 	id, err := h.Repo.Create(item)
 	if err != nil {
-		// Attempt to delete the file if DB fails
-		os.Remove(dstPath)
+		if url == "" {
+			// Attempt to delete the file if DB fails
+			os.Remove(filepath.Join("public", imageURL))
+		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 

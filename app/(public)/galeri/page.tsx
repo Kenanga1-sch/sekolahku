@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import useSWR from "swr";
-import Image from "next/image";
+import { MediaEmbed } from "@/components/ui/media-embed";
 import { Loader2, Image as ImageIcon, ZoomIn, X, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -109,8 +109,8 @@ export default function GalleryPage() {
                             className="group relative aspect-[4/3] rounded-2xl overflow-hidden bg-zinc-200 dark:bg-zinc-800 cursor-pointer shadow-sm hover:shadow-xl transition-all duration-300 ring-1 ring-black/5 dark:ring-white/10"
                             onClick={() => setSelectedImage(item)}
                         >
-                            <Image
-                                src={item.imageUrl}
+                            <MediaEmbed
+                                url={item.imageUrl}
                                 alt={item.title}
                                 fill
                                 className="object-cover transition-transform duration-500 group-hover:scale-110"
@@ -138,8 +138,8 @@ export default function GalleryPage() {
                 <div className="relative w-full h-[80vh] flex flex-col">
                      <div className="relative flex-1 w-full bg-black/50 backdrop-blur-sm">
                         {selectedImage && (
-                            <Image
-                                src={selectedImage.imageUrl}
+                            <MediaEmbed
+                                url={selectedImage.imageUrl}
                                 alt={selectedImage.title}
                                 fill
                                 className="object-contain"

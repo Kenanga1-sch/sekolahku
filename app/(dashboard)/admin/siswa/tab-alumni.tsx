@@ -262,14 +262,15 @@ export default function TabAlumni() {
                 <RefreshCcw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
                 Sync Siswa Aktif
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/admin/siswa/cetak-batch" target="_blank" className="flex items-center cursor-pointer text-orange-600 focus:text-orange-700">
-                  <Printer className="h-4 w-4 mr-2" />
-                  Cetak Batch
-                </Link>
-              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          <Link href="/admin/siswa/cetak-batch" target="_blank" className="w-full sm:w-auto flex-1 sm:flex-none">
+            <Button variant="outline" size="sm" className="h-9 w-full shadow-sm text-orange-600 hover:text-orange-700 hover:bg-orange-50 border-orange-200">
+              <Printer className="h-4 w-4 mr-2" />
+              Cetak Batch
+            </Button>
+          </Link>
 
           <Link href="/admin/siswa/alumni-tambah" className="w-full sm:w-auto flex-1 sm:flex-none">
             <Button size="sm" className="h-9 w-full shadow-sm bg-blue-600 hover:bg-blue-700 text-white border-0 font-medium">

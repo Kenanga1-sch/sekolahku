@@ -260,13 +260,13 @@ export default function DashboardLayoutClient({
   return (
     <div className={cn(
       "flex min-w-0 flex-col md:flex-row bg-gray-100 dark:bg-neutral-800 w-full flex-1 overflow-x-hidden md:overflow-hidden",
-      "min-h-dvh md:h-dvh"
+      "min-h-dvh md:h-dvh print:block print:h-auto print:min-h-0 print:overflow-visible"
     )}>
       {/* Sidebar Toggle Button */}
       <button
         onClick={() => setSidebarVisible((prev) => !prev)}
         className={cn(
-          "hidden md:flex fixed top-1/2 -translate-y-1/2 z-[60] h-12 w-5 rounded-r-md border border-l-0 border-neutral-200 dark:border-neutral-700 shadow-sm items-center justify-center transition-all cursor-pointer group",
+          "print:hidden hidden md:flex fixed top-1/2 -translate-y-1/2 z-[60] h-12 w-5 rounded-r-md border border-l-0 border-neutral-200 dark:border-neutral-700 shadow-sm items-center justify-center transition-all cursor-pointer group",
           "bg-white dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700",
           sidebarVisible
             ? "left-[280px] xl:left-[300px]"
@@ -277,7 +277,7 @@ export default function DashboardLayoutClient({
         <PanelLeftClose className={cn("h-3.5 w-3.5 transition-transform", !sidebarVisible && "rotate-180")} />
       </button>
 
-      <div className={cn("flex-shrink-0 transition-all duration-300 ease-in-out overflow-hidden h-0 md:h-full", sidebarVisible ? "max-w-[300px]" : "max-w-0")}>
+      <div className={cn("print:hidden flex-shrink-0 transition-all duration-300 ease-in-out overflow-hidden h-0 md:h-full", sidebarVisible ? "max-w-[300px]" : "max-w-0")}>
       <Sidebar open={open} setOpen={handleSetOpen} animate={false}>
         <SidebarBody className="justify-between gap-10">
           <div className="flex flex-col flex-1 overflow-hidden">
@@ -374,7 +374,7 @@ export default function DashboardLayoutClient({
       </div>
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           {/* Top Navigation Bar */}
-          <header className="sticky top-0 md:static flex items-center justify-between gap-2 p-2.5 sm:p-3 md:p-4 w-full z-40 bg-gray-100/80 dark:bg-neutral-800/80 backdrop-blur-xl md:bg-transparent md:dark:bg-transparent border-b border-neutral-200/50 dark:border-neutral-700/50 md:border-0">
+          <header className="print:hidden sticky top-0 md:static flex items-center justify-between gap-2 p-2.5 sm:p-3 md:p-4 w-full z-40 bg-gray-100/80 dark:bg-neutral-800/80 backdrop-blur-xl md:bg-transparent md:dark:bg-transparent border-b border-neutral-200/50 dark:border-neutral-700/50 md:border-0">
             {/* Left: Page Title (mobile only) */}
             <div className="flex items-center gap-3 md:hidden pl-2">
               <h1 className="text-lg font-bold text-neutral-800 dark:text-neutral-100 truncate">
@@ -437,13 +437,15 @@ export default function DashboardLayoutClient({
             </div>
           </header>
 
-         <main id="main-content" className="flex min-w-0 flex-1 flex-col gap-2 overflow-x-hidden px-3 pb-20 pt-2 sm:px-4 md:h-full md:overflow-y-auto md:rounded-tl-2xl md:px-5 md:pb-6 md:pt-4 lg:px-6 xl:px-8">
+         <main id="main-content" className="flex min-w-0 flex-1 flex-col gap-2 overflow-x-hidden px-3 pb-20 pt-2 sm:px-4 md:h-full md:overflow-y-auto md:rounded-tl-2xl md:px-5 md:pb-6 md:pt-4 lg:px-6 xl:px-8 print:h-auto print:overflow-visible">
             {children}
          </main>
       </div>
 
       {/* Bottom Navigation - Mobile Only */}
-      <BottomNav onMenuClick={() => handleSetOpen(true)} />
+      <div className="print:hidden">
+        <BottomNav onMenuClick={() => handleSetOpen(true)} />
+      </div>
     </div>
   );
 }

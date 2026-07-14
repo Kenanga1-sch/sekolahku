@@ -975,38 +975,65 @@ export default function KontenInformasiPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Foto Sampul (Thumbnail)</Label>
-                  <div className="flex gap-4 items-start">
-                    {announcementForm.thumbnail ? (
-                      <div className="relative w-32 h-20 rounded-lg overflow-hidden border">
-                        <img 
-                          src={announcementForm.thumbnail} 
-                          alt="Preview" 
-                          className="w-full h-full object-cover" 
+                  <Label>Foto Sampul / Video (Thumbnail)</Label>
+                  <div className="flex flex-col gap-3">
+                    <div className="flex gap-4 items-start">
+                      {announcementForm.thumbnail ? (
+                        <div className="relative w-32 h-20 rounded-lg overflow-hidden border">
+                          <img 
+                            src={
+                              announcementForm.thumbnail.includes('youtube.com') || announcementForm.thumbnail.includes('youtu.be') 
+                                ? `https://img.youtube.com/vi/${announcementForm.thumbnail.split('v=')[1]?.split('&')[0] || announcementForm.thumbnail.split('youtu.be/')[1]?.split('?')[0]}/hqdefault.jpg`
+                                : announcementForm.thumbnail.includes('instagram.com') 
+                                ? '/img/instagram-placeholder.png' // fallback icon
+                                : announcementForm.thumbnail
+                            } 
+                            alt="Preview" 
+                            className="w-full h-full object-cover" 
+                            onError={(e) => {
+                              // If it fails (e.g. invalid yt id), just show default
+                              (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/shapes/svg?seed=${announcementForm.thumbnail}`;
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setAnnouncementForm({ ...announcementForm, thumbnail: "" })}
+                            className="absolute top-1 right-1 bg-black/50 hover:bg-black/70 text-white rounded-full p-0.5"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="w-32 h-20 rounded-lg border border-dashed flex items-center justify-center bg-muted/50 text-muted-foreground">
+                          <ImageIcon className="h-8 w-8 opacity-50" />
+                        </div>
+                      )}
+                      <div className="flex-1 space-y-2">
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleThumbnailUpload}
+                          disabled={isThumbnailUploading}
+                          className="cursor-pointer"
                         />
-                        <button
-                          onClick={() => setAnnouncementForm({ ...announcementForm, thumbnail: "" })}
-                          className="absolute top-1 right-1 bg-black/50 hover:bg-black/70 text-white rounded-full p-0.5"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
+                        <p className="text-[10px] text-muted-foreground">
+                          Format: JPG, PNG, WEBP. Maks 5MB.
+                        </p>
                       </div>
-                    ) : (
-                      <div className="w-32 h-20 rounded-lg border border-dashed flex items-center justify-center bg-muted/50 text-muted-foreground">
-                        <ImageIcon className="h-8 w-8 opacity-50" />
-                      </div>
-                    )}
-                    <div className="flex-1">
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="h-px bg-border flex-1" />
+                      <span className="text-xs text-muted-foreground">Atau Embed Tautan</span>
+                      <div className="h-px bg-border flex-1" />
+                    </div>
+                    <div className="flex gap-2">
                       <Input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleThumbnailUpload}
+                        type="url"
+                        placeholder="https://youtube.com/watch?v=... atau instagram.com/p/..."
+                        value={announcementForm.thumbnail?.startsWith('http') && !announcementForm.thumbnail?.includes('/uploads/') ? announcementForm.thumbnail : ''}
+                        onChange={(e) => setAnnouncementForm({ ...announcementForm, thumbnail: e.target.value })}
                         disabled={isThumbnailUploading}
-                        className="cursor-pointer"
                       />
-                      <p className="text-[10px] text-muted-foreground mt-1">
-                        Format: JPG, PNG, WEBP. Maks 5MB.
-                      </p>
                     </div>
                   </div>
                 </div>

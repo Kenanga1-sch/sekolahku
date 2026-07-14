@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { MediaEmbed } from "@/components/ui/media-embed";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -179,10 +180,11 @@ export default function BeritaPage() {
                 >
                   <div className="aspect-video bg-gradient-to-br from-zinc-100 to-zinc-200 dark:from-zinc-800 dark:to-zinc-900 relative">
                     {item.thumbnail && (
-                      <img 
-                        src={item.thumbnail} 
-                        alt={item.title} 
-                        className="absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-105 duration-500" 
+                      <MediaEmbed
+                        url={item.thumbnail}
+                        alt={item.title}
+                        fill
+                        className="absolute inset-0 w-full h-full transition-transform group-hover:scale-105 duration-500"
                       />
                     )}
                     <div className="absolute top-4 left-4">
@@ -272,10 +274,11 @@ export default function BeritaPage() {
                       <Card className="h-full border-zinc-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden flex flex-col">
                         <div className="aspect-video bg-gradient-to-br from-zinc-100 to-zinc-200 dark:from-zinc-800 dark:to-zinc-900 relative overflow-hidden shrink-0">
                           {item.thumbnail && (
-                            <img 
-                              src={item.thumbnail} 
-                              alt={item.title} 
-                              className="absolute inset-0 w-full h-full object-cover" 
+                            <MediaEmbed
+                              url={item.thumbnail}
+                              alt={item.title}
+                              fill
+                              className="absolute inset-0 w-full h-full transition-transform group-hover:scale-105 duration-500"
                             />
                           )}
                           <div className="absolute top-3 left-3">

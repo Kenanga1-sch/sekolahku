@@ -995,7 +995,7 @@ export default function AlumniDetailPage() {
               Edit
             </Button>
           </Link>
-          <Button variant="outline" size="sm" onClick={() => window.open(`/admin/siswa/buku-induk/print?id=${alumni.id}`, '_blank')}>
+          <Button variant="outline" size="sm" onClick={() => window.open(`/admin/siswa/buku-induk/print?id=${alumni.id}&type=alumni`, '_blank')}>
             <Printer className="h-4 w-4 mr-1" />
             Cetak Buku Induk
           </Button>

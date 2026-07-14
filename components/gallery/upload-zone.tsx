@@ -25,6 +25,8 @@ interface UploadFile {
   status: "pending" | "uploading" | "success" | "error";
   errorMessage?: string;
   progress: number;
+  isUrl?: boolean;
+  url?: string;
 }
 
 interface EnhancedUploadZoneProps {
@@ -76,7 +78,11 @@ export function EnhancedUploadZone({ onUploadComplete, onClose }: EnhancedUpload
       updateFile(i, { status: "uploading", progress: 0 });
 
       const formData = new FormData();
-      formData.append("file", file.file);
+      if ((file as any).isUrl) {
+        formData.append("url", (file as any).url);
+      } else {
+        formData.append("file", file.file);
+      }
       formData.append("title", file.title);
       formData.append("category", file.category);
 
@@ -138,6 +144,64 @@ export function EnhancedUploadZone({ onUploadComplete, onClose }: EnhancedUpload
             atau klik untuk memilih file (max 5MB per file)
           </p>
         </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <div className="h-px bg-border flex-1" />
+        <span className="text-xs text-muted-foreground">Atau Embed Tautan</span>
+        <div className="h-px bg-border flex-1" />
+      </div>
+
+      {/* External Link Input */}
+      <div className="flex gap-2">
+        <Input 
+          id="external-url-input"
+          placeholder="https://youtube.com/watch?v=... atau instagram.com/p/..." 
+          className="flex-1"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              const val = e.currentTarget.value;
+              if (val) {
+                // We add a mock file item for URL
+                const newFile: UploadFile = {
+                  file: new File([], "external-link"),
+                  preview: val,
+                  title: "External Media",
+                  category: "kegiatan",
+                  status: "pending",
+                  progress: 0,
+                };
+                // Store actual URL in the file object's name somehow? 
+                // Wait, it's better to just add a custom field `url` to UploadFile interface
+                setFiles((prev) => [...prev, { ...newFile, isUrl: true, url: val } as any]);
+                e.currentTarget.value = "";
+              }
+            }
+          }}
+        />
+        <Button 
+          variant="secondary"
+          onClick={() => {
+            const input = document.getElementById('external-url-input') as HTMLInputElement;
+            if (input && input.value) {
+              const val = input.value;
+              const newFile = {
+                file: new File([], "external-link"),
+                preview: val.includes('youtube.com') || val.includes('youtu.be') ? `https://img.youtube.com/vi/${val.split('v=')[1]?.split('&')[0] || val.split('youtu.be/')[1]?.split('?')[0]}/hqdefault.jpg` : (val.includes('instagram.com') ? '/img/instagram-placeholder.png' : val),
+                title: "External Media",
+                category: "kegiatan",
+                status: "pending",
+                progress: 0,
+                isUrl: true,
+                url: val
+              };
+              setFiles((prev) => [...prev, newFile as any]);
+              input.value = "";
+            }
+          }}
+        >
+          Tambah
+        </Button>
       </div>
 
       {/* File List */}

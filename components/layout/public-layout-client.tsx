@@ -17,6 +17,21 @@ import { Settings, LogOut, User, LayoutDashboard } from "lucide-react";
 import { logoutAction } from "@/actions/auth";
 import { useState, useEffect } from "react";
 
+const navItems = [
+  { id: "hero", label: "Beranda", href: "/" },
+  { id: "visi-misi", label: "Profil", href: "/#visi-misi" },
+  { id: "sejarah", label: "Sejarah", href: "/profil/sejarah" },
+  { id: "guru", label: "Guru & Staff", href: "/profil/guru-staff" },
+  { id: "kurikulum", label: "Program", href: "/#kurikulum" },
+  { id: "berita", label: "Berita", href: "/#berita" },
+  { id: "galeri", label: "Galeri", href: "/#galeri" },
+  { id: "keunggulan", label: "Keunggulan", href: "/#keunggulan" },
+  { id: "layanan", label: "Layanan", href: "/#layanan" },
+  { id: "spmb", label: "SPMB", href: "/#spmb" },
+  { id: "faq", label: "FAQ", href: "/#faq" },
+  { id: "kontak", label: "Kontak", href: "/#kontak" },
+];
+
 export default function PublicLayoutClient({
   children,
 }: {
@@ -41,29 +56,30 @@ export default function PublicLayoutClient({
       <div id="public-scroll-container" className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden relative no-scrollbar">
          {/* Top Navigation Bar */}
          <header 
-            className="fixed top-6 left-6 right-6 flex items-center justify-between gap-4 z-50 bg-transparent pointer-events-none"
+            className="fixed top-6 left-6 right-6 flex items-center justify-between z-50 bg-transparent pointer-events-none"
             suppressHydrationWarning
          >
-            {/* Main Public Navigation */}
-            <nav className="flex items-center gap-2 p-1.5 rounded-full bg-zinc-950/80 backdrop-blur-xl border border-zinc-800/80 shadow-2xl pointer-events-auto">
-               <Link href="/">
-                  <Button variant="ghost" className={cn("rounded-full px-4 h-8 text-[11px] font-bold uppercase tracking-wider", pathname === "/" ? "bg-blue-600 text-white hover:bg-blue-700" : "text-zinc-400 hover:text-white hover:bg-zinc-800/50")}>
-                     Beranda
-                  </Button>
-               </Link>
-               <Link href="/profil/sejarah">
-                  <Button variant="ghost" className={cn("rounded-full px-4 h-8 text-[11px] font-bold uppercase tracking-wider", pathname === "/profil/sejarah" ? "bg-blue-600 text-white hover:bg-blue-700" : "text-zinc-400 hover:text-white hover:bg-zinc-800/50")}>
-                     Sejarah Sekolah
-                  </Button>
-               </Link>
-               <Link href="/profil/guru-staff">
-                  <Button variant="ghost" className={cn("rounded-full px-4 h-8 text-[11px] font-bold uppercase tracking-wider", pathname === "/profil/guru-staff" ? "bg-blue-600 text-white hover:bg-blue-700" : "text-zinc-400 hover:text-white hover:bg-zinc-800/50")}>
-                     Guru & Staff
-                  </Button>
-               </Link>
-            </nav>
+            {/* Left side (kosong atau untuk logo ke depannya) */}
+            <div className="flex-1 flex items-center justify-start pointer-events-auto"></div>
 
-            <div className="flex items-center gap-4 pointer-events-auto">
+            {/* Main Public Navigation - Centered */}
+            <div className="flex-shrink-0 pointer-events-auto">
+               <nav className="flex items-center gap-1 p-1.5 rounded-full bg-zinc-950/80 backdrop-blur-xl border border-zinc-800/80 shadow-2xl overflow-x-auto max-w-[70vw] no-scrollbar">
+                  {navItems.map((item) => {
+                     const isActive = pathname === item.href;
+                     return (
+                        <Link key={item.id} href={item.href}>
+                           <Button variant="ghost" className={cn("rounded-full px-3 h-8 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap", isActive ? "bg-blue-600 text-white hover:bg-blue-700" : "text-zinc-400 hover:text-white hover:bg-zinc-800/50")}>
+                              {item.label}
+                           </Button>
+                        </Link>
+                     );
+                  })}
+               </nav>
+            </div>
+
+            {/* Right side - Login / Account */}
+            <div className="flex-1 flex items-center justify-end pointer-events-auto gap-4">
             {mounted && isAuthenticated && user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
