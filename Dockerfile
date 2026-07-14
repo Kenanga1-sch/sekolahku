@@ -20,7 +20,7 @@ ENV NEXT_PUBLIC_APP_NAME=$NEXT_PUBLIC_APP_NAME
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
-RUN NODE_OPTIONS="--max-old-space-size=1536" npm run build
+RUN NODE_OPTIONS="--max-old-space-size=1024" npm run build
 
 FROM golang:1.25-bookworm AS backend-builder
 WORKDIR /src
