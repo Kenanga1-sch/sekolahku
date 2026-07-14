@@ -453,7 +453,12 @@ func (r *MutasiRepository) DirectMutasiMasuk(s models.Student, reason string) er
 		return err
 	}
 
-	return tx.Commit()
+	err = tx.Commit()
+	if err == nil {
+		_ = AutoSyncStudentToSavingsAndLibrary(r.DB, s.ID)
+		_ = AutoSyncStudentToBukuInduk(r.DB, s.ID)
+	}
+	return err
 }
 
 func (r *MutasiRepository) DirectMutasiKeluar(studentID string, destinationSchool, reason string) error {
