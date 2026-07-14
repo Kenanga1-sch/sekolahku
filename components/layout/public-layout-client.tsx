@@ -52,7 +52,12 @@ export default function PublicLayoutClient({
                     className="flex items-center gap-2 pl-2 pr-4 py-1.5 h-auto rounded-full bg-zinc-950/80 backdrop-blur-xl border border-zinc-800/80 shadow-2xl hover:bg-zinc-900/80 cursor-pointer active:scale-95 transition-all text-neutral-200"
                   >
                     <div className="h-6 w-6 rounded-full bg-neutral-250 dark:bg-zinc-800/80 border border-zinc-700/60 flex items-center justify-center overflow-hidden">
-                       <User className="h-3.5 w-3.5 text-zinc-400" />
+                       {user.image ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={user.image} alt={user.name || "User"} className="h-full w-full object-cover" />
+                       ) : (
+                          <User className="h-3.5 w-3.5 text-zinc-400" />
+                       )}
                     </div>
                     <div className="hidden md:flex flex-col items-start text-left">
                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-neutral-200">{user.name}</span>
@@ -69,9 +74,9 @@ export default function PublicLayoutClient({
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuItem asChild>
-                    <Link href="/admin/sekolah" className="cursor-pointer gap-2">
+                    <Link href="/profile" className="cursor-pointer gap-2">
                       <Settings className="h-4 w-4" />
-                      Pengaturan
+                      Profil Saya
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />

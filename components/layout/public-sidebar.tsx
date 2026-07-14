@@ -319,8 +319,13 @@ function SidebarContent({
                   collapsed ? "w-10 h-10 p-0 justify-center" : "w-full justify-start gap-3 h-12 px-3"
                 )}
               >
-                <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <User className="h-3.5 w-3.5 text-primary" />
+                <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
+                   {user.image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={user.image} alt={user.name || "User"} className="h-full w-full object-cover" />
+                   ) : (
+                      <User className="h-3.5 w-3.5 text-primary" />
+                   )}
                 </div>
                 {!collapsed && (
                   <>
@@ -343,9 +348,9 @@ function SidebarContent({
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem asChild>
-                <Link href="/admin/sekolah" className="cursor-pointer gap-2">
+                <Link href="/profile" className="cursor-pointer gap-2">
                   <Settings className="h-4 w-4" />
-                  Pengaturan
+                  Profil Saya
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />

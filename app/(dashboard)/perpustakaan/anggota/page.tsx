@@ -361,15 +361,6 @@ export default function AnggotaPage() {
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button 
-                        variant="outline" 
-                        onClick={handleSync} 
-                        disabled={isSyncing}
-                        className="gap-2"
-                    >
-                        <RefreshCw className={`h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
-                        Sinkronisasi
-                    </Button>
                     <Button variant="outline" onClick={() => setIsImportDialogOpen(true)} className="hidden sm:flex gap-2">
                         <Upload className="h-4 w-4" />
                         Import

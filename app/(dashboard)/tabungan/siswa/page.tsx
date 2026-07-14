@@ -227,11 +227,6 @@ export default function TabunganSiswaPage() {
                     </div>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" onClick={handleSync} disabled={isSyncing}>
-                        <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
-                        Sinkronisasi
-                    </Button>
-
                 </div>
             </div>
 
