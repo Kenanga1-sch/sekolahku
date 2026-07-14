@@ -177,13 +177,8 @@ export default function HomePage() {
   const [faqs, setFaqs] = useState<any[]>([]);
   const [contactSettings, setContactSettings] = useState<any>(null);
   const [activeSection, setActiveSection] = useState("hero");
-
-  // State untuk Cek Saldo Tabungan
-  const [balanceNisn, setBalanceNisn] = useState("");
-  const [balanceBirthDate, setBalanceBirthDate] = useState("");
   const [balanceLoading, setBalanceLoading] = useState(false);
-  const [balanceResult, setBalanceResult] = useState<any>(null);
-  const [balanceCooldown, setBalanceCooldown] = useState(0);
+
   // Fetch school settings context
   const { settings } = useSchoolSettings();
 
@@ -306,6 +301,7 @@ export default function HomePage() {
   // Search & Filter States
   const [newsSearch, setNewsSearch] = useState("");
   const [newsFilter, setNewsFilter] = useState("all");
+  const [faqSearch, setFaqSearch] = useState("");
   const [activeGalleryCat, setActiveGalleryCat] = useState("all");
   // 1. Cek Saldo Form States
   const [balanceNisn, setBalanceNisn] = useState("");
@@ -339,6 +335,8 @@ export default function HomePage() {
   // 4. Lacak Status Mutasi Form States
   const [trackRegNum, setTrackRegNum] = useState("");
   const [trackNisn, setTrackNisn] = useState("");
+  const [trackLoading, setTrackLoading] = useState(false);
+  const [trackResult, setTrackResult] = useState<any>(null);
   // Gallery Fetch via SWR
   const { data: galleryData, isLoading: isGalleryLoading } = useSWR(
     `/api/public/gallery?category=${activeGalleryCat}`,
