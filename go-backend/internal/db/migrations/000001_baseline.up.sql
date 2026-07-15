@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS school_settings (
     current_academic_year TEXT DEFAULT '2026/2027',
     principal_name TEXT,
     principal_nip TEXT,
+    supervisor_name TEXT,
+    supervisor_nip TEXT,
     is_maintenance BOOLEAN DEFAULT 0,
     last_letter_number INTEGER DEFAULT 0,
     letter_number_format TEXT DEFAULT '421/{nomor}/SDN1/{bulan}/{tahun}',
