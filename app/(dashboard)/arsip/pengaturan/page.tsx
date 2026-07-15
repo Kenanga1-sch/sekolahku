@@ -99,6 +99,7 @@ export default function PengaturanPersuratanPage() {
 
     // Edit form states
     const [selectedClass, setSelectedClass] = useState<any>(null);
+    const [editCode, setEditCode] = useState("");
     const [editName, setEditName] = useState("");
     const [editDescription, setEditDescription] = useState("");
     const [editIsActive, setEditIsActive] = useState(true);
@@ -133,6 +134,7 @@ export default function PengaturanPersuratanPage() {
 
     const handleOpenEditDialog = (item: any) => {
         setSelectedClass(item);
+        setEditCode(item.code);
         setEditName(item.name);
         setEditDescription(item.description || "");
         setEditIsActive(item.isActive !== false);
@@ -188,6 +190,7 @@ export default function PengaturanPersuratanPage() {
         setIsUpdating(true);
         try {
             const payload = {
+                code: editCode.trim(),
                 name: editName.trim(),
                 description: editDescription.trim() || null,
                 isActive: editIsActive
@@ -251,7 +254,7 @@ export default function PengaturanPersuratanPage() {
                 letter_number_format: letterFormat,
                 last_letter_number: lastNumber
             };
-            await goPost("/api/school-settings", payload);
+            await goPost("/api/admin/school-settings", payload);
             await refreshSettings();
             toast.success("Pengaturan persuratan berhasil disimpan");
         } catch (error) {
@@ -852,11 +855,12 @@ export default function PengaturanPersuratanPage() {
                     </DialogHeader>
                     <form onSubmit={handleUpdateClassification} className="space-y-4 py-2">
                         <div className="space-y-2">
-                            <Label htmlFor="edit_code" className="text-sm font-semibold">Kode Klasifikasi (Tidak dapat diubah)</Label>
+                            <Label htmlFor="edit_code" className="text-sm font-semibold">Kode Klasifikasi</Label>
                             <Input
                                 id="edit_code"
-                                value={selectedClass?.code || ""}
-                                disabled
+                                value={editCode}
+                                onChange={(e) => setEditCode(e.target.value)}
+                                required
                                 className="font-mono bg-slate-50 dark:bg-zinc-950"
                             />
                         </div>

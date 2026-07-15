@@ -215,11 +215,22 @@ func (r *EOfficeRepository) UpdateKlasifikasi(code string, k models.KlasifikasiS
 	if k.Description != nil {
 		desc = *k.Description
 	}
+	newCode := k.Code
+	if newCode == "" {
+		newCode = code
+	}
+	
+	// Ensure we update child records if code changed (manual cascade)
+	if newCode != code {
+		_, _ = r.DB.Exec("UPDATE generated_letters SET classification_code = ? WHERE classification_code = ?", newCode, code)
+		_, _ = r.DB.Exec("UPDATE incoming_letters SET classification_code = ? WHERE classification_code = ?", newCode, code)
+	}
+
 	_, err := r.DB.Exec(`
 		UPDATE klasifikasi_surat
-		SET name = ?, description = ?, is_active = ?
+		SET code = ?, name = ?, description = ?, is_active = ?
 		WHERE code = ?
-	`, k.Name, desc, k.IsActive, code)
+	`, newCode, k.Name, desc, k.IsActive, code)
 	return err
 }
 
