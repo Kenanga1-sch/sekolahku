@@ -38,6 +38,8 @@ export default function BuatSuratUmumPage() {
     dateOfLetter: new Date().toISOString().split("T")[0],
     classificationCode: "",
   });
+  const [paperSize, setPaperSize] = useState("A4");
+  const [orientation, setOrientation] = useState("PORTRAIT");
 
   const editor = useEditor({
     extensions: [
@@ -173,7 +175,13 @@ export default function BuatSuratUmumPage() {
         <div className="space-y-2">
           <Label>Isi Surat</Label>
           <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden bg-white dark:bg-zinc-950 min-h-[500px] flex flex-col">
-            <EditorSidebar editor={editor} />
+            <EditorSidebar 
+              editor={editor} 
+              paperSize={paperSize}
+              setPaperSize={setPaperSize}
+              orientation={orientation}
+              setOrientation={setOrientation}
+            />
             <div className="flex-1 p-8 prose prose-slate max-w-none dark:prose-invert">
               <EditorContent editor={editor} className="min-h-[400px] outline-none" />
             </div>
