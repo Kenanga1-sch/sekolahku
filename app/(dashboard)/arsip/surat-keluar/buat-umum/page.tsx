@@ -26,7 +26,7 @@ import { TaskItem } from "@tiptap/extension-task-item";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { FontFamily } from "@tiptap/extension-font-family";
 import { Color } from "@tiptap/extension-color";
-import { EditorToolbar } from "@/components/letters/editor-toolbar";
+import { EditorSidebar } from "@/components/letters/editor-sidebar";
 
 export default function BuatSuratUmumPage() {
   const router = useRouter();
@@ -173,7 +173,7 @@ export default function BuatSuratUmumPage() {
         <div className="space-y-2">
           <Label>Isi Surat</Label>
           <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden bg-white dark:bg-zinc-950 min-h-[500px] flex flex-col">
-            <EditorToolbar editor={editor as any} />
+            <EditorSidebar editor={editor} />
             <div className="flex-1 p-8 prose prose-slate max-w-none dark:prose-invert">
               <EditorContent editor={editor} className="min-h-[400px] outline-none" />
             </div>
