@@ -771,9 +771,9 @@ func (r *EOfficeRepository) CreateSuratKeluar(s models.SuratKeluar) (string, str
 	defer tx.Rollback()
 
 	_, err = tx.Exec(`
-		INSERT INTO surat_keluar (id, mail_number, recipient, subject, date_of_letter, classification_code, file_path, status, created_by, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, 'Draft', ?, ?, ?)
-	`, s.ID, s.MailNumber, s.Recipient, s.Subject, s.DateOfLetter, s.ClassificationCode, s.FilePath, s.CreatedBy, now, now)
+		INSERT INTO surat_keluar (id, mail_number, recipient, subject, date_of_letter, classification_code, file_path, status, html_content, created_by, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, 'Draft', ?, ?, ?, ?)
+	`, s.ID, s.MailNumber, s.Recipient, s.Subject, s.DateOfLetter, s.ClassificationCode, s.FilePath, s.HtmlContent, s.CreatedBy, now, now)
 	if err != nil {
 		return "", "", err
 	}
@@ -837,12 +837,12 @@ func (r *EOfficeRepository) GetSuratMasukByID(id string) (*models.SuratMasuk, er
 func (r *EOfficeRepository) GetSuratKeluarByID(id string) (*models.SuratKeluar, error) {
 	var s models.SuratKeluar
 	var classCode, filePath, finalPath, createdBy, creatorName, creatorFullName, creatorRole, kCode, kName, kDesc sql.NullString
-	var agenda, vBy, ds, revNote, tplID sql.NullString
+	var agenda, vBy, ds, revNote, tplID, htmlContent sql.NullString
 	var vAt sql.NullInt64
 	var crAt, upAt sql.NullInt64
 	err := r.DB.QueryRow(`
 		SELECT s.id, s.mail_number, s.recipient, s.subject, s.date_of_letter, s.classification_code,
-		       s.file_path, s.final_file_path, s.status, s.agenda_number, s.verified_by, s.verified_at, s.digital_signature, s.revision_note, s.template_id, s.created_by, s.created_at, s.updated_at,
+		       s.file_path, s.final_file_path, s.status, s.agenda_number, s.verified_by, s.verified_at, s.digital_signature, s.revision_note, s.template_id, s.html_content, s.created_by, s.created_at, s.updated_at,
 		       u.name, u.full_name, u.role,
 		       k.code, k.name, k.description
 		FROM surat_keluar s
@@ -850,7 +850,7 @@ func (r *EOfficeRepository) GetSuratKeluarByID(id string) (*models.SuratKeluar, 
 		LEFT JOIN klasifikasi_surat k ON s.classification_code = k.code
 		WHERE s.id = ?
 	`, id).Scan(&s.ID, &s.MailNumber, &s.Recipient, &s.Subject, &s.DateOfLetter, &classCode,
-		&filePath, &finalPath, &s.Status, &agenda, &vBy, &vAt, &ds, &revNote, &tplID, &createdBy, &crAt, &upAt,
+		&filePath, &finalPath, &s.Status, &agenda, &vBy, &vAt, &ds, &revNote, &tplID, &htmlContent, &createdBy, &crAt, &upAt,
 		&creatorName, &creatorFullName, &creatorRole,
 		&kCode, &kName, &kDesc)
 	if err != nil {
@@ -864,6 +864,9 @@ func (r *EOfficeRepository) GetSuratKeluarByID(id string) (*models.SuratKeluar, 
 	}
 	if finalPath.Valid {
 		s.FinalFilePath = &finalPath.String
+	}
+	if htmlContent.Valid {
+		s.HtmlContent = &htmlContent.String
 	}
 	if createdBy.Valid {
 		s.CreatedBy = &createdBy.String
@@ -979,10 +982,10 @@ func (r *EOfficeRepository) UpdateSuratKeluar(id string, s models.SuratKeluar) e
 	now := UnixMilli()
 	_, err := r.DB.Exec(`
 		UPDATE surat_keluar SET mail_number = ?, recipient = ?, subject = ?, date_of_letter = ?,
-			classification_code = ?, file_path = ?, final_file_path = ?, status = ?, updated_at = ?
+			classification_code = ?, file_path = ?, final_file_path = ?, status = ?, html_content = ?, updated_at = ?
 		WHERE id = ?
 	`, s.MailNumber, s.Recipient, s.Subject, s.DateOfLetter, s.ClassificationCode, s.FilePath,
-		s.FinalFilePath, s.Status, now, id)
+		s.FinalFilePath, s.Status, s.HtmlContent, now, id)
 	return err
 }
 

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ArrowLeft, Upload, FileText, CheckCircle2, AlertCircle, Save, Loader2 } from "lucide-react";
+import { ArrowLeft, Upload, FileText, CheckCircle2, AlertCircle, Save, Loader2, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +31,7 @@ interface SuratKeluarDetail {
     verifiedAt?: string;
     digitalSignature?: string;
     revisionNote?: string;
+    htmlContent?: string;
 }
 
 export default function SuratKeluarDetailPage() {
@@ -268,19 +269,36 @@ export default function SuratKeluarDetailPage() {
                     </Card>
                 </div>
 
-                {/* Right: PDF Viewer */}
-                <div className="h-full min-h-[500px] border-l pl-6 hidden lg:block">
-                     <PDFViewer url={data.finalFilePath || data.filePath} className="h-full shadow-lg" />
+                {/* Right: PDF Viewer / HTML Content */}
+                <div className="h-full min-h-[500px] border-l pl-6 hidden lg:flex flex-col gap-4">
+                    {data.htmlContent ? (
+                        <div className="flex-1 flex flex-col justify-center items-center bg-zinc-50 dark:bg-zinc-900 border rounded-xl p-8 text-center space-y-4">
+                            <FileText className="h-16 w-16 text-muted-foreground mb-4" />
+                            <h3 className="text-xl font-semibold">Surat Umum (Kustom)</h3>
+                            <p className="text-muted-foreground max-w-md">
+                                Surat ini dibuat tanpa template PDF. Anda bisa langsung mencetaknya menggunakan layout standar sekolah.
+                            </p>
+                            <Button size="lg" className="mt-4" onClick={() => window.open(`/arsip/surat-keluar/cetak?id=${data.id}`, '_blank')}>
+                                <Printer className="mr-2 h-5 w-5" /> Cetak Surat Keluar
+                            </Button>
+                        </div>
+                    ) : (
+                        <PDFViewer url={data.finalFilePath || data.filePath} className="h-full shadow-lg" />
+                    )}
                 </div>
-                {/* Mobile PDF Link */}
+                {/* Mobile PDF / HTML Link */}
                  <div className="lg:hidden">
-                    {(data.finalFilePath || data.filePath) ? (
+                    {data.htmlContent ? (
+                        <Button className="w-full" onClick={() => window.open(`/arsip/surat-keluar/cetak?id=${data.id}`, "_blank")}>
+                            <Printer className="mr-2 h-4 w-4" /> Cetak Surat
+                        </Button>
+                    ) : (data.finalFilePath || data.filePath) ? (
                         <Button variant="outline" className="w-full" onClick={() => window.open(normalizePublicPath(data.finalFilePath || data.filePath), "_blank")}>
                             Lihat File PDF
                         </Button>
                     ) : (
                          <div className="p-8 text-center border-2 border-dashed rounded-xl text-muted-foreground">
-                            Preview PDF belum tersedia
+                            Preview dokumen belum tersedia
                         </div>
                     )}
                 </div>

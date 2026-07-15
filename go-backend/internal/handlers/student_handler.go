@@ -129,8 +129,13 @@ func (h *StudentHandler) BulkCreateStudents(c echo.Context) error {
 		if status == "" {
 			status = "active"
 		}
-		gender := strings.ToUpper(importString(row, "gender", "Gender", "jk", "JK"))
-		if gender != "L" && gender != "P" {
+		genderRaw := strings.ToUpper(importString(row, "gender", "Gender", "jk", "JK", "JenisKelamin"))
+		var gender string
+		if strings.HasPrefix(genderRaw, "L") {
+			gender = "L"
+		} else if strings.HasPrefix(genderRaw, "P") {
+			gender = "P"
+		} else {
 			gender = ""
 		}
 

@@ -96,8 +96,9 @@ type SuratKeluar struct {
 	VerifiedBy         *string           `json:"verifiedBy"`
 	VerifiedAt         *int64            `json:"verifiedAt"`
 	DigitalSignature   *string           `json:"digitalSignature"`
-	RevisionNote      *string           `json:"revisionNote"`
+	RevisionNote       *string           `json:"revisionNote"`
 	TemplateID         *string           `json:"templateId"`
+	HtmlContent        *string           `json:"htmlContent"`
 	CreatedBy          *string           `json:"createdBy"`
 	Creator            *User             `json:"creator,omitempty"`
 	CreatedAt          *time.Time        `json:"createdAt"`

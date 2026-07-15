@@ -110,7 +110,29 @@ export default function SuratKeluarBaruPage() {
             <Layers className="h-4 w-4" />
             Grup / Paket Surat
           </TabsTrigger>
+          <TabsTrigger value="umum" className="flex gap-2 items-center">
+            <FileText className="h-4 w-4" />
+            Surat Umum
+          </TabsTrigger>
         </TabsList>
+
+        {/* --- TABS CONTENT: SURAT UMUM --- */}
+        <TabsContent value="umum" className="space-y-4">
+          <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-8 text-center space-y-4">
+            <div className="mx-auto w-12 h-12 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-full flex items-center justify-center">
+              <FileText className="h-6 w-6" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold">Surat Umum / Kondisional</h3>
+              <p className="text-sm text-muted-foreground max-w-lg mx-auto mt-2">
+                Buat surat bebas tanpa format template. Nomor surat dan KOP surat akan dibuatkan secara otomatis oleh sistem, Anda hanya perlu mengetikkan isi suratnya.
+              </p>
+            </div>
+            <Button onClick={() => router.push('/arsip/surat-keluar/buat-umum')} className="mt-4">
+              Mulai Mengetik Surat Umum
+            </Button>
+          </div>
+        </TabsContent>
 
         {/* --- TABS CONTENT: TEMPLATE TUNGGAL --- */}
         <TabsContent value="tunggal" className="space-y-4">

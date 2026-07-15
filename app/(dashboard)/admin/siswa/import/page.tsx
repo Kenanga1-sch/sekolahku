@@ -378,10 +378,10 @@ export default function ImportWizardPage() {
     reader.onload = (evt) => {
       try {
         const data = evt.target?.result;
-        const workbook = XLSX.read(data, { type: "binary" });
+        const workbook = XLSX.read(data, { type: "binary", cellDates: true });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
-        const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+        const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: false, dateNF: "yyyy-mm-dd" });
         if (rows.length === 0) {
           showError("Berkas Excel kosong atau tidak terbaca!");
           return;
@@ -448,7 +448,18 @@ export default function ImportWizardPage() {
           errorsList.push(`Baris ${idx + 1}: Identitas siswa (NISN, NIS, atau Nama) wajib ada.`);
         }
         if (!mappedRow.academicYear) {
-          errorsList.push(`Baris ${idx + 1}: Tahun Ajaran wajib diisi.`);
+          mappedRow.academicYear = currentAcademicYear;
+          if (!mappedRow.academicYear) {
+            errorsList.push(`Baris ${idx + 1}: Tahun Ajaran wajib diisi.`);
+          }
+        }
+        if (mappedRow.gender) {
+          const g = mappedRow.gender.toUpperCase();
+          if (g.startsWith("L")) {
+            mappedRow.gender = "L";
+          } else if (g.startsWith("P")) {
+            mappedRow.gender = "P";
+          }
         }
         if (!mappedRow.semester) {
           errorsList.push(`Baris ${idx + 1}: Semester wajib diisi.`);
