@@ -13,6 +13,7 @@ export default function CetakSuratUmumPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const { settings } = useSchoolSettings();
+  const s = settings as any;
 
   useEffect(() => {
     if (!id) return;
@@ -68,7 +69,7 @@ export default function CetakSuratUmumPage() {
         <div className="w-full flex items-center justify-between pb-2">
           <div className="w-[80px] h-[80px] relative">
             <Image 
-              src={settings?.logoUrl || "/logo.png"} 
+              src={s?.logoUrl || "/logo.png"} 
               alt="Logo" 
               fill 
               className="object-contain" 
@@ -76,17 +77,17 @@ export default function CetakSuratUmumPage() {
           </div>
           <div className="flex-1 text-center px-4">
             <div className="text-lg uppercase tracking-wide">
-              {settings?.governanceName || "PEMERINTAH KABUPATEN INDRAMAYU"}
+              {s?.governanceName || "PEMERINTAH KABUPATEN INDRAMAYU"}
               <br />
-              {settings?.departmentName || "DINAS PENDIDIKAN DAN KEBUDAYAAN"}
+              {s?.departmentName || "DINAS PENDIDIKAN DAN KEBUDAYAAN"}
             </div>
             <div className="text-xl font-bold uppercase tracking-wider mt-1">
-              {settings?.schoolName || "UPTD SDN 1 KENANGA"}
+              {settings?.school_name || "UPTD SDN 1 KENANGA"}
             </div>
             <div className="text-sm mt-1">
-              {settings?.address || "Jl. Raya Kenanga No. 1, Kec. Sindang, Kab. Indramayu"}
+              {settings?.school_address || "Jl. Raya Kenanga No. 1, Kec. Sindang, Kab. Indramayu"}
               <br />
-              Email: {settings?.email || "sdn1kenanga@gmail.com"} | Telp: {settings?.phone || "-"}
+              Email: {settings?.school_email || "sdn1kenanga@gmail.com"} | Telp: {settings?.school_phone || "-"}
             </div>
           </div>
           <div className="w-[80px] h-[80px] relative">
