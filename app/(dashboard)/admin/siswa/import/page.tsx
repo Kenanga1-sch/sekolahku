@@ -448,10 +448,7 @@ export default function ImportWizardPage() {
           errorsList.push(`Baris ${idx + 1}: Identitas siswa (NISN, NIS, atau Nama) wajib ada.`);
         }
         if (!mappedRow.academicYear) {
-          mappedRow.academicYear = currentAcademicYear;
-          if (!mappedRow.academicYear) {
-            errorsList.push(`Baris ${idx + 1}: Tahun Ajaran wajib diisi.`);
-          }
+          errorsList.push(`Baris ${idx + 1}: Tahun Ajaran wajib diisi.`);
         }
         if (mappedRow.gender) {
           const g = mappedRow.gender.toUpperCase();
