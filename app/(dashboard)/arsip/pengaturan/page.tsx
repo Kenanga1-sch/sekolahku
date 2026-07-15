@@ -254,7 +254,7 @@ export default function PengaturanPersuratanPage() {
                 letter_number_format: letterFormat,
                 last_letter_number: lastNumber
             };
-            await goPost("/api/admin/school-settings", payload);
+            await goPost("/api/school-settings", payload);
             await refreshSettings();
             toast.success("Pengaturan persuratan berhasil disimpan");
         } catch (error) {
