@@ -27,7 +27,6 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import { FontFamily } from "@tiptap/extension-font-family";
 import { Color } from "@tiptap/extension-color";
 import { EditorToolbar } from "@/components/letters/editor-toolbar";
-import { ClassificationSelector } from "@/components/letters/classification-selector";
 
 export default function BuatSuratUmumPage() {
   const router = useRouter();
@@ -154,9 +153,11 @@ export default function BuatSuratUmumPage() {
           </div>
           <div className="space-y-2">
             <Label>Klasifikasi Surat (Wajib)</Label>
-            <ClassificationSelector
+            <Input 
+              required
+              placeholder="Cth: 421 (Pendidikan)"
               value={formData.classificationCode}
-              onChange={(val: string) => setFormData({ ...formData, classificationCode: val })}
+              onChange={e => setFormData({ ...formData, classificationCode: e.target.value })}
             />
           </div>
           <div className="space-y-2 md:col-span-2">
