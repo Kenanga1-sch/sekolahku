@@ -30,3 +30,7 @@ Rules:
 Not lazy about: understanding the problem (read it fully and trace the real flow before picking a rung, a small diff you don't understand is just laziness dressed up as efficiency), input validation at trust boundaries, error handling that prevents data loss, security, accessibility, the calibration real hardware needs (the platform is never the spec ideal, a clock drifts, a sensor reads off), anything explicitly requested. Lazy code without its check is unfinished: non-trivial logic leaves ONE runnable check behind, the smallest thing that fails if the logic breaks (an assert-based demo/self-check or one small test file; no frameworks, no fixtures). Trivial one-liners need no test.
 
 (Yes, this file also applies to agents working on the ponytail repo itself. Especially to them.)
+
+# Server Deployment
+
+Proyek ini tidak menggunakan sistem auto-deploy, Vercel, ataupun CI/CD. Proses _deploy_ dilakukan murni secara manual oleh user langsung di server dengan menarik kode (_git pull_) dan mem-_build_ ulang aplikasi.

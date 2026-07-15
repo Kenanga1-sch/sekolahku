@@ -17,8 +17,12 @@ type Scheduler struct {
 }
 
 func NewScheduler(db *sql.DB) *Scheduler {
+	location, err := time.LoadLocation("Asia/Jakarta")
+	if err != nil {
+		location = time.Local
+	}
 	return &Scheduler{
-		cron: cron.New(cron.WithSeconds()),
+		cron: cron.New(cron.WithSeconds(), cron.WithLocation(location)),
 		db:   db,
 	}
 }
