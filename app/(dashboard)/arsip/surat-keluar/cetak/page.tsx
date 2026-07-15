@@ -122,7 +122,7 @@ export default function CetakSuratUmumPage() {
           </div>
           <div className="text-right">
             <div>
-              {settings?.city || "Indramayu"}, {formatDate(data.dateOfLetter)}
+              {s?.city || "Indramayu"}, {formatDate(data.dateOfLetter)}
             </div>
           </div>
         </div>
@@ -158,8 +158,8 @@ export default function CetakSuratUmumPage() {
                 <div className="text-xs text-gray-400 italic">(Belum Ditandatangani)</div>
               )}
             </div>
-            <div className="font-bold underline">{settings?.principalName || "Nama Kepala Sekolah"}</div>
-            <div>NIP. {settings?.principalNip || "-"}</div>
+            <div className="font-bold underline">{s?.principalName || "Nama Kepala Sekolah"}</div>
+            <div>NIP. {s?.principalNip || "-"}</div>
           </div>
         </div>
       </div>
