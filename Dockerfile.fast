@@ -1,0 +1,15 @@
+FROM debian:bookworm-slim
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates tzdata wget \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY sekolahku /app/sekolahku
+RUN chmod +x /app/sekolahku \
+    && mkdir -p /app/data /app/public/uploads /app/uploads
+
+ENV PORT=8181
+ENV TZ=Asia/Jakarta
+EXPOSE 8181
+
+CMD ["/app/sekolahku"]

@@ -34,7 +34,8 @@ go-backend/uploads
 *.db-*
 
 # compiled binaries in project root
-sekolahku
+# sekolahku
+!sekolahku
 sekolahku.exe
 sekolahku_linux
 sekolahku_test
