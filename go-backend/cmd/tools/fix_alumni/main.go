@@ -5,18 +5,17 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 func main() {
 	if len(os.Args) < 2 {
-		log.Fatal("Usage: go run fix_alumni.go <path-to-db>")
+		log.Fatal("Usage: go run main.go <path-to-db>")
 	}
 	dbPath := os.Args[1]
 
-	db, err := sql.Open("sqlite3", dbPath)
+	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -35,7 +34,7 @@ func main() {
 		if err := rows.Scan(&id, &studentID); err != nil {
 			log.Fatal(err)
 		}
-		
+
 		if studentID.Valid && studentID.String != "" {
 			// Get graduation history
 			var gradYear sql.NullString

@@ -1,1 +1,1 @@
-ALTER TABLE employee_details ADD COLUMN phone TEXT;
+-- safely handled in Go

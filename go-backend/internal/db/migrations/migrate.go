@@ -59,8 +59,41 @@ func RunMigrations(db *sql.DB) error {
 			return err
 		}
 
-		// Execute SQL (split by semicolon for multiple statements)
-		statements := strings.Split(string(content), ";")
+		// Execute SQL (custom parser to handle triggers properly)
+		var statements []string
+		var currentStmt string
+		inTrigger := false
+
+		for _, line := range strings.Split(string(content), "\n") {
+			trimmedLine := strings.TrimSpace(line)
+			if trimmedLine == "" || strings.HasPrefix(trimmedLine, "--") {
+				continue
+			}
+
+			upperLine := strings.ToUpper(trimmedLine)
+			if strings.HasPrefix(upperLine, "CREATE TRIGGER") {
+				inTrigger = true
+			}
+
+			currentStmt += line + "\n"
+
+			if inTrigger {
+				if upperLine == "END;" {
+					inTrigger = false
+					statements = append(statements, currentStmt)
+					currentStmt = ""
+				}
+			} else {
+				if strings.HasSuffix(trimmedLine, ";") {
+					statements = append(statements, currentStmt)
+					currentStmt = ""
+				}
+			}
+		}
+		if strings.TrimSpace(currentStmt) != "" {
+			statements = append(statements, currentStmt)
+		}
+
 		for _, stmt := range statements {
 			stmt = strings.TrimSpace(stmt)
 			if stmt == "" {

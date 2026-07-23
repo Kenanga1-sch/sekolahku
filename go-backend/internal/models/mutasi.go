@@ -46,11 +46,27 @@ type MutasiLog struct {
 	StudentID           *string    `json:"studentId"`
 	StudentName         string     `json:"studentName"`
 	NISN                string     `json:"nisn"`
+	NIS                 *string    `json:"nis"`
 	Gender              *string    `json:"gender"`
+	ClassName           *string    `json:"className"`
+	ClassGrade          *int       `json:"classGrade"`
 	OriginOrDestination string     `json:"originOrDestination"`
 	MutationDate        *time.Time `json:"mutationDate"`
 	Reason              *string    `json:"reason"`
 	CreatedAt           *time.Time `json:"createdAt"`
+}
+
+// MutasiRekapItem represents per-grade rekap data for Buku Mutasi
+type MutasiRekapItem struct {
+	Grade   int `json:"grade"`
+	AwalL   int `json:"awalL"`
+	AwalP   int `json:"awalP"`
+	MasukL  int `json:"masukL"`
+	MasukP  int `json:"masukP"`
+	KeluarL int `json:"keluarL"`
+	KeluarP int `json:"keluarP"`
+	AkhirL  int `json:"akhirL"`
+	AkhirP  int `json:"akhirP"`
 }
 
 

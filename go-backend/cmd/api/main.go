@@ -220,6 +220,41 @@ func main() {
 			updated_at INTEGER,
 			FOREIGN KEY(user_id) REFERENCES users(id)
 		);
+		CREATE TABLE IF NOT EXISTS attendance_sessions (
+			id TEXT PRIMARY KEY,
+			date TEXT NOT NULL,
+			class_id TEXT,
+			class_name TEXT NOT NULL,
+			academic_year TEXT,
+			teacher_name TEXT,
+			status TEXT DEFAULT 'open' NOT NULL,
+			opened_at INTEGER,
+			closed_at INTEGER,
+			notes TEXT,
+			created_at INTEGER,
+			updated_at INTEGER
+		);
+		CREATE TABLE IF NOT EXISTS attendance_records (
+			id TEXT PRIMARY KEY,
+			session_id TEXT NOT NULL,
+			student_id TEXT NOT NULL,
+			status TEXT DEFAULT 'hadir' NOT NULL,
+			check_in_time INTEGER,
+			recorded_by TEXT,
+			record_method TEXT DEFAULT 'manual' NOT NULL,
+			notes TEXT,
+			created_at INTEGER,
+			updated_at INTEGER
+		);
+		CREATE TABLE IF NOT EXISTS telegram_backup_settings (
+			id TEXT PRIMARY KEY,
+			bot_token TEXT,
+			chat_id TEXT,
+			is_enabled INTEGER DEFAULT 0,
+			last_backup_at INTEGER,
+			created_at INTEGER,
+			updated_at INTEGER
+		);
 	`); err != nil {
 		server.Logger.Warn("Failed to create core tables:", err)
 	}
@@ -1074,6 +1109,7 @@ func main() {
 	adminGroup.POST("/admin/mutasi/masuk/langsung", mutasiHandler.DirectMutasiMasuk)
 	adminGroup.POST("/admin/mutasi-keluar/langsung", mutasiHandler.DirectMutasiKeluar)
 	adminGroup.GET("/admin/mutasi/logs", mutasiHandler.GetMutasiLogs)
+	adminGroup.GET("/admin/mutasi/rekap", mutasiHandler.GetMutasiRekap)
 
 	// Notifications (Protected)
 	notifs := server.Group("/api/notifications")
@@ -1382,6 +1418,9 @@ func RepairDatabase(db *sql.DB, logger echo.Logger) {
 		{Table: "school_settings", Name: "letter_number_format", SQLType: "TEXT", Default: "'421/{nomor}/SDN1-KNG/{bulan}/{tahun}'"},
 		{Table: "school_settings", Name: "created_at", SQLType: "INTEGER"},
 		{Table: "school_settings", Name: "updated_at", SQLType: "INTEGER"},
+
+		// employee details
+		{Table: "employee_details", Name: "phone", SQLType: "TEXT"},
 
 		// audit logs
 		{Table: "audit_logs", Name: "details", SQLType: "TEXT"},

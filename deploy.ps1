@@ -1,7 +1,7 @@
 $hostname = "100.97.52.50"
 $username = "kenanga"
 $password = "20216609"
-$remoteDir = "/home/kenanga/sekolahku-deploy"
+$remoteDir = "/home/kenanga/sekolahku"
 $localDir = "D:\antigravity\sekolahku"
 
 Write-Host "=== 1. Creating archive (excluding heavy dirs) ==="

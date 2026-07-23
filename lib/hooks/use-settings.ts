@@ -19,6 +19,8 @@ const defaultSettings = {
     current_academic_year: "2025/2026",
     principal_name: "",
     principal_nip: "",
+    supervisor_name: "",
+    supervisor_nip: "",
     last_letter_number: 0,
     letter_number_format: "421/{nomor}/SDN1-KNG/{bulan}/{tahun}",
 };

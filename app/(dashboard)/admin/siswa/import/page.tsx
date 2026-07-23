@@ -427,6 +427,39 @@ export default function ImportWizardPage() {
         if (!mappedRow.fullName) {
           errorsList.push(`Baris ${idx + 1}: Nama Lengkap wajib diisi.`);
         }
+        
+        // Handle Excel Date Serial Number (e.g. 43726) for date fields
+        const dateFields = ["birthDate", "previousSchoolCertDate", "mutasiMasukDiterimaTanggal"];
+        dateFields.forEach(field => {
+          if (mappedRow[field]) {
+            const dateStr = String(mappedRow[field]);
+            if (!isNaN(Number(dateStr))) {
+              const serial = Number(dateStr);
+              // Excel epoch is Jan 1, 1900. 25569 is days between 1900-01-01 and 1970-01-01
+              const dateObj = new Date(Math.round((serial - 25569) * 86400 * 1000));
+              if (!isNaN(dateObj.getTime())) {
+                mappedRow[field] = dateObj.toISOString().split('T')[0];
+              }
+            } else {
+              // Already a string, try to parse or format as YYYY-MM-DD
+              const parsed = new Date(dateStr);
+              if (!isNaN(parsed.getTime())) {
+                mappedRow[field] = parsed.toISOString().split('T')[0];
+              }
+            }
+          }
+        });
+
+        // Handle Gender conversion from L/P to Laki-laki/Perempuan
+        if (mappedRow.gender) {
+          const g = String(mappedRow.gender).trim().toUpperCase();
+          if (g === "L" || g.startsWith("LAKI")) {
+            mappedRow.gender = "Laki-laki";
+          } else if (g === "P" || g.startsWith("PEREMPUAN")) {
+            mappedRow.gender = "Perempuan";
+          }
+        }
+
         ["siblingKandung", "siblingTiri", "siblingAngkat"].forEach((col) => {
           if (mappedRow[col]) {
             const parsed = parseInt(mappedRow[col], 10);

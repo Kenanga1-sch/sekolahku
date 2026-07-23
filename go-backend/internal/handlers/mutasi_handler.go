@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sekolahku/go-backend/internal/models"
@@ -269,6 +270,39 @@ func (h *MutasiHandler) GetMutasiLogs(c echo.Context) error {
 		"success": true,
 		"data":    list,
 		"total":   total,
+	})
+}
+
+func (h *MutasiHandler) GetMutasiRekap(c echo.Context) error {
+	monthStr := c.QueryParam("month") // format: "2025-07"
+	if monthStr == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Parameter month wajib diisi (format: YYYY-MM)"})
+	}
+
+	parts := strings.Split(monthStr, "-")
+	if len(parts) != 2 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Format month tidak valid (gunakan YYYY-MM)"})
+	}
+
+	year, err1 := strconv.Atoi(parts[0])
+	month, err2 := strconv.Atoi(parts[1])
+	if err1 != nil || err2 != nil || month < 1 || month > 12 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Format month tidak valid"})
+	}
+
+	// monthStart = first day of month 00:00:00 UTC in milliseconds
+	monthStart := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC).UnixMilli()
+	// monthEnd = last day of month 23:59:59 UTC in milliseconds
+	monthEnd := time.Date(year, time.Month(month)+1, 1, 0, 0, 0, 0, time.UTC).Add(-time.Millisecond).UnixMilli()
+
+	items, err := h.Repo.GetMutasiRekap(monthStart, monthEnd)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data":    items,
 	})
 }
 

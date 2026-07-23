@@ -36,18 +36,24 @@ export default function OverviewPage() {
         const userData = JSON.parse(jsonValue);
         setSession({ user: userData });
         
-        // Fetch stats
-        const [statsRes, healthRes] = await Promise.all([
-          getDashboardStats(),
-          getSystemHealth()
-        ]);
-        
-        // Stats can be direct or wrapped in data
-        const statsData = (statsRes as any)?.data || statsRes;
-        const healthData = (healthRes as any)?.data || healthRes;
+        // Fetch stats ONLY for admins
+        if (userData.role === "admin" || userData.role === "superadmin") {
+            const [statsRes, healthRes] = await Promise.all([
+            getDashboardStats(),
+            getSystemHealth()
+            ]);
+            
+            // Stats can be direct or wrapped in data
+            const statsData = (statsRes as any)?.data || statsRes;
+            const healthData = (healthRes as any)?.data || healthRes;
 
-        setStats(statsData);
-        setHealth(healthData);
+            setStats(statsData);
+            setHealth(healthData);
+        } else {
+            // For non-admins, we don't have stats yet, just set empty
+            setStats({});
+            setHealth(null);
+        }
       } catch (err: any) {
         console.error("Dashboard fetch error:", err);
         setError(err.message || "Gagal memuat data Beranda");

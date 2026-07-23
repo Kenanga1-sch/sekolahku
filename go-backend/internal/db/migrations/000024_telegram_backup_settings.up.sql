@@ -1,4 +1,4 @@
-CREATE TABLE telegram_backup_settings (
+CREATE TABLE IF NOT EXISTS telegram_backup_settings (
     id TEXT PRIMARY KEY,
     bot_token TEXT,
     chat_id TEXT,

@@ -533,10 +533,13 @@ func (r *MutasiRepository) GetMutasiLogs(page, perPage int) ([]models.MutasiLog,
 	r.DB.QueryRow("SELECT COUNT(*) FROM mutasi_logs").Scan(&total)
 
 	query := `
-		SELECT id, mutasi_type, student_id, student_name, nisn, gender,
-		       origin_or_destination, mutation_date, reason, created_at
-		FROM mutasi_logs
-		ORDER BY created_at DESC
+		SELECT ml.id, ml.mutasi_type, ml.student_id, ml.student_name, ml.nisn,
+		       s.nis, ml.gender, s.class_name, sc.grade,
+		       ml.origin_or_destination, ml.mutation_date, ml.reason, ml.created_at
+		FROM mutasi_logs ml
+		LEFT JOIN students s ON ml.student_id = s.id
+		LEFT JOIN student_classes sc ON s.class_id = sc.id
+		ORDER BY ml.created_at DESC
 		LIMIT ? OFFSET ?
 	`
 	rows, err := r.DB.Query(query, perPage, offset)
@@ -548,11 +551,13 @@ func (r *MutasiRepository) GetMutasiLogs(page, perPage int) ([]models.MutasiLog,
 	var results []models.MutasiLog
 	for rows.Next() {
 		var m models.MutasiLog
-		var sid, gender, reason sql.NullString
+		var sid, nis, gender, className, reason sql.NullString
+		var classGrade sql.NullInt64
 		var mutDate, crAt sql.NullInt64
 
 		err := rows.Scan(
-			&m.ID, &m.MutasiType, &sid, &m.StudentName, &m.NISN, &gender,
+			&m.ID, &m.MutasiType, &sid, &m.StudentName, &m.NISN,
+			&nis, &gender, &className, &classGrade,
 			&m.OriginOrDestination, &mutDate, &reason, &crAt,
 		)
 		if err != nil {
@@ -562,8 +567,18 @@ func (r *MutasiRepository) GetMutasiLogs(page, perPage int) ([]models.MutasiLog,
 		if sid.Valid {
 			m.StudentID = &sid.String
 		}
+		if nis.Valid {
+			m.NIS = &nis.String
+		}
 		if gender.Valid {
 			m.Gender = &gender.String
+		}
+		if className.Valid {
+			m.ClassName = &className.String
+		}
+		if classGrade.Valid {
+			g := int(classGrade.Int64)
+			m.ClassGrade = &g
 		}
 		if reason.Valid {
 			m.Reason = &reason.String
@@ -578,4 +593,74 @@ func (r *MutasiRepository) GetMutasiLogs(page, perPage int) ([]models.MutasiLog,
 		results = []models.MutasiLog{}
 	}
 	return results, total, nil
+}
+
+func (r *MutasiRepository) GetMutasiRekap(monthStart, monthEnd int64) ([]models.MutasiRekapItem, error) {
+	grades := []int{1, 2, 3, 4, 5, 6}
+	var items []models.MutasiRekapItem
+
+	for _, grade := range grades {
+		var activeL, activeP int
+		var masukL, masukP int
+		var keluarL, keluarP int
+
+		// Count currently active students per grade by gender
+		r.DB.QueryRow(`
+			SELECT 
+				COALESCE(SUM(CASE WHEN s.gender = 'L' THEN 1 ELSE 0 END), 0),
+				COALESCE(SUM(CASE WHEN s.gender = 'P' THEN 1 ELSE 0 END), 0)
+			FROM students s
+			JOIN student_classes sc ON s.class_id = sc.id
+			WHERE s.is_active = 1 AND sc.grade = ?
+		`, grade).Scan(&activeL, &activeP)
+
+		// Count masuk this month per grade by gender (from mutasi_logs, gender stored in log)
+		r.DB.QueryRow(`
+			SELECT 
+				COALESCE(SUM(CASE WHEN ml.gender = 'L' THEN 1 ELSE 0 END), 0),
+				COALESCE(SUM(CASE WHEN ml.gender = 'P' THEN 1 ELSE 0 END), 0)
+			FROM mutasi_logs ml
+			LEFT JOIN students s ON ml.student_id = s.id
+			LEFT JOIN student_classes sc ON s.class_id = sc.id
+			WHERE ml.mutasi_type = 'masuk'
+			  AND ml.mutation_date >= ? AND ml.mutation_date <= ?
+			  AND sc.grade = ?
+		`, monthStart, monthEnd, grade).Scan(&masukL, &masukP)
+
+		// Count keluar this month per grade by gender (from mutasi_logs, gender stored in log)
+		r.DB.QueryRow(`
+			SELECT 
+				COALESCE(SUM(CASE WHEN ml.gender = 'L' THEN 1 ELSE 0 END), 0),
+				COALESCE(SUM(CASE WHEN ml.gender = 'P' THEN 1 ELSE 0 END), 0)
+			FROM mutasi_logs ml
+			LEFT JOIN students s ON ml.student_id = s.id
+			LEFT JOIN student_classes sc ON s.class_id = sc.id
+			WHERE ml.mutasi_type = 'keluar'
+			  AND ml.mutation_date >= ? AND ml.mutation_date <= ?
+			  AND sc.grade = ?
+		`, monthStart, monthEnd, grade).Scan(&keluarL, &keluarP)
+
+		awalL := activeL - masukL + keluarL
+		awalP := activeP - masukP + keluarP
+		if awalL < 0 {
+			awalL = 0
+		}
+		if awalP < 0 {
+			awalP = 0
+		}
+
+		items = append(items, models.MutasiRekapItem{
+			Grade:   grade,
+			AwalL:   awalL,
+			AwalP:   awalP,
+			MasukL:  masukL,
+			MasukP:  masukP,
+			KeluarL: keluarL,
+			KeluarP: keluarP,
+			AkhirL:  activeL,
+			AkhirP:  activeP,
+		})
+	}
+
+	return items, nil
 }

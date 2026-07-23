@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2, Upload, FileSpreadsheet, AlertTriangle, CheckCircle } from "lucide-react";
 import { showSuccess, showError } from "@/lib/toast";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { goPost } from "@/lib/api-client";
 
 interface StudentImportDialogProps {
@@ -36,12 +36,58 @@ export function StudentImportDialog({ open, onOpenChange, onSuccess }: StudentIm
         const reader = new FileReader();
         reader.onload = (e) => {
             const data = e.target?.result;
-            const workbook = XLSX.read(data, { type: "binary" });
+            const workbook = XLSX.read(data, { type: "binary", cellDates: true });
             const sheetName = workbook.SheetNames[0]; // First sheet
             const sheet = workbook.Sheets[sheetName];
-            const jsonData = XLSX.utils.sheet_to_json(sheet);
+            let jsonData: any[] = XLSX.utils.sheet_to_json(sheet, { raw: false, dateNF: "yyyy-mm-dd" });
             
-            // Basic mapping if needed, or assume template headers match keys
+            jsonData = jsonData.map((row: any) => {
+                const mappedRow = { ...row };
+                
+                // Helper to find key dynamically
+                const findKey = (keywords: string[]) => {
+                    return Object.keys(mappedRow).find(k => {
+                        const normalized = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+                        return keywords.some(kw => normalized.includes(kw));
+                    });
+                };
+
+                // Cek birthDate atau tanggal_lahir
+                const dateKey = findKey(['birth', 'lahir']);
+                if (dateKey && mappedRow[dateKey]) {
+                    const dateStr = String(mappedRow[dateKey]);
+                    let formattedDate = dateStr;
+                    if (!isNaN(Number(dateStr))) {
+                        const serial = Number(dateStr);
+                        const dateObj = new Date(Math.round((serial - 25569) * 86400 * 1000));
+                        if (!isNaN(dateObj.getTime())) {
+                            formattedDate = dateObj.toISOString().split('T')[0];
+                        }
+                    } else {
+                        const parsed = new Date(dateStr);
+                        if (!isNaN(parsed.getTime())) {
+                            formattedDate = parsed.toISOString().split('T')[0];
+                        }
+                    }
+                    mappedRow.birthDate = formattedDate;
+                }
+
+                // Cek gender atau jk
+                const genderKey = findKey(['gender', 'jk', 'kelamin']);
+                if (genderKey && mappedRow[genderKey]) {
+                    const g = String(mappedRow[genderKey]).trim().toUpperCase();
+                    if (g === "L" || g.startsWith("LAKI")) {
+                        mappedRow.gender = "Laki-laki";
+                    } else if (g === "P" || g.startsWith("PEREMPUAN")) {
+                        mappedRow.gender = "Perempuan";
+                    } else {
+                        mappedRow.gender = mappedRow[genderKey];
+                    }
+                }
+                
+                return mappedRow;
+            });
+
             setPreviewData(jsonData);
         };
         reader.readAsBinaryString(file);
@@ -151,32 +197,29 @@ export function StudentImportDialog({ open, onOpenChange, onSuccess }: StudentIm
                                 <Label>Preview Data ({previewData.length} baris)</Label>
                                 <span className="text-xs text-muted-foreground">Periksa data sebelum import</span>
                             </div>
-                            <ScrollArea className="h-64 border rounded-md">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Nama</TableHead>
-                                            <TableHead>NISN</TableHead>
-                                            <TableHead>JK</TableHead>
-                                            <TableHead>Kelas</TableHead>
-                                            <TableHead>Tgl Lahir</TableHead>
-                                            <TableHead>Nama Ayah</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {previewData.slice(0, 50).map((row, i) => (
-                                            <TableRow key={i}>
-                                                <TableCell>{row.fullName || row.nama || "-"}</TableCell>
-                                                <TableCell>{row.nisn || "-"}</TableCell>
-                                                <TableCell>{row.gender || row.jk || "-"}</TableCell>
-                                                <TableCell>{row.className || row.kelas || "-"}</TableCell>
-                                                <TableCell>{row.birthDate || row.tanggal_lahir || "-"}</TableCell>
-                                                <TableCell>{row.fatherName || row.nama_ayah || "-"}</TableCell>
+                            <div className="border rounded-md overflow-hidden">
+                                <ScrollArea className="h-64 max-w-[85vw] w-full whitespace-nowrap">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                {previewData.length > 0 && Object.keys(previewData[0]).map((col) => (
+                                                    <TableHead key={col} className="whitespace-nowrap px-4">{col}</TableHead>
+                                                ))}
                                             </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </ScrollArea>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {previewData.slice(0, 50).map((row, i) => (
+                                                <TableRow key={i}>
+                                                    {Object.keys(previewData[0]).map((col) => (
+                                                        <TableCell key={col} className="whitespace-nowrap px-4">{row[col] !== undefined && row[col] !== null && row[col] !== "" ? String(row[col]) : "-"}</TableCell>
+                                                    ))}
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                    <ScrollBar orientation="horizontal" />
+                                </ScrollArea>
+                            </div>
                         </div>
                     )}
                 </div>

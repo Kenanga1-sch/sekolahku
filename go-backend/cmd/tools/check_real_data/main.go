@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 
-	_ "modernc.org/sqlite"
 	"github.com/sekolahku/go-backend/internal/repository"
+	_ "modernc.org/sqlite"
 )
 
 func main() {

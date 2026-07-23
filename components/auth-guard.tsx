@@ -22,7 +22,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
     const verifySession = async () => {
       try {
-        await goGet("/api/admin/system/health", {
+        await goGet("/api/profile", {
           skipRetry: true,
         });
         setVerified(true);
