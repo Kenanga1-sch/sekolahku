@@ -888,13 +888,15 @@ export default function TabMutasi() {
             </div>
             <div className="flex w-full lg:w-auto flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <Select value={reportClassId} onValueChange={setReportClassId}>
-                <SelectTrigger className="w-full sm:w-[170px] h-9 text-xs">
-                  <SelectValue placeholder="Semua Kelas" />
+                <SelectTrigger className="w-full sm:w-[260px] h-9 text-xs">
+                  <SelectValue placeholder="Pilih Jenis Buku Mutasi" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Semua Kelas</SelectItem>
+                  <SelectItem value="">Buku Mutasi Sekolah (ttd Pengawas)</SelectItem>
                   {classStats.map((c: any) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>
+                      Buku Mutasi {c.name} (ttd Kepsek)
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -902,19 +904,26 @@ export default function TabMutasi() {
                 type="month"
                 value={reportMonth}
                 onChange={(e) => setReportMonth(e.target.value)}
-                className="w-full sm:w-[180px] h-9"
+                className="w-full sm:w-[160px] h-9 text-xs"
               />
               <Button size="sm" onClick={() => window.print()} className="w-full sm:w-auto">
                 <Download className="mr-2 h-4 w-4" /> Cetak Buku Mutasi
               </Button>
             </div>
           </div>
-          <div className="no-print border-b px-4 py-3 text-xs text-muted-foreground">
-            {loadingLogs
-              ? "Memuat data buku mutasi..."
-              : errorLogs
-                ? "Gagal memuat buku mutasi."
-                : `Periode: ${reportMonthLabel}${isPerClass ? ` • ${selectedClass?.name}` : ""}${monthlyLogs.length === 0 ? " • Nihil" : ` • ${monthlyLogs.length} mutasi`}`}
+          <div className="no-print border-b px-4 py-3 text-xs text-muted-foreground flex flex-wrap items-center justify-between gap-2">
+            <div>
+              {loadingLogs
+                ? "Memuat data buku mutasi..."
+                : errorLogs
+                  ? "Gagal memuat buku mutasi."
+                  : `Periode: ${reportMonthLabel}${isPerClass ? ` • ${selectedClass?.name}` : " • Semua Kelas"}${monthlyLogs.length === 0 ? " • Status: NIHIL" : ` • ${monthlyLogs.length} mutasi`}`}
+            </div>
+            <Badge variant="outline" className="text-[11px] bg-slate-50 dark:bg-zinc-900 border-slate-300 dark:border-zinc-700">
+              {isPerClass 
+                ? "📋 Mode: Wali Kelas (Tanda Tangan: Kepala Sekolah)" 
+                : "🏫 Mode: Sekolah (Tanda Tangan: Pengawas Sekolah)"}
+            </Badge>
           </div>
 
           {/* Screen Preview */}
