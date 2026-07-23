@@ -1193,8 +1193,11 @@ func main() {
 				}
 			}
 
-			// Fallback to index.html for SPA client-side routing,
-			// but only for paths that don't look like static files
+			// Fallback to index.html for SPA client-side routing and stale Next.js RSC requests
+			if strings.HasPrefix(cleanPath, "__next") || c.QueryParam("_rsc") != "" {
+				return serveEmbeddedFile(c, frontendFS, "index.html")
+			}
+
 			if !strings.Contains(cleanPath, ".") && !strings.HasPrefix(cleanPath, "_next/") {
 				return serveEmbeddedFile(c, frontendFS, "index.html")
 			}
