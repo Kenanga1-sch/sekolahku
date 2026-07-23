@@ -54,6 +54,10 @@ import { useSchoolSettings } from "@/lib/hooks/use-settings";
 const fetcher = (url: string) => goGet(url);
 const BOOK_ROW_COUNT = 8;
 const BOOK_RECAP_GRADES = [1, 2, 3, 4, 5, 6];
+const ROMAN = ["", "I", "II", "III", "IV", "V", "VI"];
+function toRoman(n: number): string {
+  return ROMAN[n] ?? String(n);
+}
 
 export default function TabMutasi() {
   // Tab State: "masuk" (Incoming), "keluar" (Outgoing), or "buku" (Buku Mutasi)
@@ -966,8 +970,7 @@ export default function TabMutasi() {
   );
 }
 
-const ROMAN = ["", "I", "II", "III", "IV", "V", "VI"];
-const toRoman = (n: number) => ROMAN[n] ?? String(n);
+
 
 /** Pad rows to fixed count, filling empty rows with "..." */
 function padReportRows<T extends Record<string, any>>(
