@@ -1290,176 +1290,159 @@ function BukuMutasiPrintLayout({
           )}
         </div>
 
-        {/* Masuk & Keluar Tables Side by Side */}
-        <div className="grid grid-cols-2 gap-2">
-          {/* MASUK */}
-          <div className="space-y-0.5 relative overflow-x-auto print:overflow-visible">
-            <div className="flex items-center justify-center text-[11px] font-bold border-b border-black pb-0.5 mb-0.5 bg-gray-100">
-              <span>MASUK</span>
-            </div>
-            <table className="w-full border-collapse text-[10px]">
-              <thead>
-                <tr>
-                  <th rowSpan={2} className="border border-black px-0.5 py-0.5 leading-tight">No.<br />Urut</th>
-                  <th rowSpan={2} className="border border-black px-0.5 py-0.5 leading-tight">Tanggal</th>
-                  <th rowSpan={2} className="border border-black px-0.5 py-0.5 leading-tight">Nama Siswa</th>
-                  <th rowSpan={2} className="border border-black px-0.5 py-0.5 leading-tight">L/P</th>
-                  <th rowSpan={2} className="border border-black px-0.5 py-0.5 leading-tight">No.<br />Induk</th>
-                  <th rowSpan={2} className="border border-black px-0.5 py-0.5 leading-tight">Kelas</th>
-                  <th colSpan={3} className="border border-black px-0.5 py-0.5 leading-tight">Berasal dari</th>
-                  <th colSpan={2} className="border border-black px-0.5 py-0.5 leading-tight">Persetujuan<br />Kanwil/Kanko</th>
-                </tr>
-                <tr>
-                  <th className="border border-black px-0.5 py-0.5 leading-tight">Sekolah</th>
-                  <th className="border border-black px-0.5 py-0.5 leading-tight">No. Induk</th>
-                  <th className="border border-black px-0.5 py-0.5 leading-tight">Kelas</th>
-                  <th className="border border-black px-0.5 py-0.5 leading-tight">Tanggal</th>
-                  <th className="border border-black px-0.5 py-0.5 leading-tight">Nomor</th>
-                </tr>
-              </thead>
-              <tbody>
-                {masukRows.map((row, index) => (
-                  <tr key={`masuk-${index}`}>
-                    <td className="border border-black px-0.5 py-0.5 text-center">{row.no}</td>
-                    <td className="border border-black px-0.5 py-0.5">{row.tanggal}</td>
-                    <td className="border border-black px-0.5 py-0.5">{row.nama}</td>
-                    <td className="border border-black px-0.5 py-0.5 text-center">{row.lp}</td>
-                    <td className="border border-black px-0.5 py-0.5">{row.noInduk}</td>
-                    <td className="border border-black px-0.5 py-0.5 text-center">{row.kelas}</td>
-                    <td className="border border-black px-0.5 py-0.5">{row.sekolah}</td>
-                    <td className="border border-black px-0.5 py-0.5">{row.asalNoInduk}</td>
-                    <td className="border border-black px-0.5 py-0.5 text-center">{row.asalKelas}</td>
-                    <td className="border border-black px-0.5 py-0.5">{row.persetujuanTanggal}</td>
-                    <td className="border border-black px-0.5 py-0.5">{row.persetujuanNomor}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {monthlyMasukLogs.length === 0 && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none mt-6">
-                <div className="text-red-500 border-4 border-red-500 rounded-lg px-8 py-2 text-3xl font-bold tracking-widest uppercase rotate-[-15deg] opacity-60">
-                  NIHIL
-                </div>
-              </div>
-            )}
+        {/* MASUK TABLE */}
+        <div className="space-y-1 relative overflow-x-auto print:overflow-visible">
+          <div className="flex items-center justify-between text-[11px] font-bold border-b-2 border-black pb-0.5 bg-slate-100 dark:bg-zinc-800 px-2 py-1">
+            <span>I. MUTASI MASUK</span>
+            <span className="text-[10px] font-normal">Total: {monthlyMasukLogs.length} Siswa</span>
           </div>
-
-          {/* KELUAR */}
-          <div className="space-y-0.5 relative overflow-x-auto print:overflow-visible">
-            <div className="flex items-center justify-center text-[11px] font-bold border-b border-black pb-0.5 mb-0.5 bg-gray-100">
-              <span>KELUAR</span>
-            </div>
-            <table className="w-full border-collapse text-[10px]">
-              <thead>
-                <tr>
-                  <th rowSpan={2} className="border border-black px-0.5 py-0.5 leading-tight">No.<br />Urut</th>
-                  <th rowSpan={2} className="border border-black px-0.5 py-0.5 leading-tight">Tanggal</th>
-                  <th rowSpan={2} className="border border-black px-0.5 py-0.5 leading-tight">Nama<br />Siswa</th>
-                  <th rowSpan={2} className="border border-black px-0.5 py-0.5 leading-tight">L/P</th>
-                  <th rowSpan={2} className="border border-black px-0.5 py-0.5 leading-tight">No.<br />Induk</th>
-                  <th rowSpan={2} className="border border-black px-0.5 py-0.5 leading-tight">Kelas</th>
-                  <th colSpan={2} className="border border-black px-0.5 py-0.5 leading-tight">Pindah</th>
-                </tr>
-                <tr>
-                  <th className="border border-black px-0.5 py-0.5 leading-tight">No. Surat</th>
-                  <th className="border border-black px-0.5 py-0.5 leading-tight">Tujuan/Ket.</th>
-                </tr>
-              </thead>
-              <tbody>
-                {keluarRows.map((row, index) => (
-                  <tr key={`keluar-${index}`}>
-                    <td className="border border-black px-0.5 py-0.5 text-center">{row.no}</td>
-                    <td className="border border-black px-0.5 py-0.5">{row.tanggal}</td>
-                    <td className="border border-black px-0.5 py-0.5">{row.nama}</td>
-                    <td className="border border-black px-0.5 py-0.5 text-center">{row.lp}</td>
-                    <td className="border border-black px-0.5 py-0.5">{row.noInduk}</td>
-                    <td className="border border-black px-0.5 py-0.5 text-center">{row.kelas}</td>
-                    <td className="border border-black px-0.5 py-0.5">{row.nomorSurat}</td>
-                    <td className="border border-black px-0.5 py-0.5">{row.tujuan}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {monthlyKeluarLogs.length === 0 && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none mt-6">
-                <div className="text-red-500 border-4 border-red-500 rounded-lg px-8 py-2 text-3xl font-bold tracking-widest uppercase rotate-[-15deg] opacity-60">
-                  NIHIL
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Rekapitulasi */}
-        <div className="pt-2">
-          <div className="text-[11px] font-bold uppercase mb-0.5">Rekapitulasi</div>
           <table className="w-full border-collapse text-[10px]">
             <thead>
-              <tr>
-                <th rowSpan={2} className="border border-black px-1 py-0.5">Kelas</th>
-                <th colSpan={3} className="border border-black px-1 py-0.5">Awal Bulan</th>
-                <th colSpan={3} className="border border-black px-1 py-0.5">Masuk</th>
-                <th colSpan={3} className="border border-black px-1 py-0.5">Keluar</th>
-                <th colSpan={3} className="border border-black px-1 py-0.5">Akhir Bulan</th>
-                <th rowSpan={2} className="border border-black px-1 py-0.5">Keterangan</th>
+              <tr className="bg-slate-50">
+                <th rowSpan={2} className="border border-black px-1 py-1 text-center w-8">No.</th>
+                <th rowSpan={2} className="border border-black px-1 py-1 text-center w-20">Tanggal</th>
+                <th rowSpan={2} className="border border-black px-1 py-1 text-left min-w-[140px]">Nama Siswa</th>
+                <th rowSpan={2} className="border border-black px-1 py-1 text-center w-8">L/P</th>
+                <th rowSpan={2} className="border border-black px-1 py-1 text-center w-20">No. Induk</th>
+                <th rowSpan={2} className="border border-black px-1 py-1 text-center w-12">Kelas</th>
+                <th colSpan={3} className="border border-black px-1 py-1 text-center">Berasal Dari</th>
+                <th colSpan={2} className="border border-black px-1 py-1 text-center">Persetujuan Kanwil/Kanko</th>
               </tr>
-              <tr>
-                <th className="border border-black px-1 py-0.5">L</th>
-                <th className="border border-black px-1 py-0.5">P</th>
-                <th className="border border-black px-1 py-0.5">JM</th>
-                <th className="border border-black px-1 py-0.5">L</th>
-                <th className="border border-black px-1 py-0.5">P</th>
-                <th className="border border-black px-1 py-0.5">JM</th>
-                <th className="border border-black px-1 py-0.5">L</th>
-                <th className="border border-black px-1 py-0.5">P</th>
-                <th className="border border-black px-1 py-0.5">JM</th>
-                <th className="border border-black px-1 py-0.5">L</th>
-                <th className="border border-black px-1 py-0.5">P</th>
-                <th className="border border-black px-1 py-0.5">JM</th>
+              <tr className="bg-slate-50">
+                <th className="border border-black px-1 py-0.5 text-left">Sekolah Asal</th>
+                <th className="border border-black px-1 py-0.5 text-center w-20">No. Induk</th>
+                <th className="border border-black px-1 py-0.5 text-center w-12">Kelas</th>
+                <th className="border border-black px-1 py-0.5 text-center w-20">Tanggal</th>
+                <th className="border border-black px-1 py-0.5 text-center w-24">Nomor</th>
               </tr>
             </thead>
             <tbody>
-              {rekapRows.map((row) => (
-                <tr key={`rekap-${row.grade}`} className={row.grade === "Jumlah" ? "font-bold bg-gray-100" : ""}>
-                  <td className="border border-black px-1 py-0.5 text-center font-semibold">
-                    {typeof row.grade === "number" ? toRoman(row.grade) : row.grade}
-                  </td>
-                  <td className="border border-black px-1 py-0.5 text-center">
-                    {row.awalL !== "" && row.awalL !== 0 ? row.awalL : row.awalL === 0 && row.grade === "Jumlah" ? 0 : (row.grade === "Jumlah" && hasAnyMutation ? row.awalL : "")}
-                  </td>
-                  <td className="border border-black px-1 py-0.5 text-center">
-                    {row.awalP !== "" && row.awalP !== 0 ? row.awalP : row.awalP === 0 && row.grade === "Jumlah" ? 0 : (row.grade === "Jumlah" && hasAnyMutation ? row.awalP : "")}
-                  </td>
-                  <td className="border border-black px-1 py-0.5 text-center">
-                    {row.awalJM !== "" && row.awalJM !== 0 ? row.awalJM : row.grade === "Jumlah" ? (hasAnyMutation ? row.awalJM : "") : ""}
-                  </td>
-                  <td className="border border-black px-1 py-0.5 text-center">{row.masukL || ""}</td>
-                  <td className="border border-black px-1 py-0.5 text-center">{row.masukP || ""}</td>
-                  <td className="border border-black px-1 py-0.5 text-center">{row.masukJM || ""}</td>
-                  <td className="border border-black px-1 py-0.5 text-center">{row.keluarL || ""}</td>
-                  <td className="border border-black px-1 py-0.5 text-center">{row.keluarP || ""}</td>
-                  <td className="border border-black px-1 py-0.5 text-center">{row.keluarJM || ""}</td>
-                  <td className="border border-black px-1 py-0.5 text-center">
-                    {row.akhirL !== "" && row.akhirL !== 0 ? row.akhirL : row.akhirL === 0 && row.grade === "Jumlah" ? 0 : (row.grade === "Jumlah" && hasAnyMutation ? row.akhirL : "")}
-                  </td>
-                  <td className="border border-black px-1 py-0.5 text-center">
-                    {row.akhirP !== "" && row.akhirP !== 0 ? row.akhirP : row.akhirP === 0 && row.grade === "Jumlah" ? 0 : (row.grade === "Jumlah" && hasAnyMutation ? row.akhirP : "")}
-                  </td>
-                  <td className="border border-black px-1 py-0.5 text-center">
-                    {row.akhirJM !== "" && row.akhirJM !== 0 ? row.akhirJM : row.grade === "Jumlah" ? (hasAnyMutation ? row.akhirJM : "") : ""}
-                  </td>
-                  <td className="border border-black px-1 py-0.5">{row.keterangan}</td>
+              {masukRows.map((row, index) => (
+                <tr key={`masuk-${index}`} className={index % 2 === 1 ? "bg-slate-50/50" : ""}>
+                  <td className="border border-black px-1 py-1 text-center">{row.no}</td>
+                  <td className="border border-black px-1 py-1 text-center">{row.tanggal}</td>
+                  <td className="border border-black px-1 py-1 font-medium">{row.nama}</td>
+                  <td className="border border-black px-1 py-1 text-center">{row.lp}</td>
+                  <td className="border border-black px-1 py-1 text-center">{row.noInduk}</td>
+                  <td className="border border-black px-1 py-1 text-center">{row.kelas}</td>
+                  <td className="border border-black px-1 py-1">{row.sekolah}</td>
+                  <td className="border border-black px-1 py-1 text-center">{row.asalNoInduk}</td>
+                  <td className="border border-black px-1 py-1 text-center">{row.asalKelas}</td>
+                  <td className="border border-black px-1 py-1 text-center">{row.persetujuanTanggal}</td>
+                  <td className="border border-black px-1 py-1 text-center">{row.persetujuanNomor}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {monthlyMasukLogs.length === 0 && monthlyKeluarLogs.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none mt-8">
-              <div className="text-red-500 border-4 border-red-500 rounded-lg px-8 py-2 text-3xl font-bold tracking-widest uppercase rotate-[-15deg] opacity-60">
+          {monthlyMasukLogs.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none mt-6">
+              <div className="text-red-500 border-4 border-red-500 rounded-lg px-8 py-2 text-3xl font-bold tracking-widest uppercase rotate-[-12deg] opacity-40">
                 NIHIL
               </div>
             </div>
           )}
+        </div>
+
+        {/* KELUAR TABLE */}
+        <div className="space-y-1 relative overflow-x-auto print:overflow-visible pt-2">
+          <div className="flex items-center justify-between text-[11px] font-bold border-b-2 border-black pb-0.5 bg-slate-100 dark:bg-zinc-800 px-2 py-1">
+            <span>II. MUTASI KELUAR</span>
+            <span className="text-[10px] font-normal">Total: {monthlyKeluarLogs.length} Siswa</span>
+          </div>
+          <table className="w-full border-collapse text-[10px]">
+            <thead>
+              <tr className="bg-slate-50">
+                <th rowSpan={2} className="border border-black px-1 py-1 text-center w-8">No.</th>
+                <th rowSpan={2} className="border border-black px-1 py-1 text-center w-20">Tanggal</th>
+                <th rowSpan={2} className="border border-black px-1 py-1 text-left min-w-[140px]">Nama Siswa</th>
+                <th rowSpan={2} className="border border-black px-1 py-1 text-center w-8">L/P</th>
+                <th rowSpan={2} className="border border-black px-1 py-1 text-center w-20">No. Induk</th>
+                <th rowSpan={2} className="border border-black px-1 py-1 text-center w-12">Kelas</th>
+                <th colSpan={2} className="border border-black px-1 py-1 text-center">Pindah Ke</th>
+              </tr>
+              <tr className="bg-slate-50">
+                <th className="border border-black px-1 py-0.5 text-center w-28">No. Surat Pindah</th>
+                <th className="border border-black px-1 py-0.5 text-left">Sekolah Tujuan / Keterangan</th>
+              </tr>
+            </thead>
+            <tbody>
+              {keluarRows.map((row, index) => (
+                <tr key={`keluar-${index}`} className={index % 2 === 1 ? "bg-slate-50/50" : ""}>
+                  <td className="border border-black px-1 py-1 text-center">{row.no}</td>
+                  <td className="border border-black px-1 py-1 text-center">{row.tanggal}</td>
+                  <td className="border border-black px-1 py-1 font-medium">{row.nama}</td>
+                  <td className="border border-black px-1 py-1 text-center">{row.lp}</td>
+                  <td className="border border-black px-1 py-1 text-center">{row.noInduk}</td>
+                  <td className="border border-black px-1 py-1 text-center">{row.kelas}</td>
+                  <td className="border border-black px-1 py-1 text-center">{row.nomorSurat}</td>
+                  <td className="border border-black px-1 py-1">{row.tujuan}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {monthlyKeluarLogs.length === 0 && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none mt-6">
+              <div className="text-red-500 border-4 border-red-500 rounded-lg px-8 py-2 text-3xl font-bold tracking-widest uppercase rotate-[-12deg] opacity-40">
+                NIHIL
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* REKAPITULASI TABLE */}
+        <div className="pt-3">
+          <div className="text-[11px] font-bold uppercase mb-1 bg-slate-100 dark:bg-zinc-800 px-2 py-1 border-b-2 border-black flex justify-between">
+            <span>III. REKAPITULASI JUMLAH SISWA</span>
+            <span className="text-[10px] font-normal">Formula: Akhir = Awal + Masuk - Keluar</span>
+          </div>
+          <table className="w-full border-collapse text-[10px]">
+            <thead>
+              <tr className="bg-slate-50">
+                <th rowSpan={2} className="border border-black px-2 py-1 text-center font-bold">Kelas</th>
+                <th colSpan={3} className="border border-black px-1 py-1 text-center bg-blue-50/50">Awal Bulan</th>
+                <th colSpan={3} className="border border-black px-1 py-1 text-center bg-green-50/50">Masuk</th>
+                <th colSpan={3} className="border border-black px-1 py-1 text-center bg-red-50/50">Keluar</th>
+                <th colSpan={3} className="border border-black px-1 py-1 text-center bg-amber-50/50">Akhir Bulan</th>
+                <th rowSpan={2} className="border border-black px-2 py-1 text-center">Keterangan</th>
+              </tr>
+              <tr className="bg-slate-50">
+                <th className="border border-black px-1 py-0.5 text-center w-8">L</th>
+                <th className="border border-black px-1 py-0.5 text-center w-8">P</th>
+                <th className="border border-black px-1 py-0.5 text-center w-9 font-semibold">JM</th>
+                <th className="border border-black px-1 py-0.5 text-center w-8">L</th>
+                <th className="border border-black px-1 py-0.5 text-center w-8">P</th>
+                <th className="border border-black px-1 py-0.5 text-center w-9 font-semibold">JM</th>
+                <th className="border border-black px-1 py-0.5 text-center w-8">L</th>
+                <th className="border border-black px-1 py-0.5 text-center w-8">P</th>
+                <th className="border border-black px-1 py-0.5 text-center w-9 font-semibold">JM</th>
+                <th className="border border-black px-1 py-0.5 text-center w-8">L</th>
+                <th className="border border-black px-1 py-0.5 text-center w-8">P</th>
+                <th className="border border-black px-1 py-0.5 text-center w-9 font-semibold">JM</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rekapRows.map((row) => (
+                <tr key={`rekap-${row.grade}`} className={row.grade === "Jumlah" ? "font-bold bg-slate-100 border-t-2 border-black" : ""}>
+                  <td className="border border-black px-2 py-1 text-center font-semibold">
+                    {typeof row.grade === "number" ? toRoman(row.grade) : row.grade}
+                  </td>
+                  <td className="border border-black px-1 py-1 text-center">{row.awalL !== "" ? row.awalL : ""}</td>
+                  <td className="border border-black px-1 py-1 text-center">{row.awalP !== "" ? row.awalP : ""}</td>
+                  <td className="border border-black px-1 py-1 text-center font-semibold bg-blue-50/30">{row.awalJM !== "" ? row.awalJM : ""}</td>
+                  <td className="border border-black px-1 py-1 text-center">{row.masukL || ""}</td>
+                  <td className="border border-black px-1 py-1 text-center">{row.masukP || ""}</td>
+                  <td className="border border-black px-1 py-1 text-center font-semibold bg-green-50/30">{row.masukJM || ""}</td>
+                  <td className="border border-black px-1 py-1 text-center">{row.keluarL || ""}</td>
+                  <td className="border border-black px-1 py-1 text-center">{row.keluarP || ""}</td>
+                  <td className="border border-black px-1 py-1 text-center font-semibold bg-red-50/30">{row.keluarJM || ""}</td>
+                  <td className="border border-black px-1 py-1 text-center">{row.akhirL !== "" ? row.akhirL : ""}</td>
+                  <td className="border border-black px-1 py-1 text-center">{row.akhirP !== "" ? row.akhirP : ""}</td>
+                  <td className="border border-black px-1 py-1 text-center font-semibold bg-amber-50/30">{row.akhirJM !== "" ? row.akhirJM : ""}</td>
+                  <td className="border border-black px-2 py-1 text-center">{row.keterangan}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
 
         {/* Signature Block */}
