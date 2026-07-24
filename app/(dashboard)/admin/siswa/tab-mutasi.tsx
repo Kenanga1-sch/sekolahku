@@ -260,22 +260,40 @@ export default function TabMutasi() {
   );
   const rekapRows = useMemo(() => {
     if (isPerClass && selectedClass) {
-      // Per-kelas: only show the selected grade
+      // Per-kelas: only show the selected grade with exact L & P breakdown
       const grade = selectedClass.grade;
-      const currentCount = selectedClass.studentCount || 0;
-      const masukL = monthlyMasukLogs.filter((log: any) => log.gender === "L").length;
-      const masukP = monthlyMasukLogs.filter((log: any) => log.gender === "P").length;
-      const keluarL = monthlyKeluarLogs.filter((log: any) => log.gender === "L").length;
-      const keluarP = monthlyKeluarLogs.filter((log: any) => log.gender === "P").length;
-      const awalCount = currentCount - (masukL + masukP) + (keluarL + keluarP);
+      const item = rekapData.find((r: any) => r.grade === grade);
+
+      const logMasukL = monthlyMasukLogs.filter((log: any) => log.gender === "L").length;
+      const logMasukP = monthlyMasukLogs.filter((log: any) => log.gender === "P").length;
+      const logKeluarL = monthlyKeluarLogs.filter((log: any) => log.gender === "L").length;
+      const logKeluarP = monthlyKeluarLogs.filter((log: any) => log.gender === "P").length;
+
+      const masukL = (item && typeof item.masukL === "number" && item.masukL > 0) ? item.masukL : logMasukL;
+      const masukP = (item && typeof item.masukP === "number" && item.masukP > 0) ? item.masukP : logMasukP;
+      const keluarL = (item && typeof item.keluarL === "number" && item.keluarL > 0) ? item.keluarL : logKeluarL;
+      const keluarP = (item && typeof item.keluarP === "number" && item.keluarP > 0) ? item.keluarP : logKeluarP;
+
+      const awalL = item ? item.awalL : 0;
+      const awalP = item ? item.awalP : 0;
+      const akhirL = item ? item.akhirL : 0;
+      const akhirP = item ? item.akhirP : 0;
 
       return [
         {
           grade,
-          awalL: "", awalP: "", awalJM: awalCount > 0 ? awalCount : 0,
-          masukL: masukL || "", masukP: masukP || "", masukJM: masukL + masukP || "",
-          keluarL: keluarL || "", keluarP: keluarP || "", keluarJM: keluarL + keluarP || "",
-          akhirL: "", akhirP: "", akhirJM: currentCount,
+          awalL,
+          awalP,
+          awalJM: awalL + awalP,
+          masukL,
+          masukP,
+          masukJM: masukL + masukP,
+          keluarL,
+          keluarP,
+          keluarJM: keluarL + keluarP,
+          akhirL,
+          akhirP,
+          akhirJM: akhirL + akhirP,
           keterangan: monthlyLogs.length === 0 ? "Nihil" : "",
         },
       ];
