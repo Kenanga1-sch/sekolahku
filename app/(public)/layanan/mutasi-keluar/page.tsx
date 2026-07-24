@@ -49,6 +49,8 @@ const validationSchema = z.object({
 
 const requestSchema = z.object({
   destinationSchool: z.string().min(3, "Nama sekolah tujuan minimal 3 karakter"),
+  destinationClass: z.string().optional(),
+  letterNo: z.string().optional(),
   reason: z.enum(["domisili", "tugas_orangtua", "lainnya"]),
   reasonDetail: z.string().optional(),
 });
@@ -75,7 +77,7 @@ export default function MutasiKeluarPage() {
 
   const requestForm = useForm<z.infer<typeof requestSchema>>({
     resolver: zodResolver(requestSchema),
-    defaultValues: { destinationSchool: "", reason: "domisili", reasonDetail: "" },
+    defaultValues: { destinationSchool: "", destinationClass: "", letterNo: "", reason: "domisili", reasonDetail: "" },
   });
 
   // Handlers

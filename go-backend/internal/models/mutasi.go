@@ -4,21 +4,25 @@ import "time"
 
 // MutasiRequest represents an incoming student transfer request
 type MutasiRequest struct {
-	ID                   string     `json:"id"`
-	RegistrationNumber   string     `json:"registrationNumber"`
-	StudentName          string     `json:"studentName"`
-	NISN                 string     `json:"nisn"`
-	Gender               string     `json:"gender"` // L or P
-	OriginSchool         string     `json:"originSchool"`
-	OriginSchoolAddress  *string    `json:"originSchoolAddress"`
-	TargetGrade          int        `json:"targetGrade"`
-	TargetClassID        *string    `json:"targetClassId"`
-	ParentName           string     `json:"parentName"`
-	WhatsappNumber       string     `json:"whatsappNumber"`
-	StatusApproval       string     `json:"statusApproval"` // pending, verified, rejected, principal_approved
-	StatusDelivery       string     `json:"statusDelivery"` // unsent, sent
-	CreatedAt            *time.Time `json:"createdAt"`
-	UpdatedAt            *time.Time `json:"updatedAt"`
+	ID                  string     `json:"id"`
+	RegistrationNumber  string     `json:"registrationNumber"`
+	StudentName         string     `json:"studentName"`
+	NISN                string     `json:"nisn"`
+	Gender              string     `json:"gender"` // L or P
+	OriginSchool        string     `json:"originSchool"`
+	OriginSchoolAddress *string    `json:"originSchoolAddress"`
+	OriginNis           *string    `json:"originNis"`
+	OriginClass         *string    `json:"originClass"`
+	TargetGrade         int        `json:"targetGrade"`
+	TargetClassID       *string    `json:"targetClassId"`
+	ParentName          string     `json:"parentName"`
+	WhatsappNumber      string     `json:"whatsappNumber"`
+	ApprovalNo          *string    `json:"approvalNo"`
+	ApprovalDate        *string    `json:"approvalDate"`
+	StatusApproval      string     `json:"statusApproval"` // pending, verified, rejected, principal_approved
+	StatusDelivery      string     `json:"statusDelivery"` // unsent, sent
+	CreatedAt           *time.Time `json:"createdAt"`
+	UpdatedAt           *time.Time `json:"updatedAt"`
 }
 
 // MutasiOutRequest represents an outgoing student transfer request
@@ -29,6 +33,8 @@ type MutasiOutRequest struct {
 	NISN              string     `json:"nisn"`        // Joined from students
 	ClassName         string     `json:"className"`   // Joined from students
 	DestinationSchool string     `json:"destinationSchool"`
+	DestinationClass  *string    `json:"destinationClass"`
+	LetterNo          *string    `json:"letterNo"`
 	Reason            string     `json:"reason"`
 	ReasonDetail      *string    `json:"reasonDetail"`
 	Status            string     `json:"status"` // draft, processed, completed
@@ -51,6 +57,12 @@ type MutasiLog struct {
 	ClassName           *string    `json:"className"`
 	ClassGrade          *int       `json:"classGrade"`
 	OriginOrDestination string     `json:"originOrDestination"`
+	OriginNis           *string    `json:"originNis"`
+	OriginClass         *string    `json:"originClass"`
+	ApprovalDate        *string    `json:"approvalDate"`
+	ApprovalNo          *string    `json:"approvalNo"`
+	LetterNo            *string    `json:"letterNo"`
+	DestinationClass    *string    `json:"destinationClass"`
 	MutationDate        *time.Time `json:"mutationDate"`
 	Reason              *string    `json:"reason"`
 	CreatedAt           *time.Time `json:"createdAt"`

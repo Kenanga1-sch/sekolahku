@@ -308,8 +308,13 @@ func (h *MutasiHandler) GetMutasiRekap(c echo.Context) error {
 
 func (h *MutasiHandler) DirectMutasiMasuk(c echo.Context) error {
 	var payload struct {
-		Student models.Student `json:"student"`
-		Reason  string         `json:"reason"`
+		Student      models.Student `json:"student"`
+		Reason       string         `json:"reason"`
+		OriginNis    string         `json:"originNis"`
+		OriginClass  string         `json:"originClass"`
+		ApprovalDate string         `json:"approvalDate"`
+		ApprovalNo   string         `json:"approvalNo"`
+		MutationDate int64          `json:"mutationDate"`
 	}
 	if err := c.Bind(&payload); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
@@ -319,7 +324,12 @@ func (h *MutasiHandler) DirectMutasiMasuk(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Nama dan NISN wajib diisi"})
 	}
 
-	err := h.Repo.DirectMutasiMasuk(payload.Student, payload.Reason)
+	err := h.Repo.DirectMutasiMasuk(
+		payload.Student, payload.Reason,
+		payload.OriginNis, payload.OriginClass,
+		payload.ApprovalDate, payload.ApprovalNo,
+		payload.MutationDate,
+	)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
@@ -332,9 +342,12 @@ func (h *MutasiHandler) DirectMutasiMasuk(c echo.Context) error {
 
 func (h *MutasiHandler) DirectMutasiKeluar(c echo.Context) error {
 	var payload struct {
-		StudentID         string `json:"studentId"`
+		StudentID        string `json:"studentId"`
 		DestinationSchool string `json:"destinationSchool"`
-		Reason            string `json:"reason"`
+		DestinationClass string `json:"destinationClass"`
+		LetterNo         string `json:"letterNo"`
+		Reason           string `json:"reason"`
+		MutationDate     int64  `json:"mutationDate"`
 	}
 	if err := c.Bind(&payload); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
@@ -344,7 +357,11 @@ func (h *MutasiHandler) DirectMutasiKeluar(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ID Siswa dan Sekolah Tujuan wajib diisi"})
 	}
 
-	err := h.Repo.DirectMutasiKeluar(payload.StudentID, payload.DestinationSchool, payload.Reason)
+	err := h.Repo.DirectMutasiKeluar(
+		payload.StudentID, payload.DestinationSchool,
+		payload.DestinationClass, payload.LetterNo,
+		payload.Reason, payload.MutationDate,
+	)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}

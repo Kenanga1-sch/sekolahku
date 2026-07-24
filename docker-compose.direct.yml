@@ -1,0 +1,31 @@
+services:
+  sekolahku:
+    image: debian:bookworm-slim
+    container_name: sekolahku-app
+    restart: unless-stopped
+    ports:
+      - "3000:8181"
+    environment:
+      PORT: 8181
+      TZ: Asia/Jakarta
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      TELEGRAM_API_URL: ${TELEGRAM_API_URL:-http://telegram-bot-api:8081}
+    volumes:
+      - ./sekolahku:/app/sekolahku
+      - ./data:/app/data
+      - ./public/uploads:/app/public/uploads
+      - ./uploads:/app/uploads
+    working_dir: /app
+    command: ["sh", "-c", "chmod +x /app/sekolahku && /app/sekolahku"]
+
+  telegram-bot-api:
+    image: aiogram/telegram-bot-api:latest
+    container_name: sekolahku-telegram-api
+    restart: unless-stopped
+    environment:
+      TELEGRAM_API_ID: ${TELEGRAM_API_ID:-}
+      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH:-}
+    volumes:
+      - ./telegram-bot-api-data:/var/lib/telegram-bot-api
+    ports:
+      - "8081:8081"

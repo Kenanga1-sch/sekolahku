@@ -1273,14 +1273,18 @@ func serveEmbeddedFile(c echo.Context, fsys http.FileSystem, name string) error 
 	}
 	seeker := bytes.NewReader(data)
 
-	// Set content type based on extension
 	ext := filepath.Ext(name)
 	contentType := "text/plain"
 	cacheControl := "public, max-age=31536000, immutable" // 1 year for hashed assets
+
+	if name == "sw.js" || strings.HasSuffix(name, "/sw.js") || name == "manifest.json" {
+		cacheControl = "no-cache, no-store, must-revalidate, max-age=0"
+	}
+
 	switch ext {
 	case ".html":
 		contentType = "text/html"
-		cacheControl = "public, max-age=0, must-revalidate" // HTML must be fresh
+		cacheControl = "no-cache, no-store, must-revalidate, max-age=0" // HTML must be fresh
 	case ".js", ".mjs":
 		contentType = "application/javascript"
 	case ".css":

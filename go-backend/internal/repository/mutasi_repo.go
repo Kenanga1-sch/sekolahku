@@ -15,7 +15,29 @@ type MutasiRepository struct {
 }
 
 func NewMutasiRepository(db *sql.DB) *MutasiRepository {
-	return &MutasiRepository{DB: db}
+	repo := &MutasiRepository{DB: db}
+	repo.initDB()
+	return repo
+}
+
+func (r *MutasiRepository) initDB() {
+	cols := []string{
+		"ALTER TABLE mutasi_logs ADD COLUMN origin_nis TEXT",
+		"ALTER TABLE mutasi_logs ADD COLUMN origin_class TEXT",
+		"ALTER TABLE mutasi_logs ADD COLUMN approval_date TEXT",
+		"ALTER TABLE mutasi_logs ADD COLUMN approval_no TEXT",
+		"ALTER TABLE mutasi_logs ADD COLUMN letter_no TEXT",
+		"ALTER TABLE mutasi_logs ADD COLUMN destination_class TEXT",
+		"ALTER TABLE mutasi_requests ADD COLUMN origin_nis TEXT",
+		"ALTER TABLE mutasi_requests ADD COLUMN origin_class TEXT",
+		"ALTER TABLE mutasi_requests ADD COLUMN approval_no TEXT",
+		"ALTER TABLE mutasi_requests ADD COLUMN approval_date TEXT",
+		"ALTER TABLE mutasi_out_requests ADD COLUMN letter_no TEXT",
+		"ALTER TABLE mutasi_out_requests ADD COLUMN destination_class TEXT",
+	}
+	for _, col := range cols {
+		_, _ = r.DB.Exec(col)
+	}
 }
 
 func (r *MutasiRepository) GetMutasiRequests(page, perPage int) ([]models.MutasiRequest, int, error) {
@@ -32,8 +54,8 @@ func (r *MutasiRepository) GetMutasiRequests(page, perPage int) ([]models.Mutasi
 
 	query := `
 		SELECT id, registration_number, student_name, nisn, gender, origin_school, 
-		       origin_school_address, target_grade, target_class_id, parent_name, 
-			   whatsapp_number, status_approval, status_delivery, created_at, updated_at
+		       origin_school_address, origin_nis, origin_class, target_grade, target_class_id, parent_name, 
+			   whatsapp_number, approval_no, approval_date, status_approval, status_delivery, created_at, updated_at
 		FROM mutasi_requests
 		ORDER BY created_at DESC
 		LIMIT ? OFFSET ?
@@ -47,24 +69,24 @@ func (r *MutasiRepository) GetMutasiRequests(page, perPage int) ([]models.Mutasi
 	var results []models.MutasiRequest
 	for rows.Next() {
 		var m models.MutasiRequest
-		var osa, tcid sql.NullString
+		var osa, onis, oclass, tcid, appno, appdate sql.NullString
 		var crat, upat sql.NullInt64
 
 		err := rows.Scan(
 			&m.ID, &m.RegistrationNumber, &m.StudentName, &m.NISN, &m.Gender, &m.OriginSchool,
-			&osa, &m.TargetGrade, &tcid, &m.ParentName, &m.WhatsappNumber,
-			&m.StatusApproval, &m.StatusDelivery, &crat, &upat,
+			&osa, &onis, &oclass, &m.TargetGrade, &tcid, &m.ParentName, &m.WhatsappNumber,
+			&appno, &appdate, &m.StatusApproval, &m.StatusDelivery, &crat, &upat,
 		)
 		if err != nil {
 			return nil, 0, err
 		}
 
-		if osa.Valid {
-			m.OriginSchoolAddress = &osa.String
-		}
-		if tcid.Valid {
-			m.TargetClassID = &tcid.String
-		}
+		if osa.Valid { m.OriginSchoolAddress = &osa.String }
+		if onis.Valid { m.OriginNis = &onis.String }
+		if oclass.Valid { m.OriginClass = &oclass.String }
+		if tcid.Valid { m.TargetClassID = &tcid.String }
+		if appno.Valid { m.ApprovalNo = &appno.String }
+		if appdate.Valid { m.ApprovalDate = &appdate.String }
 
 		m.CreatedAt = SafeTime(crat)
 		m.UpdatedAt = SafeTime(upat)
@@ -85,20 +107,26 @@ func (r *MutasiRepository) CreateMutasiRequest(m models.MutasiRequest) (string, 
 	query := `
 		INSERT INTO mutasi_requests (
 			id, registration_number, student_name, nisn, gender, origin_school,
-			origin_school_address, target_grade, parent_name, whatsapp_number,
-			status_approval, status_delivery, created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			origin_school_address, origin_nis, origin_class, target_grade, parent_name, whatsapp_number,
+			approval_no, approval_date, status_approval, status_delivery, created_at, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	_, err := r.DB.Exec(query,
 		id, regNum, m.StudentName, m.NISN, m.Gender, m.OriginSchool,
-		m.OriginSchoolAddress, m.TargetGrade, m.ParentName, m.WhatsappNumber,
-		"pending", "unsent", now, now,
+		m.OriginSchoolAddress, m.OriginNis, m.OriginClass, m.TargetGrade, m.ParentName, m.WhatsappNumber,
+		m.ApprovalNo, m.ApprovalDate, "pending", "unsent", now, now,
 	)
 	return regNum, err
 }
 
 func (r *MutasiRepository) UpdateMutasiRequestStatus(id string, status string, targetClassID *string) error {
 	now := time.Now().UnixMilli()
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
 	var query string
 	var args []interface{}
 
@@ -110,14 +138,82 @@ func (r *MutasiRepository) UpdateMutasiRequestStatus(id string, status string, t
 		args = append(args, status, now, id)
 	}
 
-	res, err := r.DB.Exec(query, args...)
+	res, err := tx.Exec(query, args...)
 	if err != nil {
 		return err
 	}
 	if rows, _ := res.RowsAffected(); rows == 0 {
 		return sql.ErrNoRows
 	}
-	return nil
+
+	if status == "principal_approved" {
+		var req models.MutasiRequest
+		var osa, tcid, onis, oclass, appno, appdate sql.NullString
+		err := tx.QueryRow(`
+			SELECT student_name, nisn, gender, origin_school, origin_school_address,
+			       origin_nis, origin_class, target_grade, target_class_id, approval_no, approval_date
+			FROM mutasi_requests WHERE id = ?
+		`, id).Scan(
+			&req.StudentName, &req.NISN, &req.Gender, &req.OriginSchool, &osa,
+			&onis, &oclass, &req.TargetGrade, &tcid, &appno, &appdate,
+		)
+		if err == nil {
+			classIDToUse := targetClassID
+			if classIDToUse == nil && tcid.Valid {
+				classIDToUse = &tcid.String
+			}
+
+			var existingID string
+			_ = tx.QueryRow("SELECT id FROM students WHERE nisn = ?", req.NISN).Scan(&existingID)
+			if existingID == "" {
+				studentID := cuid2.Generate()
+				var className string
+				if classIDToUse != nil && *classIDToUse != "" {
+					_ = tx.QueryRow("SELECT name FROM student_classes WHERE id = ?", *classIDToUse).Scan(&className)
+				}
+
+				_, err = tx.Exec(`
+					INSERT INTO students (
+						id, nisn, full_name, gender, class_name, class_id,
+						status, qr_code, is_active, created_at, updated_at
+					) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, 1, ?, ?)
+				`, studentID, req.NISN, req.StudentName, req.Gender, className, classIDToUse, studentID, now, now)
+
+				if classIDToUse != nil && *classIDToUse != "" {
+					var grade int
+					var academicYear string
+					if err2 := tx.QueryRow("SELECT grade, academic_year FROM student_classes WHERE id = ?", *classIDToUse).Scan(&grade, &academicYear); err2 == nil {
+						historyID := cuid2.Generate()
+						tx.Exec(`
+							INSERT INTO student_class_history (id, student_id, class_id, class_name, academic_year, grade, status, record_date)
+							VALUES (?, ?, ?, ?, ?, ?, 'mutated_in', ?)
+						`, historyID, studentID, *classIDToUse, className, academicYear, grade, time.Now().Unix())
+					}
+				}
+
+				logID := cuid2.Generate()
+				var oNis, oClass, aNo, aDate *string
+				if onis.Valid { oNis = &onis.String }
+				if oclass.Valid { oClass = &oclass.String }
+				if appno.Valid { aNo = &appno.String }
+				if appdate.Valid { aDate = &appdate.String }
+
+				_, _ = tx.Exec(`
+					INSERT INTO mutasi_logs (
+						id, mutasi_type, student_id, student_name, nisn, gender,
+						origin_or_destination, origin_nis, origin_class, approval_date, approval_no,
+						mutation_date, reason, created_at
+					) VALUES (?, 'masuk', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Mutasi Masuk Disetujui', ?)
+				`, logID, studentID, req.StudentName, req.NISN, req.Gender,
+					req.OriginSchool, oNis, oClass, aDate, aNo, now, now)
+
+				_ = AutoSyncStudentToSavingsAndLibrary(r.DB, studentID)
+				_ = AutoSyncStudentToBukuInduk(r.DB, studentID)
+			}
+		}
+	}
+
+	return tx.Commit()
 }
 
 func (r *MutasiRepository) GenerateRegistrationNumber() string {
@@ -146,7 +242,7 @@ func (r *MutasiRepository) GetMutasiOutRequests(page, perPage int) ([]models.Mut
 
 	query := `
 		SELECT m.id, m.student_id, s.full_name as student_name, s.nisn, s.class_name,
-		       m.destination_school, m.reason, m.reason_detail, m.status,
+		       m.destination_school, m.destination_class, m.letter_no, m.reason, m.reason_detail, m.status,
 			   m.downloaded_at, m.processed_at, m.completed_at, m.created_at, m.updated_at
 		FROM mutasi_out_requests m
 		JOIN students s ON m.student_id = s.id
@@ -162,21 +258,21 @@ func (r *MutasiRepository) GetMutasiOutRequests(page, perPage int) ([]models.Mut
 	var results []models.MutasiOutRequest
 	for rows.Next() {
 		var m models.MutasiOutRequest
-		var rd sql.NullString
+		var dclass, letno, rd sql.NullString
 		var dat, pat, cat, crat, upat sql.NullInt64
 
 		err := rows.Scan(
 			&m.ID, &m.StudentID, &m.StudentName, &m.NISN, &m.ClassName,
-			&m.DestinationSchool, &m.Reason, &rd, &m.Status,
+			&m.DestinationSchool, &dclass, &letno, &m.Reason, &rd, &m.Status,
 			&dat, &pat, &cat, &crat, &upat,
 		)
 		if err != nil {
 			return nil, 0, err
 		}
 
-		if rd.Valid {
-			m.ReasonDetail = &rd.String
-		}
+		if dclass.Valid { m.DestinationClass = &dclass.String }
+		if letno.Valid { m.LetterNo = &letno.String }
+		if rd.Valid { m.ReasonDetail = &rd.String }
 
 		m.DownloadedAt = SafeTime(dat)
 		m.ProcessedAt = SafeTime(pat)
@@ -252,27 +348,61 @@ func (r *MutasiRepository) UpdateMutasiOutStatus(id string, status string) error
 	}
 
 	if status == "completed" {
-		var studentID string
-		if err := tx.QueryRow("SELECT student_id FROM mutasi_out_requests WHERE id = ?", id).Scan(&studentID); err != nil {
+		var studentID, destinationSchool sql.NullString
+		var destClass, letNo, reason sql.NullString
+		if err := tx.QueryRow("SELECT student_id, destination_school, destination_class, letter_no, reason FROM mutasi_out_requests WHERE id = ?", id).Scan(&studentID, &destinationSchool, &destClass, &letNo, &reason); err != nil {
 			return err
 		}
 
-		// Enforce student obligations clearance before transfer
-		clear, reason, err := CheckStudentClearance(tx, studentID)
-		if err != nil {
-			return err
-		}
-		if !clear {
-			return fmt.Errorf("siswa masih memiliki sangkutan yang belum diselesaikan: %s", reason)
-		}
+		if studentID.Valid {
+			clear, clearanceReason, err := CheckStudentClearance(tx, studentID.String)
+			if err != nil {
+				return err
+			}
+			if !clear {
+				return fmt.Errorf("siswa masih memiliki sangkutan yang belum diselesaikan: %s", clearanceReason)
+			}
 
-		_, err = tx.Exec(`
-			UPDATE students
-			SET status = 'transferred', is_active = 0, class_id = NULL, class_name = NULL, updated_at = ?
-			WHERE id = ?
-		`, now, studentID)
-		if err != nil {
-			return err
+			var studentName, nisn, gender sql.NullString
+			var oldClassID, oldClassName sql.NullString
+			_ = tx.QueryRow("SELECT full_name, nisn, gender, class_id, class_name FROM students WHERE id = ?", studentID.String).Scan(&studentName, &nisn, &gender, &oldClassID, &oldClassName)
+
+			if oldClassID.Valid && oldClassID.String != "" {
+				var grade int
+				var academicYear string
+				if err2 := tx.QueryRow("SELECT grade, academic_year FROM student_classes WHERE id = ?", oldClassID.String).Scan(&grade, &academicYear); err2 == nil {
+					historyID := cuid2.Generate()
+					tx.Exec(`
+						INSERT INTO student_class_history (id, student_id, class_id, class_name, academic_year, grade, status, record_date)
+						VALUES (?, ?, ?, ?, ?, ?, 'mutated_out', ?)
+					`, historyID, studentID.String, oldClassID.String, oldClassName.String, academicYear, grade, time.Now().Unix())
+				}
+			}
+
+			_, err = tx.Exec(`
+				UPDATE students
+				SET status = 'transferred', is_active = 0, class_id = NULL, class_name = NULL, updated_at = ?
+				WHERE id = ?
+			`, now, studentID.String)
+			if err != nil {
+				return err
+			}
+
+			logID := cuid2.Generate()
+			var dSchool, dClass, lNo, rsn string
+			if destinationSchool.Valid { dSchool = destinationSchool.String }
+			if destClass.Valid { dClass = destClass.String }
+			if letNo.Valid { lNo = letNo.String }
+			if reason.Valid { rsn = reason.String }
+
+			_, _ = tx.Exec(`
+				INSERT INTO mutasi_logs (
+					id, mutasi_type, student_id, student_name, nisn, gender,
+					origin_or_destination, destination_class, letter_no,
+					mutation_date, reason, created_at
+				) VALUES (?, 'keluar', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			`, logID, studentID.String, studentName.String, nisn.String, gender.String,
+				dSchool, dClass, lNo, now, rsn, now)
 		}
 	}
 
@@ -368,12 +498,12 @@ func (r *MutasiRepository) CreateMutasiOutRequest(m models.MutasiOutRequest) err
 
 	query := `
 		INSERT INTO mutasi_out_requests (
-			id, student_id, destination_school, reason, reason_detail, 
+			id, student_id, destination_school, destination_class, letter_no, reason, reason_detail, 
 			status, created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	_, err := r.DB.Exec(query,
-		id, m.StudentID, m.DestinationSchool, m.Reason, m.ReasonDetail,
+		id, m.StudentID, m.DestinationSchool, m.DestinationClass, m.LetterNo, m.Reason, m.ReasonDetail,
 		"draft", now, now,
 	)
 	return err
@@ -388,8 +518,12 @@ func (r *MutasiRepository) GetSchoolName() string {
 	return name
 }
 
-func (r *MutasiRepository) DirectMutasiMasuk(s models.Student, reason string) error {
+func (r *MutasiRepository) DirectMutasiMasuk(s models.Student, reason string, originNis, originClass, approvalDate, approvalNo string, mutationDate int64) error {
 	now := time.Now().UnixMilli()
+	mutDate := mutationDate
+	if mutDate <= 0 {
+		mutDate = now
+	}
 	tx, err := r.DB.Begin()
 	if err != nil {
 		return err
@@ -412,12 +546,17 @@ func (r *MutasiRepository) DirectMutasiMasuk(s models.Student, reason string) er
 		}
 	}
 
+	var nisVal interface{}
+	if s.NIS != nil {
+		nisVal = *s.NIS
+	}
+
 	_, err = tx.Exec(`
 		INSERT INTO students (
-			id, nisn, full_name, gender, class_name, class_id,
+			id, nisn, nis, full_name, gender, class_name, class_id,
 			status, qr_code, is_active, created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, s.ID, s.NISN, s.FullName, s.Gender, s.ClassName, s.ClassID,
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, s.ID, s.NISN, nisVal, s.FullName, s.Gender, s.ClassName, s.ClassID,
 		s.Status, s.QRCode, s.IsActive, now, now)
 	if err != nil {
 		return err
@@ -445,10 +584,12 @@ func (r *MutasiRepository) DirectMutasiMasuk(s models.Student, reason string) er
 	_, err = tx.Exec(`
 		INSERT INTO mutasi_logs (
 			id, mutasi_type, student_id, student_name, nisn, gender,
-			origin_or_destination, mutation_date, reason, created_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, logID, "masuk", s.ID, s.FullName, s.NISN, s.Gender,
-		meta, now, reason, now) // meta_data can store origin school
+			origin_or_destination, origin_nis, origin_class, approval_date, approval_no,
+			mutation_date, reason, created_at
+		) VALUES (?, 'masuk', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, logID, s.ID, s.FullName, s.NISN, s.Gender,
+		meta, originNis, originClass, approvalDate, approvalNo,
+		mutDate, reason, now)
 	if err != nil {
 		return err
 	}
@@ -461,8 +602,12 @@ func (r *MutasiRepository) DirectMutasiMasuk(s models.Student, reason string) er
 	return err
 }
 
-func (r *MutasiRepository) DirectMutasiKeluar(studentID string, destinationSchool, reason string) error {
+func (r *MutasiRepository) DirectMutasiKeluar(studentID string, destinationSchool, destinationClass, letterNo, reason string, mutationDate int64) error {
 	now := time.Now().UnixMilli()
+	mutDate := mutationDate
+	if mutDate <= 0 {
+		mutDate = now
+	}
 	tx, err := r.DB.Begin()
 	if err != nil {
 		return err
@@ -509,10 +654,12 @@ func (r *MutasiRepository) DirectMutasiKeluar(studentID string, destinationSchoo
 	_, err = tx.Exec(`
 		INSERT INTO mutasi_logs (
 			id, mutasi_type, student_id, student_name, nisn, gender,
-			origin_or_destination, mutation_date, reason, created_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, logID, "keluar", studentID, studentName.String, nisn.String, gender.String,
-		destinationSchool, now, reason, now)
+			origin_or_destination, destination_class, letter_no,
+			mutation_date, reason, created_at
+		) VALUES (?, 'keluar', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, logID, studentID, studentName.String, nisn.String, gender.String,
+		destinationSchool, destinationClass, letterNo,
+		mutDate, reason, now)
 	if err != nil {
 		return err
 	}
@@ -534,11 +681,17 @@ func (r *MutasiRepository) GetMutasiLogs(page, perPage int) ([]models.MutasiLog,
 
 	query := `
 		SELECT ml.id, ml.mutasi_type, ml.student_id, ml.student_name, ml.nisn,
-		       s.nis, ml.gender, s.class_name, sc.grade,
-		       ml.origin_or_destination, ml.mutation_date, ml.reason, ml.created_at
+		       s.nis, ml.gender, COALESCE(s.class_name, sch.class_name) as class_name, COALESCE(sc.grade, sch.grade) as class_grade,
+		       ml.origin_or_destination, ml.origin_nis, ml.origin_class, ml.approval_date, ml.approval_no, ml.letter_no, ml.destination_class,
+		       ml.mutation_date, ml.reason, ml.created_at
 		FROM mutasi_logs ml
 		LEFT JOIN students s ON ml.student_id = s.id
 		LEFT JOIN student_classes sc ON s.class_id = sc.id
+		LEFT JOIN student_class_history sch ON sch.id = (
+			SELECT id FROM student_class_history 
+			WHERE student_id = ml.student_id 
+			ORDER BY record_date DESC LIMIT 1
+		)
 		ORDER BY ml.created_at DESC
 		LIMIT ? OFFSET ?
 	`
@@ -552,40 +705,44 @@ func (r *MutasiRepository) GetMutasiLogs(page, perPage int) ([]models.MutasiLog,
 	for rows.Next() {
 		var m models.MutasiLog
 		var sid, nis, gender, className, reason sql.NullString
+		var onis, oclass, appdate, appno, letno, destclass sql.NullString
 		var classGrade sql.NullInt64
 		var mutDate, crAt sql.NullInt64
 
 		err := rows.Scan(
 			&m.ID, &m.MutasiType, &sid, &m.StudentName, &m.NISN,
 			&nis, &gender, &className, &classGrade,
-			&m.OriginOrDestination, &mutDate, &reason, &crAt,
+			&m.OriginOrDestination, &onis, &oclass, &appdate, &appno, &letno, &destclass,
+			&mutDate, &reason, &crAt,
 		)
 		if err != nil {
 			return nil, 0, err
 		}
 
-		if sid.Valid {
-			m.StudentID = &sid.String
-		}
-		if nis.Valid {
-			m.NIS = &nis.String
-		}
-		if gender.Valid {
-			m.Gender = &gender.String
-		}
-		if className.Valid {
-			m.ClassName = &className.String
-		}
+		if sid.Valid { m.StudentID = &sid.String }
+		if nis.Valid { m.NIS = &nis.String }
+		if gender.Valid { m.Gender = &gender.String }
+		if className.Valid { m.ClassName = &className.String }
 		if classGrade.Valid {
 			g := int(classGrade.Int64)
 			m.ClassGrade = &g
 		}
-		if reason.Valid {
-			m.Reason = &reason.String
-		}
+		if onis.Valid { m.OriginNis = &onis.String }
+		if oclass.Valid { m.OriginClass = &oclass.String }
+		if appdate.Valid { m.ApprovalDate = &appdate.String }
+		if appno.Valid { m.ApprovalNo = &appno.String }
+		if letno.Valid { m.LetterNo = &letno.String }
+		if destclass.Valid { m.DestinationClass = &destclass.String }
 
-		m.MutationDate = SafeTime(mutDate)
-		m.CreatedAt = SafeTime(crAt)
+		if mutDate.Valid {
+			t := time.UnixMilli(mutDate.Int64)
+			m.MutationDate = &t
+		}
+		if reason.Valid { m.Reason = &reason.String }
+		if crAt.Valid {
+			t := time.UnixMilli(crAt.Int64)
+			m.CreatedAt = &t
+		}
 
 		results = append(results, m)
 	}
@@ -622,9 +779,14 @@ func (r *MutasiRepository) GetMutasiRekap(monthStart, monthEnd int64) ([]models.
 			FROM mutasi_logs ml
 			LEFT JOIN students s ON ml.student_id = s.id
 			LEFT JOIN student_classes sc ON s.class_id = sc.id
+			LEFT JOIN student_class_history sch ON sch.id = (
+				SELECT id FROM student_class_history 
+				WHERE student_id = ml.student_id 
+				ORDER BY record_date DESC LIMIT 1
+			)
 			WHERE ml.mutasi_type = 'masuk'
 			  AND ml.mutation_date >= ? AND ml.mutation_date <= ?
-			  AND sc.grade = ?
+			  AND COALESCE(sc.grade, sch.grade, 0) = ?
 		`, monthStart, monthEnd, grade).Scan(&masukL, &masukP)
 
 		// Count keluar this month per grade by gender (from mutasi_logs, gender stored in log)
@@ -635,9 +797,14 @@ func (r *MutasiRepository) GetMutasiRekap(monthStart, monthEnd int64) ([]models.
 			FROM mutasi_logs ml
 			LEFT JOIN students s ON ml.student_id = s.id
 			LEFT JOIN student_classes sc ON s.class_id = sc.id
+			LEFT JOIN student_class_history sch ON sch.id = (
+				SELECT id FROM student_class_history 
+				WHERE student_id = ml.student_id 
+				ORDER BY record_date DESC LIMIT 1
+			)
 			WHERE ml.mutasi_type = 'keluar'
 			  AND ml.mutation_date >= ? AND ml.mutation_date <= ?
-			  AND sc.grade = ?
+			  AND COALESCE(sc.grade, sch.grade, 0) = ?
 		`, monthStart, monthEnd, grade).Scan(&keluarL, &keluarP)
 
 		awalL := activeL - masukL + keluarL

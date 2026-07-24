@@ -52,7 +52,7 @@ import { goGet, goPatch, goPost } from "@/lib/api-client";
 import { useSchoolSettings } from "@/lib/hooks/use-settings";
 
 const fetcher = (url: string) => goGet(url);
-const BOOK_ROW_COUNT = 8;
+const BOOK_ROW_COUNT = 10;
 const BOOK_RECAP_GRADES = [1, 2, 3, 4, 5, 6];
 const ROMAN = ["", "I", "II", "III", "IV", "V", "VI"];
 function toRoman(n: number): string {
@@ -63,7 +63,7 @@ export default function TabMutasi() {
   // Tab State: "masuk" (Incoming), "keluar" (Outgoing), or "buku" (Buku Mutasi)
   const [activeTab, setActiveTab] = useState<"masuk" | "keluar" | "buku">("masuk");
   const [reportMonth, setReportMonth] = useState(format(new Date(), "yyyy-MM"));
-  const [reportClassId, setReportClassId] = useState<string>(""); // "" = semua kelas
+  const [reportClassId, setReportClassId] = useState<string>("all"); // "all" = semua kelas
   const { settings: schoolSettings } = useSchoolSettings();
 
   const [isMounted, setIsMounted] = useState(false);
@@ -83,7 +83,7 @@ export default function TabMutasi() {
 
   // Derived: selected class for per-kelas report
   const selectedClass = useMemo(
-    () => (reportClassId ? classStats.find((c: any) => c.id === reportClassId) : null),
+    () => (reportClassId && reportClassId !== "all" ? classStats.find((c: any) => c.id === reportClassId) : null),
     [reportClassId, classStats]
   );
   const isPerClass = !!selectedClass;
@@ -164,9 +164,6 @@ export default function TabMutasi() {
     "/api/admin/mutasi-keluar",
     fetcher
   );
-  // Fetch active students for Mutasi Keluar Langsung dropdown
-  const { data: dataStudents } = useSWR("/api/students?limit=500&status=active", fetcher);
-  const activeStudents = dataStudents?.data?.data || [];
 
   // --- BUKU MUTASI (LOGS) STATE & HOOKS ---
   const { data: dataLogs, error: errorLogs, isLoading: loadingLogs } = useSWR(
@@ -232,13 +229,13 @@ export default function TabMutasi() {
           tanggal: log.mutationDate ? format(new Date(log.mutationDate), "dd/MM/yyyy") : "",
           nama: log.studentName || "",
           lp: log.gender || "",
-          noInduk: log.nis || "",
+          noInduk: log.nis || log.nisn || "",
           kelas: log.className || "",
           sekolah: log.originOrDestination || "",
-          asalNoInduk: "",
-          asalKelas: "",
-          persetujuanTanggal: "",
-          persetujuanNomor: "",
+          asalNoInduk: log.originNis || "",
+          asalKelas: log.originClass || "",
+          persetujuanTanggal: log.approvalDate ? (log.approvalDate.includes("-") ? format(new Date(log.approvalDate), "dd/MM/yyyy") : log.approvalDate) : "",
+          persetujuanNomor: log.approvalNo || "",
         })),
         BOOK_ROW_COUNT
       ),
@@ -251,11 +248,11 @@ export default function TabMutasi() {
           no: index + 1,
           tanggal: log.mutationDate ? format(new Date(log.mutationDate), "dd/MM/yyyy") : "",
           nama: log.studentName || "",
-          noInduk: log.nis || "",
+          noInduk: log.nis || log.nisn || "",
           lp: log.gender || "",
           kelas: log.className || "",
-          nomorSurat: "",
-          tujuan: log.originOrDestination || "",
+          nomorSurat: log.letterNo || log.approvalNo || "",
+          tujuan: log.originOrDestination ? (log.destinationClass ? `${log.originOrDestination} (${log.destinationClass})` : log.originOrDestination) : "",
         })),
         BOOK_ROW_COUNT
       ),
@@ -284,63 +281,68 @@ export default function TabMutasi() {
       ];
     }
 
-    // Semua kelas: use backend rekap data
+    // Semua kelas: use backend rekap data + fallback to logs calculation
     const rows = BOOK_RECAP_GRADES.map((grade) => {
       const item = rekapData.find((r: any) => r.grade === grade);
-      if (item) {
-        return {
-          grade,
-          awalL: item.awalL || 0,
-          awalP: item.awalP || 0,
-          awalJM: (item.awalL || 0) + (item.awalP || 0),
-          masukL: item.masukL || 0,
-          masukP: item.masukP || 0,
-          masukJM: (item.masukL || 0) + (item.masukP || 0),
-          keluarL: item.keluarL || 0,
-          keluarP: item.keluarP || 0,
-          keluarJM: (item.keluarL || 0) + (item.keluarP || 0),
-          akhirL: item.akhirL || 0,
-          akhirP: item.akhirP || 0,
-          akhirJM: (item.akhirL || 0) + (item.akhirP || 0),
-          keterangan: "",
-        };
-      }
+      const logMasukL = monthlyMasukLogs.filter((log: any) => (log.classGrade === grade || !log.classGrade) && log.gender === "L").length;
+      const logMasukP = monthlyMasukLogs.filter((log: any) => (log.classGrade === grade || !log.classGrade) && log.gender === "P").length;
+      const logKeluarL = monthlyKeluarLogs.filter((log: any) => (log.classGrade === grade || !log.classGrade) && log.gender === "L").length;
+      const logKeluarP = monthlyKeluarLogs.filter((log: any) => (log.classGrade === grade || !log.classGrade) && log.gender === "P").length;
+
+      const masukL = (item && typeof item.masukL === "number" && item.masukL > 0) ? item.masukL : logMasukL;
+      const masukP = (item && typeof item.masukP === "number" && item.masukP > 0) ? item.masukP : logMasukP;
+      const keluarL = (item && typeof item.keluarL === "number" && item.keluarL > 0) ? item.keluarL : logKeluarL;
+      const keluarP = (item && typeof item.keluarP === "number" && item.keluarP > 0) ? item.keluarP : logKeluarP;
+
+      const awalL = item ? item.awalL : 0;
+      const awalP = item ? item.awalP : 0;
+      const akhirL = item ? item.akhirL : 0;
+      const akhirP = item ? item.akhirP : 0;
+
       return {
         grade,
-        awalL: 0, awalP: 0, awalJM: 0,
-        masukL: 0, masukP: 0, masukJM: 0,
-        keluarL: 0, keluarP: 0, keluarJM: 0,
-        akhirL: 0, akhirP: 0, akhirJM: 0,
+        awalL,
+        awalP,
+        awalJM: awalL + awalP,
+        masukL,
+        masukP,
+        masukJM: masukL + masukP,
+        keluarL,
+        keluarP,
+        keluarJM: keluarL + keluarP,
+        akhirL,
+        akhirP,
+        akhirJM: akhirL + akhirP,
         keterangan: "",
       };
     });
 
     // Calculate totals
     const totals = {
-      awalL: rows.reduce((s, r) => s + (typeof r.awalL === "number" ? r.awalL : 0), 0),
-      awalP: rows.reduce((s, r) => s + (typeof r.awalP === "number" ? r.awalP : 0), 0),
-      masukL: rows.reduce((s, r) => s + (typeof r.masukL === "number" ? r.masukL : 0), 0),
-      masukP: rows.reduce((s, r) => s + (typeof r.masukP === "number" ? r.masukP : 0), 0),
-      keluarL: rows.reduce((s, r) => s + (typeof r.keluarL === "number" ? r.keluarL : 0), 0),
-      keluarP: rows.reduce((s, r) => s + (typeof r.keluarP === "number" ? r.keluarP : 0), 0),
-      akhirL: rows.reduce((s, r) => s + (typeof r.akhirL === "number" ? r.akhirL : 0), 0),
-      akhirP: rows.reduce((s, r) => s + (typeof r.akhirP === "number" ? r.akhirP : 0), 0),
+      awalL: rows.reduce((s, r) => s + r.awalL, 0),
+      awalP: rows.reduce((s, r) => s + r.awalP, 0),
+      masukL: rows.reduce((s, r) => s + r.masukL, 0),
+      masukP: rows.reduce((s, r) => s + r.masukP, 0),
+      keluarL: rows.reduce((s, r) => s + r.keluarL, 0),
+      keluarP: rows.reduce((s, r) => s + r.keluarP, 0),
+      akhirL: rows.reduce((s, r) => s + r.akhirL, 0),
+      akhirP: rows.reduce((s, r) => s + r.akhirP, 0),
     };
 
     rows.push({
       grade: "Jumlah" as any,
-      awalL: totals.awalL || "",
-      awalP: totals.awalP || "",
-      awalJM: totals.awalL + totals.awalP || "",
-      masukL: totals.masukL || "",
-      masukP: totals.masukP || "",
-      masukJM: totals.masukL + totals.masukP || "",
-      keluarL: totals.keluarL || "",
-      keluarP: totals.keluarP || "",
-      keluarJM: totals.keluarL + totals.keluarP || "",
-      akhirL: totals.akhirL || "",
-      akhirP: totals.akhirP || "",
-      akhirJM: totals.akhirL + totals.akhirP || "",
+      awalL: totals.awalL,
+      awalP: totals.awalP,
+      awalJM: totals.awalL + totals.awalP,
+      masukL: totals.masukL,
+      masukP: totals.masukP,
+      masukJM: totals.masukL + totals.masukP,
+      keluarL: totals.keluarL,
+      keluarP: totals.keluarP,
+      keluarJM: totals.keluarL + totals.keluarP,
+      akhirL: totals.akhirL,
+      akhirP: totals.akhirP,
+      akhirJM: totals.akhirL + totals.akhirP,
       keterangan: monthlyLogs.length === 0 ? "Laporan nihil" : "",
     });
 
@@ -647,7 +649,7 @@ export default function TabMutasi() {
       ) : activeTab === "keluar" ? (
         <Card>
           <div className="p-4 flex justify-end border-b">
-             <DialogMutasiKeluarLangsung students={activeStudents} />
+             <DialogMutasiKeluarLangsung />
           </div>
           <Table>
             <TableHeader>
@@ -830,8 +832,8 @@ export default function TabMutasi() {
         <Card>
           <style jsx global>{`
             @page {
-              size: A4 landscape;
-              margin: 8mm;
+              size: 330mm 215mm; /* Kertas F4 / Folio Landscape */
+              margin: 6mm 8mm;
             }
 
             @media print {
@@ -896,7 +898,7 @@ export default function TabMutasi() {
                   <SelectValue placeholder="Pilih Jenis Buku Mutasi" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Buku Mutasi Sekolah (ttd Pengawas)</SelectItem>
+                  <SelectItem value="all">Buku Mutasi Sekolah (ttd Pengawas)</SelectItem>
                   {classStats.map((c: any) => (
                     <SelectItem key={c.id} value={c.id}>
                       Buku Mutasi {c.name} (ttd Kepsek)
@@ -932,7 +934,7 @@ export default function TabMutasi() {
 
           {/* Screen Preview */}
           <div className="no-print p-4 bg-slate-100 dark:bg-zinc-950 overflow-auto flex justify-center">
-            <div className="bg-white text-black p-6 rounded-lg shadow-md w-full max-w-[1200px] border">
+            <div className="bg-white text-black p-6 rounded-lg shadow-md w-full max-w-[1340px] border">
               <BukuMutasiPrintLayout
                 reportMonthLabel={reportMonthLabel}
                 masukRows={masukRows}
@@ -978,9 +980,16 @@ function padReportRows<T extends Record<string, any>>(
   targetCount: number
 ): T[] {
   const filled = [...rows];
+  if (filled.length >= targetCount) return filled;
+  
+  // Create an empty filler object based on the first row's keys, or a default fallback
   const empty = {} as Record<string, any>;
-  const keys = rows.length > 0 ? Object.keys(rows[0]) : [];
+  let keys = rows.length > 0 ? Object.keys(rows[0]) : [];
+  if (keys.length === 0) {
+    keys = ["no", "tanggal", "nama", "lp", "noInduk", "kelas", "sekolah", "asalNoInduk", "asalKelas", "persetujuanTanggal", "persetujuanNomor", "nomorSurat", "tujuan"];
+  }
   keys.forEach((k) => (empty[k] = ""));
+  
   while (filled.length < targetCount) {
     const filler = { ...empty };
     keys.forEach((k) => (filler[k] = "..."));
@@ -995,9 +1004,14 @@ function DialogMutasiMasukLangsung({ classStats }: { classStats: any[] }) {
   const [form, setForm] = useState({
     fullName: "",
     nisn: "",
+    nis: "",
     gender: "L",
-    metaData: "", // used for origin school
+    metaData: "",
+    originNis: "",
+    originClass: "",
     classId: "",
+    approvalNo: "",
+    approvalDate: "",
     reason: ""
   });
 
@@ -1014,11 +1028,16 @@ function DialogMutasiMasukLangsung({ classStats }: { classStats: any[] }) {
         student: {
           fullName: form.fullName,
           nisn: form.nisn,
+          nis: form.nis || undefined,
           gender: form.gender,
           metaData: form.metaData,
           classId: form.classId
         },
-        reason: form.reason
+        reason: form.reason,
+        originNis: form.originNis,
+        originClass: form.originClass,
+        approvalNo: form.approvalNo,
+        approvalDate: form.approvalDate
       };
 
       await goPost("/api/admin/mutasi/masuk/langsung", payload);
@@ -1026,8 +1045,7 @@ function DialogMutasiMasukLangsung({ classStats }: { classStats: any[] }) {
       setOpen(false);
       mutate("/api/admin/mutasi/logs");
       mutate("/api/classes/stats");
-      // Reset
-      setForm({ fullName: "", nisn: "", gender: "L", metaData: "", classId: "", reason: "" });
+      setForm({ fullName: "", nisn: "", nis: "", gender: "L", metaData: "", originNis: "", originClass: "", classId: "", approvalNo: "", approvalDate: "", reason: "" });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Gagal memproses mutasi masuk");
     } finally {
@@ -1042,16 +1060,16 @@ function DialogMutasiMasukLangsung({ classStats }: { classStats: any[] }) {
           <PlusCircle className="mr-2 h-4 w-4" /> Proses Mutasi Masuk
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Mutasi Masuk Langsung</DialogTitle>
           <DialogDescription>
-            Eksekusi mutasi masuk seketika dan daftarkan siswa ke kelas tanpa melalui permohonan publik.
+            Isikan data mutasi masuk sesuai dokumen untuk pencatatan otomatis di Buku Mutasi.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={onSubmit} className="space-y-4 py-2">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
+        <form onSubmit={onSubmit} className="space-y-4 py-2 max-h-[80vh] overflow-y-auto px-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
               <Label>Nama Siswa *</Label>
               <Input 
                 value={form.fullName} 
@@ -1060,19 +1078,27 @@ function DialogMutasiMasukLangsung({ classStats }: { classStats: any[] }) {
                 required 
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label>NISN *</Label>
               <Input 
                 value={form.nisn} 
                 onChange={(e) => setForm({...form, nisn: e.target.value})} 
-                placeholder="NISN" 
+                placeholder="10 digit NISN" 
                 required 
               />
             </div>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <Label>NIS Sekolah Ini</Label>
+              <Input 
+                value={form.nis} 
+                onChange={(e) => setForm({...form, nis: e.target.value})} 
+                placeholder="No. Induk Baru" 
+              />
+            </div>
+            <div className="space-y-1.5">
               <Label>Jenis Kelamin</Label>
               <Select value={form.gender} onValueChange={(v) => setForm({...form, gender: v})}>
                 <SelectTrigger><SelectValue/></SelectTrigger>
@@ -1082,8 +1108,8 @@ function DialogMutasiMasukLangsung({ classStats }: { classStats: any[] }) {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Kelas Tujuan *</Label>
+            <div className="space-y-1.5">
+              <Label>Kelas Penempatan *</Label>
               <Select value={form.classId} onValueChange={(v) => setForm({...form, classId: v})} required>
                 <SelectTrigger><SelectValue placeholder="Pilih Kelas"/></SelectTrigger>
                 <SelectContent>
@@ -1095,21 +1121,58 @@ function DialogMutasiMasukLangsung({ classStats }: { classStats: any[] }) {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Asal Sekolah</Label>
-            <Input 
-              value={form.metaData} 
-              onChange={(e) => setForm({...form, metaData: e.target.value})} 
-              placeholder="SDN Contoh..." 
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="space-y-1.5">
+              <Label>Sekolah Asal</Label>
+              <Input 
+                value={form.metaData} 
+                onChange={(e) => setForm({...form, metaData: e.target.value})} 
+                placeholder="SDN Asal..." 
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>No. Induk Asal</Label>
+              <Input 
+                value={form.originNis} 
+                onChange={(e) => setForm({...form, originNis: e.target.value})} 
+                placeholder="NIS Sekolah Asal" 
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Kelas Asal</Label>
+              <Input 
+                value={form.originClass} 
+                onChange={(e) => setForm({...form, originClass: e.target.value})} 
+                placeholder="misal: Kelas 3" 
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Nomor Surat Persetujuan</Label>
+              <Input 
+                value={form.approvalNo} 
+                onChange={(e) => setForm({...form, approvalNo: e.target.value})} 
+                placeholder="No. Surat Rekomendasi/Dinas" 
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Tanggal Surat Persetujuan</Label>
+              <Input 
+                type="date"
+                value={form.approvalDate} 
+                onChange={(e) => setForm({...form, approvalDate: e.target.value})} 
+              />
+            </div>
           </div>
           
-          <div className="space-y-2">
-            <Label>Keterangan Tambahan (Alasan)</Label>
+          <div className="space-y-1.5">
+            <Label>Keterangan / Alasan Mutasi</Label>
             <Input 
               value={form.reason} 
               onChange={(e) => setForm({...form, reason: e.target.value})} 
-              placeholder="Pindah domisili..." 
+              placeholder="Ikut Domisili Orang Tua..." 
             />
           </div>
 
@@ -1126,14 +1189,22 @@ function DialogMutasiMasukLangsung({ classStats }: { classStats: any[] }) {
   );
 }
 
-function DialogMutasiKeluarLangsung({ students }: { students: any[] }) {
+function DialogMutasiKeluarLangsung() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     studentId: "",
     destinationSchool: "",
+    destinationClass: "",
+    letterNo: "",
     reason: ""
   });
+
+  const { data: dataStudents } = useSWR(
+    open ? "/api/students?limit=500&status=active" : null, 
+    fetcher
+  );
+  const students = dataStudents?.data?.data || [];
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1148,8 +1219,7 @@ function DialogMutasiKeluarLangsung({ students }: { students: any[] }) {
       toast.success("Mutasi keluar berhasil diproses");
       setOpen(false);
       mutate("/api/admin/mutasi/logs");
-      // Reset
-      setForm({ studentId: "", destinationSchool: "", reason: "" });
+      setForm({ studentId: "", destinationSchool: "", destinationClass: "", letterNo: "", reason: "" });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Gagal memproses mutasi keluar. Pastikan tidak ada sangkutan.");
     } finally {
@@ -1164,16 +1234,16 @@ function DialogMutasiKeluarLangsung({ students }: { students: any[] }) {
           <ArrowRightCircle className="mr-2 h-4 w-4" /> Proses Mutasi Keluar
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Mutasi Keluar Langsung</DialogTitle>
           <DialogDescription>
-            Keluarkan siswa dari sekolah secara langsung tanpa pengajuan dari wali murid.
+            Isikan data mutasi keluar siswa untuk pencatatan otomatis di Buku Mutasi.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4 py-2">
           
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label>Pilih Siswa (Aktif) *</Label>
             <Select value={form.studentId} onValueChange={(v) => setForm({...form, studentId: v})} required>
               <SelectTrigger><SelectValue placeholder="Pilih Siswa"/></SelectTrigger>
@@ -1185,22 +1255,41 @@ function DialogMutasiKeluarLangsung({ students }: { students: any[] }) {
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label>Sekolah Tujuan *</Label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Sekolah Tujuan *</Label>
+              <Input 
+                value={form.destinationSchool} 
+                onChange={(e) => setForm({...form, destinationSchool: e.target.value})} 
+                placeholder="SDN Tujuan..." 
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Ke Kelas (Tujuan)</Label>
+              <Input 
+                value={form.destinationClass} 
+                onChange={(e) => setForm({...form, destinationClass: e.target.value})} 
+                placeholder="misal: Kelas 4" 
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Nomor Surat Pindah / Permohonan</Label>
             <Input 
-              value={form.destinationSchool} 
-              onChange={(e) => setForm({...form, destinationSchool: e.target.value})} 
-              placeholder="SDN Tujuan..." 
-              required
+              value={form.letterNo} 
+              onChange={(e) => setForm({...form, letterNo: e.target.value})} 
+              placeholder="No. Surat Permohonan/Pindah" 
             />
           </div>
           
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label>Alasan Pindah</Label>
             <Input 
               value={form.reason} 
               onChange={(e) => setForm({...form, reason: e.target.value})} 
-              placeholder="Ikut Orang Tua..." 
+              placeholder="Ikut Orang Tua / Pindah Domisili..." 
             />
           </div>
 
@@ -1298,18 +1387,18 @@ function BukuMutasiPrintLayout({
                 </thead>
                 <tbody>
                   {masukRows.map((row, index) => (
-                    <tr key={`masuk-${index}`} className="h-5">
-                      <td className="border border-black px-0.5 py-0.5 text-center">{row.no}</td>
-                      <td className="border border-black px-0.5 py-0.5 text-center whitespace-nowrap">{row.tanggal}</td>
-                      <td className="border border-black px-0.5 py-0.5 font-medium truncate">{row.nama}</td>
-                      <td className="border border-black px-0.5 py-0.5 text-center">{row.lp}</td>
-                      <td className="border border-black px-0.5 py-0.5 text-center">{row.noInduk}</td>
-                      <td className="border border-black px-0.5 py-0.5 text-center">{row.kelas}</td>
-                      <td className="border border-black px-0.5 py-0.5 truncate">{row.sekolah}</td>
-                      <td className="border border-black px-0.5 py-0.5 text-center">{row.asalNoInduk}</td>
-                      <td className="border border-black px-0.5 py-0.5 text-center">{row.asalKelas}</td>
-                      <td className="border border-black px-0.5 py-0.5 text-center">{row.persetujuanTanggal}</td>
-                      <td className="border border-black px-0.5 py-0.5 text-center">{row.persetujuanNomor}</td>
+                    <tr key={`masuk-${index}`} className="h-6">
+                      <td className="border border-black px-1 py-1 text-center font-medium">{row.no}</td>
+                      <td className="border border-black px-1 py-1 text-center whitespace-nowrap">{row.tanggal}</td>
+                      <td className="border border-black px-1 py-1 font-medium break-words whitespace-normal leading-tight">{row.nama}</td>
+                      <td className="border border-black px-1 py-1 text-center">{row.lp}</td>
+                      <td className="border border-black px-1 py-1 text-center font-mono">{row.noInduk}</td>
+                      <td className="border border-black px-1 py-1 text-center">{row.kelas}</td>
+                      <td className="border border-black px-1 py-1 break-words whitespace-normal leading-tight">{row.sekolah}</td>
+                      <td className="border border-black px-1 py-1 text-center font-mono">{row.asalNoInduk}</td>
+                      <td className="border border-black px-1 py-1 text-center">{row.asalKelas}</td>
+                      <td className="border border-black px-1 py-1 text-center">{row.persetujuanTanggal}</td>
+                      <td className="border border-black px-1 py-1 text-center">{row.persetujuanNomor}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1323,11 +1412,11 @@ function BukuMutasiPrintLayout({
               )}
             </div>
 
-            {/* Signature Block (Kiri Bawah sesuai Gambar PDF) */}
-            <div className="pt-6 pl-4 space-y-1 text-[10px]">
+            {/* Signature Block */}
+            <div className="pt-8 pl-4 space-y-1 text-[10px]">
               <div className="font-bold">{signatureLabel}</div>
-              <div className="h-16" />
-              <div className="font-bold border-b border-black inline-block min-w-[200px]">
+              <div className="h-14" />
+              <div className="font-bold border-b border-black inline-block min-w-[220px]">
                 {signatureName}
               </div>
               <div className="text-[9px]">
@@ -1339,37 +1428,37 @@ function BukuMutasiPrintLayout({
           {/* RIGHT SIDE: KELUAR & REKAPITULASI */}
           <div className="space-y-3">
             {/* Header Line */}
-            <div className="flex justify-between items-center text-[10px] font-bold pb-0.5">
+            <div className="flex justify-between items-center text-[10px] font-bold pb-0.5 border-b border-black">
               <span>BULAN : {reportMonthLabel}</span>
               <span className="uppercase tracking-wider">KELUAR</span>
             </div>
 
             {/* KELUAR Table (8 Columns) */}
             <div className="relative">
-              <table className="w-full border-collapse border border-black table-fixed text-[8px]">
+              <table className="w-full border-collapse border border-black table-fixed text-[8.5px]">
                 <thead>
-                  <tr className="bg-slate-50">
-                    <th rowSpan={2} className="border border-black px-0.5 py-0.5 text-center w-[5%] leading-tight">No.<br />Urut</th>
-                    <th rowSpan={2} className="border border-black px-0.5 py-0.5 text-center w-[11%] leading-tight">Tanggal</th>
-                    <th rowSpan={2} className="border border-black px-0.5 py-0.5 text-left w-[24%] leading-tight">Nama Siswa</th>
-                    <th rowSpan={2} className="border border-black px-0.5 py-0.5 text-center w-[11%] leading-tight">No.<br />Induk</th>
-                    <th rowSpan={2} className="border border-black px-0.5 py-0.5 text-center w-[5%] leading-tight">L/P</th>
-                    <th rowSpan={2} className="border border-black px-0.5 py-0.5 text-center w-[6%] leading-tight">Kelas</th>
-                    <th className="border border-black px-0.5 py-0.5 text-center w-[19%] leading-tight">Nomor Surat Pindah</th>
-                    <th className="border border-black px-0.5 py-0.5 text-left w-[19%] leading-tight">Keterangan/<br />Pindah ke..</th>
+                  <tr className="bg-slate-50 font-bold">
+                    <th rowSpan={2} className="border border-black px-1 py-1 text-center w-[4%] leading-tight">No.<br />Urut</th>
+                    <th rowSpan={2} className="border border-black px-1 py-1 text-center w-[10%] leading-tight">Tanggal</th>
+                    <th rowSpan={2} className="border border-black px-1 py-1 text-left w-[23%] leading-tight">Nama Siswa</th>
+                    <th rowSpan={2} className="border border-black px-1 py-1 text-center w-[10%] leading-tight">No.<br />Induk</th>
+                    <th rowSpan={2} className="border border-black px-1 py-1 text-center w-[4%] leading-tight">L/P</th>
+                    <th rowSpan={2} className="border border-black px-1 py-1 text-center w-[7%] leading-tight">Kelas</th>
+                    <th className="border border-black px-1 py-1 text-center w-[20%] leading-tight">Nomor Surat Pindah</th>
+                    <th className="border border-black px-1 py-1 text-left w-[22%] leading-tight">Keterangan/<br />Pindah ke..</th>
                   </tr>
                 </thead>
                 <tbody>
                   {keluarRows.map((row, index) => (
-                    <tr key={`keluar-${index}`} className="h-5">
-                      <td className="border border-black px-0.5 py-0.5 text-center">{row.no}</td>
-                      <td className="border border-black px-0.5 py-0.5 text-center whitespace-nowrap">{row.tanggal}</td>
-                      <td className="border border-black px-0.5 py-0.5 font-medium truncate">{row.nama}</td>
-                      <td className="border border-black px-0.5 py-0.5 text-center">{row.noInduk}</td>
-                      <td className="border border-black px-0.5 py-0.5 text-center">{row.lp}</td>
-                      <td className="border border-black px-0.5 py-0.5 text-center">{row.kelas}</td>
-                      <td className="border border-black px-0.5 py-0.5 text-center">{row.nomorSurat}</td>
-                      <td className="border border-black px-0.5 py-0.5 truncate">{row.tujuan}</td>
+                    <tr key={`keluar-${index}`} className="h-6">
+                      <td className="border border-black px-1 py-1 text-center font-medium">{row.no}</td>
+                      <td className="border border-black px-1 py-1 text-center whitespace-nowrap">{row.tanggal}</td>
+                      <td className="border border-black px-1 py-1 font-medium break-words whitespace-normal leading-tight">{row.nama}</td>
+                      <td className="border border-black px-1 py-1 text-center font-mono">{row.noInduk}</td>
+                      <td className="border border-black px-1 py-1 text-center">{row.lp}</td>
+                      <td className="border border-black px-1 py-1 text-center">{row.kelas}</td>
+                      <td className="border border-black px-1 py-1 text-center break-words whitespace-normal leading-tight">{row.nomorSurat}</td>
+                      <td className="border border-black px-1 py-1 break-words whitespace-normal leading-tight">{row.tujuan}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1383,53 +1472,53 @@ function BukuMutasiPrintLayout({
               )}
             </div>
 
-            {/* REKAPITULASI Section (Kanan Bawah sesuai Gambar PDF) */}
+            {/* REKAPITULASI Section */}
             <div className="pt-2">
               <div className="text-[10px] font-bold uppercase mb-1">REKAPITULASI</div>
-              <table className="w-full border-collapse border border-black table-fixed text-[8px]">
+              <table className="w-full border-collapse border border-black table-fixed text-[8.5px]">
                 <thead>
-                  <tr className="bg-slate-50">
-                    <th rowSpan={2} className="border border-black px-1 py-0.5 text-center w-[10%] font-bold">Kelas</th>
+                  <tr className="bg-slate-50 font-bold">
+                    <th rowSpan={2} className="border border-black px-1 py-1 text-center w-[10%] font-bold">Kelas</th>
                     <th colSpan={3} className="border border-black px-0.5 py-0.5 text-center">Awal Bulan</th>
                     <th colSpan={3} className="border border-black px-0.5 py-0.5 text-center">MASUK</th>
                     <th colSpan={3} className="border border-black px-0.5 py-0.5 text-center">KELUAR</th>
                     <th colSpan={3} className="border border-black px-0.5 py-0.5 text-center">Akhir Bulan</th>
-                    <th rowSpan={2} className="border border-black px-1 py-0.5 text-center w-[20%]">Keterangan</th>
+                    <th rowSpan={2} className="border border-black px-1 py-1 text-center w-[18%]">Keterangan</th>
                   </tr>
-                  <tr className="bg-slate-50 text-[7.5px]">
+                  <tr className="bg-slate-50 text-[8px] font-semibold">
                     <th className="border border-black px-0.5 py-0.5 text-center w-[5%]">L</th>
                     <th className="border border-black px-0.5 py-0.5 text-center w-[5%]">P</th>
-                    <th className="border border-black px-0.5 py-0.5 text-center w-[6%] font-semibold">JM</th>
+                    <th className="border border-black px-0.5 py-0.5 text-center w-[6%] font-bold">JM</th>
                     <th className="border border-black px-0.5 py-0.5 text-center w-[5%]">L</th>
                     <th className="border border-black px-0.5 py-0.5 text-center w-[5%]">P</th>
-                    <th className="border border-black px-0.5 py-0.5 text-center w-[6%] font-semibold">JM</th>
+                    <th className="border border-black px-0.5 py-0.5 text-center w-[6%] font-bold">JM</th>
                     <th className="border border-black px-0.5 py-0.5 text-center w-[5%]">L</th>
                     <th className="border border-black px-0.5 py-0.5 text-center w-[5%]">P</th>
-                    <th className="border border-black px-0.5 py-0.5 text-center w-[6%] font-semibold">JM</th>
+                    <th className="border border-black px-0.5 py-0.5 text-center w-[6%] font-bold">JM</th>
                     <th className="border border-black px-0.5 py-0.5 text-center w-[5%]">L</th>
                     <th className="border border-black px-0.5 py-0.5 text-center w-[5%]">P</th>
-                    <th className="border border-black px-0.5 py-0.5 text-center w-[6%] font-semibold">JM</th>
+                    <th className="border border-black px-0.5 py-0.5 text-center w-[6%] font-bold">JM</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rekapRows.map((row) => (
-                    <tr key={`rekap-${row.grade}`} className={row.grade === "Jumlah" ? "font-bold bg-slate-100 border-t border-black" : ""}>
-                      <td className="border border-black px-1 py-0.5 text-center font-semibold">
+                    <tr key={`rekap-${row.grade}`} className={row.grade === "Jumlah" ? "font-bold bg-slate-100 border-t-2 border-black" : "h-5"}>
+                      <td className="border border-black px-1 py-0.5 text-center font-bold">
                         {typeof row.grade === "number" ? toRoman(row.grade) : row.grade}
                       </td>
-                      <td className="border border-black px-0.5 py-0.5 text-center">{row.awalL !== "" ? row.awalL : ""}</td>
-                      <td className="border border-black px-0.5 py-0.5 text-center">{row.awalP !== "" ? row.awalP : ""}</td>
-                      <td className="border border-black px-0.5 py-0.5 text-center font-semibold bg-slate-50">{row.awalJM !== "" ? row.awalJM : ""}</td>
-                      <td className="border border-black px-0.5 py-0.5 text-center">{row.masukL || ""}</td>
-                      <td className="border border-black px-0.5 py-0.5 text-center">{row.masukP || ""}</td>
-                      <td className="border border-black px-0.5 py-0.5 text-center font-semibold bg-slate-50">{row.masukJM || ""}</td>
-                      <td className="border border-black px-0.5 py-0.5 text-center">{row.keluarL || ""}</td>
-                      <td className="border border-black px-0.5 py-0.5 text-center">{row.keluarP || ""}</td>
-                      <td className="border border-black px-0.5 py-0.5 text-center font-semibold bg-slate-50">{row.keluarJM || ""}</td>
-                      <td className="border border-black px-0.5 py-0.5 text-center">{row.akhirL !== "" ? row.akhirL : ""}</td>
-                      <td className="border border-black px-0.5 py-0.5 text-center">{row.akhirP !== "" ? row.akhirP : ""}</td>
-                      <td className="border border-black px-0.5 py-0.5 text-center font-semibold bg-slate-50">{row.akhirJM !== "" ? row.akhirJM : ""}</td>
-                      <td className="border border-black px-1 py-0.5 text-center">{row.keterangan}</td>
+                      <td className="border border-black px-0.5 py-0.5 text-center">{row.awalL !== "" ? row.awalL : 0}</td>
+                      <td className="border border-black px-0.5 py-0.5 text-center">{row.awalP !== "" ? row.awalP : 0}</td>
+                      <td className="border border-black px-0.5 py-0.5 text-center font-bold bg-slate-50">{row.awalJM !== "" ? row.awalJM : 0}</td>
+                      <td className="border border-black px-0.5 py-0.5 text-center">{row.masukL !== "" ? row.masukL : 0}</td>
+                      <td className="border border-black px-0.5 py-0.5 text-center">{row.masukP !== "" ? row.masukP : 0}</td>
+                      <td className="border border-black px-0.5 py-0.5 text-center font-bold bg-slate-50">{row.masukJM !== "" ? row.masukJM : 0}</td>
+                      <td className="border border-black px-0.5 py-0.5 text-center">{row.keluarL !== "" ? row.keluarL : 0}</td>
+                      <td className="border border-black px-0.5 py-0.5 text-center">{row.keluarP !== "" ? row.keluarP : 0}</td>
+                      <td className="border border-black px-0.5 py-0.5 text-center font-bold bg-slate-50">{row.keluarJM !== "" ? row.keluarJM : 0}</td>
+                      <td className="border border-black px-0.5 py-0.5 text-center">{row.akhirL !== "" ? row.akhirL : 0}</td>
+                      <td className="border border-black px-0.5 py-0.5 text-center">{row.akhirP !== "" ? row.akhirP : 0}</td>
+                      <td className="border border-black px-0.5 py-0.5 text-center font-bold bg-slate-50">{row.akhirJM !== "" ? row.akhirJM : 0}</td>
+                      <td className="border border-black px-1 py-0.5 text-center font-medium">{row.keterangan}</td>
                     </tr>
                   ))}
                 </tbody>

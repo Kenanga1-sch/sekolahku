@@ -35,9 +35,13 @@ const formSchema = z.object({
   gender: z.enum(["L", "P"]),
   originSchool: z.string().min(3, "Nama sekolah asal minimal 3 karakter"),
   originSchoolAddress: z.string().min(10, "Alamat lengkap sekolah asal wajib diisi"),
+  originNis: z.string().optional(),
+  originClass: z.string().optional(),
   targetGrade: z.coerce.number().min(1).max(6),
   parentName: z.string().min(3, "Nama orang tua minimal 3 karakter"),
   whatsappNumber: z.string().min(10, "Nomor WhatsApp tidak valid"),
+  approvalNo: z.string().optional(),
+  approvalDate: z.string().optional(),
 });
 
 export default function MutasiMasukPage() {
@@ -52,9 +56,13 @@ export default function MutasiMasukPage() {
       nisn: "",
       originSchool: "",
       originSchoolAddress: "",
+      originNis: "",
+      originClass: "",
       targetGrade: 1,
       parentName: "",
       whatsappNumber: "",
+      approvalNo: "",
+      approvalDate: "",
     },
   });
 
