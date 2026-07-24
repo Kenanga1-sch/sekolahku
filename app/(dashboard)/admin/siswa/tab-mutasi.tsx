@@ -1376,7 +1376,7 @@ function BukuMutasiPrintLayout({
           {/* LEFT SIDE: MASUK & SIGNATURE */}
           <div className="space-y-3">
             {/* Header Line */}
-            <div className="flex justify-between items-center text-[10px] font-bold pb-0.5">
+            <div className="flex justify-between items-center text-[10px] font-bold pb-0.5 border-b border-black">
               <span>BULAN : {reportMonthLabel}</span>
               <span className="uppercase tracking-wider">MASUK</span>
             </div>
@@ -1434,7 +1434,7 @@ function BukuMutasiPrintLayout({
             <div className="pt-8 pl-4 space-y-1 text-[10px]">
               <div className="font-bold">{signatureLabel}</div>
               <div className="h-14" />
-              <div className="font-bold border-b border-black inline-block min-w-[220px]">
+              <div className="font-bold border-b border-black inline-block">
                 {signatureName}
               </div>
               <div className="text-[9px]">
