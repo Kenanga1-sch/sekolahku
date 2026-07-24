@@ -28,7 +28,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Info } from "lucide-react";
 import { showSuccess, showError } from "@/lib/toast";
 import { goGet, goPost, goPut, goDelete } from "@/lib/api-client";
 
@@ -48,6 +48,7 @@ export default function TabKelas() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<AcademicClass | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [inheritedFrom, setInheritedFrom] = useState<string>("");
 
     // Form
     const [formData, setFormData] = useState({
@@ -59,7 +60,6 @@ export default function TabKelas() {
     const fetchData = async () => {
         setIsLoading(true);
         try {
-            // Parallel fetch: classes and active academic year
             const [dataClasses, resYear]: [any, any] = await Promise.all([
                 goGet("/api/academic/classes"),
                 goGet("/api/academic/active-year")
@@ -82,9 +82,23 @@ export default function TabKelas() {
         fetchData();
     }, []);
 
+    const fetchSuggestedCapacity = async (gradeStr: string, nameStr: string) => {
+        if (!academicYear || academicYear === "...") return;
+        try {
+            const res: any = await goGet(`/api/academic/classes/suggested-capacity?grade=${gradeStr}&name=${encodeURIComponent(nameStr)}&academicYear=${encodeURIComponent(academicYear)}`);
+            if (res?.success && typeof res?.capacity === "number") {
+                setFormData(prev => ({ ...prev, capacity: res.capacity }));
+                setInheritedFrom(res.inheritedFrom || "");
+            }
+        } catch (e) {
+            console.error("Failed to fetch suggested capacity", e);
+        }
+    };
+
     const handleOpenDialog = (item?: AcademicClass) => {
         if (item) {
             setEditingItem(item);
+            setInheritedFrom("");
             setFormData({
                 name: item.name,
                 grade: item.grade.toString(),
@@ -92,13 +106,29 @@ export default function TabKelas() {
             });
         } else {
             setEditingItem(null);
+            setInheritedFrom("");
             setFormData({
                 name: "",
                 grade: "1",
                 capacity: 28
             });
+            fetchSuggestedCapacity("1", "");
         }
         setIsDialogOpen(true);
+    };
+
+    const handleGradeChange = (newGrade: string) => {
+        setFormData(prev => ({ ...prev, grade: newGrade }));
+        if (!editingItem) {
+            fetchSuggestedCapacity(newGrade, formData.name);
+        }
+    };
+
+    const handleNameChange = (newName: string) => {
+        setFormData(prev => ({ ...prev, name: newName }));
+        if (!editingItem) {
+            fetchSuggestedCapacity(formData.grade, newName);
+        }
     };
 
     const handleSubmit = async () => {
@@ -145,7 +175,7 @@ export default function TabKelas() {
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                         <CardTitle>Daftar Kelas</CardTitle>
-                        <CardDescription>Tahun Ajaran {academicYear}</CardDescription>
+                        <CardDescription>Tahun Ajaran {academicYear} • Kuota dikunci sesuai angkatan saat Kelas 1</CardDescription>
                     </div>
                     <Button onClick={() => handleOpenDialog()}>
                         <Plus className="h-4 w-4 mr-2" />
@@ -158,7 +188,7 @@ export default function TabKelas() {
                             <TableRow>
                                 <TableHead>Tingkat</TableHead>
                                 <TableHead>Nama Kelas</TableHead>
-                                <TableHead>Kapasitas</TableHead>
+                                <TableHead>Kapasitas (Kuota Angkatan)</TableHead>
                                 <TableHead className="text-right">Aksi</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -180,7 +210,14 @@ export default function TabKelas() {
                                     <TableRow key={c.id}>
                                         <TableCell>Kelas {c.grade}</TableCell>
                                         <TableCell className="font-bold">{c.name}</TableCell>
-                                        <TableCell>{c.capacity} Siswa</TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-semibold">{c.capacity} Siswa</span>
+                                                <span className="text-[10px] text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded font-medium">
+                                                    Kuota Angkatan
+                                                </span>
+                                            </div>
+                                        </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
                                                 <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(c)}>
@@ -202,9 +239,9 @@ export default function TabKelas() {
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>{editingItem ? "Edit Kelas" : "Tambah Kelas Baru"}</DialogTitle>
+                        <DialogTitle>{editingItem ? "Edit Kelas & Kuota" : "Tambah Kelas Baru"}</DialogTitle>
                         <DialogDescription>
-                            Pastikan nama kelas sesuai dengan data Dapodik/Sekolah.
+                            Kapasitas dikunci mengikuti kuota angkatan saat Kelas 1, namun tetap dapat Anda sesuaikan bila ada kesalahan atau perubahan.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
@@ -212,7 +249,7 @@ export default function TabKelas() {
                             <Label>Tingkat</Label>
                             <Select 
                                 value={formData.grade} 
-                                onValueChange={(v) => setFormData({...formData, grade: v})}
+                                onValueChange={handleGradeChange}
                             >
                                 <SelectTrigger>
                                     <SelectValue />
@@ -229,16 +266,35 @@ export default function TabKelas() {
                             <Input 
                                 placeholder="Contoh: 1A" 
                                 value={formData.name}
-                                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                                onChange={(e) => handleNameChange(e.target.value)}
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>Kapasitas Siswa</Label>
+                            <Label>Kapasitas Siswa (Maksimal)</Label>
                             <Input 
                                 type="number"
                                 value={formData.capacity}
                                 onChange={(e) => setFormData({...formData, capacity: parseInt(e.target.value) || 0})}
                             />
+                            {inheritedFrom ? (
+                                <p className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-md p-2.5 flex items-start gap-1.5">
+                                    <Info className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+                                    <span>
+                                        Kuota otomatis diwariskan dari <strong>{inheritedFrom}</strong> ({formData.capacity} Siswa). Anda tetap dapat mengubah angka ini bila ada penyesuaian.
+                                    </span>
+                                </p>
+                            ) : parseInt(formData.grade) === 1 ? (
+                                <p className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-md p-2.5 flex items-start gap-1.5">
+                                    <Info className="h-4 w-4 text-slate-500 shrink-0 mt-0.5" />
+                                    <span>
+                                        Kuota awal angkatan baru untuk Kelas 1 T.A <strong>{academicYear}</strong>. Kuota ini akan diwariskan secara otomatis ke tingkat berikutnya hingga lulus.
+                                    </span>
+                                </p>
+                            ) : (
+                                <p className="text-xs text-slate-500">
+                                    Kapasitas dapat Anda sesuaikan sewaktu-waktu jika terdapat perubahan kuota sekolah.
+                                </p>
+                            )}
                         </div>
                     </div>
                     <DialogFooter>
@@ -252,3 +308,4 @@ export default function TabKelas() {
         </div>
     );
 }
+

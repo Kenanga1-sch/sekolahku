@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
 	"github.com/nrednav/cuid2"
@@ -206,5 +207,30 @@ func (h *AcademicHandler) GetClassesStats(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
 		"data":    stats,
+	})
+}
+
+func (h *AcademicHandler) GetSuggestedCapacity(c echo.Context) error {
+	gradeStr := c.QueryParam("grade")
+	className := c.QueryParam("name")
+	year := c.QueryParam("academicYear")
+
+	grade, _ := strconv.Atoi(gradeStr)
+	if grade <= 0 {
+		grade = 1
+	}
+	if year == "" {
+		year, _ = h.Repo.GetActiveAcademicYear()
+	}
+
+	cap, source, err := h.Repo.GetSuggestedCapacity(grade, className, year)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success":       true,
+		"capacity":      cap,
+		"inheritedFrom": source,
 	})
 }

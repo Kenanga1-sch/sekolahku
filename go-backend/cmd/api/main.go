@@ -727,6 +727,7 @@ func main() {
 	adminGroup.PUT("/academic/subjects/:id", academicHandler.UpdateSubject)
 	adminGroup.DELETE("/academic/subjects/:id", academicHandler.DeleteSubject)
 	adminGroup.GET("/academic/classes", academicHandler.GetClasses)
+	auth.GET("/academic/classes/suggested-capacity", academicHandler.GetSuggestedCapacity)
 	adminGroup.POST("/academic/classes", academicHandler.CreateClass)
 	adminGroup.PUT("/academic/classes/:id", academicHandler.UpdateClass)
 	adminGroup.DELETE("/academic/classes/:id", academicHandler.DeleteClass)

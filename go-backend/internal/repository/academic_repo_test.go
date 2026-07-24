@@ -204,3 +204,44 @@ func TestAcademicRepository_PromotionAndGraduation(t *testing.T) {
 		t.Fatalf("expected graduated inactive student, got status=%s active=%d", status, isActive)
 	}
 }
+
+func TestAcademicRepository_GetSuggestedCapacity(t *testing.T) {
+	db := setupAcademicTestDB(t)
+	defer db.Close()
+	repo := NewAcademicRepository(db)
+
+	// Create Kelas 1 (2025/2026) with capacity 28
+	if err := repo.CreateClass(models.AcademicClass{
+		ID:           "c-1a",
+		Name:         "1A",
+		Grade:        1,
+		AcademicYear: "2025/2026",
+		Capacity:     28,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Test 1: Grade 2 in 2026/2027 should inherit 28 from Grade 1 (2025/2026)
+	cap, source, err := repo.GetSuggestedCapacity(2, "2A", "2026/2027")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cap != 28 {
+		t.Fatalf("expected capacity 28, got %d", cap)
+	}
+	if source == "" {
+		t.Fatalf("expected non-empty inheritedFrom source")
+	}
+
+	// Test 2: Grade 1 in 2026/2027 should return default 28 without inheritance source
+	cap1, source1, err := repo.GetSuggestedCapacity(1, "1A", "2026/2027")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cap1 != 28 {
+		t.Fatalf("expected default capacity 28, got %d", cap1)
+	}
+	if source1 != "" {
+		t.Fatalf("expected empty source for Grade 1, got %s", source1)
+	}
+}

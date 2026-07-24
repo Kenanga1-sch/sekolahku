@@ -105,6 +105,10 @@ func (r *AcademicRepository) GetClassByID(id string) (*models.AcademicClass, err
 }
 
 func (r *AcademicRepository) CreateClass(c models.AcademicClass) error {
+	if c.Capacity <= 0 {
+		cap, _, _ := r.GetSuggestedCapacity(c.Grade, c.Name, c.AcademicYear)
+		c.Capacity = cap
+	}
 	query := `INSERT INTO student_classes (id, name, grade, academic_year, teacher_name, capacity, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	now := time.Now().Unix()
 	_, err := r.DB.Exec(query, c.ID, c.Name, c.Grade, c.AcademicYear, c.TeacherName, c.Capacity, 1, now, now)
@@ -420,4 +424,48 @@ func (r *AcademicRepository) GetClassesWithStats() ([]models.ClassStats, error) 
 		results = []models.ClassStats{}
 	}
 	return results, nil
+}
+
+func getPrevAcademicYear(current string) string {
+	var y1, y2 int
+	if n, err := fmt.Sscanf(current, "%d/%d", &y1, &y2); err == nil && n == 2 {
+		return fmt.Sprintf("%d/%d", y1-1, y2-1)
+	}
+	return ""
+}
+
+// GetSuggestedCapacity inherits capacity from the previous academic year's lower grade for the same cohort.
+// E.g., Grade 2 in 2026/2027 inherits from Grade 1 in 2025/2026 (28 Siswa).
+func (r *AcademicRepository) GetSuggestedCapacity(grade int, className string, academicYear string) (int, string, error) {
+	defaultCapacity := 28
+
+	if grade <= 1 {
+		return defaultCapacity, "", nil
+	}
+
+	prevYear := getPrevAcademicYear(academicYear)
+	if prevYear == "" {
+		activeYear, _ := r.GetActiveAcademicYear()
+		prevYear = getPrevAcademicYear(activeYear)
+	}
+
+	if prevYear != "" {
+		prevGrade := grade - 1
+		var capacity int
+		var foundName string
+
+		// Try to match exact or similar class name from previous grade (e.g. 1A -> 2A)
+		err := r.DB.QueryRow(`
+			SELECT capacity, name FROM student_classes 
+			WHERE grade = ? AND academic_year = ? AND capacity > 0
+			ORDER BY (CASE WHEN name = ? THEN 0 ELSE 1 END), name ASC
+			LIMIT 1
+		`, prevGrade, prevYear, className).Scan(&capacity, &foundName)
+
+		if err == nil && capacity > 0 {
+			return capacity, fmt.Sprintf("Kelas %d (%s) T.A %s", prevGrade, foundName, prevYear), nil
+		}
+	}
+
+	return defaultCapacity, "", nil
 }
