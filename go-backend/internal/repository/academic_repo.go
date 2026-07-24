@@ -388,14 +388,20 @@ func (r *AcademicRepository) ProcessPromotion(req models.PromotionRequest) (int,
 }
 
 func (r *AcademicRepository) GetClassesWithStats() ([]models.ClassStats, error) {
+	activeYear, err := r.GetActiveAcademicYear()
+	if err != nil {
+		activeYear = "2024/2025"
+	}
+
 	query := `
 		SELECT c.id, c.name, c.grade, c.capacity, COUNT(s.id) as student_count
 		FROM student_classes c
 		LEFT JOIN students s ON c.id = s.class_id AND s.is_active = 1
+		WHERE c.academic_year = ?
 		GROUP BY c.id
 		ORDER BY c.grade ASC, c.name ASC
 	`
-	rows, err := r.DB.Query(query)
+	rows, err := r.DB.Query(query, activeYear)
 	if err != nil {
 		return nil, err
 	}
