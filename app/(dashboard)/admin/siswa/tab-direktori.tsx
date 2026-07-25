@@ -138,10 +138,7 @@ export default function TabDirektori() {
 
             {/* Header Area */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-zinc-50">Direktori Siswa Utama</h2>
-                    <p className="text-muted-foreground text-xs sm:text-sm mt-0.5 font-medium hidden sm:block">Pusat data seluruh siswa sekolah (Active & Alumni).</p>
-                </div>
+                <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-zinc-50">Direktori Siswa</h2>
                 <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
                     <Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)} className="w-full sm:w-auto shadow-sm font-medium">
                         <FileDown className="mr-2 h-4 w-4 text-slate-500" /> Import Excel
@@ -300,7 +297,7 @@ export default function TabDirektori() {
                                 <SortableTableHead label="NIS / NISN" sortKey="nisn" sortConfig={sortConfig} onSort={requestSort} className="hidden sm:table-cell" />
                                 <SortableTableHead label="Kelas" sortKey="className" sortConfig={sortConfig} onSort={requestSort} />
                                 <SortableTableHead label="Status" sortKey="status" sortConfig={sortConfig} onSort={requestSort} />
-                                <TableHead className="text-right pr-6 sticky right-0 bg-slate-50/95 dark:bg-zinc-900/95 backdrop-blur-sm border-l border-slate-100 dark:border-zinc-800 z-10 shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.1)]">Aksi</TableHead>
+                                <TableHead className="text-right pr-6">Aksi</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -328,7 +325,7 @@ export default function TabDirektori() {
                                         <TableCell>
                                             <Skeleton className="h-6 w-16 rounded-full" />
                                         </TableCell>
-                                        <TableCell className="text-right pr-6 sticky right-0 bg-white dark:bg-zinc-950 border-l border-slate-100 dark:border-zinc-800 shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.1)]">
+                                        <TableCell className="text-right pr-6">
                                             <Skeleton className="h-8 w-8 rounded-md ml-auto" />
                                         </TableCell>
                                     </TableRow>
@@ -404,10 +401,10 @@ export default function TabDirektori() {
                                                  student.status.toUpperCase()}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="text-right pr-6 sticky right-0 bg-white dark:bg-zinc-950 border-l border-slate-100 dark:border-zinc-800 shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.1)]">
+                                        <TableCell className="text-right pr-6">
                                              <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
-                                                    <Button variant="outline" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground bg-background/50 border-slate-200 dark:border-zinc-800">
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
                                                         <span className="sr-only">Open menu</span>
                                                         <MoreHorizontal className="h-4 w-4" />
                                                     </Button>

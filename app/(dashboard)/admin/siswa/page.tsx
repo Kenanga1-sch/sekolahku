@@ -133,9 +133,6 @@ export default function ManajemenSiswaPage() {
           </div>
           Manajemen Siswa
         </h1>
-        <p className="text-muted-foreground text-xs sm:text-sm mt-1 max-w-2xl">
-          Kelola data siswa aktif, cetak kartu pelajar, mutasi kesiswaan, buku induk & kelulusan, serta penerimaan siswa baru (SPMB).
-        </p>
       </div>
 
       <Suspense fallback={

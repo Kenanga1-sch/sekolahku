@@ -4,27 +4,33 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { goGet } from "@/lib/api-client";
 
+// ponytail: single-verify guard. Session expiry caught by per-page 401 handlers.
+let globalVerified = false;
+export function resetAuthGuard() { globalVerified = false; }
+
 /**
  * Client-side auth guard component.
- * Replaces Next.js middleware JWT check for static export.
- * Wraps protected pages to redirect unauthenticated users to /login.
+ * Verifies session ONCE on first mount, then lets all subsequent
+ * navigations render instantly (no re-blocking).
  */
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const [verified, setVerified] = useState(false);
+  const [verified, setVerified] = useState(globalVerified);
   const router = useRouter();
   const pathname = usePathname();
   const checkingRef = useRef(false);
 
   useEffect(() => {
-    // Prevent duplicate checks
+    if (globalVerified) {
+      setVerified(true);
+      return;
+    }
     if (checkingRef.current) return;
     checkingRef.current = true;
 
     const verifySession = async () => {
       try {
-        await goGet("/api/profile", {
-          skipRetry: true,
-        });
+        await goGet("/api/profile", { skipRetry: true });
+        globalVerified = true;
         setVerified(true);
       } catch {
         document.cookie = "user_info=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
@@ -35,7 +41,8 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     };
 
     verifySession();
-  }, [pathname, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!verified) {
     return (
