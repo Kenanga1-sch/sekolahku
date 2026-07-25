@@ -17,7 +17,8 @@ import {
   CheckCircle,
   ArrowRightLeft,
   PlusCircle,
-  ArrowRightCircle
+  ArrowRightCircle,
+  Search
 } from "lucide-react";
 
 import {
@@ -81,12 +82,49 @@ export default function TabMutasi() {
   const requestsIn = dataRequestsIn?.data || [];
   const classStats = dataStats?.data || [];
 
+  // Filter States - Mutasi Masuk
+  const [searchIn, setSearchIn] = useState("");
+  const [monthIn, setMonthIn] = useState("all");
+  const [gradeIn, setGradeIn] = useState("all");
+  const [statusIn, setStatusIn] = useState("all");
+
+  // Filter States - Mutasi Keluar
+  const [searchOut, setSearchOut] = useState("");
+  const [monthOut, setMonthOut] = useState("all");
+  const [gradeOut, setGradeOut] = useState("all");
+  const [statusOut, setStatusOut] = useState("all");
+
   // Derived: selected class for per-kelas report
   const selectedClass = useMemo(
     () => (reportClassId && reportClassId !== "all" ? classStats.find((c: any) => c.id === reportClassId) : null),
     [reportClassId, classStats]
   );
   const isPerClass = !!selectedClass;
+
+  // Filtered Mutasi Masuk Data
+  const filteredRequestsIn = useMemo(() => {
+    return requestsIn.filter((req: any) => {
+      if (searchIn.trim() !== "") {
+        const q = searchIn.toLowerCase();
+        const matchesName = (req.studentName || "").toLowerCase().includes(q);
+        const matchesNisn = (req.nisn || "").toLowerCase().includes(q);
+        const matchesReg = (req.registrationNumber || "").toLowerCase().includes(q);
+        const matchesSchool = (req.originSchool || "").toLowerCase().includes(q);
+        if (!matchesName && !matchesNisn && !matchesReg && !matchesSchool) return false;
+      }
+      if (monthIn !== "all" && req.createdAt) {
+        const d = format(new Date(req.createdAt), "yyyy-MM");
+        if (d !== monthIn) return false;
+      }
+      if (gradeIn !== "all") {
+        if (String(req.targetGrade) !== gradeIn) return false;
+      }
+      if (statusIn !== "all") {
+        if (req.statusApproval !== statusIn) return false;
+      }
+      return true;
+    });
+  }, [requestsIn, searchIn, monthIn, gradeIn, statusIn]);
 
   const [openRequestIdIn, setOpenRequestIdIn] = useState<string | null>(null);
   const [isUpdatingIn, setIsUpdatingIn] = useState(false);
@@ -180,6 +218,32 @@ export default function TabMutasi() {
   const rekapData = dataRekap?.data || [];
 
   const requestsOut = dataRequestsOut?.data || [];
+
+  // Filtered Mutasi Keluar Data
+  const filteredRequestsOut = useMemo(() => {
+    return requestsOut.filter((req: any) => {
+      if (searchOut.trim() !== "") {
+        const q = searchOut.toLowerCase();
+        const matchesName = (req.studentName || "").toLowerCase().includes(q);
+        const matchesNisn = (req.nisn || "").toLowerCase().includes(q);
+        const matchesLetter = (req.letterNo || "").toLowerCase().includes(q);
+        const matchesSchool = (req.destinationSchool || "").toLowerCase().includes(q);
+        if (!matchesName && !matchesNisn && !matchesLetter && !matchesSchool) return false;
+      }
+      if (monthOut !== "all" && req.createdAt) {
+        const d = format(new Date(req.createdAt), "yyyy-MM");
+        if (d !== monthOut) return false;
+      }
+      if (gradeOut !== "all") {
+        const className = (req.className || "").toLowerCase();
+        if (!className.includes(`kelas ${gradeOut}`) && !className.includes(`${gradeOut}`)) return false;
+      }
+      if (statusOut !== "all") {
+        if (req.status !== statusOut) return false;
+      }
+      return true;
+    });
+  }, [requestsOut, searchOut, monthOut, gradeOut, statusOut]);
 
   const [selectedRequestOut, setSelectedRequestOut] = useState<any>(null);
   const [openRequestIdOut, setOpenRequestIdOut] = useState<string | null>(null);
@@ -462,9 +526,80 @@ export default function TabMutasi() {
       {/* Tab Contents */}
       {activeTab === "masuk" ? (
         <Card>
-          <div className="p-4 flex justify-end border-b">
-             <DialogMutasiMasukLangsung classStats={classStats} />
+          {/* Filter Bar - Mutasi Masuk */}
+          <div className="p-4 border-b flex flex-col md:flex-row justify-between items-start md:items-center gap-3 bg-slate-50/50 dark:bg-zinc-900/50">
+            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto flex-1">
+              <div className="relative w-full sm:w-[220px]">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Cari nama, NISN, no reg..."
+                  value={searchIn}
+                  onChange={(e) => setSearchIn(e.target.value)}
+                  className="pl-8 h-9 text-xs"
+                />
+              </div>
+
+              <Input
+                type="month"
+                value={monthIn === "all" ? "" : monthIn}
+                onChange={(e) => setMonthIn(e.target.value || "all")}
+                className="w-full sm:w-[150px] h-9 text-xs"
+                title="Filter Bulan & Tahun"
+              />
+
+              <Select value={gradeIn} onValueChange={setGradeIn}>
+                <SelectTrigger className="w-full sm:w-[130px] h-9 text-xs">
+                  <SelectValue placeholder="Semua Kelas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Kelas</SelectItem>
+                  <SelectItem value="1">Kelas 1</SelectItem>
+                  <SelectItem value="2">Kelas 2</SelectItem>
+                  <SelectItem value="3">Kelas 3</SelectItem>
+                  <SelectItem value="4">Kelas 4</SelectItem>
+                  <SelectItem value="5">Kelas 5</SelectItem>
+                  <SelectItem value="6">Kelas 6</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={statusIn} onValueChange={setStatusIn}>
+                <SelectTrigger className="w-full sm:w-[140px] h-9 text-xs">
+                  <SelectValue placeholder="Semua Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Status</SelectItem>
+                  <SelectItem value="principal_approved">Disetujui / Selesai</SelectItem>
+                  <SelectItem value="verified">Terverifikasi</SelectItem>
+                  <SelectItem value="pending">Menunggu (Pending)</SelectItem>
+                  <SelectItem value="rejected">Ditolak</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {(searchIn || monthIn !== "all" || gradeIn !== "all" || statusIn !== "all") && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSearchIn("");
+                    setMonthIn("all");
+                    setGradeIn("all");
+                    setStatusIn("all");
+                  }}
+                  className="h-9 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Reset Filter
+                </Button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-2 md:pt-0">
+              <span className="text-xs text-muted-foreground">
+                Total: <strong>{filteredRequestsIn.length}</strong> mutasi
+              </span>
+              <DialogMutasiMasukLangsung classStats={classStats} />
+            </div>
           </div>
+
           <Table>
             <TableHeader>
              <TableRow>
@@ -486,37 +621,44 @@ export default function TabMutasi() {
               ) : errorRequestsIn ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-destructive">
-                    Gagal memuat permohonan mutasi masuk.
+                    Gagal memuat riwayat mutasi masuk.
                   </TableCell>
                 </TableRow>
-              ) : requestsIn.length === 0 ? (
+              ) : filteredRequestsIn.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
-                    Tidak ada data permohonan.
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    Tidak ada data mutasi masuk yang sesuai filter.
                   </TableCell>
                 </TableRow>
               ) : (
-                requestsIn.map((req: any) => (
+                filteredRequestsIn.map((req: any) => (
                   <TableRow key={req.id}>
                     <TableCell className="hidden sm:table-cell">
-                      {format(new Date(req.createdAt), "dd/MM/yyyy")}
+                      {req.createdAt ? format(new Date(req.createdAt), "dd/MM/yyyy") : "-"}
                     </TableCell>
-                    <TableCell className="hidden sm:table-cell">{req.registrationNumber}</TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      <span className="font-mono text-xs">{req.registrationNumber}</span>
+                    </TableCell>
                     <TableCell>
                       <div className="font-semibold text-slate-800 dark:text-zinc-200">{req.studentName}</div>
-                      <div className="text-xs text-muted-foreground">{req.originSchool}</div>
+                      <div className="text-xs text-muted-foreground">Asal: {req.originSchool}</div>
                     </TableCell>
                     <TableCell>Kelas {req.targetGrade}</TableCell>
                     <TableCell>
-                      <Badge variant={
-                        req.statusApproval === "principal_approved" ? "default" : 
-                        req.statusApproval === "rejected" ? "destructive" : 
-                        req.statusApproval === "verified" ? "secondary" : "outline"
-                      }>
-                        {req.statusApproval === "principal_approved" ? "Disetujui" :
-                         req.statusApproval === "rejected" ? "Ditolak" :
-                         req.statusApproval === "verified" ? "Terverifikasi" : "Menunggu"}
-                      </Badge>
+                      <div className="flex flex-col gap-1 items-start">
+                        <Badge variant={
+                          req.statusApproval === "principal_approved" ? "default" : 
+                          req.statusApproval === "rejected" ? "destructive" : 
+                          req.statusApproval === "verified" ? "secondary" : "outline"
+                        }>
+                          {req.statusApproval === "principal_approved" ? "Disetujui" :
+                           req.statusApproval === "rejected" ? "Ditolak" :
+                           req.statusApproval === "verified" ? "Terverifikasi" : "Menunggu"}
+                        </Badge>
+                        {req.statusDelivery === "direct" && (
+                          <span className="text-[10px] text-muted-foreground font-mono">Input Langsung</span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <Dialog open={openRequestIdIn === req.id} onOpenChange={(open) => {
@@ -532,7 +674,7 @@ export default function TabMutasi() {
                         </DialogTrigger>
                         <DialogContent className="max-w-3xl">
                           <DialogHeader>
-                            <DialogTitle>Detail Permohonan</DialogTitle>
+                            <DialogTitle>Detail Mutasi Masuk</DialogTitle>
                             <DialogDescription>
                               {req.registrationNumber} - {req.studentName}
                             </DialogDescription>
@@ -543,7 +685,7 @@ export default function TabMutasi() {
                               <h3 className="font-semibold border-b">Data Siswa</h3>
                               <div className="grid grid-cols-[100px_1fr] gap-2 text-sm">
                                 <span className="text-muted-foreground">NISN:</span>
-                                <span>{req.nisn}</span>
+                                <span>{req.nisn || "-"}</span>
                                 <span className="text-muted-foreground">JK:</span>
                                 <span>{req.gender === "L" ? "Laki-laki" : "Perempuan"}</span>
                                 <span className="text-muted-foreground">Sekolah Asal:</span>
@@ -559,18 +701,22 @@ export default function TabMutasi() {
                             </div>
                             
                             <div className="space-y-4">
-                              <h3 className="font-semibold border-b">Data Orang Tua</h3>
+                              <h3 className="font-semibold border-b">Data Orang Tua / Kontak</h3>
                               <div className="grid grid-cols-[100px_1fr] gap-2 text-sm">
                                 <span className="text-muted-foreground">Nama:</span>
-                                <span>{req.parentName}</span>
+                                <span>{req.parentName || "-"}</span>
                                 <span className="text-muted-foreground">WhatsApp:</span>
-                                <a 
-                                  href={`https://wa.me/${req.whatsappNumber}`} 
-                                  target="_blank"
-                                  className="text-green-600 hover:underline flex items-center"
-                                >
-                                  {req.whatsappNumber} <MessageCircle className="h-3 w-3 ml-1" />
-                                </a>
+                                {req.whatsappNumber && req.whatsappNumber !== "-" ? (
+                                  <a 
+                                    href={`https://wa.me/${req.whatsappNumber}`} 
+                                    target="_blank"
+                                    className="text-green-600 hover:underline flex items-center"
+                                  >
+                                    {req.whatsappNumber} <MessageCircle className="h-3 w-3 ml-1" />
+                                  </a>
+                                ) : (
+                                  <span>-</span>
+                                )}
                               </div>
 
                               {req.statusApproval === "principal_approved" && (
@@ -651,7 +797,7 @@ export default function TabMutasi() {
                             
                             {req.statusApproval === "principal_approved" && (
                                <div className="flex items-center gap-2 text-green-600">
-                                 <Check className="h-5 w-5" /> Permohonan telah disetujui. Silakan unduh surat dan kirim ke orang tua.
+                                 <Check className="h-5 w-5" /> Mutasi telah disetujui/dicatat. Silakan unduh surat keterangan jika diperlukan.
                                </div>
                             )}
                           </div>
@@ -666,9 +812,79 @@ export default function TabMutasi() {
         </Card>
       ) : activeTab === "keluar" ? (
         <Card>
-          <div className="p-4 flex justify-end border-b">
-             <DialogMutasiKeluarLangsung />
+          {/* Filter Bar - Mutasi Keluar */}
+          <div className="p-4 border-b flex flex-col md:flex-row justify-between items-start md:items-center gap-3 bg-slate-50/50 dark:bg-zinc-900/50">
+            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto flex-1">
+              <div className="relative w-full sm:w-[220px]">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Cari nama, NISN, no surat..."
+                  value={searchOut}
+                  onChange={(e) => setSearchOut(e.target.value)}
+                  className="pl-8 h-9 text-xs"
+                />
+              </div>
+
+              <Input
+                type="month"
+                value={monthOut === "all" ? "" : monthOut}
+                onChange={(e) => setMonthOut(e.target.value || "all")}
+                className="w-full sm:w-[150px] h-9 text-xs"
+                title="Filter Bulan & Tahun"
+              />
+
+              <Select value={gradeOut} onValueChange={setGradeOut}>
+                <SelectTrigger className="w-full sm:w-[130px] h-9 text-xs">
+                  <SelectValue placeholder="Semua Kelas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Kelas</SelectItem>
+                  <SelectItem value="1">Kelas 1</SelectItem>
+                  <SelectItem value="2">Kelas 2</SelectItem>
+                  <SelectItem value="3">Kelas 3</SelectItem>
+                  <SelectItem value="4">Kelas 4</SelectItem>
+                  <SelectItem value="5">Kelas 5</SelectItem>
+                  <SelectItem value="6">Kelas 6</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={statusOut} onValueChange={setStatusOut}>
+                <SelectTrigger className="w-full sm:w-[140px] h-9 text-xs">
+                  <SelectValue placeholder="Semua Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Status</SelectItem>
+                  <SelectItem value="completed">Selesai</SelectItem>
+                  <SelectItem value="processed">Diproses</SelectItem>
+                  <SelectItem value="draft">Draft / Baru</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {(searchOut || monthOut !== "all" || gradeOut !== "all" || statusOut !== "all") && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSearchOut("");
+                    setMonthOut("all");
+                    setGradeOut("all");
+                    setStatusOut("all");
+                  }}
+                  className="h-9 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Reset Filter
+                </Button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-2 md:pt-0">
+              <span className="text-xs text-muted-foreground">
+                Total: <strong>{filteredRequestsOut.length}</strong> mutasi
+              </span>
+              <DialogMutasiKeluarLangsung />
+            </div>
           </div>
+
           <Table>
             <TableHeader>
               <TableRow>
@@ -691,22 +907,22 @@ export default function TabMutasi() {
               ) : errorRequestsOut ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-destructive">
-                    Gagal memuat permohonan mutasi keluar.
+                    Gagal memuat mutasi keluar.
                   </TableCell>
                 </TableRow>
-              ) : requestsOut.length === 0 ? (
+              ) : filteredRequestsOut.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
-                    Tidak ada permohonan.
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    Tidak ada data mutasi keluar yang sesuai filter.
                   </TableCell>
                 </TableRow>
               ) : (
-                requestsOut.map((req: any) => (
+                filteredRequestsOut.map((req: any) => (
                   <TableRow key={req.id}>
                     <TableCell className="hidden sm:table-cell">
-                      {format(new Date(req.createdAt), "dd/MM/yyyy")}
+                      {req.createdAt ? format(new Date(req.createdAt), "dd/MM/yyyy") : "-"}
                     </TableCell>
-                    <TableCell className="hidden sm:table-cell">{req.nisn}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{req.nisn || "-"}</TableCell>
                     <TableCell>
                       <div className="font-semibold text-slate-800 dark:text-zinc-200">{req.studentName}</div>
                       <div className="text-xs text-muted-foreground">{req.className}</div>
@@ -714,7 +930,7 @@ export default function TabMutasi() {
                     <TableCell>{req.destinationSchool}</TableCell>
                     <TableCell className="hidden md:table-cell">
                       {req.reason === "domisili" ? "Pindah Domisili" : 
-                       req.reason === "tugas_orangtua" ? "Tugas Ortu" : "Lainnya"}
+                       req.reason === "tugas_orangtua" ? "Tugas Ortu" : (req.reason || "Lainnya")}
                     </TableCell>
                     <TableCell>
                       <Badge variant={
@@ -740,7 +956,7 @@ export default function TabMutasi() {
                         </DialogTrigger>
                         <DialogContent className="max-w-2xl">
                           <DialogHeader>
-                            <DialogTitle>Detail Permohonan</DialogTitle>
+                            <DialogTitle>Detail Mutasi Keluar</DialogTitle>
                             <DialogDescription>
                               Tinjau status tanggungan siswa sebelum memproses mutasi.
                             </DialogDescription>

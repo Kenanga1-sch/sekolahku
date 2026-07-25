@@ -44,19 +44,62 @@ func (r *MutasiRepository) GetMutasiRequests(page, perPage int) ([]models.Mutasi
 	if page < 1 {
 		page = 1
 	}
-	if perPage < 1 || perPage > 100 {
-		perPage = 20
+	if perPage < 1 || perPage > 500 {
+		perPage = 500
 	}
 	offset := (page - 1) * perPage
 
 	var total int
-	r.DB.QueryRow("SELECT COUNT(*) FROM mutasi_requests").Scan(&total)
+	r.DB.QueryRow(`
+		SELECT COUNT(*) FROM (
+			SELECT id FROM mutasi_requests
+			UNION
+			SELECT id FROM mutasi_logs WHERE mutasi_type = 'masuk' AND (nisn IS NULL OR nisn = '' OR nisn NOT IN (SELECT nisn FROM mutasi_requests WHERE nisn IS NOT NULL AND nisn != ''))
+		)
+	`).Scan(&total)
 
 	query := `
 		SELECT id, registration_number, student_name, nisn, gender, origin_school, 
 		       origin_school_address, origin_nis, origin_class, target_grade, target_class_id, parent_name, 
 			   whatsapp_number, approval_no, approval_date, status_approval, status_delivery, created_at, updated_at
-		FROM mutasi_requests
+		FROM (
+			SELECT id, registration_number, student_name, nisn, gender, origin_school, 
+			       origin_school_address, origin_nis, origin_class, target_grade, target_class_id, parent_name, 
+				   whatsapp_number, approval_no, approval_date, status_approval, status_delivery, created_at, updated_at
+			FROM mutasi_requests
+
+			UNION ALL
+
+			SELECT ml.id as id,
+			       COALESCE(ml.approval_no, 'MUT-DIRECT') as registration_number,
+			       ml.student_name,
+			       ml.nisn,
+			       COALESCE(ml.gender, 'L') as gender,
+			       ml.origin_or_destination as origin_school,
+			       NULL as origin_school_address,
+			       ml.origin_nis,
+			       ml.origin_class,
+			       COALESCE(sc.grade, sch.grade, 1) as target_grade,
+			       s.class_id as target_class_id,
+			       '-' as parent_name,
+			       '-' as whatsapp_number,
+			       ml.approval_no,
+			       ml.approval_date,
+			       'principal_approved' as status_approval,
+			       'direct' as status_delivery,
+			       ml.created_at,
+			       ml.created_at as updated_at
+			FROM mutasi_logs ml
+			LEFT JOIN students s ON ml.student_id = s.id
+			LEFT JOIN student_classes sc ON s.class_id = sc.id
+			LEFT JOIN student_class_history sch ON sch.id = (
+				SELECT id FROM student_class_history 
+				WHERE student_id = ml.student_id 
+				ORDER BY record_date DESC LIMIT 1
+			)
+			WHERE ml.mutasi_type = 'masuk'
+			  AND (ml.nisn IS NULL OR ml.nisn = '' OR ml.nisn NOT IN (SELECT nisn FROM mutasi_requests WHERE nisn IS NOT NULL AND nisn != ''))
+		)
 		ORDER BY created_at DESC
 		LIMIT ? OFFSET ?
 	`
@@ -232,21 +275,60 @@ func (r *MutasiRepository) GetMutasiOutRequests(page, perPage int) ([]models.Mut
 	if page < 1 {
 		page = 1
 	}
-	if perPage < 1 || perPage > 100 {
-		perPage = 20
+	if perPage < 1 || perPage > 500 {
+		perPage = 500
 	}
 	offset := (page - 1) * perPage
 
 	var total int
-	r.DB.QueryRow("SELECT COUNT(*) FROM mutasi_out_requests").Scan(&total)
+	r.DB.QueryRow(`
+		SELECT COUNT(*) FROM (
+			SELECT id FROM mutasi_out_requests
+			UNION
+			SELECT id FROM mutasi_logs WHERE mutasi_type = 'keluar' AND (student_id IS NULL OR student_id = '' OR student_id NOT IN (SELECT student_id FROM mutasi_out_requests WHERE student_id IS NOT NULL AND student_id != ''))
+		)
+	`).Scan(&total)
 
 	query := `
-		SELECT m.id, m.student_id, s.full_name as student_name, s.nisn, s.class_name,
-		       m.destination_school, m.destination_class, m.letter_no, m.reason, m.reason_detail, m.status,
-			   m.downloaded_at, m.processed_at, m.completed_at, m.created_at, m.updated_at
-		FROM mutasi_out_requests m
-		JOIN students s ON m.student_id = s.id
-		ORDER BY m.created_at DESC
+		SELECT id, student_id, student_name, nisn, class_name,
+		       destination_school, destination_class, letter_no, reason, reason_detail, status,
+			   downloaded_at, processed_at, completed_at, created_at, updated_at
+		FROM (
+			SELECT m.id, m.student_id, s.full_name as student_name, s.nisn, COALESCE(s.class_name, '-') as class_name,
+			       m.destination_school, m.destination_class, m.letter_no, m.reason, m.reason_detail, m.status,
+				   m.downloaded_at, m.processed_at, m.completed_at, m.created_at, m.updated_at
+			FROM mutasi_out_requests m
+			JOIN students s ON m.student_id = s.id
+
+			UNION ALL
+
+			SELECT ml.id,
+			       COALESCE(ml.student_id, '') as student_id,
+			       ml.student_name,
+			       ml.nisn,
+			       COALESCE(s.class_name, sch.class_name, '-') as class_name,
+			       ml.origin_or_destination as destination_school,
+			       ml.destination_class,
+			       ml.letter_no,
+			       COALESCE(ml.reason, 'Mutasi Keluar Direct') as reason,
+			       NULL as reason_detail,
+			       'completed' as status,
+			       ml.created_at as downloaded_at,
+			       ml.created_at as processed_at,
+			       ml.created_at as completed_at,
+			       ml.created_at,
+			       ml.created_at as updated_at
+			FROM mutasi_logs ml
+			LEFT JOIN students s ON ml.student_id = s.id
+			LEFT JOIN student_class_history sch ON sch.id = (
+				SELECT id FROM student_class_history 
+				WHERE student_id = ml.student_id 
+				ORDER BY record_date DESC LIMIT 1
+			)
+			WHERE ml.mutasi_type = 'keluar'
+			  AND (ml.student_id IS NULL OR ml.student_id = '' OR ml.student_id NOT IN (SELECT student_id FROM mutasi_out_requests WHERE student_id IS NOT NULL AND student_id != ''))
+		)
+		ORDER BY created_at DESC
 		LIMIT ? OFFSET ?
 	`
 	rows, err := r.DB.Query(query, perPage, offset)
