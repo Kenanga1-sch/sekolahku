@@ -33,6 +33,7 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import { getSchoolLogo } from "@/lib/school-logo";
 
 const BottomGradient = () => {
   return (
@@ -73,11 +74,7 @@ export default function LoginPage() {
   const [timeLeft, setTimeLeft] = useState(0);
 
   // Get school logo
-  const schoolLogo = settings?.school_logo 
-    ? (settings.school_logo.startsWith("http") || settings.school_logo.startsWith("/") 
-      ? settings.school_logo 
-      : `/uploads/${settings.school_logo}`) 
-    : null;
+  const schoolLogo = getSchoolLogo(settings?.school_logo);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),

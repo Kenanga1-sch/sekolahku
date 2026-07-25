@@ -9,6 +9,8 @@ import { School, MapPin, Phone, Mail, Globe, Loader2 } from "lucide-react";
 import { goPost } from "@/lib/api-client";
 import { compressImage } from "@/lib/utils";
 
+import { getSchoolLogo } from "@/lib/school-logo";
+
 interface TabProfilProps {
   settings: any;
   setSettings: React.Dispatch<React.SetStateAction<any>>;
@@ -39,7 +41,7 @@ export default function TabProfil({ settings, setSettings }: TabProfilProps) {
 
       const response: any = await goPost("/api/upload", formData);
       if (response && response.success) {
-        const logoPath = response.url ? response.url.replace(/^\/uploads\//, "") : "";
+        const logoPath = response.url || "";
         setSettings((prev: any) => ({ ...prev, school_logo: logoPath }));
       } else {
         setUploadError(response?.error || "Gagal mengunggah logo");
@@ -69,17 +71,11 @@ export default function TabProfil({ settings, setSettings }: TabProfilProps) {
           {/* Logo Upload Section */}
           <div className="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800">
             <div className="h-20 w-20 relative rounded-xl overflow-hidden bg-white border border-slate-200 flex items-center justify-center">
-              {settings.school_logo ? (
-                <img
-                  src={settings.school_logo.startsWith("http") || settings.school_logo.startsWith("/")
-                    ? settings.school_logo
-                    : `/uploads/${settings.school_logo}`}
-                  alt="Logo Sekolah"
-                  className="h-full w-full object-contain p-2"
-                />
-              ) : (
-                <School className="h-10 w-10 text-muted-foreground" />
-              )}
+              <img
+                src={getSchoolLogo(settings.school_logo)}
+                alt="Logo Sekolah"
+                className="h-full w-full object-contain p-2"
+              />
             </div>
             <div className="space-y-2 flex-1 w-full">
               <Label htmlFor="logo-upload" className="text-sm font-semibold">Logo Sekolah</Label>

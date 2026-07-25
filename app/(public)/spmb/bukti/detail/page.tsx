@@ -12,6 +12,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { QRCodeSVG } from "qrcode.react";
 import { DownloadPdfButton } from "@/components/spmb/download-pdf-button";
+import { getSchoolLogo } from "@/lib/school-logo";
 
 type DocumentItem = {
   path: string;
@@ -103,11 +104,7 @@ function ProofContent() {
   const schoolNPSN = settings?.school_npsn || "20216609";
   const schoolAddress = settings?.school_address || "Jl. Perindustrian Blok Dukuh Desa Kenanga Kec. Sindang Kab. Indramayu 45226";
   const schoolEmail = settings?.school_email || "uptdsdn1kenangasindang@gmail.com";
-  const schoolLogo = settings?.school_logo 
-    ? (settings.school_logo.startsWith("http") || settings.school_logo.startsWith("/") 
-      ? settings.school_logo 
-      : `/uploads/${settings.school_logo}`) 
-    : "/logo.png";
+  const schoolLogo = getSchoolLogo(settings?.school_logo);
   const fullAddress = registrant.address || [
     registrant.addressStreet,
     registrant.addressRt ? `RT ${registrant.addressRt}` : "",

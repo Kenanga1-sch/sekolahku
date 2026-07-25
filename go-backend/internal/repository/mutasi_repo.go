@@ -372,12 +372,43 @@ func (r *MutasiRepository) GetMutasiOutRequests(page, perPage int) ([]models.Mut
 
 func (r *MutasiRepository) GetMutasiOutByID(id string) (*models.MutasiOutRequest, error) {
 	query := `
-		SELECT m.id, m.student_id, s.full_name as student_name, s.nisn, s.class_name,
-		       m.destination_school, m.reason, m.reason_detail, m.status,
-			   m.downloaded_at, m.processed_at, m.completed_at, m.created_at, m.updated_at
-		FROM mutasi_out_requests m
-		JOIN students s ON m.student_id = s.id
-		WHERE m.id = ?
+		SELECT id, student_id, student_name, nisn, class_name,
+		       destination_school, reason, reason_detail, status,
+			   downloaded_at, processed_at, completed_at, created_at, updated_at
+		FROM (
+			SELECT m.id, m.student_id, s.full_name as student_name, s.nisn, COALESCE(s.class_name, '-') as class_name,
+			       m.destination_school, m.reason, m.reason_detail, m.status,
+				   m.downloaded_at, m.processed_at, m.completed_at, m.created_at, m.updated_at
+			FROM mutasi_out_requests m
+			JOIN students s ON m.student_id = s.id
+
+			UNION ALL
+
+			SELECT ml.id,
+			       COALESCE(ml.student_id, '') as student_id,
+			       ml.student_name,
+			       ml.nisn,
+			       COALESCE(s.class_name, sch.class_name, '-') as class_name,
+			       ml.origin_or_destination as destination_school,
+			       COALESCE(ml.reason, 'Mutasi Keluar Direct') as reason,
+			       NULL as reason_detail,
+			       'completed' as status,
+			       ml.created_at as downloaded_at,
+			       ml.created_at as processed_at,
+			       ml.created_at as completed_at,
+			       ml.created_at,
+			       ml.created_at as updated_at
+			FROM mutasi_logs ml
+			LEFT JOIN students s ON ml.student_id = s.id
+			LEFT JOIN student_class_history sch ON sch.id = (
+				SELECT id FROM student_class_history 
+				WHERE student_id = ml.student_id 
+				ORDER BY record_date DESC LIMIT 1
+			)
+			WHERE ml.mutasi_type = 'keluar'
+		)
+		WHERE id = ?
+		LIMIT 1
 	`
 	var m models.MutasiOutRequest
 	var rd sql.NullString

@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import { getSchoolLogo } from "@/lib/school-logo";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types";
 import { Sidebar, SidebarBody, SidebarLink, useSidebar } from "@/components/ui/sidebar";
@@ -250,11 +251,7 @@ export default function DashboardLayoutClient({
   
   const { settings } = useSchoolSettings();
   const schoolName = settings?.school_name || "Sekolahku";
-  const schoolLogo = settings?.school_logo 
-    ? (settings.school_logo.startsWith("http") || settings.school_logo.startsWith("/") 
-      ? settings.school_logo 
-      : `/uploads/${settings.school_logo}`) 
-    : "/logo.png";
+  const schoolLogo = getSchoolLogo(settings?.school_logo);
   const schoolInitial = schoolName.substring(0, 2).toUpperCase();
 
   return (

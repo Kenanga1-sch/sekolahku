@@ -6,6 +6,7 @@ import { Loader2, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { goGet } from "@/lib/api-client";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import { getSchoolLogo } from "@/lib/school-logo";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface AlumniSummary {
@@ -125,9 +126,7 @@ export default function CetakBatchPage() {
 
   const schoolName = settings?.school_name || "UPTD SDN 1 KENANGA";
   const schoolAddress = settings?.school_address || "Jl. Pendidikan No. 1";
-  const schoolLogo = settings?.school_logo
-    ? settings.school_logo.startsWith("http") || settings.school_logo.startsWith("/") ? settings.school_logo : `/uploads/${settings.school_logo}`
-    : null;
+  const schoolLogo = getSchoolLogo(settings?.school_logo);
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>;

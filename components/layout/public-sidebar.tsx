@@ -54,6 +54,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import { getSchoolLogo } from "@/lib/school-logo";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { logoutAction } from "@/actions/auth";
 
@@ -97,11 +98,7 @@ export default function PublicSidebar({
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
   const { settings } = useSchoolSettings();
-  const schoolLogo = settings?.school_logo 
-    ? (settings.school_logo.startsWith("http") || settings.school_logo.startsWith("/") 
-      ? settings.school_logo 
-      : `/uploads/${settings.school_logo}`) 
-    : "/logo.png";
+  const schoolLogo = getSchoolLogo(settings?.school_logo);
 
   if (pathname?.startsWith("/kiosk")) return null;
 
@@ -121,11 +118,7 @@ function SidebarContent({
   const pathname = usePathname();
   const { user, isAuthenticated, logout: storeLogout } = useAuthStore();
   const { settings } = useSchoolSettings();
-  const schoolLogo = settings?.school_logo 
-    ? (settings.school_logo.startsWith("http") || settings.school_logo.startsWith("/") 
-      ? settings.school_logo 
-      : `/uploads/${settings.school_logo}`) 
-    : "/logo.png";
+  const schoolLogo = getSchoolLogo(settings?.school_logo);
 
   const handleLogout = async () => {
     await logoutAction();

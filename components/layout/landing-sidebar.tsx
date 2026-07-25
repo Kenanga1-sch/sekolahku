@@ -23,6 +23,7 @@ import {
 import { Sidebar, SidebarBody, SidebarLink, useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import { getSchoolLogo } from "@/lib/school-logo";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { logoutAction } from "@/actions/auth";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -99,23 +100,28 @@ export function LandingSidebar() {
   return (
     <Sidebar open={open} setOpen={handleSetOpen} animate={false}>
       <SidebarBody className="justify-between gap-10">
-        <SidebarContent setIsDropdownOpen={setIsDropdownOpen} />
+        <SidebarContentInner setIsDropdownOpen={setIsDropdownOpen} />
       </SidebarBody>
     </Sidebar>
   );
 }
 
-function SidebarContent({ setIsDropdownOpen }: { setIsDropdownOpen: (v: boolean) => void }) {
-  const { open, animate, setOpen } = useSidebar(); // Access internal open state provided by SidebarProvider
-  const { settings } = useSchoolSettings();
-  const { user, isAuthenticated, logout: storeLogout } = useAuthStore();
-  const pathname = usePathname();
+function SidebarContentInner({ setIsDropdownOpen }: { setIsDropdownOpen: (v: boolean) => void }) {
+  const { open, animate, setOpen } = useSidebar();
+  return <SidebarContent open={open} setOpen={setOpen} animate={animate} />;
+}
 
-  const handleLogout = async () => {
-    await logoutAction();
-    storeLogout();
-    window.location.href = "/login";
-  };
+export function SidebarContent({
+  open,
+  setOpen,
+  animate,
+}: {
+  open: boolean;
+  setOpen: (v: boolean) => void;
+  animate: boolean;
+}) {
+  const { settings } = useSchoolSettings();
+  const schoolLogo = getSchoolLogo(settings?.school_logo);
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden" suppressHydrationWarning>
@@ -123,19 +129,13 @@ function SidebarContent({ setIsDropdownOpen }: { setIsDropdownOpen: (v: boolean)
       <div className="flex flex-col mb-6">
          <Link href="#" className="font-normal flex space-x-2 items-center text-sm text-black py-1 relative z-20">
             <div className="h-6 w-6 relative flex-shrink-0 rounded-lg bg-black dark:bg-white flex items-center justify-center overflow-hidden">
-                {settings?.school_logo ? (
-                   <Image 
-                     src={settings.school_logo.startsWith("http") || settings.school_logo.startsWith("/") 
-                       ? settings.school_logo 
-                       : `/uploads/${settings.school_logo}`} 
-                     alt="Logo" 
-                     width={24} 
-                     height={24} 
-                     className="h-full w-full object-cover" 
-                   />
-                ) : (
-                   <Image src="/logo.png" alt="Logo" width={24} height={24} className="h-full w-full object-contain p-0.5" />
-                )}
+               <Image 
+                 src={schoolLogo} 
+                 alt="Logo" 
+                 width={24} 
+                 height={24} 
+                 className="h-full w-full object-contain p-0.5" 
+               />
             </div>
             <motion.span
               animate={{

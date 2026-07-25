@@ -26,6 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import { getSchoolLogo } from "@/lib/school-logo";
 import { goPost } from "@/lib/api-client";
 import { showSuccess, showError } from "@/lib/toast";
 
@@ -163,11 +164,7 @@ export default function CetakKartuPage() {
 
   const schoolName = settings?.school_name || "UPTD SDN 1 KENANGA";
   const schoolAddress = settings?.school_address || "Jl. Pendidikan No. 1";
-  const schoolLogo = settings?.school_logo 
-    ? (settings.school_logo.startsWith("http") || settings.school_logo.startsWith("/") 
-      ? settings.school_logo 
-      : `/uploads/${settings.school_logo}`) 
-    : null;
+  const schoolLogo = getSchoolLogo(settings?.school_logo);
 
   if (loading) {
     return (

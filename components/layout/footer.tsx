@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Mail, Phone, MapPin, Facebook, Instagram, Youtube, ArrowRight } from "lucide-react";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import { getSchoolLogo } from "@/lib/school-logo";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import dynamic from "next/dynamic";
@@ -20,11 +21,7 @@ export default function Footer() {
   const currentYear = new Date().getFullYear();
   const { settings } = useSchoolSettings();
   const pathname = usePathname();
-  const schoolLogo = settings?.school_logo 
-    ? (settings.school_logo.startsWith("http") || settings.school_logo.startsWith("/") 
-      ? settings.school_logo 
-      : `/uploads/${settings.school_logo}`) 
-    : "/logo.png";
+  const schoolLogo = getSchoolLogo(settings?.school_logo);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
