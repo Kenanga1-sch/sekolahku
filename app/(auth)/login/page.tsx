@@ -34,6 +34,7 @@ import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { getSchoolLogo } from "@/lib/school-logo";
+import { APP_VERSION } from "@/lib/api-client";
 
 const BottomGradient = () => {
   return (
@@ -377,6 +378,12 @@ export default function LoginPage() {
         <div className="text-xs mt-1 text-stone-500 dark:text-stone-500">
           Hubungi Administrator Sekolah untuk pembuatan akun akses sistem.
         </div>
+      </div>
+
+      <div className="text-center">
+        <span className="text-xs text-muted-foreground/40 font-mono tracking-widest select-none">
+          {APP_VERSION}
+        </span>
       </div>
     </motion.div>
   );

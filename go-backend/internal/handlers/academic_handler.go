@@ -51,7 +51,7 @@ func (h *AcademicHandler) GetHomepageData(c echo.Context) error {
 func (h *AcademicHandler) GetClasses(c echo.Context) error {
 	classes, err := h.Repo.GetClasses()
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, classes)
 }
@@ -65,7 +65,7 @@ func (h *AcademicHandler) CreateClass(c echo.Context) error {
 		cls.ID = cuid2.Generate()
 	}
 	if err := h.Repo.CreateClass(cls); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true, "id": cls.ID})
 }
@@ -77,7 +77,7 @@ func (h *AcademicHandler) UpdateClass(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
 	}
 	if err := h.Repo.UpdateClass(id, cls); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
@@ -85,7 +85,7 @@ func (h *AcademicHandler) UpdateClass(c echo.Context) error {
 func (h *AcademicHandler) DeleteClass(c echo.Context) error {
 	id := c.Param("id")
 	if err := h.Repo.DeleteClass(id); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
@@ -102,7 +102,7 @@ func (h *AcademicHandler) ProcessPromotion(c echo.Context) error {
 
 	count, err := h.Repo.ProcessPromotion(req)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
@@ -116,7 +116,7 @@ func (h *AcademicHandler) ProcessPromotion(c echo.Context) error {
 func (h *AcademicHandler) GetAcademicYears(c echo.Context) error {
 	results, err := h.Repo.GetAcademicYears()
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, results)
 }
@@ -130,7 +130,7 @@ func (h *AcademicHandler) CreateAcademicYear(c echo.Context) error {
 		y.ID = cuid2.Generate()
 	}
 	if err := h.Repo.CreateAcademicYear(y); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true, "id": y.ID})
 }
@@ -142,7 +142,7 @@ func (h *AcademicHandler) UpdateAcademicYear(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
 	}
 	if err := h.Repo.UpdateAcademicYear(id, y); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
@@ -150,7 +150,7 @@ func (h *AcademicHandler) UpdateAcademicYear(c echo.Context) error {
 func (h *AcademicHandler) DeleteAcademicYear(c echo.Context) error {
 	id := c.Param("id")
 	if err := h.Repo.DeleteAcademicYear(id); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
@@ -160,7 +160,7 @@ func (h *AcademicHandler) DeleteAcademicYear(c echo.Context) error {
 func (h *AcademicHandler) GetSubjects(c echo.Context) error {
 	results, err := h.Repo.GetSubjects()
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, results)
 }
@@ -174,7 +174,7 @@ func (h *AcademicHandler) CreateSubject(c echo.Context) error {
 		s.ID = cuid2.Generate()
 	}
 	if err := h.Repo.CreateSubject(s); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true, "id": s.ID})
 }
@@ -186,7 +186,7 @@ func (h *AcademicHandler) UpdateSubject(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
 	}
 	if err := h.Repo.UpdateSubject(id, s); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
@@ -194,7 +194,7 @@ func (h *AcademicHandler) UpdateSubject(c echo.Context) error {
 func (h *AcademicHandler) DeleteSubject(c echo.Context) error {
 	id := c.Param("id")
 	if err := h.Repo.DeleteSubject(id); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
@@ -202,7 +202,7 @@ func (h *AcademicHandler) DeleteSubject(c echo.Context) error {
 func (h *AcademicHandler) GetClassesStats(c echo.Context) error {
 	stats, err := h.Repo.GetClassesWithStats()
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
@@ -225,7 +225,7 @@ func (h *AcademicHandler) GetSuggestedCapacity(c echo.Context) error {
 
 	cap, source, err := h.Repo.GetSuggestedCapacity(grade, className, year)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{

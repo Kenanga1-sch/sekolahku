@@ -21,7 +21,7 @@ func (h *PublicHandler) GetHomepageData(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
 			"success": false,
-			"error":   err.Error(),
+			"error":   "Terjadi kesalahan internal",
 		})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{
@@ -39,7 +39,7 @@ func (h *PublicHandler) GetPublicStaff(c echo.Context) error {
 
 	staff, total, err := h.Repo.GetPublicStaff(page, perPage)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 	if page < 1 {
 		page = 1
@@ -57,7 +57,7 @@ func (h *PublicHandler) GetPublicGallery(c echo.Context) error {
 
 	list, total, err := h.Repo.GetPublicGallery(cat, page, perPage)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 	if page < 1 {
 		page = 1

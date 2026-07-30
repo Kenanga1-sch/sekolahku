@@ -38,7 +38,7 @@ func (h *AuditLogHandler) GetLogs(c echo.Context) error {
 
 	logs, total, err := h.Repo.GetLogs(page, limit, action, resource)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
 	totalPages := (total + limit - 1) / limit
@@ -58,7 +58,7 @@ func (h *AuditLogHandler) CreateAuditLog(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
 	}
 	if err := h.Repo.CreateLog(l); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true})
 }

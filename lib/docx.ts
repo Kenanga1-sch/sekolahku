@@ -1,5 +1,3 @@
-import PizZip from "pizzip";
-import Docxtemplater from "docxtemplater";
 import { saveAs } from "file-saver";
 
 interface DocxData {
@@ -61,6 +59,8 @@ export const createDocumentBlob = async (
     const arrayBuffer = await response.arrayBuffer();
 
     // 2. Initialize PizZip with the content
+    const { default: PizZip } = await import("pizzip");
+    const { default: Docxtemplater } = await import("docxtemplater");
     const zip = new PizZip(arrayBuffer);
 
     // 3. Initialize Docxtemplater with double curly braces
@@ -107,10 +107,11 @@ export const generateDocument = async (
     return true;
 };
 
-export const mergeDocxFiles = (files: ArrayBuffer[]): Blob => {
+export const mergeDocxFiles = async (files: ArrayBuffer[]): Promise<Blob> => {
   if (files.length === 0) {
     throw new Error("Tidak ada berkas untuk digabungkan.");
   }
+  const { default: PizZip } = await import("pizzip");
   if (files.length === 1) {
     const zip = new PizZip(files[0]);
     return zip.generate({

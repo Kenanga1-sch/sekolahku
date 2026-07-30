@@ -3,6 +3,8 @@ services:
     image: debian:bookworm-slim
     container_name: sekolahku-app
     restart: unless-stopped
+    env_file:
+      - .env
     ports:
       - "3000:8181"
     environment:

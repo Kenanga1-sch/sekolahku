@@ -110,7 +110,7 @@ export function StudentFormDialog({ open, onOpenChange, studentId, onSuccess }: 
   // Log form errors to console to assist debugging validation failures
   useEffect(() => {
     if (Object.keys(form.formState.errors).length > 0) {
-        console.log("Validation errors in StudentFormDialog:", form.formState.errors);
+        console.warn("Validation errors in StudentFormDialog:", form.formState.errors);
     }
   }, [form.formState.errors]);
 

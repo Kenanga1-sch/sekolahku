@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Loader2, Printer } from "lucide-react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { goGet } from "@/lib/api-client";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
@@ -151,7 +152,7 @@ export default function CetakBatchPage() {
             {/* Header */}
             <div className="text-center border-b-2 border-black pb-2 mb-2">
               <div className="flex items-center justify-center gap-2">
-                {schoolLogo && <img src={schoolLogo} alt="Logo" className="h-10 object-contain" />}
+                {schoolLogo && <Image src={schoolLogo} alt="Logo" width={40} height={40} className="h-10 object-contain" />}
                 <div>
                   <h1 className="text-xs font-bold uppercase">{schoolName}</h1>
                   <p className="text-[8px]">{schoolAddress}</p>

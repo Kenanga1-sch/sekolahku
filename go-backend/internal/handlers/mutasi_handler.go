@@ -33,7 +33,7 @@ func (h *MutasiHandler) GetMutasiRequests(c echo.Context) error {
 
 	list, total, err := h.Repo.GetMutasiRequests(page, perPage)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 	if page < 1 {
 		page = 1
@@ -64,7 +64,7 @@ func (h *MutasiHandler) CreateMutasiRequest(c echo.Context) error {
 
 	regNum, err := h.Repo.CreateMutasiRequest(m)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
 	return c.JSON(http.StatusCreated, map[string]interface{}{
@@ -96,7 +96,7 @@ func (h *MutasiHandler) UpdateMutasiRequest(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Permohonan tidak ditemukan"})
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
 	return c.JSON(http.StatusOK, map[string]bool{"success": true})
@@ -108,7 +108,7 @@ func (h *MutasiHandler) GetMutasiOutRequests(c echo.Context) error {
 
 	list, total, err := h.Repo.GetMutasiOutRequests(page, perPage)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 	if page < 1 {
 		page = 1
@@ -181,7 +181,7 @@ func (h *MutasiHandler) UpdateMutasiOutStatus(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Permohonan tidak ditemukan"})
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
 	return c.JSON(http.StatusOK, map[string]bool{"success": true})
@@ -249,7 +249,7 @@ func (h *MutasiHandler) CreatePublicMutasiOutRequest(c echo.Context) error {
 
 	err := h.Repo.CreateMutasiOutRequest(m)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
 	return c.JSON(http.StatusCreated, map[string]interface{}{
@@ -263,7 +263,7 @@ func (h *MutasiHandler) GetMutasiLogs(c echo.Context) error {
 
 	list, total, err := h.Repo.GetMutasiLogs(page, perPage)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
@@ -297,7 +297,7 @@ func (h *MutasiHandler) GetMutasiRekap(c echo.Context) error {
 
 	items, err := h.Repo.GetMutasiRekap(monthStart, monthEnd)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
@@ -331,7 +331,7 @@ func (h *MutasiHandler) DirectMutasiMasuk(c echo.Context) error {
 		payload.MutationDate,
 	)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
@@ -363,7 +363,7 @@ func (h *MutasiHandler) DirectMutasiKeluar(c echo.Context) error {
 		payload.Reason, payload.MutationDate,
 	)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{

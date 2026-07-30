@@ -1,7 +1,10 @@
 package handlers
 
 import (
+	"database/sql"
+	errlib "errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -48,8 +51,8 @@ func (h *StudentHandler) GetStudents(c echo.Context) error {
 
 	res, err := h.Repo.GetStudents(page, limit, query, status, classID)
 	if err != nil {
-		fmt.Println("GetStudents ERROR:", err)
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		log.Printf("GetStudents ERROR: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
@@ -60,17 +63,24 @@ func (h *StudentHandler) GetStudents(c echo.Context) error {
 func (h *StudentHandler) GetStudentHealth(c echo.Context) error {
 	stats, err := h.Repo.GetStudentHealth()
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		log.Printf("GetStudentHealth ERROR: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": stats})
 }
 
 func (h *StudentHandler) GetStudentByID(c echo.Context) error {
 	id := c.Param("id")
+	userRole, _ := c.Get("user_role").(string)
+	userID, _ := c.Get("user_id").(string)
+
 	s, err := h.Repo.GetStudentByID(id)
 	if err != nil {
 		return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Siswa tidak ditemukan"})
 	}
+
+	log.Printf("[ACCESS] student_handler.GetStudentByID: user=%s role=%s accessed student=%s", userID, userRole, id)
+
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
 		"data":    s,
@@ -98,7 +108,7 @@ func (h *StudentHandler) CreateStudent(c echo.Context) error {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed: students.nis") {
 			return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "NIS sudah terdaftar pada siswa lain"})
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 
 
@@ -167,10 +177,14 @@ func (h *StudentHandler) BulkCreateStudents(c echo.Context) error {
 		// Coba Upsert (Update jika NISN atau NIK sudah ada)
 		var existingID string
 		if student.NISN != nil && *student.NISN != "" {
-			_ = h.Repo.DB.QueryRow("SELECT id FROM students WHERE nisn = ?", *student.NISN).Scan(&existingID)
+			if err := h.Repo.DB.QueryRow("SELECT id FROM students WHERE nisn = ?", *student.NISN).Scan(&existingID); err != nil && !errlib.Is(err, sql.ErrNoRows) {
+				log.Printf("ERROR checking existing student by NISN: %v", err)
+			}
 		}
 		if existingID == "" && student.NIK != nil && *student.NIK != "" {
-			_ = h.Repo.DB.QueryRow("SELECT id FROM students WHERE nik = ?", *student.NIK).Scan(&existingID)
+			if err := h.Repo.DB.QueryRow("SELECT id FROM students WHERE nik = ?", *student.NIK).Scan(&existingID); err != nil && !errlib.Is(err, sql.ErrNoRows) {
+				log.Printf("ERROR checking existing student by NIK: %v", err)
+			}
 		}
 
 		if existingID != "" {
@@ -204,7 +218,7 @@ func (h *StudentHandler) UpdateStudent(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
 	}
 
-	err := h.Repo.UpdateStudent(id, s)
+		err := h.Repo.UpdateStudent(id, s)
 	if err != nil {
 		if strings.Contains(err.Error(), "sudah digunakan oleh siswa atas nama") {
 			return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": err.Error()})
@@ -215,7 +229,8 @@ func (h *StudentHandler) UpdateStudent(c echo.Context) error {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed: students.nis") {
 			return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "NIS sudah terdaftar pada siswa lain"})
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		log.Printf("UpdateStudent ERROR: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 
 
@@ -226,7 +241,8 @@ func (h *StudentHandler) DeleteStudent(c echo.Context) error {
 	id := c.Param("id")
 	err := h.Repo.DeleteStudent(id)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		log.Printf("DeleteStudent ERROR: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
@@ -252,7 +268,8 @@ func (h *StudentHandler) GetStudentsForPrint(c echo.Context) error {
 
 	students, err := h.Repo.GetStudentsByIDs(studentIDs)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		log.Printf("GetStudentsForPrint ERROR: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
@@ -264,7 +281,8 @@ func (h *StudentHandler) GetStudentsForPrint(c echo.Context) error {
 func (h *StudentHandler) GetClasses(c echo.Context) error {
 	classes, err := h.Repo.GetClasses()
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		log.Printf("GetClasses ERROR: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
@@ -277,7 +295,8 @@ func (h *StudentHandler) SimpleSearch(c echo.Context) error {
 	className := c.QueryParam("className")
 	students, err := h.Repo.SimpleSearch(q, className)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		log.Printf("SimpleSearch ERROR: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": students})
 }
@@ -286,7 +305,8 @@ func (h *StudentHandler) GetStudentGrades(c echo.Context) error {
 	studentID := c.Param("id")
 	grades, err := h.Repo.GetStudentGrades(studentID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		log.Printf("GetStudentGrades ERROR: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": grades})
 }
@@ -295,7 +315,8 @@ func (h *StudentHandler) GetStudentGrades(c echo.Context) error {
 func (h *StudentHandler) SyncBukuInduk(c echo.Context) error {
 	count, err := h.Repo.SyncAllToBukuInduk()
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		log.Printf("SyncBukuInduk ERROR: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,

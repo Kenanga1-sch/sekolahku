@@ -40,7 +40,7 @@ func (h *AnnouncementHandler) GetAnnouncements(c echo.Context) error {
 
 	res, err := h.Repo.GetAnnouncements(page, limit, search, includeUnpublished)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
 	return c.JSON(http.StatusOK, res)
@@ -50,7 +50,7 @@ func (h *AnnouncementHandler) GetPublicAnnouncements(c echo.Context) error {
 	// Simple public endpoint
 	res, err := h.Repo.GetAnnouncements(1, 100, "", false)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, res.Data)
 }

@@ -17,16 +17,22 @@ export default function InventarisPage() {
             try {
                 const s = await getSessionAction();
                 setSession(s);
-                
+
                 const isAdmin = ["admin"].includes(s?.user?.role || "");
                 const [stats, consumableStats] = await Promise.all([
-                    getCachedInventoryStats(),
-                    isAdmin ? getCachedConsumableStats() : Promise.resolve(null)
+                    getCachedInventoryStats().catch(() => null),
+                    isAdmin ? getCachedConsumableStats().catch(() => null) : Promise.resolve(null)
                 ]);
-                
-                setData({ stats, consumableStats });
+
+                // Selalu set data dengan fallback kosong agar tidak stuck di skeleton
+                setData({
+                    stats: stats || {},
+                    consumableStats: consumableStats || null
+                });
             } catch (err) {
                 console.error(err);
+                // Set data kosong agar skeleton tidak muncul terus
+                setData({ stats: {}, consumableStats: null });
             } finally {
                 setIsLoading(false);
             }

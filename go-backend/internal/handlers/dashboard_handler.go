@@ -20,7 +20,7 @@ func (h *DashboardHandler) GetStats(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
 			"success": false,
-			"error":   err.Error(),
+			"error":   "Terjadi kesalahan internal",
 		})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{
@@ -34,7 +34,7 @@ func (h *DashboardHandler) GetHealth(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
 			"success": false,
-			"error":   err.Error(),
+			"error":   "Terjadi kesalahan internal",
 		})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{

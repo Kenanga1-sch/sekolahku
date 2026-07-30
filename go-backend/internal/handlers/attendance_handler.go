@@ -36,7 +36,7 @@ func (h *AttendanceHandler) GetSessions(c echo.Context) error {
 
 	sessions, total, err := h.Repo.GetSessions(date, status, page, perPage)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	if page < 1 {
 		page = 1
@@ -234,7 +234,7 @@ func (h *AttendanceHandler) GetReport(c echo.Context) error {
 
 	report, err := h.Repo.GetAttendanceReport(startDate, endDate, className)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 
 	return c.JSON(http.StatusOK, report)
@@ -251,7 +251,7 @@ func (h *AttendanceHandler) ExportCSV(c echo.Context) error {
 
 	report, err := h.Repo.GetAttendanceReport(startDate, endDate, className)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 
 	var buf bytes.Buffer
@@ -286,7 +286,7 @@ func (h *AttendanceHandler) GetStudentSummary(c echo.Context) error {
 
 	summary, err := h.Repo.GetStudentAttendanceSummary(studentID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{

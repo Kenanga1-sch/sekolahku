@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import * as XLSX from "xlsx";
 import {
   Card,
   CardContent,
@@ -375,9 +374,10 @@ export default function ImportWizardPage() {
     setFile(selectedFile);
 
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       try {
         const data = evt.target?.result;
+        const XLSX = await import("xlsx");
         const workbook = XLSX.read(data, { type: "binary", cellDates: true });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];

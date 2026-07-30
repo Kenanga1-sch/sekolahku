@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, Suspense } from "react";
+import dynamic from "next/dynamic";
 import { useSearchParams, notFound } from "next/navigation";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";

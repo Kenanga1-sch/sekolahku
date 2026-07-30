@@ -166,8 +166,7 @@ export default function Navbar() {
                   <Button variant="ghost" className="rounded-full px-4 gap-2 font-medium">
                     <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
                        {user.image ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={user.image} alt={user.name || "User"} className="h-full w-full object-cover" />
+                          <Image src={user.image} alt={user.name || "User"} width={28} height={28} className="h-full w-full object-cover" />
                        ) : (
                           <User className="h-4 w-4 text-primary" />
                        )}

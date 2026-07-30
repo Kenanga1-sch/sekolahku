@@ -93,7 +93,7 @@ func (h *FAQHandler) CreateFAQ(c echo.Context) error {
 
 	id, err := h.Repo.CreateFAQ(req)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 
 	middleware.CacheInvalidate("/api/public/faqs")
@@ -108,7 +108,7 @@ func (h *FAQHandler) ListFAQsAdmin(c echo.Context) error {
 
 	faqs, total, err := h.Repo.GetFAQsAdmin(page, perPage)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	if page < 1 {
 		page = 1
@@ -127,7 +127,7 @@ func (h *FAQHandler) UpdateFAQ(c echo.Context) error {
 	}
 
 	if err := h.Repo.UpdateFAQ(id, req); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
 	middleware.CacheInvalidate("/api/public/faqs")
@@ -139,7 +139,7 @@ func (h *FAQHandler) UpdateFAQ(c echo.Context) error {
 func (h *FAQHandler) DeleteFAQ(c echo.Context) error {
 	id := c.Param("id")
 	if err := h.Repo.DeleteFAQ(id); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
 	middleware.CacheInvalidate("/api/public/faqs")

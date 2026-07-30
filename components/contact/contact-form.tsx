@@ -49,7 +49,6 @@ export function ContactForm() {
         throw new Error("Gagal mengirim pesan");
       }
 
-      console.log("Form submitted:", data);
       setIsSubmitted(true);
       reset();
     } catch (error) {

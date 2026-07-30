@@ -9,6 +9,9 @@ import { getFromCache, setCache, CacheTTL } from "./cache";
 import { logger } from "./logger";
 
 const GO_API_URL = process.env.NEXT_PUBLIC_API_URL || "";
+export const APP_VERSION = "v1.1.002";
+
+const DEFAULT_TIMEOUT_MS = 15_000;
 
 export interface FetchOptions extends RequestInit {
   ttl?: number;
@@ -16,6 +19,7 @@ export interface FetchOptions extends RequestInit {
   skipRetry?: boolean;
   skipCircuitBreaker?: boolean;
   circuitName?: string;
+  timeout?: number;
 }
 
 /**
@@ -31,6 +35,7 @@ export async function goFetch<T = any>(
     skipRetry,
     skipCircuitBreaker,
     circuitName,
+    timeout = DEFAULT_TIMEOUT_MS,
     ...fetchOptions
   } = options;
 
@@ -53,37 +58,46 @@ export async function goFetch<T = any>(
       defaultHeaders["Content-Type"] = "application/json";
     }
 
-    const res = await fetch(url, {
-      ...fetchOptions,
-      headers: {
-        ...defaultHeaders,
-        ...fetchOptions.headers,
-      },
-      credentials: "include",
-    });
+    // Timeout via AbortController
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-    if (!res.ok) {
-      // Auto-redirect on 401 (expired/invalid token)
-      if (res.status === 401 && typeof window !== "undefined" && window.location.pathname !== "/login") {
-        document.cookie = "session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
-        window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
-        throw new Error("Session expired");
+    try {
+      const res = await fetch(url, {
+        ...fetchOptions,
+        headers: {
+          ...defaultHeaders,
+          ...fetchOptions.headers,
+        },
+        credentials: "include",
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        // Auto-redirect on 401 (expired/invalid token)
+        if (res.status === 401 && typeof window !== "undefined" && window.location.pathname !== "/login") {
+          document.cookie = "session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
+          window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+          throw new Error("Session expired");
+        }
+        const errorData = await res.json().catch(() => ({ error: res.statusText }));
+        const error = new Error(errorData.error || `API Error: ${res.status}`);
+        (error as any).status = res.status;
+        (error as any).data = errorData;
+        throw error;
       }
-      const errorData = await res.json().catch(() => ({ error: res.statusText }));
-      const error = new Error(errorData.error || `API Error: ${res.status}`);
-      (error as any).status = res.status;
-      (error as any).data = errorData;
-      throw error;
+
+      const data = await res.json();
+
+      // Store in cache if TTL is provided
+      if (method === "GET" && ttl) {
+        setCache(endpoint, data, ttl);
+      }
+
+      return data;
+    } finally {
+      clearTimeout(timeoutId);
     }
-
-    const data = await res.json();
-
-    // Store in cache if TTL is provided
-    if (method === "GET" && ttl) {
-      setCache(endpoint, data, ttl);
-    }
-
-    return data;
   };
 
   // 2. Wrap with Resilience Patterns

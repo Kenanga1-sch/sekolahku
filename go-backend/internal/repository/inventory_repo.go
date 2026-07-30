@@ -967,3 +967,179 @@ func (r *InventoryRepository) GetAuditLogs(page, limit int, action, entity strin
 	}
 	return logs, total, nil
 }
+
+// ==========================================
+// Analytics / Chart Data
+// ==========================================
+
+// CategoryDistributionItem untuk chart distribusi kategori
+type CategoryDistributionItem struct {
+	Name  string `json:"name"`
+	Value int    `json:"value"`
+	Color string `json:"color"`
+}
+
+// GetCategoryDistribution mengembalikan jumlah aset per kategori
+func (r *InventoryRepository) GetCategoryDistribution() ([]CategoryDistributionItem, error) {
+	rows, err := r.DB.Query(`
+		SELECT category, COUNT(*) AS total
+		FROM inventory_assets
+		WHERE status = 'ACTIVE' OR status IS NULL
+		GROUP BY category
+		ORDER BY total DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	palette := []string{
+		"#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
+		"#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1",
+	}
+
+	result := []CategoryDistributionItem{}
+	idx := 0
+	for rows.Next() {
+		var name string
+		var value int
+		if err := rows.Scan(&name, &value); err != nil {
+			return nil, err
+		}
+		color := palette[idx%len(palette)]
+		result = append(result, CategoryDistributionItem{
+			Name:  name,
+			Value: value,
+			Color: color,
+		})
+		idx++
+	}
+	return result, nil
+}
+
+// ConditionBreakdownItem untuk chart kondisi
+type ConditionBreakdownItem struct {
+	Name  string `json:"name"`
+	Value int    `json:"value"`
+	Color string `json:"color"`
+}
+
+// GetConditionBreakdown mengembalikan jumlah aset per kondisi
+func (r *InventoryRepository) GetConditionBreakdown() ([]ConditionBreakdownItem, error) {
+	// SQLite UNION untuk menggabungkan 4 kondisi
+	rows, err := r.DB.Query(`
+		SELECT 'Baik' AS name, COALESCE(SUM(condition_good), 0) AS total, '#10b981' AS color FROM inventory_assets WHERE (status = 'ACTIVE' OR status IS NULL)
+		UNION ALL
+		SELECT 'Rusak Ringan' AS name, COALESCE(SUM(condition_light_damaged), 0) AS total, '#f59e0b' AS color FROM inventory_assets WHERE (status = 'ACTIVE' OR status IS NULL)
+		UNION ALL
+		SELECT 'Rusak Berat' AS name, COALESCE(SUM(condition_heavy_damaged), 0) AS total, '#ef4444' AS color FROM inventory_assets WHERE (status = 'ACTIVE' OR status IS NULL)
+		UNION ALL
+		SELECT 'Hilang' AS name, COALESCE(SUM(condition_lost), 0) AS total, '#6b7280' AS color FROM inventory_assets WHERE (status = 'ACTIVE' OR status IS NULL)
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := []ConditionBreakdownItem{}
+	for rows.Next() {
+		var item ConditionBreakdownItem
+		if err := rows.Scan(&item.Name, &item.Value, &item.Color); err != nil {
+			return nil, err
+		}
+		result = append(result, item)
+	}
+	return result, nil
+}
+
+// TopRoomItem untuk widget ruangan teratas
+type TopRoomItem struct {
+	ID         string  `json:"id"`
+	Name       string  `json:"name"`
+	AssetCount int     `json:"assetCount"`
+	TotalValue float64 `json:"totalValue"`
+}
+
+// GetTopRoomsByValue mengembalikan ruangan dengan total nilai aset tertinggi
+func (r *InventoryRepository) GetTopRoomsByValue(limit int) ([]TopRoomItem, error) {
+	if limit <= 0 {
+		limit = 5
+	}
+	rows, err := r.DB.Query(`
+		SELECT
+			COALESCE(rm.id, '') AS room_id,
+			COALESCE(rm.name, 'Tanpa Ruangan') AS room_name,
+			COUNT(a.id) AS asset_count,
+			COALESCE(SUM(a.price * a.quantity), 0) AS total_value
+		FROM inventory_assets a
+		LEFT JOIN inventory_rooms rm ON rm.id = a.room_id
+		WHERE (a.status = 'ACTIVE' OR a.status IS NULL)
+		GROUP BY rm.id, rm.name
+		HAVING COUNT(a.id) > 0
+		ORDER BY total_value DESC, asset_count DESC
+		LIMIT ?
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := []TopRoomItem{}
+	for rows.Next() {
+		var item TopRoomItem
+		var roomID sql.NullString
+		if err := rows.Scan(&roomID, &item.Name, &item.AssetCount, &item.TotalValue); err != nil {
+			return nil, err
+		}
+		if roomID.Valid {
+			item.ID = roomID.String
+		}
+		result = append(result, item)
+	}
+	return result, nil
+}
+
+// RecentAuditItem untuk widget audit terbaru
+type RecentAuditItem struct {
+	ID         string `json:"id"`
+	RoomName   string `json:"roomName"`
+	AuditorName string `json:"auditorName"`
+	Date       string `json:"date"`
+	Status     string `json:"status"`
+}
+
+// GetRecentAudit mengembalikan audit opname terbaru
+func (r *InventoryRepository) GetRecentAudit(limit int) ([]RecentAuditItem, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	// Tabel opname mungkin bernama inventory_opnames atau inventory_opname
+	rows, err := r.DB.Query(`
+		SELECT
+			o.id,
+			COALESCE(rm.name, '-') AS room_name,
+			COALESCE(u.name, '-') AS auditor_name,
+			COALESCE(o.status, 'completed') AS status,
+			COALESCE(o.note, '') AS note
+		FROM inventory_opnames o
+		LEFT JOIN inventory_rooms rm ON rm.id = o.room_id
+		LEFT JOIN users u ON u.id = o.auditor_id
+		ORDER BY COALESCE(o.created_at, 0) DESC
+		LIMIT ?
+	`, limit)
+	if err != nil {
+		// Tabel mungkin tidak ada atau nama berbeda, kembalikan kosong
+		return []RecentAuditItem{}, nil
+	}
+	defer rows.Close()
+
+	result := []RecentAuditItem{}
+	for rows.Next() {
+		var item RecentAuditItem
+		if err := rows.Scan(&item.ID, &item.RoomName, &item.AuditorName, &item.Status, &item.Date); err != nil {
+			continue
+		}
+		result = append(result, item)
+	}
+	return result, nil
+}

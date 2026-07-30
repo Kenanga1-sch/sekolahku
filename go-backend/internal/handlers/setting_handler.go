@@ -26,7 +26,7 @@ func NewSettingHandler(repo *repository.SettingRepository, auditRepo *repository
 func (h *SettingHandler) GetSettings(c echo.Context) error {
 	s, err := h.Repo.GetSettings()
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": s})
 }
@@ -45,7 +45,7 @@ func (h *SettingHandler) UpdateSettings(c echo.Context) error {
 
 	existing, err := h.Repo.GetSettings()
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	if existing != nil {
 		if _, ok := raw["spmb_is_open"]; !ok {
@@ -61,7 +61,7 @@ func (h *SettingHandler) UpdateSettings(c echo.Context) error {
 
 	updated, err := h.Repo.UpdateSettings(s)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 
 	// Record Audit Log

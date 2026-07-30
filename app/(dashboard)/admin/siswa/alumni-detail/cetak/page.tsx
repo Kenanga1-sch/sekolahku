@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Loader2, Printer } from "lucide-react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { goGet } from "@/lib/api-client";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
@@ -277,7 +278,7 @@ export default function CetakBukuIndukPage() {
         <div className="text-center border-b-2 border-black pb-2 mb-3">
           <div className="flex items-center justify-center gap-3">
             {schoolLogo && (
-              <img src={schoolLogo} alt="Logo" className="h-12 object-contain" />
+              <Image src={schoolLogo} alt="Logo" width={48} height={48} className="h-12 object-contain" />
             )}
             <div>
               <h1 className="text-sm font-bold uppercase tracking-wide">{schoolName}</h1>

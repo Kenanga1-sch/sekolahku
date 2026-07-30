@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef } from "react";
-import * as XLSX from "xlsx";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,9 +29,10 @@ export function EmployeeImportDialog({ open, onOpenChange, onSuccess }: Employee
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       try {
         const bstr = evt.target?.result;
+        const XLSX = await import("xlsx");
         const wb = XLSX.read(bstr, { type: "binary" });
         const wsname = wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
@@ -60,7 +60,8 @@ export function EmployeeImportDialog({ open, onOpenChange, onSuccess }: Employee
     reader.readAsBinaryString(file);
   };
 
-  const downloadTemplate = () => {
+  const downloadTemplate = async () => {
+    const XLSX = await import("xlsx");
     const headers = [
       { 
         "NamaLengkap": "Budi Santoso", 

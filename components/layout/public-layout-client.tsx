@@ -4,6 +4,7 @@ import Footer from "@/components/layout/footer";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { usePathname } from "next/navigation";
 import {
@@ -89,8 +90,7 @@ export default function PublicLayoutClient({
                   >
                     <div className="h-6 w-6 rounded-full bg-neutral-250 dark:bg-zinc-800/80 border border-zinc-700/60 flex items-center justify-center overflow-hidden">
                        {user.image ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={user.image} alt={user.name || "User"} className="h-full w-full object-cover" />
+                          <Image src={user.image} alt={user.name || "User"} width={24} height={24} className="h-full w-full object-cover" />
                        ) : (
                           <User className="h-3.5 w-3.5 text-zinc-400" />
                        )}

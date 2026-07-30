@@ -14,10 +14,13 @@ export default function PerpustakaanPage() {
         getCachedLibraryStats()
             .then(data => {
                 setStats(data);
-                setIsLoading(false);
             })
             .catch(err => {
                 console.error(err);
+                // Set stats kosong agar skeleton tidak muncul terus
+                setStats({});
+            })
+            .finally(() => {
                 setIsLoading(false);
             });
     }, []);

@@ -48,7 +48,7 @@ func (h *AcademicAdvHandler) BulkGrades(c echo.Context) error {
 
 	if err := h.Repo.UpsertBulkGrades(req); err != nil {
 		c.Logger().Error("Failed to bulk upsert student grades:", err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})

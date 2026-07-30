@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { goGet } from "@/lib/api-client";
 import { useSchoolSettings } from "@/lib/hooks/use-settings";
 import { formatDate } from "@/lib/utils";
+import { sanitizeHTML } from "@/lib/security";
 import Image from "next/image";
 
 export default function CetakSuratUmumPage() {
@@ -138,7 +139,7 @@ export default function CetakSuratUmumPage() {
         {/* ISI SURAT (TipTap Content) */}
         <div 
           className="prose prose-sm max-w-none text-justify text-black"
-          dangerouslySetInnerHTML={{ __html: data.htmlContent || "<p>Isi surat kosong.</p>" }}
+          dangerouslySetInnerHTML={{ __html: sanitizeHTML(data.htmlContent) || "<p>Isi surat kosong.</p>" }}
         />
 
         {/* TANDA TANGAN */}

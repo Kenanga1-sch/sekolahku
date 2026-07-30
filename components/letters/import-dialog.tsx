@@ -21,7 +21,6 @@ import { toast } from "sonner";
 import { LETTER_VARIABLES } from "@/lib/config/letter-variables";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import mammoth from "mammoth";
 import { goPost } from "@/lib/api-client";
 
 interface ImportDialogProps {
@@ -67,13 +66,13 @@ export function ImportDialog({ open, onOpenChange, onImported }: ImportDialogPro
       // Extract variables silently
       try {
           const arrayBuffer = await selected.arrayBuffer();
+          const mammoth = (await import("mammoth")).default;
           const result = await mammoth.extractRawText({ arrayBuffer });
           const text = result.value;
           const regex = /{{(.*?)}}/g;
           const found = text.match(regex) || [];
           const clean = [...new Set(found.map(v => v.replace(/{{|}}/g, '').trim()))];
           setExtractedVars(clean);
-          console.log("Extracted variables:", clean);
       } catch (err) {
           console.error("Failed to parse docx text:", err);
       }

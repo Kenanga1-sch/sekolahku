@@ -15,7 +15,7 @@ export async function getCachedLibraryStats() {
   const res = await goGet("/api/library/stats");
   if (!res || !res.success) {
     console.error("Failed to fetch library stats:", res);
-    return null;
+    throw new Error("Failed to fetch library stats");
   }
   return res.data;
 }

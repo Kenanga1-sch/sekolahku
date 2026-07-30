@@ -166,8 +166,6 @@ export async function sendEmail(options: EmailOptions): Promise<{ success: boole
     try {
         // Check if email settings exist in PocketBase
         // This would be configured in school_settings collection
-        console.log("[Email] Sending email to:", options.to);
-        console.log("[Email] Subject:", options.subject);
 
         // For production, integrate with SMTP or email service:
         // Example with fetch to an email API:
@@ -179,8 +177,7 @@ export async function sendEmail(options: EmailOptions): Promise<{ success: boole
         });
         */
 
-        // For now, log the email (development mode)
-        console.log("[Email] Content preview:", options.html.substring(0, 200) + "...");
+        // For now, return success (stub - integrate with SMTP later)
 
         return { success: true, message: "Email queued for sending" };
     } catch (error) {

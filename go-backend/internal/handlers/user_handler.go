@@ -22,6 +22,17 @@ type UserHandler struct {
 	AuditRepo    *repository.AuditLogRepository
 }
 
+func NewUserHandler(userRepo *repository.UserRepository, studentRepo *repository.StudentRepository, employeeRepo *repository.EmployeeRepository, auditRepo *repository.AuditLogRepository) *UserHandler {
+	return &UserHandler{
+		UserRepo:     userRepo,
+		StudentRepo:  studentRepo,
+		EmployeeRepo: employeeRepo,
+		AuditRepo:    auditRepo,
+	}
+}
+
+// ============ Role Helpers ============
+
 var allowedUserRoles = map[string]bool{
 	"superadmin":  true,
 	"admin":       true,
@@ -32,15 +43,6 @@ var allowedUserRoles = map[string]bool{
 	"calon_siswa": true,
 }
 
-func NewUserHandler(userRepo *repository.UserRepository, studentRepo *repository.StudentRepository, employeeRepo *repository.EmployeeRepository, auditRepo *repository.AuditLogRepository) *UserHandler {
-	return &UserHandler{
-		UserRepo:     userRepo,
-		StudentRepo:  studentRepo,
-		EmployeeRepo: employeeRepo,
-		AuditRepo:    auditRepo,
-	}
-}
-
 func normalizeUserRole(role string) (string, bool) {
 	normalized := strings.ToLower(strings.TrimSpace(role))
 	if normalized == "" {
@@ -48,6 +50,8 @@ func normalizeUserRole(role string) (string, bool) {
 	}
 	return normalized, allowedUserRoles[normalized]
 }
+
+// ============ Admin CRUD ============
 
 func (h *UserHandler) GetUsers(c echo.Context) error {
 	pageStr := c.QueryParam("page")
@@ -58,7 +62,6 @@ func (h *UserHandler) GetUsers(c echo.Context) error {
 	if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
 		page = p
 	}
-
 	limit := 20
 	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
 		limit = l
@@ -66,11 +69,9 @@ func (h *UserHandler) GetUsers(c echo.Context) error {
 
 	users, total, err := h.UserRepo.GetUsers(page, limit, search)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
-
 	totalPages := (total + limit - 1) / limit
-
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"items":      users,
 		"totalItems": total,
@@ -91,7 +92,6 @@ func (h *UserHandler) CreateUser(c echo.Context) error {
 		Phone           string `json:"phone"`
 		EmployeeID      string `json:"employeeId"`
 	}
-
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid payload"})
 	}
@@ -102,7 +102,6 @@ func (h *UserHandler) CreateUser(c echo.Context) error {
 	req.Phone = strings.TrimSpace(req.Phone)
 	role, ok := normalizeUserRole(req.Role)
 
-	// Auto-generate random password if not provided
 	password := req.Password
 	if password == "" {
 		password = generateRandomPassword()
@@ -144,7 +143,7 @@ func (h *UserHandler) CreateUser(c echo.Context) error {
 		Role:               role,
 		Phone:              &req.Phone,
 		IsActive:           true,
-		MustChangePassword: req.Password == "", // must change if auto-generated
+		MustChangePassword: req.Password == "",
 	}
 
 	id, err := h.UserRepo.CreateUser(user)
@@ -152,10 +151,9 @@ func (h *UserHandler) CreateUser(c echo.Context) error {
 		if strings.Contains(strings.ToLower(err.Error()), "unique") {
 			return c.JSON(http.StatusConflict, map[string]string{"error": "Email atau username sudah digunakan"})
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
-	// Link to employee if employeeId is provided
 	if req.EmployeeID != "" {
 		if err := h.UserRepo.LinkEmployeeToUser(req.EmployeeID, id); err != nil {
 			c.Logger().Error("Failed to link employee:", err)
@@ -167,19 +165,15 @@ func (h *UserHandler) CreateUser(c echo.Context) error {
 	details := fmt.Sprintf("Created user: %s (%s)", req.Name, role)
 	currentUserID, _ := c.Get("user_id").(string)
 	h.AuditRepo.CreateLog(models.AuditLog{
-		Action:    "create",
-		Resource:  "user",
-		UserID:    &currentUserID,
-		Details:   &details,
-		IPAddress: &ip,
-		UserAgent: &ua,
+		Action: "create", Resource: "user",
+		UserID: &currentUserID, Details: &details, IPAddress: &ip, UserAgent: &ua,
 	})
 
 	return c.JSON(http.StatusCreated, map[string]interface{}{
-		"success":  true,
-		"id":       id,
-		"password": password,
-		"message":  "Akun berhasil dibuat. Catat password ini — hanya ditampilkan sekali.",
+		"success":            true,
+		"id":                 id,
+		"password":           password,
+		"message":            "Akun berhasil dibuat. Catat password ini — hanya ditampilkan sekali.",
 		"mustChangePassword": user.MustChangePassword,
 	})
 }
@@ -193,7 +187,6 @@ func (h *UserHandler) UpdateUser(c echo.Context) error {
 		Phone    string `json:"phone"`
 		Password string `json:"password"`
 	}
-
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid payload"})
 	}
@@ -219,11 +212,8 @@ func (h *UserHandler) UpdateUser(c echo.Context) error {
 	}
 
 	user := models.User{
-		Name:     &req.Name,
-		FullName: &req.Name,
-		Username: username,
-		Role:     role,
-		Phone:    &req.Phone,
+		Name: &req.Name, FullName: &req.Name,
+		Username: username, Role: role, Phone: &req.Phone,
 	}
 
 	if req.Password != "" {
@@ -242,7 +232,7 @@ func (h *UserHandler) UpdateUser(c echo.Context) error {
 		if strings.Contains(strings.ToLower(err.Error()), "unique") {
 			return c.JSON(http.StatusConflict, map[string]string{"error": "Username sudah digunakan"})
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
 	ip := c.RealIP()
@@ -250,14 +240,9 @@ func (h *UserHandler) UpdateUser(c echo.Context) error {
 	details := fmt.Sprintf("Updated user ID: %s", id)
 	currentUserID, _ := c.Get("user_id").(string)
 	h.AuditRepo.CreateLog(models.AuditLog{
-		Action:    "update",
-		Resource:  "user",
-		UserID:    &currentUserID,
-		Details:   &details,
-		IPAddress: &ip,
-		UserAgent: &ua,
+		Action: "update", Resource: "user",
+		UserID: &currentUserID, Details: &details, IPAddress: &ip, UserAgent: &ua,
 	})
-
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
 
@@ -272,21 +257,16 @@ func (h *UserHandler) DeleteUser(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Pengguna tidak ditemukan"})
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
 	ip := c.RealIP()
 	ua := c.Request().UserAgent()
 	details := fmt.Sprintf("Deleted user ID: %s", id)
 	h.AuditRepo.CreateLog(models.AuditLog{
-		Action:    "delete",
-		Resource:  "user",
-		UserID:    &currentUserID,
-		Details:   &details,
-		IPAddress: &ip,
-		UserAgent: &ua,
+		Action: "delete", Resource: "user",
+		UserID: &currentUserID, Details: &details, IPAddress: &ip, UserAgent: &ua,
 	})
-
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
 
@@ -296,41 +276,30 @@ func (h *UserHandler) GenerateAccounts(c echo.Context) error {
 		ClassName string `json:"className"`
 		Mode      string `json:"mode"`
 	}
-
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid payload"})
 	}
 
 	count := 0
 	if req.Type == "student" {
-		// Fetch students by class
 		students, err := h.StudentRepo.SimpleSearch("", req.ClassName)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 		}
-
 		for _, s := range students {
 			if s.NISN == nil || *s.NISN == "" {
 				continue
 			}
-
-			// Check if exists
-			existing, _ := h.UserRepo.GetUserByEmail(*s.NISN + "@sekolahku.id") // Fallback email
+			existing, _ := h.UserRepo.GetUserByEmail(*s.NISN + "@sekolahku.id")
 			if existing != nil {
 				continue
 			}
-
 			hash, _ := bcrypt.GenerateFromPassword([]byte(*s.NISN), 10)
 			pwHash := string(hash)
-			role := "siswa"
-
 			u := models.User{
-				Name:         &s.FullName,
-				Email:        *s.NISN + "@sekolahku.id",
-				Username:     s.NISN,
-				PasswordHash: &pwHash,
-				Role:         role,
-				IsActive:     true,
+				Name: &s.FullName, Email: *s.NISN + "@sekolahku.id",
+				Username: s.NISN, PasswordHash: &pwHash,
+				Role: "siswa", IsActive: true,
 			}
 			_, err = h.UserRepo.CreateUser(u)
 			if err == nil {
@@ -340,29 +309,20 @@ func (h *UserHandler) GenerateAccounts(c echo.Context) error {
 	} else if req.Type == "staff-auto" {
 		employees, err := h.EmployeeRepo.GetEmployeesWithoutAccount()
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 		}
-
 		for _, e := range employees {
 			pw := generateRandomPassword()
 			hash, _ := bcrypt.GenerateFromPassword([]byte(pw), 10)
 			pwHash := string(hash)
-
-			name := e.Name
-			email := e.Email
 			role := e.Role
 			if role == "" {
 				role = "guru"
 			}
-
 			u := models.User{
-				Name:               &name,
-				Email:              email,
-				FullName:           &name,
-				PasswordHash:       &pwHash,
-				Role:               role,
-				IsActive:           true,
-				MustChangePassword: true,
+				Name: &e.Name, Email: e.Email, FullName: &e.Name,
+				PasswordHash: &pwHash, Role: role,
+				IsActive: true, MustChangePassword: true,
 			}
 			userId, err := h.UserRepo.CreateUser(u)
 			if err == nil {
@@ -375,184 +335,5 @@ func (h *UserHandler) GenerateAccounts(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
 		"message": fmt.Sprintf("Berhasil generate %d akun", count),
-	})
-}
-
-// Profile Methods (Current User)
-
-func (h *UserHandler) GetProfile(c echo.Context) error {
-	userID, ok := c.Get("user_id").(string)
-	if !ok {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized"})
-	}
-
-	user, err := h.UserRepo.GetUserByID(userID)
-	if err != nil || user == nil {
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "User not found"})
-	}
-
-	return c.JSON(http.StatusOK, user)
-}
-
-func (h *UserHandler) UpdateProfile(c echo.Context) error {
-	userID, ok := c.Get("user_id").(string)
-	if !ok {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized"})
-	}
-
-	var req struct {
-		Name            string  `json:"name"`
-		FullName        string  `json:"fullName"`
-		Username        string  `json:"username"`
-		Phone           string  `json:"phone"`
-		Image           *string `json:"image"`
-		OldPassword     string  `json:"oldPassword"`
-		Password        string  `json:"password"`
-		PasswordConfirm string  `json:"passwordConfirm"`
-	}
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid payload"})
-	}
-
-	// Case 1: Password Change
-	if req.OldPassword != "" {
-		existingUser, err := h.UserRepo.GetUserByID(userID)
-		if err != nil || existingUser == nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "User not found"})
-		}
-		if existingUser.PasswordHash == nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "User has no password set"})
-		}
-		err = bcrypt.CompareHashAndPassword([]byte(*existingUser.PasswordHash), []byte(req.OldPassword))
-		if err != nil {
-			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Password lama salah"})
-		}
-		if req.Password != req.PasswordConfirm {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Konfirmasi password tidak cocok"})
-		}
-		if len(req.Password) < 8 {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Password minimal 8 karakter"})
-		}
-		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), 10)
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal membuat password"})
-		}
-		err = h.UserRepo.UpdatePassword(userID, string(hash))
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return c.JSON(http.StatusNotFound, map[string]string{"error": "User not found"})
-			}
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-
-		// Log Security Change
-		ip := c.RealIP()
-		ua := c.Request().UserAgent()
-		details := "User changed their password via profile"
-		h.AuditRepo.CreateLog(models.AuditLog{
-			Action: "update", Resource: "security", UserID: &userID, Details: &details, IPAddress: &ip, UserAgent: &ua,
-		})
-		return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
-	}
-
-	// Case 2: Info Update
-	req.Name = strings.TrimSpace(req.Name)
-	req.FullName = strings.TrimSpace(req.FullName)
-	req.Username = strings.TrimSpace(req.Username)
-	req.Phone = strings.TrimSpace(req.Phone)
-
-	if req.Name == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Nama wajib diisi"})
-	}
-
-	existingUser, err := h.UserRepo.GetUserByID(userID)
-	if err != nil || existingUser == nil {
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "User not found"})
-	}
-
-	username := existingUser.Username
-	if req.Username != "" && (existingUser.Username == nil || req.Username != *existingUser.Username) {
-		// Verify username uniqueness
-		takenUser, err := h.UserRepo.GetUserByEmail(req.Username)
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-		if takenUser != nil && takenUser.ID != userID {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Username sudah digunakan oleh pengguna lain"})
-		}
-		username = &req.Username
-	}
-
-	fullName := req.FullName
-	if fullName == "" {
-		fullName = req.Name
-	}
-
-	user := models.User{
-		Name:     &req.Name,
-		FullName: &fullName,
-		Username: username,
-		Phone:    &req.Phone,
-		Image:    req.Image,
-	}
-	err = h.UserRepo.UpdateUser(userID, user)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "User not found"})
-		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-	}
-
-	// Log Profile Update
-	ip := c.RealIP()
-	ua := c.Request().UserAgent()
-	details := "User updated their profile information"
-	h.AuditRepo.CreateLog(models.AuditLog{
-		Action: "update", Resource: "profile", UserID: &userID, Details: &details, IPAddress: &ip, UserAgent: &ua,
-	})
-
-	updatedUser, err := h.UserRepo.GetUserByID(userID)
-	if err != nil || updatedUser == nil {
-		return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
-	}
-
-	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "user": updatedUser})
-}
-
-func (h *UserHandler) GetProfileLogs(c echo.Context) error {
-	userID, ok := c.Get("user_id").(string)
-	if !ok {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized"})
-	}
-
-	pageStr := c.QueryParam("page")
-	limitStr := c.QueryParam("limit")
-	if limitStr == "" {
-		limitStr = c.QueryParam("perPage")
-	}
-
-	page := 1
-	if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
-		page = p
-	}
-
-	limit := 10
-	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
-		limit = l
-	}
-
-	logs, total, err := h.AuditRepo.GetLogsByUserID(userID, page, limit)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-	}
-
-	totalPages := (total + limit - 1) / limit
-
-	return c.JSON(http.StatusOK, map[string]interface{}{
-		"items":      logs,
-		"totalItems": total,
-		"page":       page,
-		"limit":      limit,
-		"totalPages": totalPages,
 	})
 }

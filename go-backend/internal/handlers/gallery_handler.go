@@ -34,7 +34,7 @@ func (h *GalleryHandler) GetGallery(c echo.Context) error {
 
 	list, total, err := h.Repo.GetGallery(cat, page, perPage)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 	if page < 1 {
 		page = 1
@@ -48,7 +48,7 @@ func (h *GalleryHandler) GetGallery(c echo.Context) error {
 func (h *GalleryHandler) GetStats(c echo.Context) error {
 	stats, err := h.Repo.GetStats()
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, stats)
 }
@@ -151,7 +151,7 @@ func (h *GalleryHandler) Upload(c echo.Context) error {
 			// Attempt to delete the file if DB fails
 			os.Remove(filepath.Join("public", imageURL))
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
 	middleware.CacheInvalidate("/api/public/gallery")
@@ -189,7 +189,7 @@ func (h *GalleryHandler) Update(c echo.Context) error {
 	}
 
 	if err := h.Repo.Update(id, title, category); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
 	middleware.CacheInvalidate("/api/public/gallery")
@@ -209,7 +209,7 @@ func (h *GalleryHandler) Delete(c echo.Context) error {
 
 	// Delete from DB
 	if err := h.Repo.Delete(id); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
 	// Delete physical file (best effort)
@@ -245,7 +245,7 @@ func (h *GalleryHandler) BulkDelete(c echo.Context) error {
 	paths, _ := h.Repo.GetImagePathsByIDs(req.IDs)
 
 	if err := h.Repo.BulkDelete(req.IDs); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
 	// Cleanup files

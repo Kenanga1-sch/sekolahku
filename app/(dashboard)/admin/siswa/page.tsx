@@ -1,18 +1,27 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, lazy } from "react";
 import { useSearchParams } from "next/navigation";
 import { Users, Printer, ArrowRightLeft, GraduationCap, UserCheck, Loader2, BookOpen } from "lucide-react";
 
-// Subcomponents
-import TabDirektori from "./tab-direktori";
-import TabKartu from "./tab-kartu";
-import TabMutasi from "./tab-mutasi";
-import TabAlumni from "./tab-alumni";
-import TabSPMB from "./tab-spmb";
-import { AkademikTabsContent } from "../akademik/page";
+const TabDirektori = lazy(() => import("./tab-direktori"));
+const TabKartu = lazy(() => import("./tab-kartu"));
+const TabMutasi = lazy(() => import("./tab-mutasi"));
+const TabAlumni = lazy(() => import("./tab-alumni"));
+const TabSPMB = lazy(() => import("./tab-spmb"));
+const AkademikTabsContent = lazy(() =>
+  import("../akademik/page").then((mod) => ({ default: mod.AkademikTabsContent }))
+);
 
 type TabType = "direktori" | "kartu" | "mutasi" | "alumni" | "spmb" | "akademik";
+
+function TabFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-[300px]">
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
 
 function SiswaTabsContent() {
   const searchParams = useSearchParams();
@@ -105,17 +114,39 @@ function SiswaTabsContent() {
         </button>
       </div>
       
-      {/* Tab Contents */}
+      {/* Tab Contents — lazy loaded */}
       <div className="pt-2">
-        {activeTab === "direktori" && <TabDirektori />}
-        {activeTab === "kartu" && <TabKartu />}
-        {activeTab === "mutasi" && <TabMutasi />}
-        {activeTab === "alumni" && <TabAlumni />}
-        {activeTab === "spmb" && <TabSPMB />}
+        {activeTab === "direktori" && (
+          <Suspense fallback={<TabFallback />}>
+            <TabDirektori />
+          </Suspense>
+        )}
+        {activeTab === "kartu" && (
+          <Suspense fallback={<TabFallback />}>
+            <TabKartu />
+          </Suspense>
+        )}
+        {activeTab === "mutasi" && (
+          <Suspense fallback={<TabFallback />}>
+            <TabMutasi />
+          </Suspense>
+        )}
+        {activeTab === "alumni" && (
+          <Suspense fallback={<TabFallback />}>
+            <TabAlumni />
+          </Suspense>
+        )}
+        {activeTab === "spmb" && (
+          <Suspense fallback={<TabFallback />}>
+            <TabSPMB />
+          </Suspense>
+        )}
         {activeTab === "akademik" && (
-          <div className="bg-white dark:bg-zinc-950 rounded-xl p-4 sm:p-6 border border-slate-200/60 dark:border-zinc-800">
-            <AkademikTabsContent />
-          </div>
+          <Suspense fallback={<TabFallback />}>
+            <div className="bg-white dark:bg-zinc-950 rounded-xl p-4 sm:p-6 border border-slate-200/60 dark:border-zinc-800">
+              <AkademikTabsContent />
+            </div>
+          </Suspense>
         )}
       </div>
     </div>

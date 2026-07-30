@@ -13,7 +13,7 @@ import (
 func (h *EOfficeHandler) GetTemplateGroups(c echo.Context) error {
 	list, err := h.Repo.GetTemplateGroups()
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": list})
 }
@@ -38,7 +38,7 @@ func (h *EOfficeHandler) CreateTemplateGroup(c echo.Context) error {
 	
 	id, err := h.Repo.CreateTemplateGroup(g)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true, "id": id})
 }
@@ -53,7 +53,7 @@ func (h *EOfficeHandler) UpdateTemplateGroup(c echo.Context) error {
 		if err == sql.ErrNoRows {
 			return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Grup template tidak ditemukan"})
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
@@ -64,7 +64,7 @@ func (h *EOfficeHandler) DeleteTemplateGroup(c echo.Context) error {
 		if err == sql.ErrNoRows {
 			return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Grup template tidak ditemukan"})
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
@@ -124,7 +124,7 @@ func (h *EOfficeHandler) GenerateGroupAndSubmit(c echo.Context) error {
 		
 		id, _, err := h.Repo.CreateSuratKeluar(sk)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+			return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 		}
 		generatedIds = append(generatedIds, id)
 	}

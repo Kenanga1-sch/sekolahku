@@ -24,7 +24,7 @@ func (h *LoanHandler) GetLoans(c echo.Context) error {
 
 	list, total, err := h.Repo.GetLoans(borrowerType, page, perPage)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	if page < 1 {
 		page = 1
@@ -41,7 +41,7 @@ func (h *LoanHandler) CreateLoan(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
 	}
 	if err := h.Repo.CreateLoan(req); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true, "message": "Pengajuan hutang berhasil dibuat"})
 }
@@ -54,7 +54,7 @@ func (h *LoanHandler) ApproveLoan(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
 	}
 	if err := h.Repo.ApproveLoan(id, req, userId); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "message": "Hutang disetujui & dana dicairkan"})
 }
@@ -67,7 +67,7 @@ func (h *LoanHandler) AddPayment(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
 	}
 	if err := h.Repo.AddPayment(id, req, userId); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "message": "Pembayaran berhasil dicatat"})
 }
@@ -77,7 +77,7 @@ func (h *LoanHandler) RejectLoan(c echo.Context) error {
 	var req struct{Reason string `json:"reason"`}
 	c.Bind(&req)
 	if err := h.Repo.RejectLoan(id, req.Reason); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "message": "Hutang ditolak"})
 }

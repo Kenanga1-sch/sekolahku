@@ -2,7 +2,6 @@
 "use client";
 
 import { useState } from "react";
-import * as XLSX from "xlsx";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,8 +33,9 @@ export function StudentImportDialog({ open, onOpenChange, onSuccess }: StudentIm
 
     const parseExcel = async (file: File) => {
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
             const data = e.target?.result;
+            const XLSX = await import("xlsx");
             const workbook = XLSX.read(data, { type: "binary", cellDates: true });
             const sheetName = workbook.SheetNames[0]; // First sheet
             const sheet = workbook.Sheets[sheetName];
@@ -110,7 +110,8 @@ export function StudentImportDialog({ open, onOpenChange, onSuccess }: StudentIm
         }
     };
 
-    const downloadTemplate = () => {
+    const downloadTemplate = async () => {
+        const XLSX = await import("xlsx");
         // Create dummy data
         const ws = XLSX.utils.json_to_sheet([
             { 

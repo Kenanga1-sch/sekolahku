@@ -83,92 +83,11 @@ import { showSuccess, showError } from "@/lib/toast";
 import { SPMBStatusBadge } from "@/components/spmb/status-badge";
 import { SPMBPromoteDialog } from "@/components/spmb/spmb-promote-dialog";
 import { ProcessAcceptanceDialog } from "@/components/spmb/process-acceptance-dialog";
-import { calculateSPMBDomisiliPriority, type SPMBAgeEligibility } from "@/lib/spmb-priority";
+import { calculateSPMBDomisiliPriority } from "@/lib/spmb-priority";
 import { useSortableData } from "@/hooks/use-sortable-data";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
-
-interface Registrant {
-    id: string;
-    registrationNumber: string;
-    fullName: string;
-    gender: "L" | "P";
-    distanceToSchool: number;
-    isInZone: boolean;
-    createdAt: string;
-    birthDate: string;
-    status: string;
-    priorityScore?: number;
-    ageEligibility?: SPMBAgeEligibility;
-    needsSpecialRecommendation?: boolean;
-    isAgeEligible?: boolean;
-    isWithinReceptionArea?: boolean;
-}
-
-interface Stats {
-  total: number;
-  pending: number;
-  verified: number;
-  accepted: number;
-  rejected: number;
-}
-
-interface Period {
-  id: string;
-  name: string;
-  academicYear?: string;
-  committeeName?: string;
-  startDate: string;
-  endDate: string;
-  status?: string;
-  quota: number;
-  isActive: boolean;
-  registered: number;
-}
-
-function getAgePriorityLabel(ageEligibility?: SPMBAgeEligibility) {
-  switch (ageEligibility) {
-    case "priority_7_plus":
-      return "Prioritas 7+";
-    case "eligible_6_plus":
-      return "Memenuhi";
-    case "conditional_5_6":
-      return "Butuh Rekomendasi";
-    case "ineligible":
-      return "Belum Memenuhi";
-    default:
-      return "-";
-  }
-}
-
-function getAgePriorityClass(ageEligibility?: SPMBAgeEligibility) {
-  switch (ageEligibility) {
-    case "priority_7_plus":
-      return "bg-green-100 text-green-800 border-green-200 hover:bg-green-100 dark:bg-green-950 dark:text-green-100 dark:border-green-800";
-    case "eligible_6_plus":
-      return "bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-100 dark:border-green-800";
-    case "conditional_5_6":
-      return "bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100 dark:bg-amber-950 dark:text-amber-100 dark:border-amber-800";
-    case "ineligible":
-      return "bg-red-100 text-red-800 border-red-200 hover:bg-red-100 dark:bg-red-950 dark:text-red-100 dark:border-red-800";
-    default:
-      return "";
-  }
-}
-
-function normalizePeriod(item: any): Period {
-  return {
-    id: item.id,
-    name: item.name || "-",
-    academicYear: item.academicYear || item.academic_year,
-    committeeName: item.committeeName || item.committee_name || "",
-    startDate: item.startDate,
-    endDate: item.endDate,
-    status: item.status,
-    quota: item.quota || 100,
-    isActive: Boolean(item.isActive ?? item.is_active ?? item.status === "active"),
-    registered: item.registered || 0,
-  };
-}
+import { normalizePeriod, getAgePriorityLabel, getAgePriorityClass } from "./types-spmb";
+import type { Registrant, SPMBStats as Stats, Period, GlobalSettings, SPMBRegistrantsResponse, SPMBStatsResponse } from "./types-spmb";
 
 export default function TabSPMB() {
   const searchParams = useSearchParams();
@@ -225,15 +144,15 @@ export default function TabSPMB() {
   });
 
   // Global settings
-  const [globalSettings, setGlobalSettings] = useState<any>(null);
+  const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(null);
   const [isGlobalLoading, setIsGlobalLoading] = useState(true);
 
   // Fetch school settings for max distance & global SPMB switch
   const fetchGlobalSettings = useCallback(async () => {
     setIsGlobalLoading(true);
     try {
-      const data: any = await goGet("/api/school-settings");
-      const settings = data?.data ?? data;
+      const data = await goGet<{ data?: GlobalSettings; [key: string]: unknown }>("/api/school-settings");
+      const settings: GlobalSettings | undefined = data?.data;
       if (settings) {
         setGlobalSettings(settings);
         if (settings.max_distance_km) {
@@ -253,9 +172,10 @@ export default function TabSPMB() {
     const next = { ...globalSettings, spmb_is_open: checked };
     setGlobalSettings(next);
     try {
-      const saved: any = await goPost("/api/school-settings", next);
-      const settings = saved?.data ?? saved;
-      setGlobalSettings(settings);
+      const saved = await goPost<{ data?: GlobalSettings; [key: string]: unknown }>("/api/school-settings", next);
+      if (saved.data) {
+        setGlobalSettings(saved.data);
+      }
       showSuccess(`Pendaftaran online ${checked ? 'dibuka' : 'ditutup'}`);
     } catch (e) {
       showError("Gagal mengubah status pendaftaran");
@@ -266,7 +186,7 @@ export default function TabSPMB() {
   const fetchPeriods = useCallback(async () => {
     setIsPeriodLoading(true);
     try {
-      const res: any = await goGet("/api/spmb/periods");
+      const res = await goGet<{ success?: boolean; data?: Record<string, unknown>[] }>("/api/spmb/periods");
       if (res.success) {
         const items = Array.isArray(res.data) ? res.data : [];
         setPeriods(items.map(normalizePeriod));
@@ -281,9 +201,9 @@ export default function TabSPMB() {
   // Fetch active period to set as default
   const fetchActivePeriod = useCallback(async () => {
     try {
-      const res: any = await goGet("/api/spmb/periods/active");
+      const res = await goGet<{ success?: boolean; period?: Record<string, unknown> }>("/api/spmb/periods/active");
       if (res.success && res.period) {
-        setSelectedPeriodId(res.period.id);
+        setSelectedPeriodId((res.period as Record<string, unknown>).id as string);
       } else {
         setSelectedPeriodId("all");
       }
@@ -314,12 +234,12 @@ export default function TabSPMB() {
             query.set("periodId", selectedPeriodId);
         }
 
-        const res: any = await goGet(`/api/spmb/registrants?${query.toString()}`);
+        const res = await goGet<SPMBRegistrantsResponse>(`/api/spmb/registrants?${query.toString()}`);
 
         if (res.success) {
             const items = Array.isArray(res.items) ? res.items : [];
             const referenceDate = new Date(new Date().getFullYear(), 6, 1);
-            const itemsWithPriority = items.map((r: any) => {
+            const itemsWithPriority = items.map((r) => {
                 const priority = calculateSPMBDomisiliPriority({
                     birthDate: r.birthDate,
                     distanceKm: r.distanceToSchool,
@@ -335,7 +255,7 @@ export default function TabSPMB() {
                     isAgeEligible: priority.isAgeEligible,
                     isWithinReceptionArea: priority.isWithinReceptionArea,
                 };
-            }).sort((a: any, b: any) => {
+            }).sort((a, b) => {
                 if (a.isWithinReceptionArea !== b.isWithinReceptionArea) {
                     return a.isWithinReceptionArea ? -1 : 1;
                 }
@@ -356,10 +276,10 @@ export default function TabSPMB() {
         }
 
         // Fetch stats
-        const statsQuery = selectedPeriodId && selectedPeriodId !== "all" 
-          ? `?periodId=${selectedPeriodId}` 
+        const statsQuery = selectedPeriodId && selectedPeriodId !== "all"
+          ? `?periodId=${selectedPeriodId}`
           : "";
-        const statsRes: any = await goGet(`/api/spmb/stats${statsQuery}`);
+        const statsRes = await goGet<SPMBStatsResponse>(`/api/spmb/stats${statsQuery}`);
         if (statsRes.success) {
             setStats({ total: 0, pending: 0, verified: 0, accepted: 0, rejected: 0, ...statsRes.data });
         }
@@ -715,11 +635,11 @@ export default function TabSPMB() {
                            if (selectedPeriodId && selectedPeriodId !== "all") {
                              query.set("periodId", selectedPeriodId);
                            }
-                           const res: any = await goGet(`/api/spmb/registrants?${query.toString()}`);
+                            const res = await goGet<SPMBRegistrantsResponse>(`/api/spmb/registrants?${query.toString()}`);
                            
-                           if (res.items) {
-                               await exportToExcel(res.items, "Data-Lengkap-PPDB");
-                           }
+                            if (res.items) {
+                                await exportToExcel(res.items as unknown as Parameters<typeof exportToExcel>[0], "Data-Lengkap-PPDB");
+                            }
                         } catch (e) {
                            console.error("Export failed", e);
                         } finally {
@@ -742,10 +662,10 @@ export default function TabSPMB() {
                          if (selectedPeriodId && selectedPeriodId !== "all") {
                            query.set("periodId", selectedPeriodId);
                          }
-                         const res: any = await goGet(`/api/spmb/registrants?${query.toString()}`);
-                         
-                         if (res.items) {
-                           await exportToPDF(res.items, "Data-Ringkas-PPDB");
+                          const res = await goGet<SPMBRegistrantsResponse>(`/api/spmb/registrants?${query.toString()}`);
+
+                          if (res.items) {
+                            await exportToPDF(res.items as unknown as Parameters<typeof exportToPDF>[0], "Data-Ringkas-PPDB");
                          }
                          } catch (e) {
                            console.error("Export failed", e);

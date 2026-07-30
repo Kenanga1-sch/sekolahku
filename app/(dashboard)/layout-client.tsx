@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
@@ -38,6 +38,7 @@ import {
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { getSchoolLogo } from "@/lib/school-logo";
+import { APP_VERSION } from "@/lib/api-client";
 import { resetAuthGuard } from "@/components/auth-guard";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types";
@@ -81,12 +82,14 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/surat": "Surat",
 };
 
+// Pre-compute sorted keys (longest first for prefix matching)
+const PAGE_TITLE_KEYS = Object.keys(PAGE_TITLES).sort((a, b) => b.length - a.length);
+
 function getPageTitle(pathname: string): string {
   // Exact match first
   if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
-  // Prefix match (longest match first)
-  const sorted = Object.keys(PAGE_TITLES).sort((a, b) => b.length - a.length);
-  for (const key of sorted) {
+  // Prefix match (using pre-sorted keys)
+  for (const key of PAGE_TITLE_KEYS) {
     if (pathname.startsWith(key)) return PAGE_TITLES[key];
   }
   return "Dashboard";
@@ -365,6 +368,11 @@ export default function DashboardLayoutClient({
                    </div>
                 ))
               )}
+              <div className="mt-auto pt-4 pb-2 px-2">
+                <span className="text-[10px] text-muted-foreground/30 font-mono tracking-widest select-none">
+                  {APP_VERSION}
+                </span>
+              </div>
             </div>
           </div>
         </SidebarBody>
@@ -435,8 +443,8 @@ export default function DashboardLayoutClient({
             </div>
           </header>
 
-         <main id="main-content" className="flex min-w-0 flex-1 flex-col gap-2 overflow-x-hidden px-3 pb-20 pt-2 sm:px-4 md:h-full md:overflow-y-auto md:rounded-tl-2xl md:px-5 md:pb-6 md:pt-4 lg:px-6 xl:px-8 print:h-auto print:overflow-visible">
-            {children}
+          <main id="main-content" className="flex min-w-0 flex-1 flex-col gap-2 overflow-x-hidden px-3 pb-20 pt-2 sm:px-4 md:h-full md:overflow-y-auto md:rounded-tl-2xl md:px-5 md:pb-6 md:pt-4 lg:px-6 xl:px-8 print:h-auto print:overflow-visible">
+            {isReallyMounted ? <React.Fragment key={pathname}>{children}</React.Fragment> : children}
          </main>
       </div>
 

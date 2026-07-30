@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Plus, Pencil, Trash2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,16 +46,16 @@ function AcademicYearsTab() {
     // Form State
     const [formData, setFormData] = useState({ name: "", semester: "Ganjil", startDate: "", endDate: "", isActive: false });
 
-    useEffect(() => { fetchData() }, []);
-
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             const results: any = await goGet("/api/academic/years");
             setData(results);
         } catch (e) {
             showError("Gagal memuat data");
         }
-    };
+    }, []);
+
+    useEffect(() => { fetchData(); }, [fetchData]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -201,15 +201,16 @@ function SubjectsTab() {
     const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState({ code: "", name: "", category: "UMUM", description: "" });
 
-    useEffect(() => { fetchData() }, []);
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             const results: any = await goGet("/api/academic/subjects");
             setData(results);
         } catch (e) {
             showError("Gagal memuat data");
         }
-    };
+    }, []);
+
+    useEffect(() => { fetchData(); }, [fetchData]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

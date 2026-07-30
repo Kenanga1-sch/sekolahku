@@ -2,7 +2,9 @@ package repository
 
 import (
 	"database/sql"
+	errlib "errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -207,12 +209,16 @@ func (r *MutasiRepository) UpdateMutasiRequestStatus(id string, status string, t
 			}
 
 			var existingID string
-			_ = tx.QueryRow("SELECT id FROM students WHERE nisn = ?", req.NISN).Scan(&existingID)
+			if err := tx.QueryRow("SELECT id FROM students WHERE nisn = ?", req.NISN).Scan(&existingID); err != nil && !errlib.Is(err, sql.ErrNoRows) {
+				log.Printf("ERROR checking existing student by NISN: %v", err)
+			}
 			if existingID == "" {
 				studentID := cuid2.Generate()
 				var className string
 				if classIDToUse != nil && *classIDToUse != "" {
-					_ = tx.QueryRow("SELECT name FROM student_classes WHERE id = ?", *classIDToUse).Scan(&className)
+					if err := tx.QueryRow("SELECT name FROM student_classes WHERE id = ?", *classIDToUse).Scan(&className); err != nil && !errlib.Is(err, sql.ErrNoRows) {
+						log.Printf("ERROR fetching class name: %v", err)
+					}
 				}
 
 				_, err = tx.Exec(`
@@ -478,7 +484,9 @@ func (r *MutasiRepository) UpdateMutasiOutStatus(id string, status string) error
 
 			var studentName, nisn, gender sql.NullString
 			var oldClassID, oldClassName sql.NullString
-			_ = tx.QueryRow("SELECT full_name, nisn, gender, class_id, class_name FROM students WHERE id = ?", studentID.String).Scan(&studentName, &nisn, &gender, &oldClassID, &oldClassName)
+			if err := tx.QueryRow("SELECT full_name, nisn, gender, class_id, class_name FROM students WHERE id = ?", studentID.String).Scan(&studentName, &nisn, &gender, &oldClassID, &oldClassName); err != nil && !errlib.Is(err, sql.ErrNoRows) {
+				log.Printf("ERROR fetching student for mutasi: %v", err)
+			}
 
 			if oldClassID.Valid && oldClassID.String != "" {
 				var grade int

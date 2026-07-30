@@ -149,7 +149,8 @@ func (h *AuthHandler) Logout(c echo.Context) error {
 		Value:    "",
 		Expires:  time.Now().Add(-1 * time.Hour),
 		Path:     "/",
-		HttpOnly: false,
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
 	})
 
 	return c.JSON(http.StatusOK, map[string]string{"message": "Logged out successfully"})

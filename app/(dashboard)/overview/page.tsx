@@ -25,6 +25,7 @@ export default function OverviewPage() {
       
       if (!infoCookie) {
         console.warn("No user_info cookie found, redirecting to login");
+        setIsLoading(false);
         router.push("/login?redirect=/overview");
         return;
       }
@@ -44,7 +45,7 @@ export default function OverviewPage() {
             ]);
             
             // Stats can be direct or wrapped in data
-            const statsData = (statsRes as any)?.data || statsRes;
+            const statsData = (statsRes as any)?.data || statsRes || {};
             const healthData = (healthRes as any)?.data || healthRes;
 
             setStats(statsData);
@@ -57,6 +58,7 @@ export default function OverviewPage() {
       } catch (err: any) {
         console.error("Dashboard fetch error:", err);
         setError(err.message || "Gagal memuat data Beranda");
+        setStats({});
       } finally {
         setIsLoading(false);
       }

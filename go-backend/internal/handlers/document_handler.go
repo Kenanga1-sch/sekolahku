@@ -57,7 +57,7 @@ func (h *DocumentHandler) Create(c echo.Context) error {
 	}
 
 	if err := h.Repo.Create(doc); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true, "data": doc})
 }
@@ -73,7 +73,7 @@ func (h *DocumentHandler) GetByID(c echo.Context) error {
 		if err == sql.ErrNoRows {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Dokumen tidak ditemukan"})
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": doc})
@@ -93,7 +93,7 @@ func (h *DocumentHandler) List(c echo.Context) error {
 
 	docs, total, err := h.Repo.List(page, limit, search, docType)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
@@ -117,7 +117,7 @@ func (h *DocumentHandler) Update(c echo.Context) error {
 		if err == sql.ErrNoRows {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Dokumen tidak ditemukan"})
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
 	// Verify ownership
@@ -148,7 +148,7 @@ func (h *DocumentHandler) Update(c echo.Context) error {
 	existing.UpdatedAt = time.Now().UnixMilli()
 
 	if err := h.Repo.Update(*existing); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": existing})
@@ -166,7 +166,7 @@ func (h *DocumentHandler) Delete(c echo.Context) error {
 		if err == sql.ErrNoRows {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Dokumen tidak ditemukan"})
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
 	// Verify ownership
@@ -178,7 +178,7 @@ func (h *DocumentHandler) Delete(c echo.Context) error {
 	// Delete from database
 	affected, err := h.Repo.Delete(id)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 	if affected == 0 {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Dokumen tidak ditemukan"})

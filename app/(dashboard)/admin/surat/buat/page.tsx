@@ -377,7 +377,7 @@ function LetterGeneratorContent() {
       }
 
       if (isMerging && buffers.length > 0) {
-        const mergedBlob = mergeDocxFiles(buffers);
+        const mergedBlob = await mergeDocxFiles(buffers);
         const fileName = `Batch_${creationMode === "GROUP" ? selectedGroup.name : selectedTemplate.name}_${format(new Date(), "yyyyMMdd")}.docx`;
         saveAs(mergedBlob, fileName);
         toast.success(`Berhasil mengunduh berkas gabungan (${fileCount} dokumen).`);

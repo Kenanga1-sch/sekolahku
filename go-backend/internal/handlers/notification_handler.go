@@ -27,7 +27,7 @@ func (h *NotificationHandler) GetNotifications(c echo.Context) error {
 
 	notifications, err := h.Repo.GetNotifications(userID, limit)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 
 	// The frontend expect an array directly in some places, or a wrapper.
@@ -39,7 +39,7 @@ func (h *NotificationHandler) GetStats(c echo.Context) error {
 	userID, _ := c.Get("user_id").(string)
 	stats, err := h.Repo.GetStats(userID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, stats)
 }
@@ -47,7 +47,7 @@ func (h *NotificationHandler) GetStats(c echo.Context) error {
 func (h *NotificationHandler) MarkAsRead(c echo.Context) error {
 	id := c.Param("id")
 	if err := h.Repo.MarkAsRead(id); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
@@ -55,7 +55,7 @@ func (h *NotificationHandler) MarkAsRead(c echo.Context) error {
 func (h *NotificationHandler) MarkAllAsRead(c echo.Context) error {
 	userID, _ := c.Get("user_id").(string)
 	if err := h.Repo.MarkAllAsRead(userID); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
@@ -66,7 +66,7 @@ func (h *NotificationHandler) CreateNotification(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
 	}
 	if err := h.Repo.CreateNotification(n); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true})
 }
@@ -77,7 +77,7 @@ func (h *NotificationHandler) BroadcastNotification(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
 	}
 	if err := h.Repo.BroadcastNotification(n); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true})
 }

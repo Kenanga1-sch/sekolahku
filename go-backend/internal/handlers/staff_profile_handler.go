@@ -49,7 +49,7 @@ func (h *StaffProfileHandler) GetProfiles(c echo.Context) error {
 	search := c.QueryParam("q")
 	profiles, err := h.Repo.GetProfiles(search)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, models.StaffProfileResponse{Data: profiles})
 }
@@ -65,7 +65,7 @@ func (h *StaffProfileHandler) CreateProfile(c echo.Context) error {
 
 	id, err := h.Repo.Create(p)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
 	middleware.CacheInvalidate("/api/public/staff")
@@ -91,7 +91,7 @@ func (h *StaffProfileHandler) UpdateProfile(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Staff tidak ditemukan"})
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
 	middleware.CacheInvalidate("/api/public/staff")
@@ -106,7 +106,7 @@ func (h *StaffProfileHandler) DeleteProfile(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Staff tidak ditemukan"})
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 	middleware.CacheInvalidate("/api/public/staff")
 	middleware.CacheInvalidate("/api/public/homepage")

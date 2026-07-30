@@ -43,14 +43,17 @@ export default function TabBendahara({ onChanged }: TabBendaharaProps) {
     const fetchData = useCallback(async () => {
         setIsLoading(true);
         try {
+            // Setiap fetch dibungkus try-catch individual agar satu gagal tidak menggagalkan semuanya
+            const safeCall = (fn: () => Promise<any>, fallback: any = null) => fn().catch((e) => { console.error(e); return fallback; });
+
             const [treasurerRes, classesRes, pendingRes, employeesRes, brankasRes, receivablesRes, payablesRes] = await Promise.all([
-                getSavingsTreasurer(),
-                getClassesWithReps(),
-                getPendingSetoran(),
-                getEmployees(),
-                getBrankasSummary(),
-                getLoans("RECEIVABLE"),
-                getLoans("PAYABLE")
+                safeCall(() => getSavingsTreasurer()),
+                safeCall(() => getClassesWithReps(), []),
+                safeCall(() => getPendingSetoran(), []),
+                safeCall(() => getEmployees(), []),
+                safeCall(() => getBrankasSummary(), emptyBrankasData),
+                safeCall(() => getLoans("RECEIVABLE"), []),
+                safeCall(() => getLoans("PAYABLE"), [])
             ]);
 
             setData({
@@ -65,6 +68,16 @@ export default function TabBendahara({ onChanged }: TabBendaharaProps) {
             if (onChanged) onChanged();
         } catch (err) {
             console.error("Fetch error:", err);
+            // Set data dengan fallback kosong agar tidak stuck di skeleton
+            setData({
+                treasurer: null,
+                classes: [],
+                pendingSetoran: [],
+                employees: [],
+                brankasData: emptyBrankasData,
+                receivables: [],
+                payables: []
+            });
         } finally {
             setIsLoading(false);
         }

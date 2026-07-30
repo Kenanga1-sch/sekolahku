@@ -43,7 +43,6 @@ export async function logAudit(
     note?: string
 ) {
     // Audit is mostly handled by backend now, but this can be used for explicit UI logs
-    console.debug("logAudit called", { action, entity, entityId, changes, note });
 }
 
 // Inventory Rooms
