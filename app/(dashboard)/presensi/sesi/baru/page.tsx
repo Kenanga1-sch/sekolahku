@@ -34,6 +34,11 @@ interface StaffOption {
 
 export default function BuatSesiPresensiPage() {
   const router = useRouter();
+
+  useEffect(() => {
+    router.replace("/presensi");
+  }, [router]);
+
   const [loading, setLoading] = useState(false);
   const [loadingInitial, setLoadingInitial] = useState(true);
   const [error, setError] = useState<string | null>(null);

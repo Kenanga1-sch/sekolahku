@@ -3,7 +3,6 @@ package repository
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -11,6 +10,14 @@ import (
 
 	"github.com/nrednav/cuid2"
 	"github.com/sekolahku/go-backend/internal/models"
+)
+
+var (
+	ErrHoliday          = errors.New("hari ini libur, presensi tidak tersedia")
+	ErrAlreadyRecorded  = errors.New("siswa sudah diabsen hari ini")
+	ErrStudentNotFound  = errors.New("siswa tidak ditemukan")
+	ErrNoClass          = errors.New("siswa belum memiliki kelas")
+	ErrInvalidStatus    = errors.New("status presensi tidak valid")
 )
 
 type AttendanceRepository struct {
@@ -42,7 +49,6 @@ func timeFromDB(value interface{}) *time.Time {
 	if value == nil {
 		return nil
 	}
-
 	switch v := value.(type) {
 	case int64:
 		return SafeTime(sql.NullInt64{Int64: v, Valid: true})
@@ -99,18 +105,16 @@ func (r *AttendanceRepository) GetStats() (*models.AttendanceStats, error) {
 	if err := r.DB.QueryRow("SELECT COUNT(*) FROM students WHERE status = 'active' OR is_active = 1").Scan(&stats.TotalStudents); err != nil {
 		return nil, err
 	}
-	if err := r.DB.QueryRow("SELECT COUNT(*) FROM attendance_sessions WHERE date = ? AND status = 'open'", today).Scan(&stats.OpenSessions); err != nil {
-		return nil, err
-	}
 
 	err := r.DB.QueryRow(`
 		SELECT
-			COUNT(CASE WHEN status = 'hadir' THEN 1 END),
-			COUNT(CASE WHEN status = 'sakit' THEN 1 END),
-			COUNT(CASE WHEN status = 'izin' THEN 1 END),
-			COUNT(CASE WHEN status = 'alpha' THEN 1 END)
-		FROM attendance_records
-		WHERE session_id IN (SELECT id FROM attendance_sessions WHERE date = ?)
+			COUNT(CASE WHEN ar.status = 'hadir' THEN 1 END),
+			COUNT(CASE WHEN ar.status = 'sakit' THEN 1 END),
+			COUNT(CASE WHEN ar.status = 'izin' THEN 1 END),
+			COUNT(CASE WHEN ar.status = 'alpha' THEN 1 END)
+		FROM attendance_records ar
+		JOIN attendance_sessions s ON ar.session_id = s.id
+		WHERE s.date = ?
 	`, today).Scan(&stats.Stats.Hadir, &stats.Stats.Sakit, &stats.Stats.Izin, &stats.Stats.Alpha)
 	if err != nil {
 		return nil, err
@@ -127,132 +131,73 @@ func (r *AttendanceRepository) GetStats() (*models.AttendanceStats, error) {
 	return &stats, nil
 }
 
-func (r *AttendanceRepository) GetSessions(date, status string, page, perPage int) ([]models.AttendanceSession, int, error) {
-	where := "1=1"
-	args := []interface{}{}
-
-	if date != "" {
-		where += " AND date = ?"
-		args = append(args, date)
-	}
-	if status != "" {
-		where += " AND status = ?"
-		args = append(args, status)
-	}
-
-	var total int
-	r.DB.QueryRow("SELECT COUNT(*) FROM attendance_sessions WHERE "+where, args...).Scan(&total)
-
-	if page < 1 {
-		page = 1
-	}
-	if perPage < 1 || perPage > 100 {
-		perPage = 20
-	}
-	offset := (page - 1) * perPage
-
-	listArgs := append(args, perPage, offset)
-	query := "SELECT id, date, COALESCE(class_id,''), class_name, COALESCE(academic_year,''), COALESCE(teacher_name, ''), status, COALESCE(notes, ''), created_at FROM attendance_sessions WHERE " + where + " ORDER BY date DESC, created_at DESC LIMIT ? OFFSET ?"
-
-	rows, err := r.DB.Query(query, listArgs...)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer rows.Close()
-
-	sessions := []models.AttendanceSession{}
-	for rows.Next() {
-		var s models.AttendanceSession
-		var crAt sql.NullInt64
-		if err := rows.Scan(&s.ID, &s.Date, &s.ClassID, &s.ClassName, &s.AcademicYear, &s.TeacherName, &s.Status, &s.Notes, &crAt); err != nil {
-			return nil, 0, err
-		}
-
-		cTime := ToTime(crAt)
-		s.CreatedAt = &cTime
-		_ = r.DB.QueryRow("SELECT COUNT(*) FROM attendance_records WHERE session_id = ?", s.ID).Scan(&s.RecordCount)
-		sessions = append(sessions, s)
-	}
-
-	return sessions, total, nil
+type DailyClassResult struct {
+	Date        string                       `json:"date"`
+	ClassName   string                       `json:"className"`
+	IsHoliday   bool                         `json:"isHoliday"`
+	HolidayReason string                     `json:"holidayReason,omitempty"`
+	Students    []models.Student             `json:"students"`
+	Records     []models.AttendanceRecord    `json:"records"`
 }
 
-func (r *AttendanceRepository) CreateSession(req models.CreateAttendanceSessionRequest) (string, error) {
-	className := strings.TrimSpace(req.ClassName)
-	if className == "" {
-		return "", errors.New("Kelas harus dipilih")
+func (r *AttendanceRepository) GetDailyClass(date, className string) (*DailyClassResult, error) {
+	if date == "" {
+		date = time.Now().Format("2006-01-02")
 	}
 
-	today := time.Now().Format("2006-01-02")
-	var existingID string
-	err := r.DB.QueryRow("SELECT id FROM attendance_sessions WHERE date = ? AND class_name = ?", today, className).Scan(&existingID)
-	if err == nil {
-		return existingID, errors.New("CONFLICT")
-	}
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return "", err
+	result := &DailyClassResult{
+		Date:      date,
+		ClassName: className,
 	}
 
-	id := cuid2.Generate()
-	now := time.Now().UnixMilli()
-	teacherName := strings.TrimSpace(req.TeacherName)
-	notes := strings.TrimSpace(req.Notes)
+	result.IsHoliday, result.HolidayReason = IsHoliday(date)
 
-	// Resolve class_id and academic_year from student_classes
-	classID := strings.TrimSpace(req.ClassID)
-	var academicYear string
-	if classID == "" && className != "" {
-		r.DB.QueryRow("SELECT id, academic_year FROM student_classes WHERE name = ?", className).Scan(&classID, &academicYear)
-	} else if classID != "" {
-		r.DB.QueryRow("SELECT academic_year FROM student_classes WHERE id = ?", classID).Scan(&academicYear)
-	}
-	if academicYear == "" {
-		// Fallback: get active academic year
-		var activeYear string
-		if err := r.DB.QueryRow("SELECT name FROM academic_years WHERE is_active = 1 LIMIT 1").Scan(&activeYear); err == nil {
-			academicYear = activeYear
-		}
+	if result.IsHoliday {
+		return result, nil
 	}
 
-	_, err = r.DB.Exec(`
-		INSERT INTO attendance_sessions (id, date, class_id, class_name, academic_year, teacher_name, status, notes, opened_at, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?)
-	`, id, today, classID, className, academicYear, teacherName, notes, now, now, now)
-
-	return id, err
-}
-
-func (r *AttendanceRepository) GetSessionByID(id string) (*models.AttendanceSession, error) {
-	var s models.AttendanceSession
-	var crAt, upAt, opAt, clAt sql.NullInt64
-	err := r.DB.QueryRow(`
-		SELECT id, date, COALESCE(class_id, ''), class_name, COALESCE(academic_year, ''), COALESCE(teacher_name, ''), status, COALESCE(notes, ''), opened_at, closed_at, created_at, updated_at
-		FROM attendance_sessions
-		WHERE id = ?
-	`, id).Scan(&s.ID, &s.Date, &s.ClassID, &s.ClassName, &s.AcademicYear, &s.TeacherName, &s.Status, &s.Notes, &opAt, &clAt, &crAt, &upAt)
+	sRows, err := r.DB.Query(`
+		SELECT id, full_name, nis, nisn, photo, class_name
+		FROM students
+		WHERE class_name = ? AND (status = 'active' OR is_active = 1)
+		ORDER BY full_name ASC
+	`, className)
 	if err != nil {
 		return nil, err
 	}
+	defer sRows.Close()
 
-	cTime := ToTime(crAt)
-	s.CreatedAt = &cTime
-	uTime := ToTime(upAt)
-	s.UpdatedAt = &uTime
-	if opAt.Valid {
-		s.OpenedAt = SafeTime(opAt)
-	}
-	if clAt.Valid {
-		s.ClosedAt = SafeTime(clAt)
+	for sRows.Next() {
+		var student models.Student
+		var nis, nisn, photo, clsName sql.NullString
+		if err := sRows.Scan(&student.ID, &student.FullName, &nis, &nisn, &photo, &clsName); err != nil {
+			return nil, err
+		}
+		if nis.Valid {
+			student.NIS = &nis.String
+		}
+		if nisn.Valid {
+			student.NISN = &nisn.String
+		}
+		if photo.Valid {
+			student.Photo = &photo.String
+		}
+		if clsName.Valid {
+			student.ClassName = &clsName.String
+		}
+		result.Students = append(result.Students, student)
 	}
 
+	// Get records for this date and class via session
 	rows, err := r.DB.Query(`
 		SELECT ar.id, ar.session_id, ar.student_id, ar.status, ar.check_in_time, COALESCE(ar.recorded_by, ''), ar.record_method, ar.notes,
-		       ar.created_at, ar.updated_at, s.full_name, s.nis, s.nisn, s.photo, s.class_name
+			   ar.created_at, ar.updated_at, s.full_name, s.nis, s.nisn, s.photo, s.class_name
 		FROM attendance_records ar
+		JOIN attendance_sessions asess ON ar.session_id = asess.id
 		JOIN students s ON ar.student_id = s.id
-		WHERE ar.session_id = ?
+		WHERE asess.date = ? AND asess.class_name = ?
 		ORDER BY ar.created_at DESC
-	`, id)
+	`, date, className)
 	if err != nil {
 		return nil, err
 	}
@@ -262,15 +207,14 @@ func (r *AttendanceRepository) GetSessionByID(id string) (*models.AttendanceSess
 		var rec models.AttendanceRecord
 		var student models.Student
 		var checkInRaw interface{}
-		var notes, nis, nisn, photo, className sql.NullString
+		var notes, nis, nisn, photo, clsName sql.NullString
 		var cr, up sql.NullInt64
 		if err := rows.Scan(
 			&rec.ID, &rec.SessionID, &rec.StudentID, &rec.Status, &checkInRaw, &rec.RecordedBy, &rec.RecordMethod, &notes,
-			&cr, &up, &student.FullName, &nis, &nisn, &photo, &className,
+			&cr, &up, &student.FullName, &nis, &nisn, &photo, &clsName,
 		); err != nil {
 			return nil, err
 		}
-
 		rec.CheckInTime = timeFromDB(checkInRaw)
 		if notes.Valid {
 			rec.Notes = &notes.String
@@ -287,129 +231,70 @@ func (r *AttendanceRepository) GetSessionByID(id string) (*models.AttendanceSess
 		if photo.Valid {
 			student.Photo = &photo.String
 		}
-		if className.Valid {
-			student.ClassName = &className.String
+		if clsName.Valid {
+			student.ClassName = &clsName.String
 		}
-
 		rec.Student = &student
-		s.Records = append(s.Records, rec)
+		result.Records = append(result.Records, rec)
 	}
 
-	sRows, err := r.DB.Query(`
-		SELECT id, full_name, nis, nisn, photo, class_name
-		FROM students
-		WHERE class_name = ? AND (status = 'active' OR is_active = 1)
-		ORDER BY full_name ASC
-	`, s.ClassName)
-	if err != nil {
-		return nil, err
+	if result.Students == nil {
+		result.Students = []models.Student{}
 	}
-	defer sRows.Close()
-
-	for sRows.Next() {
-		var student models.Student
-		var nis, nisn, photo, className sql.NullString
-		if err := sRows.Scan(&student.ID, &student.FullName, &nis, &nisn, &photo, &className); err != nil {
-			return nil, err
-		}
-		if nis.Valid {
-			student.NIS = &nis.String
-		}
-		if nisn.Valid {
-			student.NISN = &nisn.String
-		}
-		if photo.Valid {
-			student.Photo = &photo.String
-		}
-		if className.Valid {
-			student.ClassName = &className.String
-		}
-		s.AllStudents = append(s.AllStudents, student)
+	if result.Records == nil {
+		result.Records = []models.AttendanceRecord{}
 	}
 
-	s.RecordCount = len(s.Records)
-	return &s, nil
+	return result, nil
 }
 
-func (r *AttendanceRepository) UpdateSessionStatus(id, status string) error {
-	status = strings.ToLower(strings.TrimSpace(status))
-	if status != "open" && status != "closed" {
-		return errors.New("Status sesi tidak valid")
+func (r *AttendanceRepository) ensureSession(tx *sql.Tx, date, className string) (string, error) {
+	var id string
+	err := tx.QueryRow("SELECT id FROM attendance_sessions WHERE date = ? AND class_name = ?", date, className).Scan(&id)
+	if err == nil {
+		return id, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return "", err
 	}
 
-	tx, err := r.DB.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	var className, currentStatus string
-	err = tx.QueryRow("SELECT class_name, status FROM attendance_sessions WHERE id = ?", id).Scan(&className, &currentStatus)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return errors.New("Sesi tidak ditemukan")
+	// Resolve class_id and academic_year
+	var classID, academicYear string
+	tx.QueryRow("SELECT id, academic_year FROM student_classes WHERE name = ?", className).Scan(&classID, &academicYear)
+	if academicYear == "" {
+		var activeYear string
+		if err := tx.QueryRow("SELECT name FROM academic_years WHERE is_active = 1 LIMIT 1").Scan(&activeYear); err == nil {
+			academicYear = activeYear
 		}
-		return err
 	}
 
+	id = cuid2.Generate()
 	now := time.Now().UnixMilli()
-	if status == "closed" {
-		if currentStatus == "closed" {
-			return tx.Commit()
-		}
-		if err := r.markMissingStudentsAlpha(tx, id, className, now); err != nil {
-			return err
-		}
-		_, err = tx.Exec("UPDATE attendance_sessions SET status = ?, closed_at = ?, updated_at = ? WHERE id = ?", status, now, now, id)
-	} else {
-		_, err = tx.Exec("UPDATE attendance_sessions SET status = ?, closed_at = NULL, updated_at = ? WHERE id = ?", status, now, id)
-	}
-	if err != nil {
-		return err
-	}
+	_, err = tx.Exec(`
+		INSERT INTO attendance_sessions (id, date, class_id, class_name, academic_year, status, opened_at, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, 'open', ?, ?, ?)
+	`, id, date, classID, className, academicYear, now, now, now)
 
-	return tx.Commit()
+	return id, err
 }
 
-func (r *AttendanceRepository) markMissingStudentsAlpha(tx *sql.Tx, sessionID, className string, now int64) error {
-	rows, err := tx.Query(`
-		SELECT s.id
-		FROM students s
-		WHERE s.class_name = ? AND (s.status = 'active' OR s.is_active = 1)
-		  AND NOT EXISTS (
-			SELECT 1 FROM attendance_records ar
-			WHERE ar.session_id = ? AND ar.student_id = s.id
-		  )
-	`, className, sessionID)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var studentID string
-		if err := rows.Scan(&studentID); err != nil {
-			return err
-		}
-		_, err = tx.Exec(`
-			INSERT INTO attendance_records (id, session_id, student_id, status, check_in_time, recorded_by, record_method, created_at, updated_at)
-			VALUES (?, ?, ?, 'alpha', NULL, 'system', 'manual', ?, ?)
-		`, cuid2.Generate(), sessionID, studentID, now, now)
-		if err != nil {
-			return err
-		}
-	}
-
-	return rows.Err()
-}
-
-func (r *AttendanceRepository) RecordManual(req models.AttendanceManualRequest) error {
+func (r *AttendanceRepository) RecordManualV2(req models.AttendanceManualRequestV2) error {
 	status := normalizeAttendanceStatus(req.Status)
 	if !isValidAttendanceStatus(status) {
-		return errors.New("Status presensi tidak valid")
+		return ErrInvalidStatus
 	}
-	if strings.TrimSpace(req.SessionID) == "" || strings.TrimSpace(req.StudentID) == "" {
-		return errors.New("Sesi dan siswa harus diisi")
+	date := strings.TrimSpace(req.Date)
+	if date == "" {
+		date = time.Now().Format("2006-01-02")
+	}
+	className := strings.TrimSpace(req.ClassName)
+	studentID := strings.TrimSpace(req.StudentID)
+	if className == "" || studentID == "" {
+		return errors.New("kelas dan siswa harus diisi")
+	}
+
+	if isHoliday, _ := IsHoliday(date); isHoliday {
+		return ErrHoliday
 	}
 
 	tx, err := r.DB.Begin()
@@ -418,26 +303,22 @@ func (r *AttendanceRepository) RecordManual(req models.AttendanceManualRequest) 
 	}
 	defer tx.Rollback()
 
-	sessionClass, err := validateOpenSession(tx, req.SessionID)
+	sessionID, err := r.ensureSession(tx, date, className)
 	if err != nil {
 		return err
-	}
-	if err := validateStudentForSession(tx, req.StudentID, sessionClass); err != nil {
-		return err
-	}
-
-	now := time.Now().UnixMilli()
-	checkInTime := interface{}(now)
-	if status == "alpha" {
-		checkInTime = nil
 	}
 
 	var existingID string
-	err = tx.QueryRow("SELECT id FROM attendance_records WHERE session_id = ? AND student_id = ?", req.SessionID, req.StudentID).Scan(&existingID)
+	err = tx.QueryRow("SELECT id FROM attendance_records WHERE session_id = ? AND student_id = ?", sessionID, studentID).Scan(&existingID)
 	if err == nil {
+		now := time.Now().UnixMilli()
+		checkInTime := interface{}(now)
+		if status == "alpha" {
+			checkInTime = nil
+		}
 		_, err = tx.Exec(`
 			UPDATE attendance_records
-			SET status = ?, check_in_time = ?, recorded_by = 'admin', record_method = 'manual', updated_at = ?
+			SET status = ?, check_in_time = ?, updated_at = ?
 			WHERE id = ?
 		`, status, checkInTime, now, existingID)
 		if err != nil {
@@ -449,10 +330,15 @@ func (r *AttendanceRepository) RecordManual(req models.AttendanceManualRequest) 
 		return err
 	}
 
+	now := time.Now().UnixMilli()
+	checkInTime := interface{}(now)
+	if status == "alpha" {
+		checkInTime = nil
+	}
 	_, err = tx.Exec(`
 		INSERT INTO attendance_records (id, session_id, student_id, status, check_in_time, recorded_by, record_method, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, 'admin', 'manual', ?, ?)
-	`, cuid2.Generate(), req.SessionID, req.StudentID, status, checkInTime, now, now)
+	`, cuid2.Generate(), sessionID, studentID, status, checkInTime, now, now)
 	if err != nil {
 		return err
 	}
@@ -460,52 +346,20 @@ func (r *AttendanceRepository) RecordManual(req models.AttendanceManualRequest) 
 	return tx.Commit()
 }
 
-func validateOpenSession(tx *sql.Tx, sessionID string) (string, error) {
-	var className, status string
-	err := tx.QueryRow("SELECT class_name, status FROM attendance_sessions WHERE id = ?", sessionID).Scan(&className, &status)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return "", errors.New("Sesi tidak ditemukan")
-		}
-		return "", err
-	}
-	if status != "open" {
-		return "", errors.New("Sesi presensi sudah ditutup")
-	}
-	return className, nil
-}
-
-func validateStudentForSession(tx *sql.Tx, studentID, sessionClass string) error {
-	var className string
-	err := tx.QueryRow(`
-		SELECT COALESCE(class_name, '')
-		FROM students
-		WHERE id = ? AND (status = 'active' OR is_active = 1)
-	`, studentID).Scan(&className)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return errors.New("Siswa tidak ditemukan")
-		}
-		return err
-	}
-	if strings.TrimSpace(className) == "" {
-		return errors.New("Siswa belum memiliki kelas")
-	}
-	if className != sessionClass {
-		return fmt.Errorf("Siswa berada di kelas %s, bukan kelas %s", className, sessionClass)
-	}
-	return nil
-}
-
-func (r *AttendanceRepository) RecordQRScan(req models.AttendanceScanRequest) (*models.ScanResult, error) {
+func (r *AttendanceRepository) RecordQRScanV2(req models.AttendanceScanRequest) (*models.ScanResult, error) {
 	status := normalizeAttendanceStatus(req.Status)
 	if !isValidAttendanceStatus(status) {
-		return nil, errors.New("Status presensi tidak valid")
+		return nil, ErrInvalidStatus
 	}
 
 	qrCode := strings.TrimSpace(req.QRCode)
 	if qrCode == "" {
 		return nil, errors.New("QR code kosong")
+	}
+
+	date := time.Now().Format("2006-01-02")
+	if isHoliday, _ := IsHoliday(date); isHoliday {
+		return nil, ErrHoliday
 	}
 
 	tx, err := r.DB.Begin()
@@ -523,35 +377,23 @@ func (r *AttendanceRepository) RecordQRScan(req models.AttendanceScanRequest) (*
 		  AND (status = 'active' OR is_active = 1)
 	`, qrCode, qrCode, qrCode, qrCode).Scan(&studentID, &studentName, &className, &photo)
 	if err != nil {
-		return nil, errors.New("Siswa tidak ditemukan")
+		return nil, ErrStudentNotFound
 	}
 	if strings.TrimSpace(className) == "" {
-		return nil, errors.New("Siswa belum memiliki kelas")
+		return nil, ErrNoClass
 	}
 
 	studentPayload := attendanceStudentPayload(studentID, studentName, className, photo)
-	sessionID := ""
-	if req.SessionID != nil && strings.TrimSpace(*req.SessionID) != "" {
-		sessionID = strings.TrimSpace(*req.SessionID)
-		sessionClass, err := validateOpenSession(tx, sessionID)
-		if err != nil {
-			return nil, err
-		}
-		if sessionClass != className {
-			return &models.ScanResult{Student: studentPayload}, fmt.Errorf("Siswa berada di kelas %s, bukan kelas %s", className, sessionClass)
-		}
-	} else {
-		today := time.Now().Format("2006-01-02")
-		err = tx.QueryRow("SELECT id FROM attendance_sessions WHERE date = ? AND class_name = ? AND status = 'open'", today, className).Scan(&sessionID)
-		if err != nil {
-			return &models.ScanResult{Student: studentPayload}, errors.New("Tidak ada sesi aktif untuk kelas ini")
-		}
+
+	sessionID, err := r.ensureSession(tx, date, className)
+	if err != nil {
+		return nil, err
 	}
 
 	var existingID string
 	err = tx.QueryRow("SELECT id FROM attendance_records WHERE session_id = ? AND student_id = ?", sessionID, studentID).Scan(&existingID)
 	if err == nil {
-		return &models.ScanResult{Student: studentPayload}, errors.New("Siswa sudah diabsen")
+		return &models.ScanResult{Student: studentPayload}, ErrAlreadyRecorded
 	}
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
@@ -681,7 +523,6 @@ func (r *AttendanceRepository) GetAttendanceReport(startDate, endDate, className
 	return report, nil
 }
 
-// GetStudentAttendanceSummary computes hadir/sakit/izin/alpha per academic year for a student
 func (r *AttendanceRepository) GetStudentAttendanceSummary(studentID string) ([]models.StudentAttendanceSummary, error) {
 	rows, err := r.DB.Query(`
 		SELECT COALESCE(s.academic_year, ''), ar.status, COUNT(*)

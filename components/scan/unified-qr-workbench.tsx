@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import {
   ArrowLeft,
@@ -51,15 +50,6 @@ type AttendanceStatus =
   | "no-session"
   | "not-found"
   | "error";
-
-interface AttendanceSession {
-  id: string;
-  date: string;
-  className: string;
-  teacherName?: string;
-  status: "open" | "closed";
-  recordCount?: number;
-}
 
 interface AttendanceStudent {
   id: string;
@@ -162,14 +152,10 @@ export function UnifiedQRWorkbench({
   description = "Satu tempat scan untuk mencatat kehadiran dan setoran tabungan tanpa keluar dari layar antrean.",
   variant = "default",
 }: UnifiedQRWorkbenchProps) {
-  const searchParams = useSearchParams();
   const { user } = useAuthStore();
 
   const [scanMode, setScanMode] = useState<ScanMode>("camera");
   const [phase, setPhase] = useState<WorkPhase>("ready");
-  const [sessions, setSessions] = useState<AttendanceSession[]>([]);
-  const [selectedSession, setSelectedSession] = useState("");
-  const [loadingSessions, setLoadingSessions] = useState(true);
   const [currentScan, setCurrentScan] = useState<CurrentScan | null>(null);
   const [manualCode, setManualCode] = useState("");
   const [nominal, setNominal] = useState("");
@@ -183,11 +169,6 @@ export function UnifiedQRWorkbench({
   const nominalInputRef = useRef<HTMLInputElement>(null);
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastScanRef = useRef<{ code: string; at: number } | null>(null);
-
-  const selectedSessionDetail = useMemo(
-    () => sessions.find((session) => session.id === selectedSession),
-    [selectedSession, sessions]
-  );
 
   const scannerActive = scanMode === "camera" && (phase === "ready" || phase === "awaitingSavings");
   const hasSavingsAccount = Boolean(currentScan?.savingsAccount);
@@ -310,36 +291,6 @@ export function UnifiedQRWorkbench({
   }, [phase, playBeep]);
 
   useEffect(() => {
-    const fetchSessions = async () => {
-      setLoadingSessions(true);
-      try {
-        const today = format(new Date(), "yyyy-MM-dd");
-        const response = await goGet(`/api/attendance/sessions?date=${today}&status=open`);
-        const data = toArray<AttendanceSession>(response);
-        setSessions(data);
-
-        const requestedSession = searchParams.get("sessionId");
-        const requestedExists = data.some((session) => session.id === requestedSession);
-        if (requestedSession && requestedExists) {
-          setSelectedSession(requestedSession);
-        } else if (data.length > 0) {
-          setSelectedSession(data[0].id);
-        } else {
-          setSelectedSession("");
-        }
-      } catch {
-        showError("Gagal memuat sesi presensi");
-        setSessions([]);
-        setSelectedSession("");
-      } finally {
-        setLoadingSessions(false);
-      }
-    };
-
-    fetchSessions();
-  }, [searchParams]);
-
-  useEffect(() => {
     if (phase === "awaitingSavings" && currentScan?.savingsAccount) {
       requestAnimationFrame(() => nominalInputRef.current?.focus());
     }
@@ -367,10 +318,6 @@ export function UnifiedQRWorkbench({
       status: "hadir",
       recordedBy: user?.id || "scanner",
     };
-
-    if (selectedSession) {
-      payload.sessionId = selectedSession;
-    }
 
     try {
       const response = await goPost("/api/attendance/scan", payload);
@@ -422,7 +369,7 @@ export function UnifiedQRWorkbench({
         student,
       };
     }
-  }, [selectedSession, user?.id]);
+  }, [user?.id]);
 
   const processQrCode = useCallback(
     async (rawCode: string) => {
@@ -689,43 +636,19 @@ export function UnifiedQRWorkbench({
           {/* Left Side: Scanner & Sesi */}
           <div className="flex min-w-0 flex-col gap-3">
             <div className={cn(
-              "flex flex-col gap-2 rounded-lg border border-slate-200 bg-white dark:bg-slate-900 p-3 sm:flex-row sm:items-end shadow-sm",
+              "flex flex-col gap-2 rounded-lg border border-slate-200 bg-white dark:bg-slate-900 p-3 shadow-sm",
               variant === "tabungan" && "hidden md:flex"
             )}>
               <div className="min-w-0 flex-1">
-                <Label className="text-xs font-semibold text-slate-500">Sesi Presensi Aktif Hari Ini</Label>
-                <Select
-                  value={selectedSession || "auto"}
-                  onValueChange={(value) => setSelectedSession(value === "auto" ? "" : value)}
-                  disabled={loadingSessions}
-                >
-                  <SelectTrigger className="mt-1 w-full bg-slate-50/50 hover:bg-slate-50 border-slate-200">
-                    <SelectValue placeholder="Pilih sesi" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="auto">Deteksi Otomatis dari Rombel Siswa</SelectItem>
-                    {sessions.map((session) => (
-                      <SelectItem key={session.id} value={session.id}>
-                        Kelas {session.className} - {session.date}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label className="text-xs font-semibold text-slate-500">Presensi Harian</Label>
+                <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                  Kelas dideteksi otomatis dari rombel siswa saat scan. Kehadiran dicatat untuk hari ini.
+                </p>
               </div>
               <Button asChild variant="outline" className="w-full sm:w-auto border-slate-200 hover:bg-slate-50">
-                <Link href="/presensi/sesi/baru">Buat Sesi</Link>
+                <Link href="/presensi">Buka Presensi</Link>
               </Button>
             </div>
-
-            {!loadingSessions && sessions.length === 0 && (
-              <Alert className="border-amber-200 bg-amber-50/60 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
-                <ShieldAlert className="h-4 w-4 text-amber-600" />
-                <AlertTitle className="font-semibold">Sesi Presensi Belum Dibuka</AlertTitle>
-                <AlertDescription className="text-xs">
-                  Scan QR tetap bisa memproses setoran tabungan. Untuk mencatat kehadiran (hadir) secara otomatis, silakan buat/buka sesi presensi rombel kelas terlebih dahulu.
-                </AlertDescription>
-              </Alert>
-            )}
 
             <div className="rounded-lg border border-slate-800 bg-slate-950 p-4 relative overflow-hidden">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -1048,12 +971,6 @@ export function UnifiedQRWorkbench({
           </div>
         </CardContent>
       </Card>
-
-      {selectedSessionDetail && (
-        <p className="text-center text-xs text-muted-foreground border border-slate-200/50 bg-slate-50/30 p-2 rounded-lg">
-          Catatan: Presensi dicatat ke rombel kelas <span className="font-semibold">{selectedSessionDetail.className}</span>. Jika siswa rombel lain di-scan, presensi tidak tercatat di sesi ini namun transaksi setoran tabungan tetap diproses bila rekeningnya aktif.
-        </p>
-      )}
     </div>
   );
 }

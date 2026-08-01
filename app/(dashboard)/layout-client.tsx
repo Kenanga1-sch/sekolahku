@@ -73,7 +73,6 @@ const PAGE_TITLES: Record<string, string> = {
   "/arsip": "E-Arsip",
   "/tabungan": "Tabungan",
   "/admin/master/gtk": "Direktori GTK",
-  "/admin/akademik": "Akademik",
   "/admin/siswa": "Manajemen Siswa",
   "/presensi": "Presensi",
   "/admin/konten-informasi": "Informasi",
@@ -241,15 +240,14 @@ export default function DashboardLayoutClient({
     setMounted(true);
   }, []);
 
-  const isReallyMounted = mounted && !authLoading;
-  const rawRole = isReallyMounted ? (user?.role || (user as any)?.Role || null) : null;
+  const rawRole = mounted && !authLoading ? (user?.role || (user as any)?.Role || null) : null;
   // Normalize role to lowercase
   const normalizedRaw = typeof rawRole === "string" ? rawRole.toLowerCase() : null;
   
   const filteredNav = normalizedRaw ? filterNavByRole(navGroups, normalizedRaw as UserRole) : [];
-  const displayName = isReallyMounted && user?.name ? user.name : "Admin";
-  const displayInitials = isReallyMounted && user?.name ? user.name.substring(0, 2).toUpperCase() : "A";
-  const userImage = isReallyMounted && user?.image
+  const displayName = mounted && !authLoading && user?.name ? user.name : "Admin";
+  const displayInitials = mounted && !authLoading && user?.name ? user.name.substring(0, 2).toUpperCase() : "A";
+  const userImage = mounted && !authLoading && user?.image
     ? (user.image.startsWith("http") || user.image.startsWith("/") ? user.image : `/uploads/${user.image}`)
     : `https://api.dicebear.com/7.x/avataaars/svg?seed=${displayName}`;
   
@@ -300,7 +298,7 @@ export default function DashboardLayoutClient({
              
               {/* Nav Links */}
             <div className="mt-6 md:mt-8 flex flex-col gap-2 flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
-              {!isReallyMounted ? (
+              {!(mounted && !authLoading) ? (
                 // Loading Skeletons for Sidebar
                 <div className="flex flex-col gap-4 px-2">
                    {[1, 2, 3].map((i) => (
@@ -369,7 +367,7 @@ export default function DashboardLayoutClient({
                 ))
               )}
               <div className="mt-auto pt-4 pb-2 px-2">
-                <span className="text-[10px] text-muted-foreground/30 font-mono tracking-widest select-none">
+                <span className="text-[10px] text-muted-foreground/30 font-mono tracking-widest select-none print:hidden">
                   {APP_VERSION}
                 </span>
               </div>
@@ -444,7 +442,7 @@ export default function DashboardLayoutClient({
           </header>
 
           <main id="main-content" className="flex min-w-0 flex-1 flex-col gap-2 overflow-x-hidden px-3 pb-20 pt-2 sm:px-4 md:h-full md:overflow-y-auto md:rounded-tl-2xl md:px-5 md:pb-6 md:pt-4 lg:px-6 xl:px-8 print:h-auto print:overflow-visible">
-            {isReallyMounted ? <React.Fragment key={pathname}>{children}</React.Fragment> : children}
+            <React.Fragment key={pathname}>{children}</React.Fragment>
          </main>
       </div>
 

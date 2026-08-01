@@ -11,11 +11,11 @@ import {
   Users,
   CheckCircle,
   Clock,
-  Plus,
   CalendarDays,
   TrendingUp,
   ClipboardList,
   AlertCircle,
+  ChevronRight,
 } from "lucide-react";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
@@ -23,7 +23,6 @@ import { goGet } from "@/lib/api-client";
 
 interface Stats {
   totalStudents: number;
-  openSessions: number;
   stats: {
     hadir: number;
     sakit: number;
@@ -34,34 +33,34 @@ interface Stats {
   };
 }
 
-interface Session {
+interface ClassItem {
   id: string;
-  date: string;
-  className: string;
-  teacherName: string | null;
-  status: "open" | "closed";
-  recordCount: number;
-}
-
-function unwrapData<T>(response: any): T {
-  return (response?.data ?? response) as T;
+  name: string;
+  teacherName?: string | null;
 }
 
 export default function PresensiDashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
-  const [sessions, setSessions] = useState<Session[]>([]);
+  const [classes, setClasses] = useState<ClassItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isHoliday, setIsHoliday] = useState(false);
+  const [holidayReason, setHolidayReason] = useState("");
+
+  const todayStr = format(new Date(), "yyyy-MM-dd");
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [statsData, sessionsData] = await Promise.all([
+        const [statsData, classesData, holidayData]: [any, any, any] = await Promise.all([
           goGet("/api/attendance/stats"),
-          goGet("/api/attendance/sessions?date=" + format(new Date(), "yyyy-MM-dd")),
+          goGet("/api/classes"),
+          goGet(`/api/attendance/holiday?date=${todayStr}`),
         ]);
 
-        setStats(unwrapData<Stats>(statsData));
-        setSessions(unwrapData<Session[]>(sessionsData));
+        setStats(statsData?.data ?? statsData);
+        setClasses(classesData?.data ?? classesData ?? []);
+        setIsHoliday(holidayData?.isHoliday || false);
+        setHolidayReason(holidayData?.reason || "");
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
@@ -70,9 +69,7 @@ export default function PresensiDashboardPage() {
     };
 
     fetchData();
-  }, []);
-
-  const today = new Date();
+  }, [todayStr]);
 
   if (loading) {
     return (
@@ -98,14 +95,25 @@ export default function PresensiDashboardPage() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
             <ClipboardList className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-            Presensi Siswa
+            Presensi Siswa Harian
           </h1>
           <p className="text-muted-foreground text-sm">
-            {format(today, "EEEE, d MMMM yyyy", { locale: localeId })}
+            {format(new Date(), "EEEE, d MMMM yyyy", { locale: localeId })}
           </p>
         </div>
-
       </div>
+
+      {isHoliday && (
+        <Card className="border-yellow-300 bg-yellow-50">
+          <CardContent className="py-4 flex items-center gap-3 text-yellow-800">
+            <AlertCircle className="h-6 w-6 flex-shrink-0" />
+            <div>
+              <p className="font-semibold">Hari Ini Libur</p>
+              <p className="text-sm">{holidayReason}. Presensi otomatis dinonaktifkan untuk hari ini.</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -172,41 +180,27 @@ export default function PresensiDashboardPage() {
         </Card>
       </div>
 
-      {/* Active Sessions */}
+      {/* Class List for Attendance */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Sesi Presensi Hari Ini</CardTitle>
-              <CardDescription>
-                {stats?.openSessions || 0} sesi aktif
-              </CardDescription>
-            </div>
-            <Link href="/presensi/sesi/baru">
-              <Button variant="outline" size="sm">
-                <Plus className="h-4 w-4 mr-1" />
-                Buat Sesi
-              </Button>
-            </Link>
+          <CardHeader>
+            <CardTitle>Pilih Kelas Hari Ini</CardTitle>
+            <CardDescription>
+              Klik kelas untuk membuka lembar absensi harian
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            {sessions.length === 0 ? (
+            {classes.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <CalendarDays className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>Belum ada sesi presensi hari ini</p>
-                <Link href="/presensi/sesi/baru">
-                  <Button className="mt-4" variant="outline">
-                    <Plus className="h-4 w-4 mr-1" />
-                    Buat Sesi Baru
-                  </Button>
-                </Link>
+                <p>Belum ada data rombel kelas</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {sessions.map((session) => (
+                {classes.map((cls) => (
                   <Link
-                    key={session.id}
-                    href={`/presensi/sesi/detail?id=${session.id}`}
+                    key={cls.name || cls.id}
+                    href={`/presensi/sesi/detail?class=${encodeURIComponent(cls.name)}&date=${todayStr}`}
                     className="block"
                   >
                     <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
@@ -215,26 +209,13 @@ export default function PresensiDashboardPage() {
                           <Users className="h-5 w-5 text-primary" />
                         </div>
                         <div>
-                          <p className="font-medium">Kelas {session.className}</p>
+                          <p className="font-medium">Kelas {cls.name}</p>
                           <p className="text-sm text-muted-foreground">
-                            {session.teacherName || "Guru wali kelas"}
+                            {cls.teacherName || "Wali Kelas"}
                           </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <Badge
-                          className={
-                            session.status === "open"
-                              ? "bg-green-100 text-green-700"
-                              : "bg-gray-100 text-gray-700"
-                          }
-                        >
-                          {session.status === "open" ? "Aktif" : "Tutup"}
-                        </Badge>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {session.recordCount} siswa
-                        </p>
-                      </div>
+                      <ChevronRight className="h-5 w-5 text-muted-foreground" />
                     </div>
                   </Link>
                 ))}
@@ -256,22 +237,10 @@ export default function PresensiDashboardPage() {
                 <span>Scan QR</span>
               </Button>
             </Link>
-            <Link href="/presensi/sesi/baru">
-              <Button variant="outline" className="w-full h-20 flex-col gap-1">
-                <Plus className="h-6 w-6" />
-                <span>Sesi Baru</span>
-              </Button>
-            </Link>
             <Link href="/presensi/laporan">
               <Button variant="outline" className="w-full h-20 flex-col gap-1">
                 <TrendingUp className="h-6 w-6" />
-                <span>Laporan</span>
-              </Button>
-            </Link>
-            <Link href="/presensi/laporan">
-              <Button variant="outline" className="w-full h-20 flex-col gap-1">
-                <CalendarDays className="h-6 w-6" />
-                <span>Riwayat</span>
+                <span>Laporan Bulanan</span>
               </Button>
             </Link>
           </CardContent>
@@ -280,4 +249,3 @@ export default function PresensiDashboardPage() {
     </div>
   );
 }
-

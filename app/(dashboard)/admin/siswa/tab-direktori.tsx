@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Plus, Search, FileDown, MoreHorizontal, Pencil, Trash2, Filter, Users, UserCheck } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Plus, Search, FileDown, MoreHorizontal, Pencil, Trash2, Filter, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -47,6 +47,7 @@ export default function TabDirektori() {
     const [activeMale, setActiveMale] = useState(0);
     const [activeFemale, setActiveFemale] = useState(0);
     const [byClass, setByClass] = useState<{ className: string | null; count: number }[]>([]);
+    const [allStudents, setAllStudents] = useState<Student[]>([]);
     
     // Modal States
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -55,6 +56,40 @@ export default function TabDirektori() {
 
     const debouncedSearch = useDebounce(searchTerm, 500);
     const { sortedData: sortedStudents, sortConfig, requestSort } = useSortableData(students);
+
+    // Fetch all active students once for accurate per-class stats (independent of pagination)
+    useEffect(() => {
+        let mounted = true;
+        goGet(`/api/master/students?limit=1000&status=active`)
+            .then((response: any) => {
+                const result = response?.data ?? response;
+                if (mounted) setAllStudents(result?.data ?? []);
+            })
+            .catch(() => {});
+        return () => { mounted = false; };
+    }, []);
+
+    // Compute gender stats per class from all active students
+    const classGenderStats = useMemo(() => {
+        const map = new Map<string, { male: number; female: number; total: number }>();
+        
+        allStudents
+            .filter(s => s.status === 'active')
+            .forEach(s => {
+                const cls = s.className || 'Tanpa Kelas';
+                if (!map.has(cls)) {
+                    map.set(cls, { male: 0, female: 0, total: 0 });
+                }
+                const entry = map.get(cls)!;
+                entry.total++;
+                if (s.gender === 'L') entry.male++;
+                else if (s.gender === 'P') entry.female++;
+            });
+        
+        return Array.from(map.entries())
+            .map(([className, stats]) => ({ className, ...stats }))
+            .sort((a, b) => a.className.localeCompare(b.className));
+    }, [allStudents]);
 
     // Reset page to 1 when filters or search change
     useEffect(() => {
@@ -150,7 +185,7 @@ export default function TabDirektori() {
             </div>
 
             {/* Stats Dashboard Grid */}
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 <Card className="bg-white dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800 shadow-sm hover:border-blue-500/30 dark:hover:border-blue-400/30 transition-colors duration-300">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <span className="text-sm font-semibold text-slate-500 dark:text-zinc-400">Total Siswa</span>
@@ -162,22 +197,7 @@ export default function TabDirektori() {
                         <div className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-zinc-50">
                             {isLoading && totalStudents === 0 ? <Skeleton className="h-8 w-16" /> : totalStudents}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1 font-medium">Siswa Terdaftar (Semua Status)</p>
-                    </CardContent>
-                </Card>
-
-                <Card className="bg-white dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800 shadow-sm hover:border-emerald-500/30 dark:hover:border-emerald-400/30 transition-colors duration-300">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <span className="text-sm font-semibold text-slate-500 dark:text-zinc-400">Siswa Aktif</span>
-                        <div className="p-1.5 bg-emerald-50 dark:bg-emerald-950/40 rounded-lg text-emerald-600 dark:text-emerald-400">
-                            <UserCheck className="h-4 w-4" />
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-zinc-50">
-                            {isLoading && activeStudents === 0 ? <Skeleton className="h-8 w-16" /> : activeStudents}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1 font-medium">Mengikuti Pembelajaran</p>
+                        <p className="text-xs text-muted-foreground mt-1 font-medium">Seluruh Siswa Terdaftar</p>
                     </CardContent>
                 </Card>
 
@@ -215,6 +235,58 @@ export default function TabDirektori() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Class Gender Breakdown Table */}
+            <Card className="border-slate-100 dark:border-zinc-800 shadow-sm">
+                <CardHeader className="p-4 md:p-6 pb-2">
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-zinc-50">Rekap Siswa Aktif per Kelas</h3>
+                    <p className="text-xs text-muted-foreground mt-1">Hanya menghitung siswa berstatus Active. Alumni (Lulus) dan status lain tidak dihitung.</p>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <Table>
+                        <TableHeader>
+                            <TableRow className="bg-slate-50/70 dark:bg-zinc-900/50">
+                                <TableHead className="text-left">Kelas</TableHead>
+                                <TableHead className="text-center">Laki-laki</TableHead>
+                                <TableHead className="text-center">Perempuan</TableHead>
+                                <TableHead className="text-center font-semibold">Total</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {classGenderStats.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                                        Belum ada data siswa aktif per kelas
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                <>
+                                    {classGenderStats.map((stat) => (
+                                        <TableRow key={stat.className} className="hover:bg-slate-50/40 dark:hover:bg-zinc-900/30 transition-colors">
+                                            <TableCell className="font-medium text-slate-800 dark:text-zinc-100">{stat.className}</TableCell>
+                                            <TableCell className="text-center text-sky-700 dark:text-sky-400 font-semibold">{stat.male}</TableCell>
+                                            <TableCell className="text-center text-rose-700 dark:text-rose-400 font-semibold">{stat.female}</TableCell>
+                                            <TableCell className="text-center font-bold text-slate-900 dark:text-zinc-50">{stat.total}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                    <TableRow className="bg-slate-50/70 dark:bg-zinc-900/50 font-semibold">
+                                        <TableCell className="text-left">Total</TableCell>
+                                        <TableCell className="text-center text-sky-700 dark:text-sky-400">
+                                            {classGenderStats.reduce((sum, s) => sum + s.male, 0)}
+                                        </TableCell>
+                                        <TableCell className="text-center text-rose-700 dark:text-rose-400">
+                                            {classGenderStats.reduce((sum, s) => sum + s.female, 0)}
+                                        </TableCell>
+                                        <TableCell className="text-center font-bold text-slate-900 dark:text-zinc-50">
+                                            {classGenderStats.reduce((sum, s) => sum + s.total, 0)}
+                                        </TableCell>
+                                    </TableRow>
+                                </>
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
 
             {/* Table Card */}
             <Card className="border-slate-100 dark:border-zinc-800 shadow-sm">

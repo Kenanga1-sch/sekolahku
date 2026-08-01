@@ -109,7 +109,7 @@ func main() {
 		Output: os.Stdout,
 	}))
 	server.Use(middleware.Recover())
-	server.Use(middleware.BodyLimit("10M"))
+	server.Use(middleware.BodyLimit("60M"))
 	server.Use(middleware.GzipWithConfig(middleware.GzipConfig{
 		Level: 5,
 	}))

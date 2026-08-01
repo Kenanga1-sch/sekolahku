@@ -28,7 +28,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Loader2, Info } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Info, User } from "lucide-react";
 import { showSuccess, showError } from "@/lib/toast";
 import { goGet, goPost, goPut, goDelete } from "@/lib/api-client";
 
@@ -41,8 +41,15 @@ interface AcademicClass {
     academicYear: string;
 }
 
+interface Teacher {
+    id: string;
+    fullName: string;
+    name?: string;
+}
+
 export default function TabKelas() {
     const [classes, setClasses] = useState<AcademicClass[]>([]);
+    const [teachers, setTeachers] = useState<Teacher[]>([]);
     const [academicYear, setAcademicYear] = useState<string>("...");
     const [isLoading, setIsLoading] = useState(true);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -54,18 +61,24 @@ export default function TabKelas() {
     const [formData, setFormData] = useState({
         name: "",
         grade: "1",
-        capacity: 28
+        capacity: 28,
+        teacherName: ""
     });
 
     const fetchData = async () => {
         setIsLoading(true);
         try {
-            const [dataClasses, resYear]: [any, any] = await Promise.all([
+            const [dataClasses, resYear, teachersRes]: [any, any, any] = await Promise.all([
                 goGet("/api/academic/classes"),
-                goGet("/api/academic/active-year")
+                goGet("/api/academic/active-year"),
+                goGet("/api/master/employees?limit=100")
             ]);
 
             setClasses(Array.isArray(dataClasses) ? dataClasses : []);
+            setTeachers((teachersRes?.data || []).map((t: any) => ({
+                id: t.id,
+                fullName: t.fullName || t.name || "-"
+            })));
 
             if (resYear.success && resYear.data) {
                 setAcademicYear(resYear.data);
@@ -102,7 +115,8 @@ export default function TabKelas() {
             setFormData({
                 name: item.name,
                 grade: item.grade.toString(),
-                capacity: item.capacity
+                capacity: item.capacity,
+                teacherName: item.teacherName || "__none__"
             });
         } else {
             setEditingItem(null);
@@ -110,7 +124,8 @@ export default function TabKelas() {
             setFormData({
                 name: "",
                 grade: "1",
-                capacity: 28
+                capacity: 28,
+                teacherName: "__none__"
             });
             fetchSuggestedCapacity("1", "");
         }
@@ -139,7 +154,8 @@ export default function TabKelas() {
                 name: formData.name,
                 grade: parseInt(formData.grade, 10),
                 capacity: formData.capacity,
-                academicYear: academicYear
+                academicYear: academicYear,
+                teacherName: formData.teacherName === "__none__" ? null : formData.teacherName
             };
 
             if (editingItem) {
@@ -188,6 +204,7 @@ export default function TabKelas() {
                             <TableRow>
                                 <TableHead>Tingkat</TableHead>
                                 <TableHead>Nama Kelas</TableHead>
+                                <TableHead>Wali Kelas</TableHead>
                                 <TableHead>Kapasitas (Kuota Angkatan)</TableHead>
                                 <TableHead className="text-right">Aksi</TableHead>
                             </TableRow>
@@ -195,13 +212,13 @@ export default function TabKelas() {
                         <TableBody>
                             {isLoading ? (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="text-center py-8">
+                                    <TableCell colSpan={5} className="text-center py-8">
                                         <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
                                     </TableCell>
                                 </TableRow>
                             ) : classes.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
                                         Belum ada data kelas.
                                     </TableCell>
                                 </TableRow>
@@ -210,6 +227,7 @@ export default function TabKelas() {
                                     <TableRow key={c.id}>
                                         <TableCell>Kelas {c.grade}</TableCell>
                                         <TableCell className="font-bold">{c.name}</TableCell>
+                                        <TableCell>{c.teacherName || "-"}</TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-2">
                                                 <span className="font-semibold">{c.capacity} Siswa</span>
@@ -268,6 +286,25 @@ export default function TabKelas() {
                                 value={formData.name}
                                 onChange={(e) => handleNameChange(e.target.value)}
                             />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Wali Kelas</Label>
+                            <Select 
+                                value={formData.teacherName} 
+                                onValueChange={(val) => setFormData({...formData, teacherName: val})}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Pilih Wali Kelas" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="__none__">Tidak ada</SelectItem>
+                                    {teachers.map((t) => (
+                                        <SelectItem key={t.id} value={t.fullName}>
+                                            {t.fullName}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                         <div className="space-y-2">
                             <Label>Kapasitas Siswa (Maksimal)</Label>

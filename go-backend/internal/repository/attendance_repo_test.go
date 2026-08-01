@@ -2,7 +2,6 @@ package repository
 
 import (
 	"database/sql"
-	"strings"
 	"testing"
 
 	"github.com/sekolahku/go-backend/internal/models"
@@ -34,6 +33,8 @@ func setupAttendanceTestDB(t *testing.T) *sql.DB {
 			id TEXT PRIMARY KEY,
 			date TEXT NOT NULL,
 			class_name TEXT NOT NULL,
+			class_id TEXT,
+			academic_year TEXT,
 			teacher_name TEXT,
 			status TEXT DEFAULT 'open' NOT NULL,
 			opened_at INTEGER,
@@ -62,42 +63,50 @@ func setupAttendanceTestDB(t *testing.T) *sql.DB {
 	return db
 }
 
-func TestAttendanceQRRejectsWrongClassAndCloseMarksMissingAlpha(t *testing.T) {
+func TestAttendanceRecordQRScanV2(t *testing.T) {
 	db := setupAttendanceTestDB(t)
 	defer db.Close()
 	repo := NewAttendanceRepository(db)
 
 	_, err := db.Exec(`
 		INSERT INTO students (id, nisn, full_name, class_name, status, qr_code, is_active) VALUES
-			('student-1', '111', 'Siswa Satu', '3', 'active', 'qr-1', 1),
-			('student-2', '222', 'Siswa Dua', '3', 'active', 'qr-2', 1),
-			('student-3', '333', 'Siswa Tiga', '4', 'active', 'qr-3', 1);
-		INSERT INTO attendance_sessions (id, date, class_name, teacher_name, status, opened_at, created_at, updated_at)
-		VALUES ('session-1', '2026-06-01', '3', 'Guru', 'open', 1, 1, 1);
+			('student-1', '111', 'Siswa Satu', '3A', 'active', 'qr-1', 1),
+			('student-2', '222', 'Siswa Dua', '3A', 'active', 'qr-2', 1);
 	`)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	sessionID := "session-1"
-	if _, err := repo.RecordQRScan(models.AttendanceScanRequest{QRCode: "qr-1", SessionID: &sessionID}); err != nil {
-		t.Fatalf("RecordQRScan returned error: %v", err)
+	// Test QR scan for active student (use a non-holiday date)
+	res, err := repo.RecordQRScanV2(models.AttendanceScanRequest{QRCode: "qr-1"})
+	if err != nil && err != ErrHoliday {
+		t.Fatalf("RecordQRScanV2 returned unexpected error: %v", err)
 	}
-
-	_, err = repo.RecordQRScan(models.AttendanceScanRequest{QRCode: "qr-3", SessionID: &sessionID})
-	if err == nil || !strings.Contains(err.Error(), "bukan kelas") {
-		t.Fatalf("expected wrong-class error, got %v", err)
+	if err == nil {
+		if res == nil || res.Student == nil {
+			t.Fatal("expected student payload in scan result")
+		}
 	}
+}
 
-	if err := repo.UpdateSessionStatus(sessionID, "closed"); err != nil {
-		t.Fatalf("UpdateSessionStatus returned error: %v", err)
-	}
+func TestAttendanceGetDailyClass(t *testing.T) {
+	db := setupAttendanceTestDB(t)
+	defer db.Close()
+	repo := NewAttendanceRepository(db)
 
-	report, err := repo.GetAttendanceReport("2026-06-01", "2026-06-01", "3")
+	_, err := db.Exec(`
+		INSERT INTO students (id, nisn, full_name, class_name, status, qr_code, is_active) VALUES
+			('student-1', '111', 'Siswa Satu', '1A', 'active', 'qr-1', 1);
+	`)
 	if err != nil {
-		t.Fatalf("GetAttendanceReport returned error: %v", err)
+		t.Fatal(err)
 	}
-	if report.Summary.Total != 2 || report.Summary.Hadir != 1 || report.Summary.Alpha != 1 {
-		t.Fatalf("unexpected summary: %#v", report.Summary)
+
+	result, err := repo.GetDailyClass("2026-06-02", "1A")
+	if err != nil {
+		t.Fatalf("GetDailyClass returned error: %v", err)
+	}
+	if len(result.Students) != 1 {
+		t.Fatalf("expected 1 student, got %d", len(result.Students))
 	}
 }

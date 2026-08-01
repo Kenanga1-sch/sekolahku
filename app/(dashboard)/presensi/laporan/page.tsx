@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { format, subDays, getDaysInMonth } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -113,6 +114,13 @@ function getStatusLabel(status: string): string {
   }
 }
 
+function extractStudents(res: any): { id: string; name?: string; fullName?: string; username?: string; nis?: string; nisn?: string; className?: string }[] {
+  const nested = res?.data?.data || res?.data?.students || res?.data;
+  if (Array.isArray(nested)) return nested;
+  if (Array.isArray(res)) return res;
+  return [];
+}
+
 function calculateAttendancePercentage(hadir: number, total: number): number {
   if (total === 0) return 0;
   return Math.round((hadir / total) * 1000) / 10; // 1 decimal place
@@ -126,6 +134,7 @@ function normalizeClassName(name: string): string {
 export default function LaporanPresensiPage() {
   const { user } = useAuthStore();
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
+  const pathname = usePathname();
 
   const [tab, setTab] = useState<"harian" | "bulanan">("harian");
 
@@ -156,8 +165,10 @@ export default function LaporanPresensiPage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const printRef = useRef<HTMLDivElement>(null);
 
-  const [classes, setClasses] = useState<{ name: string }[]>([]);
+  const [classes, setClasses] = useState<{ name: string; teacherName?: string | null }[]>([]);
   const [studentsList, setStudentsList] = useState<{ id: string; name?: string; fullName?: string; username?: string; nis?: string; nisn?: string; className?: string }[]>([]);
+  const [principalName, setPrincipalName] = useState("");
+  const [principalNIP, setPrincipalNIP] = useState("");
 
   // Student detail modal state
   const [detailStudent, setDetailStudent] = useState<{ id: string; name: string; nis: string; className: string } | null>(null);
@@ -178,6 +189,26 @@ export default function LaporanPresensiPage() {
       .then((response: any) => setClasses(response?.data || response || []))
       .catch(() => {});
   }, []);
+
+  // Fetch school settings for principal name & NIP
+  useEffect(() => {
+    goGet("/api/school-settings")
+      .then((response: any) => {
+        const s = response?.data || response || {};
+        setPrincipalName(s.principal_name || s.principalName || "");
+        setPrincipalNIP(s.principal_nip || s.principalNIP || "");
+      })
+      .catch(() => {});
+  }, []);
+
+  // Reset state on client-side navigation (defensive, complementing layout key)
+  useEffect(() => {
+    setTab("harian");
+    setLoadingHarian(false);
+    setLoadingBulanan(false);
+    setData(null);
+    setRecords([]);
+  }, [pathname]);
 
   // --- Harian fetcher ---
   const fetchReport = useCallback(async () => {
@@ -275,13 +306,21 @@ export default function LaporanPresensiPage() {
       if (selectedClass && selectedClass !== "all") {
         try {
           const studentsRes: any = await goGet(`/api/students?className=${encodeURIComponent(normalizedClass)}&limit=500&status=active`);
-          const studentsData = studentsRes?.data?.students || studentsRes?.data || [];
+          const studentsData = extractStudents(studentsRes);
+          setStudentsList(studentsData);
+        } catch {
+          setStudentsList([]);
+        }
+      } else if (selectedClass === "all") {
+        // Fetch all students for "Semua Kelas" view
+        try {
+          const studentsRes: any = await goGet(`/api/students?limit=1000&status=active`);
+          const studentsData = extractStudents(studentsRes);
           setStudentsList(studentsData);
         } catch {
           setStudentsList([]);
         }
       } else {
-        // For "all" classes, we still fetch students if there are no attendance records
         setStudentsList([]);
       }
     } catch (err: any) {
@@ -355,10 +394,18 @@ export default function LaporanPresensiPage() {
   const monthName = MONTHS[selectedMonth - 1];
   const classNameBulanan = selectedClass === "all" ? "Semua Kelas" : `Kelas ${selectedClass}`;
 
+  const getWaliKelas = (clsName: string): string => {
+    const normalized = clsName.replace(/^Kelas\s*/i, "").trim();
+    const match = classes.find(
+      (c) => c.name === clsName || c.name === normalized || c.name === `Kelas ${normalized}`
+    );
+    return match?.teacherName || "";
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="no-print flex items-center gap-4">
         <Link href="/presensi">
           <Button variant="outline" size="icon">
             <ArrowLeft className="h-4 w-4" />
@@ -374,7 +421,7 @@ export default function LaporanPresensiPage() {
       </div>
 
       {/* Tab switcher */}
-      <div className="flex gap-1 bg-muted rounded-lg p-1 w-fit">
+      <div className="no-print flex gap-1 bg-muted rounded-lg p-1 w-fit">
         <button
           onClick={() => setTab("harian")}
           className={`px-4 py-1.5 text-sm rounded-md font-medium transition-colors ${
@@ -669,7 +716,7 @@ export default function LaporanPresensiPage() {
 
           {/* Summary Cards for Monthly Report */}
           {!loadingBulanan && matrix.length > 0 && (
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+            <div className="no-print grid grid-cols-2 md:grid-cols-6 gap-3">
               <Card><CardContent className="py-3"><p className="text-xl font-bold">{matrix.length}</p><p className="text-xs text-muted-foreground">Total Siswa</p></CardContent></Card>
               <Card className="border-green-200"><CardContent className="py-3"><p className="text-xl font-bold text-green-700">{matrix.reduce((sum, s) => sum + s.totalHadir, 0)}</p><p className="text-xs text-green-600">Total Hadir</p></CardContent></Card>
               <Card className="border-yellow-200"><CardContent className="py-3"><p className="text-xl font-bold text-yellow-700">{matrix.reduce((sum, s) => sum + s.totalSakit, 0)}</p><p className="text-xs text-yellow-600">Total Sakit</p></CardContent></Card>
@@ -746,18 +793,25 @@ export default function LaporanPresensiPage() {
               <PrintPage matrix={[]} daysInMonth={daysInMonth}
                 monthName={monthName} year={selectedYear} className={classNameBulanan}
                 onStudentClick={handleStudentClick}
+                principalName={principalName} principalNIP={principalNIP}
               />
             </>
           ) : isAdmin && selectedClass === "all" ? (
-            Array.from(new Set(records.map(r => r.className))).sort().map(cls => {
+            Array.from(new Set([
+              ...(records || []).map(r => r?.className).filter(Boolean),
+              ...studentsList.map(s => s?.className).filter(Boolean),
+            ])).sort().map(cls => {
               const classMatrix = matrix.filter(m =>
-                records.some(r => r.studentId === m.studentId && r.className === cls)
+                (records || []).some(r => r?.studentId === m.studentId && r?.className === cls) ||
+                studentsList.some(s => s?.id === m.studentId && s?.className === cls)
               );
               if (classMatrix.length === 0) return null;
               return (
                 <PrintPage key={cls} matrix={classMatrix} daysInMonth={daysInMonth}
                   monthName={monthName} year={selectedYear} className={`Kelas ${cls}`}
                   onStudentClick={handleStudentClick}
+                  principalName={principalName} principalNIP={principalNIP}
+                  waliKelas={getWaliKelas(String(cls))}
                 />
               );
             })
@@ -765,6 +819,8 @@ export default function LaporanPresensiPage() {
             <PrintPage matrix={matrix} daysInMonth={daysInMonth}
               monthName={monthName} year={selectedYear} className={classNameBulanan}
               onStudentClick={handleStudentClick}
+              principalName={principalName} principalNIP={principalNIP}
+              waliKelas={getWaliKelas(classNameBulanan)}
             />
           )}
         </div>
@@ -780,8 +836,6 @@ export default function LaporanPresensiPage() {
     </div>
   );
 }
-
-// Student Detail Modal Component
 
 // Student Detail Modal Component
 function StudentDetailModal({
@@ -858,131 +912,73 @@ function StudentDetailModal({
   );
 }
 
-function StudentDetailDialog({
-  open,
-  onOpenChange,
-  student,
-  loading,
-  data,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  student: { id: string; name: string; nis: string; className: string } | null;
-  loading: boolean;
-  data: StudentAttendanceSummary[];
-}) {
-  if (!student) return null;
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[80vh]">
-        <DialogHeader>
-          <DialogTitle>Riwayat Kehadiran Siswa</DialogTitle>
-          <DialogDescription>
-            {student.name} (NIS: {student.nis}) - Kelas {student.className}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="mt-4">
-          {loading ? (
-            <div className="py-8 text-center">
-              <Loader2 className="h-8 w-8 mx-auto animate-spin text-muted-foreground" />
-              <p className="text-sm text-muted-foreground mt-2">Memuat riwayat...</p>
-            </div>
-          ) : data.length === 0 ? (
-            <div className="py-8 text-center text-muted-foreground">
-              <FileText className="h-10 w-10 mx-auto mb-2 opacity-20" />
-              <p>Belum ada data kehadiran untuk siswa ini</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Tahun Ajaran</TableHead>
-                    <TableHead>Hadir</TableHead>
-                    <TableHead>Sakit</TableHead>
-                    <TableHead>Izin</TableHead>
-                    <TableHead>Alpha</TableHead>
-                    <TableHead>Total Hari</TableHead>
-                    <TableHead>% Kehadiran</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.map((d) => (
-                    <TableRow key={d.academicYear}>
-                      <TableCell className="font-medium">{d.academicYear}</TableCell>
-                      <TableCell className="text-green-700 font-medium">{d.hadir}</TableCell>
-                      <TableCell className="text-yellow-700">{d.sakit}</TableCell>
-                      <TableCell className="text-blue-700">{d.izin}</TableCell>
-                      <TableCell className="text-red-700 font-medium">{d.alpha}</TableCell>
-                      <TableCell>{d.totalDays}</TableCell>
-                      <TableCell className="font-semibold text-purple-700">
-                        {d.totalDays > 0 ? Math.round((d.hadir / d.totalDays) * 1000) / 10 : 0}%
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 function PrintPage({
   matrix, daysInMonth, monthName, year, className,
-  onStudentClick,
+  onStudentClick, principalName, principalNIP, waliKelas, waliNIP,
 }: {
   matrix: StudentMatrix[]; daysInMonth: number; monthName: string; year: number; className: string;
   onStudentClick?: (student: { id: string; name: string; nis: string; className: string }) => void;
+  principalName?: string; principalNIP?: string; waliKelas?: string; waliNIP?: string;
 }) {
   // Calculate class attendance percentage
-  const totalSiswa = matrix.length;
-  const totalHadirKelas = matrix.reduce((sum, s) => sum + s.totalHadir, 0);
-  const totalHariEfektif = matrix.length > 0 ? Math.max(...matrix.map(s => Object.keys(s.dailyStatus).length)) : daysInMonth;
-  const persentaseKelas = totalSiswa > 0 && totalHariEfektif > 0 
-    ? Math.round((totalHadirKelas / (totalSiswa * totalHariEfektif)) * 1000) / 10 
+  const totalSiswa = matrix?.length || 0;
+  const totalHadirKelas = matrix?.reduce((sum, s) => sum + (s.totalHadir || 0), 0) || 0;
+  const activeDays = matrix?.flatMap(s => Object.keys(s.dailyStatus || {})) || [];
+  const totalHariEfektif = activeDays.length > 0 ? Math.max(...activeDays.map(d => Number(d) || 0), 1) : daysInMonth;
+  const denominator = totalSiswa * totalHariEfektif;
+  const persentaseKelas = totalSiswa > 0 && denominator > 0 
+    ? Math.round((totalHadirKelas / denominator) * 1000) / 10 
     : 0;
 
+  // Dynamic font size so 1 class always fits on 1 F4 page (landscape)
+  // rows = siswa + 2 header rows; F4 landscape usable height ~200mm ≈ 756px.
+  const rowCount = Math.max(totalSiswa, 1) + 2;
+  const baseFont = Math.min(8, Math.max(4.5, 660 / rowCount));
+
   return (
-    <div className="print-page bg-white p-4">
+    <div className="print-page" style={{ ["--pf" as any]: `${baseFont}px`, background: "white" }}>
       <style>{`
         @media print {
-          @page { size: A4 landscape; margin: 1.2cm; }
-          .no-print { display: none !important; }
-          .print-page { page-break-after: always; }
-          .print-page:last-child { page-break-after: auto; }
-          body { font-size: 10px; }
+          @page { size: 8.27in 13in landscape; margin: 5mm; }
+          body { font-size: ${baseFont}px; }
+        }
+        .print-page {
+          page-break-inside: avoid;
+          break-inside: avoid;
+        }
+        .print-page + .print-page {
+          break-before: page;
+          page-break-before: always;
         }
         .print-table {
-          width: 100%; border-collapse: collapse; font-size: 8px;
+          width: 100%; border-collapse: collapse; font-size: var(--pf);
         }
         .print-table th, .print-table td {
-          border: 0.5px solid #000; padding: 1px 2px; text-align: center; white-space: nowrap;
+          border: 0.5px solid #000; padding: 0.5px 1px; text-align: center; white-space: nowrap;
         }
         .print-table th { background: #f0f0f0; font-weight: 600; }
-        .print-table .col-no { width: 20px; }
-        .print-table .col-nis { width: 50px; }
-        .print-table .col-name { text-align: left; width: 100px; max-width: 100px; }
-        .print-table .col-day { width: 12px; font-size: 7px; }
-        .print-table .col-sum { width: 18px; }
-        .print-table .col-pct { width: 22px; font-weight: 600; }
+        .print-table .col-no { width: 4.5%; }
+        .print-table .col-nis { width: 11%; }
+        .print-table .col-name { text-align: left; }
+        .print-table .col-day { font-size: calc(var(--pf) * 0.85); min-width: 10px; width: 1.8%; max-width: 1.8%; }
+        .print-table .col-sum { }
+        .print-table .col-pct { font-weight: 600; }
         .print-table .col-hadir { color: #15803d; font-weight: 600; }
         .print-table .status-h { color: #15803d; }
         .print-table .status-s { color: #b45309; }
         .print-table .status-i { color: #1d4ed8; }
         .print-table .status-a { color: #dc2626; }
+        .print-table td.col-name { text-decoration: none !important; }
+        .signature-block { break-inside: avoid; page-break-inside: avoid; }
       `}</style>
 
-      <div style={{ textAlign: "center", marginBottom: "0.5rem" }}>
-        <h2 style={{ margin: 0, fontSize: "12px", fontWeight: 700 }}>DAFTAR HADIR SISWA</h2>
-        <p style={{ margin: "2px 0", fontSize: "10px", fontWeight: 600 }}>{siteConfig.school.name}</p>
-        <p style={{ margin: 0, fontSize: "9px" }}>Tahun Pelajaran {year}/{year + 1}</p>
+      <div style={{ textAlign: "center", marginBottom: "0.3rem" }}>
+        <h2 style={{ margin: 0, fontSize: "calc(var(--pf) * 1.8)", fontWeight: 700 }}>DAFTAR HADIR SISWA</h2>
+        <p style={{ margin: "1px 0", fontSize: "calc(var(--pf) * 1.4)", fontWeight: 600 }}>{siteConfig.school.name}</p>
+        <p style={{ margin: 0, fontSize: "calc(var(--pf) * 1.2)" }}>Tahun Pelajaran {year}/{year + 1}</p>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.3rem", fontSize: "9px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.2rem", fontSize: "calc(var(--pf) * 1.2)" }}>
         <span><strong>Kelas:</strong> {className}</span>
         <span><strong>Bulan:</strong> {monthName} {year}</span>
         <span><strong>Kehadiran Kelas:</strong> {persentaseKelas}%</span>
@@ -1010,7 +1006,7 @@ function PrintPage({
         <tbody>
           {matrix.length === 0 ? (
             <tr>
-              <td colSpan={daysInMonth + 7} style={{ textAlign: "center", padding: "8px", fontSize: "8px" }}>
+              <td colSpan={daysInMonth + 7} style={{ textAlign: "center", padding: "8px" }}>
                 Belum ada data presensi untuk periode ini
               </td>
             </tr>
@@ -1020,8 +1016,8 @@ function PrintPage({
             return (
               <tr key={s.studentId}>
                 <td className="col-no">{i + 1}</td>
-                <td className="col-nis" style={{ fontSize: "7px" }}>{s.nis}</td>
-                <td className="col-name" style={{ fontSize: "8px", cursor: onStudentClick ? "pointer" : "default", textDecoration: onStudentClick ? "underline" : "none" }} onClick={() => onStudentClick?.({ id: s.studentId, name: s.studentName, nis: s.nis, className })}>
+                <td className="col-nis">{s.nis}</td>
+                <td className="col-name" style={{ cursor: onStudentClick ? "pointer" : "default" }} onClick={() => onStudentClick?.({ id: s.studentId, name: s.studentName, nis: s.nis, className })}>
                   {s.studentName}
                 </td>
                 {Array.from({ length: daysInMonth }, (_, d) => {
@@ -1029,29 +1025,29 @@ function PrintPage({
                   const cls = status === "H" ? "status-h" : status === "S" ? "status-s" : status === "I" ? "status-i" : status === "A" ? "status-a" : "";
                   return <td key={d} className={`col-day ${cls}`}>{status === "-" ? "" : status}</td>;
                 })}
-                <td className="col-sum col-hadir" style={{ fontSize: "7px", fontWeight: 600, color: "#15803d" }}>{s.totalHadir}</td>
-                <td className="col-sum" style={{ fontSize: "7px" }}>{s.totalSakit}</td>
-                <td className="col-sum" style={{ fontSize: "7px" }}>{s.totalIzin}</td>
-                <td className="col-sum" style={{ fontSize: "7px" }}>{s.totalAlpha}</td>
-                <td className="col-pct" style={{ fontSize: "7px", fontWeight: 600 }}>{pct}%</td>
+                <td className="col-sum col-hadir" style={{ fontWeight: 600, color: "#15803d" }}>{s.totalHadir}</td>
+                <td className="col-sum">{s.totalSakit}</td>
+                <td className="col-sum">{s.totalIzin}</td>
+                <td className="col-sum">{s.totalAlpha}</td>
+                <td className="col-pct">{pct}%</td>
               </tr>
             );
           })}
         </tbody>
       </table>
 
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: "1.5rem", fontSize: "9px" }}>
+      <div className="signature-block" style={{ display: "flex", justifyContent: "space-between", marginTop: "0.8rem", fontSize: "calc(var(--pf) * 1.2)" }}>
         <div style={{ textAlign: "center", flex: 1 }}>
           <p style={{ margin: 0 }}>Mengetahui,</p>
-          <p style={{ margin: "2px 0" }}>Kepala Sekolah</p>
-          <p style={{ marginTop: "2.5rem" }}>________________________</p>
-          <p style={{ margin: "2px 0" }}>NIP.</p>
+          <p style={{ margin: "1px 0" }}>Kepala Sekolah</p>
+          <p style={{ marginTop: "1.6rem" }}>{principalName ? principalName : "________________________"}</p>
+          <p style={{ margin: "1px 0" }}>{principalNIP ? `NIP. ${principalNIP}` : "NIP."}</p>
         </div>
         <div style={{ textAlign: "center", flex: 1 }}>
           <p style={{ margin: 0 }}>{monthName} {year}</p>
-          <p style={{ margin: "2px 0" }}>Wali Kelas</p>
-          <p style={{ marginTop: "2.5rem" }}>________________________</p>
-          <p style={{ margin: "2px 0" }}>NIP.</p>
+          <p style={{ margin: "1px 0" }}>Wali Kelas</p>
+          <p style={{ marginTop: "1.6rem" }}>{waliKelas ? waliKelas : "________________________"}</p>
+          <p style={{ margin: "1px 0" }}>{waliNIP ? `NIP. ${waliNIP}` : "NIP."}</p>
         </div>
       </div>
     </div>

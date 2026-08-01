@@ -373,13 +373,42 @@
 
 /* Print Styles */
 @media print {
+  html,
+  body,
+  main,
+  #main-content {
+    background: white !important;
+  }
+
   body {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
     background: white;
   }
+  .print-page {
+    background: white !important;
+  }
+  main,
+  #main-content {
+    background: white !important;
+  }
+
+  .print-page {
+    background: white !important;
+  }
+
+  /* Hide app chrome that should never print */
+  .no-print,
+  #app-version,
+  header,
+  nav,
+  aside,
+  footer {
+    display: none !important;
+  }
 
   @page {
+    size: 8.27in 13in landscape;
     margin: 5mm;
   }
 

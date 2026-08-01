@@ -473,16 +473,13 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 
 	// Attendance
 	auth.GET("/attendance/stats", h.Attendance.GetStats)
-	auth.GET("/attendance/sessions", h.Attendance.GetSessions)
-	auth.POST("/attendance/sessions", h.Attendance.CreateSession)
-	auth.GET("/attendance/sessions/:id", h.Attendance.GetSessionByID)
-	auth.PUT("/attendance/sessions/:id", h.Attendance.UpdateSession)
-	auth.PATCH("/attendance/sessions/:id", h.Attendance.UpdateSession)
+	auth.GET("/attendance/daily", h.Attendance.GetDailyClass)
 	auth.POST("/attendance/manual", h.Attendance.RecordManual)
 	auth.POST("/attendance/scan", h.Attendance.ScanQR)
 	auth.GET("/attendance/report", h.Attendance.GetReport)
 	auth.GET("/attendance/export", h.Attendance.ExportCSV)
 	auth.GET("/attendance/student-summary/:studentId", h.Attendance.GetStudentSummary)
+	auth.GET("/attendance/holiday", h.Attendance.CheckHoliday)
 
 	// Loan
 	adminGroup.GET("/loans", h.Loan.GetLoans)

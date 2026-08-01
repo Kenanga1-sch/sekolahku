@@ -130,8 +130,8 @@ func (r *AcademicRepository) UpdateClass(id string, c models.AcademicClass) erro
 	}
 	defer tx.Rollback()
 
-	query := `UPDATE student_classes SET name = ?, grade = ?, capacity = ?, updated_at = ? WHERE id = ?`
-	if _, err := tx.Exec(query, c.Name, c.Grade, c.Capacity, now, id); err != nil {
+	query := `UPDATE student_classes SET name = ?, grade = ?, teacher_name = ?, capacity = ?, updated_at = ? WHERE id = ?`
+	if _, err := tx.Exec(query, c.Name, c.Grade, c.TeacherName, c.Capacity, now, id); err != nil {
 		return err
 	}
 

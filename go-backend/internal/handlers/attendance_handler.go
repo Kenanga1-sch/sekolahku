@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"encoding/csv"
 	"net/http"
-	"strconv"
-	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sekolahku/go-backend/internal/models"
@@ -28,131 +26,27 @@ func (h *AttendanceHandler) GetStats(c echo.Context) error {
 	return c.JSON(http.StatusOK, stats)
 }
 
-func (h *AttendanceHandler) GetSessions(c echo.Context) error {
+func (h *AttendanceHandler) GetDailyClass(c echo.Context) error {
 	date := c.QueryParam("date")
-	status := c.QueryParam("status")
-	page, _ := strconv.Atoi(c.QueryParam("page"))
-	perPage, _ := strconv.Atoi(c.QueryParam("perPage"))
+	className := c.QueryParam("class")
 
-	sessions, total, err := h.Repo.GetSessions(date, status, page, perPage)
+	result, err := h.Repo.GetDailyClass(date, className)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
-	if page < 1 {
-		page = 1
-	}
-	if perPage < 1 {
-		perPage = 20
-	}
-	return c.JSON(http.StatusOK, map[string]interface{}{
-		"success": true, "data": sessions, "total": total, "page": page, "perPage": perPage,
-	})
-}
 
-func (h *AttendanceHandler) CreateSession(c echo.Context) error {
-	var req models.CreateAttendanceSessionRequest
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
-	}
-
-	id, err := h.Repo.CreateSession(req)
-	if err != nil {
-		if err.Error() == "CONFLICT" {
-			return c.JSON(http.StatusConflict, map[string]interface{}{
-				"success":  false,
-				"error":    "Sesi untuk kelas ini sudah ada hari ini",
-				"existing": map[string]string{"id": id},
-			})
-		}
-		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": err.Error()})
-	}
-
-	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true, "id": id})
-}
-
-func (h *AttendanceHandler) GetSessionByID(c echo.Context) error {
-	id := c.Param("id")
-	session, err := h.Repo.GetSessionByID(id)
-	if err != nil {
-		return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Sesi tidak ditemukan"})
-	}
-
-	var hadir, sakit, izin, alpha int
-	for _, r := range session.Records {
-		switch r.Status {
-		case "hadir":
-			hadir++
-		case "sakit":
-			sakit++
-		case "izin":
-			izin++
-		case "alpha":
-			alpha++
-		}
-	}
-
-	belumAbsen := len(session.AllStudents) - len(session.Records)
-	if belumAbsen < 0 {
-		belumAbsen = 0
-	}
-
-	res := map[string]interface{}{
-		"id":          session.ID,
-		"date":        session.Date,
-		"className":   session.ClassName,
-		"teacherName": session.TeacherName,
-		"status":      session.Status,
-		"notes":       session.Notes,
-		"openedAt":    session.OpenedAt,
-		"closedAt":    session.ClosedAt,
-		"records":     session.Records,
-		"allStudents": session.AllStudents,
-		"stats": map[string]interface{}{
-			"total":      len(session.AllStudents),
-			"hadir":      hadir,
-			"sakit":      sakit,
-			"izin":       izin,
-			"alpha":      alpha,
-			"belumAbsen": belumAbsen,
-		},
-	}
-
-	return c.JSON(http.StatusOK, res)
-}
-
-func (h *AttendanceHandler) UpdateSession(c echo.Context) error {
-	id := c.Param("id")
-	var req struct {
-		Status string `json:"status"`
-	}
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
-	}
-
-	if err := h.Repo.UpdateSessionStatus(id, req.Status); err != nil {
-		status := http.StatusInternalServerError
-		if strings.Contains(err.Error(), "tidak valid") || strings.Contains(err.Error(), "tidak ditemukan") {
-			status = http.StatusBadRequest
-		}
-		return c.JSON(status, map[string]interface{}{"success": false, "error": err.Error()})
-	}
-
-	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
+	return c.JSON(http.StatusOK, result)
 }
 
 func (h *AttendanceHandler) RecordManual(c echo.Context) error {
-	var req models.AttendanceManualRequest
+	var req models.AttendanceManualRequestV2
 	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Data tidak valid"})
 	}
 
-	if err := h.Repo.RecordManual(req); err != nil {
-		status := http.StatusInternalServerError
-		if strings.Contains(err.Error(), "tidak valid") ||
-			strings.Contains(err.Error(), "harus") ||
-			strings.Contains(err.Error(), "ditutup") ||
-			strings.Contains(err.Error(), "ditemukan") ||
-			strings.Contains(err.Error(), "bukan kelas") {
+	if err := h.Repo.RecordManualV2(req); err != nil {
+		status := http.StatusBadRequest
+		if err == repository.ErrHoliday {
 			status = http.StatusBadRequest
 		}
 		return c.JSON(status, map[string]interface{}{"success": false, "error": err.Error()})
@@ -164,27 +58,22 @@ func (h *AttendanceHandler) RecordManual(c echo.Context) error {
 func (h *AttendanceHandler) ScanQR(c echo.Context) error {
 	var req models.AttendanceScanRequest
 	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Data tidak valid"})
 	}
 
-	res, err := h.Repo.RecordQRScan(req)
+	res, err := h.Repo.RecordQRScanV2(req)
 	if err != nil {
-		status := http.StatusInternalServerError
-		if err.Error() == "Siswa sudah diabsen" {
-			status = http.StatusConflict
-		} else if err.Error() == "Siswa tidak ditemukan" || err.Error() == "Tidak ada sesi aktif untuk kelas ini" || err.Error() == "Sesi tidak ditemukan" {
-			status = http.StatusNotFound
-		} else if strings.Contains(err.Error(), "tidak valid") ||
-			strings.Contains(err.Error(), "kosong") ||
-			strings.Contains(err.Error(), "ditutup") ||
-			strings.Contains(err.Error(), "belum memiliki kelas") ||
-			strings.Contains(err.Error(), "bukan kelas") {
-			status = http.StatusBadRequest
-		}
-
 		var student interface{}
 		if res != nil {
 			student = res.Student
+		}
+		status := http.StatusBadRequest
+		if err == repository.ErrAlreadyRecorded {
+			status = http.StatusConflict
+		} else if err == repository.ErrStudentNotFound {
+			status = http.StatusNotFound
+		} else if err == repository.ErrHoliday {
+			status = http.StatusBadRequest
 		}
 		return c.JSON(status, map[string]interface{}{
 			"success": false,
@@ -207,12 +96,12 @@ func (h *AttendanceHandler) KioskRecordAttendance(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "QR Code diperlukan"})
 	}
 
-	res, err := h.Repo.RecordQRScan(models.AttendanceScanRequest{QRCode: req.QRCode})
+	res, err := h.Repo.RecordQRScanV2(models.AttendanceScanRequest{QRCode: req.QRCode})
 	if err != nil {
 		return c.JSON(http.StatusOK, map[string]interface{}{
-			"success":           false,
+			"success":            false,
 			"attendanceRecorded": false,
-			"error":             "Gagal merekam presensi",
+			"error":              "Gagal merekam presensi",
 		})
 	}
 
@@ -277,7 +166,6 @@ func (h *AttendanceHandler) ExportCSV(c echo.Context) error {
 	return c.String(http.StatusOK, buf.String())
 }
 
-// GetStudentSummary returns attendance summary per academic year for a student
 func (h *AttendanceHandler) GetStudentSummary(c echo.Context) error {
 	studentID := c.Param("studentId")
 	if studentID == "" {
@@ -292,5 +180,14 @@ func (h *AttendanceHandler) GetStudentSummary(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
 		"data":    summary,
+	})
+}
+
+func (h *AttendanceHandler) CheckHoliday(c echo.Context) error {
+	date := c.QueryParam("date")
+	isHoliday, reason := repository.IsHoliday(date)
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"isHoliday": isHoliday,
+		"reason":    reason,
 	})
 }

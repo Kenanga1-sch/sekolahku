@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -23,11 +23,11 @@ import {
   Clock,
   XCircle,
   QrCode,
-  Lock,
   Loader2,
   AlertCircle,
+  CalendarDays,
 } from "lucide-react";
-import { goGet, goPost, goPut } from "@/lib/api-client";
+import { goGet, goPost } from "@/lib/api-client";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 
@@ -49,25 +49,13 @@ interface Record {
   student: Student;
 }
 
-interface SessionDetail {
-  id: string;
+interface DailyDetail {
   date: string;
   className: string;
-  teacherName: string | null;
-  status: "open" | "closed";
-  openedAt: string;
-  closedAt: string | null;
-  notes: string | null;
+  isHoliday: boolean;
+  holidayReason?: string;
+  students: Student[];
   records: Record[];
-  allStudents: Student[];
-  stats: {
-    total: number;
-    hadir: number;
-    sakit: number;
-    izin: number;
-    alpha: number;
-    belumAbsen: number;
-  };
 }
 
 const STATUS_CONFIG = {
@@ -79,52 +67,47 @@ const STATUS_CONFIG = {
 
 export default function SesiDetailPage() {
   const searchParams = useSearchParams();
-  const [session, setSession] = useState<SessionDetail | null>(null);
+  const [data, setData] = useState<DailyDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [closing, setClosing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchSession = async () => {
+  const className = searchParams.get("class") || "";
+  const date = searchParams.get("date") || format(new Date(), "yyyy-MM-dd");
+
+  const fetchData = useCallback(async () => {
+    if (!className) {
+      setError("Kelas tidak ditemukan. Pilih kelas dari menu presensi.");
+      setLoading(false);
+      return;
+    }
     try {
-      const response: any = await goGet(`/api/attendance/sessions/${searchParams.get('id')}`);
-      const data = response?.data || response;
-      setSession(data);
+      const response: any = await goGet(`/api/attendance/daily?class=${encodeURIComponent(className)}&date=${date}`);
+      setData(response?.data || response);
     } catch (err) {
-      setError("Gagal memuat data sesi");
+      setError("Gagal memuat data presensi");
     } finally {
       setLoading(false);
     }
-  };
+  }, [className, date]);
 
   useEffect(() => {
-    if (searchParams.get('id')) {
-      fetchSession();
+    if (className) {
+      fetchData();
+    } else {
+      setLoading(false);
     }
-  }, [searchParams.get('id')]);
-
-  const handleCloseSession = async () => {
-    if (!confirm("Tutup sesi presensi ini? Siswa yang belum diabsen akan ditandai Alpha.")) return;
-
-    setClosing(true);
-    try {
-      await goPut(`/api/attendance/sessions/${searchParams.get('id')}`, { status: "closed" });
-      await fetchSession();
-    } catch (err: any) {
-      setError(err.message || "Gagal menutup sesi");
-    } finally {
-      setClosing(false);
-    }
-  };
+  }, [className, date, fetchData]);
 
   const handleManualStatus = async (studentId: string, status: string) => {
+    setError(null);
     try {
       await goPost("/api/attendance/manual", {
-        sessionId: session?.id,
+        date,
+        className,
         studentId,
         status,
       });
-
-      await fetchSession();
+      await fetchData();
     } catch (err: any) {
       console.error("Error recording attendance:", err);
       setError(err.message || "Gagal mencatat presensi");
@@ -141,20 +124,15 @@ export default function SesiDetailPage() {
             <Skeleton className="h-4 w-32" />
           </div>
         </div>
-        <div className="grid grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-20" />
-          ))}
-        </div>
         <Skeleton className="h-64" />
       </div>
     );
   }
 
-  if (!session) {
+  if (!className) {
     return (
       <div className="text-center py-12">
-        <p className="text-muted-foreground">Sesi tidak ditemukan</p>
+        <p className="text-muted-foreground">Silakan pilih kelas dari halaman presensi</p>
         <Link href="/presensi">
           <Button className="mt-4">Kembali</Button>
         </Link>
@@ -162,10 +140,59 @@ export default function SesiDetailPage() {
     );
   }
 
-  const recordedIds = session.records.map((r) => r.student.id);
-  const notRecorded = session.allStudents.filter(
-    (s) => !recordedIds.includes(s.id)
-  );
+  if (data?.isHoliday) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Link href="/presensi">
+            <Button variant="outline" size="icon">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <CalendarDays className="h-6 w-6 text-primary" />
+              Kelas {className}
+            </h1>
+            <p className="text-muted-foreground">
+              {format(new Date(date), "EEEE, d MMMM yyyy", { locale: localeId })}
+            </p>
+          </div>
+        </div>
+        <Card className="border-yellow-300 bg-yellow-50">
+          <CardContent className="py-8 text-center">
+            <CalendarDays className="h-12 w-12 mx-auto mb-3 text-yellow-600 opacity-60" />
+            <p className="text-lg font-semibold text-yellow-800">Hari Ini Libur</p>
+            <p className="text-sm text-yellow-700">
+              {data.holidayReason || "Tanggal merah / hari libur nasional"}
+            </p>
+            <p className="text-xs text-yellow-600 mt-2">Presensi tidak tersedia pada hari libur.</p>
+            <Link href="/presensi">
+              <Button variant="outline" className="mt-6">Kembali ke Presensi</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const recordedIds = (data?.records || []).map((r) => r.student.id);
+  const allStudents = data?.students || [];
+  const records = data?.records || [];
+  const recorded = records;
+  const notRecorded = allStudents.filter((s) => !recordedIds.includes(s.id));
+
+  const countBy = (status: string) =>
+    recorded.filter((r) => r.status === status).length;
+
+  const stats = {
+    total: allStudents.length,
+    hadir: countBy("hadir"),
+    sakit: countBy("sakit"),
+    izin: countBy("izin"),
+    alpha: countBy("alpha"),
+    belumAbsen: notRecorded.length,
+  };
 
   return (
     <div className="space-y-6">
@@ -180,46 +207,20 @@ export default function SesiDetailPage() {
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Users className="h-6 w-6 text-primary" />
-              Kelas {session.className}
+              Kelas {className}
             </h1>
             <p className="text-muted-foreground">
-              {format(new Date(session.date), "EEEE, d MMMM yyyy", { locale: localeId })}
+              {format(new Date(date), "EEEE, d MMMM yyyy", { locale: localeId })}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Badge
-            className={
-              session.status === "open"
-                ? "bg-green-100 text-green-700"
-                : "bg-gray-100 text-gray-700"
-            }
-          >
-            {session.status === "open" ? "Aktif" : "Tutup"}
-          </Badge>
-          {session.status === "open" && (
-            <>
-              <Link href={`/kiosk-kelas?sessionId=${session.id}`}>
-                <Button variant="outline" size="sm">
-                  <QrCode className="h-4 w-4 mr-1" />
-                  Scan
-                </Button>
-              </Link>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleCloseSession}
-                disabled={closing}
-              >
-                {closing ? (
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                ) : (
-                  <Lock className="h-4 w-4 mr-1" />
-                )}
-                Tutup Sesi
-              </Button>
-            </>
-          )}
+          <Link href="/kiosk-kelas">
+            <Button variant="outline" size="sm">
+              <QrCode className="h-4 w-4 mr-1" />
+              Scan QR
+            </Button>
+          </Link>
         </div>
       </div>
 
@@ -230,37 +231,41 @@ export default function SesiDetailPage() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         <Card className="bg-gray-50">
           <CardContent className="py-3 text-center">
-            <p className="text-2xl font-bold">{session.stats.total}</p>
+            <p className="text-2xl font-bold">{stats.total}</p>
             <p className="text-xs text-muted-foreground">Total</p>
           </CardContent>
         </Card>
         <Card className="bg-green-50 border-green-200">
           <CardContent className="py-3 text-center">
-            <p className="text-2xl font-bold text-green-700">{session.stats.hadir}</p>
+            <p className="text-2xl font-bold text-green-700">{stats.hadir}</p>
             <p className="text-xs text-green-600">Hadir</p>
           </CardContent>
         </Card>
         <Card className="bg-yellow-50 border-yellow-200">
           <CardContent className="py-3 text-center">
-            <p className="text-2xl font-bold text-yellow-700">{session.stats.sakit}</p>
+            <p className="text-2xl font-bold text-yellow-700">{stats.sakit}</p>
             <p className="text-xs text-yellow-600">Sakit</p>
           </CardContent>
         </Card>
         <Card className="bg-blue-50 border-blue-200">
           <CardContent className="py-3 text-center">
-            <p className="text-2xl font-bold text-blue-700">{session.stats.izin}</p>
+            <p className="text-2xl font-bold text-blue-700">{stats.izin}</p>
             <p className="text-xs text-blue-600">Izin</p>
           </CardContent>
         </Card>
         <Card className="bg-red-50 border-red-200">
           <CardContent className="py-3 text-center">
-            <p className="text-2xl font-bold text-red-700">
-              {session.stats.alpha + session.stats.belumAbsen}
-            </p>
-            <p className="text-xs text-red-600">Alpha/Belum</p>
+            <p className="text-2xl font-bold text-red-700">{stats.alpha}</p>
+            <p className="text-xs text-red-600">Alpha</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-orange-50 border-orange-200">
+          <CardContent className="py-3 text-center">
+            <p className="text-2xl font-bold text-orange-700">{stats.belumAbsen}</p>
+            <p className="text-xs text-orange-600">Belum</p>
           </CardContent>
         </Card>
       </div>
@@ -268,16 +273,16 @@ export default function SesiDetailPage() {
       {/* Recorded Students */}
       <Card>
         <CardHeader>
-          <CardTitle>Siswa Sudah Diabsen ({session.records.length})</CardTitle>
+          <CardTitle>Siswa Sudah Diabsen ({recorded.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          {session.records.length === 0 ? (
+          {recorded.length === 0 ? (
             <p className="text-center py-4 text-muted-foreground">
               Belum ada siswa yang diabsen
             </p>
           ) : (
             <div className="space-y-2">
-              {session.records.map((record) => {
+              {recorded.map((record) => {
                 const config = STATUS_CONFIG[record.status];
                 const StatusIcon = config.icon;
                 return (
@@ -299,10 +304,26 @@ export default function SesiDetailPage() {
                         </p>
                       </div>
                     </div>
-                    <Badge className={config.color}>
-                      <StatusIcon className="h-3 w-3 mr-1" />
-                      {config.label}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge className={config.color}>
+                        <StatusIcon className="h-3 w-3 mr-1" />
+                        {config.label}
+                      </Badge>
+                      <Select
+                        value={record.status}
+                        onValueChange={(value) => handleManualStatus(record.student.id, value)}
+                      >
+                        <SelectTrigger className="w-28">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="hadir">Hadir</SelectItem>
+                          <SelectItem value="sakit">Sakit</SelectItem>
+                          <SelectItem value="izin">Izin</SelectItem>
+                          <SelectItem value="alpha">Alpha</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 );
               })}
@@ -312,14 +333,14 @@ export default function SesiDetailPage() {
       </Card>
 
       {/* Not Recorded Students */}
-      {session.status === "open" && notRecorded.length > 0 && (
+      {notRecorded.length > 0 && (
         <Card className="border-yellow-200">
           <CardHeader>
             <CardTitle className="text-yellow-700">
               Belum Diabsen ({notRecorded.length})
             </CardTitle>
             <CardDescription>
-              Klik status untuk mencatat absensi manual
+              Pilih status untuk mencatat presensi manual
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -365,5 +386,3 @@ export default function SesiDetailPage() {
     </div>
   );
 }
-
-

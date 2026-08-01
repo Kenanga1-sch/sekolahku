@@ -130,7 +130,10 @@ export default function TabBackup() {
             const formData = new FormData();
             formData.append("backup_file", fileToRestore);
 
-            const res: any = await goPost("/api/settings/backup/telegram/restore", formData);
+            const res: any = await goPost("/api/settings/backup/telegram/restore", formData, {
+                timeout: 5 * 60 * 1000,
+                skipRetry: true,
+            });
             
             toast.success(res?.message || "Restore berhasil, sistem sedang direstart...");
             setSuccessMsg(res?.message || "Restore berhasil. Server sedang direstart. Halaman akan dimuat ulang.");
