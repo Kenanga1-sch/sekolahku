@@ -26,7 +26,13 @@ func (r *LibraryRepository) GetStats() (*models.LibraryStats, error) {
 
 	r.DB.QueryRow("SELECT COUNT(*) FROM library_assets WHERE status='AVAILABLE'").Scan(&stats.AvailableBooks)
 	r.DB.QueryRow("SELECT COUNT(*) FROM library_assets WHERE status='BORROWED'").Scan(&stats.BorrowedBooks)
-	r.DB.QueryRow("SELECT COUNT(*) FROM library_members WHERE is_active=1").Scan(&stats.TotalMembers)
+	r.DB.QueryRow(`
+		SELECT COUNT(*) FROM library_members m
+		WHERE m.is_active=1 AND (
+			m.user_id IS NOT NULL
+			OR EXISTS (SELECT 1 FROM students st WHERE st.id = m.student_id AND (st.status='active' OR st.is_active=1))
+		)
+	`).Scan(&stats.TotalMembers)
 	r.DB.QueryRow("SELECT COUNT(*) FROM library_loans WHERE is_returned=0").Scan(&stats.ActiveLoans)
 
 	var totalBooks int
@@ -63,7 +69,7 @@ func (r *LibraryRepository) GetBooks(page, perPage int, search, category, status
 		args = append(args, category)
 	}
 	if statusFilter = strings.TrimSpace(statusFilter); statusFilter != "" {
-		where += " AND a.status = ?"
+		where += " AND UPPER(a.status) = UPPER(?)"
 		args = append(args, statusFilter)
 	}
 
@@ -192,22 +198,62 @@ func (r *LibraryRepository) DeleteBook(id string) error {
 	return tx.Commit()
 }
 
-// ───────── Members ─────────
+// ───────── Members (single source: students for student members, users for staff) ─────────
+
+// memberBaseQuery resolves member identity via JOIN: students for student members,
+// users for staff members. No denormalized name/class/qr anymore.
+const memberBaseQuery = `
+	SELECT m.id, m.student_id, m.user_id, m.max_borrow_limit, m.is_active, m.created_at,
+	       COALESCE(st.full_name, u.name, '') as display_name,
+	       COALESCE(st.class_name, '') as class_name,
+	       COALESCE(st.qr_code, '') as qr_code,
+	       COALESCE(st.photo, u.image, '') as photo
+	FROM library_members m
+	LEFT JOIN students st ON m.student_id = st.id
+	LEFT JOIN users u ON m.user_id = u.id
+`
+
+func scanMember(scanner interface{ Scan(dest ...interface{}) error }) (*models.LibraryMember, error) {
+	var m models.LibraryMember
+	var stID, uID sql.NullString
+	var qrCode, photo, className sql.NullString
+	var crAt sql.NullInt64
+
+	err := scanner.Scan(&m.ID, &stID, &uID, &m.MaxBorrowLimit, &m.IsActive, &crAt,
+		&m.Name, &className, &qrCode, &photo)
+	if err != nil {
+		return nil, err
+	}
+	if stID.Valid { m.StudentID = &stID.String }
+	if uID.Valid { m.UserID = &uID.String }
+	if className.Valid && className.String != "" {
+		m.ClassName = &className.String
+	}
+	m.QrCode = qrCode.String
+	if photo.Valid && photo.String != "" {
+		m.Photo = &photo.String
+	}
+	if crAt.Valid {
+		t := ToTime(crAt)
+		m.CreatedAt = &t
+	}
+	return &m, nil
+}
 
 func (r *LibraryRepository) GetMembers(page, perPage int, search string) ([]models.LibraryMember, int, error) {
 	offset := (page - 1) * perPage
 	where := "WHERE 1=1"
 	args := []interface{}{}
 	if search = strings.TrimSpace(search); search != "" {
-		where += " AND (name LIKE ? OR qr_code LIKE ? OR id LIKE ?)"
+		where += " AND (COALESCE(st.full_name, u.name, '') LIKE ? OR COALESCE(st.qr_code,'') LIKE ? OR m.id LIKE ? OR COALESCE(st.nisn,'') LIKE ? OR COALESCE(st.class_name,'') LIKE ?)"
 		s := "%" + search + "%"
-		args = append(args, s, s, s)
+		args = append(args, s, s, s, s, s)
 	}
 
 	var total int
-	r.DB.QueryRow("SELECT COUNT(*) FROM library_members "+where, args...).Scan(&total)
+	r.DB.QueryRow("SELECT COUNT(*) FROM library_members m LEFT JOIN students st ON m.student_id = st.id LEFT JOIN users u ON m.user_id = u.id "+where, args...).Scan(&total)
 
-	query := "SELECT id, qr_code, name, max_borrow_limit, is_active, created_at FROM library_members " + where + " ORDER BY name ASC LIMIT ? OFFSET ?"
+	query := memberBaseQuery + where + " ORDER BY display_name ASC LIMIT ? OFFSET ?"
 	listArgs := append(args, perPage, offset)
 
 	rows, err := r.DB.Query(query, listArgs...)
@@ -218,42 +264,45 @@ func (r *LibraryRepository) GetMembers(page, perPage int, search string) ([]mode
 
 	members := make([]models.LibraryMember, 0)
 	for rows.Next() {
-		var m models.LibraryMember
-		var qr string
-		var crAt sql.NullInt64
-		if err := rows.Scan(&m.ID, &qr, &m.Name, &m.MaxBorrowLimit, &m.IsActive, &crAt); err != nil {
+		m, err := scanMember(rows)
+		if err != nil {
 			return nil, 0, err
 		}
-		m.QrCode = qr
-		if crAt.Valid {
-			t := ToTime(crAt)
-			m.CreatedAt = &t
-		}
-		members = append(members, m)
+		members = append(members, *m)
 	}
 	return members, total, nil
 }
 
+// CreateMember creates a staff/guest member (student members are auto-created
+// from students by EnsureMember / SyncFromStudents)
 func (r *LibraryRepository) CreateMember(m models.LibraryMember) error {
 	id := cuid2.Generate()
 	now := UnixMilli()
-	qrCode := "LIB-" + id
-	if m.QrCode != "" {
-		qrCode = m.QrCode
+	if m.StudentID != nil && *m.StudentID != "" {
+		// Student member: only module-owned data (max_borrow_limit)
+		_, err := r.DB.Exec(`
+			INSERT INTO library_members (id, student_id, max_borrow_limit, is_active, created_at, updated_at)
+			VALUES (?, ?, ?, 1, ?, ?)
+		`, id, *m.StudentID, m.MaxBorrowLimit, now, now)
+		return err
 	}
-	_, err := r.DB.Exec(`
-		INSERT INTO library_members (id, name, qr_code, max_borrow_limit, is_active, created_at, updated_at)
-		VALUES (?, ?, ?, ?, 1, ?, ?)
-	`, id, m.Name, qrCode, m.MaxBorrowLimit, now, now)
-	return err
+	if m.UserID != nil && *m.UserID != "" {
+		_, err := r.DB.Exec(`
+			INSERT INTO library_members (id, user_id, max_borrow_limit, is_active, created_at, updated_at)
+			VALUES (?, ?, ?, 1, ?, ?)
+		`, id, *m.UserID, m.MaxBorrowLimit, now, now)
+		return err
+	}
+	return errors.New("member siswa/guru wajib dipilih")
 }
 
+// UpdateMember only updates module-owned data (max_borrow_limit)
 func (r *LibraryRepository) UpdateMember(id string, input models.UpdateMemberRequest) error {
 	now := UnixMilli()
 	_, err := r.DB.Exec(`
-		UPDATE library_members SET name=?, max_borrow_limit=?, updated_at=?
+		UPDATE library_members SET max_borrow_limit=?, updated_at=?
 		WHERE id=?
-	`, input.Name, input.MaxBorrowLimit, now, id)
+	`, input.MaxBorrowLimit, now, id)
 	return err
 }
 
@@ -262,55 +311,63 @@ func (r *LibraryRepository) DeleteMember(id string) error {
 	return err
 }
 
+// EnsureMember creates a library extension row for an active student if missing
+func (r *LibraryRepository) EnsureMember(studentID string) error {
+	_, err := r.DB.Exec(`
+		INSERT INTO library_members (id, student_id, max_borrow_limit, is_active, created_at, updated_at)
+		SELECT 'lib_' || s.id, s.id, 3, 1, ?, ?
+		FROM students s
+		WHERE s.id = ? AND (s.status = 'active' OR s.is_active = 1)
+		  AND NOT EXISTS (SELECT 1 FROM library_members lm WHERE lm.student_id = s.id)
+	`, UnixMilli(), UnixMilli(), studentID)
+	return err
+}
+
+// SyncFromStudents ensures every active student has a library member row.
+// Identity is JOINed at query time, so this is the only sync needed.
 func (r *LibraryRepository) SyncFromStudents() (int, error) {
-	rows, err := r.DB.Query(`
-		SELECT id, nisn, full_name FROM students
-		WHERE status = 'active'
-		  AND nisn IS NOT NULL AND nisn != ''
-		  AND nisn NOT IN (SELECT nisn FROM library_members WHERE nisn IS NOT NULL)
-	`)
+	res, err := r.DB.Exec(`
+		INSERT INTO library_members (id, student_id, max_borrow_limit, is_active, created_at, updated_at)
+		SELECT 'lib_' || s.id, s.id, 3, 1, ?, ?
+		FROM students s
+		WHERE (s.status = 'active' OR s.is_active = 1)
+		  AND NOT EXISTS (SELECT 1 FROM library_members lm WHERE lm.student_id = s.id)
+	`, UnixMilli(), UnixMilli())
 	if err != nil {
 		return 0, err
 	}
-	defer rows.Close()
-
-	count := 0
-	now := UnixMilli()
-	for rows.Next() {
-		var id, nisn, name string
-		if err := rows.Scan(&id, &nisn, &name); err != nil {
-			continue
-		}
-		memberID := cuid2.Generate()
-		qrCode := "LIB-" + id
-		_, err = r.DB.Exec(`
-			INSERT INTO library_members (id, nisn, name, qr_code, max_borrow_limit, student_id, is_active, created_at, updated_at)
-			VALUES (?, ?, ?, ?, 3, ?, 1, ?, ?)
-		`, memberID, nisn, name, qrCode, id, now, now)
-		if err == nil {
-			count++
-		}
-	}
-	return count, nil
+	count, _ := res.RowsAffected()
+	return int(count), nil
 }
 
+// GetMemberByCode resolves a member by QR/NISN/NIS/student-id (student) or member id
 func (r *LibraryRepository) GetMemberByCode(code string) (*models.LibraryMember, error) {
 	code = strings.TrimSpace(code)
 	if code == "" {
 		return nil, errors.New("kode tidak boleh kosong")
 	}
-	var m models.LibraryMember
-	var sid sql.NullString
-	err := r.DB.QueryRow(`
-		SELECT id, qr_code, name, COALESCE(student_id, ''), max_borrow_limit, is_active
-		FROM library_members WHERE id = ? OR qr_code = ? OR nisn = ?
-	`, code, code, code).Scan(&m.ID, &m.QrCode, &m.Name, &sid, &m.MaxBorrowLimit, &m.IsActive)
+	// Try student-sourced lookup first (qr_code / nisn / nis / student_id)
+	query := memberBaseQuery + `
+		WHERE m.student_id = (
+			SELECT id FROM students
+			WHERE qr_code = ? OR nisn = ? OR nis = ? OR id = ?
+			LIMIT 1
+		)
+	`
+	m, err := scanMember(r.DB.QueryRow(query, code, code, code, code))
+	if err == nil {
+		return m, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	// Fallback: member id direct (staff members)
+	m, err = scanMember(r.DB.QueryRow(memberBaseQuery+" WHERE m.id = ?", code))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
 	}
-	m.StudentID = optionalString(sid)
-	return &m, nil
+	return m, nil
 }

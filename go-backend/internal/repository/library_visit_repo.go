@@ -71,9 +71,11 @@ func (r *LibraryRepository) GetVisits(date string, page, perPage int) ([]models.
 	query := `
 		SELECT 
 			v.id, v.member_id, v.guest_name, v.guest_institution, v.guest_purpose, v.date, v.time, v.created_at,
-			m.name as member_name, m.class_name as member_class
+			COALESCE(st.full_name, u2.name, '') as member_name, COALESCE(st.class_name, '') as member_class
 		FROM library_visits v
 		LEFT JOIN library_members m ON v.member_id = m.id
+		LEFT JOIN students st ON m.student_id = st.id
+		LEFT JOIN users u2 ON m.user_id = u2.id
 		WHERE v.date = ?
 		ORDER BY v.created_at DESC
 		LIMIT ? OFFSET ?

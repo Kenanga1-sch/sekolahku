@@ -13,9 +13,9 @@ import (
 func (r *SavingsRepository) GetHutang(siswaId string) ([]models.TabunganHutang, error) {
 	query := `
 		SELECT h.id, h.siswa_id, h.nama_barang, h.kategori, h.nominal, h.jumlah, h.terbayar, h.dicatat_oleh, h.status, h.created_at,
-		       s.nama as s_nama
+		       st.full_name as s_nama
 		FROM tabungan_hutang h
-		JOIN tabungan_siswa s ON h.siswa_id = s.id
+		JOIN students st ON h.siswa_id = st.id
 		WHERE 1=1
 	`
 	var args []interface{}
@@ -56,7 +56,7 @@ func (r *SavingsRepository) CreateHutang(h models.TabunganHutang) error {
 		return errors.New("siswa wajib diisi")
 	}
 	var exists int
-	if err := r.DB.QueryRow("SELECT COUNT(*) FROM tabungan_siswa WHERE id = ?", h.SiswaID).Scan(&exists); err != nil {
+	if err := r.DB.QueryRow("SELECT COUNT(*) FROM students WHERE id = ?", h.SiswaID).Scan(&exists); err != nil {
 		return err
 	}
 	if exists == 0 {
@@ -106,7 +106,7 @@ func (r *SavingsRepository) DeleteHutang(id string) error {
 	var tabunganRefund int
 	tx.QueryRow("SELECT COALESCE(SUM(nominal), 0) FROM tabungan_hutang_pembayaran WHERE hutang_id = ? AND metode = 'tabungan'", id).Scan(&tabunganRefund)
 	if tabunganRefund > 0 && sid != "" {
-		if _, err := tx.Exec("UPDATE tabungan_siswa SET saldo_terakhir = saldo_terakhir + ?, updated_at = ? WHERE id = ?", tabunganRefund, now, sid); err != nil {
+		if _, err := tx.Exec("UPDATE tabungan_siswa SET saldo_terakhir = saldo_terakhir + ?, updated_at = ? WHERE student_id = ?", tabunganRefund, now, sid); err != nil {
 			return err
 		}
 		if _, err := tx.Exec("INSERT INTO tabungan_transaksi (id, siswa_id, tipe, nominal, status, catatan, created_at, updated_at) VALUES (?, ?, 'setor', ?, 'verified', ?, ?, ?)",
@@ -239,7 +239,7 @@ func (r *SavingsRepository) SettleHutangFromSavings(id string, amount int, opera
 	}
 
 	var saldo int
-	if err := tx.QueryRow("SELECT saldo_terakhir FROM tabungan_siswa WHERE id = ?", sid).Scan(&saldo); err != nil {
+	if err := tx.QueryRow("SELECT saldo_terakhir FROM tabungan_siswa WHERE student_id = ?", sid).Scan(&saldo); err != nil {
 		return errors.New("siswa tabungan tidak ditemukan")
 	}
 	if saldo < amount {
@@ -257,7 +257,7 @@ func (r *SavingsRepository) SettleHutangFromSavings(id string, amount int, opera
 		return err
 	}
 
-	if _, err := tx.Exec("UPDATE tabungan_siswa SET saldo_terakhir = saldo_terakhir - ?, updated_at = ? WHERE id = ?", amount, now, sid); err != nil {
+	if _, err := tx.Exec("UPDATE tabungan_siswa SET saldo_terakhir = saldo_terakhir - ?, updated_at = ? WHERE student_id = ?", amount, now, sid); err != nil {
 		return err
 	}
 

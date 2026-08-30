@@ -56,9 +56,19 @@ func (r *DashboardRepository) GetDashboardStats() (*models.DashboardStats, error
 	r.DB.QueryRow("SELECT COUNT(*) FROM inventory_rooms").Scan(&stats.ModuleStats.Inventaris.TotalRooms)
 	r.DB.QueryRow("SELECT COALESCE(SUM(condition_light_damaged + condition_heavy_damaged), 0) FROM inventory_assets WHERE status = 'ACTIVE'").Scan(&stats.ModuleStats.Inventaris.NeedsMaintenance)
 
-	// 4. Savings Stats
-	r.DB.QueryRow("SELECT COALESCE(SUM(saldo_terakhir), 0) FROM tabungan_siswa WHERE is_active = 1").Scan(&stats.ModuleStats.Tabungan.TotalSaldo)
-	r.DB.QueryRow("SELECT COUNT(*) FROM tabungan_siswa WHERE is_active = 1").Scan(&stats.ModuleStats.Tabungan.TotalStudents)
+	// 4. Savings Stats (single source: join students for active filter)
+	r.DB.QueryRow(`
+		SELECT COALESCE(SUM(ts.saldo_terakhir), 0)
+		FROM tabungan_siswa ts
+		JOIN students st ON ts.student_id = st.id
+		WHERE st.status = 'active' OR st.is_active = 1
+	`).Scan(&stats.ModuleStats.Tabungan.TotalSaldo)
+	r.DB.QueryRow(`
+		SELECT COUNT(*)
+		FROM tabungan_siswa ts
+		JOIN students st ON ts.student_id = st.id
+		WHERE st.status = 'active' OR st.is_active = 1
+	`).Scan(&stats.ModuleStats.Tabungan.TotalStudents)
 
 	now := time.Now()
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).UnixMilli()

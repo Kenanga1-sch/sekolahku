@@ -16,10 +16,12 @@ func (r *LibraryRepository) GetLoans(loanType string, page, perPage int) ([]mode
 	query := `
 		SELECT 
 			l.id, l.member_id, l.item_id, l.borrow_date, l.due_date, l.return_date, l.is_returned, l.fine_amount,
-			m.name as member_name, m.class_name as member_class,
+			COALESCE(st.full_name, m_staff.name, m.id) as member_name, COALESCE(st.class_name, '') as member_class,
 			c.title as item_title
 		FROM library_loans l
 		JOIN library_members m ON l.member_id = m.id
+		LEFT JOIN students st ON m.student_id = st.id
+		LEFT JOIN users m_staff ON m.user_id = m_staff.id
 		JOIN library_assets a ON l.item_id = a.id
 		JOIN library_catalog c ON a.catalog_id = c.id
 		WHERE 1=1
@@ -107,10 +109,12 @@ func (r *LibraryRepository) GetActiveLoansByMemberID(memberID string) ([]models.
 	query := `
 		SELECT
 			l.id, l.member_id, l.item_id, l.borrow_date, l.due_date, l.return_date, l.is_returned, l.fine_amount,
-			m.name, m.class_name,
+			COALESCE(st.full_name, m_staff.name, m.id), COALESCE(st.class_name, ''),
 			c.title, c.category
 		FROM library_loans l
 		JOIN library_members m ON l.member_id = m.id
+		LEFT JOIN students st ON m.student_id = st.id
+		LEFT JOIN users m_staff ON m.user_id = m_staff.id
 		JOIN library_assets a ON l.item_id = a.id
 		JOIN library_catalog c ON a.catalog_id = c.id
 		WHERE l.member_id = ? AND l.is_returned = 0
@@ -175,10 +179,12 @@ func (r *LibraryRepository) FindActiveLoanByItemID(itemID string) (*models.LoanD
 	err := r.DB.QueryRow(`
 		SELECT
 			l.id, l.member_id, l.item_id, l.borrow_date, l.due_date, l.return_date, l.is_returned, l.fine_amount,
-			m.name, m.class_name,
+			COALESCE(st.full_name, m_staff.name, m.id), COALESCE(st.class_name, ''),
 			c.title
 		FROM library_loans l
 		JOIN library_members m ON l.member_id = m.id
+		LEFT JOIN students st ON m.student_id = st.id
+		LEFT JOIN users m_staff ON m.user_id = m_staff.id
 		JOIN library_assets a ON l.item_id = a.id
 		JOIN library_catalog c ON a.catalog_id = c.id
 		WHERE l.item_id = ? AND l.is_returned = 0
@@ -270,13 +276,26 @@ func (r *LibraryRepository) BorrowItem(memberId string, itemId string, loanDays 
 	}
 	defer tx.Rollback()
 
-	// 1. Verify Member limit
+	// 1. Verify Member limit (accept member id, or student qr/nisn/nis/id)
 	var maxLimit int
 	err = tx.QueryRow("SELECT max_borrow_limit FROM library_members WHERE id = ?", memberId).Scan(&maxLimit)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			// Try by QR Code if ID not found
-			err = tx.QueryRow("SELECT id, max_borrow_limit FROM library_members WHERE qr_code = ?", memberId).Scan(&memberId, &maxLimit)
+			// Resolve via students, then ensure extension row exists
+			var studentID string
+			err = tx.QueryRow(`SELECT id FROM students WHERE qr_code = ? OR nisn = ? OR nis = ? OR id = ? LIMIT 1`,
+				memberId, memberId, memberId, memberId).Scan(&studentID)
+			if err != nil {
+				return nil, errors.New("member not found")
+			}
+			if _, err := tx.Exec(`INSERT INTO library_members (id, student_id, max_borrow_limit, is_active, created_at, updated_at)
+				SELECT 'lib_' || s.id, s.id, 3, 1, ?, ? FROM students s
+				WHERE s.id = ? AND (s.status='active' OR s.is_active=1)
+				  AND NOT EXISTS (SELECT 1 FROM library_members lm WHERE lm.student_id = s.id)`,
+				UnixMilli(), UnixMilli(), studentID); err != nil {
+				return nil, err
+			}
+			err = tx.QueryRow("SELECT id, max_borrow_limit FROM library_members WHERE student_id = ?", studentID).Scan(&memberId, &maxLimit)
 			if err != nil {
 				return nil, errors.New("member not found")
 			}

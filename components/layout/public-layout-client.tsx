@@ -19,14 +19,8 @@ import { logoutAction } from "@/actions/auth";
 import { useState, useEffect } from "react";
 
 const navItems = [
-  { id: "hero", label: "Beranda", href: "/" },
-  { id: "visi-misi", label: "Profil", href: "/#visi-misi" },
-  { id: "guru", label: "Guru & Staff", href: "/profil/guru-staff" },
-  { id: "kurikulum", label: "Program", href: "/#kurikulum" },
-  { id: "berita", label: "Berita", href: "/#berita" },
-  { id: "layanan", label: "Layanan", href: "/#layanan" },
-  { id: "spmb", label: "SPMB", href: "/#spmb" },
-  { id: "kontak", label: "Kontak", href: "/#kontak" },
+  { id: "spmb", label: "SPMB", href: "/spmb" },
+  { id: "layanan", label: "Layanan", href: "/layanan/mutasi-masuk" },
 ];
 
 export default function PublicLayoutClient({
@@ -118,13 +112,16 @@ export default function PublicLayoutClient({
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            ) : (
-               <Link href="/login">
-                  <Button size="sm" className="rounded-full px-5 h-8 bg-zinc-950/80 backdrop-blur-xl border border-zinc-800/80 shadow-2xl hover:bg-zinc-900/80 font-bold text-[10px] uppercase tracking-wider active:scale-95 transition-all text-white hover:text-white">
-                     Masuk
-                  </Button>
-               </Link>
-            )}
+             ) : (
+                <Button
+                   size="sm"
+                   disabled
+                   aria-disabled="true"
+                   className="rounded-full px-5 h-8 bg-zinc-950/80 backdrop-blur-xl border border-zinc-800/80 shadow-2xl font-bold text-[10px] uppercase tracking-wider text-zinc-500 cursor-not-allowed"
+                >
+                   Masuk
+                </Button>
+             )}
             </div>
          </header>
 

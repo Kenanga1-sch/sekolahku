@@ -16,11 +16,32 @@ const csrfHeaderName = "X-CSRF-Token"
 // allowedOriginSuffixes adalah daftar domain/host yang diperbolehkan
 // sebagai asal request (Origin header). Semua trafik publik masuk lewat
 // Cloudflare Tunnel dengan host sdn1kenanga.sch.id atau localhost.
-var allowedOriginSuffixes = []string{
-	"sdn1kenanga.sch.id",
-	"localhost",
-	"127.0.0.1",
-	"100.97.52.50",
+// EXTRA_ALLOWED_ORIGINS (koma-separated) menambah host dev/LAN tanpa rebuild.
+var allowedOriginSuffixes = func() []string {
+	list := []string{
+		"sdn1kenanga.sch.id",
+		"localhost",
+		"127.0.0.1",
+		"100.97.52.50",
+	}
+	if extra := os.Getenv("EXTRA_ALLOWED_ORIGINS"); extra != "" {
+		for _, h := range strings.Split(extra, ",") {
+			h = strings.TrimSpace(strings.ToLower(h))
+			if h != "" && !containsFold(list, h) {
+				list = append(list, h)
+			}
+		}
+	}
+	return list
+}()
+
+func containsFold(list []string, s string) bool {
+	for _, v := range list {
+		if strings.EqualFold(v, s) {
+			return true
+		}
+	}
+	return false
 }
 
 func generateCSRFToken() (string, error) {

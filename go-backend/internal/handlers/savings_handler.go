@@ -108,25 +108,17 @@ func (h *SavingsHandler) SyncSavings(c echo.Context) error {
 }
 
 func (h *SavingsHandler) CreateSiswa(c echo.Context) error {
-	var req models.CreateSiswaRequest
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
-	}
-	if err := h.Repo.CreateSiswa(req); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
-	}
-	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true, "message": "Siswa tabungan berhasil dibuat"})
+	return c.JSON(http.StatusGone, map[string]interface{}{
+		"success": false,
+		"error":   "Data siswa kini dikelola di Manajemen Siswa (single source). Siswa baru otomatis mendapat rekening tabungan.",
+	})
 }
 
 func (h *SavingsHandler) UpdateSiswa(c echo.Context) error {
-	var req models.CreateSiswaRequest
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
-	}
-	if err := h.Repo.UpdateSiswa(c.Param("id"), req); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
-	}
-	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "message": "Siswa tabungan berhasil diperbarui"})
+	return c.JSON(http.StatusGone, map[string]interface{}{
+		"success": false,
+		"error":   "Data siswa kini dikelola di Manajemen Siswa (single source). Perubahan otomatis tampil di Tabungan.",
+	})
 }
 
 func (h *SavingsHandler) DeleteSiswa(c echo.Context) error {

@@ -44,15 +44,16 @@ func main() {
 
 	printCounts("Students by is_active and status", "SELECT COUNT(*), CAST(is_active AS TEXT), COALESCE(status, '') FROM students GROUP BY is_active, status")
 	printCounts("Library Members by is_active and linked status", `
-		SELECT COUNT(*), CAST(is_active AS TEXT), 
-		       CAST((CASE WHEN student_id IS NOT NULL AND student_id != '' THEN 1 ELSE 0 END) AS TEXT)
-		FROM library_members
-		GROUP BY is_active, (student_id IS NOT NULL AND student_id != '')
+		SELECT COUNT(*), CAST(m.is_active AS TEXT),
+		       CAST((CASE WHEN m.student_id IS NOT NULL AND m.student_id != '' THEN 1 ELSE 0 END) AS TEXT)
+		FROM library_members m
+		GROUP BY m.is_active, (m.student_id IS NOT NULL AND m.student_id != '')
 	`)
-	printCounts("Savings Students by is_active and linked status", `
-		SELECT COUNT(*), CAST(is_active AS TEXT), 
-		       CAST((CASE WHEN student_id IS NOT NULL AND student_id != '' THEN 1 ELSE 0 END) AS TEXT)
-		FROM tabungan_siswa
-		GROUP BY is_active, (student_id IS NOT NULL AND student_id != '')
+	printCounts("Savings by linked & student active status", `
+		SELECT COUNT(*), CAST(ts.student_id IS NOT NULL AS TEXT),
+		       COALESCE(st.status, 'no-student')
+		FROM tabungan_siswa ts
+		LEFT JOIN students st ON ts.student_id = st.id
+		GROUP BY (ts.student_id IS NOT NULL), st.status
 	`)
 }

@@ -63,8 +63,8 @@ export default function AuthLayout({
               <div className="text-xs text-white/40 flex justify-between items-center w-full">
                 <p>© {new Date().getFullYear()} {settings?.school_name || "Sekolah"}</p>
                 <div className="flex gap-4">
-                  <Link href="/kontak" className="hover:text-white transition-colors">Bantuan</Link>
-                  <Link href="/berita" className="hover:text-white transition-colors">Berita</Link>
+                  <Link href="/spmb" className="hover:text-white transition-colors">SPMB</Link>
+                  <Link href="/layanan/mutasi-masuk" className="hover:text-white transition-colors">Layanan</Link>
                 </div>
               </div>
             </div>

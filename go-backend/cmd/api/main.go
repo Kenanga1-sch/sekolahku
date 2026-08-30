@@ -129,18 +129,27 @@ func main() {
 	if os.Getenv("ENV") == "production" && os.Getenv("TRUST_PROXY") != "true" {
 		server.Use(middleware.HTTPSRedirect())
 	}
+	// AllowOrigins: default + EXTRA_ALLOWED_ORIGINS (koma-separated) untuk host dev/LAN
+	allowOrigins := []string{
+		"http://localhost:3000",
+		"http://127.0.0.1:3000",
+		"http://localhost:3001",
+		"http://127.0.0.1:3001",
+		"https://server-kenanga.tail747644.ts.net",
+		"https://sdn1kenanga.sch.id",
+	}
+	if extra := os.Getenv("EXTRA_ALLOWED_ORIGINS"); extra != "" {
+		for _, o := range strings.Split(extra, ",") {
+			if o = strings.TrimSpace(o); o != "" {
+				allowOrigins = append(allowOrigins, o)
+			}
+		}
+	}
 	server.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{
-			"http://localhost:3000",
-			"http://127.0.0.1:3000",
-			"http://localhost:3001",
-			"http://127.0.0.1:3001",
-			"https://server-kenanga.tail747644.ts.net",
-			"https://sdn1kenanga.sch.id",
-		},
-		AllowMethods:     []string{http.MethodGet, http.MethodPut, http.MethodPatch, http.MethodPost, http.MethodDelete, http.MethodOptions},
-		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization, "X-CSRF-Token"},
-		AllowCredentials: true,
+		AllowOrigins:      allowOrigins,
+		AllowMethods:      []string{http.MethodGet, http.MethodPut, http.MethodPatch, http.MethodPost, http.MethodDelete, http.MethodOptions},
+		AllowHeaders:      []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization, "X-CSRF-Token"},
+		AllowCredentials:  true,
 	}))
 
 	// Database initialization

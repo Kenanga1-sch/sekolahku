@@ -149,10 +149,10 @@ func (r *SavingsRepository) VerifySetoran(req models.VerifySetoranRequest) error
 		for sid, net := range netPerSiswa {
 			if net < 0 {
 				var saldo int
-				tx.QueryRow("SELECT saldo_terakhir FROM tabungan_siswa WHERE id = ?", sid).Scan(&saldo)
+				tx.QueryRow("SELECT saldo_terakhir FROM tabungan_siswa WHERE student_id = ?", sid).Scan(&saldo)
 				if saldo+net < 0 {
 					var nama string
-					tx.QueryRow("SELECT nama FROM tabungan_siswa WHERE id = ?", sid).Scan(&nama)
+					tx.QueryRow("SELECT full_name FROM students WHERE id = ?", sid).Scan(&nama)
 					return errors.New("Saldo siswa " + nama + " tidak cukup untuk verifikasi penarikan")
 				}
 			}
@@ -162,10 +162,10 @@ func (r *SavingsRepository) VerifySetoran(req models.VerifySetoranRequest) error
 			if _, err := tx.Exec("UPDATE tabungan_transaksi SET status = 'verified', verified_by = ?, verified_at = ?, updated_at = ? WHERE id = ?",
 				req.BendaharaID, now, now, item.ID); err != nil { return err }
 			if item.Tipe == "setor" {
-				if _, err := tx.Exec("UPDATE tabungan_siswa SET saldo_terakhir = saldo_terakhir + ?, updated_at = ? WHERE id = ?",
+				if _, err := tx.Exec("UPDATE tabungan_siswa SET saldo_terakhir = saldo_terakhir + ?, updated_at = ? WHERE student_id = ?",
 					item.Nominal, now, item.SiswaID); err != nil { return err }
 			} else {
-				if _, err := tx.Exec("UPDATE tabungan_siswa SET saldo_terakhir = saldo_terakhir - ?, updated_at = ? WHERE id = ?",
+				if _, err := tx.Exec("UPDATE tabungan_siswa SET saldo_terakhir = saldo_terakhir - ?, updated_at = ? WHERE student_id = ?",
 					item.Nominal, now, item.SiswaID); err != nil { return err }
 			}
 		}
@@ -283,9 +283,9 @@ func (r *SavingsRepository) GetSetoranDetail(id string) (*models.TabunganSetoran
 	if bName.Valid { s.BendaharaName = &bName.String }
 
 	txRows, err := r.DB.Query(`
-		SELECT t.id, t.siswa_id, t.tipe, t.nominal, t.catatan, ss.nama as s_nama
+		SELECT t.id, t.siswa_id, t.tipe, t.nominal, t.catatan, st.full_name as s_nama
 		FROM tabungan_transaksi t
-		JOIN tabungan_siswa ss ON t.siswa_id = ss.id
+		JOIN students st ON t.siswa_id = st.id
 		WHERE t.setoran_id = ?
 	`, id)
 	if err == nil {
@@ -307,36 +307,4 @@ func (r *SavingsRepository) ResubmitSetoran(id string, catatan string) error {
 	_, err := r.DB.Exec("UPDATE tabungan_setoran SET status = 'pending', catatan = ?, updated_at = ? WHERE id = ?",
 		catatan, UnixMilli(), id)
 	return err
-}
-
-// GetPublicBalance returns a student's savings balance by identifier + birth date
-func (r *SavingsRepository) GetPublicBalance(identifier, birthDate string) (*models.TabunganSiswa, error) {
-	var s models.TabunganSiswa
-	var kNama sql.NullString
-	var upAt sql.NullInt64
-
-	query := `
-		SELECT ts.id, ts.nisn, ts.nama, ts.saldo_terakhir, ts.updated_at, k.nama as k_nama
-		FROM tabungan_siswa ts
-		JOIN students st ON ts.student_id = st.id
-		JOIN tabungan_kelas k ON ts.kelas_id = k.id
-		WHERE (ts.nisn = ? OR ts.qr_code = ? OR ts.id = ?) AND st.birth_date = ? AND ts.is_active = 1
-	`
-	err := r.DB.QueryRow(query, identifier, identifier, identifier, birthDate).Scan(
-		&s.ID, &s.NISN, &s.Nama, &s.SaldoTerakhir, &upAt, &kNama,
-	)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	uTime := ToTime(upAt)
-	s.UpdatedAt = &uTime
-	if kNama.Valid {
-		s.Kelas = &models.TabunganKelas{Nama: kNama.String}
-	}
-
-	return &s, nil
 }

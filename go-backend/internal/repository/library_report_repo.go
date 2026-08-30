@@ -15,10 +15,12 @@ func (r *LibraryRepository) GetLoanReport(startDate, endDate string, limit int) 
 	}
 	rows, err := r.DB.Query(`
 		SELECT
-			l.id, m.name, m.class_name, c.title,
+			l.id, COALESCE(st.full_name, mst.name, m.id), COALESCE(st.class_name, ''), c.title,
 			l.borrow_date, l.due_date, l.return_date, l.is_returned, l.fine_amount
 		FROM library_loans l
 		JOIN library_members m ON l.member_id = m.id
+		LEFT JOIN students st ON m.student_id = st.id
+		LEFT JOIN users mst ON m.user_id = mst.id
 		JOIN library_assets a ON l.item_id = a.id
 		JOIN library_catalog c ON a.catalog_id = c.id
 		WHERE l.borrow_date BETWEEN ? AND ?
@@ -66,13 +68,15 @@ func (r *LibraryRepository) GetVisitReport(startDate, endDate string, limit int)
 	rows, err := r.DB.Query(`
 		SELECT
 			v.id,
-			COALESCE(NULLIF(v.guest_name, ''), m.name, 'Tamu') AS visitor_name,
-			m.class_name,
+			COALESCE(NULLIF(v.guest_name, ''), st.full_name, u3.name, 'Tamu') AS visitor_name,
+			COALESCE(st.class_name, ''),
 			v.date,
 			v.timestamp,
 			v.created_at
 		FROM library_visits v
 		LEFT JOIN library_members m ON v.member_id = m.id
+		LEFT JOIN students st ON m.student_id = st.id
+		LEFT JOIN users u3 ON m.user_id = u3.id
 		WHERE v.date BETWEEN ? AND ?
 		ORDER BY v.date DESC, v.timestamp DESC, v.created_at DESC
 		LIMIT ?

@@ -15,13 +15,29 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// resolveDBDir menentukan lokasi database secara deterministik.
+// Urutan: env DB_PATH → folder go-backend/data jika ada (start dari root) → data (start dari go-backend).
+func resolveDBDir() string {
+	if p := os.Getenv("DB_PATH"); p != "" {
+		return filepath.Dir(p)
+	}
+	if _, err := os.Stat("go-backend"); err == nil {
+		return filepath.Join("go-backend", "data")
+	}
+	if _, err := os.Stat("cmd/api"); err == nil {
+		// berada di dalam go-backend (mis. go run ./cmd/api)
+		if _, err := os.Stat("go-backend/data/sekolahku.db"); err == nil {
+			return filepath.Join("go-backend", "data")
+		}
+		return "data"
+	}
+	return "data"
+}
+
 // initDatabase opens the SQLite database, applies PRAGMAs, runs migrations,
 // creates core tables, seeds defaults, repairs schema, and creates indexes.
 func initDatabase(server *echo.Echo) *sql.DB {
-	dbDir := "data"
-	if _, err := os.Stat("go-backend"); err == nil {
-		dbDir = filepath.Join("go-backend", "data")
-	}
+	dbDir := resolveDBDir()
 	if err := os.MkdirAll(dbDir, 0755); err != nil {
 		server.Logger.Fatal("Failed to create data directory:", err)
 	}
@@ -68,7 +84,10 @@ func initDatabase(server *echo.Echo) *sql.DB {
 		server.Logger.Warn("Failed to enable foreign keys:", err)
 	}
 
-	// Seed defaults
+	// Automated schema repair
+	RepairDatabase(db, server.Logger)
+
+	// Seed defaults (setelah repair agar kolom yang dibutuhkan sudah ada)
 	SeedDefaultAdmin(db, server.Logger)
 	SeedDefaultKlasifikasi(db, server.Logger)
 
@@ -86,9 +105,6 @@ func initDatabase(server *echo.Echo) *sql.DB {
 
 	// Seed integration settings
 	seedIntegrationSettings(db, server.Logger)
-
-	// Automated schema repair
-	RepairDatabase(db, server.Logger)
 
 	server.Logger.Info("Database initialized with default settings and core tables")
 	return db
@@ -575,6 +591,7 @@ func RepairDatabase(db *sql.DB, logger echo.Logger) {
 		{Table: "students", Name: "meta_data", SQLType: "TEXT"},
 		{Table: "students", Name: "is_active", SQLType: "INTEGER", Default: "1"},
 		{Table: "students", Name: "kip", SQLType: "TEXT"},
+		{Table: "students", Name: "enrolled_at", SQLType: "INTEGER"},
 
 		// library_loans
 		{Table: "library_loans", Name: "status", SQLType: "TEXT", Default: "'borrowed'"},
@@ -596,6 +613,7 @@ func RepairDatabase(db *sql.DB, logger echo.Logger) {
 		{Table: "users", Name: "full_name", SQLType: "TEXT"},
 		{Table: "users", Name: "phone", SQLType: "TEXT"},
 		{Table: "users", Name: "is_active", SQLType: "INTEGER", Default: "1"},
+		{Table: "users", Name: "must_change_password", SQLType: "INTEGER", Default: "0"},
 		{Table: "users", Name: "created_at", SQLType: "INTEGER"},
 		{Table: "users", Name: "updated_at", SQLType: "INTEGER"},
 

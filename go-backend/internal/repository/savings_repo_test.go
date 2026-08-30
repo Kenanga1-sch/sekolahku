@@ -8,37 +8,40 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// setupSavingsTestDB creates the single-source schema:
+// students is the identity authority; tabungan_siswa is an extension (student_id + saldo).
 func setupSavingsTestDB(t *testing.T) *sql.DB {
 	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("Failed to open in-memory db: %v", err)
 	}
 
-	// Create tables
 	_, err = db.Exec(`
-		CREATE TABLE tabungan_kelas (
-			id TEXT PRIMARY KEY,
-			nama TEXT,
-			wali_kelas TEXT,
-			created_at INTEGER,
-			updated_at INTEGER
-		);
-		CREATE TABLE tabungan_siswa (
+		CREATE TABLE students (
 			id TEXT PRIMARY KEY,
 			nisn TEXT,
-			nama TEXT,
-			kelas_id TEXT,
-			saldo_terakhir INTEGER DEFAULT 0,
+			nis TEXT,
+			full_name TEXT,
+			birth_date TEXT,
+			class_id TEXT,
+			class_name TEXT,
 			qr_code TEXT,
-			foto TEXT,
+			photo TEXT,
+			status TEXT DEFAULT 'active',
 			is_active INTEGER DEFAULT 1,
 			created_at INTEGER,
-			updated_at INTEGER,
-			FOREIGN KEY(kelas_id) REFERENCES tabungan_kelas(id)
+			updated_at INTEGER
 		);
 		CREATE TABLE users (
 			id TEXT PRIMARY KEY,
 			name TEXT
+		);
+		CREATE TABLE tabungan_siswa (
+			id TEXT PRIMARY KEY,
+			student_id TEXT UNIQUE NOT NULL REFERENCES students(id),
+			saldo_terakhir INTEGER DEFAULT 0,
+			created_at INTEGER,
+			updated_at INTEGER
 		);
 		CREATE TABLE tabungan_transaksi (
 			id TEXT PRIMARY KEY,
@@ -91,41 +94,29 @@ func setupSavingsTestDB(t *testing.T) *sql.DB {
 	return db
 }
 
-func TestSavingsRepository_KelasCRUD(t *testing.T) {
-	db := setupSavingsTestDB(t)
-	defer db.Close()
-	repo := NewSavingsRepository(db)
-
-	t.Run("Create", func(t *testing.T) {
-		err := repo.CreateKelas("Kelas 1", nil)
-		if err != nil {
-			t.Errorf("Create failed: %v", err)
-		}
-	})
-
-	t.Run("GetAll", func(t *testing.T) {
-		res, err := repo.GetAllKelas()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(res) == 0 {
-			t.Error("Should have at least 1 class")
-		}
-	})
+func seedSavingsFlow(t *testing.T, db *sql.DB, saldo int) {
+	t.Helper()
+	_, err := db.Exec(`INSERT INTO students (id, nisn, full_name, class_name, qr_code, status, is_active)
+		VALUES (?, ?, ?, ?, ?, 'active', 1)`, "st1", "12345678", "Siswa A", "Kelas 1", "QR-123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.Exec(`INSERT INTO users (id, name) VALUES (?, ?), (?, ?)`, "u1", "Guru", "bendahara", "Bendahara")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.Exec(`INSERT INTO tabungan_siswa (id, student_id, saldo_terakhir) VALUES (?, ?, ?)`,
+		"sav_st1", "st1", saldo)
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestSavingsRepository_SiswaLookup(t *testing.T) {
 	db := setupSavingsTestDB(t)
 	defer db.Close()
 	repo := NewSavingsRepository(db)
-
-	// Seed class and student
-	_, _ = db.Exec(`INSERT INTO tabungan_kelas (id, nama) VALUES (?, ?)`, "k1", "Kelas 1")
-	_, err := db.Exec(`INSERT INTO tabungan_siswa (id, nisn, nama, kelas_id, qr_code) VALUES (?, ?, ?, ?, ?)`,
-		"s1", "12345678", "Siswa A", "k1", "QR-123")
-	if err != nil {
-		t.Fatal(err)
-	}
+	seedSavingsFlow(t, db, 0)
 
 	t.Run("ByQR Found", func(t *testing.T) {
 		res, err := repo.GetSiswaByQR("QR-123")
@@ -137,8 +128,8 @@ func TestSavingsRepository_SiswaLookup(t *testing.T) {
 		}
 	})
 
-	t.Run("ByID Found", func(t *testing.T) {
-		res, err := repo.GetSiswaByQR("s1")
+	t.Run("ByStudentID Found", func(t *testing.T) {
+		res, err := repo.GetSiswaByQR("st1")
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}
@@ -168,23 +159,6 @@ func TestSavingsRepository_SiswaLookup(t *testing.T) {
 	})
 }
 
-func seedSavingsFlow(t *testing.T, db *sql.DB, saldo int) {
-	t.Helper()
-	_, err := db.Exec(`INSERT INTO tabungan_kelas (id, nama) VALUES (?, ?)`, "k1", "Kelas 1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = db.Exec(`INSERT INTO users (id, name) VALUES (?, ?), (?, ?)`, "u1", "Guru", "bendahara", "Bendahara")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = db.Exec(`INSERT INTO tabungan_siswa (id, nisn, nama, kelas_id, saldo_terakhir, qr_code) VALUES (?, ?, ?, ?, ?, ?)`,
-		"s1", "12345678", "Siswa A", "k1", saldo, "QR-123")
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestSavingsRepository_CreateTransaksiPreventsPendingOverdraw(t *testing.T) {
 	db := setupSavingsTestDB(t)
 	defer db.Close()
@@ -192,7 +166,7 @@ func TestSavingsRepository_CreateTransaksiPreventsPendingOverdraw(t *testing.T) 
 	seedSavingsFlow(t, db, 10000)
 
 	err := repo.CreateTransaksi(models.CreateTransaksiRequest{
-		SiswaID: "s1",
+		SiswaID: "st1",
 		Type:    "tarik",
 		Nominal: 8000,
 		UserID:  "u1",
@@ -202,7 +176,7 @@ func TestSavingsRepository_CreateTransaksiPreventsPendingOverdraw(t *testing.T) 
 	}
 
 	err = repo.CreateTransaksi(models.CreateTransaksiRequest{
-		SiswaID: "s1",
+		SiswaID: "st1",
 		Tipe:    "tarik",
 		Nominal: 3000,
 		UserID:  "u1",
@@ -219,7 +193,7 @@ func TestSavingsRepository_VerifySetoranUpdatesBalanceOnce(t *testing.T) {
 	seedSavingsFlow(t, db, 10000)
 
 	if err := repo.CreateTransaksi(models.CreateTransaksiRequest{
-		SiswaID: "s1",
+		SiswaID: "st1",
 		Tipe:    "setor",
 		Nominal: 5000,
 		UserID:  "u1",
@@ -246,7 +220,7 @@ func TestSavingsRepository_VerifySetoranUpdatesBalanceOnce(t *testing.T) {
 	}
 
 	var saldo, kas int
-	if err := db.QueryRow(`SELECT saldo_terakhir FROM tabungan_siswa WHERE id = 's1'`).Scan(&saldo); err != nil {
+	if err := db.QueryRow(`SELECT saldo_terakhir FROM tabungan_siswa WHERE student_id = 'st1'`).Scan(&saldo); err != nil {
 		t.Fatal(err)
 	}
 	if saldo != 15000 {
@@ -266,5 +240,62 @@ func TestSavingsRepository_VerifySetoranUpdatesBalanceOnce(t *testing.T) {
 		NominalFisik: &nominalFisik,
 	}); err == nil {
 		t.Fatal("second verification should fail")
+	}
+}
+
+func TestSavingsRepository_EnsureSiswaAndSync(t *testing.T) {
+	db := setupSavingsTestDB(t)
+	defer db.Close()
+	repo := NewSavingsRepository(db)
+
+	_, err := db.Exec(`INSERT INTO students (id, nisn, full_name, status, is_active)
+		VALUES ('st2', '999', 'Siswa Baru', 'active', 1)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	count, err := repo.SyncFromStudents()
+	if err != nil {
+		t.Fatalf("sync failed: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("expected 1 new savings row, got %d", count)
+	}
+
+	// Idempotent
+	count, err = repo.SyncFromStudents()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatalf("second sync should add 0, got %d", count)
+	}
+
+	// EnsureSiswa for a student without row
+	_, err = db.Exec(`INSERT INTO students (id, nisn, full_name, status, is_active)
+		VALUES ('st3', '888', 'Siswa C', 'active', 1)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.EnsureSiswa("st3"); err != nil {
+		t.Fatalf("ensure failed: %v", err)
+	}
+	res, err := repo.GetSiswaByQR("st3")
+	if err != nil || res == nil {
+		t.Fatalf("student st3 should have savings row: %v", err)
+	}
+
+	// Inactive student should not get a row
+	_, err = db.Exec(`INSERT INTO students (id, nisn, full_name, status, is_active)
+		VALUES ('st4', '777', 'Siswa Nonaktif', 'mutasi_keluar', 0)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.EnsureSiswa("st4"); err != nil {
+		t.Fatalf("ensure failed: %v", err)
+	}
+	res, _ = repo.GetSiswaByQR("st4")
+	if res != nil {
+		t.Fatal("inactive student should not appear in savings lookup")
 	}
 }

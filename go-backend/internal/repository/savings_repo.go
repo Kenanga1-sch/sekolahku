@@ -3,11 +3,8 @@ package repository
 import (
 	"database/sql"
 	"errors"
-	"strconv"
-	"strings"
 	"time"
 
-	"github.com/nrednav/cuid2"
 	"github.com/sekolahku/go-backend/internal/models"
 )
 
@@ -19,13 +16,39 @@ func NewSavingsRepository(db *sql.DB) *SavingsRepository {
 	return &SavingsRepository{DB: db}
 }
 
+// siswaBaseQuery is the single source of truth for savings student rows:
+// tabungan_siswa is an extension table (student_id + saldo), identity comes from students JOIN.
+const siswaBaseQuery = `
+	SELECT ts.id, ts.student_id, st.nisn, st.full_name, st.class_id, st.class_name,
+	       st.qr_code, st.photo, st.status, st.is_active, ts.saldo_terakhir, ts.created_at,
+	       st.birth_date
+	FROM tabungan_siswa ts
+	JOIN students st ON ts.student_id = st.id
+`
+
+func studentIsActive(status sql.NullString, isActive sql.NullInt64) bool {
+	if isActive.Valid && isActive.Int64 == 1 {
+		return true
+	}
+	s := status.String
+	return s == "active" || s == "aktif"
+}
+
 // Stats
 func (r *SavingsRepository) GetSavingsStats() (*models.SavingsStats, error) {
 	stats := &models.SavingsStats{}
-	startOfDay := time.Now().Truncate(24 * time.Hour).UnixMilli()
+	startOfDay := UnixMilli() - (UnixMilli() % 86400000)
 
-	r.DB.QueryRow("SELECT COUNT(*) FROM tabungan_siswa WHERE is_active = 1").Scan(&stats.TotalSiswa)
-	r.DB.QueryRow("SELECT COALESCE(SUM(saldo_terakhir), 0) FROM tabungan_siswa WHERE is_active = 1").Scan(&stats.TotalSaldo)
+	r.DB.QueryRow(`
+		SELECT COUNT(*) FROM tabungan_siswa ts
+		JOIN students st ON ts.student_id = st.id
+		WHERE st.status = 'active' OR st.is_active = 1
+	`).Scan(&stats.TotalSiswa)
+	r.DB.QueryRow(`
+		SELECT COALESCE(SUM(ts.saldo_terakhir), 0) FROM tabungan_siswa ts
+		JOIN students st ON ts.student_id = st.id
+		WHERE st.status = 'active' OR st.is_active = 1
+	`).Scan(&stats.TotalSaldo)
 	r.DB.QueryRow("SELECT COALESCE(SUM(saldo), 0) FROM tabungan_brankas").Scan(&stats.TotalBrankas)
 	r.DB.QueryRow("SELECT COALESCE(SUM(nominal * jumlah), 0) FROM tabungan_hutang WHERE status = 'aktif'").Scan(&stats.TotalPiutang)
 	r.DB.QueryRow("SELECT COUNT(*) FROM tabungan_setoran WHERE status = 'pending'").Scan(&stats.PendingSetoran)
@@ -42,11 +65,11 @@ func (r *SavingsRepository) GetTopSavers(limit int) ([]models.TopSaverItem, erro
 		limit = 5
 	}
 	rows, err := r.DB.Query(`
-		SELECT s.id, s.nama, k.nama, s.saldo_terakhir
-		FROM tabungan_siswa s
-		JOIN tabungan_kelas k ON s.kelas_id = k.id
-		WHERE s.is_active = 1
-		ORDER BY s.saldo_terakhir DESC, s.nama ASC
+		SELECT st.id, st.full_name, COALESCE(st.class_name, ''), ts.saldo_terakhir
+		FROM tabungan_siswa ts
+		JOIN students st ON ts.student_id = st.id
+		WHERE st.status = 'active' OR st.is_active = 1
+		ORDER BY ts.saldo_terakhir DESC, st.full_name ASC
 		LIMIT ?
 	`, limit)
 	if err != nil {
@@ -76,10 +99,9 @@ func (r *SavingsRepository) GetRecentTransactions(limit int) ([]models.RecentTra
 		limit = 8
 	}
 	rows, err := r.DB.Query(`
-		SELECT t.id, t.tipe, t.nominal, t.created_at, s.nama, k.nama
+		SELECT t.id, t.tipe, t.nominal, t.created_at, st.full_name, COALESCE(st.class_name, '')
 		FROM tabungan_transaksi t
-		JOIN tabungan_siswa s ON t.siswa_id = s.id
-		JOIN tabungan_kelas k ON s.kelas_id = k.id
+		JOIN students st ON t.siswa_id = st.id
 		WHERE t.status = 'verified'
 		ORDER BY t.created_at DESC
 		LIMIT ?
@@ -119,7 +141,7 @@ func (r *SavingsRepository) GetTransactionTrend() ([]models.TransactionTrendItem
 	for i := 6; i >= 0; i-- {
 		day := now.AddDate(0, 0, -i)
 		start := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location()).UnixMilli()
-		end := time.Date(day.Year(), day.Month(), day.Day(), 23, 59, 59, int(time.Millisecond-time.Nanosecond), day.Location()).UnixMilli()
+		end := start + 86399999
 		var setor, tarik int
 		r.DB.QueryRow("SELECT COALESCE(SUM(nominal), 0) FROM tabungan_transaksi WHERE status = 'verified' AND tipe = 'setor' AND created_at BETWEEN ? AND ?", start, end).Scan(&setor)
 		r.DB.QueryRow("SELECT COALESCE(SUM(nominal), 0) FROM tabungan_transaksi WHERE status = 'verified' AND tipe = 'tarik' AND created_at BETWEEN ? AND ?", start, end).Scan(&tarik)
@@ -134,12 +156,13 @@ func (r *SavingsRepository) GetTransactionTrend() ([]models.TransactionTrendItem
 
 func (r *SavingsRepository) GetSaldoByKelas() ([]models.SaldoByKelasItem, error) {
 	rows, err := r.DB.Query(`
-		SELECT k.nama, COALESCE(SUM(s.saldo_terakhir), 0) AS saldo
-		FROM tabungan_kelas k
-		LEFT JOIN tabungan_siswa s ON s.kelas_id = k.id AND s.is_active = 1
-		GROUP BY k.id, k.nama
+		SELECT COALESCE(st.class_name, '') as kelas, COALESCE(SUM(ts.saldo_terakhir), 0) AS saldo
+		FROM tabungan_siswa ts
+		JOIN students st ON ts.student_id = st.id
+		WHERE st.status = 'active' OR st.is_active = 1
+		GROUP BY st.class_name
 		HAVING saldo > 0
-		ORDER BY k.nama ASC
+		ORDER BY kelas ASC
 	`)
 	if err != nil {
 		return nil, err
@@ -165,31 +188,66 @@ func (r *SavingsRepository) GetSaldoByKelas() ([]models.SaldoByKelasItem, error)
 	return items, nil
 }
 
-// Students
+// scanSiswa maps a row of siswaBaseQuery (+ optional extra columns) to TabunganSiswa
+type siswaRow struct {
+	s        models.TabunganSiswa
+	kelasID  sql.NullString
+	kelasNama sql.NullString
+	status   sql.NullString
+	stActive sql.NullInt64
+	birth    sql.NullString
+}
+
+func scanSiswaRow(scanner interface{ Scan(dest ...interface{}) error }) (*siswaRow, error) {
+	var row siswaRow
+	var nisn, qrCode, foto sql.NullString
+	var stID sql.NullString
+	var crAt sql.NullInt64
+	err := scanner.Scan(&row.s.ID, &stID, &nisn, &row.s.Nama, &row.kelasID, &row.kelasNama,
+		&qrCode, &foto, &row.status, &row.stActive, &row.s.SaldoTerakhir, &crAt, &row.birth)
+	if err != nil {
+		return nil, err
+	}
+	row.s.NISN = nisn.String
+	row.s.QRCode = qrCode.String
+	row.s.KelasID = row.kelasID.String
+	row.s.IsActive = studentIsActive(row.status, row.stActive)
+	if stID.Valid {
+		row.s.StudentID = &stID.String
+	}
+	if foto.Valid {
+		row.s.Foto = &foto.String
+	}
+	if crAt.Valid {
+		t := ToTime(crAt)
+		row.s.CreatedAt = &t
+	}
+	if row.kelasID.Valid {
+		row.s.Kelas = &models.TabunganKelas{ID: row.kelasID.String, Nama: row.kelasNama.String}
+	}
+	return &row, nil
+}
+
+// GetSiswa returns paginated savings accounts with identity from students
 func (r *SavingsRepository) GetSiswa(page, limit int, search, classId string) ([]models.TabunganSiswa, int, error) {
 	offset := (page - 1) * limit
-	query := `
-		SELECT s.id, s.nisn, s.nama, s.kelas_id, s.saldo_terakhir, s.qr_code, s.foto, s.is_active, s.created_at,
-		       k.id as k_id, k.nama as k_nama
-		FROM tabungan_siswa s
-		JOIN tabungan_kelas k ON s.kelas_id = k.id
-		WHERE s.is_active = 1
-	`
+	query := siswaBaseQuery + " WHERE 1=1"
 	var args []interface{}
 	if search != "" {
-		query += " AND (s.nama LIKE ? OR s.nisn LIKE ?)"
+		query += " AND (st.full_name LIKE ? OR st.nisn LIKE ? OR st.qr_code LIKE ? OR ts.student_id LIKE ?)"
 		pattern := "%" + search + "%"
-		args = append(args, pattern, pattern)
+		args = append(args, pattern, pattern, pattern, pattern)
 	}
 	if classId != "" {
-		query += " AND s.kelas_id = ?"
+		query += " AND st.class_id = ?"
 		args = append(args, classId)
 	}
+	query += " AND (st.status = 'active' OR st.is_active = 1)"
 
 	var total int
 	r.DB.QueryRow("SELECT COUNT(*) FROM ("+query+")", args...).Scan(&total)
 
-	query += " ORDER BY k.nama ASC, s.nama ASC LIMIT ? OFFSET ?"
+	query += " ORDER BY st.class_name ASC, st.full_name ASC LIMIT ? OFFSET ?"
 	args = append(args, limit, offset)
 
 	rows, err := r.DB.Query(query, args...)
@@ -198,184 +256,59 @@ func (r *SavingsRepository) GetSiswa(page, limit int, search, classId string) ([
 	}
 	defer rows.Close()
 
-	var results []models.TabunganSiswa
+	results := make([]models.TabunganSiswa, 0)
 	for rows.Next() {
-		var s models.TabunganSiswa
-		var kId, kNama, foto sql.NullString
-		var crAt sql.NullInt64
-		err := rows.Scan(&s.ID, &s.NISN, &s.Nama, &s.KelasID, &s.SaldoTerakhir, &s.QRCode, &foto, &s.IsActive, &crAt, &kId, &kNama)
+		row, err := scanSiswaRow(rows)
 		if err != nil {
 			return nil, 0, err
 		}
-		if foto.Valid {
-			s.Foto = &foto.String
-		}
-		cTime := ToTime(crAt)
-		s.CreatedAt = &cTime
-		if kId.Valid {
-			s.Kelas = &models.TabunganKelas{ID: kId.String, Nama: kNama.String}
-		}
-		results = append(results, s)
-	}
-	if results == nil {
-		results = []models.TabunganSiswa{}
+		results = append(results, row.s)
 	}
 	return results, total, nil
 }
 
+// GetSiswaByQR finds a savings account by QR code, tabungan id, student id, nisn, or nis
 func (r *SavingsRepository) GetSiswaByQR(qrCode string) (*models.TabunganSiswa, error) {
-	var s models.TabunganSiswa
-	var kId, kNama, foto sql.NullString
-	var crAt sql.NullInt64
-	err := r.DB.QueryRow(`
-		SELECT s.id, s.nisn, s.nama, s.kelas_id, s.saldo_terakhir, s.qr_code, s.foto, s.is_active, s.created_at,
-		       k.id as k_id, k.nama as k_nama
-		FROM tabungan_siswa s
-		JOIN tabungan_kelas k ON s.kelas_id = k.id
-		WHERE s.qr_code = ? OR s.id = ? OR s.nisn = ?
-	`, qrCode, qrCode, qrCode).Scan(&s.ID, &s.NISN, &s.Nama, &s.KelasID, &s.SaldoTerakhir, &s.QRCode, &foto, &s.IsActive, &crAt, &kId, &kNama)
-
+	query := siswaBaseQuery + `
+		WHERE ts.student_id = (
+			SELECT id FROM students
+			WHERE id = ? OR nisn = ? OR qr_code = ? OR nis = ?
+			LIMIT 1
+		)
+	`
+	row, err := scanSiswaRow(r.DB.QueryRow(query, qrCode, qrCode, qrCode, qrCode))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
 	}
-	if foto.Valid {
-		s.Foto = &foto.String
-	}
-	cTime := ToTime(crAt)
-	s.CreatedAt = &cTime
-	if kId.Valid {
-		s.Kelas = &models.TabunganKelas{ID: kId.String, Nama: kNama.String}
-	}
-	return &s, nil
+	return &row.s, nil
 }
 
-func (r *SavingsRepository) CreateSiswa(req models.CreateSiswaRequest) error {
-	req.NISN = strings.TrimSpace(req.NISN)
-	req.Nama = strings.TrimSpace(req.Nama)
-	req.KelasID = strings.TrimSpace(req.KelasID)
-	if req.NISN == "" || req.Nama == "" || req.KelasID == "" {
-		return errors.New("NISN, nama, dan kelas wajib diisi")
-	}
-
-	id := cuid2.Generate()
-	qrCode := "TAB-" + id
-	if req.QRCode != nil && strings.TrimSpace(*req.QRCode) != "" {
-		qrCode = strings.TrimSpace(*req.QRCode)
-	}
-	now := UnixMilli()
+// EnsureSiswa creates a savings extension row for an active student if missing.
+func (r *SavingsRepository) EnsureSiswa(studentID string) error {
 	_, err := r.DB.Exec(`
-		INSERT INTO tabungan_siswa (id, nisn, nama, kelas_id, saldo_terakhir, qr_code, is_active, created_at, updated_at)
-		VALUES (?, ?, ?, ?, 0, ?, 1, ?, ?)
-	`, id, req.NISN, req.Nama, req.KelasID, qrCode, now, now)
+		INSERT INTO tabungan_siswa (id, student_id, saldo_terakhir, created_at, updated_at)
+		SELECT ?, s.id, 0, ?, ?
+		FROM students s
+		WHERE s.id = ? AND (s.status = 'active' OR s.is_active = 1)
+		  AND NOT EXISTS (SELECT 1 FROM tabungan_siswa ts WHERE ts.student_id = s.id)
+	`, "sav_"+studentID, UnixMilli(), UnixMilli(), studentID)
 	return err
 }
 
-func (r *SavingsRepository) UpdateSiswa(id string, req models.CreateSiswaRequest) error {
-	req.NISN = strings.TrimSpace(req.NISN)
-	req.Nama = strings.TrimSpace(req.Nama)
-	req.KelasID = strings.TrimSpace(req.KelasID)
-	if id == "" || req.NISN == "" || req.Nama == "" || req.KelasID == "" {
-		return errors.New("Data siswa tidak lengkap")
-	}
-
-	query := "UPDATE tabungan_siswa SET nisn = ?, nama = ?, kelas_id = ?, updated_at = ?"
-	args := []interface{}{req.NISN, req.Nama, req.KelasID, UnixMilli()}
-	if req.QRCode != nil && strings.TrimSpace(*req.QRCode) != "" {
-		query += ", qr_code = ?"
-		args = append(args, strings.TrimSpace(*req.QRCode))
-	}
-	query += " WHERE id = ?"
-	args = append(args, id)
-
-	res, err := r.DB.Exec(query, args...)
-	if err != nil {
-		return err
-	}
-	if affected, _ := res.RowsAffected(); affected == 0 {
-		return errors.New("Siswa tidak ditemukan")
-	}
-	return nil
-}
-
+// DeleteSiswa deactivates (soft) — with single source, deactivation lives in students;
+// here we just remove the extension row's meaning by returning an error if used directly.
 func (r *SavingsRepository) DeleteSiswa(id string) error {
-	res, err := r.DB.Exec("UPDATE tabungan_siswa SET is_active = 0, updated_at = ? WHERE id = ?", UnixMilli(), id)
-	if err != nil {
-		return err
-	}
-	if affected, _ := res.RowsAffected(); affected == 0 {
-		return errors.New("Siswa tidak ditemukan")
-	}
-	return nil
-}
-
-// Classes
-func (r *SavingsRepository) GetAllKelas() ([]models.TabunganKelas, error) {
-	rows, err := r.DB.Query(`
-		SELECT k.id, k.nama, k.wali_kelas, u.name
-		FROM tabungan_kelas k
-		LEFT JOIN users u ON k.wali_kelas = u.id
-		ORDER BY k.nama ASC
-	`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var res []models.TabunganKelas
-	for rows.Next() {
-		var k models.TabunganKelas
-		var wId, wName sql.NullString
-		rows.Scan(&k.ID, &k.Nama, &wId, &wName)
-		if wId.Valid {
-			k.WaliKelas = &wId.String
-		}
-		res = append(res, k)
-	}
-	return res, nil
-}
-
-func (r *SavingsRepository) CreateKelas(nama string, waliKelas *string) error {
-	id := cuid2.Generate()
-	now := UnixMilli()
-	_, err := r.DB.Exec("INSERT INTO tabungan_kelas (id, nama, wali_kelas, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-		id, nama, waliKelas, now, now)
+	_, err := r.DB.Exec("DELETE FROM tabungan_siswa WHERE id = ?", id)
 	return err
-}
-
-func (r *SavingsRepository) UpdateKelas(id string, nama string, waliKelas *string) error {
-	_, err := r.DB.Exec("UPDATE tabungan_kelas SET nama = ?, wali_kelas = ?, updated_at = ? WHERE id = ?",
-		nama, waliKelas, UnixMilli(), id)
-	return err
-}
-
-func (r *SavingsRepository) DeleteKelas(id string) error {
-	var count int
-	if err := r.DB.QueryRow("SELECT COUNT(*) FROM tabungan_siswa WHERE kelas_id = ? AND is_active = 1", id).Scan(&count); err != nil {
-		return err
-	}
-	if count > 0 {
-		return errors.New("Tidak dapat menghapus kelas yang masih memiliki " + strconv.Itoa(count) + " siswa aktif")
-	}
-	_, err := r.DB.Exec("DELETE FROM tabungan_kelas WHERE id = ?", id)
-	return err
-}
-
-func (r *SavingsRepository) UpdateClassRep(classId, userId string) error {
-	_, err := r.DB.Exec("UPDATE tabungan_kelas SET wali_kelas = ?, updated_at = ? WHERE id = ?", userId, UnixMilli(), classId)
-	return err
-}
-
-func (r *SavingsRepository) GetClassesWithReps() ([]models.TabunganKelas, error) {
-	return r.GetAllKelas()
 }
 
 // GetStudentFinancialClearance returns balance and total debt for a student
 func (r *SavingsRepository) GetStudentFinancialClearance(studentID string) (int, int, error) {
 	var balance int
-	var debt int
-	var savingsID string
+	var savingsID sql.NullString
 
 	err := r.DB.QueryRow("SELECT id, saldo_terakhir FROM tabungan_siswa WHERE student_id = ?", studentID).Scan(&savingsID, &balance)
 	if err != nil {
@@ -386,28 +319,34 @@ func (r *SavingsRepository) GetStudentFinancialClearance(studentID string) (int,
 	}
 
 	var nullDebt sql.NullInt64
-	err = r.DB.QueryRow("SELECT SUM(nominal * jumlah) FROM tabungan_hutang WHERE siswa_id = ? AND status = 'aktif'", savingsID).Scan(&nullDebt)
+	err = r.DB.QueryRow("SELECT SUM(nominal * jumlah) FROM tabungan_hutang WHERE siswa_id = ? AND status = 'aktif'", savingsID.String).Scan(&nullDebt)
 	if err == nil && nullDebt.Valid {
-		debt = int(nullDebt.Int64)
+		return balance, int(nullDebt.Int64), nil
 	}
 
-	return balance, debt, nil
+	return balance, 0, nil
 }
 
 // GetFinalReport returns end-of-year financial report for a student
 func (r *SavingsRepository) GetFinalReport(studentID string, year string) (*models.FinalReport, error) {
-	var s models.TabunganSiswa
-	var kNama sql.NullString
+	var nisn, nama, kelas sql.NullString
+	var saldo int
 	err := r.DB.QueryRow(`
-		SELECT ts.id, ts.nisn, ts.nama, ts.saldo_terakhir, k.nama as k_nama
+		SELECT st.nisn, st.full_name, COALESCE(st.class_name, ''), ts.saldo_terakhir
 		FROM tabungan_siswa ts
-		JOIN tabungan_kelas k ON ts.kelas_id = k.id
-		WHERE ts.id = ?
-	`, studentID).Scan(&s.ID, &s.NISN, &s.Nama, &s.SaldoTerakhir, &kNama)
+		JOIN students st ON ts.student_id = st.id
+		WHERE ts.student_id = ? OR ts.id = ?
+	`, studentID, studentID).Scan(&nisn, &nama, &kelas, &saldo)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
+		return nil, err
+	}
+
+	// resolve student id for transaction lookup
+	var realStudentID string
+	if err := r.DB.QueryRow("SELECT student_id FROM tabungan_siswa WHERE student_id = ? OR id = ?", studentID, studentID).Scan(&realStudentID); err != nil {
 		return nil, err
 	}
 
@@ -416,7 +355,7 @@ func (r *SavingsRepository) GetFinalReport(studentID string, year string) (*mode
 		FROM tabungan_transaksi t
 		WHERE t.siswa_id = ? AND t.status = 'verified'
 		ORDER BY t.created_at ASC
-	`, studentID)
+	`, realStudentID)
 	if err != nil {
 		return nil, err
 	}
@@ -454,102 +393,48 @@ func (r *SavingsRepository) GetFinalReport(studentID string, year string) (*mode
 
 	return &models.FinalReport{
 		Siswa: models.FinalReportSiswa{
-			Nama:  s.Nama,
-			NISN:  s.NISN,
-			Kelas: kNama.String,
-			Saldo: s.SaldoTerakhir,
+			Nama:  nama.String,
+			NISN:  nisn.String,
+			Kelas: kelas.String,
+			Saldo: saldo,
 		},
 		Transactions: transactions,
 		TotalSetor:   totalSetor,
 		TotalTarik:   totalTarik,
-		SaldoAkhir:   s.SaldoTerakhir,
+		SaldoAkhir:   saldo,
 	}, nil
 }
 
-// SyncFromStudents links existing tabungan_siswa to students and inserts missing ones
+// SyncFromStudents ensures every active student has a savings extension row.
+// With the extension-table model this is all the "sync" that is needed:
+// identity columns no longer exist here, so nothing can drift.
 func (r *SavingsRepository) SyncFromStudents() (int, error) {
-	tx, err := r.DB.Begin()
+	res, err := r.DB.Exec(`
+		INSERT INTO tabungan_siswa (id, student_id, saldo_terakhir, created_at, updated_at)
+		SELECT 'sav_' || s.id, s.id, 0, ?, ?
+		FROM students s
+		WHERE (s.status = 'active' OR s.is_active = 1)
+		  AND NOT EXISTS (SELECT 1 FROM tabungan_siswa ts WHERE ts.student_id = s.id)
+	`, UnixMilli(), UnixMilli())
 	if err != nil {
 		return 0, err
 	}
-	defer tx.Rollback()
+	count, _ := res.RowsAffected()
+	return int(count), nil
+}
 
-	_, err = tx.Exec(`
-		UPDATE tabungan_siswa
-		SET student_id = (
-			SELECT s.id FROM students s
-			WHERE s.nisn = tabungan_siswa.nisn AND s.nisn IS NOT NULL AND s.nisn != ''
-			LIMIT 1
-		)
-		WHERE student_id IS NULL OR student_id = ''
-	`)
+// GetPublicBalance returns a student's savings balance by identifier + birth date
+func (r *SavingsRepository) GetPublicBalance(identifier, birthDate string) (*models.TabunganSiswa, error) {
+	query := siswaBaseQuery + `
+		WHERE (st.nisn = ? OR st.nis = ? OR st.id = ? OR st.qr_code = ?)
+		  AND st.birth_date = ?
+	`
+	row, err := scanSiswaRow(r.DB.QueryRow(query, identifier, identifier, identifier, identifier, birthDate))
 	if err != nil {
-		return 0, err
-	}
-
-	rows, err := tx.Query(`
-		SELECT id, nisn, full_name, COALESCE(class_name, ''),
-		       CASE WHEN qr_code IS NOT NULL AND TRIM(qr_code) != '' THEN qr_code ELSE id END
-		FROM students
-		WHERE status = 'active'
-			AND id NOT IN (SELECT student_id FROM tabungan_siswa WHERE student_id IS NOT NULL)
-			AND (nisn IS NOT NULL AND nisn != '' AND nisn NOT IN (SELECT nisn FROM tabungan_siswa WHERE nisn IS NOT NULL))
-	`)
-	if err != nil {
-		return 0, err
-	}
-	defer rows.Close()
-
-	type stubStudent struct {
-		ID        string
-		NISN      string
-		FullName  string
-		ClassName string
-		QRCode    string
-	}
-	var toAdd []stubStudent
-	for rows.Next() {
-		var s stubStudent
-		if err := rows.Scan(&s.ID, &s.NISN, &s.FullName, &s.ClassName, &s.QRCode); err == nil {
-			toAdd = append(toAdd, s)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
 		}
+		return nil, err
 	}
-	rows.Close()
-
-	now := time.Now().UnixMilli()
-	count := 0
-
-	for _, s := range toAdd {
-		var tabunganKelasID string
-		err := tx.QueryRow("SELECT id FROM tabungan_kelas WHERE nama = ?", s.ClassName).Scan(&tabunganKelasID)
-		if err != nil && err != sql.ErrNoRows {
-			continue
-		}
-
-		if tabunganKelasID == "" {
-			tabunganKelasID = cuid2.Generate()
-			_, err = tx.Exec(`
-				INSERT INTO tabungan_kelas (id, nama, wali_kelas, created_at, updated_at)
-				VALUES (?, ?, '', ?, ?)
-			`, tabunganKelasID, s.ClassName, now, now)
-			if err != nil {
-				continue
-			}
-		}
-
-		id := cuid2.Generate()
-		qrCode := "TAB-" + id
-		if s.QRCode != "" {
-			qrCode = s.QRCode
-		}
-		_, err = tx.Exec(`
-			INSERT INTO tabungan_siswa (id, student_id, nisn, nama, kelas_id, saldo_terakhir, qr_code, is_active, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, 0, ?, 1, ?, ?)
-		`, id, s.ID, s.NISN, s.FullName, tabunganKelasID, qrCode, now, now)
-		if err == nil {
-			count++
-		}
-	}
-
-	return count, tx.Commit()
+	return &row.s, nil
 }

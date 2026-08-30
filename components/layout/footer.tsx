@@ -96,10 +96,10 @@ export default function Footer() {
             <h3 className="font-semibold text-zinc-900 dark:text-white text-lg">Menu Utama</h3>
             <ul className="space-y-3">
               {[
-                { label: "Beranda", href: "/" },
-                { label: "Visi & Misi", href: "/profil/visi-misi" },
-                { label: "Berita Sekolah", href: "/berita" },
-                { label: "Hubungi Kami", href: "/kontak" },
+                { label: "SPMB", href: "/spmb" },
+                { label: "Daftar Sekarang", href: "/spmb/daftar" },
+                { label: "Cek Saldo", href: "/layanan/cek-saldo" },
+                { label: "Mutasi Masuk", href: "/layanan/mutasi-masuk" },
               ].map((link) => (
                 <li key={link.href}>
                   <Link

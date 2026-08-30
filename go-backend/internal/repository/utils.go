@@ -58,23 +58,20 @@ func Ptr[T any](v T) *T {
 	return &v
 }
 
-// AutoSyncStudentToSavingsAndLibrary ensures a student has a savings account and library membership,
-// and updates their class assignments if they change.
+// AutoSyncStudentToSavingsAndLibrary ensures a student has savings & library
+// extension rows. With the single-source model, extension tables only hold
+// student_id + module-owned data — nothing to copy, nothing to drift.
 func AutoSyncStudentToSavingsAndLibrary(db *sql.DB, studentID string) error {
 	studentID = strings.TrimSpace(studentID)
 	if studentID == "" {
 		return nil
 	}
 
-	var name, nisn, className, qrCode string
 	var isActive int
-	var status string
 	err := db.QueryRow(`
-		SELECT full_name, COALESCE(nisn, ''), COALESCE(class_name, ''), 
-		       CASE WHEN qr_code IS NOT NULL AND TRIM(qr_code) != '' THEN qr_code ELSE id END,
-		       is_active, COALESCE(status, '')
+		SELECT CASE WHEN (status = 'active' OR status = 'aktif' OR is_active = 1) THEN 1 ELSE 0 END
 		FROM students WHERE id = ?
-	`, studentID).Scan(&name, &nisn, &className, &qrCode, &isActive, &status)
+	`, studentID).Scan(&isActive)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil
@@ -82,110 +79,32 @@ func AutoSyncStudentToSavingsAndLibrary(db *sql.DB, studentID string) error {
 		return err
 	}
 
-	// Only sync if student is active
-	isStudentActive := status == "active"
-	if !isStudentActive {
-		// Deactivate their savings and library member accounts
+	if isActive == 0 {
+		// Student inactive: deactivate module rows so they can't transact
 		_, _ = db.Exec("UPDATE library_members SET is_active = 0 WHERE student_id = ?", studentID)
-		_, _ = db.Exec("UPDATE tabungan_siswa SET is_active = 0 WHERE student_id = ?", studentID)
+		_, _ = db.Exec("UPDATE tabungan_siswa SET updated_at = ? WHERE student_id = ?", time.Now().UnixMilli(), studentID)
 		return nil
 	}
 
 	now := time.Now().UnixMilli()
-
-	// === 1. SYNC LIBRARY MEMBER ===
-	var libMemberID string
-	err = db.QueryRow("SELECT id FROM library_members WHERE student_id = ?", studentID).Scan(&libMemberID)
-	if err != nil && err != sql.ErrNoRows {
+	if _, err := db.Exec(`
+		INSERT INTO tabungan_siswa (id, student_id, saldo_terakhir, created_at, updated_at)
+		SELECT 'sav_' || ?, ?, 0, ?, ?
+		WHERE NOT EXISTS (SELECT 1 FROM tabungan_siswa WHERE student_id = ?)
+	`, studentID, studentID, now, now, studentID); err != nil {
 		return err
 	}
 
-	if libMemberID == "" {
-		// Insert new library member
-		libMemberID = cuid2.Generate()
-		_, err = db.Exec(`
-			INSERT INTO library_members (id, student_id, name, class_name, qr_code, max_borrow_limit, is_active, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, 3, 1, ?, ?)
-		`, libMemberID, studentID, name, className, qrCode, now, now)
-		if err != nil {
-			return err
-		}
-	} else {
-		// Update existing library member profile (in case class/name changes)
-		_, err = db.Exec(`
-			UPDATE library_members
-			SET name = ?, class_name = ?, qr_code = ?, is_active = 1, updated_at = ?
-			WHERE student_id = ?
-		`, name, className, qrCode, now, studentID)
-		if err != nil {
-			return err
-		}
-	}
-
-	// === 2. SYNC SAVINGS ACCOUNT ===
-	var savingsSiswaID string
-	err = db.QueryRow("SELECT id FROM tabungan_siswa WHERE student_id = ?", studentID).Scan(&savingsSiswaID)
-	if err != nil && err != sql.ErrNoRows {
+	if _, err := db.Exec(`
+		INSERT INTO library_members (id, student_id, max_borrow_limit, is_active, created_at, updated_at)
+		SELECT 'lib_' || ?, ?, 3, 1, ?, ?
+		WHERE NOT EXISTS (SELECT 1 FROM library_members WHERE student_id = ?)
+	`, studentID, studentID, now, now, studentID); err != nil {
 		return err
 	}
 
-	// Find or create matching tabungan_kelas ID by class name
-	var tabunganKelasID string
-	if className != "" {
-		err = db.QueryRow("SELECT id FROM tabungan_kelas WHERE nama = ?", className).Scan(&tabunganKelasID)
-		if err != nil && err != sql.ErrNoRows {
-			return err
-		}
-
-		if tabunganKelasID == "" {
-			tabunganKelasID = cuid2.Generate()
-			_, err = db.Exec(`
-				INSERT INTO tabungan_kelas (id, nama, wali_kelas, created_at, updated_at)
-				VALUES (?, ?, '', ?, ?)
-			`, tabunganKelasID, className, now, now)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	if savingsSiswaID == "" {
-		// Insert new savings record
-		savingsSiswaID = cuid2.Generate()
-		savingsQR := "TAB-" + savingsSiswaID
-		if qrCode != "" {
-			savingsQR = qrCode
-		}
-		
-		_, err = db.Exec(`
-			INSERT INTO tabungan_siswa (id, student_id, nisn, nama, kelas_id, saldo_terakhir, qr_code, is_active, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, 0, ?, 1, ?, ?)
-		`, savingsSiswaID, studentID, nisn, name, tabunganKelasID, savingsQR, now, now)
-		if err != nil {
-			return err
-		}
-	} else {
-		// Update existing savings profile
-		if tabunganKelasID != "" {
-			_, err = db.Exec(`
-				UPDATE tabungan_siswa
-				SET nisn = ?, nama = ?, kelas_id = ?, qr_code = ?, is_active = 1, updated_at = ?
-				WHERE student_id = ?
-			`, nisn, name, tabunganKelasID, qrCode, now, studentID)
-			if err != nil {
-				return err
-			}
-		} else {
-			_, err = db.Exec(`
-				UPDATE tabungan_siswa
-				SET nisn = ?, nama = ?, qr_code = ?, is_active = 1, updated_at = ?
-				WHERE student_id = ?
-			`, nisn, name, qrCode, now, studentID)
-			if err != nil {
-				return err
-			}
-		}
-	}
+	// Reactivate rows if student became active again
+	_, _ = db.Exec("UPDATE library_members SET is_active = 1 WHERE student_id = ?", studentID)
 
 	return nil
 }
