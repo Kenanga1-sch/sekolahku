@@ -216,6 +216,11 @@ func newAlumniMutasiTestDB(t *testing.T) *sql.DB {
 		`CREATE TABLE mutasi_out_requests (
 			id TEXT PRIMARY KEY,
 			student_id TEXT NOT NULL,
+			destination_school TEXT,
+			destination_class TEXT,
+			letter_no TEXT,
+			reason TEXT,
+			reason_detail TEXT,
 			status TEXT DEFAULT 'draft',
 			processed_at INTEGER,
 			completed_at INTEGER,

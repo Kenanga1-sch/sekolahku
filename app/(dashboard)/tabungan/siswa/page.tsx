@@ -191,11 +191,11 @@ export default function TabunganSiswaPage() {
         setIsSyncing(true);
         try {
             showSuccess("Mulai sinkronisasi data siswa..."); 
-            const result: any = await goPost("/api/sync/savings");
+            const result: any = await goPost("/api/tabungan/siswa/sync", {});
             
-            if (!res.ok) throw new Error(result.details || result.error || "Sync failed");
+            if (result.error) throw new Error(result.details || result.error || "Sync failed");
             
-            showSuccess(result.message);
+            showSuccess(result.message || "Sinkronisasi berhasil!");
             fetchData();
         } catch (error) {
             console.error("Sync error:", error);
@@ -227,6 +227,15 @@ export default function TabunganSiswaPage() {
                     </div>
                 </div>
                 <div className="flex gap-2">
+                    <Button 
+                        variant="outline" 
+                        onClick={handleSync} 
+                        disabled={isSyncing}
+                        className="border-slate-200 bg-white shadow-sm hover:bg-slate-50 text-slate-700 font-medium"
+                    >
+                        <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
+                        {isSyncing ? "Menyinkronkan..." : "Sinkronisasi Siswa"}
+                    </Button>
                 </div>
             </div>
 

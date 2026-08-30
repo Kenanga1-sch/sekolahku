@@ -34,3 +34,8 @@ Not lazy about: understanding the problem (read it fully and trace the real flow
 # Server Deployment
 
 Proyek ini tidak menggunakan sistem auto-deploy, Vercel, ataupun CI/CD. Proses _deploy_ dilakukan murni secara manual oleh user langsung di server dengan menarik kode (_git pull_) dan mem-_build_ ulang aplikasi.
+
+Setiap kali melakukan deploy, wajib memperbaharui versi aplikasi. Naikkan 3 angka paling belakang sebanyak 1 angka (misal v1.1.006 menjadi v1.1.007), sekecil apapun perubahannya. Versi ini didefinisikan di:
+- [layout.tsx](file:///d:/antigravity/sekolahku/app/layout.tsx) (pada div `#app-version`)
+- [api-client.ts](file:///d:/antigravity/sekolahku/lib/api-client.ts) (konstanta `APP_VERSION`)
+

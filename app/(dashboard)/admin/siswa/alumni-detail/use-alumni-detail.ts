@@ -103,7 +103,8 @@ export function useAlumniDetail() {
   // --- Fetch ---
   const fetchAlumni = useCallback(async () => {
     try {
-      const data: any = await goGet(`/api/alumni/${searchParams.get("id")}`);
+      const resData: any = await goGet(`/api/alumni/${searchParams.get("id")}`);
+      const data = resData?.data || resData;
       if (data) {
         data.documents = data.documents || [];
         data.pickups = data.pickups || [];

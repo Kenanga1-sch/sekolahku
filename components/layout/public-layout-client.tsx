@@ -21,15 +21,11 @@ import { useState, useEffect } from "react";
 const navItems = [
   { id: "hero", label: "Beranda", href: "/" },
   { id: "visi-misi", label: "Profil", href: "/#visi-misi" },
-  { id: "sejarah", label: "Sejarah", href: "/profil/sejarah" },
   { id: "guru", label: "Guru & Staff", href: "/profil/guru-staff" },
   { id: "kurikulum", label: "Program", href: "/#kurikulum" },
   { id: "berita", label: "Berita", href: "/#berita" },
-  { id: "galeri", label: "Galeri", href: "/#galeri" },
-  { id: "keunggulan", label: "Keunggulan", href: "/#keunggulan" },
   { id: "layanan", label: "Layanan", href: "/#layanan" },
   { id: "spmb", label: "SPMB", href: "/#spmb" },
-  { id: "faq", label: "FAQ", href: "/#faq" },
   { id: "kontak", label: "Kontak", href: "/#kontak" },
 ];
 

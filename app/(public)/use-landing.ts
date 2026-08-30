@@ -15,11 +15,8 @@ export const navItems = [
   { id: "visi-misi", label: "Profil" },
   { id: "kurikulum", label: "Program" },
   { id: "berita", label: "Berita" },
-  { id: "galeri", label: "Galeri" },
-  { id: "keunggulan", label: "Keunggulan" },
   { id: "layanan", label: "Layanan" },
   { id: "spmb", label: "SPMB" },
-  { id: "faq", label: "FAQ" },
   { id: "kontak", label: "Kontak" },
 ];
 

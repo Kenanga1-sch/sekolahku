@@ -82,6 +82,11 @@ func main() {
 	startTime := time.Now()
 	server := echo.New()
 
+	// Semua trafik publik masuk via Cloudflare Tunnel. Dengan IPExtractor dari
+	// X-Forwarded-For, RealIP() memakai IP pengguna asli sehingga rate limiter
+	// & audit log tidak melihat IP tunnel yang sama untuk semua pengguna.
+	server.IPExtractor = echo.ExtractIPFromXFFHeader()
+
 	authMiddleware.InitJWTMiddleware()
 
 	// Log level
@@ -114,6 +119,11 @@ func main() {
 		Level: 5,
 	}))
 	server.Use(authMiddleware.SecurityHeaders)
+	// CSRF defense-in-depth: Origin/Referer check untuk semua mutating /api/*
+	// + double-submit token untuk endpoint auth-sensitive.
+	server.Use(authMiddleware.CSRFProtected())
+	// Pastikan cookie csrf_token tersedia untuk frontend di semua response.
+	server.Use(authMiddleware.EnsureCSRFToken)
 
 	// HTTPS redirect in production
 	if os.Getenv("ENV") == "production" && os.Getenv("TRUST_PROXY") != "true" {
@@ -126,15 +136,18 @@ func main() {
 			"http://localhost:3001",
 			"http://127.0.0.1:3001",
 			"https://server-kenanga.tail747644.ts.net",
+			"https://sdn1kenanga.sch.id",
 		},
 		AllowMethods:     []string{http.MethodGet, http.MethodPut, http.MethodPatch, http.MethodPost, http.MethodDelete, http.MethodOptions},
-		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization, "X-CSRF-Token"},
 		AllowCredentials: true,
 	}))
 
 	// Database initialization
 	db := initDatabase(server)
 	defer db.Close()
+
+	repository.SetHolidayDB(db)
 
 	// Background scheduler
 	cronScheduler := scheduler.NewScheduler(db)
@@ -171,6 +184,7 @@ func main() {
 		Sync:           repository.NewSyncRepository(db),
 		Integration:    repository.NewIntegrationRepository(db),
 		Document:       repository.NewDocumentRepository(db),
+		Holiday:        repository.NewSchoolHolidayRepository(db),
 	}
 
 	// Auto sync students on startup
@@ -227,6 +241,8 @@ func main() {
 
 	// Register routes
 	registerRoutes(server, h, repos)
+
+	h.Attendance.Holiday = repos.Holiday
 
 	// Register static file serving + SPA fallback
 	registerStaticRoutes(server)

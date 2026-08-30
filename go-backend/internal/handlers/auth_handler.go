@@ -28,9 +28,11 @@ func NewAuthHandler(repo *repository.UserRepository, auditRepo *repository.Audit
 }
 
 type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email      string `json:"email" form:"email"`
+	Password   string `json:"password" form:"password"`
+	RememberMe bool   `json:"remember_me" form:"remember_me"`
 }
+
 
 func (h *AuthHandler) Login(c echo.Context) error {
 	var req LoginRequest
@@ -56,7 +58,7 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	// Generate JWT
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
-		secret = "sekolahku-dev-secret-key-12345"
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Server configuration error: JWT_SECRET not set"})
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
@@ -73,14 +75,16 @@ func (h *AuthHandler) Login(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Could not generate token"})
 	}
 
-	// Set session cookie for backend security (HttpOnly) - Session-only cookie
+	// Set session cookie for backend security (HttpOnly)
+	// Secure=true default (produksi via HTTPS/Cloudflare); nonaktifkan untuk dev lokal HTTP.
+	cookieSecure := os.Getenv("COOKIE_SECURE") != "false"
 	sessionCookie := new(http.Cookie)
 	sessionCookie.Name = "session"
 	sessionCookie.Value = tokenString
 	sessionCookie.Path = "/"
 	sessionCookie.HttpOnly = true
-	sessionCookie.Secure = c.Request().TLS != nil
-	sessionCookie.SameSite = http.SameSiteStrictMode
+	sessionCookie.Secure = cookieSecure
+	sessionCookie.SameSite = http.SameSiteLaxMode
 	c.SetCookie(sessionCookie)
 
 	// Extract name safely
@@ -106,7 +110,14 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	infoCookie.Value = url.QueryEscape(string(userInfoJSON))
 	infoCookie.Path = "/"
 	infoCookie.HttpOnly = false
+	infoCookie.Secure = cookieSecure
 	infoCookie.SameSite = http.SameSiteLaxMode
+
+	// Persist cookie for 7 days if user requested "remember me"
+	if req.RememberMe {
+		infoCookie.MaxAge = 7 * 24 * 3600
+		sessionCookie.MaxAge = 7 * 24 * 3600
+	}
 	c.SetCookie(infoCookie)
 
 	// Record Audit Log

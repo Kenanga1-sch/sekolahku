@@ -1,14 +1,13 @@
 package main
 
 import (
-	"net/http"
-	"time"
-
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/sekolahku/go-backend/internal/handlers"
 	authMiddleware "github.com/sekolahku/go-backend/internal/middleware"
 	"github.com/sekolahku/go-backend/internal/repository"
+	"net/http"
+	"time"
 )
 
 // Repositories holds all repository instances.
@@ -41,6 +40,7 @@ type Repositories struct {
 	Sync               *repository.SyncRepository
 	Integration        *repository.IntegrationRepository
 	Document           *repository.DocumentRepository
+	Holiday            *repository.SchoolHolidayRepository
 }
 
 // AllHandlers holds all HTTP handler instances.
@@ -106,6 +106,13 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	})
 	server.POST("/api/auth/login", h.Auth.Login, loginLimit)
 	server.POST("/api/auth/logout", h.Auth.Logout)
+
+	// CSRF token endpoint (available to frontend).
+	// EnsureCSRFToken global middleware sudah menjalankan sebelum route ini,
+	// sehingga GetCSRFToken selalu mengembalikan token yang valid.
+	server.GET("/api/csrf-token", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, map[string]string{"csrf_token": authMiddleware.GetCSRFToken(c)})
+	})
 
 	// Public routes with caching
 	publicGroup := server.Group("/api/public")
@@ -305,46 +312,47 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	tabunganGroup.GET("/stats", h.Savings.GetStats)
 	tabunganGroup.GET("/data", h.Savings.GetStats)
 	tabunganGroup.GET("/students", h.Savings.GetSiswa)
-	tabunganGroup.POST("/students", h.Savings.CreateSiswa)
-	tabunganGroup.POST("/students/sync", h.Savings.SyncSavings)
 	tabunganGroup.GET("/siswa", h.Savings.GetSiswa)
-	tabunganGroup.POST("/siswa", h.Savings.CreateSiswa)
-	tabunganGroup.POST("/siswa/sync", h.Savings.SyncSavings)
 	tabunganGroup.GET("/siswa/:id", h.Savings.GetDetailSiswa)
-	tabunganGroup.PUT("/siswa/:id", h.Savings.UpdateSiswa)
-	tabunganGroup.DELETE("/siswa/:id", h.Savings.DeleteSiswa)
 	tabunganGroup.GET("/transactions", h.Savings.GetTransactions)
 	tabunganGroup.GET("/transaksi", h.Savings.GetTransactions)
-	tabunganGroupBendahara := tabunganGroup.Group("")
-	tabunganGroupBendahara.Use(authMiddleware.RoleMiddleware(authMiddleware.RoleSuperadmin, authMiddleware.RoleAdmin, authMiddleware.RoleBendahara))
-	tabunganGroupBendahara.POST("/transactions", h.Savings.CreateTransaksi)
-	tabunganGroupBendahara.POST("/transaksi", h.Savings.CreateTransaksi)
 	tabunganGroup.GET("/setoran", h.Savings.GetSetoranList)
 	tabunganGroup.GET("/setoran/pending", h.Savings.GetSetoranPending)
 	tabunganGroup.GET("/setoran/history", h.Savings.GetSetoranByGuru)
 	tabunganGroup.GET("/setoran/detail", h.Savings.GetSetoranDetail)
-	tabunganGroupBendahara.PUT("/setoran/detail", h.Savings.ResubmitSetoran)
-	tabunganGroupBendahara.POST("/setoran", h.Savings.CreateSetoran)
-	tabunganGroupBendahara.POST("/setoran/verify", h.Savings.VerifySetoran)
 	tabunganGroup.GET("/brankas", h.Savings.GetBrankasStatus)
-	tabunganGroupBendahara.POST("/brankas", h.Savings.CreateBrankas)
-	tabunganGroupBendahara.PATCH("/brankas", h.Savings.TransferBrankas)
-	tabunganGroupBendahara.PUT("/brankas/:id", h.Savings.UpdateBrankas)
 	tabunganGroup.GET("/hutang", h.Savings.GetHutangList)
-	tabunganGroup.POST("/hutang", h.Savings.CreateHutang)
-	tabunganGroup.POST("/hutang/batch", h.Savings.CreateHutangBatch)
-	tabunganGroup.PUT("/hutang/:id", h.Savings.UpdateHutang)
-	tabunganGroup.DELETE("/hutang/:id", h.Savings.CancelHutang)
-	tabunganGroup.POST("/hutang/:id/pay-cash", h.Savings.PayHutangCash)
-	tabunganGroup.POST("/hutang/:id/settle-savings", h.Savings.SettleHutangFromTabungan)
 	tabunganGroup.GET("/hutang/:id/payments", h.Savings.GetHutangPayments)
 	tabunganGroup.GET("/kelas", h.Savings.GetClassesWithReps)
-	tabunganGroup.POST("/kelas", h.Savings.CreateKelas)
-	tabunganGroup.PUT("/kelas/:id", h.Savings.UpdateKelas)
-	tabunganGroup.DELETE("/kelas/:id", h.Savings.DeleteKelas)
 	tabunganGroup.GET("/laporan/akhir-tahun", h.Savings.GetFinalReport)
 	tabunganGroup.GET("/rekening-koran", h.Savings.GetStatement)
 	tabunganGroup.GET("/rekening-koran/verify/detail", h.Savings.VerifyStatement)
+
+	tabunganGroupBendahara := tabunganGroup.Group("")
+	tabunganGroupBendahara.Use(authMiddleware.RoleMiddleware(authMiddleware.RoleSuperadmin, authMiddleware.RoleAdmin, authMiddleware.RoleBendahara))
+	tabunganGroupBendahara.POST("/students", h.Savings.CreateSiswa)
+	tabunganGroupBendahara.POST("/students/sync", h.Savings.SyncSavings)
+	tabunganGroupBendahara.POST("/siswa", h.Savings.CreateSiswa)
+	tabunganGroupBendahara.POST("/siswa/sync", h.Savings.SyncSavings)
+	tabunganGroupBendahara.PUT("/siswa/:id", h.Savings.UpdateSiswa)
+	tabunganGroupBendahara.DELETE("/siswa/:id", h.Savings.DeleteSiswa)
+	tabunganGroupBendahara.POST("/transactions", h.Savings.CreateTransaksi)
+	tabunganGroupBendahara.POST("/transaksi", h.Savings.CreateTransaksi)
+	tabunganGroupBendahara.PUT("/setoran/detail", h.Savings.ResubmitSetoran)
+	tabunganGroupBendahara.POST("/setoran", h.Savings.CreateSetoran)
+	tabunganGroupBendahara.POST("/setoran/verify", h.Savings.VerifySetoran)
+	tabunganGroupBendahara.POST("/brankas", h.Savings.CreateBrankas)
+	tabunganGroupBendahara.PATCH("/brankas", h.Savings.TransferBrankas)
+	tabunganGroupBendahara.PUT("/brankas/:id", h.Savings.UpdateBrankas)
+	tabunganGroupBendahara.POST("/hutang", h.Savings.CreateHutang)
+	tabunganGroupBendahara.POST("/hutang/batch", h.Savings.CreateHutangBatch)
+	tabunganGroupBendahara.PUT("/hutang/:id", h.Savings.UpdateHutang)
+	tabunganGroupBendahara.DELETE("/hutang/:id", h.Savings.CancelHutang)
+	tabunganGroupBendahara.POST("/hutang/:id/pay-cash", h.Savings.PayHutangCash)
+	tabunganGroupBendahara.POST("/hutang/:id/settle-savings", h.Savings.SettleHutangFromTabungan)
+	tabunganGroupBendahara.POST("/kelas", h.Savings.CreateKelas)
+	tabunganGroupBendahara.PUT("/kelas/:id", h.Savings.UpdateKelas)
+	tabunganGroupBendahara.DELETE("/kelas/:id", h.Savings.DeleteKelas)
 
 	// Library
 	adminGroup.GET("/library/stats", h.Library.GetStats)
@@ -480,6 +488,9 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	auth.GET("/attendance/export", h.Attendance.ExportCSV)
 	auth.GET("/attendance/student-summary/:studentId", h.Attendance.GetStudentSummary)
 	auth.GET("/attendance/holiday", h.Attendance.CheckHoliday)
+	adminGroup.GET("/school-holidays", h.Attendance.ListSchoolHolidays)
+	adminGroup.POST("/school-holidays", h.Attendance.CreateSchoolHoliday)
+	adminGroup.DELETE("/school-holidays/:id", h.Attendance.DeleteSchoolHoliday)
 
 	// Loan
 	adminGroup.GET("/loans", h.Loan.GetLoans)

@@ -35,6 +35,7 @@ func setupAuthTestDB(t *testing.T) *sql.DB {
 			full_name TEXT,
 			phone TEXT,
 			is_active INTEGER DEFAULT 1,
+			must_change_password INTEGER DEFAULT 0,
 			created_at INTEGER,
 			updated_at INTEGER
 		);

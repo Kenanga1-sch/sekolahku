@@ -5,28 +5,25 @@
 
 import { goPost } from "@/lib/api-client";
 
-function parseJwt(token: string): any | null {
-  try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    );
-    return JSON.parse(jsonPayload);
-  } catch {
-    return null;
-  }
+function readCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const cookies = document.cookie.split(";").map((c) => c.trim());
+  const found = cookies.find((c) => c.startsWith(`${name}=`));
+  if (!found) return null;
+  return decodeURIComponent(found.split("=").slice(1).join("="));
+}
+
+function getCSRFToken(): string | null {
+  return readCookie("csrf_token");
 }
 
 export async function loginAction(
   email: string,
-  password: string
+  password: string,
+  rememberMe = false
 ): Promise<{ error?: string; success?: boolean; user?: any; publicInfo?: any }> {
   try {
-    const data = await goPost("/api/auth/login", { email, password });
+    const data = await goPost("/api/auth/login", { email, password, remember_me: rememberMe }, { skipRetry: true });
 
     if (data && (data as any).success) {
       const publicInfo = (data as any).public_info;
@@ -49,7 +46,11 @@ export async function loginAction(
 
 export async function logoutAction() {
   try {
-    await goPost("/api/auth/logout", {});
+    const csrf = getCSRFToken();
+    await goPost("/api/auth/logout", {}, {
+      skipRetry: true,
+      headers: csrf ? { "X-CSRF-Token": csrf } : undefined,
+    });
   } catch (e) {
     console.error("Logout error:", e);
   }
@@ -77,41 +78,18 @@ export async function getSessionAction() {
     }
   }
 
-  const cookies = document.cookie.split(";").map((c) => c.trim());
-  const sessionCookie = cookies.find((c) => c.startsWith("session="));
-  if (sessionCookie) {
-    const token = sessionCookie.split("=")[1];
-    const payload = parseJwt(token);
-    if (payload) {
-      return {
-        user: {
-          id: payload.sub,
-          role: payload.role,
-          email: payload.email,
-          name: payload.name,
-        },
-      };
-    }
-  }
-
-  const infoCookie = cookies.find((c) => c.startsWith("user_info="));
+  // Fallback: baca cookie user_info (non-sensitive, dikirim backend saat login).
+  const infoCookie = readCookie("user_info");
   if (!infoCookie) return null;
 
-  const jsonValue = decodeURIComponent(infoCookie.split("=")[1].replace(/\+/g, " "));
-  if (!jsonValue) return null;
-
   try {
-    const data = JSON.parse(jsonValue);
+    const data = JSON.parse(decodeURIComponent(infoCookie).replace(/\+/g, " "));
     return {
       user: {
         id: data.id,
         role: data.role,
         email: data.email,
         name: data.name,
-        fullName: data.fullName,
-        username: data.username,
-        phone: data.phone,
-        image: data.image,
       },
     };
   } catch {

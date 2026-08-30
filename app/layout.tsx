@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { SchoolSettingsProvider } from "@/lib/contexts/school-settings-context";
@@ -9,12 +8,6 @@ import { SkipToContent } from "@/components/accessibility";
 import { ZXingConfig } from "@/components/zxing-config";
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-  display: "swap",
-  preload: true,
-});
 
 export const metadata: Metadata = {
   title: {
@@ -64,8 +57,8 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192.png" />
         <meta httpEquiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https:; frame-src 'self';" />
       </head>
-      <body className={`${inter.variable} font-sans antialiased`} suppressHydrationWarning>
-        <div id="app-version" className="fixed bottom-1.5 right-2 z-[9999] text-[11px] font-mono text-black/20 pointer-events-none select-none print:hidden" aria-hidden="true">v1.1.004</div>
+      <body className="font-sans antialiased" suppressHydrationWarning>
+        <div id="app-version" className="fixed bottom-1.5 right-2 z-[9999] text-[11px] font-mono text-black/20 pointer-events-none select-none print:hidden" aria-hidden="true">v1.1.015</div>
         <noscript>
           <div className="p-4 text-center bg-red-100 text-red-700">
              JavaScript diperlukan untuk menjalankan aplikasi ini dengan baik. Mohon aktifkan JavaScript di browser Anda.

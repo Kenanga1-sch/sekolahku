@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
     FileText,
     Download,
@@ -16,6 +16,7 @@ import {
     Clock,
 } from "lucide-react";
 import Link from "next/link";
+import { siteConfig } from "@/lib/config";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,11 @@ import { showError, showSuccess } from "@/lib/toast";
 import type { LoanReportItem, VisitReportItem } from "@/types/library";
 import { goGet } from "@/lib/api-client";
 import { getDDCLabel } from "@/lib/library/ddc-mapping";
+import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import { getSchoolLogo } from "@/lib/school-logo";
+import { format } from "date-fns";
+import { id as localeId } from "date-fns/locale";
+import NextImage from "next/image";
 
 // ==========================================
 // Helper Functions
@@ -120,6 +126,7 @@ function getDatePreset(preset: string) {
 // ==========================================
 
 export default function LaporanPage() {
+    const { settings } = useSchoolSettings();
     const defaults = getDefaultDates();
     const [startDate, setStartDate] = useState(defaults.startDate);
     const [endDate, setEndDate] = useState(defaults.endDate);
@@ -131,6 +138,19 @@ export default function LaporanPage() {
     const [inventoryData, setInventoryData] = useState<InventoryStats | null>(null);
     const [loading, setLoading] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
+    const [principalName, setPrincipalName] = useState("");
+    const [principalNIP, setPrincipalNIP] = useState("");
+
+    useEffect(() => {
+        if (settings) {
+            setPrincipalName(settings.principal_name || "");
+            setPrincipalNIP(settings.principal_nip || "");
+        }
+    }, [settings]);
+
+    const schoolName = settings?.school_name || "Sekolah";
+    const schoolAddress = settings?.school_address || "";
+    const schoolLogo = getSchoolLogo(settings?.school_logo);
 
     // ==========================================
     // Fetch Handlers
@@ -254,6 +274,8 @@ export default function LaporanPage() {
     // ==========================================
 
     return (
+        <>
+        <style>{printStyles}</style>
         <div className="space-y-8 print:space-y-4">
             {/* Header */}
             <div className="flex items-center gap-4 print:hidden">
@@ -272,10 +294,16 @@ export default function LaporanPage() {
                 </div>
             </div>
 
-            {/* Print Header (Hidden on screen) */}
-            <div className="hidden print:block text-center mb-8">
-                <h1 className="text-2xl font-bold">Laporan Perpustakaan</h1>
-                <p className="text-sm text-gray-600">Periode: {formatDate(startDate)} - {formatDate(endDate)}</p>
+            {/* Print Header with Formal Kop */}
+            <div className="hidden print:block text-center mb-6">
+                <div className="border-b-2 border-black pb-4">
+                    <h1 className="text-2xl font-bold uppercase tracking-wider">{settings?.school_name || siteConfig.school.name}</h1>
+                    <p className="text-sm">{settings?.school_address || siteConfig.school.address}</p>
+                    <p className="text-sm">NPSN: {settings?.school_npsn || siteConfig.school.npsn} | Telp: {settings?.school_phone || siteConfig.school.phone}</p>
+                    <hr className="border-t-2 border-black mt-2" />
+                </div>
+                <h2 className="text-xl font-bold mt-3">LAPORAN PERPUSTAKAAN</h2>
+                <p className="text-sm">Periode: {formatDate(startDate)} - {formatDate(endDate)}</p>
             </div>
 
             {/* Date Filter with Quick Presets */}
@@ -418,19 +446,19 @@ export default function LaporanPage() {
                                             <p>Tidak ada data peminjaman pada periode ini</p>
                                         </div>
                                     ) : (
-                                        <div className="rounded-lg border overflow-hidden">
-                                            <Table>
-                                                <TableHeader>
-                                                    <TableRow>
-                                                        <TableHead className="w-12">No</TableHead>
-                                                        <TableHead>Anggota</TableHead>
-                                                        <TableHead>Buku</TableHead>
-                                                        <TableHead>Tgl Pinjam</TableHead>
-                                                        <TableHead>Jatuh Tempo</TableHead>
-                                                        <TableHead>Status</TableHead>
-                                                        <TableHead className="text-right">Denda</TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
+                                <div className="print-table-container rounded-lg border overflow-hidden">
+                                    <Table className="print-table">
+                                        <TableHeader className="print-table-header">
+                                            <TableRow>
+                                                <TableHead className="w-12 print:w-8">No</TableHead>
+                                                <TableHead className="print:w-32">Anggota</TableHead>
+                                                <TableHead className="print:w-40">Buku</TableHead>
+                                                <TableHead className="print:w-24">Tgl Pinjam</TableHead>
+                                                <TableHead className="print:w-24">Jatuh Tempo</TableHead>
+                                                <TableHead className="print:w-20">Status</TableHead>
+                                                <TableHead className="text-right print:w-24">Denda</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
                                                 <TableBody>
                                                     {loanData.map((item, index) => (
                                                         <TableRow key={item.id}>
@@ -529,15 +557,15 @@ export default function LaporanPage() {
                                             <p>Tidak ada data kunjungan pada periode ini</p>
                                         </div>
                                     ) : (
-                                        <div className="rounded-lg border overflow-hidden">
-                                            <Table>
-                                                <TableHeader>
+                                        <div className="print-table-container rounded-lg border overflow-hidden">
+                                            <Table className="print-table">
+                                                <TableHeader className="print-table-header">
                                                     <TableRow>
-                                                        <TableHead className="w-12">No</TableHead>
-                                                        <TableHead>Nama Anggota</TableHead>
-                                                        <TableHead>Kelas</TableHead>
-                                                        <TableHead>Tanggal</TableHead>
-                                                        <TableHead>Waktu</TableHead>
+                                                        <TableHead className="w-12 print:w-8">No</TableHead>
+                                                        <TableHead className="print:w-32">Nama Anggota</TableHead>
+                                                        <TableHead className="print:w-20">Kelas</TableHead>
+                                                        <TableHead className="print:w-24">Tanggal</TableHead>
+                                                        <TableHead className="print:w-24">Waktu</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
@@ -615,15 +643,15 @@ export default function LaporanPage() {
                                             <p>Tidak ada buku yang terlambat dikembalikan 🎉</p>
                                         </div>
                                     ) : (
-                                        <div className="rounded-lg border overflow-hidden">
-                                            <Table>
-                                                <TableHeader>
+                                        <div className="print-table-container rounded-lg border overflow-hidden">
+                                            <Table className="print-table">
+                                                <TableHeader className="print-table-header">
                                                     <TableRow>
-                                                        <TableHead className="w-12">No</TableHead>
-                                                        <TableHead>Peminjam</TableHead>
-                                                        <TableHead>Judul Buku</TableHead>
-                                                        <TableHead>Jatuh Tempo</TableHead>
-                                                        <TableHead className="text-right">Hari Terlambat</TableHead>
+                                                        <TableHead className="w-12 print:w-8">No</TableHead>
+                                                        <TableHead className="print:w-32">Peminjam</TableHead>
+                                                        <TableHead className="print:w-40">Judul Buku</TableHead>
+                                                        <TableHead className="print:w-24">Jatuh Tempo</TableHead>
+                                                        <TableHead className="text-right print:w-24">Hari Terlambat</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
@@ -751,6 +779,97 @@ export default function LaporanPage() {
                 </TabsContent>
             </Tabs>
         </div>
+        </>
     );
 }
+
+// ==========================================
+// Print Styles (injected globally)
+// ==========================================
+
+const printStyles = `
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 8mm;
+  }
+
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .print\\:hidden {
+    display: none !important;
+  }
+
+  .print-table-container {
+    overflow: visible !important;
+    border: 1px solid #000 !important;
+  }
+
+  .print-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 9px !important;
+  }
+
+  .print-table th,
+  .print-table td {
+    border: 0.5px solid #000 !important;
+    padding: 4px 6px !important;
+    text-align: left !important;
+    vertical-align: middle !important;
+  }
+
+  .print-table th {
+    background-color: #f0f0f0 !important;
+    font-weight: 700 !important;
+    text-align: center !important;
+  }
+
+  .print-table td {
+    text-align: center !important;
+  }
+
+  .print-table td:first-child {
+    text-align: center !important;
+  }
+
+  .print-table td:nth-child(2) {
+    text-align: left !important;
+  }
+
+  .print-table td:nth-child(3) {
+    text-align: left !important;
+  }
+
+  .print-table-header {
+    display: table-header-group !important;
+  }
+
+  .print-table tbody tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .print-table tbody tr:last-child {
+    page-break-after: avoid !important;
+  }
+
+  .print\\:w-8 { width: 8% !important; }
+  .print\\:w-20 { width: 20% !important; }
+  .print\\:w-24 { width: 24% !important; }
+  .print\\:w-32 { width: 32% !important; }
+  .print\\:w-40 { width: 40% !important; }
+
+  .print\\:block {
+    display: block !important;
+  }
+
+  .print\\:space-y-4 > * + * {
+    margin-top: 0.5rem !important;
+  }
+}
+`;
 

@@ -16,10 +16,12 @@ import {
   ClipboardList,
   AlertCircle,
   ChevronRight,
+  Calendar,
 } from "lucide-react";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { goGet } from "@/lib/api-client";
+import HolidayManager from "@/components/presensi/holiday-manager";
 
 interface Stats {
   totalStudents: number;
@@ -241,6 +243,12 @@ export default function PresensiDashboardPage() {
               <Button variant="outline" className="w-full h-20 flex-col gap-1">
                 <TrendingUp className="h-6 w-6" />
                 <span>Laporan Bulanan</span>
+              </Button>
+            </Link>
+            <Link href="/presensi/holidays">
+              <Button variant="outline" className="w-full h-20 flex-col gap-1">
+                <Calendar className="h-6 w-6" />
+                <span>Kelola Libur</span>
               </Button>
             </Link>
           </CardContent>

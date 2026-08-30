@@ -337,8 +337,21 @@ func (r *AcademicRepository) DeleteSubject(id string) error {
 }
 
 func (r *AcademicRepository) ProcessPromotion(req models.PromotionRequest) (int, error) {
-	if req.TargetClassId == nil || *req.TargetClassId == "" {
+	if req.ActionType == "promotion" && (req.TargetClassId == nil || *req.TargetClassId == "") {
 		return 0, fmt.Errorf("kelas tujuan wajib dipilih")
+	}
+	if req.ActionType == "graduation" {
+		// Graduation doesn't need target class; just deactivate student
+		now := time.Now().Unix()
+		count := 0
+		for _, studentId := range req.StudentIds {
+			_, err := r.DB.Exec(`UPDATE students SET status='graduated', is_active=0, updated_at=? WHERE id=?`, now, studentId)
+			if err != nil {
+				return count, err
+			}
+			count++
+		}
+		return count, nil
 	}
 
 	tx, err := r.DB.Begin()
@@ -461,6 +474,9 @@ func (r *AcademicRepository) GetSuggestedCapacity(grade int, className string, a
 			ORDER BY (CASE WHEN name = ? THEN 0 ELSE 1 END), name ASC
 			LIMIT 1
 		`, prevGrade, prevYear, className).Scan(&capacity, &foundName)
+		if err == nil && capacity > 0 {
+			return capacity, fmt.Sprintf("Kelas %d (%s) T.A %s", prevGrade, foundName, prevYear), nil
+		}
 
 		if err == nil && capacity > 0 {
 			return capacity, fmt.Sprintf("Kelas %d (%s) T.A %s", prevGrade, foundName, prevYear), nil

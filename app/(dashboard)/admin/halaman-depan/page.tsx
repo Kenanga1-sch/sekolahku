@@ -32,20 +32,43 @@ export default function HalamanDepanPage() {
   const { settings, isLoading } = useSchoolSettings();
   
   const [sections, setSections] = useState<any>({});
+  const [publicTheme, setPublicTheme] = useState<string>("default-original");
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [formData, setFormData] = useState<any>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   useEffect(() => {
-    if (settings?.landing_sections) {
-      try {
-        setSections(JSON.parse(settings.landing_sections));
-      } catch (e) {
-        console.error("Failed to parse landing_sections", e);
+    if (settings) {
+      if (settings.landing_sections) {
+        try {
+          setSections(JSON.parse(settings.landing_sections));
+        } catch (e) {
+          console.error("Failed to parse landing_sections", e);
+        }
+      }
+      if (settings.public_theme) {
+        setPublicTheme(settings.public_theme);
       }
     }
   }, [settings]);
+
+  const handleSaveTheme = async (themeName: string) => {
+    setPublicTheme(themeName);
+    try {
+      const res = await goPut("/api/admin/settings", {
+        public_theme: themeName
+      });
+      if (res.success) {
+        mutate("/api/public/school-settings");
+        toast.success("Tema halaman depan berhasil diubah.");
+      } else {
+        throw new Error(res.message || "Failed to save theme");
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Gagal mengubah tema.");
+    }
+  };
 
   const openEditor = (sectionId: string) => {
     setActiveSection(sectionId);
@@ -121,9 +144,63 @@ export default function HalamanDepanPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Pengaturan Halaman Depan</h1>
         <p className="text-muted-foreground">
-          Pilih bagian mana dari halaman depan yang ingin Anda edit (Judul, Teks, Poin, & Tombol).
+          Pilih tema publik atau edit bagian teks halaman depan.
         </p>
       </div>
+
+      {/* Theme Picker (Wallpaper Style) */}
+      <Card className="border-indigo-500/20 bg-gradient-to-r from-indigo-500/5 via-purple-500/5 to-pink-500/5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Layers className="h-5 w-5 text-indigo-500" />
+            Pilih Tema Tampilan Publik (Wallpaper Mode)
+          </CardTitle>
+          <CardDescription>
+            Ubah layout dan vibe halaman depan publik secara instan dengan memilih tema di bawah ini.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <div 
+              onClick={() => handleSaveTheme("default-original")}
+              className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
+                publicTheme === "default-original" 
+                  ? "border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/20 shadow-sm" 
+                  : "border-slate-200 dark:border-zinc-800 hover:border-slate-300"
+              }`}
+            >
+              <div>
+                <div className="font-semibold text-base mb-1">Default Original</div>
+                <p className="text-xs text-muted-foreground">Tema bawaan original dengan susunan bagian lengkap.</p>
+              </div>
+              <div className="mt-4 flex items-center justify-between">
+                <span className="text-xs font-medium px-2 py-1 rounded bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+                  {publicTheme === "default-original" ? "Aktif" : "Pilih"}
+                </span>
+              </div>
+            </div>
+
+            <div 
+              onClick={() => handleSaveTheme("neo-brutalism")}
+              className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
+                publicTheme === "neo-brutalism" 
+                  ? "border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/20 shadow-sm" 
+                  : "border-slate-200 dark:border-zinc-800 hover:border-slate-300"
+              }`}
+            >
+              <div>
+                <div className="font-semibold text-base mb-1">Neo-Brutalism</div>
+                <p className="text-xs text-muted-foreground">Gaya berani, border tebal, hard shadows, dan kontras tinggi.</p>
+              </div>
+              <div className="mt-4 flex items-center justify-between">
+                <span className="text-xs font-medium px-2 py-1 rounded bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+                  {publicTheme === "neo-brutalism" ? "Aktif" : "Pilih"}
+                </span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {SECTION_CONFIGS.map((config) => (

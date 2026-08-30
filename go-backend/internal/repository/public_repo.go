@@ -140,12 +140,13 @@ func (r *PublicRepository) GetPublicStaff(page, perPage int) ([]models.PublicSta
 	offset := (page - 1) * perPage
 
 	var total int
-	r.DB.QueryRow("SELECT COUNT(*) FROM employee_details").Scan(&total)
+	r.DB.QueryRow("SELECT COUNT(*) FROM employee_details WHERE is_active = 1").Scan(&total)
 
 	query := `
-		SELECT id, name, 1 as is_active, photo_url,
+		SELECT id, name, is_active, photo_url,
 		       category, degree, job_type as position, quote
 		FROM employee_details
+		WHERE is_active = 1
 		ORDER BY 
 			CASE WHEN category = 'kepsek' THEN 0 ELSE 1 END,
 			display_order ASC,

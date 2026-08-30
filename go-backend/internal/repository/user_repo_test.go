@@ -12,8 +12,8 @@ func setupTestDB(t *testing.T) *sql.DB {
 		t.Fatalf("Failed to open in-memory db: %v", err)
 	}
 
-	// Create users table matching the actual schema expected by user_repo.go
-	_, err = db.Exec(`
+		// Create users table matching the actual schema expected by user_repo.go
+		_, err = db.Exec(`
 		CREATE TABLE users (
 			id TEXT PRIMARY KEY,
 			name TEXT,
@@ -26,6 +26,7 @@ func setupTestDB(t *testing.T) *sql.DB {
 			full_name TEXT,
 			phone TEXT,
 			is_active INTEGER DEFAULT 1,
+			must_change_password INTEGER DEFAULT 0,
 			created_at INTEGER,
 			updated_at INTEGER
 		)

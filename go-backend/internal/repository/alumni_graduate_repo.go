@@ -43,26 +43,37 @@ func (r *AlumniRepository) GraduateStudents(studentIDs []string, graduationYear 
 		var fName, fNik, fEdu, fJob, mName, mNik, mEdu, mJob string
 		var gName, gNik, gJob string
 		var pn, pp *string
-		var className, classID string
+		var className string
+		var classID string
 		var photo sql.NullString
 		var crAtInt sql.NullInt64
 
+		var nullClassName, nullClassID sql.NullString
 		row := tx.QueryRow(`
 			SELECT id, full_name, nisn, nis, nik, gender, birth_place, birth_date,
 			       COALESCE(religion,''), COALESCE(address,''),
 			       COALESCE(father_name,''), COALESCE(father_nik,''), COALESCE(father_education,''), COALESCE(father_job,''),
 			       COALESCE(mother_name,''), COALESCE(mother_nik,''), COALESCE(mother_education,''), COALESCE(mother_job,''),
 			       COALESCE(guardian_name,''), COALESCE(guardian_nik,''), COALESCE(guardian_job,''),
-			       parent_name, parent_phone, class_name, class_id, photo, created_at
+			       COALESCE(parent_name,''), COALESCE(parent_phone,''), class_name, class_id, photo, created_at
 			FROM students WHERE id = ?`, studentID)
 
 		var nullablePN, nullablePP, nullablePhoto, nullableCrAt sql.NullString
-		err := row.Scan(&studentID, &fullName, &nisn, &nis, &nik, &gender, &bp, &bd,
+		var nullableNIK sql.NullString
+		err := row.Scan(&studentID, &fullName, &nisn, &nis, &nullableNIK, &gender, &bp, &bd,
 			&rel, &addr,
 			&fName, &fNik, &fEdu, &fJob,
 			&mName, &mNik, &mEdu, &mJob,
 			&gName, &gNik, &gJob,
-			&nullablePN, &nullablePP, &className, &classID, &nullablePhoto, &nullableCrAt)
+			&nullablePN, &nullablePP, &nullClassName, &nullClassID, &nullablePhoto, &nullableCrAt)
+		if nullClassName.Valid {
+			className = nullClassName.String
+		}
+		if nullClassID.Valid {
+			classID = nullClassID.String
+		}
+		nik = nullableNIK.String
+		// Use class_name directly; null is handled by FinalClass later
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil, created, deactivated, fmt.Errorf("siswa tidak ditemukan: %s", studentID)
@@ -290,7 +301,7 @@ func (r *AlumniRepository) GraduateStudents(studentIDs []string, graduationYear 
 			PreviousSchool: optionalString(prevSch),
 			GraduationYear: graduationYear,
 			GraduationDate: &gd,
-			FinalClass:     optionalString(sql.NullString{String: className, Valid: className != ""}),
+			FinalClass:     			optionalString(sql.NullString{String: className, Valid: className != ""}),
 			Photo:          optionalString(sql.NullString{String: photo.String, Valid: photo.Valid}),
 			ParentName:     optionalString(sql.NullString{String: *pn, Valid: pn != nil}),
 			ParentPhone:    optionalString(sql.NullString{String: *pp, Valid: pp != nil}),

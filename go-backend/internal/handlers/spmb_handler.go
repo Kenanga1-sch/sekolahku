@@ -371,10 +371,18 @@ func (h *SPMBHandler) UploadDocuments(c echo.Context) error {
 		})
 	}
 
+	if len(savedFiles) == 0 && len(uploadErrors) > 0 {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   "Semua dokumen gagal diunggah",
+			"details": uploadErrors,
+		})
+	}
+
 	if len(savedFiles) > 0 {
 		docsJSON, _ := json.Marshal(savedFiles)
 		if err := h.Repo.UpdateRegistrantDocuments(registrantId, string(docsJSON)); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal memperbarui data dokumen di database"})
+			return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal memperbarui data dokumen di database"})
 		}
 	}
 
@@ -382,6 +390,7 @@ func (h *SPMBHandler) UploadDocuments(c echo.Context) error {
 		"success": true,
 		"data": map[string]interface{}{
 			"count":  len(savedFiles),
+			"files":  savedFiles,
 			"errors": uploadErrors,
 		},
 	})

@@ -1,4 +1,4 @@
-﻿﻿﻿﻿"use client";
+﻿﻿"use client";
 
 import useSWR, { mutate } from "swr";
 import { useMemo, useState, useEffect } from "react";
@@ -1065,7 +1065,7 @@ export default function TabMutasi() {
         <Card>
           <style jsx global>{`
             @page {
-              size: 330mm 215mm; /* Kertas F4 / Folio Landscape */
+              size: 215mm 330mm; /* Kertas F4 / Folio Portrait */
               margin: 6mm 8mm;
             }
 

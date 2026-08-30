@@ -265,7 +265,7 @@ func (r *LibraryRepository) DeleteMember(id string) error {
 func (r *LibraryRepository) SyncFromStudents() (int, error) {
 	rows, err := r.DB.Query(`
 		SELECT id, nisn, full_name FROM students
-		WHERE (is_active=1 OR status='active' OR status='aktif')
+		WHERE status = 'active'
 		  AND nisn IS NOT NULL AND nisn != ''
 		  AND nisn NOT IN (SELECT nisn FROM library_members WHERE nisn IS NOT NULL)
 	`)

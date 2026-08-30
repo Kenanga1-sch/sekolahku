@@ -7,9 +7,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, ShieldCheck, Lock, ArrowRight, AlertCircle } from "lucide-react";
+import { Loader2, ShieldCheck, Lock, ArrowRight, AlertCircle, CheckCircle2, XCircle } from "lucide-react";
 import { goPost } from "@/lib/api-client";
 import { showSuccess, showError } from "@/lib/toast";
+import { evaluatePasswordStrength, validatePasswordStrength } from "@/lib/password-strength";
+import { cn } from "@/lib/utils";
+
+const strengthColors = [
+  "bg-red-500",
+  "bg-orange-500",
+  "bg-yellow-500",
+  "bg-green-500",
+  "bg-emerald-500",
+];
+
+const checkItems = [
+  { key: "length" as const, label: "Minimal 8 karakter" },
+  { key: "uppercase" as const, label: "Huruf besar (A-Z)" },
+  { key: "lowercase" as const, label: "Huruf kecil (a-z)" },
+  { key: "number" as const, label: "Angka (0-9)" },
+  { key: "symbol" as const, label: "Simbol (!@#$)" },
+];
 
 export default function GantiPasswordPage() {
     const router = useRouter();
@@ -20,6 +38,8 @@ export default function GantiPasswordPage() {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
 
+    const strength = evaluatePasswordStrength(newPassword);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
@@ -29,8 +49,9 @@ export default function GantiPasswordPage() {
             return;
         }
 
-        if (newPassword.length < 8) {
-            setError("Password baru minimal 8 karakter");
+        const strengthError = validatePasswordStrength(newPassword);
+        if (strengthError) {
+            setError(strengthError);
             return;
         }
 
@@ -125,7 +146,49 @@ export default function GantiPasswordPage() {
                                 placeholder="Min. 8 karakter"
                                 autoComplete="new-password"
                             />
-                            <p className="text-xs text-muted-foreground">Minimal 8 karakter, gunakan kombinasi yang sulit ditebak.</p>
+                            {newPassword.length > 0 && (
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex-1 flex gap-1">
+                                            {[0, 1, 2, 3, 4].map((i) => (
+                                                <div
+                                                    key={i}
+                                                    className={cn(
+                                                        "h-1.5 flex-1 rounded-full transition-colors",
+                                                        i <= strength.score ? strengthColors[strength.score] : "bg-zinc-200 dark:bg-zinc-800"
+                                                    )}
+                                                />
+                                            ))}
+                                        </div>
+                                        <span className={cn(
+                                            "text-xs font-medium",
+                                            strength.score >= 3 ? "text-green-600 dark:text-green-400" :
+                                            strength.score === 2 ? "text-yellow-600 dark:text-yellow-400" :
+                                            "text-red-600 dark:text-red-400"
+                                        )}>
+                                            {strength.label}
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                                        {checkItems.map((item) => {
+                                            const ok = strength.checks[item.key];
+                                            return (
+                                                <div key={item.key} className="flex items-center gap-1.5 text-xs">
+                                                    {ok ? (
+                                                        <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                                                    ) : (
+                                                        <XCircle className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-600 shrink-0" />
+                                                    )}
+                                                    <span className={ok ? "text-green-700 dark:text-green-400" : "text-muted-foreground"}>
+                                                        {item.label}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                            <p className="text-xs text-muted-foreground">Gunakan kombinasi huruf besar, huruf kecil, angka, dan simbol agar lebih aman.</p>
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="confirmPassword">Konfirmasi Password Baru</Label>

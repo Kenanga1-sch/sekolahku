@@ -86,6 +86,7 @@ func setupEOfficeTestDB(t *testing.T) *sql.DB {
 			digital_signature TEXT,
 			revision_note TEXT,
 			template_id TEXT,
+			html_content TEXT,
 			created_by TEXT,
 			created_at INTEGER,
 			updated_at INTEGER,

@@ -1,0 +1,17 @@
+[Unit]
+Description=Sekolahku Unified Application
+After=network.target
+
+[Service]
+Type=simple
+User=kenanga
+WorkingDirectory=/home/kenanga/sekolahku-deploy
+ExecStart=/home/kenanga/sekolahku-deploy/sekolahku_linux
+EnvironmentFile=/home/kenanga/sekolahku-deploy/.env
+Restart=always
+RestartSec=5
+MemoryMax=256M
+MemoryHigh=192M
+
+[Install]
+WantedBy=multi-user.target

@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"database/sql"
 	"strings"
 	"time"
 )
@@ -41,6 +42,12 @@ var nationalHolidays = map[string]string{
 	"2026-12-25": "Hari Raya Natal",
 }
 
+var globalDB *sql.DB
+
+func SetHolidayDB(db *sql.DB) {
+	globalDB = db
+}
+
 func IsHoliday(date string) (bool, string) {
 	if date == "" {
 		date = time.Now().Format("2006-01-02")
@@ -53,6 +60,14 @@ func IsHoliday(date string) (bool, string) {
 
 	if t.Weekday() == time.Sunday {
 		return true, "Hari Minggu"
+	}
+
+	if globalDB != nil {
+		var reason string
+		err := globalDB.QueryRow("SELECT COALESCE(title, description) FROM school_holidays WHERE date = ?", date).Scan(&reason)
+		if err == nil && reason != "" {
+			return true, reason
+		}
 	}
 
 	if reason, ok := nationalHolidays[date]; ok {

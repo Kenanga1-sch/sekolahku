@@ -119,15 +119,19 @@ func (r *SavingsRepository) DeleteHutang(id string) error {
 	tx.QueryRow("SELECT COALESCE(SUM(nominal), 0) FROM tabungan_hutang_pembayaran WHERE hutang_id = ? AND metode = 'cash'", id).Scan(&cashDeduction)
 	if cashDeduction > 0 {
 		var bId string
-		tx.QueryRow("SELECT id FROM tabungan_brankas WHERE tipe = 'cash' LIMIT 1").Scan(&bId)
-		if bId != "" {
-			if _, err := tx.Exec("UPDATE tabungan_brankas SET saldo = saldo - ?, updated_at = ? WHERE id = ?", cashDeduction, now, bId); err != nil {
-				return err
-			}
-			if _, err := tx.Exec("INSERT INTO tabungan_brankas_transaksi (id, tipe, nominal, catatan, created_at) VALUES (?, 'pengeluaran_refund', ?, ?, ?)",
-				cuid2.Generate(), cashDeduction, fmt.Sprintf("Refund pembatalan hutang tunai (ID Hutang: %s)", id), now); err != nil {
-				return err
-			}
+		err := tx.QueryRow("SELECT id FROM tabungan_brankas WHERE tipe = 'cash' LIMIT 1").Scan(&bId)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+		if bId == "" {
+			return errors.New("brankas kas tunai tidak ditemukan untuk memproses refund cash")
+		}
+		if _, err := tx.Exec("UPDATE tabungan_brankas SET saldo = saldo - ?, updated_at = ? WHERE id = ?", cashDeduction, now, bId); err != nil {
+			return err
+		}
+		if _, err := tx.Exec("INSERT INTO tabungan_brankas_transaksi (id, tipe, nominal, catatan, created_at) VALUES (?, 'pengeluaran_refund', ?, ?, ?)",
+			cuid2.Generate(), cashDeduction, fmt.Sprintf("Refund pembatalan hutang tunai (ID Hutang: %s)", id), now); err != nil {
+			return err
 		}
 	}
 

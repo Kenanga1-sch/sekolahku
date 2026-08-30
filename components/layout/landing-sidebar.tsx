@@ -54,10 +54,8 @@ const navLinks = [
     icon: Building2,
       children: [
         { href: "/profil/visi-misi", label: "Visi & Misi" },
-        { href: "/profil/sejarah", label: "Sejarah" },
         { href: "/profil/guru-staff", label: "Guru & Staff" },
         { href: "/kurikulum", label: "Kurikulum & Ekskul" },
-        { href: "/galeri", label: "Galeri Foto" },
       ],
   },
   { href: "/berita", label: "Berita", icon: FileText },
@@ -72,7 +70,6 @@ const navLinks = [
     ],
   },
   { href: "/spmb", label: "SPMB", icon: Users },
-  { href: "/faq", label: "FAQ", icon: HelpCircle },
   { href: "/kontak", label: "Kontak", icon: Phone },
 ];
 

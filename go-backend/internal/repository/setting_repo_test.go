@@ -33,6 +33,8 @@ func setupSettingTestDB(t *testing.T) *sql.DB {
 			current_academic_year TEXT,
 			principal_name TEXT,
 			principal_nip TEXT,
+			supervisor_name TEXT,
+			supervisor_nip TEXT,
 			is_maintenance BOOLEAN DEFAULT 0,
 			last_letter_number INTEGER DEFAULT 0,
 			letter_number_format TEXT,
@@ -44,6 +46,10 @@ func setupSettingTestDB(t *testing.T) *sql.DB {
 			school_history_achievements TEXT,
 			school_curriculum TEXT,
 			school_extracurriculars TEXT,
+			landing_tagline TEXT,
+			landing_description TEXT,
+			landing_texts TEXT,
+			landing_sections TEXT,
 			created_at INTEGER,
 			updated_at INTEGER
 		);

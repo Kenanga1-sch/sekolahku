@@ -9,9 +9,22 @@ import { getFromCache, setCache, CacheTTL } from "./cache";
 import { logger } from "./logger";
 
 const GO_API_URL = process.env.NEXT_PUBLIC_API_URL || "";
-export const APP_VERSION = "v1.1.004";
+export const APP_VERSION = "v1.1.015";
 
 const DEFAULT_TIMEOUT_MS = 15_000;
+
+/** Baca nilai cookie sederhana (aman untuk csrf_token yang non-HttpOnly). */
+function readCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const cookies = document.cookie.split(";").map((c) => c.trim());
+  const found = cookies.find((c) => c.startsWith(`${name}=`));
+  if (!found) return null;
+  return decodeURIComponent(found.split("=").slice(1).join("="));
+}
+
+function getCSRFToken(): string | null {
+  return readCookie("csrf_token");
+}
 
 export interface FetchOptions extends RequestInit {
   ttl?: number;
@@ -56,6 +69,14 @@ export async function goFetch<T = any>(
     // If body is not FormData, set JSON content type
     if (fetchOptions.body && !(fetchOptions.body instanceof FormData)) {
       defaultHeaders["Content-Type"] = "application/json";
+    }
+
+    // Sertakan CSRF token pada semua request mutasi (POST/PUT/PATCH/DELETE)
+    if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
+      const csrf = getCSRFToken();
+      if (csrf) {
+        defaultHeaders["X-CSRF-Token"] = csrf;
+      }
     }
 
     // Timeout via AbortController

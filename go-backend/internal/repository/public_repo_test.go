@@ -16,14 +16,13 @@ func setupPublicStaffTestDB(t *testing.T) *sql.DB {
 	}
 
 	_, err = db.Exec(`
-		CREATE TABLE staff_profiles (
+		CREATE TABLE employee_details (
 			id TEXT PRIMARY KEY,
 			name TEXT NOT NULL,
 			degree TEXT,
-			position TEXT,
+			job_type TEXT,
 			category TEXT,
 			photo_url TEXT,
-			nip TEXT,
 			quote TEXT,
 			display_order INTEGER DEFAULT 0,
 			is_active BOOLEAN DEFAULT 1,
@@ -43,7 +42,7 @@ func TestPublicRepositoryGetPublicStaffUsesStaffProfiles(t *testing.T) {
 	defer db.Close()
 
 	_, err := db.Exec(`
-		INSERT INTO staff_profiles (id, name, degree, position, category, photo_url, quote, display_order, is_active)
+		INSERT INTO employee_details (id, name, degree, job_type, category, photo_url, quote, display_order, is_active)
 		VALUES
 			('staff-2', 'Guru Dua', 'S.Pd', 'Guru Kelas 2', 'guru', '/uploads/staff/guru.jpg', 'Belajar', 2, 1),
 			('staff-1', 'Kepala Sekolah', 'M.Pd', 'Kepala Sekolah', 'kepsek', '/uploads/staff/kepsek.jpg', 'Melayani', 10, 1),
@@ -65,5 +64,9 @@ func TestPublicRepositoryGetPublicStaffUsesStaffProfiles(t *testing.T) {
 	}
 	if staff[1].ID != "staff-2" || staff[1].Position != "Guru Kelas 2" {
 		t.Fatalf("expected guru profile second, got %#v", staff[1])
+	}
+	// also verify that total matches active count (is_active = 1)
+	if total != 2 {
+		t.Fatalf("expected total active = 2, got %d", total)
 	}
 }

@@ -154,7 +154,8 @@ export default function EditAlumniPage() {
   useEffect(() => {
     const fetchAlumni = async () => {
       try {
-        const data: any = await goGet(`/api/alumni/${alumniId}`);
+        const resData: any = await goGet(`/api/alumni/${alumniId}`);
+        const data = resData?.data || resData;
         setAlumniName(data.fullName || "");
         setCurrentPhoto(data.photo || null);
         

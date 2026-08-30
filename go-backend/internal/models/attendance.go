@@ -87,8 +87,9 @@ type AttendanceReportSummary struct {
 }
 
 type AttendanceReportResponse struct {
-	Records []AttendanceReportRecord `json:"records"`
-	Summary AttendanceReportSummary  `json:"summary"`
+	Records       []AttendanceReportRecord `json:"records"`
+	Summary       AttendanceReportSummary  `json:"summary"`
+	EffectiveDays int                      `json:"effectiveDays"`
 }
 
 type StudentAttendanceSummary struct {

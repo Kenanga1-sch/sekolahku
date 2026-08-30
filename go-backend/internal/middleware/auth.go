@@ -24,7 +24,7 @@ const (
 func InitJWTMiddleware() {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
-		secret = "sekolahku-dev-secret-key-12345"
+		panic("CRITICAL SECURITY ERROR: JWT_SECRET environment variable is not set. Please set JWT_SECRET in production.")
 	}
 	jwtSecret = []byte(secret)
 }

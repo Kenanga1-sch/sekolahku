@@ -217,8 +217,8 @@ export default function CetakBukuIndukPage() {
     if (!id) return;
     (async () => {
       try {
-        const data: any = await goGet(`/api/alumni/${id}`);
-        setAlumni(data);
+        const resData: any = await goGet(`/api/alumni/${id}`);
+        setAlumni(resData?.data || resData);
       } catch (e) {
         console.error(e);
       } finally {

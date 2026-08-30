@@ -83,7 +83,7 @@ func AutoSyncStudentToSavingsAndLibrary(db *sql.DB, studentID string) error {
 	}
 
 	// Only sync if student is active
-	isStudentActive := isActive == 1 || status == "active" || status == "aktif"
+	isStudentActive := status == "active"
 	if !isStudentActive {
 		// Deactivate their savings and library member accounts
 		_, _ = db.Exec("UPDATE library_members SET is_active = 0 WHERE student_id = ?", studentID)

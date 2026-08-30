@@ -520,6 +520,19 @@ func (r *AttendanceRepository) GetAttendanceReport(startDate, endDate, className
 		return nil, err
 	}
 
+	// Count effective days (excluding Sundays and national holidays)
+	effectiveDays := 0
+	start, _ := time.Parse("2006-01-02", startDate)
+	end, _ := time.Parse("2006-01-02", endDate)
+	for d := start; !d.After(end); d = d.AddDate(0, 0, 1) {
+		dateStr := d.Format("2006-01-02")
+		isHoliday, _ := IsHoliday(dateStr)
+		if !isHoliday {
+			effectiveDays++
+		}
+	}
+	report.EffectiveDays = effectiveDays
+
 	return report, nil
 }
 

@@ -3,10 +3,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
-        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-}
-        NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-Website Sekolah Terpadu}
     container_name: sekolahku-app
     restart: unless-stopped
     ports:

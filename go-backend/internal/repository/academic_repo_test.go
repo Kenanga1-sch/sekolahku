@@ -187,6 +187,7 @@ func TestAcademicRepository_PromotionAndGraduation(t *testing.T) {
 	count, err = repo.ProcessPromotion(models.PromotionRequest{
 		StudentIds: []string{"student-1"},
 		ActionType: "graduation",
+		TargetClassId: nil,
 	})
 	if err != nil {
 		t.Fatalf("graduation returned error: %v", err)

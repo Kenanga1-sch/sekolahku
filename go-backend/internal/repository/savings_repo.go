@@ -491,7 +491,7 @@ func (r *SavingsRepository) SyncFromStudents() (int, error) {
 		SELECT id, nisn, full_name, COALESCE(class_name, ''),
 		       CASE WHEN qr_code IS NOT NULL AND TRIM(qr_code) != '' THEN qr_code ELSE id END
 		FROM students
-		WHERE (is_active = 1 OR status = 'active' OR status = 'aktif')
+		WHERE status = 'active'
 			AND id NOT IN (SELECT student_id FROM tabungan_siswa WHERE student_id IS NOT NULL)
 			AND (nisn IS NOT NULL AND nisn != '' AND nisn NOT IN (SELECT nisn FROM tabungan_siswa WHERE nisn IS NOT NULL))
 	`)

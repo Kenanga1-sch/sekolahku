@@ -55,7 +55,11 @@ func (h *SavingsHandler) PayHutangCash(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid input"})
 	}
-	operatorID, _ := c.Get("user_id").(string)
+	operatorIDVal := c.Get("user_id")
+	operatorID, ok := operatorIDVal.(string)
+	if !ok || operatorID == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]interface{}{"success": false, "error": "Unauthorized: operator ID tidak valid"})
+	}
 	if err := h.Repo.PayHutangCash(id, req.Amount, operatorID); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
@@ -68,7 +72,11 @@ func (h *SavingsHandler) SettleHutangFromTabungan(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid input"})
 	}
-	operatorID, _ := c.Get("user_id").(string)
+	operatorIDVal := c.Get("user_id")
+	operatorID, ok := operatorIDVal.(string)
+	if !ok || operatorID == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]interface{}{"success": false, "error": "Unauthorized: operator ID tidak valid"})
+	}
 	if err := h.Repo.SettleHutangFromSavings(id, req.Amount, operatorID); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}

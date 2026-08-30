@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/csv"
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sekolahku/go-backend/internal/models"
@@ -11,7 +12,8 @@ import (
 )
 
 type AttendanceHandler struct {
-	Repo *repository.AttendanceRepository
+	Repo   *repository.AttendanceRepository
+	Holiday *repository.SchoolHolidayRepository
 }
 
 func NewAttendanceHandler(repo *repository.AttendanceRepository) *AttendanceHandler {
@@ -190,4 +192,40 @@ func (h *AttendanceHandler) CheckHoliday(c echo.Context) error {
 		"isHoliday": isHoliday,
 		"reason":    reason,
 	})
+}
+
+func (h *AttendanceHandler) ListSchoolHolidays(c echo.Context) error {
+	items, err := h.Holiday.List()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal memuat hari libur"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": items})
+}
+
+func (h *AttendanceHandler) CreateSchoolHoliday(c echo.Context) error {
+	var hd repository.SchoolHoliday
+	if err := c.Bind(&hd); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Data tidak valid"})
+	}
+	if hd.Date == "" || hd.Title == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Tanggal dan judul wajib diisi"})
+	}
+	if err := h.Holiday.Create(hd); err != nil {
+		if strings.Contains(err.Error(), "UNIQUE") {
+			return c.JSON(http.StatusConflict, map[string]interface{}{"success": false, "error": "Tanggal sudah terdaftar sebagai hari libur"})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal menambah hari libur"})
+	}
+	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true})
+}
+
+func (h *AttendanceHandler) DeleteSchoolHoliday(c echo.Context) error {
+	err := h.Holiday.Delete(c.Param("id"))
+	if err != nil {
+		if err.Error() == "hari libur tidak ditemukan" {
+			return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Hari libur tidak ditemukan"})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal menghapus hari libur"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }

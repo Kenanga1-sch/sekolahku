@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -144,7 +145,7 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const res = await loginAction(data.identity, data.password);
+      const res = await loginAction(data.identity, data.password, rememberMe);
 
       if (res?.error) {
         // Increment failed attempts
@@ -335,13 +336,13 @@ export default function LoginPage() {
                 </label>
               </div>
               
-              {/* Forgot Password Link - Optional, uncomment if you have forgot password functionality */}
-              {/* <Link
-                href="/forgot-password"
+              {/* Forgot Password - arahkan ke halaman bantuan */}
+              <Link
+                href="/lupa-password"
                 className="text-sm text-cyan-600 dark:text-cyan-400 hover:text-cyan-800 dark:hover:text-cyan-300 transition-colors"
               >
                 Lupa password?
-              </Link> */}
+              </Link>
             </div>
 
             <Button 
