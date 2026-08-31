@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ArrowLeft, Upload, FileText, CheckCircle2, AlertCircle, Save, Loader2, Printer } from "lucide-react";
+import { ArrowLeft, Upload, FileText, CheckCircle2, AlertCircle, Save, Loader2, Printer, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +32,7 @@ interface SuratKeluarDetail {
     digitalSignature?: string;
     revisionNote?: string;
     htmlContent?: string;
+    archiveLocation?: string | null;
 }
 
 export default function SuratKeluarDetailPage() {
@@ -43,11 +44,15 @@ export default function SuratKeluarDetailPage() {
     // Upload State
     const [uploadFile, setUploadFile] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
+    const [archiveLocation, setArchiveLocation] = useState("");
+    const [savingLocation, setSavingLocation] = useState(false);
 
     const loadData = useCallback(async () => {
         try {
             const result: any = await goGet(`/api/arsip/surat-keluar/detail?id=${searchParams.get('id')}`);
-            setData(result.data || result);
+            const payload = result.data || result;
+            setData(payload);
+            setArchiveLocation(payload?.archiveLocation || "");
         } catch (error) {
             console.error(error);
             toast.error("Gagal memuat surat");
@@ -79,6 +84,20 @@ export default function SuratKeluarDetailPage() {
             toast.error("Gagal mengupload file");
         } finally {
             setUploading(false);
+        }
+    };
+
+    const handleSaveArchiveLocation = async () => {
+        setSavingLocation(true);
+        try {
+            const payload: any = { archiveLocation };
+            await goPatch(`/api/arsip/surat-keluar/detail?id=${searchParams.get('id')}`, payload);
+            toast.success("Lokasi arsip tersimpan");
+            loadData();
+        } catch {
+            toast.error("Gagal menyimpan lokasi arsip");
+        } finally {
+            setSavingLocation(false);
         }
     };
 
@@ -141,18 +160,35 @@ export default function SuratKeluarDetailPage() {
                                     <p className="text-muted-foreground text-xs mb-1">Tujuan Kepada</p>
                                     <p className="font-medium text-base">{data.recipient}</p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
+                                 <div className="grid grid-cols-2 gap-4">
+                                      <div>
+                                         <p className="text-muted-foreground">Klasifikasi</p>
+                                         <p className="font-medium">
+                                             {data.classification ? `${data.classification.code} - ${data.classification.name}` : "-"}
+                                         </p>
+                                     </div>
                                      <div>
-                                        <p className="text-muted-foreground">Klasifikasi</p>
-                                        <p className="font-medium">
-                                            {data.classification ? `${data.classification.code} - ${data.classification.name}` : "-"}
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <p className="text-muted-foreground">Dibuat Oleh</p>
-                                        <p className="font-medium">{data.creator?.fullName || data.creator?.name || "-"}</p>
-                                    </div>
-                                </div>
+                                         <p className="text-muted-foreground">Dibuat Oleh</p>
+                                         <p className="font-medium">{data.creator?.fullName || data.creator?.name || "-"}</p>
+                                     </div>
+                                 </div>
+                                 <div className="flex gap-2 items-end pt-1">
+                                     <div className="flex-1">
+                                         <p className="text-muted-foreground text-xs flex items-center gap-1">
+                                             <MapPin className="h-3 w-3" />
+                                             Lokasi Arsip Fisik (Rak/Box)
+                                         </p>
+                                         <Input
+                                             placeholder="Contoh: Rak A-3, Box 12"
+                                             value={archiveLocation}
+                                             onChange={(e) => setArchiveLocation(e.target.value)}
+                                             className="mt-1"
+                                         />
+                                     </div>
+                                     <Button variant="outline" size="sm" onClick={handleSaveArchiveLocation} disabled={savingLocation || !archiveLocation}>
+                                         {savingLocation ? "..." : "Simpan"}
+                                     </Button>
+                                 </div>
                                 {data.status === "Terverifikasi" && (
                                     <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg border border-green-200 dark:border-green-800 space-y-2">
                                         <p className="text-xs text-green-700 dark:text-green-400 font-semibold uppercase">Verifikasi</p>

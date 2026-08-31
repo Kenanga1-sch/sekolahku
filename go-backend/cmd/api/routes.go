@@ -107,6 +107,21 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	server.POST("/api/auth/login", h.Auth.Login, loginLimit)
 	server.POST("/api/auth/logout", h.Auth.Logout)
 
+	// Rate limiter untuk endpoint pengajuan publik (anti-spam, tanpa auth)
+	publicFormLimit := middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
+		IdentifierExtractor: func(c echo.Context) (string, error) {
+			return c.RealIP(), nil
+		},
+		Store: middleware.NewRateLimiterMemoryStoreWithConfig(middleware.RateLimiterMemoryStoreConfig{
+			Rate:      5,
+			Burst:     5,
+			ExpiresIn: 15 * time.Minute,
+		}),
+		DenyHandler: func(c echo.Context, id string, err error) error {
+			return c.JSON(http.StatusTooManyRequests, map[string]string{"error": "Terlalu banyak permintaan. Silakan coba lagi dalam 15 menit"})
+		},
+	})
+
 	// CSRF token endpoint (available to frontend).
 	// EnsureCSRFToken global middleware sudah menjalankan sebelum route ini,
 	// sehingga GetCSRFToken selalu mengembalikan token yang valid.
@@ -133,10 +148,10 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	publicGroup.GET("/spmb/registrants", h.SPMB.GetPublicRegistrants)
 	publicGroup.GET("/spmb/registrants/:number", h.SPMB.GetRegistrant)
 	publicGroup.POST("/contact", h.Contact.SubmitMessage)
-	publicGroup.POST("/mutasi/request", h.Mutasi.CreateMutasiRequest)
-	publicGroup.GET("/mutasi/status/:regNum", h.Mutasi.GetPublicMutasiStatus)
-	publicGroup.POST("/mutasi-keluar/validate", h.Mutasi.ValidatePublicMutasiOut)
-	publicGroup.POST("/mutasi-keluar/request", h.Mutasi.CreatePublicMutasiOutRequest)
+	publicGroup.POST("/mutasi/request", h.Mutasi.CreateMutasiRequest, publicFormLimit)
+	publicGroup.GET("/mutasi/status/:regNum", h.Mutasi.GetPublicMutasiStatus, publicFormLimit)
+	publicGroup.POST("/mutasi-keluar/validate", h.Mutasi.ValidatePublicMutasiOut, publicFormLimit)
+	publicGroup.POST("/mutasi-keluar/request", h.Mutasi.CreatePublicMutasiOutRequest, publicFormLimit)
 	publicGroup.POST("/tabungan/check-balance", h.Savings.CheckPublicBalance)
 	publicGroup.GET("/spmb/reference-date", h.SPMB.GetReferenceDate)
 	publicGroup.POST("/kiosk/attendance", h.Attendance.KioskRecordAttendance)
@@ -145,10 +160,10 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	publicGroup.POST("/sync/dapodik/students", h.Sync.SyncDapodikStudents)
 
 	// Public compatibility aliases
-	server.POST("/api/mutasi/request", h.Mutasi.CreateMutasiRequest)
-	server.GET("/api/mutasi/status/:regNum", h.Mutasi.GetPublicMutasiStatus)
-	server.POST("/api/mutasi-keluar/validate", h.Mutasi.ValidatePublicMutasiOut)
-	server.POST("/api/mutasi-keluar/request", h.Mutasi.CreatePublicMutasiOutRequest)
+	server.POST("/api/mutasi/request", h.Mutasi.CreateMutasiRequest, publicFormLimit)
+	server.GET("/api/mutasi/status/:regNum", h.Mutasi.GetPublicMutasiStatus, publicFormLimit)
+	server.POST("/api/mutasi-keluar/validate", h.Mutasi.ValidatePublicMutasiOut, publicFormLimit)
+	server.POST("/api/mutasi-keluar/request", h.Mutasi.CreatePublicMutasiOutRequest, publicFormLimit)
 
 	// Admin Protected Routes
 	auth := server.Group("/api")
@@ -452,6 +467,9 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	adminGroup.POST("/eoffice/letter-generate-submit", h.EOffice.GenerateAndSubmit)
 	adminGroup.POST("/eoffice/surat-keluar/verify", h.EOffice.VerifySuratKeluar)
 	adminGroup.POST("/eoffice/surat-keluar/revision", h.EOffice.SetSuratKeluarRevision)
+	adminGroup.POST("/eoffice/surat-keluar/resubmit", h.EOffice.ResubmitSuratKeluar)
+	adminGroup.POST("/eoffice/surat-masuk/status", h.EOffice.UpdateSuratMasukStatus)
+	adminGroup.POST("/eoffice/disposisi/complete", h.EOffice.CompleteDisposisi)
 	adminGroup.POST("/eoffice/upload-docx", h.EOffice.UploadDocx)
 
 	// Arsip route aliases
@@ -468,6 +486,9 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	adminGroup.GET("/arsip/klasifikasi", h.EOffice.GetKlasifikasi)
 	adminGroup.POST("/arsip/surat-keluar/verify", h.EOffice.VerifySuratKeluar)
 	adminGroup.POST("/arsip/surat-keluar/revision", h.EOffice.SetSuratKeluarRevision)
+	adminGroup.POST("/arsip/surat-keluar/resubmit", h.EOffice.ResubmitSuratKeluar)
+	adminGroup.POST("/arsip/surat-masuk/status", h.EOffice.UpdateSuratMasukStatus)
+	adminGroup.POST("/arsip/disposisi/complete", h.EOffice.CompleteDisposisi)
 	adminGroup.POST("/arsip/dokumen", h.Document.Create)
 	adminGroup.GET("/arsip/dokumen", h.Document.List)
 	adminGroup.GET("/arsip/dokumen/:id", h.Document.GetByID)

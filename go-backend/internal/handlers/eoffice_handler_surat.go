@@ -158,6 +158,11 @@ func (h *EOfficeHandler) UpdateSuratKeluar(c echo.Context) error {
 	if err := c.Bind(&s); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid input"})
 	}
+	if s.ArchiveLocation != nil {
+		if err := h.Repo.UpdateSuratKeluarArchiveLocation(id, strings.TrimSpace(*s.ArchiveLocation)); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+		}
+	}
 	if err := h.Repo.UpdateSuratKeluar(id, s); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
@@ -175,11 +180,91 @@ func (h *EOfficeHandler) CreateDisposisi(c echo.Context) error {
 	if d.SuratMasukID == "" || d.FromUserID == "" || d.ToUserID == "" || strings.TrimSpace(d.Instruction) == "" {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Surat, pengirim, tujuan, dan instruksi wajib diisi"})
 	}
+	surat, err := h.Repo.GetSuratMasukByID(d.SuratMasukID)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Surat masuk tidak ditemukan"})
+	}
 	id, err := h.Repo.CreateDisposisi(d)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
+	// Notifikasi ke penerima disposisi
+	uid := d.ToUserID
+	targetURL := "/arsip/surat-masuk/detail?id=" + d.SuratMasukID
+	_ = h.Notifications.CreateNotification(models.Notification{
+		UserID:    &uid,
+		Type:      "info",
+		Category:  "eoffice",
+		Title:     "Disposisi Surat Baru",
+		Message:   "Anda menerima disposisi surat \"" + surat.Subject + "\" dari " + surat.Sender + ". Perihal: " + surat.Subject,
+		TargetURL: &targetURL,
+	})
 	return c.JSON(http.StatusCreated, map[string]interface{}{"id": id, "success": true})
+}
+
+// CompleteDisposisi menandai disposisi sebagai selesai dikerjakan
+func (h *EOfficeHandler) CompleteDisposisi(c echo.Context) error {
+	id := c.QueryParam("id")
+	if id == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "ID disposisi wajib diisi"})
+	}
+	var req struct {
+		CompletedNote string `json:"completedNote"`
+	}
+	_ = c.Bind(&req)
+	if err := h.Repo.CompleteDisposisi(id, req.CompletedNote); err != nil {
+		if err == sql.ErrNoRows {
+			return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Disposisi tidak ditemukan atau sudah selesai"})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "message": "Disposisi ditandai selesai"})
+}
+
+// ============ Surat Masuk Status / Lokasi Arsip ============
+
+// UpdateSuratMasukStatus mengubah status surat masuk (Selesai/Arsip) dan lokasi arsip fisik
+func (h *EOfficeHandler) UpdateSuratMasukStatus(c echo.Context) error {
+	id := c.QueryParam("id")
+	if id == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "ID surat wajib diisi"})
+	}
+	var req struct {
+		Status           *string `json:"status"`
+		ArchiveLocation  *string `json:"archiveLocation"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
+	}
+	if req.Status != nil {
+		switch *req.Status {
+		case "Selesai", "Arsip", "Menunggu Disposisi", "Terdisposisi":
+		default:
+			return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Status tidak valid"})
+		}
+	}
+	if err := h.Repo.UpdateSuratMasukStatus(id, req.Status, req.ArchiveLocation); err != nil {
+		if err == sql.ErrNoRows {
+			return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Surat tidak ditemukan"})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
+}
+
+// ResubmitSuratKeluar mengembalikan surat dari Revisi/Draft ke verifikasi
+func (h *EOfficeHandler) ResubmitSuratKeluar(c echo.Context) error {
+	id := c.QueryParam("id")
+	if id == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "ID surat wajib diisi"})
+	}
+	if err := h.Repo.ResubmitSuratKeluar(id); err != nil {
+		if err == sql.ErrNoRows {
+			return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Surat tidak ditemukan atau tidak dalam status Draft/Revisi"})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "message": "Surat dikirim kembali ke verifikasi"})
 }
 
 // ============ Verify / Revision ============

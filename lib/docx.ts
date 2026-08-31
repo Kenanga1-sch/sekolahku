@@ -5,14 +5,19 @@ interface DocxData {
   siswa_nama?: string;
   siswa_nis?: string;
   siswa_nisn?: string;
+  siswa_nik?: string;
   siswa_kelas?: string;
   siswa_jenis_kelamin?: string;
+  siswa_agama?: string;
   siswa_tempat_lahir?: string;
   siswa_tanggal_lahir?: string;
   siswa_tanggal_lahir_indo?: string;
   siswa_alamat?: string;
+  siswa_nama_ayah?: string;
+  siswa_nama_ibu?: string;
   siswa_nama_wali?: string;
   siswa_no_hp_wali?: string;
+  siswa_no_hp?: string;
   // Guru
   guru_nama?: string;
   guru_nip?: string;

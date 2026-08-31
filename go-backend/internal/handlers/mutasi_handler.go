@@ -3,7 +3,9 @@ package handlers
 import (
 	"database/sql"
 	"errors"
+	"log"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -11,6 +13,11 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/sekolahku/go-backend/internal/models"
 	"github.com/sekolahku/go-backend/internal/repository"
+)
+
+var (
+	nisnRegex      = regexp.MustCompile(`^[0-9]{10}$`)
+	whatsappRegex  = regexp.MustCompile(`^[0-9]{9,15}$`)
 )
 
 type MutasiHandler struct {
@@ -30,10 +37,12 @@ func NewMutasiHandler(repo *repository.MutasiRepository, lib *repository.Library
 func (h *MutasiHandler) GetMutasiRequests(c echo.Context) error {
 	page, _ := strconv.Atoi(c.QueryParam("page"))
 	perPage, _ := strconv.Atoi(c.QueryParam("perPage"))
+	month := c.QueryParam("month")
 
-	list, total, err := h.Repo.GetMutasiRequests(page, perPage)
+	list, total, err := h.Repo.GetMutasiRequests(page, perPage, month)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+		log.Printf("ERROR GetMutasiRequests: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal memuat data mutasi masuk"})
 	}
 	if page < 1 {
 		page = 1
@@ -55,16 +64,41 @@ func (h *MutasiHandler) CreateMutasiRequest(c echo.Context) error {
 	if err := c.Bind(&m); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
 	}
-	if strings.TrimSpace(m.StudentName) == "" || strings.TrimSpace(m.NISN) == "" || strings.TrimSpace(m.OriginSchool) == "" || strings.TrimSpace(m.ParentName) == "" || strings.TrimSpace(m.WhatsappNumber) == "" {
+	m.StudentName = strings.TrimSpace(m.StudentName)
+	m.NISN = strings.TrimSpace(m.NISN)
+	m.OriginSchool = strings.TrimSpace(m.OriginSchool)
+	m.ParentName = strings.TrimSpace(m.ParentName)
+	m.WhatsappNumber = strings.TrimSpace(m.WhatsappNumber)
+	if m.StudentName == "" || m.NISN == "" || m.OriginSchool == "" || m.ParentName == "" || m.WhatsappNumber == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Data mutasi masuk belum lengkap"})
+	}
+	if !nisnRegex.MatchString(m.NISN) {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "NISN harus 10 digit angka"})
+	}
+	if m.Gender != "L" && m.Gender != "P" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Jenis kelamin tidak valid"})
+	}
+	if !whatsappRegex.MatchString(m.WhatsappNumber) {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Nomor WhatsApp tidak valid (format: 08xxxxxxxxxx)"})
 	}
 	if m.TargetGrade < 1 || m.TargetGrade > 6 {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Kelas tujuan tidak valid"})
 	}
 
+	// Tolak NISN yang sudah terdaftar/ diproses supaya tidak dobel data
+	existing, err := h.Repo.GetMutasiRequestByNISN(m.NISN)
+	if err != nil {
+		log.Printf("ERROR cek NISN mutasi masuk: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal memeriksa NISN"})
+	}
+	if existing != "" {
+		return c.JSON(http.StatusConflict, map[string]string{"error": "NISN sudah terdaftar sebagai siswa atau sedang dalam proses mutasi"})
+	}
+
 	regNum, err := h.Repo.CreateMutasiRequest(m)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+		log.Printf("ERROR CreateMutasiRequest: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal menyimpan permohonan"})
 	}
 
 	return c.JSON(http.StatusCreated, map[string]interface{}{
@@ -96,7 +130,8 @@ func (h *MutasiHandler) UpdateMutasiRequest(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Permohonan tidak ditemukan"})
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+		log.Printf("ERROR UpdateMutasiRequestStatus id=%s: %v", id, err)
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, map[string]bool{"success": true})
@@ -105,10 +140,12 @@ func (h *MutasiHandler) UpdateMutasiRequest(c echo.Context) error {
 func (h *MutasiHandler) GetMutasiOutRequests(c echo.Context) error {
 	page, _ := strconv.Atoi(c.QueryParam("page"))
 	perPage, _ := strconv.Atoi(c.QueryParam("perPage"))
+	month := c.QueryParam("month")
 
-	list, total, err := h.Repo.GetMutasiOutRequests(page, perPage)
+	list, total, err := h.Repo.GetMutasiOutRequests(page, perPage, month)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+		log.Printf("ERROR GetMutasiOutRequests: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal memuat data mutasi keluar"})
 	}
 	if page < 1 {
 		page = 1
@@ -181,7 +218,8 @@ func (h *MutasiHandler) UpdateMutasiOutStatus(c echo.Context) error {
 		if errors.Is(err, sql.ErrNoRows) {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Permohonan tidak ditemukan"})
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+		log.Printf("ERROR UpdateMutasiOutStatus id=%s: %v", id, err)
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, map[string]bool{"success": true})
@@ -260,10 +298,12 @@ func (h *MutasiHandler) CreatePublicMutasiOutRequest(c echo.Context) error {
 func (h *MutasiHandler) GetMutasiLogs(c echo.Context) error {
 	page, _ := strconv.Atoi(c.QueryParam("page"))
 	perPage, _ := strconv.Atoi(c.QueryParam("perPage"))
+	month := c.QueryParam("month")
 
-	list, total, err := h.Repo.GetMutasiLogs(page, perPage)
+	list, total, err := h.Repo.GetMutasiLogs(page, perPage, month)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+		log.Printf("ERROR GetMutasiLogs: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal memuat buku mutasi"})
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
@@ -331,7 +371,8 @@ func (h *MutasiHandler) DirectMutasiMasuk(c echo.Context) error {
 		payload.MutationDate,
 	)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+		log.Printf("ERROR DirectMutasiMasuk: %v", err)
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
@@ -363,7 +404,8 @@ func (h *MutasiHandler) DirectMutasiKeluar(c echo.Context) error {
 		payload.Reason, payload.MutationDate,
 	)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+		log.Printf("ERROR DirectMutasiKeluar student=%s: %v", payload.StudentID, err)
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{

@@ -69,10 +69,21 @@ func (r *DashboardRepository) GetDashboardStats() (*models.DashboardStats, error
 		JOIN students st ON ts.student_id = st.id
 		WHERE st.status = 'active' OR st.is_active = 1
 	`).Scan(&stats.ModuleStats.Tabungan.TotalStudents)
+	r.DB.QueryRow("SELECT COUNT(*) FROM tabungan_setoran WHERE status = 'pending'").Scan(&stats.ModuleStats.Tabungan.PendingSetoran)
 
 	now := time.Now()
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).UnixMilli()
 	r.DB.QueryRow("SELECT COUNT(*) FROM tabungan_transaksi WHERE created_at >= ?", todayStart).Scan(&stats.ModuleStats.Tabungan.TodayTransactions)
+
+	// 4b. Core school stats: active students & today's attendance
+	r.DB.QueryRow("SELECT COUNT(*) FROM students WHERE status = 'active' OR is_active = 1").Scan(&stats.TotalActiveStudents)
+	today := now.Format("2006-01-02")
+	r.DB.QueryRow(`
+		SELECT COUNT(*)
+		FROM attendance_records ar
+		JOIN attendance_sessions s ON ar.session_id = s.id
+		WHERE s.date = ? AND ar.status = 'hadir'
+	`, today).Scan(&stats.PresensiHariIni)
 
 	// 5. Registration trend
 	stats.RegistrationTrend = []models.RegistrationTrendPoint{}

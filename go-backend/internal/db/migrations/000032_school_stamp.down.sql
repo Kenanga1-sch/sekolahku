@@ -1,0 +1,2 @@
+-- 000032_school_stamp.down.sql
+-- Kolom nullable, dibiarkan saat rollback (SQLite lama tak dukung DROP COLUMN).

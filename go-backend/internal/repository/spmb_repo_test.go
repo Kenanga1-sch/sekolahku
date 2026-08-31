@@ -137,6 +137,7 @@ func setupSPMBTestDB(t *testing.T) *sql.DB {
 			class_id TEXT,
 			class_name TEXT,
 			status TEXT,
+			qr_code TEXT,
 			is_active INTEGER,
 			enrolled_at INTEGER,
 			created_at INTEGER,

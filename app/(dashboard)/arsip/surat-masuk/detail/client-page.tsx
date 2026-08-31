@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ArrowLeft, Clock, Send, User, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Clock, Send, User, CheckCircle2, Archive, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +50,7 @@ interface SuratMasukDetail {
     classification: { name: string; code: string } | null;
     filePath: string;
     notes: string | null;
+    archiveLocation?: string | null;
     dispositions?: Disposition[];
 }
 
@@ -68,12 +69,17 @@ export default function SuratMasukDetailPage() {
         deadline: ""
     });
     const [submitting, setSubmitting] = useState(false);
+    const [statusActing, setStatusActing] = useState(false);
+    const [archiveLocation, setArchiveLocation] = useState("");
+    const [savingLocation, setSavingLocation] = useState(false);
+    const [forwardDialog, setForwardDialog] = useState<string | null>(null);
 
     const loadData = useCallback(async () => {
         try {
             const result: any = await goGet(`/api/arsip/surat-masuk/detail?id=${searchParams.get('id')}`);
             const payload = result.data || result;
             setData(payload ? { ...payload, dispositions: payload.dispositions || [] } : null);
+            setArchiveLocation(payload?.archiveLocation || "");
         } catch (error) {
             console.error(error);
             toast.error("Gagal memuat surat");
@@ -119,6 +125,7 @@ export default function SuratMasukDetailPage() {
 
             toast.success("Disposisi berhasil dikirim");
             setIsDisposisiOpen(false);
+            setForwardDialog(null);
             setDispForm({ toUserId: "", instruction: "", deadline: "" });
             loadData(); // Reload to show new history
         } catch (error) {
@@ -126,6 +133,69 @@ export default function SuratMasukDetailPage() {
             toast.error("Gagal mengirim disposisi");
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    // Forward disposisi: teruskan ke user lain dengan instruksi tambahan
+    const handleForwardDisposisi = async () => {
+        if (!forwardDialog) return;
+        if (!dispForm.toUserId || !dispForm.instruction) {
+            toast.error("Mohon lengkapi tujuan dan instruksi penerusan");
+            return;
+        }
+        setSubmitting(true);
+        try {
+            await goPost("/api/arsip/disposisi", {
+                suratMasukId: searchParams.get('id'),
+                toUserId: dispForm.toUserId,
+                instruction: dispForm.instruction,
+                deadline: dispForm.deadline || undefined
+            });
+            toast.success("Disposisi berhasil diteruskan");
+            setForwardDialog(null);
+            setDispForm({ toUserId: "", instruction: "", deadline: "" });
+            loadData();
+        } catch (error) {
+            console.error(error);
+            toast.error("Gagal meneruskan disposisi");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleStatusChange = async (status: "Selesai" | "Arsip") => {
+        setStatusActing(true);
+        try {
+            await goPost(`/api/arsip/surat-masuk/status?id=${searchParams.get('id')}`, { status });
+            toast.success(`Surat ditandai ${status.toLowerCase()}`);
+            loadData();
+        } catch {
+            toast.error("Gagal mengubah status");
+        } finally {
+            setStatusActing(false);
+        }
+    };
+
+    const handleSaveArchiveLocation = async () => {
+        setSavingLocation(true);
+        try {
+            await goPost(`/api/arsip/surat-masuk/status?id=${searchParams.get('id')}`, { archiveLocation });
+            toast.success("Lokasi arsip tersimpan");
+            loadData();
+        } catch {
+            toast.error("Gagal menyimpan lokasi arsip");
+        } finally {
+            setSavingLocation(false);
+        }
+    };
+
+    const handleCompleteDisposisi = async (disposisiId: string) => {
+        try {
+            await goPost(`/api/arsip/disposisi/complete?id=${disposisiId}`, { completedNote: "" });
+            toast.success("Disposisi ditandai selesai");
+            loadData();
+        } catch {
+            toast.error("Gagal menandai disposisi selesai");
         }
     };
 
@@ -162,6 +232,41 @@ export default function SuratMasukDetailPage() {
                     </div>
                 </div>
                 
+                <div className="flex items-center gap-2">
+                    {(data.status === "Terdisposisi" || data.status === "Menunggu Disposisi") && (
+                        <Button
+                            variant="outline"
+                            className="gap-2 border-green-300 text-green-700 hover:bg-green-50"
+                            onClick={() => handleStatusChange("Selesai")}
+                            disabled={statusActing}
+                        >
+                            <CheckCircle2 className="h-4 w-4" />
+                            Tandai Selesai
+                        </Button>
+                    )}
+                    {data.status !== "Arsip" ? (
+                        <Button
+                            variant="outline"
+                            className="gap-2"
+                            onClick={() => handleStatusChange("Arsip")}
+                            disabled={statusActing}
+                        >
+                            <Archive className="h-4 w-4" />
+                            Arsipkan
+                        </Button>
+                    ) : (
+                        <Button
+                            variant="outline"
+                            className="gap-2"
+                            onClick={() => handleStatusChange("Selesai")}
+                            disabled={statusActing}
+                        >
+                            <Archive className="h-4 w-4" />
+                            Buka dari Arsip
+                        </Button>
+                    )}
+                </div>
+
                 <Dialog open={isDisposisiOpen} onOpenChange={setIsDisposisiOpen}>
                     <DialogTrigger asChild>
                         <Button className="gap-2 bg-orange-600 hover:bg-orange-700">
@@ -264,6 +369,23 @@ export default function SuratMasukDetailPage() {
                                             &quot;{data.notes}&quot;
                                         </div>
                                     )}
+                                    <Separator />
+                                    <div className="space-y-2">
+                                        <Label className="flex items-center gap-1.5">
+                                            <MapPin className="h-3.5 w-3.5" />
+                                            Lokasi Arsip Fisik (Rak/Box)
+                                        </Label>
+                                        <div className="flex gap-2">
+                                            <Input
+                                                placeholder="Contoh: Rak A3 / Box 12"
+                                                value={archiveLocation}
+                                                onChange={(e) => setArchiveLocation(e.target.value)}
+                                            />
+                                            <Button variant="outline" onClick={handleSaveArchiveLocation} disabled={savingLocation}>
+                                                {savingLocation ? "Menyimpan..." : "Simpan"}
+                                            </Button>
+                                        </div>
+                                    </div>
                                 </CardContent>
                             </Card>
 
@@ -311,9 +433,34 @@ export default function SuratMasukDetailPage() {
                                                         </div>
                                                     </div>
                                                 ) : (
-                                                    <div className="flex items-center gap-2 text-xs text-orange-600 bg-orange-50 dark:bg-orange-900/20 p-2 rounded">
-                                                        <Clock className="h-3 w-3" />
-                                                        <span>Menunggu tindak lanjut</span>
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <div className="flex items-center gap-2 text-xs text-orange-600 bg-orange-50 dark:bg-orange-900/20 p-2 rounded">
+                                                            <Clock className="h-3 w-3" />
+                                                            <span>Menunggu tindak lanjut</span>
+                                                        </div>
+                                                        <div className="flex gap-1.5">
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                className="h-7 text-xs gap-1"
+                                                                onClick={() => {
+                                                                    setForwardDialog(disp.id);
+                                                                    setDispForm({ toUserId: "", instruction: "", deadline: "" });
+                                                                }}
+                                                            >
+                                                                <Send className="h-3.5 w-3.5" />
+                                                                Teruskan
+                                                            </Button>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                className="h-7 text-xs gap-1 border-green-300 text-green-700 hover:bg-green-50"
+                                                                onClick={() => handleCompleteDisposisi(disp.id)}
+                                                            >
+                                                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                                                Selesai
+                                                            </Button>
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>
@@ -336,7 +483,62 @@ export default function SuratMasukDetailPage() {
                     </Button>
                 </div>
 
-            </div>
+             </div>
+
+             {/* Forward Disposisi Dialog */}
+             <Dialog open={!!forwardDialog} onOpenChange={(o) => { if (!o) setForwardDialog(null); }}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Teruskan Disposisi</DialogTitle>
+                        <DialogDescription>
+                            Teruskan surat ini kepada staff/guru lain untuk ditindaklanjuti.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label>Diteruskan Kepada</Label>
+                            <Select
+                                value={dispForm.toUserId}
+                                onValueChange={(val) => setDispForm({ ...dispForm, toUserId: val })}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Pilih Staff / Guru" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {userOptions.map(opt => (
+                                        <SelectItem key={opt.value} value={opt.value}>
+                                            {opt.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Instruksi / Catatan</Label>
+                            <Textarea
+                                placeholder="Contoh: Mohon koordinasi untuk tindak lanjut..."
+                                rows={3}
+                                value={dispForm.instruction}
+                                onChange={(e) => setDispForm({ ...dispForm, instruction: e.target.value })}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Tenggat Waktu (Opsional)</Label>
+                            <Input
+                                type="date"
+                                value={dispForm.deadline}
+                                onChange={(e) => setDispForm({ ...dispForm, deadline: e.target.value })}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setForwardDialog(null)}>Batal</Button>
+                        <Button onClick={handleForwardDisposisi} disabled={submitting}>
+                            {submitting ? "Mengirim..." : "Teruskan"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+             </Dialog>
         </div>
     );
 }

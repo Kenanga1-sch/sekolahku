@@ -18,9 +18,14 @@ interface TabProfilProps {
 
 export default function TabProfil({ settings, setSettings }: TabProfilProps) {
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [isUploadingStamp, setIsUploadingStamp] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    key: "school_logo" | "school_stamp",
+    compressTo: number
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -29,30 +34,34 @@ export default function TabProfil({ settings, setSettings }: TabProfilProps) {
       return;
     }
 
-    setIsUploadingLogo(true);
+    if (key === "school_logo") setIsUploadingLogo(true);
+    else setIsUploadingStamp(true);
     setUploadError(null);
 
     try {
-      // Compress logo to WebP
-      const compressed = await compressImage(file, 512, 0.85);
+      const compressed = await compressImage(file, compressTo, 0.85);
       const formData = new FormData();
       formData.append("file", compressed);
-      formData.append("folder", "logo");
+      formData.append("folder", key === "school_logo" ? "logo" : "stamp");
 
       const response: any = await goPost("/api/upload", formData);
       if (response && response.success) {
-        const logoPath = response.url || "";
-        setSettings((prev: any) => ({ ...prev, school_logo: logoPath }));
+        const path = response.url || "";
+        setSettings((prev: any) => ({ ...prev, [key]: path }));
       } else {
-        setUploadError(response?.error || "Gagal mengunggah logo");
+        setUploadError(response?.error || "Gagal mengunggah file");
       }
     } catch (err) {
       console.error("Upload error:", err);
-      setUploadError("Terjadi kesalahan saat mengunggah logo");
+      setUploadError("Terjadi kesalahan saat mengunggah");
     } finally {
-      setIsUploadingLogo(false);
+      if (key === "school_logo") setIsUploadingLogo(false);
+      else setIsUploadingStamp(false);
     }
   };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => handleFileUpload(e, "school_logo", 512);
+  const handleStampUpload = (e: React.ChangeEvent<HTMLInputElement>) => handleFileUpload(e, "school_stamp", 400);
 
   return (
     <div className="grid lg:grid-cols-2 gap-6">
@@ -90,12 +99,44 @@ export default function TabProfil({ settings, setSettings }: TabProfilProps) {
                 />
                 {isUploadingLogo && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
               </div>
-              {uploadError && <p className="text-xs text-red-500">{uploadError}</p>}
               <p className="text-[10px] text-muted-foreground">
                 Format: PNG, JPG, WebP. Maksimal 5MB. Otomatis dikompresi ke format WebP.
               </p>
             </div>
           </div>
+
+          {/* Stamp Upload Section */}
+          <div className="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800">
+            <div className="h-20 w-20 relative rounded-xl overflow-hidden bg-white border border-slate-200 flex items-center justify-center">
+              {settings.school_stamp ? (
+                <img
+                  src={settings.school_stamp.startsWith("http") || settings.school_stamp.startsWith("/") ? settings.school_stamp : `/uploads/${settings.school_stamp}`}
+                  alt="Stempel Sekolah"
+                  className="h-full w-full object-contain p-2"
+                />
+              ) : (
+                <School className="h-8 w-8 text-muted-foreground" />
+              )}
+            </div>
+            <div className="space-y-2 flex-1 w-full">
+              <Label htmlFor="stamp-upload" className="text-sm font-semibold">Stempel Sekolah</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="stamp-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleStampUpload}
+                  disabled={isUploadingStamp}
+                  className="cursor-pointer"
+                />
+                {isUploadingStamp && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Gambar stempel untuk dicetak pada surat keluar (terpisah dari tanda tangan pejabat).
+              </p>
+            </div>
+          </div>
+          {uploadError && <p className="text-xs text-red-500">{uploadError}</p>}
 
           <div className="space-y-2">
             <Label htmlFor="school_name">Nama Sekolah</Label>

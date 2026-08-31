@@ -141,12 +141,14 @@ func (h *StudentHandler) BulkCreateStudents(c echo.Context) error {
 		}
 		genderRaw := strings.ToUpper(importString(row, "gender", "Gender", "jk", "JK", "JenisKelamin"))
 		var gender string
-		if strings.HasPrefix(genderRaw, "L") {
+		// PRIA dicek sebelum prefix "P" (PRIA = laki-laki)
+		if genderRaw == "PRIA" || strings.HasPrefix(genderRaw, "L") {
 			gender = "L"
-		} else if strings.HasPrefix(genderRaw, "P") {
+		} else if strings.HasPrefix(genderRaw, "P") || genderRaw == "WANITA" {
 			gender = "P"
-		} else {
-			gender = ""
+		} else if genderRaw != "" {
+			errors = append(errors, "Baris "+strconv.Itoa(index+1)+": gender tidak dikenali (\""+genderRaw+"\"), gunakan L/Laki-laki atau P/Perempuan")
+			continue
 		}
 
 		student := models.Student{

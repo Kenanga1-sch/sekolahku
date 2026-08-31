@@ -222,15 +222,20 @@ function LetterGeneratorContent() {
       data.siswa_kelas = recipient.className || "";
       data.siswa_jenis_kelamin = recipient.gender === "L" ? "Laki-laki" : "Perempuan";
       data.siswa_tempat_lahir = recipient.birthPlace || "";
-      
+
       if (recipient.birthDate) {
         const bDate = new Date(recipient.birthDate);
         data.siswa_tanggal_lahir = format(bDate, "d MMMM yyyy", { locale: id });
         data.siswa_tanggal_lahir_indo = data.siswa_tanggal_lahir;
       }
       data.siswa_alamat = recipient.address || "";
+      data.siswa_nik = recipient.nik || "-";
+      data.siswa_agama = recipient.religion || "-";
+      data.siswa_nama_ayah = recipient.fatherName || "";
+      data.siswa_nama_ibu = recipient.motherName || "";
       data.siswa_nama_wali = recipient.parentName || recipient.guardianName || "";
       data.siswa_no_hp_wali = recipient.parentPhone || "";
+      data.siswa_no_hp = recipient.parentPhone || "";
     } else {
       data.penerima_nama = recipient.name || recipient.fullName || "";
       data.penerima_nip = recipient.nip || "-";

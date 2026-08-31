@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/nrednav/cuid2"
@@ -14,6 +15,10 @@ import (
 
 type MutasiRepository struct {
 	DB *sql.DB
+	// regNumMu serializes nomor registrasi harian; SQLite WAL tidak menjamin
+	// atomic count+insert antar koneksi. Cukup untuk beban satu sekolah.
+	// ponytail: ganti sequence table bila multi-instance.
+	regNumMu sync.Mutex
 }
 
 func NewMutasiRepository(db *sql.DB) *MutasiRepository {
@@ -40,9 +45,15 @@ func (r *MutasiRepository) initDB() {
 	for _, col := range cols {
 		_, _ = r.DB.Exec(col)
 	}
+	// Unik per hari: INSERT bersamaan dengan nomor sama akan gagal,
+	// caller (CreateMutasiRequest) retry dengan nomor berikutnya.
+	_, _ = r.DB.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_mutasi_requests_regnum_day ON mutasi_requests(registration_number)")
+	_, _ = r.DB.Exec("CREATE INDEX IF NOT EXISTS idx_mutasi_requests_created ON mutasi_requests(created_at)")
+	_, _ = r.DB.Exec("CREATE INDEX IF NOT EXISTS idx_mutasi_logs_created ON mutasi_logs(created_at)")
+	_, _ = r.DB.Exec("CREATE INDEX IF NOT EXISTS idx_mutasi_out_created ON mutasi_out_requests(created_at)")
 }
 
-func (r *MutasiRepository) GetMutasiRequests(page, perPage int) ([]models.MutasiRequest, int, error) {
+func (r *MutasiRepository) GetMutasiRequests(page, perPage int, month string) ([]models.MutasiRequest, int, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -51,16 +62,30 @@ func (r *MutasiRepository) GetMutasiRequests(page, perPage int) ([]models.Mutasi
 	}
 	offset := (page - 1) * perPage
 
-	var total int
-	r.DB.QueryRow(`
-		SELECT COUNT(*) FROM (
-			SELECT id FROM mutasi_requests
-			UNION
-			SELECT id FROM mutasi_logs WHERE mutasi_type = 'masuk' AND (nisn IS NULL OR nisn = '' OR nisn NOT IN (SELECT nisn FROM mutasi_requests WHERE nisn IS NOT NULL AND nisn != ''))
-		)
-	`).Scan(&total)
+	monthFilter := ""
+	monthArgs := []interface{}{}
+	if month != "" && month != "all" {
+		// month: "YYYY-MM" → batasi created_at ke rentang bulan tersebut (epoch ms)
+		if t, err := time.Parse("2006-01", month); err == nil {
+			start := t.UnixMilli()
+			end := t.AddDate(0, 1, 0).UnixMilli() - 1
+			monthFilter = " WHERE created_at >= ? AND created_at <= ?"
+			monthArgs = append(monthArgs, start, end)
+		}
+	}
 
-	query := `
+	var total int
+	if err := r.DB.QueryRow(`
+		SELECT COUNT(*) FROM (
+			SELECT id, created_at FROM mutasi_requests
+			UNION
+			SELECT id, created_at FROM mutasi_logs WHERE mutasi_type = 'masuk' AND (nisn IS NULL OR nisn = '' OR nisn NOT IN (SELECT nisn FROM mutasi_requests WHERE nisn IS NOT NULL AND nisn != ''))
+		)`+monthFilter, monthArgs...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	args := append([]interface{}{perPage, offset}, monthArgs...)
+	rows, err := r.DB.Query(`
 		SELECT id, registration_number, student_name, nisn, gender, origin_school, 
 		       origin_school_address, origin_nis, origin_class, target_grade, target_class_id, parent_name, 
 			   whatsapp_number, approval_no, approval_date, status_approval, status_delivery, created_at, updated_at
@@ -101,11 +126,10 @@ func (r *MutasiRepository) GetMutasiRequests(page, perPage int) ([]models.Mutasi
 			)
 			WHERE ml.mutasi_type = 'masuk'
 			  AND (ml.nisn IS NULL OR ml.nisn = '' OR ml.nisn NOT IN (SELECT nisn FROM mutasi_requests WHERE nisn IS NOT NULL AND nisn != ''))
-		)
+		)`+monthFilter+`
 		ORDER BY created_at DESC
 		LIMIT ? OFFSET ?
-	`
-	rows, err := r.DB.Query(query, perPage, offset)
+	`, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -146,7 +170,6 @@ func (r *MutasiRepository) GetMutasiRequests(page, perPage int) ([]models.Mutasi
 
 func (r *MutasiRepository) CreateMutasiRequest(m models.MutasiRequest) (string, error) {
 	id := cuid2.Generate()
-	regNum := r.GenerateRegistrationNumber()
 	now := time.Now().UnixMilli()
 
 	query := `
@@ -156,12 +179,24 @@ func (r *MutasiRepository) CreateMutasiRequest(m models.MutasiRequest) (string, 
 			approval_no, approval_date, status_approval, status_delivery, created_at, updated_at
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	_, err := r.DB.Exec(query,
-		id, regNum, m.StudentName, m.NISN, m.Gender, m.OriginSchool,
-		m.OriginSchoolAddress, m.OriginNis, m.OriginClass, m.TargetGrade, m.ParentName, m.WhatsappNumber,
-		m.ApprovalNo, m.ApprovalDate, "pending", "unsent", now, now,
-	)
-	return regNum, err
+	var regNum string
+	// ponytail: retry 3x cukup — unik index memastikan tidak ada duplikat,
+	// mutex di repo menutup race antar goroutine dalam satu proses.
+	for attempt := 0; attempt < 3; attempt++ {
+		regNum = r.GenerateRegistrationNumber()
+		_, err := r.DB.Exec(query,
+			id, regNum, m.StudentName, m.NISN, m.Gender, m.OriginSchool,
+			m.OriginSchoolAddress, m.OriginNis, m.OriginClass, m.TargetGrade, m.ParentName, m.WhatsappNumber,
+			m.ApprovalNo, m.ApprovalDate, "pending", "unsent", now, now,
+		)
+		if err == nil {
+			return regNum, nil
+		}
+		if !strings.Contains(err.Error(), "UNIQUE") {
+			return "", err
+		}
+	}
+	return "", fmt.Errorf("gagal membuat nomor registrasi unik")
 }
 
 func (r *MutasiRepository) UpdateMutasiRequestStatus(id string, status string, targetClassID *string) error {
@@ -202,64 +237,81 @@ func (r *MutasiRepository) UpdateMutasiRequestStatus(id string, status string, t
 			&req.StudentName, &req.NISN, &req.Gender, &req.OriginSchool, &osa,
 			&onis, &oclass, &req.TargetGrade, &tcid, &appno, &appdate,
 		)
-		if err == nil {
-			classIDToUse := targetClassID
-			if classIDToUse == nil && tcid.Valid {
-				classIDToUse = &tcid.String
-			}
+		if err != nil {
+			return fmt.Errorf("data permohonan tidak ditemukan: %w", err)
+		}
+		classIDToUse := targetClassID
+		if classIDToUse == nil && tcid.Valid {
+			classIDToUse = &tcid.String
+		}
 
-			var existingID string
-			if err := tx.QueryRow("SELECT id FROM students WHERE nisn = ?", req.NISN).Scan(&existingID); err != nil && !errlib.Is(err, sql.ErrNoRows) {
-				log.Printf("ERROR checking existing student by NISN: %v", err)
-			}
-			if existingID == "" {
-				studentID := cuid2.Generate()
-				var className string
-				if classIDToUse != nil && *classIDToUse != "" {
-					if err := tx.QueryRow("SELECT name FROM student_classes WHERE id = ?", *classIDToUse).Scan(&className); err != nil && !errlib.Is(err, sql.ErrNoRows) {
-						log.Printf("ERROR fetching class name: %v", err)
-					}
-				}
+		var existingID string
+		if err := tx.QueryRow("SELECT id FROM students WHERE nisn = ?", req.NISN).Scan(&existingID); err != nil && !errlib.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("gagal cek NISN siswa: %w", err)
+		}
+		if existingID != "" {
+			return fmt.Errorf("NISN %s sudah terdaftar sebagai siswa aktif", req.NISN)
+		}
 
-				_, err = tx.Exec(`
-					INSERT INTO students (
-						id, nisn, full_name, gender, class_name, class_id,
-						status, qr_code, is_active, created_at, updated_at
-					) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, 1, ?, ?)
-				`, studentID, req.NISN, req.StudentName, req.Gender, className, classIDToUse, studentID, now, now)
-
-				if classIDToUse != nil && *classIDToUse != "" {
-					var grade int
-					var academicYear string
-					if err2 := tx.QueryRow("SELECT grade, academic_year FROM student_classes WHERE id = ?", *classIDToUse).Scan(&grade, &academicYear); err2 == nil {
-						historyID := cuid2.Generate()
-						tx.Exec(`
-							INSERT INTO student_class_history (id, student_id, class_id, class_name, academic_year, grade, status, record_date)
-							VALUES (?, ?, ?, ?, ?, ?, 'mutated_in', ?)
-						`, historyID, studentID, *classIDToUse, className, academicYear, grade, time.Now().Unix())
-					}
-				}
-
-				logID := cuid2.Generate()
-				var oNis, oClass, aNo, aDate *string
-				if onis.Valid { oNis = &onis.String }
-				if oclass.Valid { oClass = &oclass.String }
-				if appno.Valid { aNo = &appno.String }
-				if appdate.Valid { aDate = &appdate.String }
-
-				_, _ = tx.Exec(`
-					INSERT INTO mutasi_logs (
-						id, mutasi_type, student_id, student_name, nisn, gender,
-						origin_or_destination, origin_nis, origin_class, approval_date, approval_no,
-						mutation_date, reason, created_at
-					) VALUES (?, 'masuk', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Mutasi Masuk Disetujui', ?)
-				`, logID, studentID, req.StudentName, req.NISN, req.Gender,
-					req.OriginSchool, oNis, oClass, aDate, aNo, now, now)
-
-				_ = AutoSyncStudentToSavingsAndLibrary(r.DB, studentID)
-				_ = AutoSyncStudentToBukuInduk(r.DB, studentID)
+		studentID := cuid2.Generate()
+		var className string
+		if classIDToUse != nil && *classIDToUse != "" {
+			if err := tx.QueryRow("SELECT name FROM student_classes WHERE id = ?", *classIDToUse).Scan(&className); err != nil && !errlib.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("gagal mengambil nama kelas: %w", err)
 			}
 		}
+
+		_, err = tx.Exec(`
+			INSERT INTO students (
+				id, nisn, full_name, gender, class_name, class_id,
+				status, qr_code, is_active, created_at, updated_at
+			) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, 1, ?, ?)
+		`, studentID, req.NISN, req.StudentName, req.Gender, className, classIDToUse, NewStudentQRCode(nil, studentID), now, now)
+		if err != nil {
+			return err
+		}
+
+		if classIDToUse != nil && *classIDToUse != "" {
+			var grade int
+			var academicYear string
+			if err2 := tx.QueryRow("SELECT grade, academic_year FROM student_classes WHERE id = ?", *classIDToUse).Scan(&grade, &academicYear); err2 == nil {
+				historyID := cuid2.Generate()
+				tx.Exec(`
+					INSERT INTO student_class_history (id, student_id, class_id, class_name, academic_year, grade, status, record_date)
+					VALUES (?, ?, ?, ?, ?, ?, 'mutated_in', ?)
+				`, historyID, studentID, *classIDToUse, className, academicYear, grade, time.Now().Unix())
+			}
+		}
+
+		logID := cuid2.Generate()
+		var oNis, oClass, aNo, aDate *string
+		if onis.Valid { oNis = &onis.String }
+		if oclass.Valid { oClass = &oclass.String }
+		if appno.Valid { aNo = &appno.String }
+		if appdate.Valid { aDate = &appdate.String }
+
+		_, _ = tx.Exec(`
+			INSERT INTO mutasi_logs (
+				id, mutasi_type, student_id, student_name, nisn, gender,
+				origin_or_destination, origin_nis, origin_class, approval_date, approval_no,
+				mutation_date, reason, created_at
+			) VALUES (?, 'masuk', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Mutasi Masuk Disetujui', ?)
+		`, logID, studentID, req.StudentName, req.NISN, req.Gender,
+			req.OriginSchool, oNis, oClass, aDate, aNo, now, now)
+
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+
+		// Sinkronisasi lintas modul di luar transaksi; kegagalan tidak
+		// membatalkan mutasi tapi wajib tercatat agar bisa diperbaiki manual.
+		if err := AutoSyncStudentToSavingsAndLibrary(r.DB, studentID); err != nil {
+			log.Printf("ERROR sync tabungan/perpustakaan untuk mutasi masuk %s: %v", studentID, err)
+		}
+		if err := AutoSyncStudentToBukuInduk(r.DB, studentID); err != nil {
+			log.Printf("ERROR sync buku induk untuk mutasi masuk %s: %v", studentID, err)
+		}
+		return nil
 	}
 
 	return tx.Commit()
@@ -269,15 +321,23 @@ func (r *MutasiRepository) GenerateRegistrationNumber() string {
 	now := time.Now()
 	datePart := now.Format("20060102")
 
+	r.regNumMu.Lock()
+	defer r.regNumMu.Unlock()
+
 	var count int
-	// Count today's requests to increment
-	// Using a simple count for now, in production might need a more robust sequence
-	r.DB.QueryRow("SELECT COUNT(*) FROM mutasi_requests WHERE date(created_at/1000, 'unixepoch') = date('now')").Scan(&count)
+	if err := r.DB.QueryRow("SELECT COUNT(*) FROM mutasi_requests WHERE created_at >= ? AND created_at < ?",
+		time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).UnixMilli(),
+		time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).AddDate(0, 0, 1).UnixMilli(),
+	).Scan(&count); err != nil {
+		log.Printf("ERROR counting today's mutasi requests: %v", err)
+		// fallback: timestamp-based agar tetap unik walau COUNT gagal
+		return fmt.Sprintf("MUT-%s-%d", datePart, now.UnixMilli()%1000000)
+	}
 
 	return fmt.Sprintf("MUT-%s-%03d", datePart, count+1)
 }
 
-func (r *MutasiRepository) GetMutasiOutRequests(page, perPage int) ([]models.MutasiOutRequest, int, error) {
+func (r *MutasiRepository) GetMutasiOutRequests(page, perPage int, month string) ([]models.MutasiOutRequest, int, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -286,16 +346,29 @@ func (r *MutasiRepository) GetMutasiOutRequests(page, perPage int) ([]models.Mut
 	}
 	offset := (page - 1) * perPage
 
-	var total int
-	r.DB.QueryRow(`
-		SELECT COUNT(*) FROM (
-			SELECT id FROM mutasi_out_requests
-			UNION
-			SELECT id FROM mutasi_logs WHERE mutasi_type = 'keluar' AND (student_id IS NULL OR student_id = '' OR student_id NOT IN (SELECT student_id FROM mutasi_out_requests WHERE student_id IS NOT NULL AND student_id != ''))
-		)
-	`).Scan(&total)
+	monthFilter := ""
+	monthArgs := []interface{}{}
+	if month != "" && month != "all" {
+		if t, err := time.Parse("2006-01", month); err == nil {
+			start := t.UnixMilli()
+			end := t.AddDate(0, 1, 0).UnixMilli() - 1
+			monthFilter = " WHERE created_at >= ? AND created_at <= ?"
+			monthArgs = append(monthArgs, start, end)
+		}
+	}
 
-	query := `
+	var total int
+	if err := r.DB.QueryRow(`
+		SELECT COUNT(*) FROM (
+			SELECT id, created_at FROM mutasi_out_requests
+			UNION
+			SELECT id, created_at FROM mutasi_logs WHERE mutasi_type = 'keluar' AND (student_id IS NULL OR student_id = '' OR student_id NOT IN (SELECT student_id FROM mutasi_out_requests WHERE student_id IS NOT NULL AND student_id != ''))
+		)`+monthFilter, monthArgs...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	args := append([]interface{}{perPage, offset}, monthArgs...)
+	rows, err := r.DB.Query(`
 		SELECT id, student_id, student_name, nisn, class_name,
 		       destination_school, destination_class, letter_no, reason, reason_detail, status,
 			   downloaded_at, processed_at, completed_at, created_at, updated_at
@@ -333,11 +406,10 @@ func (r *MutasiRepository) GetMutasiOutRequests(page, perPage int) ([]models.Mut
 			)
 			WHERE ml.mutasi_type = 'keluar'
 			  AND (ml.student_id IS NULL OR ml.student_id = '' OR ml.student_id NOT IN (SELECT student_id FROM mutasi_out_requests WHERE student_id IS NOT NULL AND student_id != ''))
-		)
+		)`+monthFilter+`
 		ORDER BY created_at DESC
 		LIMIT ? OFFSET ?
-	`
-	rows, err := r.DB.Query(query, perPage, offset)
+	`, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -530,6 +602,28 @@ func (r *MutasiRepository) UpdateMutasiOutStatus(id string, status string) error
 	return tx.Commit()
 }
 
+// GetMutasiRequestByNISN returns the ID of any student or open mutasi request
+// using this NISN, or "" if free. Mencegah dobel data mutasi masuk.
+func (r *MutasiRepository) GetMutasiRequestByNISN(nisn string) (string, error) {
+	var id string
+	err := r.DB.QueryRow("SELECT id FROM students WHERE nisn = ? LIMIT 1", nisn).Scan(&id)
+	if err == nil {
+		return id, nil
+	}
+	if !errlib.Is(err, sql.ErrNoRows) {
+		return "", err
+	}
+	// NISN belum jadi siswa — cek permohonan yang belum selesai
+	err = r.DB.QueryRow("SELECT id FROM mutasi_requests WHERE nisn = ? AND status_approval IN ('pending','verified') LIMIT 1", nisn).Scan(&id)
+	if err == nil {
+		return id, nil
+	}
+	if !errlib.Is(err, sql.ErrNoRows) {
+		return "", err
+	}
+	return "", nil
+}
+
 func (r *MutasiRepository) GetMutasiRequestByRegNum(regNum, nisn string) (*models.MutasiRequest, error) {
 	query := `
 		SELECT id, registration_number, student_name, nisn, gender, origin_school, 
@@ -655,7 +749,7 @@ func (r *MutasiRepository) DirectMutasiMasuk(s models.Student, reason string, or
 		s.ID = cuid2.Generate()
 	}
 	if s.QRCode == "" {
-		s.QRCode = s.ID
+		s.QRCode = NewStudentQRCode(s.NISN, s.ID)
 	}
 	s.Status = "active"
 	s.IsActive = true
@@ -717,8 +811,12 @@ func (r *MutasiRepository) DirectMutasiMasuk(s models.Student, reason string, or
 
 	err = tx.Commit()
 	if err == nil {
-		_ = AutoSyncStudentToSavingsAndLibrary(r.DB, s.ID)
-		_ = AutoSyncStudentToBukuInduk(r.DB, s.ID)
+		if e := AutoSyncStudentToSavingsAndLibrary(r.DB, s.ID); e != nil {
+			log.Printf("ERROR sync tabungan/perpustakaan untuk mutasi masuk langsung %s: %v", s.ID, e)
+		}
+		if e := AutoSyncStudentToBukuInduk(r.DB, s.ID); e != nil {
+			log.Printf("ERROR sync buku induk untuk mutasi masuk langsung %s: %v", s.ID, e)
+		}
 	}
 	return err
 }
@@ -788,7 +886,7 @@ func (r *MutasiRepository) DirectMutasiKeluar(studentID string, destinationSchoo
 	return tx.Commit()
 }
 
-func (r *MutasiRepository) GetMutasiLogs(page, perPage int) ([]models.MutasiLog, int, error) {
+func (r *MutasiRepository) GetMutasiLogs(page, perPage int, month string) ([]models.MutasiLog, int, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -797,10 +895,24 @@ func (r *MutasiRepository) GetMutasiLogs(page, perPage int) ([]models.MutasiLog,
 	}
 	offset := (page - 1) * perPage
 
-	var total int
-	r.DB.QueryRow("SELECT COUNT(*) FROM mutasi_logs").Scan(&total)
+	monthFilter := ""
+	monthArgs := []interface{}{}
+	if month != "" && month != "all" {
+		if t, err := time.Parse("2006-01", month); err == nil {
+			start := t.UnixMilli()
+			end := t.AddDate(0, 1, 0).UnixMilli() - 1
+			monthFilter = " WHERE ml.mutation_date >= ? AND ml.mutation_date <= ?"
+			monthArgs = append(monthArgs, start, end)
+		}
+	}
 
-	query := `
+	var total int
+	if err := r.DB.QueryRow("SELECT COUNT(*) FROM mutasi_logs ml"+monthFilter, monthArgs...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	args := append([]interface{}{perPage, offset}, monthArgs...)
+	rows, err := r.DB.Query(`
 		SELECT ml.id, ml.mutasi_type, ml.student_id, ml.student_name, ml.nisn,
 		       s.nis, ml.gender, COALESCE(s.class_name, sch.class_name) as class_name, COALESCE(sc.grade, sch.grade) as class_grade,
 		       ml.origin_or_destination, ml.origin_nis, ml.origin_class, ml.approval_date, ml.approval_no, ml.letter_no, ml.destination_class,
@@ -812,11 +924,10 @@ func (r *MutasiRepository) GetMutasiLogs(page, perPage int) ([]models.MutasiLog,
 			SELECT id FROM student_class_history 
 			WHERE student_id = ml.student_id 
 			ORDER BY record_date DESC LIMIT 1
-		)
+		)`+monthFilter+`
 		ORDER BY ml.created_at DESC
 		LIMIT ? OFFSET ?
-	`
-	rows, err := r.DB.Query(query, perPage, offset)
+	`, args...)
 	if err != nil {
 		return nil, 0, err
 	}

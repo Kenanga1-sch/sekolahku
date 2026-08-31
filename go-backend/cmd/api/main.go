@@ -198,6 +198,11 @@ func main() {
 
 	// Auto sync students on startup
 	log.Println("[Startup] Running initial synchronization of active students...")
+	if filled, err := repository.BackfillStudentQRCodes(db); err != nil {
+		log.Printf("[Startup] Warning: Student QR backfill failed: %v", err)
+	} else if filled > 0 {
+		log.Printf("[Startup] Backfilled %d student QR codes (STU- namespace).", filled)
+	}
 	if syncCount, err := repos.Savings.SyncFromStudents(); err != nil {
 		log.Printf("[Startup] Warning: Savings initial sync failed: %v", err)
 	} else {
@@ -225,7 +230,7 @@ func main() {
 		Employee:       handlers.NewEmployeeHandler(repos.Employee),
 		Savings:        handlers.NewSavingsHandler(repos.Savings),
 		Library:        handlers.NewLibraryHandler(repos.Library),
-		EOffice:        handlers.NewEOfficeHandler(repos.EOffice),
+		EOffice:        handlers.NewEOfficeHandler(repos.EOffice, repos.Notification),
 		AcademicAdv:    handlers.NewAcademicAdvHandler(repos.AcademicAdv),
 		Attendance:     handlers.NewAttendanceHandler(repos.Attendance),
 		Loan:           handlers.NewLoanHandler(repos.Loan),

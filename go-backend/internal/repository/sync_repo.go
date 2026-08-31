@@ -115,7 +115,7 @@ func (r *SyncRepository) UpsertStudent(s models.Student) error {
 		s.Status = "active"
 	}
 	if s.QRCode == "" {
-		s.QRCode = s.ID
+		s.QRCode = NewStudentQRCode(s.NISN, s.ID)
 	}
 
 	_, err := r.DB.Exec(`

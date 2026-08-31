@@ -16,10 +16,11 @@ import (
 
 type EOfficeHandler struct {
 	Repo *repository.EOfficeRepository
+	Notifications *repository.NotificationRepository
 }
 
-func NewEOfficeHandler(repo *repository.EOfficeRepository) *EOfficeHandler {
-	return &EOfficeHandler{Repo: repo}
+func NewEOfficeHandler(repo *repository.EOfficeRepository, notifications *repository.NotificationRepository) *EOfficeHandler {
+	return &EOfficeHandler{Repo: repo, Notifications: notifications}
 }
 
 func currentUserID(c echo.Context) string {

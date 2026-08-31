@@ -87,6 +87,7 @@ func setupEOfficeTestDB(t *testing.T) *sql.DB {
 			revision_note TEXT,
 			template_id TEXT,
 			html_content TEXT,
+			archive_location TEXT,
 			created_by TEXT,
 			created_at INTEGER,
 			updated_at INTEGER,
@@ -106,6 +107,7 @@ func setupEOfficeTestDB(t *testing.T) *sql.DB {
 			file_path TEXT NOT NULL,
 			status TEXT DEFAULT 'Menunggu Disposisi' NOT NULL,
 			notes TEXT,
+			archive_location TEXT,
 			created_at INTEGER,
 			updated_at INTEGER,
 			FOREIGN KEY (classification_code) REFERENCES klasifikasi_surat(code)

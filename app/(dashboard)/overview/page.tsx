@@ -99,10 +99,13 @@ export default function OverviewPage() {
     <OverviewClient
       stats={stats.spmb}
       moduleStats={stats.moduleStats}
+      totalActiveStudents={stats.totalActiveStudents}
+      presensiHariIni={stats.presensiHariIni}
       registrationTrend={stats.registrationTrend}
       recentRegistrants={stats.recentRegistrants}
       activePeriod={stats.activePeriod}
       serverHealth={health}
+      userName={session?.user?.name}
     />
   );
 }

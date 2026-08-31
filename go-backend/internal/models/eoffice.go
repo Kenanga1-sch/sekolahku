@@ -76,6 +76,7 @@ type SuratMasuk struct {
 	FilePath           string            `json:"filePath"`
 	Status             string            `json:"status"`
 	Notes              *string           `json:"notes"`
+	ArchiveLocation    *string           `json:"archiveLocation"`
 	CreatedAt          *time.Time        `json:"createdAt"`
 	UpdatedAt          *time.Time        `json:"updatedAt"`
 	Dispositions       []Disposisi       `json:"dispositions,omitempty"`
@@ -99,6 +100,7 @@ type SuratKeluar struct {
 	RevisionNote       *string           `json:"revisionNote"`
 	TemplateID         *string           `json:"templateId"`
 	HtmlContent        *string           `json:"htmlContent"`
+	ArchiveLocation    *string           `json:"archiveLocation"`
 	CreatedBy          *string           `json:"createdBy"`
 	Creator            *User             `json:"creator,omitempty"`
 	CreatedAt          *time.Time        `json:"createdAt"`

@@ -17,7 +17,8 @@ import {
     ArrowLeft,
     Download,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    RotateCcw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -150,7 +151,7 @@ export default function SuratKeluarPage() {
     const handleSubmitToVerification = async (id: string) => {
         setActing(true);
         try {
-            await goPost(`/api/arsip/surat-keluar/verify?id=${id}`, {});
+            await goPost(`/api/arsip/surat-keluar/resubmit?id=${id}`);
             toast.success("Surat dikirim ke verifikasi!");
             loadData();
         } catch { toast.error("Gagal"); }
@@ -429,6 +430,12 @@ export default function SuratKeluarPage() {
                                                     <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleSubmitToVerification(item.id); }} disabled={acting}>
                                                         <Send className="h-4 w-4 mr-2" />
                                                         Kirim ke Verifikasi
+                                                    </DropdownMenuItem>
+                                                )}
+                                                {item.status === "Revisi" && (
+                                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleSubmitToVerification(item.id); }} disabled={acting}>
+                                                        <RotateCcw className="h-4 w-4 mr-2 text-orange-600" />
+                                                        Kirim Ulang ke Verifikasi
                                                     </DropdownMenuItem>
                                                 )}
                                                 {item.status === "Menunggu Verifikasi" && (

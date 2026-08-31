@@ -12,6 +12,7 @@ import { id as idLocale } from "date-fns/locale";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useSchoolSettings } from "@/lib/hooks/use-settings";
 import {
   Form,
   FormControl,
@@ -68,6 +69,17 @@ export default function MutasiKeluarPage() {
   const [step, setStep] = useState<"validate" | "form" | "success">("validate");
   const [student, setStudent] = useState<StudentData | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { settings: schoolSettings } = useSchoolSettings();
+
+  const schoolCity = (() => {
+    const addr = String(schoolSettings?.school_address || "");
+    const parts = addr.split(",").map((s) => s.trim()).filter(Boolean);
+    for (const p of parts) {
+      const cleaned = p.replace(/^(kabupaten|kab\.|kota)\s+/i, "");
+      if (cleaned && !/^jl\b|^jalan\b/i.test(cleaned)) return cleaned;
+    }
+    return "";
+  })();
 
   // Forms
   const validationForm = useForm<z.infer<typeof validationSchema>>({
@@ -133,12 +145,12 @@ export default function MutasiKeluarPage() {
     
     // Header (Surat Pribadi, no Kop)
     doc.setFontSize(12);
-    doc.text(`Kendal, ${format(new Date(), "d MMMM yyyy", { locale: idLocale })}`, 140, 20);
+    doc.text(`${schoolCity ? schoolCity + ", " : ""}${format(new Date(), "d MMMM yyyy", { locale: idLocale })}`, 140, 20);
 
     doc.text("Hal : Permohonan Pindah Sekolah", 20, 30);
-    
+
     doc.text("Yth. Kepala Sekolah", 20, 40);
-    doc.text(student.schoolName || "SD Negeri ...", 20, 46);
+    doc.text(schoolSettings?.school_name || student.schoolName || "Sekolah", 20, 46);
     doc.text("di Tempat", 20, 52);
 
     // Body

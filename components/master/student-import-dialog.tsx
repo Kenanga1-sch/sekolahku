@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, Upload, FileSpreadsheet, AlertTriangle, CheckCircle } from "lucide-react";
-import { showSuccess, showError } from "@/lib/toast";
+import { Loader2, FileSpreadsheet, AlertTriangle } from "lucide-react";
+import { showSuccess, showError, showWarning } from "@/lib/toast";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { goPost } from "@/lib/api-client";
 
@@ -18,9 +18,79 @@ interface StudentImportDialogProps {
     onSuccess: () => void;
 }
 
+// Normalisasi nama kolom: lowercase, tanpa spasi/underscore
+const norm = (s: string) => String(s).toLowerCase().replace(/[^a-z0-9]/g, "");
+
+// Kolom wajib di header file Excel (harus ada minimal fullName)
+const REQUIRED_HEADERS = ["fullName"];
+
+// Alias kolom (dinormalisasi) -> kunci kanonik yang dikirim ke backend
+const COLUMN_ALIASES: Record<string, string> = {
+    fullname: "fullName",
+    nama: "fullName",
+    namalengkap: "fullName",
+    nis: "nis",
+    nisn: "nisn",
+    nik: "nik",
+    kip: "kip",
+    gender: "gender",
+    jeniskelamin: "gender",
+    jk: "gender",
+    kelamin: "gender",
+    classname: "className",
+    kelas: "className",
+    status: "status",
+    birthplace: "birthPlace",
+    tempatlahir: "birthPlace",
+    birthdate: "birthDate",
+    tanggallahir: "birthDate",
+    religion: "religion",
+    agama: "religion",
+    address: "address",
+    alamat: "address",
+    parentname: "parentName",
+    namaorangtua: "parentName",
+    fathername: "fatherName",
+    namaayah: "fatherName",
+    fathernik: "fatherNik",
+    nikayah: "fatherNik",
+    mothername: "motherName",
+    namaibu: "motherName",
+    mothernik: "motherNik",
+    nikibu: "motherNik",
+    guardianname: "guardianName",
+    namawali: "guardianName",
+    guardiannik: "guardianNik",
+    nikwali: "guardianNik",
+    guardianjob: "guardianJob",
+    pekerjaanwali: "guardianJob",
+    parentphone: "parentPhone",
+    nohp: "parentPhone",
+    nohape: "parentPhone",
+};
+
+// Konversi nilai gender -> L/P. Konversi TUNGGAL (backend sudah handle L/P via prefix).
+function toGenderCode(raw: unknown): string {
+    const g = String(raw ?? "").trim().toUpperCase();
+    if (!g) return "";
+    // PRIA dicek sebelum prefix "P" (PRIA = laki-laki)
+    if (g.startsWith("L") || g === "PRIA" || g === "M" || g === "MALE" || g === "COWOK") return "L";
+    if (g.startsWith("P") || g.startsWith("W") || g === "F" || g === "FEMALE" || g === "CEWEK") return "P";
+    return "";
+}
+
+// Serial Excel -> yyyy-mm-dd via komponen UTC, tanpa toISOString offset
+function excelSerialToISO(serial: number): string {
+    const d = new Date(Math.round((serial - 25569) * 86400 * 1000));
+    return d.getUTCFullYear() + "-" +
+        String(d.getUTCMonth() + 1).padStart(2, "0") + "-" +
+        String(d.getUTCDate()).padStart(2, "0");
+}
+
 export function StudentImportDialog({ open, onOpenChange, onSuccess }: StudentImportDialogProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [previewData, setPreviewData] = useState<any[]>([]);
+    const [importErrors, setImportErrors] = useState<string[]>([]);
     const [file, setFile] = useState<File | null>(null);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -28,6 +98,7 @@ export function StudentImportDialog({ open, onOpenChange, onSuccess }: StudentIm
         if (!selectedFile) return;
 
         setFile(selectedFile);
+        setImportErrors([]);
         parseExcel(selectedFile);
     };
 
@@ -39,56 +110,64 @@ export function StudentImportDialog({ open, onOpenChange, onSuccess }: StudentIm
             const workbook = XLSX.read(data, { type: "binary", cellDates: true });
             const sheetName = workbook.SheetNames[0]; // First sheet
             const sheet = workbook.Sheets[sheetName];
-            let jsonData: any[] = XLSX.utils.sheet_to_json(sheet, { raw: false, dateNF: "yyyy-mm-dd" });
-            
-            jsonData = jsonData.map((row: any) => {
-                const mappedRow = { ...row };
-                
-                // Helper to find key dynamically
-                const findKey = (keywords: string[]) => {
-                    return Object.keys(mappedRow).find(k => {
-                        const normalized = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-                        return keywords.some(kw => normalized.includes(kw));
-                    });
-                };
+            const jsonData: any[] = XLSX.utils.sheet_to_json(sheet, { raw: false, dateNF: "yyyy-mm-dd" });
 
-                // Cek birthDate atau tanggal_lahir
-                const dateKey = findKey(['birth', 'lahir']);
-                if (dateKey && mappedRow[dateKey]) {
-                    const dateStr = String(mappedRow[dateKey]);
-                    let formattedDate = dateStr;
-                    if (!isNaN(Number(dateStr))) {
-                        const serial = Number(dateStr);
-                        const dateObj = new Date(Math.round((serial - 25569) * 86400 * 1000));
-                        if (!isNaN(dateObj.getTime())) {
-                            formattedDate = dateObj.toISOString().split('T')[0];
-                        }
-                    } else {
-                        const parsed = new Date(dateStr);
-                        if (!isNaN(parsed.getTime())) {
-                            formattedDate = parsed.toISOString().split('T')[0];
-                        }
-                    }
-                    mappedRow.birthDate = formattedDate;
-                }
+            // Validasi header: minimal ada kolom nama lengkap (atau aliasnya, mis. "Nama Lengkap")
+            const headerCanonicals = jsonData.length
+                ? Object.keys(jsonData[0]).map(k => COLUMN_ALIASES[norm(k)] ?? norm(k))
+                : [];
+            const missing = REQUIRED_HEADERS.filter(h => !headerCanonicals.includes(h));
+            if (missing.length) {
+                setPreviewData([]);
+                showError(
+                    "Header kolom tidak valid",
+                    `Kolom wajib tidak ditemukan: ${missing.join(", ")}. Download template untuk format yang benar.`
+                );
+                return;
+            }
 
-                // Cek gender atau jk
-                const genderKey = findKey(['gender', 'jk', 'kelamin']);
-                if (genderKey && mappedRow[genderKey]) {
-                    const g = String(mappedRow[genderKey]).trim().toUpperCase();
-                    if (g === "L" || g.startsWith("LAKI")) {
-                        mappedRow.gender = "Laki-laki";
-                    } else if (g === "P" || g.startsWith("PEREMPUAN")) {
-                        mappedRow.gender = "Perempuan";
-                    } else {
-                        mappedRow.gender = mappedRow[genderKey];
-                    }
+            // Remap kolom ke kunci kanonik + normalisasi nilai
+            const mappedData = jsonData.map((row: any) => {
+                const out: Record<string, any> = {};
+                for (const [key, value] of Object.entries(row)) {
+                    const canonical = COLUMN_ALIASES[norm(key)];
+                    if (canonical) out[canonical] = value;
                 }
-                
-                return mappedRow;
+                return out;
             });
 
-            setPreviewData(jsonData);
+            // Gender: konversi tunggal di frontend -> L/P; kumpulkan baris yang tidak dikenali
+            const genderIssues: string[] = [];
+            mappedData.forEach((row: any, i: number) => {
+                if ("gender" in row) {
+                    const code = toGenderCode(row.gender);
+                    if (!code && String(row.gender ?? "").trim() !== "") {
+                        genderIssues.push(String(i + 2)); // +2: baris Excel = header + 1-index
+                    }
+                    row.gender = code;
+                }
+            });
+            if (genderIssues.length) {
+                showWarning(
+                    `Gender tidak dikenali (baris Excel: ${genderIssues.slice(0, 10).join(", ")}${genderIssues.length > 10 ? ", ..." : ""})`,
+                    "Gunakan L/Laki-laki/Pria atau P/Perempuan/Wanita. Gender baris tersebut dikosongkan."
+                );
+            }
+
+            // BirthDate: Date obj -> yyyy-mm-dd lokal; serial number -> via UTC (tanpa offset)
+            mappedData.forEach((row: any) => {
+                const raw = row.birthDate;
+                if (!raw) return;
+                if (raw instanceof Date) {
+                    row.birthDate = raw.getFullYear() + "-" +
+                        String(raw.getMonth() + 1).padStart(2, "0") + "-" +
+                        String(raw.getDate()).padStart(2, "0");
+                } else if (!isNaN(Number(raw))) {
+                    row.birthDate = excelSerialToISO(Number(raw));
+                }
+            });
+
+            setPreviewData(mappedData);
         };
         reader.readAsBinaryString(file);
     };
@@ -100,9 +179,26 @@ export function StudentImportDialog({ open, onOpenChange, onSuccess }: StudentIm
         try {
             const result: any = await goPost("/api/master/students/bulk", { students: previewData });
 
-            showSuccess(`Berhasil import ${result.count} data siswa!`);
+            // Backend mengembalikan { count, errors[] } — tampilkan keduanya
+            const rowErrors: string[] = result.errors ?? [];
+            setImportErrors(rowErrors);
             onSuccess();
-            onOpenChange(false);
+
+            if (rowErrors.length === 0) {
+                showSuccess(`Berhasil import ${result.count} data siswa!`);
+                onOpenChange(false);
+            } else if (result.count > 0) {
+                showWarning(
+                    `Import sebagian: ${result.count} berhasil, ${rowErrors.length} gagal`,
+                    "Lihat daftar baris yang gagal di bawah sebelum menutup dialog."
+                );
+                // Dialog tetap terbuka agar user bisa lihat baris yang gagal
+            } else {
+                showError(
+                    `Semua baris gagal diimport (${rowErrors.length} baris)`,
+                    rowErrors.slice(0, 5).join("\n") + (rowErrors.length > 5 ? `\n...dan ${rowErrors.length - 5} lainnya (lihat detail di bawah)` : "")
+                );
+            }
         } catch (error: any) {
             showError(error.message);
         } finally {
@@ -221,6 +317,19 @@ export function StudentImportDialog({ open, onOpenChange, onSuccess }: StudentIm
                                     <ScrollBar orientation="horizontal" />
                                 </ScrollArea>
                             </div>
+                        </div>
+                    )}
+                    {importErrors.length > 0 && (
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-red-600">
+                                <AlertTriangle className="h-4 w-4" />
+                                <span className="font-medium">Baris yang gagal ({importErrors.length})</span>
+                            </div>
+                            <ScrollArea className="h-24 max-h-32 border rounded p-2 bg-red-50">
+                                {importErrors.map((err, i) => (
+                                    <div key={i} className="text-sm text-red-700 py-0.5">{err}</div>
+                                ))}
+                            </ScrollArea>
                         </div>
                     )}
                 </div>

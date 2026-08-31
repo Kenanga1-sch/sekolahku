@@ -6,42 +6,31 @@ import {
   Activity,
   AlertTriangle,
   ArrowRight,
-  Bell,
-  BookMarked,
   BookOpen,
-  Boxes,
   Calendar,
   CheckCircle2,
+  ClipboardCheck,
   Clock,
-  DollarSign,
+  Database,
+  HardDrive,
   Info,
-  Package,
-  UserCheck,
   Users,
   Wallet,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatCurrency } from "@/lib/utils";
 import { SPMBStatusBadge } from "@/components/spmb/status-badge";
 
 const RegistrationTrendChart = dynamic(
   () => import("@/components/dashboard/charts").then((mod) => ({ default: mod.RegistrationTrendChart })),
-  {
-    loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[250px] w-full" /></CardContent></Card>,
-    ssr: false,
-  }
+  { ssr: false }
 );
 
 const StatusDistributionChart = dynamic(
   () => import("@/components/dashboard/charts").then((mod) => ({ default: mod.StatusDistributionChart })),
-  {
-    loading: () => <Card><CardContent className="p-6"><Skeleton className="h-[250px] w-full" /></CardContent></Card>,
-    ssr: false,
-  }
+  { ssr: false }
 );
 
 interface OverviewStats {
@@ -67,6 +56,7 @@ interface ModuleStats {
     totalSaldo: number;
     totalStudents: number;
     todayTransactions: number;
+    pendingSetoran?: number;
   };
 }
 
@@ -107,30 +97,20 @@ interface ServerHealth {
 interface OverviewClientProps {
   stats: OverviewStats;
   moduleStats: ModuleStats;
+  totalActiveStudents?: number;
+  presensiHariIni?: number;
   registrationTrend?: RegistrationTrendPoint[];
   recentRegistrants: Registrant[];
   activePeriod: ActivePeriod | null;
   serverHealth: ServerHealth;
+  userName?: string;
 }
-
-const emptyStats: OverviewStats = {
-  pending: 0,
-  verified: 0,
-  accepted: 0,
-  rejected: 0,
-  total: 0,
-};
-
-const emptyModuleStats: ModuleStats = {
-  perpustakaan: { totalBooks: 0, activeLoans: 0, overdueLoans: 0 },
-  inventaris: { totalAssets: 0, totalRooms: 0, needsMaintenance: 0 },
-  tabungan: { totalSaldo: 0, totalStudents: 0, todayTransactions: 0 },
-};
 
 const accentClasses: Record<string, string> = {
   blue: "bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-300",
   amber: "bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-300",
   emerald: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300",
+  purple: "bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-300",
 };
 
 function formatTrendDate(value: string) {
@@ -155,16 +135,31 @@ function buildFallbackTrend() {
   });
 }
 
+function getGreeting(date: Date) {
+  const h = date.getHours();
+  if (h < 11) return "Selamat pagi";
+  if (h < 15) return "Selamat siang";
+  if (h < 18) return "Selamat sore";
+  return "Selamat malam";
+}
+
 export function OverviewClient({
   stats,
   moduleStats,
+  totalActiveStudents = 0,
+  presensiHariIni = 0,
   registrationTrend = [],
   recentRegistrants = [],
   activePeriod = null,
   serverHealth,
+  userName = "Administrator",
 }: OverviewClientProps) {
-  const safeStats = stats || emptyStats;
-  const safeModuleStats = moduleStats || emptyModuleStats;
+  const safeStats = stats || { pending: 0, verified: 0, accepted: 0, rejected: 0, total: 0 };
+  const perpus = moduleStats?.perpustakaan || { totalBooks: 0, activeLoans: 0, overdueLoans: 0 };
+  const inventaris = moduleStats?.inventaris || { totalAssets: 0, totalRooms: 0, needsMaintenance: 0 };
+  const tabungan = moduleStats?.tabungan || { totalSaldo: 0, totalStudents: 0, todayTransactions: 0, pendingSetoran: 0 };
+
+  const now = new Date();
   const quota = activePeriod?.quota || 100;
   const filledQuota = safeStats.accepted || 0;
 
@@ -180,180 +175,181 @@ export function OverviewClient({
     { name: "Ditolak", value: safeStats.rejected || 0, color: "#ef4444" },
   ].filter((item) => item.value > 0);
 
-  const moduleCards = [
+  // ── KPI: satu pola tile untuk semua stat inti ──
+  const kpiTiles = [
     {
-      title: "Perpustakaan",
-      icon: BookOpen,
+      title: "Siswa Aktif",
+      value: totalActiveStudents,
+      hint: `${presensiHariIni} hadir hari ini`,
+      icon: Users,
       accent: "blue",
-      link: "/perpustakaan",
-      items: [
-        { label: "Total Buku", value: safeModuleStats.perpustakaan?.totalBooks || 0 },
-        { label: "Dipinjam", value: safeModuleStats.perpustakaan?.activeLoans || 0 },
-        { label: "Terlambat", value: safeModuleStats.perpustakaan?.overdueLoans || 0, alert: (safeModuleStats.perpustakaan?.overdueLoans || 0) > 0 },
-      ],
+      link: "/admin/siswa",
     },
     {
-      title: "Inventaris",
-      icon: Package,
+      title: "Pendaftar SPMB",
+      value: safeStats.total,
+      hint: (safeStats.pending || 0) > 0 ? `${safeStats.pending} menunggu verifikasi` : "Tidak ada pending",
+      icon: ClipboardCheck,
+      accent: "purple",
+      link: "/admin/siswa?tab=spmb",
+    },
+    {
+      title: "Buku Dipinjam",
+      value: perpus.activeLoans,
+      hint: (perpus.overdueLoans || 0) > 0 ? `${perpus.overdueLoans} terlambat` : `${perpus.totalBooks} eksemplar tersedia`,
+      icon: BookOpen,
       accent: "amber",
-      link: "/inventaris",
-      items: [
-        { label: "Total Aset", value: safeModuleStats.inventaris?.totalAssets || 0 },
-        { label: "Ruangan", value: safeModuleStats.inventaris?.totalRooms || 0 },
-        { label: "Perlu Perbaikan", value: safeModuleStats.inventaris?.needsMaintenance || 0, alert: (safeModuleStats.inventaris?.needsMaintenance || 0) > 0 },
-      ],
+      link: "/perpustakaan/peminjaman",
     },
     {
-      title: "Tabungan",
+      title: "Saldo Tabungan",
+      value: formatCurrency(tabungan.totalSaldo || 0),
+      hint: `${tabungan.totalStudents} penabung aktif`,
       icon: Wallet,
       accent: "emerald",
       link: "/tabungan",
-      items: [
-        { label: "Total Saldo", value: formatCurrency(safeModuleStats.tabungan?.totalSaldo || 0) },
-        { label: "Siswa", value: safeModuleStats.tabungan?.totalStudents || 0 },
-        { label: "Transaksi Hari Ini", value: safeModuleStats.tabungan?.todayTransactions || 0 },
-      ],
     },
   ];
 
-  const spmbCards = [
-    { title: "Total Pendaftar", value: safeStats.total || 0, description: "Total keseluruhan pendaftar", icon: Users, accent: "blue" },
-    { title: "Menunggu Verifikasi", value: safeStats.pending || 0, description: "Memerlukan tindakan segera", icon: Clock, accent: "amber" },
-    { title: "Verifikasi & Diterima", value: (safeStats.verified || 0) + (safeStats.accepted || 0), description: "Proses lanjut atau diterima", icon: UserCheck, accent: "emerald" },
-  ];
-
-  const quickActions = [
-    { label: "Verifikasi SPMB", icon: Clock, href: "/admin/siswa?tab=spmb", color: "bg-blue-100 text-blue-600", badge: safeStats.pending || 0 },
-    { label: "Kelola Periode", icon: Calendar, href: "/admin/siswa?tab=spmb&sub=periods", color: "bg-purple-100 text-purple-600" },
-    { label: "Peminjaman Buku", icon: BookMarked, href: "/perpustakaan/peminjaman", color: "bg-indigo-100 text-indigo-600" },
-    { label: "Stock Opname", icon: Boxes, href: "/inventaris/opname", color: "bg-amber-100 text-amber-600" },
-    { label: "Transaksi Tabungan", icon: DollarSign, href: "/kiosk-kelas", color: "bg-emerald-100 text-emerald-600" },
-    { label: "Pengumuman", icon: Bell, href: "/announcements", color: "bg-red-100 text-red-600" },
-  ];
-
-  const recentActivities = [
-    safeModuleStats.perpustakaan?.activeLoans > 0 && {
-      id: "library",
-      title: "Peminjaman Buku Aktif",
-      description: `${safeModuleStats.perpustakaan.activeLoans} buku sedang dipinjam`,
-      time: "Hari ini",
-      icon: BookOpen,
-      color: "text-blue-500",
+  // ── Panel "Perlu Tindakan": item nyata, hanya yang > 0 ──
+  const actionItems = [
+    (safeStats.pending || 0) > 0 && {
+      id: "spmb",
+      label: "Verifikasi SPMB",
+      detail: `${safeStats.pending} pendaftar menunggu verifikasi`,
+      icon: ClipboardCheck,
+      color: "text-purple-500",
+      href: "/admin/siswa?tab=spmb",
     },
-    safeModuleStats.inventaris?.needsMaintenance > 0 && {
-      id: "inventory",
-      title: "Aset Perlu Perbaikan",
-      description: `${safeModuleStats.inventaris.needsMaintenance} aset butuh perhatian`,
-      time: "Perlu tindakan",
-      icon: AlertTriangle,
+    (perpus.overdueLoans || 0) > 0 && {
+      id: "overdue",
+      label: "Buku Terlambat",
+      detail: `${perpus.overdueLoans} peminjaman melewati jatuh tempo`,
+      icon: Clock,
       color: "text-amber-500",
+      href: "/perpustakaan/peminjaman?filter=overdue",
     },
-    safeModuleStats.tabungan?.todayTransactions > 0 && {
-      id: "savings",
-      title: "Transaksi Hari Ini",
-      description: `${safeModuleStats.tabungan.todayTransactions} transaksi tabungan`,
-      time: "Hari ini",
+    (tabungan.pendingSetoran || 0) > 0 && {
+      id: "setoran",
+      label: "Verifikasi Setoran",
+      detail: `${tabungan.pendingSetoran} setoran uang menunggu persetujuan bendahara`,
       icon: Wallet,
       color: "text-emerald-500",
+      href: "/tabungan/setoran",
     },
-    safeStats.pending > 0 && {
-      id: "spmb",
-      title: "Pendaftar Baru",
-      description: `${safeStats.pending} menunggu verifikasi`,
-      time: "Perlu tindakan",
-      icon: Users,
-      color: "text-purple-500",
+    (inventaris.needsMaintenance || 0) > 0 && {
+      id: "maintenance",
+      label: "Aset Perlu Perbaikan",
+      detail: `${inventaris.needsMaintenance} aset butuh perawatan`,
+      icon: AlertTriangle,
+      color: "text-amber-500",
+      href: "/inventaris",
     },
   ].filter(Boolean) as Array<{
     id: string;
-    title: string;
-    description: string;
-    time: string;
+    label: string;
+    detail: string;
     icon: typeof Activity;
     color: string;
+    href: string;
   }>;
 
   return (
     <div className="w-full min-w-0 space-y-5 sm:space-y-6 lg:space-y-8">
+      {/* ── Header: salam, tanggal, periode SPMB ── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Beranda</h1>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+            {getGreeting(now)}, {userName}
+          </h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground sm:text-base">
-            Ringkasan operasional sekolah, layanan administrasi, dan kondisi sistem hari ini.
+            {now.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}{" "}
+            &middot; Ringkasan operasional sekolah hari ini.
           </p>
         </div>
         {activePeriod && (
-          <Badge variant="secondary" className="w-fit">
-            Periode aktif: {activePeriod.name}
+          <Badge variant="secondary" className="w-fit shrink-0">
+            <Calendar className="mr-1 h-3.5 w-3.5" />
+            {activePeriod.name}
           </Badge>
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-        {moduleCards.map((card) => (
-          <Link key={card.title} href={card.link} className="block">
+      {/* ── KPI: 4 tile seragam ── */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 lg:gap-6">
+        {kpiTiles.map((tile) => (
+          <Link key={tile.title} href={tile.link} className="block">
             <Card className="h-full transition-colors hover:border-primary/40 hover:bg-muted/20">
-              <CardHeader className="space-y-2 pb-3">
-                <CardTitle className="flex items-center gap-3 text-base sm:text-lg">
-                  <span className={`rounded-md p-2 ${accentClasses[card.accent] || accentClasses.blue}`}>
-                    <card.icon className="h-5 w-5" />
-                  </span>
-                  {card.title}
-                </CardTitle>
-                <p className="text-sm text-muted-foreground">Ringkasan data {card.title.toLowerCase()} terkini</p>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {card.items.map((item) => (
-                  <div key={item.label} className="flex items-center justify-between gap-3 border-b pb-2 last:border-0 last:pb-0">
-                    <span className="text-sm text-muted-foreground">{item.label}</span>
-                    <span className={`text-sm font-semibold ${"alert" in item && item.alert ? "text-destructive" : ""}`}>
-                      {item.value}
-                    </span>
-                  </div>
-                ))}
-                <div className="flex items-center gap-2 pt-1 text-xs font-medium text-primary">
-                  Buka Menu <ArrowRight className="h-3.5 w-3.5" />
+              <CardContent className="flex h-full flex-col gap-3 p-4 sm:p-5">
+                <div className={`w-fit rounded-md p-2 ${accentClasses[tile.accent] || accentClasses.blue}`}>
+                  <tile.icon className="h-5 w-5" />
                 </div>
+                <div className="min-w-0">
+                  <p className="truncate text-2xl font-bold sm:text-3xl">{tile.value}</p>
+                  <p className="mt-0.5 text-sm font-medium">{tile.title}</p>
+                </div>
+                <p className="mt-auto truncate text-xs text-muted-foreground">{tile.hint}</p>
               </CardContent>
             </Card>
           </Link>
         ))}
       </div>
 
+      {/* ── Panel Perlu Tindakan ── */}
       <section>
         <h2 className="mb-3 flex items-center gap-2 text-lg font-bold sm:mb-4 sm:text-xl">
-          <Users className="h-5 w-5 text-primary" />
+          <Activity className="h-5 w-5 text-primary" />
+          Perlu Tindakan
+        </h2>
+        <Card>
+          <CardContent className="p-4 sm:p-5">
+            {actionItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-2 py-6 text-muted-foreground">
+                <CheckCircle2 className="h-10 w-10 text-emerald-500" />
+                <p className="text-sm font-medium">Tidak ada tugas tertunda. Semua beres hari ini.</p>
+              </div>
+            ) : (
+              <div className="divide-y">
+                {actionItems.map((item) => (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    className="flex items-center gap-4 py-3 transition-colors first:pt-0 last:pb-0 hover:bg-muted/30 sm:px-2 sm:py-3.5"
+                  >
+                    <div className={`rounded-md bg-muted p-2 ${item.color}`}>
+                      <item.icon className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold">{item.label}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{item.detail}</p>
+                    </div>
+                    <Badge variant="destructive" className="shrink-0">
+                      Tindakan
+                    </Badge>
+                    <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  </Link>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* ── Grafik SPMB ── */}
+      <section>
+        <h2 className="mb-3 flex items-center gap-2 text-lg font-bold sm:mb-4 sm:text-xl">
+          <ClipboardCheck className="h-5 w-5 text-primary" />
           Statistik SPMB
         </h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {spmbCards.map((card) => (
-            <Card key={card.title}>
-              <CardContent className="space-y-4 p-4 sm:p-5">
-                <div className="flex items-center justify-between gap-3">
-                  <span className={`rounded-md p-2 ${accentClasses[card.accent] || accentClasses.blue}`}>
-                    <card.icon className="h-5 w-5" />
-                  </span>
-                  <span className="text-3xl font-bold">{card.value}</span>
-                </div>
-                <div>
-                  <h3 className="font-semibold">{card.title}</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">{card.description}</p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
+          <div className="lg:col-span-2">
+            <RegistrationTrendChart data={trendData} />
+          </div>
+          <StatusDistributionChart data={statusData} />
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
-        <div className="lg:col-span-2">
-          <RegistrationTrendChart data={trendData} />
-        </div>
-        <StatusDistributionChart data={statusData} />
-      </div>
-
-      <ServerHealthDisplay health={serverHealth} />
-
+      {/* ── Dua kolom: pendaftar terbaru + periode/aksi ── */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3 lg:gap-8">
         <div className="space-y-4 lg:col-span-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -400,11 +396,53 @@ export function OverviewClient({
         </div>
 
         <div className="space-y-6">
+          {/* Periode SPMB & kuota — dari bawah naik ke sini */}
+          <Card className="border-primary/20 bg-primary text-primary-foreground">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Info className="h-5 w-5" />
+                Periode SPMB
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {activePeriod ? (
+                <>
+                  <div className="flex items-center justify-between border-b border-white/20 pb-2">
+                    <span className="text-sm text-white/80">{activePeriod.name}</span>
+                    <Badge className="bg-white text-primary hover:bg-white/90">Aktif</Badge>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span>Kuota Terisi</span>
+                      <span className="font-bold">
+                        {filledQuota}/{quota}
+                      </span>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-black/20">
+                      <div
+                        className="h-full bg-white transition-all"
+                        style={{ width: `${Math.min((filledQuota / quota) * 100, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-white/80">Tidak ada periode aktif</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Aksi Cepat */}
           <section>
             <h2 className="mb-3 text-lg font-bold sm:mb-4 sm:text-xl">Aksi Cepat</h2>
             <Card>
               <CardContent className="grid grid-cols-2 gap-2 p-3 sm:p-4">
-                {quickActions.map((action) => (
+                {[
+                  { label: "Verifikasi SPMB", icon: Clock, href: "/admin/siswa?tab=spmb", color: "bg-purple-100 text-purple-600", badge: safeStats.pending || 0 },
+                  { label: "Kelola Periode", icon: Calendar, href: "/admin/siswa?tab=spmb&sub=periods", color: "bg-blue-100 text-blue-600" },
+                  { label: "Peminjaman Buku", icon: BookOpen, href: "/perpustakaan/peminjaman", color: "bg-amber-100 text-amber-600" },
+                  { label: "Transaksi Tabungan", icon: Wallet, href: "/kiosk-kelas", color: "bg-emerald-100 text-emerald-600" },
+                ].map((action) => (
                   <Button
                     key={action.label}
                     asChild
@@ -427,115 +465,39 @@ export function OverviewClient({
               </CardContent>
             </Card>
           </section>
-
-          <section>
-            <h2 className="mb-3 flex items-center gap-2 text-lg font-bold sm:mb-4 sm:text-xl">
-              <Activity className="h-5 w-5" />
-              Aktivitas Terkini
-            </h2>
-            <Card>
-              <CardContent className="p-4">
-                <ScrollArea className="h-[200px]">
-                  {recentActivities.length === 0 ? (
-                    <div className="flex h-full flex-col items-center justify-center text-muted-foreground">
-                      <CheckCircle2 className="mb-2 h-8 w-8 text-emerald-500" />
-                      <p className="text-sm">Semua berjalan lancar.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {recentActivities.map((activity) => (
-                        <div key={activity.id} className="flex gap-3 rounded-md p-2 transition-colors hover:bg-muted/50">
-                          <div className={`rounded-md bg-muted p-2 ${activity.color}`}>
-                            <activity.icon className="h-4 w-4" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-medium">{activity.title}</p>
-                            <p className="text-xs text-muted-foreground">{activity.description}</p>
-                          </div>
-                          <span className="whitespace-nowrap text-xs text-muted-foreground">{activity.time}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </section>
-
-          <Card className="border-primary/20 bg-primary text-primary-foreground">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Info className="h-5 w-5" />
-                Info Periode SPMB
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {activePeriod ? (
-                <>
-                  <div className="flex items-center justify-between border-b border-white/20 pb-2">
-                    <span className="text-sm text-white/80">{activePeriod.name}</span>
-                    <Badge className="bg-white text-primary hover:bg-white/90">Aktif</Badge>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-sm">
-                      <span>Kuota Terisi</span>
-                      <span className="font-bold">{filledQuota}/{quota}</span>
-                    </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-black/20">
-                      <div
-                        className="h-full bg-white transition-all"
-                        style={{ width: `${Math.min((filledQuota / quota) * 100, 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <p className="text-sm text-white/80">Tidak ada periode aktif</p>
-              )}
-            </CardContent>
-          </Card>
         </div>
       </div>
+
+      {/* ── Status sistem: satu strip tenang di bawah ── */}
+      <SystemHealthStrip health={serverHealth} />
     </div>
   );
 }
 
-function ServerHealthDisplay({ health }: { health: ServerHealth }) {
+function SystemHealthStrip({ health }: { health: ServerHealth }) {
   if (!health) return null;
 
   const isHealthy = health.database?.status === "Online";
-  const lastBackup = health.backup?.last_backup ? formatDateValue(health.backup.last_backup) : "Belum ada";
+  const lastBackup = health.backup?.last_backup ? formatDateValue(health.backup.last_backup) : "—";
 
   return (
-    <Card className="border-zinc-800 bg-zinc-900 text-white">
-      <CardContent className="flex flex-col gap-4 p-4 sm:p-6 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-3 sm:gap-4">
-          <div className={`rounded-full p-2.5 ${isHealthy ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"}`}>
-            <Activity className="h-5 w-5 sm:h-6 sm:w-6" />
-          </div>
-          <div>
-            <h3 className="text-base font-bold sm:text-lg">Status Sistem: {isHealthy ? "Sehat" : "Perlu Cek"}</h3>
-            <p className="text-sm text-zinc-400">
-              Uptime: {health.system?.uptime_seconds ? (health.system.uptime_seconds / 3600).toFixed(1) : "0"} jam
-            </p>
-          </div>
-        </div>
-
-        <div className="grid w-full grid-cols-3 gap-3 text-xs sm:text-sm md:w-auto md:gap-8">
-          <div>
-            <p className="text-zinc-400">Database</p>
-            <p className="font-mono font-bold">{health.database?.formatted_size || "N/A"}</p>
-          </div>
-          <div>
-            <p className="text-zinc-400">RAM</p>
-            <p className="font-mono font-bold">{(health.system?.memory_usage_mb || 0).toFixed(1)} MB</p>
-          </div>
-          <div>
-            <p className="text-zinc-400">Backup</p>
-            <p className="font-mono font-bold">{lastBackup}</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="flex flex-col items-start justify-between gap-2 rounded-lg border px-4 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center">
+      <span className="flex items-center gap-1.5">
+        <Activity className={`h-3.5 w-3.5 ${isHealthy ? "text-emerald-500" : "text-amber-500"}`} />
+        Sistem {isHealthy ? "sehat" : "perlu dicek"} &middot; Uptime{" "}
+        {health.system?.uptime_seconds ? (health.system.uptime_seconds / 3600).toFixed(1) : "0"} jam
+      </span>
+      <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <span className="flex items-center gap-1.5">
+          <Database className="h-3.5 w-3.5" />
+          DB {health.database?.formatted_size || "N/A"}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <HardDrive className="h-3.5 w-3.5" />
+          RAM {(health.system?.memory_usage_mb || 0).toFixed(1)} MB
+        </span>
+        <span>Backup: {lastBackup}</span>
+      </span>
+    </div>
   );
 }

@@ -33,6 +33,7 @@ func setupSettingTestDB(t *testing.T) *sql.DB {
 			current_academic_year TEXT,
 			principal_name TEXT,
 			principal_nip TEXT,
+			school_stamp TEXT,
 			supervisor_name TEXT,
 			supervisor_nip TEXT,
 			is_maintenance BOOLEAN DEFAULT 0,

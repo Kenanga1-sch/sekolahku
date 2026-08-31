@@ -142,9 +142,20 @@ export default function CetakSuratUmumPage() {
           dangerouslySetInnerHTML={{ __html: sanitizeHTML(data.htmlContent) || "<p>Isi surat kosong.</p>" }}
         />
 
-        {/* TANDA TANGAN */}
+        {/* TANDA TANGAN + STEMPEL */}
         <div className="mt-16 flex justify-end">
-          <div className="w-[300px] text-center text-sm">
+          <div className="w-[300px] text-center text-sm relative">
+            {/* Stempel sekolah sebagai layer terpisah di belakang TTD */}
+            {s?.school_stamp && (
+              <Image
+                src={s.school_stamp}
+                alt="Stempel Sekolah"
+                width={180}
+                height={180}
+                className="absolute left-1/2 -translate-x-1/2 top-2 object-contain opacity-80 mix-blend-multiply pointer-events-none"
+                unoptimized
+              />
+            )}
             <div>Kepala Sekolah</div>
             <div className="h-24 flex items-center justify-center">
               {data.digitalSignature ? (
@@ -154,6 +165,7 @@ export default function CetakSuratUmumPage() {
                   width={150} 
                   height={80} 
                   className="object-contain mix-blend-multiply" 
+                  unoptimized
                 />
               ) : (
                 <div className="text-xs text-gray-400 italic">(Belum Ditandatangani)</div>

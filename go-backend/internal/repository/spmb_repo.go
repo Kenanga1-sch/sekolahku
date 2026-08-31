@@ -888,13 +888,13 @@ func (r *SPMBRepository) PromoteToStudent(registrantID string, req models.SPMBPr
 			id, nik, nisn, full_name, gender, birth_place, birth_date, religion,
 			address, father_name, father_nik, mother_name, mother_nik,
 			guardian_name, guardian_nik, guardian_job, parent_phone,
-			class_id, class_name, status, is_active, enrolled_at, created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 1, ?, ?, ?)
+			class_id, class_name, status, qr_code, is_active, enrolled_at, created_at, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, 1, ?, ?, ?)
 	`,
 		studentID, reg.StudentNIK, reg.NISN, reg.FullName, reg.Gender, reg.BirthPlace, reg.BirthDate, reg.Religion,
 		reg.HomeAddress, reg.FatherName, reg.FatherNIK, reg.MotherName, reg.MotherNIK,
 		reg.GuardianName, reg.GuardianNIK, reg.GuardianJob, reg.ParentPhone,
-		req.ClassID, className.String, now, now, now,
+		req.ClassID, className.String, NewStudentQRCode(nil, studentID), now, now, now,
 	)
 	if err != nil {
 		return err

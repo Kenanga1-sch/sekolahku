@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"strings"
 	"testing"
 
 	"github.com/sekolahku/go-backend/internal/models"
@@ -151,5 +152,63 @@ func TestStudentRepositoryGetStudentsByIDsFallbacksAndOrder(t *testing.T) {
 	}
 	if result[1].QRCode != "student-1" {
 		t.Fatalf("expected empty QR code to fall back to student ID, got %q", result[1].QRCode)
+	}
+}
+
+func TestNewStudentQRCode(t *testing.T) {
+	nisn := "0099123456"
+	if got := NewStudentQRCode(&nisn, "stu-1"); got != "STU-0099123456" {
+		t.Fatalf("expected STU-0099123456, got %q", got)
+	}
+	if got := NewStudentQRCode(nil, "stu-abc"); got != "STU-STU-ABC" {
+		t.Fatalf("expected STU-STU-ABC, got %q", got)
+	}
+	empty := "  "
+	if got := NewStudentQRCode(&empty, "stu-x"); got != "STU-STU-X" {
+		t.Fatalf("expected fallback for blank NISN, got %q", got)
+	}
+}
+
+func TestBackfillStudentQRCodes(t *testing.T) {
+	db := setupStudentTestDB(t)
+	defer db.Close()
+
+	_, err := db.Exec(`
+		INSERT INTO students (id, nisn, full_name, status, is_active, qr_code) VALUES
+			('s-no-qr', '0099111111', 'Tanpa QR', 'active', 1, NULL),
+			('s-has-qr', '0099222222', 'Sudah Ada', 'active', 1, 'STU-KEEP'),
+			('s-blank-qr', NULL, 'QR Kosong', 'active', 1, '   ');
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	filled, err := BackfillStudentQRCodes(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filled != 2 {
+		t.Fatalf("expected 2 backfilled, got %d", filled)
+	}
+
+	var qr1, qr2, qr3 string
+	db.QueryRow("SELECT qr_code FROM students WHERE id = 's-no-qr'").Scan(&qr1)
+	db.QueryRow("SELECT qr_code FROM students WHERE id = 's-has-qr'").Scan(&qr2)
+	db.QueryRow("SELECT qr_code FROM students WHERE id = 's-blank-qr'").Scan(&qr3)
+
+	if qr1 != "STU-0099111111" {
+		t.Fatalf("expected STU-0099111111, got %q", qr1)
+	}
+	if qr2 != "STU-KEEP" {
+		t.Fatalf("existing QR must be preserved, got %q", qr2)
+	}
+	if !strings.HasPrefix(qr3, "STU-") {
+		t.Fatalf("blank QR should get STU- prefix, got %q", qr3)
+	}
+
+	// Idempotent
+	filled, err = BackfillStudentQRCodes(db)
+	if err != nil || filled != 0 {
+		t.Fatalf("second run should fill 0, got %d (err=%v)", filled, err)
 	}
 }

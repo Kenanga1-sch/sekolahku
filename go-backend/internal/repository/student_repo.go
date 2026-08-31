@@ -32,6 +32,42 @@ func cleanStudentStringPtr(value *string) *string {
 	return &trimmed
 }
 
+// StudentQRCodePrefix adalah namespace QR siswa. Namespace ini memastikan
+// QR siswa tidak pernah bentrok dengan QR aset perpustakaan ("BK-") maupu
+// identifier lain. Satu QR ini terbaca di semua modul (perpustakaan,
+// tabungan, presensi) karena students.qr_code adalah single source of truth.
+const StudentQRCodePrefix = "STU-"
+
+// NewStudentQRCode menghasilkan QR unik untuk siswa baru.
+// Format profesional: STU-{NISN} — stabil seumur hidup siswa (NISN unik
+// secara nasional & dijamin UNIQUE oleh constraint DB), mudah diaudit manual.
+// Fallback STU-{cuid} untuk siswa tanpa NISN (mis. belum verifikasi dokumen).
+func NewStudentQRCode(nisn *string, studentID string) string {
+	if nisn != nil {
+		if n := strings.TrimSpace(*nisn); n != "" {
+			return StudentQRCodePrefix + n
+		}
+	}
+	return StudentQRCodePrefix + strings.ToUpper(studentID)
+}
+
+// BackfillStudentQRCodes mengisi QR untuk siswa yang belum punya (data lama
+// sebelum QR wajib). Idempotent — aman dijalankan berulang. Dipanggil saat
+// startup API.
+func BackfillStudentQRCodes(db *sql.DB) (int, error) {
+	res, err := db.Exec(`
+		UPDATE students
+		SET qr_code = ? || COALESCE(NULLIF(TRIM(nisn), ''), UPPER(id)),
+		    updated_at = ?
+		WHERE qr_code IS NULL OR TRIM(qr_code) = ''
+	`, StudentQRCodePrefix, time.Now().UnixMilli())
+	if err != nil {
+		return 0, err
+	}
+	n, _ := res.RowsAffected()
+	return int(n), nil
+}
+
 func mergeStudentDefaults(next *models.Student, existing *models.Student) {
 	next.FullName = strings.TrimSpace(next.FullName)
 	next.NIK = cleanStudentStringPtr(next.NIK)
@@ -426,9 +462,11 @@ func (r *StudentRepository) CreateStudent(s models.Student) (string, error) {
 	if s.ID == "" {
 		s.ID = cuid2.Generate()
 	}
+	// QR siswa: namespace STU- agar tidak bentrok dengan QR aset (BK-).
+	// Diisi otomatis bila tidak disediakan; tetap satu QR untuk semua modul.
 	if s.QRCode == "" {
-		s.QRCode = s.ID
-	} // Simplified QR for now
+		s.QRCode = NewStudentQRCode(s.NISN, s.ID)
+	}
 	now := time.Now().UnixMilli()
 
 	if err := r.checkDuplicateNISAndNISN("", s.NIS, s.NISN); err != nil {
@@ -796,7 +834,7 @@ func (r *StudentRepository) GetClasses() ([]models.StudentClassItem, error) {
 }
 
 func (r *StudentRepository) SimpleSearch(query, className string) ([]models.Student, error) {
-	sqlQuery := "SELECT id, full_name, nis, nisn, class_name, gender, birth_place, birth_date, parent_name, guardian_name, parent_phone, address FROM students WHERE status = 'active'"
+	sqlQuery := "SELECT id, full_name, nis, nisn, class_name, gender, birth_place, birth_date, nik, religion, father_name, mother_name, parent_name, guardian_name, parent_phone, address FROM students WHERE status = 'active'"
 	args := []interface{}{}
 
 	if query != "" {
@@ -821,8 +859,8 @@ func (r *StudentRepository) SimpleSearch(query, className string) ([]models.Stud
 	var students []models.Student
 	for rows.Next() {
 		var s models.Student
-		var nis, nisn, cName, gender, bPlace, bDate, pName, guardianName, parentPhone, addr sql.NullString
-		err := rows.Scan(&s.ID, &s.FullName, &nis, &nisn, &cName, &gender, &bPlace, &bDate, &pName, &guardianName, &parentPhone, &addr)
+		var nis, nisn, cName, gender, bPlace, bDate, nik, religion, fatherName, motherName, pName, guardianName, parentPhone, addr sql.NullString
+		err := rows.Scan(&s.ID, &s.FullName, &nis, &nisn, &cName, &gender, &bPlace, &bDate, &nik, &religion, &fatherName, &motherName, &pName, &guardianName, &parentPhone, &addr)
 		if err != nil {
 			return nil, err
 		}
@@ -843,6 +881,18 @@ func (r *StudentRepository) SimpleSearch(query, className string) ([]models.Stud
 		}
 		if bDate.Valid {
 			s.BirthDate = &bDate.String
+		}
+		if nik.Valid {
+			s.NIK = &nik.String
+		}
+		if religion.Valid {
+			s.Religion = &religion.String
+		}
+		if fatherName.Valid {
+			s.FatherName = &fatherName.String
+		}
+		if motherName.Valid {
+			s.MotherName = &motherName.String
 		}
 		if pName.Valid {
 			s.ParentName = &pName.String

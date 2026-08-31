@@ -12,7 +12,10 @@ import {
     ArrowRight,
     ArrowLeft,
     Download,
-    Loader2
+    Loader2,
+    CheckCircle2,
+    Archive,
+    ArchiveRestore
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +39,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import JSZip from "jszip";
 import { formatDate, normalizePublicPath, extractFilename } from "@/lib/utils";
-import { goGet } from "@/lib/api-client";
+import { goGet, goPost } from "@/lib/api-client";
 
 interface SuratMasuk {
     id: string;
@@ -58,6 +61,20 @@ export default function SuratMasukPage() {
     const [totalPages, setTotalPages] = useState(1);
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [downloadingBatch, setDownloadingBatch] = useState(false);
+    const [actingId, setActingId] = useState<string | null>(null);
+
+    const handleStatusChange = async (id: string, status: "Selesai" | "Arsip") => {
+        setActingId(id);
+        try {
+            await goPost(`/api/arsip/surat-masuk/status?id=${id}`, { status });
+            toast.success(`Surat ditandai ${status.toLowerCase()}`);
+            loadData();
+        } catch {
+            toast.error("Gagal mengubah status surat");
+        } finally {
+            setActingId(null);
+        }
+    };
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -345,6 +362,33 @@ export default function SuratMasukPage() {
                                                         Detail & Disposisi
                                                     </Link>
                                                 </DropdownMenuItem>
+                                                {(item.status === "Terdisposisi" || item.status === "Menunggu Disposisi") && (
+                                                    <DropdownMenuItem
+                                                        onClick={(e) => { e.stopPropagation(); handleStatusChange(item.id, "Selesai"); }}
+                                                        disabled={actingId === item.id}
+                                                    >
+                                                        <CheckCircle2 className="h-4 w-4 mr-2 text-green-600" />
+                                                        Tandai Selesai
+                                                    </DropdownMenuItem>
+                                                )}
+                                                {item.status !== "Arsip" && (
+                                                    <DropdownMenuItem
+                                                        onClick={(e) => { e.stopPropagation(); handleStatusChange(item.id, "Arsip"); }}
+                                                        disabled={actingId === item.id}
+                                                    >
+                                                        <Archive className="h-4 w-4 mr-2 text-slate-600" />
+                                                        Arsipkan
+                                                    </DropdownMenuItem>
+                                                )}
+                                                {item.status === "Arsip" && (
+                                                    <DropdownMenuItem
+                                                        onClick={(e) => { e.stopPropagation(); handleStatusChange(item.id, "Selesai"); }}
+                                                        disabled={actingId === item.id}
+                                                    >
+                                                        <ArchiveRestore className="h-4 w-4 mr-2 text-blue-600" />
+                                                        Buka dari Arsip
+                                                    </DropdownMenuItem>
+                                                )}
                                                 {item.filePath && (
                                                     <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDownloadSingle(item); }}>
                                                         <Download className="h-4 w-4 mr-2" />

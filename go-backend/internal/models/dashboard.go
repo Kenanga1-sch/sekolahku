@@ -1,12 +1,14 @@
 package models
 
 type DashboardStats struct {
-	Success           bool                     `json:"success"`
-	SPMB              SPMBStats                `json:"spmb"`
-	ModuleStats       ModuleStats              `json:"moduleStats"`
-	RegistrationTrend []RegistrationTrendPoint `json:"registrationTrend"`
-	RecentRegistrants []SPMBRegistrant         `json:"recentRegistrants"`
-	ActivePeriod      *SPMBPeriod              `json:"activePeriod"`
+	Success             bool                     `json:"success"`
+	SPMB                SPMBStats                `json:"spmb"`
+	ModuleStats         ModuleStats              `json:"moduleStats"`
+	TotalActiveStudents int                      `json:"totalActiveStudents"`
+	PresensiHariIni     int                      `json:"presensiHariIni"`
+	RegistrationTrend   []RegistrationTrendPoint `json:"registrationTrend"`
+	RecentRegistrants   []SPMBRegistrant         `json:"recentRegistrants"`
+	ActivePeriod        *SPMBPeriod              `json:"activePeriod"`
 }
 
 type RegistrationTrendPoint struct {
@@ -36,6 +38,7 @@ type TabunganStats struct {
 	TotalSaldo        float64 `json:"totalSaldo"`
 	TotalStudents     int     `json:"totalStudents"`
 	TodayTransactions int     `json:"todayTransactions"`
+	PendingSetoran    int     `json:"pendingSetoran"`
 }
 
 type SystemHealth struct {
