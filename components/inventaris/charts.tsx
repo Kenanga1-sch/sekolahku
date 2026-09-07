@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { goGet } from "@/lib/api-client";
+import { useWidgetData, WidgetError } from "./use-widget-data";
 
-// Types for API response
+// Types for API response — sinkron dengan
+// go-backend/internal/repository/inventory_repo.go (CategoryDistributionItem /
+// ConditionBreakdownItem)
 interface CategoryDistributionItem {
     name: string;
     value: number;
@@ -50,22 +51,10 @@ const Legend = dynamic(
 // ==========================================
 
 export function CategoryChart() {
-    const [data, setData] = useState<CategoryDistributionItem[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        async function loadData() {
-            try {
-                const dist: any = await goGet("/api/inventaris/data?type=category-distribution");
-                setData(dist);
-            } catch {
-                // Fail silently
-            } finally {
-                setLoading(false);
-            }
-        }
-        loadData();
-    }, []);
+    const { data, loading, error, reload } = useWidgetData<CategoryDistributionItem[]>(
+        "/api/inventory/data?type=category-distribution",
+        []
+    );
 
     if (loading) {
         return (
@@ -88,7 +77,9 @@ export function CategoryChart() {
                 <CardTitle className="text-lg font-semibold">Distribusi Kategori</CardTitle>
             </CardHeader>
             <CardContent>
-                {!hasData ? (
+                {error ? (
+                    <WidgetError message={error} onRetry={reload} />
+                ) : !hasData ? (
                     <div className="h-[250px] flex items-center justify-center text-muted-foreground">
                         <p>Belum ada data aset</p>
                     </div>
@@ -132,22 +123,10 @@ export function CategoryChart() {
 // ==========================================
 
 export function ConditionChart() {
-    const [data, setData] = useState<ConditionBreakdownItem[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        async function loadData() {
-            try {
-                const breakdown: any = await goGet("/api/inventaris/data?type=condition-breakdown");
-                setData(breakdown);
-            } catch {
-                // Fail silently
-            } finally {
-                setLoading(false);
-            }
-        }
-        loadData();
-    }, []);
+    const { data, loading, error, reload } = useWidgetData<ConditionBreakdownItem[]>(
+        "/api/inventory/data?type=condition-breakdown",
+        []
+    );
 
     if (loading) {
         return (
@@ -171,7 +150,9 @@ export function ConditionChart() {
                 <CardTitle className="text-lg font-semibold">Kondisi Barang</CardTitle>
             </CardHeader>
             <CardContent>
-                {!hasData ? (
+                {error ? (
+                    <WidgetError message={error} onRetry={reload} />
+                ) : !hasData ? (
                     <div className="h-[250px] flex items-center justify-center text-muted-foreground">
                         <p>Belum ada data kondisi</p>
                     </div>

@@ -40,7 +40,6 @@ import { goGet, goPost } from "@/lib/api-client";
 export default function BarangKeluarPage() {
   const router = useRouter();
   const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [openCombobox, setOpenCombobox] = useState(false);
   
@@ -56,10 +55,8 @@ export default function BarangKeluarPage() {
       try {
         const response: any = await goGet("/api/inventory/items?limit=100");
         setItems(response.items || response.data || []);
-      } catch (err) {
+      } catch {
         toast.error("Gagal memuat daftar barang");
-      } finally {
-        setLoading(false);
       }
     };
     loadItems();
@@ -105,8 +102,8 @@ export default function BarangKeluarPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
        <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" onClick={() => router.back()} className="border-slate-200 bg-white shadow-sm hover:bg-slate-50">
-           <ArrowLeft className="h-4 w-4" />
+        <Button variant="outline" size="icon" onClick={() => router.back()} className="border-slate-200 bg-white shadow-sm hover:bg-slate-50" aria-label="Kembali">
+           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         </Button>
         <div>
            <h1 className="text-2xl font-bold tracking-tight">Input Barang Keluar</h1>
@@ -130,7 +127,7 @@ export default function BarangKeluarPage() {
             <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Item Selection */}
                <div className="space-y-2">
-                 <Label>Pilih Barang <span className="text-red-500">*</span></Label>
+                 <Label htmlFor="pilih-barang">Pilih Barang <span className="text-red-500">*</span></Label>
                  <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
                     <PopoverTrigger asChild>
                       <Button
@@ -193,10 +190,10 @@ export default function BarangKeluarPage() {
                   </div>
                )}
 
-               <div className="grid grid-cols-2 gap-4">
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                     <Label>Jumlah Keluar <span className="text-red-500">*</span></Label>
-                     <Input 
+                     <Label htmlFor="jumlah-keluar">Jumlah Keluar <span className="text-red-500">*</span></Label>
+                     <Input id="pilih-barang" 
                         type="number" 
                         min="1" 
                         max={selectedItem?.currentStock}
@@ -207,8 +204,8 @@ export default function BarangKeluarPage() {
                      />
                   </div>
                   <div className="space-y-2">
-                     <Label>Tanggal</Label>
-                     <Input 
+                     <Label htmlFor="tanggal">Tanggal</Label>
+                     <Input id="tanggal" 
                         type="date"
                         value={date}
                         onChange={(e) => setDate(e.target.value)}
@@ -217,7 +214,7 @@ export default function BarangKeluarPage() {
                </div>
 
                <div className="space-y-2">
-                  <Label>Nama Pengambil / Penerima</Label>
+                  <Label htmlFor="nama-pengambil-penerima">Nama Pengambil / Penerima</Label>
                   <div className="relative">
                       <User className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                       <Input 
@@ -230,8 +227,8 @@ export default function BarangKeluarPage() {
                </div>
 
                <div className="space-y-2">
-                  <Label>Keterangan / Keperluan</Label>
-                  <Textarea 
+                  <Label htmlFor="keterangan-keperluan">Keterangan / Keperluan</Label>
+                  <Textarea id="nama-pengambil-penerima" 
                      placeholder="Contoh: Keperluan Kelas 1A, Ujian Sekolah, dll."
                      value={description}
                      onChange={(e) => setDescription(e.target.value)}

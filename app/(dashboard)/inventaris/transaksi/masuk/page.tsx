@@ -102,8 +102,8 @@ export default function BarangMasukPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
        <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" onClick={() => router.back()} className="border-slate-200 bg-white shadow-sm hover:bg-slate-50">
-           <ArrowLeft className="h-4 w-4" />
+        <Button variant="outline" size="icon" onClick={() => router.back()} className="border-slate-200 bg-white shadow-sm hover:bg-slate-50" aria-label="Kembali">
+           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         </Button>
         <div>
            <h1 className="text-2xl font-bold tracking-tight">Input Barang Masuk</h1>
@@ -127,7 +127,7 @@ export default function BarangMasukPage() {
             <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Item Selection */}
                <div className="space-y-2">
-                 <Label>Pilih Barang <span className="text-red-500">*</span></Label>
+                 <Label htmlFor="pilih-barang">Pilih Barang <span className="text-red-500">*</span></Label>
                  <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
                     <PopoverTrigger asChild>
                       <Button
@@ -183,10 +183,10 @@ export default function BarangMasukPage() {
                   </div>
                )}
 
-               <div className="grid grid-cols-2 gap-4">
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                     <Label>Jumlah Masuk <span className="text-red-500">*</span></Label>
-                     <Input 
+                     <Label htmlFor="jumlah-masuk">Jumlah Masuk <span className="text-red-500">*</span></Label>
+                     <Input id="pilih-barang" 
                         type="number" 
                         min="1" 
                         placeholder="0" 
@@ -196,8 +196,8 @@ export default function BarangMasukPage() {
                      />
                   </div>
                   <div className="space-y-2">
-                     <Label>Tanggal</Label>
-                     <Input 
+                     <Label htmlFor="tanggal">Tanggal</Label>
+                     <Input id="tanggal" 
                         type="date"
                         value={date}
                         onChange={(e) => setDate(e.target.value)}
@@ -206,8 +206,8 @@ export default function BarangMasukPage() {
                </div>
 
                <div className="space-y-2">
-                  <Label>Keterangan / Sumber</Label>
-                  <Textarea 
+                  <Label htmlFor="keterangan-sumber">Keterangan / Sumber</Label>
+                  <Textarea id="keterangan-sumber" 
                      placeholder="Contoh: Pembelian dari Toko ABC, Dana BOS, dll."
                      value={description}
                      onChange={(e) => setDescription(e.target.value)}

@@ -2,8 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import {
-    FileText,
-    Search,
     Download,
     Filter,
     History,
@@ -12,22 +10,11 @@ import {
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { goGet } from "@/lib/api-client";
-import { Input } from "@/components/ui/input";
 import {
     Card,
     CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
 } from "@/components/ui/card";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+import { DataTable, TablePagination } from "@/components/data-table";
 import {
     Select,
     SelectContent,
@@ -36,7 +23,8 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import type { InventoryAudit, AuditAction, AuditEntity } from "@/types/inventory";
+import type { InventoryAudit } from "@/types/inventory";
+import { recordCreatedAt } from "@/types/inventory";
 
 const ACTION_COLORS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
     CREATE: "default",
@@ -52,6 +40,7 @@ export default function AuditLogPage() {
     const [entityFilter, setEntityFilter] = useState<string>("all");
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
 
     const loadLogs = useCallback(async () => {
         setLoading(true);
@@ -68,6 +57,7 @@ export default function AuditLogPage() {
             if (!result.error) {
                 setLogs(result.items || result.data || []);
                 setTotalPages(result.totalPages || 1);
+                setTotalItems(result.totalItems ?? 0);
             }
         } catch (error) {
             console.error("Failed to load audit logs:", error);
@@ -100,14 +90,46 @@ export default function AuditLogPage() {
         if (!Array.isArray(parsed) || parsed.length === 0) return "-";
         return parsed.map(c => c.field).join(", ");
     };
+    const changesText = (log: InventoryAudit): string => {
+        const c = log.changes as unknown;
+        if (!c) return "";
+        if (typeof c === "string") return c;
+        const arr = c as { field?: string; oldValue?: unknown; newValue?: unknown }[];
+        if (Array.isArray(arr)) {
+            return arr.map(ch => `${ch.field ?? ""}: ${String(ch.oldValue ?? "-")} → ${String(ch.newValue ?? "-")}`).join("; ");
+        }
+        return JSON.stringify(c);
+    };
+
+    const handleExportCSV = () => {
+        const header = ["Waktu", "Aksi", "Entitas", "ID Entitas", "User", "Perubahan"];
+        const rows = logs.map(log => [
+            recordCreatedAt(log) ?? "",
+            log.action ?? "",
+            log.entity ?? "",
+            log.entity_id ?? "",
+            log.expand?.user?.name ?? log.user_id ?? "",
+            changesText(log).replace(/[\n;]/g, " "),
+        ]);
+        const csv = [header, ...rows]
+            .map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(";"))
+            .join("\n");
+        const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `log-aktivitas-inventaris-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
 
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <Link href="/inventaris">
-                        <Button variant="outline" size="icon" className="h-8 w-8 border-slate-200 bg-white shadow-sm hover:bg-slate-50">
-                            <ArrowLeft className="h-4 w-4" />
+                        <Button variant="outline" size="icon" className="h-8 w-8 border-slate-200 bg-white shadow-sm hover:bg-slate-50" aria-label="Kembali"><ArrowLeft className="h-4 w-4" aria-hidden="true" />
                         </Button>
                     </Link>
                     <div>
@@ -117,7 +139,12 @@ export default function AuditLogPage() {
                         </p>
                     </div>
                 </div>
-                <Button variant="outline" className="gap-2">
+                <Button
+                    variant="outline"
+                    className="gap-2"
+                    onClick={handleExportCSV}
+                    disabled={logs.length === 0}
+                >
                     <Download className="h-4 w-4" />
                     Export CSV
                 </Button>
@@ -125,9 +152,9 @@ export default function AuditLogPage() {
 
             <Card>
                 <CardContent className="p-4">
-                    <div className="flex gap-4">
+                    <div className="flex flex-col sm:flex-row gap-4">
                         <Select value={actionFilter} onValueChange={setActionFilter}>
-                            <SelectTrigger className="w-[180px]">
+                            <SelectTrigger className="w-full sm:w-[180px]">
                                 <Filter className="h-4 w-4 mr-2" />
                                 <SelectValue placeholder="Filter Aksi" />
                             </SelectTrigger>
@@ -141,7 +168,7 @@ export default function AuditLogPage() {
                         </Select>
 
                         <Select value={entityFilter} onValueChange={setEntityFilter}>
-                            <SelectTrigger className="w-[180px]">
+                            <SelectTrigger className="w-full sm:w-[180px]">
                                 <History className="h-4 w-4 mr-2" />
                                 <SelectValue placeholder="Filter Entitas" />
                             </SelectTrigger>
@@ -157,91 +184,91 @@ export default function AuditLogPage() {
                 </CardContent>
             </Card>
 
-            <Card>
-                <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Waktu</TableHead>
-                                <TableHead>User</TableHead>
-                                <TableHead>Aksi</TableHead>
-                                <TableHead>Entitas</TableHead>
-                                <TableHead>Perubahan</TableHead>
-                                <TableHead>Detail</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {loading ? (
-                                <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-8">
-                                        Memuat...
-                                    </TableCell>
-                                </TableRow>
-                            ) : logs.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                                        Tidak ada data log.
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                logs.map((log) => (
-                                    <TableRow key={log.id}>
-                                        <TableCell className="text-sm">
-                                            {formatDate(log.created)}
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs">
-                                                    {log.expand?.user?.name?.[0] || "?"}
-                                                </div>
-                                                <span className="text-sm">{log.expand?.user?.name || "System"}</span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant={ACTION_COLORS[log.action] || "default" as any}>
-                                                {log.action}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <span className="font-mono text-xs">{log.entity}</span>
-                                            <span className="text-xs text-muted-foreground ml-2">#{log.entity_id.slice(0, 5)}</span>
-                                        </TableCell>
-                                        <TableCell className="text-sm max-w-[200px] truncate">
-                                            {getChangesSummary(log.changes)}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Button variant="ghost" size="sm">
-                                                View
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+            <DataTable
+                data={loading ? [] : logs}
+                getRowId={(log) => log.id}
+                loading={loading}
+                emptyTitle="Tidak ada data log."
+                emptyDescription="Aktivitas perubahan data inventaris akan tercatat di sini."
+                columns={[
+                    {
+                        key: "created",
+                        header: "Waktu",
+                        card: "field",
+                        render: (log) => (
+                            <span className="text-sm">
+                                {formatDate(recordCreatedAt(log) ?? "")}
+                            </span>
+                        ),
+                    },
+                    {
+                        key: "user",
+                        header: "User",
+                        card: "title",
+                        render: (log) => (
+                            <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs">
+                                    {log.expand?.user?.name?.[0] || "?"}
+                                </div>
+                                <span className="text-sm">{log.expand?.user?.name || "System"}</span>
+                            </div>
+                        ),
+                    },
+                    {
+                        key: "action",
+                        header: "Aksi",
+                        card: "field",
+                        render: (log) => (
+                            <Badge variant={ACTION_COLORS[log.action] || "default" as any}>
+                                {log.action}
+                            </Badge>
+                        ),
+                    },
+                    {
+                        key: "entity",
+                        header: "Entitas",
+                        card: "hidden",
+                        render: (log) => (
+                            <div>
+                                <span className="font-mono text-xs">{log.entity}</span>
+                                <span className="text-xs text-muted-foreground ml-2">#{log.entity_id.slice(0, 5)}</span>
+                            </div>
+                        ),
+                    },
+                    {
+                        key: "changes",
+                        header: "Perubahan",
+                        card: "field",
+                        render: (log) => (
+                            <span className="text-sm max-w-[200px] truncate block">
+                                {getChangesSummary(log.changes)}
+                            </span>
+                        ),
+                    },
+                    {
+                        key: "detail",
+                        header: "Detail",
+                        card: "hidden",
+                        render: (log) => {
+                            const detail = changesText(log);
+                            if (!detail) return null;
+                            return (
+                                <span className="text-xs text-muted-foreground max-w-[280px] truncate" title={detail}>
+                                    {detail}
+                                </span>
+                            );
+                        },
+                    },
+                ]}
+            />
 
-            {totalPages > 1 && (
-                <div className="flex justify-center gap-2">
-                    <Button
-                        variant="outline"
-                        disabled={page === 1}
-                        onClick={() => setPage(page - 1)}
-                    >
-                        Previous
-                    </Button>
-                    <span className="py-2 px-4 text-sm text-muted-foreground">
-                        Page {page} of {totalPages}
-                    </span>
-                    <Button
-                        variant="outline"
-                        disabled={page === totalPages}
-                        onClick={() => setPage(page + 1)}
-                    >
-                        Next
-                    </Button>
-                </div>
+            {!loading && logs.length > 0 && (
+                <TablePagination
+                    page={page}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                    label={`${totalItems} log`}
+                />
             )}
         </div>
     );

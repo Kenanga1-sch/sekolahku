@@ -37,6 +37,10 @@ func (h *InventoryHandler) GetRoom(c echo.Context) error {
 }
 
 func (h *InventoryHandler) CreateRoom(c echo.Context) error {
+	// Ruangan baru (termasuk menentukan PIC) hanya oleh admin
+	if err := h.ensureAdmin(c); err != nil {
+		return err
+	}
 	var req models.CreateInventoryRoomRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid payload"})
@@ -54,9 +58,16 @@ func (h *InventoryHandler) CreateRoom(c echo.Context) error {
 
 func (h *InventoryHandler) UpdateRoom(c echo.Context) error {
 	id := c.Param("id")
+	// PIC boleh menyunting info ruangannya; mengganti PIC hanya admin
+	if err := h.ensureRoomScope(c, id); err != nil {
+		return err
+	}
 	var req models.CreateInventoryRoomRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid payload"})
+	}
+	if !h.isAdmin(c) {
+		req.PICID = nil // PIC tidak boleh mengalihkan tanggung jawab ruangan
 	}
 	room, err := h.Repo.UpdateRoom(id, req)
 	if err != nil {
@@ -67,6 +78,10 @@ func (h *InventoryHandler) UpdateRoom(c echo.Context) error {
 }
 
 func (h *InventoryHandler) DeleteRoom(c echo.Context) error {
+	// Menghapus ruangan hanya oleh admin
+	if err := h.ensureAdmin(c); err != nil {
+		return err
+	}
 	id := c.Param("id")
 	if err := h.Repo.DeleteRoom(id); err != nil {
 		c.Logger().Error("Failed to delete room:", err)

@@ -12,6 +12,13 @@ import (
 //go:embed *.sql
 var migrationFiles embed.FS
 
+// postMigrations menghubungkan versi migrasi dengan tahap lanjutan di Go.
+var postMigrations = map[int]func(*sql.DB) error{
+	// 000034 membuat tabel inventaris "_new" ber-FK; datanya harus disalin dan
+	// tabelnya diganti nama sebelum migrasi 000035 ALTER inventory_items.
+	34: MigrateInventoryData,
+}
+
 func RunMigrations(db *sql.DB) error {
 	// 1. Create migration tracking table
 	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS _migrations (version INTEGER PRIMARY KEY)`)
@@ -115,6 +122,16 @@ func RunMigrations(db *sql.DB) error {
 			return err
 		}
 		log.Printf("Migration %s applied successfully", fName)
+
+		// Sebagian migrasi butuh tahap lanjutan yang tidak bisa ditulis sebagai
+		// SQL statis (SQLite harus me-resolve nama tabel saat parse). Tahap ini
+		// dijalankan SEGERA setelah migrasinya, bukan di akhir, supaya migrasi
+		// berikutnya boleh ALTER tabel yang baru saja di-rename.
+		if finalize, ok := postMigrations[version]; ok {
+			if err := finalize(db); err != nil {
+				return fmt.Errorf("post-migration for %s failed: %w", fName, err)
+			}
+		}
 	}
 
 	return nil

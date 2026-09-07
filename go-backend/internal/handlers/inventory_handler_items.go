@@ -1,27 +1,17 @@
 package handlers
 
 import (
-	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sekolahku/go-backend/internal/models"
-	"github.com/sekolahku/go-backend/internal/repository"
 )
 
 // ============ Items (Stock) CRUD ============
 
 func (h *InventoryHandler) GetItems(c echo.Context) error {
-	page, _ := strconv.Atoi(c.QueryParam("page"))
-	if page < 1 {
-		page = 1
-	}
-	limit, _ := strconv.Atoi(c.QueryParam("limit"))
-	if limit < 1 {
-		limit = 20
-	}
+	page, limit := inventoryPaging(c, 20)
 	search := c.QueryParam("search")
 	category := c.QueryParam("category")
 
@@ -63,6 +53,10 @@ func (h *InventoryHandler) CreateItem(c echo.Context) error {
 	i.Unit = strings.TrimSpace(i.Unit)
 	i.Code = normalizeStringPtr(i.Code)
 	i.Location = normalizeStringPtr(i.Location)
+	// CreateItem sebelumnya tidak punya cek otorisasi apa pun.
+	if err := h.ensureItemLocationScope(c, i.Location); err != nil {
+		return err
+	}
 	if i.Name == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Nama barang wajib diisi"})
 	}
@@ -84,6 +78,10 @@ func (h *InventoryHandler) CreateItem(c echo.Context) error {
 
 func (h *InventoryHandler) UpdateItem(c echo.Context) error {
 	id := c.Param("id")
+	// PIC hanya boleh mengubah barang di ruangannya
+	if err := h.ensureItemScope(c, id); err != nil {
+		return err
+	}
 	var i models.InventoryItem
 	if err := c.Bind(&i); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
@@ -93,6 +91,10 @@ func (h *InventoryHandler) UpdateItem(c echo.Context) error {
 	i.Unit = strings.TrimSpace(i.Unit)
 	i.Code = normalizeStringPtr(i.Code)
 	i.Location = normalizeStringPtr(i.Location)
+	// CreateItem sebelumnya tidak punya cek otorisasi apa pun.
+	if err := h.ensureItemLocationScope(c, i.Location); err != nil {
+		return err
+	}
 	if i.Name == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Nama barang wajib diisi"})
 	}
@@ -117,6 +119,10 @@ func (h *InventoryHandler) UpdateItem(c echo.Context) error {
 
 func (h *InventoryHandler) DeleteItem(c echo.Context) error {
 	id := c.Param("id")
+	// PIC hanya boleh menghapus barang di ruangannya
+	if err := h.ensureItemScope(c, id); err != nil {
+		return err
+	}
 	if err := h.Repo.DeleteItem(id); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
@@ -126,10 +132,7 @@ func (h *InventoryHandler) DeleteItem(c echo.Context) error {
 // ============ Transactions ============
 
 func (h *InventoryHandler) GetTransactions(c echo.Context) error {
-	limit, _ := strconv.Atoi(c.QueryParam("limit"))
-	if limit < 1 {
-		limit = 20
-	}
+	_, limit := inventoryPaging(c, 20)
 	itemID := c.QueryParam("itemId")
 	if itemID == "" {
 		itemID = c.QueryParam("item_id")
@@ -137,7 +140,7 @@ func (h *InventoryHandler) GetTransactions(c echo.Context) error {
 	trxType := c.QueryParam("type")
 	items, err := h.Repo.GetTransactions(limit, itemID, trxType)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+		return inventoryError(c, err)
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success":    true,
@@ -153,16 +156,14 @@ func (h *InventoryHandler) CreateTransaction(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
 	}
 	itemID := strings.TrimSpace(payload.ItemID)
-	if itemID == "" {
-		itemID = strings.TrimSpace(payload.LegacyItemID)
-	}
 	proofImage := payload.ProofImage
-	if proofImage == nil {
-		proofImage = payload.LegacyProofImage
-	}
-	userID := payload.UserID
-	if userID == nil {
-		userID = payload.LegacyUserID
+	// user_id SELALU dari JWT, bukan dari body request.
+	// Sebelumnya nilai dari body dipakai apa adanya, sehingga siapa pun bisa
+	// memalsukan siapa yang melakukan mutasi stok dan jejak audit tidak bisa dipercaya.
+	userIDStr, _ := c.Get("user_id").(string)
+	var userID *string
+	if userIDStr != "" {
+		userID = &userIDStr
 	}
 	date, err := parseInventoryDate(payload.Date)
 	if err != nil {
@@ -178,12 +179,12 @@ func (h *InventoryHandler) CreateTransaction(c echo.Context) error {
 		ProofImage:  normalizeStringPtr(proofImage),
 		UserID:      normalizeStringPtr(userID),
 	}
+	// PIC hanya boleh memutasi stok barang di ruangannya
+	if err := h.ensureItemScope(c, itemID); err != nil {
+		return err
+	}
 	if err := h.Repo.CreateTransaction(t); err != nil {
-		status := http.StatusInternalServerError
-		if errors.Is(err, repository.ErrInventoryBusinessRule) {
-			status = http.StatusBadRequest
-		}
-		return c.JSON(status, map[string]string{"error": err.Error()})
+		return inventoryError(c, err)
 	}
 	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true})
 }

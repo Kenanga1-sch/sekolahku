@@ -54,6 +54,7 @@ export async function deleteLibraryItem(id: string) {
   return await goDelete(`/api/library/books/${id}`);
 }
 
-export async function getInventoryStats() {
-  return await goGet("/api/library/stats");
-}
+
+// getInventoryStats dihapus: namanya menyesatkan (memanggil /api/library/stats)
+// dan tidak punya pemanggil. Statistik inventaris yang sah ada di lib/inventory.ts.
+

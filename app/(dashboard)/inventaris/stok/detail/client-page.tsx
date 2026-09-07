@@ -14,14 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/data-table";
 import { showError, showSuccess } from "@/lib/toast";
 import { goDelete, goGet } from "@/lib/api-client";
 
@@ -99,8 +92,8 @@ export default function StockItemDetailPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="outline" size="icon" onClick={() => router.back()} className="border-slate-200 bg-white shadow-sm hover:bg-slate-50">
-            <ArrowLeft className="h-4 w-4" />
+          <Button variant="outline" size="icon" onClick={() => router.back()} className="border-slate-200 bg-white shadow-sm hover:bg-slate-50" aria-label="Kembali">
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           </Button>
           <div>
             <h1 className="text-2xl font-bold">{item.name}</h1>
@@ -190,42 +183,52 @@ export default function StockItemDetailPage() {
             <CardTitle>Riwayat Transaksi Stok</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tanggal</TableHead>
-                  <TableHead>Tipe</TableHead>
-                  <TableHead>Jumlah</TableHead>
-                  <TableHead>Keterangan</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {history.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="py-10 text-center text-muted-foreground">
-                      Belum ada transaksi untuk barang ini
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  history.map((trx) => (
-                    <TableRow key={trx.id}>
-                      <TableCell className="text-sm">
-                        {trx.date ? new Date(trx.date).toLocaleDateString("id-ID") : "-"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={trx.type === "IN" ? "default" : "destructive"}>
-                          {trx.type === "IN" ? "Masuk" : "Keluar"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className={trx.type === "IN" ? "text-emerald-600" : "text-rose-600"}>
-                        {trx.type === "IN" ? "+" : "-"}{trx.quantity} {item.unit}
-                      </TableCell>
-                      <TableCell className="text-sm">{trx.description || trx.recipient || "-"}</TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+            <DataTable
+              data={history}
+              getRowId={(trx) => trx.id}
+              emptyTitle="Belum ada transaksi"
+              emptyDescription="Belum ada transaksi untuk barang ini."
+              columns={[
+                {
+                  key: "date",
+                  header: "Tanggal",
+                  card: "field",
+                  render: (trx) => (
+                    <span className="text-sm">
+                      {trx.date ? new Date(trx.date).toLocaleDateString("id-ID") : "-"}
+                    </span>
+                  ),
+                },
+                {
+                  key: "type",
+                  header: "Tipe",
+                  card: "field",
+                  render: (trx) => (
+                    <Badge variant={trx.type === "IN" ? "default" : "destructive"}>
+                      {trx.type === "IN" ? "Masuk" : "Keluar"}
+                    </Badge>
+                  ),
+                },
+                {
+                  key: "quantity",
+                  header: "Jumlah",
+                  card: "field",
+                  render: (trx) => (
+                    <span className={trx.type === "IN" ? "text-emerald-600" : "text-rose-600"}>
+                      {trx.type === "IN" ? "+" : "-"}{trx.quantity} {item.unit}
+                    </span>
+                  ),
+                },
+                {
+                  key: "description",
+                  header: "Keterangan",
+                  card: "hidden",
+                  render: (trx) => (
+                    <span className="text-sm">{trx.description || trx.recipient || "-"}</span>
+                  ),
+                },
+              ]}
+            />
           </CardContent>
         </Card>
       </div>

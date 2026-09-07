@@ -5,19 +5,16 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import {
     Package,
-    Home,
-    ClipboardList,
     AlertTriangle,
     TrendingUp,
     DollarSign,
-    ArrowRight,
     RefreshCw,
     ArrowDownRight,
     ArrowUpRight,
     History,
     Archive
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -75,19 +72,25 @@ interface InventarisClientProps {
     initialStats: InventoryStats | null;
     initialConsumableStats: any | null;
     userRole?: string;
+    refreshKey?: number;
+    onReload?: () => void;
 }
 
-export default function InventarisClient({ initialStats, initialConsumableStats, userRole }: InventarisClientProps) {
-    const router = useRouter();
+export default function InventarisClient({ initialStats, initialConsumableStats, userRole, onReload }: InventarisClientProps) {
     const [refreshing, setRefreshing] = useState(false);
 
     const isAdmin = ["superadmin", "admin"].includes(userRole || "");
 
+    // router.refresh() tidak mengefek untuk modul ini (data diambil lewat useEffect
+    // di client, bukan RSC), jadi tombol refresh memutar 1 detik tanpa memuat apa pun.
+    // Kini induknya yang memuat ulang datanya.
     const handleRefresh = async () => {
         setRefreshing(true);
-        router.refresh();
-        // Give some feedback time
-        setTimeout(() => setRefreshing(false), 1000);
+        try {
+            onReload?.();
+        } finally {
+            setTimeout(() => setRefreshing(false), 1000);
+        }
     };
 
     const formatCurrency = (value: number) => {

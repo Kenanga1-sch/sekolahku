@@ -1,7 +1,7 @@
 /**
  * Inventory Helpers (Client-side)
- * All database logic has been moved to the Golang backend.
- * These functions now fetch data via the Golang API.
+ * Semua logika database ada di backend Go; modul ini hanya pembungkus tipis
+ * di atas API. Respons error TIDAK ditelan: pemanggil wajib menangani.
  */
 
 import { goGet, goPost, goPut, goDelete } from "@/lib/api-client";
@@ -10,11 +10,17 @@ import type {
     InventoryRoom,
     InventoryOpname,
     InventoryStats,
-    AuditAction,
-    AuditEntity,
 } from "@/types/inventory";
 
-// Helpers
+/** Buka "items" dari bentuk respons lama (items) maupun baru (data). */
+export function unwrapItems<T>(res: unknown): T[] {
+    if (Array.isArray(res)) return res as T[];
+    const r = res as Record<string, unknown>;
+    if (Array.isArray(r?.items)) return r.items as T[];
+    if (Array.isArray(r?.data)) return r.data as T[];
+    return [];
+}
+
 export interface UserOption {
     id: string;
     name: string;
@@ -22,58 +28,27 @@ export interface UserOption {
 }
 
 export async function getUsers(): Promise<UserOption[]> {
-    try {
-        const res = await goGet<{ items: any[] }>("/api/users?limit=1000");
-        return (res?.items || []).map((u: any) => ({
-            id: u.id,
-            name: u.name,
-            role: u.role
-        }));
-    } catch {
-        return [];
-    }
+    const res = await goGet<{ items: { id: string; name: string; role: string }[] }>("/api/users?limit=1000");
+    return res?.items ?? [];
 }
 
-// Audit Log Helper
-export async function logAudit(
-    action: AuditAction,
-    entity: AuditEntity,
-    entityId: string,
-    changes?: any,
-    note?: string
-) {
-    // Audit is mostly handled by backend now, but this can be used for explicit UI logs
-}
-
-// Inventory Rooms
-export async function getRoom(id: string): Promise<InventoryRoom | null> {
-    try {
-        return await goGet(`/api/inventory/rooms/${id}`);
-    } catch {
-        return null;
-    }
-}
+// ============ Ruangan ============
 
 export async function getRooms(
     page = 1,
-    perPage = 50,
-    filter = "",
-    sort = "name"
+    perPage = 20,
+    search = "",
 ): Promise<{ items: InventoryRoom[]; totalItems: number }> {
-    try {
-        const query = new URLSearchParams({
-            page: page.toString(),
-            limit: perPage.toString(),
-            q: filter.replace('name ~ "', '').replace('"', '').replace(' || code ~ "', '').replace('"', '')
-        });
-        return await goGet(`/api/inventory/rooms?${query}`);
-    } catch {
-        return { items: [], totalItems: 0 };
-    }
+    const query = new URLSearchParams({
+        page: page.toString(),
+        limit: perPage.toString(),
+        q: search,
+    });
+    return await goGet(`/api/inventory/rooms?${query}`);
 }
 
 export async function getAllRooms(): Promise<InventoryRoom[]> {
-    const res = await getRooms(1, 1000);
+    const res = await getRooms(1, 200);
     return res.items;
 }
 
@@ -90,27 +65,27 @@ export async function deleteRoom(id: string): Promise<boolean> {
     return true;
 }
 
-// Inventory Assets
+// ============ Aset ============
+
+export interface AssetFilter {
+    roomId?: string;
+    search?: string;
+    category?: string;
+}
+
 export async function getAssets(
     page = 1,
     perPage = 20,
-    filter = "",
-    sort = "-created"
+    filter: AssetFilter = {},
 ): Promise<{ items: InventoryAsset[]; totalPages: number; totalItems: number }> {
-    try {
-        let roomId = "";
-        const matches = filter.match(/room\s*=\s*"([^"]+)"/);
-        if (matches) roomId = matches[1];
-        
-        // Extract plain search from filter if it looks like PocketBase syntax
-        let search = "";
-        const sMatch = filter.match(/name\s*~\s*"([^"]+)"/);
-        if (sMatch) search = sMatch[1];
-
-        return await goGet(`/api/inventory/assets?roomId=${roomId}&page=${page}&limit=${perPage}&search=${search}`);
-    } catch {
-        return { items: [], totalPages: 0, totalItems: 0 };
-    }
+    const query = new URLSearchParams({
+        page: page.toString(),
+        limit: perPage.toString(),
+        roomId: filter.roomId ?? "",
+        search: filter.search ?? "",
+        category: filter.category ?? "",
+    });
+    return await goGet(`/api/inventory/assets?${query}`);
 }
 
 export async function getAsset(id: string): Promise<InventoryAsset | null> {
@@ -134,19 +109,16 @@ export async function deleteAsset(id: string): Promise<boolean> {
     return true;
 }
 
-// Stock Opname
+// ============ Opname ============
+
 export async function getOpnameSessions(
     page = 1,
-    perPage = 20
+    perPage = 20,
 ): Promise<{ items: InventoryOpname[]; totalItems: number }> {
-    try {
-        return await goGet(`/api/inventory/opname?page=${page}&limit=${perPage}`);
-    } catch {
-        return { items: [], totalItems: 0 };
-    }
+    return await goGet(`/api/inventory/opname?page=${page}&limit=${perPage}`);
 }
 
-export async function createOpnameSession(data: Partial<InventoryOpname>): Promise<InventoryOpname> {
+export async function createOpnameSession(data: Partial<InventoryOpname>): Promise<{ success: boolean }> {
     return await goPost("/api/inventory/opname", data);
 }
 
@@ -155,100 +127,42 @@ export async function applyOpnameSession(id: string): Promise<boolean> {
     return true;
 }
 
-// Statistics
+// ============ Statistik ============
+
 export async function getInventoryStats(): Promise<InventoryStats> {
-    try {
-        const res: any = await goGet("/api/inventory/stats");
-        return res?.data ?? res;
-    } catch {
-        return { totalAssets: 0, totalValue: 0, totalItems: 0, itemsGood: 0, itemsDamaged: 0, itemsLost: 0 };
-    }
+    const res = await goGet<{ data: InventoryStats }>("/api/inventory/stats");
+    return res.data ?? (res as unknown as InventoryStats);
 }
 
-export async function getCachedInventoryStats() { return getInventoryStats(); }
-
-export async function getCachedConsumableStats() { 
-    // This could be another endpoint if needed
-    return { totalConsumables: 0, lowStockItems: 0, totalCategories: 0 }; 
+export async function getCategoryDistribution(): Promise<{ name: string; value: number; color: string }[]> {
+    return await goGet("/api/inventory/data?type=category-distribution");
 }
 
-// Dashboard Data Functions
-export interface RecentAuditActivity {
+export async function getConditionBreakdown(): Promise<{ name: string; value: number; color: string }[]> {
+    return await goGet("/api/inventory/data?type=condition-breakdown");
+}
+
+export async function getTopRoomsByValue(): Promise<
+    { id: string; name: string; assetCount: number; totalValue: number }[]
+> {
+    return await goGet("/api/inventory/data?type=top-rooms");
+}
+
+export async function getRecentAudit(limit = 10): Promise<{
     id: string;
-    action: AuditAction;
-    entity: AuditEntity;
+    action: string;
+    entity: string;
     entityId: string;
-    userName?: string;
+    userName: string;
     time: string;
-    note?: string;
+}[]> {
+    return await goGet(`/api/inventory/data?type=recent-audit&limit=${limit}`);
 }
 
-export async function getRecentAudit(limit = 10): Promise<RecentAuditActivity[]> {
-    try {
-        const result: any = await goGet(`/api/inventory/audit?limit=${limit}`);
-        const logs = result?.items ?? result?.data ?? [];
-        return (logs || []).map((l: any) => ({
-            id: l.id,
-            action: l.action,
-            entity: l.entity,
-            entityId: l.entity_id,
-            time: l.created_at,
-            note: l.note
-        }));
-    } catch {
-        return [];
-    }
-}
-
-export interface CategoryDistributionItem {
-    name: string;
-    value: number;
-    color: string;
-}
-
-export async function getCategoryDistribution(): Promise<CategoryDistributionItem[]> {
-    // Summarize from assets for now
-    const stats = await getInventoryStats();
-    return [
-        { name: "Elektronik", value: 10, color: "#3b82f6" },
-        { name: "Furniture", value: 20, color: "#10b981" },
-        { name: "Alat Tulis", value: 5, color: "#f59e0b" },
-        { name: "Lainnya", value: 15, color: "#6366f1" },
-    ];
-}
-
-export interface ConditionBreakdownItem {
-    name: string;
-    value: number;
-    color: string;
-}
-
-export async function getConditionBreakdown(): Promise<ConditionBreakdownItem[]> {
-    const stats = await getInventoryStats();
-    return [
-        { name: "Baik", value: stats.itemsGood, color: "#10b981" },
-        { name: "Rusak Ringan", value: stats.itemsDamaged / 2, color: "#f59e0b" },
-        { name: "Rusak Berat", value: stats.itemsDamaged / 2, color: "#ef4444" },
-        { name: "Hilang", value: stats.itemsLost, color: "#6b7280" },
-    ];
-}
-
-export interface TopRoom {
+export async function getAssetReport(category?: string): Promise<{
     id: string;
     name: string;
-    code: string;
-    assetCount: number;
-    totalValue: number;
-}
-
-export async function getTopRoomsByValue(limit = 5): Promise<TopRoom[]> {
-    return [];
-}
-
-export interface AssetReportItem {
-    id: string;
-    name: string;
-    code: string;
+    code: string | null;
     category: string;
     roomName: string;
     quantity: number;
@@ -257,21 +171,58 @@ export interface AssetReportItem {
     conditionLost: number;
     price: number;
     totalValue: number;
-}
-
-export async function getAssetReport(category?: string): Promise<AssetReportItem[]> {
-    const res = await getAssets(1, 1000, category ? `category = "${category}"` : "");
+}[]> {
+    const res = await getAssets(1, 200, category ? { category } : {});
     return res.items.map(a => ({
         id: a.id,
         name: a.name,
-        code: a.code || "-",
+        code: a.code ?? "",
         category: a.category,
-        roomName: (a as any).expand?.room?.name || "-",
+        roomName: a.expand?.room?.name ?? "-",
         quantity: a.quantity,
         conditionGood: a.condition_good ?? 0,
         conditionDamaged: (a.condition_light_damaged ?? 0) + (a.condition_heavy_damaged ?? 0),
         conditionLost: a.condition_lost ?? 0,
         price: a.price,
-        totalValue: a.price * a.quantity
+        totalValue: a.price * a.quantity,
     }));
+}
+
+// ============ Pengajuan Peminjaman Aset Antar-Ruangan ============
+
+export interface BorrowRequest {
+    id: string;
+    assetId: string;
+    assetName: string;
+    roomId: string;
+    roomName: string;
+    requesterId: string;
+    requesterName: string;
+    reason?: string | null;
+    quantity: number;
+    status: "pending" | "approved" | "rejected" | "returned";
+    approvedBy?: string | null;
+    approvedAt?: number | null;
+    returnedBy?: string | null;
+    returnedAt?: number | null;
+    createdAt: number;
+}
+
+export async function createBorrowRequest(assetId: string, quantity: number, reason: string): Promise<{ id: string; status: string }> {
+    const res = await goPost<{ data: { id: string; status: string } }>("/api/inventory/borrow-requests", { assetId, quantity, reason });
+    return res.data;
+}
+
+export async function getBorrowRequests(status?: string): Promise<BorrowRequest[]> {
+    const q = status ? `?status=${encodeURIComponent(status)}` : "";
+    const res = await goGet<{ items: BorrowRequest[] }>(`/api/inventory/borrow-requests${q}`);
+    return res?.items ?? [];
+}
+
+export async function reviewBorrowRequest(id: string, action: "approve" | "reject"): Promise<{ status: string }> {
+    return await goPost(`/api/inventory/borrow-requests/${id}/review`, { action });
+}
+
+export async function returnBorrowRequest(id: string): Promise<{ status: string }> {
+    return await goPost(`/api/inventory/borrow-requests/${id}/return`, {});
 }

@@ -2,13 +2,11 @@
 
 import { useEffect, useState, useCallback } from "react";
 import {
-    ClipboardList,
     Plus,
     Calendar,
     User,
     CheckCircle,
     Clock,
-    ArrowRight,
     Save,
     ArrowLeft,
 } from "lucide-react";
@@ -23,11 +21,11 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { DataTable } from "@/components/data-table";
 import {
     Dialog,
     DialogContent,
     DialogDescription,
-    DialogFooter,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
@@ -72,9 +70,8 @@ function OpnameForm({
         if (!selectedRoom) return;
         setLoading(true);
         try {
-            // Fetch assets in this room to audit
-            // NOTE: fetching all assets for now, pagination handling might be needed for large rooms
-            const result = await getAssets(1, 500, `room = "${selectedRoom}"`);
+            // Ambil semua aset ruangan untuk dihitung; opname memang butuh daftar penuh.
+            const result = await getAssets(1, 200, { roomId: selectedRoom });
 
             const opnameItems: OpnameItem[] = result.items.map(asset => ({
                 assetId: asset.id,
@@ -127,9 +124,9 @@ function OpnameForm({
         return (
             <div className="space-y-4 py-4">
                 <div className="grid gap-2">
-                    <Label>Pilih Ruangan untuk Di-audit</Label>
-                    <Select value={selectedRoom} onValueChange={setSelectedRoom}>
-                        <SelectTrigger>
+                    <Label htmlFor="pilih-ruangan-untuk-di-audit">Pilih Ruangan untuk Di-audit</Label>
+                    <Select  value={selectedRoom} onValueChange={setSelectedRoom}>
+                        <SelectTrigger id="pilih-ruangan-untuk-di-audit">
                             <SelectValue placeholder="Pilih Ruangan" />
                         </SelectTrigger>
                         <SelectContent>
@@ -295,8 +292,7 @@ export default function OpnamePage() {
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <Link href="/inventaris">
-                        <Button variant="outline" size="icon" className="h-8 w-8 border-slate-200 bg-white shadow-sm hover:bg-slate-50">
-                            <ArrowLeft className="h-4 w-4" />
+                        <Button variant="outline" size="icon" className="h-8 w-8 border-slate-200 bg-white shadow-sm hover:bg-slate-50" aria-label="Kembali"><ArrowLeft className="h-4 w-4" aria-hidden="true" />
                         </Button>
                     </Link>
                     <div>
@@ -339,75 +335,77 @@ export default function OpnamePage() {
                     <CardDescription>Daftar sesi stok opname sebelumnya</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Tanggal</TableHead>
-                                <TableHead>Ruangan</TableHead>
-                                <TableHead>Auditor</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="w-[150px]">Aksi</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {loading ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-8">
-                                        Memuat...
-                                    </TableCell>
-                                </TableRow>
-                            ) : sessions.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                                        Belum ada riwayat opname.
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                sessions.map((session) => (
-                                    <TableRow key={session.id}>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <Calendar className="h-4 w-4 text-muted-foreground" />
-                                                {formatDate(session.date)}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>{getSessionRoomName(session)}</TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <User className="h-4 w-4 text-muted-foreground" />
-                                                {getSessionAuditorName(session)}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            {session.status === "PENDING" ? (
-                                                <Badge variant="outline" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100 border-yellow-200">
-                                                    <Clock className="h-3 w-3 mr-1" /> Pending
-                                                </Badge>
-                                            ) : session.status === "APPLIED" ? (
-                                                <Badge variant="outline" className="bg-green-100 text-green-800 hover:bg-green-100 border-green-200">
-                                                    <CheckCircle className="h-3 w-3 mr-1" /> Applied
-                                                </Badge>
-                                            ) : (
-                                                <Badge variant="secondary">{session.status}</Badge>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            {session.status === "PENDING" && (
-                                                <Button
-                                                    size="sm"
-                                                    className="gap-1"
-                                                    onClick={() => handleApply(session.id)}
-                                                >
-                                                    <Save className="h-4 w-4" />
-                                                    Terapkan
-                                                </Button>
-                                            )}
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
+                    <DataTable
+                        data={loading ? [] : sessions}
+                        getRowId={(session) => session.id}
+                        loading={loading}
+                        emptyTitle="Belum ada riwayat opname."
+                        emptyDescription="Sesi stok opname yang pernah dilakukan akan muncul di sini."
+                        columns={[
+                            {
+                                key: "date",
+                                header: "Tanggal",
+                                card: "field",
+                                render: (session) => (
+                                    <div className="flex items-center gap-2">
+                                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                                        {formatDate(session.date)}
+                                    </div>
+                                ),
+                            },
+                            {
+                                key: "room",
+                                header: "Ruangan",
+                                card: "title",
+                                render: (session) => getSessionRoomName(session),
+                            },
+                            {
+                                key: "auditor",
+                                header: "Auditor",
+                                card: "hidden",
+                                render: (session) => (
+                                    <div className="flex items-center gap-2">
+                                        <User className="h-4 w-4 text-muted-foreground" />
+                                        {getSessionAuditorName(session)}
+                                    </div>
+                                ),
+                            },
+                            {
+                                key: "status",
+                                header: "Status",
+                                card: "field",
+                                render: (session) => {
+                                    if (session.status === "PENDING") {
+                                        return (
+                                            <Badge variant="outline" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100 border-yellow-200">
+                                                <Clock className="h-3 w-3 mr-1" /> Pending
+                                            </Badge>
+                                        );
+                                    }
+                                    if (session.status === "APPLIED") {
+                                        return (
+                                            <Badge variant="outline" className="bg-green-100 text-green-800 hover:bg-green-100 border-green-200">
+                                                <CheckCircle className="h-3 w-3 mr-1" /> Applied
+                                            </Badge>
+                                        );
+                                    }
+                                    return <Badge variant="secondary">{session.status}</Badge>;
+                                },
+                            },
+                        ]}
+                        actions={(session) => (
+                            session.status === "PENDING" ? (
+                                <Button
+                                    size="sm"
+                                    className="gap-1"
+                                    onClick={() => handleApply(session.id)}
+                                >
+                                    <Save className="h-4 w-4" />
+                                    Terapkan
+                                </Button>
+                            ) : null
+                        )}
+                    />
                 </CardContent>
             </Card>
         </div>

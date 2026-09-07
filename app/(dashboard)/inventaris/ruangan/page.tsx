@@ -8,21 +8,13 @@ import {
     MoreHorizontal,
     Pencil,
     Trash2,
-    Package,
     ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+import { DataTable, TablePagination } from "@/components/data-table";
 import {
     Dialog,
     DialogContent,
@@ -48,6 +40,7 @@ import {
     getUsers, // Import new helper
     type UserOption
 } from "@/lib/inventory";
+import { toast } from "sonner";
 import type { InventoryRoom } from "@/types/inventory";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import {
@@ -118,15 +111,22 @@ export default function RuanganPage() {
             setEditingRoom(null);
             resetForm();
             loadData();
+            toast.success(editingRoom ? "Ruangan berhasil diperbarui" : "Ruangan berhasil ditambahkan");
         } catch (error) {
             console.error("Failed to save room:", error);
+            toast.error("Gagal menyimpan ruangan");
         }
     };
 
     const handleDelete = async (id: string) => {
-        if (confirm("Yakin ingin menghapus ruangan ini? Aset di dalamnya mungkin menjadi yatim piatu.")) {
+        if (!confirm("Yakin ingin menghapus ruangan ini? Aset di dalamnya akan tetap tercatat.")) return;
+        try {
             await deleteRoom(id);
+            toast.success("Ruangan dihapus");
             loadData();
+        } catch (error) {
+            console.error("Failed to delete room:", error);
+            toast.error("Gagal menghapus ruangan");
         }
     };
 
@@ -145,7 +145,7 @@ export default function RuanganPage() {
             name: room.name || "",
             code: room.code || "",
             description: room.description || "",
-            picId: (room as any).picId || room.expand?.pic?.id || "",
+            picId: room.picId || "",
         });
         setIsAddDialogOpen(true);
     };
@@ -156,8 +156,7 @@ export default function RuanganPage() {
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <Link href="/inventaris">
-                        <Button variant="outline" size="icon" className="h-8 w-8 border-slate-200 bg-white shadow-sm hover:bg-slate-50">
-                            <ArrowLeft className="h-4 w-4" />
+                        <Button variant="outline" size="icon" className="h-8 w-8 border-slate-200 bg-white shadow-sm hover:bg-slate-50" aria-label="Kembali"><ArrowLeft className="h-4 w-4" aria-hidden="true" />
                         </Button>
                     </Link>
                     <div>
@@ -174,7 +173,7 @@ export default function RuanganPage() {
                         resetForm();
                     }
                 }}>
-                    {["admin"].includes(user?.role || "") && (
+                    {["superadmin", "admin"].includes(user?.role || "") && (
                         <DialogTrigger asChild>
                             <Button className="gap-2">
                                 <Plus className="h-4 w-4" />
@@ -214,11 +213,10 @@ export default function RuanganPage() {
                                 </div>
                                 <div className="grid gap-2">
                                     <Label htmlFor="pic">Penanggung Jawab (PIC)</Label>
-                                    <Select 
-                                        value={formData.picId} 
-                                        onValueChange={(val) => setFormData({...formData, picId: val === "none" ? "" : val})}
+                                    <Select value={formData.picId} 
+                    onValueChange={(val) => setFormData({...formData, picId: val === "none" ? "" : val})}
                                     >
-                                        <SelectTrigger>
+                                        <SelectTrigger id="pic">
                                             <SelectValue placeholder="Pilih Penanggung Jawab" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -266,74 +264,74 @@ export default function RuanganPage() {
             </Card>
 
             {/* Table */}
-            <Card>
-                <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Nama Ruangan</TableHead>
-                                <TableHead>Kode</TableHead>
-                                <TableHead>Deskripsi</TableHead>
-                                <TableHead>PJ Ruangan</TableHead>
-                                <TableHead className="w-[50px]"></TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {loading ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-8">
-                                        Memuat...
-                                    </TableCell>
-                                </TableRow>
-                            ) : rooms.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                                        Belum ada ruangan. Klik &quot;Tambah Ruangan&quot; untuk menambahkan.
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                rooms.map((room) => (
-                                    <TableRow key={room.id}>
-                                        <TableCell className="font-medium">
-                                            <div className="flex items-center gap-2">
-                                                <Home className="h-4 w-4 text-muted-foreground" />
-                                                {room.name}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <code className="bg-muted px-2 py-1 rounded text-xs">{room.code}</code>
-                                        </TableCell>
-                                        <TableCell>{room.description || "-"}</TableCell>
-                                        <TableCell>{room.expand?.pic?.name || "-"}</TableCell>
-                                        <TableCell>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="outline" size="icon-sm" className="h-8 w-8 border-slate-200 bg-white shadow-sm hover:bg-slate-50 text-muted-foreground hover:text-foreground" disabled={!["admin"].includes(user?.role || "")}>
-                                                        <MoreHorizontal className="h-4 w-4" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem onClick={() => openEditDialog(room)}>
-                                                        <Pencil className="h-4 w-4 mr-2" />
-                                                        Edit
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem
-                                                        className="text-red-600"
-                                                        onClick={() => handleDelete(room.id)}
-                                                    >
-                                                        <Trash2 className="h-4 w-4 mr-2" />
-                                                        Hapus
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+            <DataTable
+                data={loading ? [] : rooms}
+                getRowId={(room) => room.id}
+                loading={loading}
+                emptyTitle="Belum ada ruangan"
+                emptyDescription='Klik "Tambah Ruangan" untuk menambahkan.'
+                columns={[
+                    {
+                        key: "name",
+                        header: "Nama Ruangan",
+                        card: "title",
+                        render: (room) => (
+                            <div className="flex items-center gap-2 font-medium">
+                                <Home className="h-4 w-4 text-muted-foreground" />
+                                {room.name}
+                            </div>
+                        ),
+                    },
+                    {
+                        key: "code",
+                        header: "Kode",
+                        card: "field",
+                        render: (room) => (
+                            <code className="bg-muted px-2 py-1 rounded text-xs">{room.code}</code>
+                        ),
+                    },
+                    {
+                        key: "description",
+                        header: "Deskripsi",
+                        card: "hidden",
+                        render: (room) => room.description || "-",
+                    },
+                    {
+                        key: "pic",
+                        header: "PJ Ruangan",
+                        card: "field",
+                        render: (room) => room.pic?.name || "-",
+                    },
+                ]}
+                actions={(room) => (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="icon-sm" className="h-8 w-8 border-slate-200 bg-white shadow-sm hover:bg-slate-50 text-muted-foreground hover:text-foreground" disabled={!["superadmin", "admin"].includes(user?.role || "")}>
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openEditDialog(room)}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                className="text-red-600"
+                                onClick={() => handleDelete(room.id)}
+                            >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Hapus
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
+            />
+            <TablePagination
+                page={page}
+                totalPages={Math.max(1, Math.ceil(totalItems / 20))}
+                onPageChange={setPage}
+                label={`${totalItems} ruangan`}
+            />
         </div>
     );
 }

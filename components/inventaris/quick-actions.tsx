@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-    Package, 
-    Home, 
-    ClipboardList, 
+import {
+    Package,
+    Home,
+    ClipboardList,
     Plus,
     FileText,
     History,
+    HandHeart,
 } from "lucide-react";
 
 const QUICK_ACTIONS = [
@@ -61,20 +62,28 @@ const QUICK_ACTIONS = [
         color: "text-amber-500",
         bgColor: "bg-amber-500/10 hover:bg-amber-500/20",
     },
+    {
+        title: "Pengajuan Peminjaman",
+        description: "Pinjam aset ruangan lain",
+        icon: HandHeart,
+        href: "/inventaris/peminjaman",
+        color: "text-rose-500",
+        bgColor: "bg-rose-500/10 hover:bg-rose-500/20",
+    },
 ];
+
+// Path menu khusus admin. Dicocokkan dengan includes() terhadap href aksi.
+const ADMIN_ONLY_PATHS = ["ruangan", "opname", "audit", "laporan"];
 
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useEffect, useState } from "react";
 
 export function QuickActionsPanel() {
     const { user } = useAuthStore();
-    const [isMounted, setIsMounted] = useState(false);
-
-    useEffect(() => {
-        setIsMounted(true);
-    }, []);
-
-    const isAdmin = isMounted && ["superadmin", "admin"].includes(user?.role || "");
+    // isMounted tadinya untuk menghindari render mismatch SSR; komponen ini
+    // memang client-only (dimuat lewat dynamic import dengan ssr:false di
+    // inventaris-client), jadi cek peran bisa langsung.
+    const isAdmin = ["superadmin", "admin"].includes(user?.role || "");
 
     return (
         <Card>
@@ -84,12 +93,8 @@ export function QuickActionsPanel() {
             <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {QUICK_ACTIONS.map((action) => {
-                        // Logic: Hide strict Admin features from non-admins
-                        // Restricted: Data Ruangan (/ruangan), Stok Opname (/opname)
-                        // Laporan (/laporan) - maybe keep visible or restrict? User didn't explicitly ask context for Laporan but safe to keep unless asked.
-                        // Actually, user said: "data ruangan dan stok opname masih muncul... Sembunyikan juga menu aset"
-                        // Implementation: Filter strict paths
-                        if (!isAdmin && (action.href.includes("ruangan") || action.href.includes("opname") || action.href.includes("audit"))) {
+                        // Menu khusus admin disembunyikan dari peran lain.
+                        if (!isAdmin && ADMIN_ONLY_PATHS.some(p => action.href.includes(p))) {
                             return null;
                         }
 

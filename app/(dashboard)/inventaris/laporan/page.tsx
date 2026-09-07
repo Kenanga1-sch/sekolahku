@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
-    FileText,
     TrendingDown,
-    TrendingUp,
     AlertTriangle,
     Package,
     ArrowLeft,
@@ -223,8 +221,7 @@ export default function LaporanPage() {
             {/* ======== SCREEN HEADER ======== */}
             <div className="flex items-center gap-4 no-print">
                 <Link href="/inventaris">
-                    <Button variant="outline" size="icon" className="h-8 w-8 border-slate-200 bg-white shadow-sm hover:bg-slate-50">
-                        <ArrowLeft className="h-4 w-4" />
+                    <Button variant="outline" size="icon" className="h-8 w-8 border-slate-200 bg-white shadow-sm hover:bg-slate-50" aria-label="Kembali"><ArrowLeft className="h-4 w-4" aria-hidden="true" />
                     </Button>
                 </Link>
                 <div>

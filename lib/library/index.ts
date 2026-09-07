@@ -25,7 +25,6 @@ export {
     createLibraryItem,
     updateLibraryItem,
     deleteLibraryItem,
-    getInventoryStats,
     type GetLibraryAssetsOptions,
 } from "./assets";
 

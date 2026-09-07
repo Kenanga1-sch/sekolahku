@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect } from "react";
 import { getCachedInventoryStats, getCachedConsumableStats } from "@/lib/data/inventory";
 import InventarisClient from "@/components/inventaris/inventaris-client";
-import { useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getSessionAction } from "@/actions/auth";
 
@@ -11,6 +10,7 @@ export default function InventarisPage() {
     const [data, setData] = useState<any>(null);
     const [session, setSession] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [refreshKey, setRefreshKey] = useState(0);
 
     useEffect(() => {
         const load = async () => {
@@ -18,7 +18,9 @@ export default function InventarisPage() {
                 const s = await getSessionAction();
                 setSession(s);
 
-                const isAdmin = ["admin"].includes(s?.user?.role || "");
+                // Definisi admin tunggal: superadmin dan admin. Dulu hanya "admin",
+                // sehingga superadmin justru kehilangan tab ATK.
+                const isAdmin = ["superadmin", "admin"].includes(s?.user?.role || "");
                 const [stats, consumableStats] = await Promise.all([
                     getCachedInventoryStats().catch(() => null),
                     isAdmin ? getCachedConsumableStats().catch(() => null) : Promise.resolve(null)
@@ -38,7 +40,9 @@ export default function InventarisPage() {
             }
         };
         load();
-    }, []);
+    }, [refreshKey]);
+
+    const reload = () => setRefreshKey(k => k + 1);
 
     if (isLoading || !data) return <InventarisSkeleton />;
 

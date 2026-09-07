@@ -1,23 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { goGet } from "@/lib/api-client";
 import { Badge } from "@/components/ui/badge";
-import { 
-    Plus, 
-    Pencil, 
-    Trash2, 
-    ClipboardCheck, 
-    LogIn, 
+import { useWidgetData, WidgetError } from "./use-widget-data";
+import {
+    Plus,
+    Pencil,
+    Trash2,
+    ClipboardCheck,
+    LogIn,
     LogOut,
-    Package,
-    Home,
 } from "lucide-react";
 
-// Types for API response
+// Types for API response — harus sinkron dengan RecentAuditItem di
+// go-backend/internal/repository/inventory_repo.go
 type AuditAction = "CREATE" | "UPDATE" | "DELETE" | "OPNAME_APPLY" | "LOGIN" | "LOGOUT";
 type AuditEntity = "ASSET" | "ROOM" | "USER" | "OPNAME" | "SYSTEM";
 
@@ -27,7 +25,6 @@ interface RecentAuditActivity {
     entity: AuditEntity;
     entityId: string;
     userName?: string;
-    note?: string;
     time: string;
 }
 
@@ -82,22 +79,10 @@ function formatTimeAgo(dateStr: string): string {
 }
 
 export function RecentAuditFeed() {
-    const [activities, setActivities] = useState<RecentAuditActivity[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        async function loadData() {
-            try {
-                const data: any = await goGet("/api/inventaris/data?type=recent-audit");
-                setActivities(data);
-            } catch {
-                // Fail silently
-            } finally {
-                setLoading(false);
-            }
-        }
-        loadData();
-    }, []);
+    const { data: activities, loading, error, reload } = useWidgetData<RecentAuditActivity[]>(
+        "/api/inventory/data?type=recent-audit",
+        []
+    );
 
     if (loading) {
         return (
@@ -128,6 +113,9 @@ export function RecentAuditFeed() {
                 <CardTitle className="text-lg font-semibold">Log Aktivitas Terbaru</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
+                {error ? (
+                    <WidgetError message={error} onRetry={reload} height={320} />
+                ) : (
                 <ScrollArea className="h-[320px] px-6">
                     {activities.length === 0 ? (
                         <div className="h-full flex items-center justify-center text-muted-foreground py-8">
@@ -157,7 +145,8 @@ export function RecentAuditFeed() {
                                                 </Badge>
                                             </div>
                                             <p className="text-xs text-muted-foreground mt-1 truncate">
-                                                {activity.userName || "System"} • {activity.note || `ID: ${activity.entityId.slice(0, 8)}`}
+                                                {activity.userName || "System"}{" • "}
+                                                {activity.entityId ? `ID: ${activity.entityId.slice(0, 8)}` : ""}
                                             </p>
                                         </div>
                                         <span className="text-[10px] text-muted-foreground whitespace-nowrap">
@@ -169,6 +158,7 @@ export function RecentAuditFeed() {
                         </div>
                     )}
                 </ScrollArea>
+                )}
             </CardContent>
         </Card>
     );

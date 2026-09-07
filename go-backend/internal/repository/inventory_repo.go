@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/nrednav/cuid2"
@@ -34,6 +36,15 @@ func newInventoryBusinessError(message string) error {
 	return inventoryBusinessError(message)
 }
 
+// notDeleted adalah klausa standar untuk mengecualikan baris yang sudah
+// di-soft-delete. Semua pembacaan wajib menyertakannya, supaya data yang
+// "dihapus" tidak muncul di laporan, statistik, maupun daftar.
+const notDeleted = "deleted_at IS NULL"
+
+// ErrInventoryNotFound menandakan baris tidak ditemukan. Handler memetakannya
+// ke 404, bukan 500 dengan pesan SQL mentah.
+var ErrInventoryNotFound = errors.New("data inventaris tidak ditemukan")
+
 // Stats
 func (r *InventoryRepository) GetStats() (*models.InventoryStats, error) {
 	stats := &models.InventoryStats{}
@@ -48,20 +59,24 @@ func (r *InventoryRepository) GetStats() (*models.InventoryStats, error) {
 			SUM(condition_light_damaged + condition_heavy_damaged),
 			SUM(condition_lost)
 		FROM inventory_assets
-		WHERE status = 'ACTIVE'
+		WHERE status = 'ACTIVE' AND deleted_at IS NULL
 	`
 	var totalVal sql.NullFloat64
 	var tAssets, tQty, tGood, tDamaged, tLost sql.NullInt64
 
 	err := r.DB.QueryRow(query).Scan(&tAssets, &totalVal, &tQty, &tGood, &tDamaged, &tLost)
-	if err == nil {
-		stats.TotalAssets = int(tAssets.Int64)
-		stats.TotalValue = totalVal.Float64
-		stats.TotalItems = int(tQty.Int64)
-		stats.ItemsGood = int(tGood.Int64)
-		stats.ItemsDamaged = int(tDamaged.Int64)
-		stats.ItemsLost = int(tLost.Int64)
+	if err != nil {
+		// Sebelumnya error ditelan dan menghasilkan statistik nol semua, sehingga
+		// kegagalan query tidak bisa dibedakan dari "belum ada inventaris".
+		return nil, err
 	}
+
+	stats.TotalAssets = int(tAssets.Int64)
+	stats.TotalValue = totalVal.Float64
+	stats.TotalItems = int(tQty.Int64)
+	stats.ItemsGood = int(tGood.Int64)
+	stats.ItemsDamaged = int(tDamaged.Int64)
+	stats.ItemsLost = int(tLost.Int64)
 
 	return stats, nil
 }
@@ -73,10 +88,12 @@ func (r *InventoryRepository) GetRooms(q string) ([]models.InventoryRoom, error)
 		       u.id, u.name, u.email
 		FROM inventory_rooms r
 		LEFT JOIN users u ON r.pic_id = u.id
+		WHERE r.deleted_at IS NULL
 	`
 	var args []interface{}
 	if q != "" {
-		query += " WHERE r.name LIKE ? OR r.code LIKE ?"
+		// Klausa WHERE dasar (deleted_at) sudah ada — tambahan filter harus AND.
+		query += " AND (r.name LIKE ? OR r.code LIKE ?)"
 		args = append(args, "%"+q+"%", "%"+q+"%")
 	}
 	query += " ORDER BY r.name ASC"
@@ -127,6 +144,10 @@ func (r *InventoryRepository) GetRooms(q string) ([]models.InventoryRoom, error)
 
 		rooms = append(rooms, rm)
 	}
+	// Hasil yang terpotong tidak boleh dianggap lengkap.
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 
 	return rooms, nil
 }
@@ -137,7 +158,7 @@ func (r *InventoryRepository) GetRoomByID(id string) (*models.InventoryRoom, err
 		       u.id, u.name, u.email
 		FROM inventory_rooms r
 		LEFT JOIN users u ON r.pic_id = u.id
-		WHERE r.id = ?
+		WHERE r.deleted_at IS NULL AND r.id = ?
 	`
 	var rm models.InventoryRoom
 	var code, desc, loc, picId sql.NullString
@@ -196,19 +217,46 @@ func (r *InventoryRepository) CreateRoom(req models.CreateInventoryRoomRequest) 
 }
 
 func (r *InventoryRepository) UpdateRoom(id string, req models.CreateInventoryRoomRequest) (*models.InventoryRoom, error) {
-	query := `UPDATE inventory_rooms SET name = ?, code = ?, description = ?, location = ?, pic_id = ? WHERE id = ?`
-	_, err := r.DB.Exec(query, req.Name, req.Code, req.Description, req.Location, req.PICID, id)
+	// Nama wajib, sama seperti CreateRoom. Sebelumnya update bisa mengosongkan
+	// nama, dan karena ItemRoomID mencocokkan lokasi lewat nama ruangan,
+	// ruangan tanpa nama membuat barang kehilangan pelindung scope-nya.
+	req.Name = strings.TrimSpace(req.Name)
+	if req.Name == "" {
+		return nil, newInventoryBusinessError("Nama ruangan wajib diisi")
+	}
+
+	before, err := r.GetRoomByID(id)
 	if err != nil {
 		return nil, err
 	}
-	r.logInventoryAudit("UPDATE", "ROOM", id, []map[string]interface{}{
-		{"field": "name", "oldValue": nil, "newValue": req.Name},
-	}, nil)
+	if before == nil {
+		return nil, ErrInventoryNotFound
+	}
+
+	res, err := r.DB.Exec(
+		`UPDATE inventory_rooms SET name = ?, code = ?, description = ?, location = ?, pic_id = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL`,
+		req.Name, req.Code, req.Description, req.Location, req.PICID, UnixMilli(), id)
+	if err != nil {
+		return nil, err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return nil, ErrInventoryNotFound
+	}
+
+	oldName := interface{}(before.Name)
+	if err := r.logInventoryAudit("UPDATE", "ROOM", id, []map[string]interface{}{
+		{"field": "name", "oldValue": oldName, "newValue": req.Name},
+	}, nil); err != nil {
+		return nil, err
+	}
 	return r.GetRoomByID(id)
 }
 
 func (r *InventoryRepository) DeleteRoom(id string) error {
-	result, err := r.DB.Exec("DELETE FROM inventory_rooms WHERE id = ?", id)
+	// Soft delete: riwayat ruangan harus tetap bisa diaudit. Menghapus baris
+	// akan membuat aset di dalamnya yatim (sebelumnya tanpa FK, sekarang
+	// bahkan akan ditolak database).
+	result, err := r.DB.Exec("UPDATE inventory_rooms SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL", UnixMilli(), UnixMilli(), id)
 	if err == nil {
 		if affected, _ := result.RowsAffected(); affected > 0 {
 			r.logInventoryAudit("DELETE", "ROOM", id, []map[string]interface{}{
@@ -220,105 +268,122 @@ func (r *InventoryRepository) DeleteRoom(id string) error {
 }
 
 // Assets
-func (r *InventoryRepository) GetAssetByID(id string) (*models.InventoryAsset, error) {
-	query := `
-		SELECT a.id, a.name, a.code, a.category, a.price, a.quantity, a.room_id,
+// assetSelectColumns adalah kolom yang dibaca GetAssets dan GetAssetByID.
+//
+// category dan status di-COALESCE karena kolomnya nullable sementara model
+// Go-nya string non-nullable: aset tanpa kategori sebelumnya membuat
+// rows.Scan error ("converting NULL to string") dan seluruh daftar aset
+// gagal dimuat.
+//
+// LEFT JOIN menyaring ruangan yang sudah di-soft-delete supaya nama ruangan
+// tidak muncul untuk ruangan yang sudah dihapus.
+const assetSelectColumns = `
+		SELECT a.id, a.name, a.code, COALESCE(a.category, ''), a.price, a.quantity, a.room_id,
 		       a.condition_good, a.condition_light_damaged, a.condition_heavy_damaged, a.condition_lost,
-		       a.purchase_date, a.notes, a.status, a.created_at, a.updated_at,
-		       r.id, r.name
+		       a.purchase_date, a.notes, COALESCE(a.status, 'ACTIVE'), a.created_at, a.updated_at,
+		       r.name
 		FROM inventory_assets a
-		LEFT JOIN inventory_rooms r ON a.room_id = r.id
-		WHERE a.id = ?
+		LEFT JOIN inventory_rooms r ON r.id = a.room_id AND r.deleted_at IS NULL
 	`
+
+// scanInventoryAsset memindai satu baris hasil assetSelectColumns.
+// Urutan kolom harus sama persis dengan konstanta di atas.
+func scanInventoryAsset(rows rowScanner) (models.InventoryAsset, error) {
 	var a models.InventoryAsset
-	var code, rId, rName, notes sql.NullString
+	var code, roomID, roomName, notes sql.NullString
 	var pDate, crAt, upAt sql.NullInt64
 
-	err := r.DB.QueryRow(query, id).Scan(
-		&a.ID, &a.Name, &code, &a.Category, &a.Price, &a.Quantity, &rId,
+	if err := rows.Scan(
+		&a.ID, &a.Name, &code, &a.Category, &a.Price, &a.Quantity, &roomID,
 		&a.ConditionGood, &a.ConditionLightDamaged, &a.ConditionHeavyDamaged, &a.ConditionLost,
 		&pDate, &notes, &a.Status, &crAt, &upAt,
-		&rId, &rName,
-	)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
-		}
-		return nil, err
+		&roomName,
+	); err != nil {
+		return a, err
 	}
 
 	if code.Valid {
 		a.Code = &code.String
 	}
-	if rId.Valid {
-		a.RoomID = &rId.String
+	if roomID.Valid {
+		a.RoomID = &roomID.String
 	}
 	if notes.Valid {
 		a.Notes = &notes.String
 	}
-
-	pTime := ToTime(pDate)
-	if pDate.Valid {
-		a.PurchaseDate = &pTime
-	}
-	cTime := ToTime(crAt)
-	if crAt.Valid {
-		a.CreatedAt = &cTime
-	}
-	uTime := ToTime(upAt)
-	if upAt.Valid {
-		a.UpdatedAt = &uTime
-	}
-
-	if rId.Valid {
+	// Nama ruangan diekspose lewat expand.room, sesuai bentuk respons lama.
+	if roomID.Valid && roomName.Valid {
 		a.Expand = &models.InventoryAssetExpand{
-			Room: &models.InventoryRoom{
-				ID:   rId.String,
-				Name: rName.String,
-			},
+			Room: &models.InventoryRoom{ID: roomID.String, Name: roomName.String},
 		}
 	}
 
+	if pDate.Valid {
+		t := ToTime(pDate)
+		a.PurchaseDate = &t
+	}
+	if crAt.Valid {
+		t := ToTime(crAt)
+		a.CreatedAt = &t
+	}
+	if upAt.Valid {
+		t := ToTime(upAt)
+		a.UpdatedAt = &t
+	}
+	return a, nil
+}
+
+// rowScanner dipakai bersama oleh *sql.Rows dan *sql.Row.
+type rowScanner interface {
+	Scan(dest ...interface{}) error
+}
+
+func (r *InventoryRepository) GetAssetByID(id string) (*models.InventoryAsset, error) {
+	query := assetSelectColumns + " WHERE a.deleted_at IS NULL AND a.id = ?"
+
+	a, err := scanInventoryAsset(r.DB.QueryRow(query, id))
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
 	return &a, nil
 }
+
 func (r *InventoryRepository) GetAssets(page, limit int, roomId, search, category string) ([]models.InventoryAsset, int, error) {
 	offset := (page - 1) * limit
-	query := `
-		SELECT a.id, a.name, a.code, a.category, a.price, a.quantity, a.room_id,
-		       a.condition_good, a.condition_light_damaged, a.condition_heavy_damaged, a.condition_lost,
-		       a.purchase_date, a.notes, a.status, a.created_at, a.updated_at,
-		       r.id, r.name
-		FROM inventory_assets a
-		LEFT JOIN inventory_rooms r ON a.room_id = r.id
-		WHERE 1=1
-	`
+
+	// Bangun filter sekali, pakai untuk count maupun daftar.
+	var where []string
 	var args []interface{}
+	where = append(where, "a.deleted_at IS NULL")
 
 	if roomId != "" {
-		query += " AND a.room_id = ?"
+		where = append(where, "a.room_id = ?")
 		args = append(args, roomId)
 	}
 	if search != "" {
-		query += " AND (a.name LIKE ? OR a.code LIKE ?)"
+		// Pencarian mencakup kode aset — placeholder UI menjanjikannya, tapi
+		// sebelumnya hanya nama yang dicocokkan.
+		where = append(where, "(a.name LIKE ? OR a.code LIKE ?)")
 		pattern := "%" + search + "%"
 		args = append(args, pattern, pattern)
 	}
 	if category != "" && category != "all" {
-		query += " AND a.category = ?"
+		where = append(where, "a.category = ?")
 		args = append(args, category)
 	}
+	clause := " WHERE " + strings.Join(where, " AND ")
 
+	// Count tidak perlu LEFT JOIN ruangan.
 	var total int
-	countQuery := "SELECT COUNT(*) FROM (" + query + ")"
-	err := r.DB.QueryRow(countQuery, args...).Scan(&total)
-	if err != nil {
+	if err := r.DB.QueryRow("SELECT COUNT(*) FROM inventory_assets a"+clause, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
-	query += " ORDER BY a.name ASC LIMIT ? OFFSET ?"
-	args = append(args, limit, offset)
-
-	rows, err := r.DB.Query(query, args...)
+	query := assetSelectColumns + clause + " ORDER BY a.name ASC LIMIT ? OFFSET ?"
+	rows, err := r.DB.Query(query, append(append([]interface{}{}, args...), limit, offset)...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -326,55 +391,16 @@ func (r *InventoryRepository) GetAssets(page, limit int, roomId, search, categor
 
 	assets := make([]models.InventoryAsset, 0)
 	for rows.Next() {
-		var a models.InventoryAsset
-		var code, rId, rName, notes sql.NullString
-		var pDate, crAt, upAt sql.NullInt64
-
-		err := rows.Scan(
-			&a.ID, &a.Name, &code, &a.Category, &a.Price, &a.Quantity, &rId,
-			&a.ConditionGood, &a.ConditionLightDamaged, &a.ConditionHeavyDamaged, &a.ConditionLost,
-			&pDate, &notes, &a.Status, &crAt, &upAt,
-			&rId, &rName,
-		)
+		a, err := scanInventoryAsset(rows)
 		if err != nil {
 			return nil, 0, err
 		}
-
-		if code.Valid {
-			a.Code = &code.String
-		}
-		if rId.Valid {
-			a.RoomID = &rId.String
-		}
-		if notes.Valid {
-			a.Notes = &notes.String
-		}
-
-		pTime := ToTime(pDate)
-		if pDate.Valid {
-			a.PurchaseDate = &pTime
-		}
-		cTime := ToTime(crAt)
-		if crAt.Valid {
-			a.CreatedAt = &cTime
-		}
-		uTime := ToTime(upAt)
-		if upAt.Valid {
-			a.UpdatedAt = &uTime
-		}
-
-		if rId.Valid {
-			a.Expand = &models.InventoryAssetExpand{
-				Room: &models.InventoryRoom{
-					ID:   rId.String,
-					Name: rName.String,
-				},
-			}
-		}
-
 		assets = append(assets, a)
 	}
-
+	// Hasil yang terpotong tidak boleh dianggap lengkap.
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
 	return assets, total, nil
 }
 
@@ -437,7 +463,8 @@ func (r *InventoryRepository) UpdateAsset(id string, a models.InventoryAsset) er
 }
 
 func (r *InventoryRepository) DeleteAsset(id string) error {
-	result, err := r.DB.Exec("DELETE FROM inventory_assets WHERE id = ?", id)
+	// Soft delete: aset yang dihapus harus tetap tercatat untuk keperluan audit.
+	result, err := r.DB.Exec("UPDATE inventory_assets SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL", UnixMilli(), UnixMilli(), id)
 	if err == nil {
 		if affected, _ := result.RowsAffected(); affected > 0 {
 			r.logInventoryAudit("DELETE", "ASSET", id, []map[string]interface{}{
@@ -483,7 +510,7 @@ func scanInventoryItem(scanner inventoryRowScanner) (*models.InventoryItem, erro
 
 func (r *InventoryRepository) GetItems(page, limit int, search, category string) ([]models.InventoryItem, int, error) {
 	offset := (page - 1) * limit
-	query := "SELECT id, name, code, category, unit, min_stock, current_stock, location, price, created_at, updated_at FROM inventory_items WHERE 1=1"
+	query := "SELECT id, name, code, category, unit, min_stock, current_stock, location, price, created_at, updated_at FROM inventory_items WHERE deleted_at IS NULL"
 	var args []interface{}
 
 	if search != "" {
@@ -524,7 +551,7 @@ func (r *InventoryRepository) GetItems(page, limit int, search, category string)
 
 func (r *InventoryRepository) getItemOnlyByID(id string) (*models.InventoryItem, error) {
 	item, err := scanInventoryItem(r.DB.QueryRow(
-		"SELECT id, name, code, category, unit, min_stock, current_stock, location, price, created_at, updated_at FROM inventory_items WHERE id = ?",
+		"SELECT id, name, code, category, unit, min_stock, current_stock, location, price, created_at, updated_at FROM inventory_items WHERE id = ? AND deleted_at IS NULL",
 		id,
 	))
 	if err != nil {
@@ -584,7 +611,9 @@ func (r *InventoryRepository) UpdateItem(id string, i models.InventoryItem) (*mo
 }
 
 func (r *InventoryRepository) DeleteItem(id string) error {
-	result, err := r.DB.Exec("DELETE FROM inventory_items WHERE id = ?", id)
+	// Soft delete: transaksi yang merujuk item ini tidak boleh ikut hilang
+	// (inventory_transactions.item_id sekarang punya FK ke inventory_items).
+	result, err := r.DB.Exec("UPDATE inventory_items SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL", UnixMilli(), UnixMilli(), id)
 	if err != nil {
 		return err
 	}
@@ -604,7 +633,7 @@ func (r *InventoryRepository) GetTransactions(limit int, itemID, trxType string)
 		       i.id, i.name, i.code, i.category, i.unit, i.min_stock, i.current_stock, i.location, i.price, i.created_at, i.updated_at
 		FROM inventory_transactions t
 		LEFT JOIN inventory_items i ON t.item_id = i.id
-		WHERE 1=1
+		WHERE t.deleted_at IS NULL
 	`
 	var args []interface{}
 	if itemID != "" {
@@ -748,66 +777,208 @@ func stockDelta(trxType string, quantity int) int {
 	return -quantity
 }
 
-// Opname
+// ============ Opname (Stock Take) ============
+
+// opnameColumns dipakai bersama oleh GetOpnames dan GetOpnameByID.
+const opnameColumns = "id, date, room_id, auditor_id, status, note, created_at"
+
 func (r *InventoryRepository) GetOpnames(page, limit int) ([]models.InventoryOpname, int, error) {
 	offset := (page - 1) * limit
 	var total int
-	if err := r.DB.QueryRow("SELECT COUNT(*) FROM inventory_opname").Scan(&total); err != nil {
+	if err := r.DB.QueryRow("SELECT COUNT(*) FROM inventory_opname WHERE deleted_at IS NULL").Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
-	rows, err := r.DB.Query("SELECT id, date, room_id, auditor_id, items, status, note, created_at FROM inventory_opname ORDER BY created_at DESC LIMIT ? OFFSET ?", limit, offset)
+	rows, err := r.DB.Query(
+		"SELECT "+opnameColumns+" FROM inventory_opname WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT ? OFFSET ?",
+		limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
-	defer rows.Close()
 
+	// TAHAP 1: kumpulkan header sesi dulu, lalu tutup cursor.
+	// Query item di dalam loop rows.Next() membuat deadlock: koneksi tunggal
+	// (SetMaxOpenConns(1)) dipegang cursor luar, query nested menunggu selamanya.
 	ops := make([]models.InventoryOpname, 0)
 	for rows.Next() {
-		var o models.InventoryOpname
-		var rId, aId, note sql.NullString
-		var dateMi, crAtMi sql.NullInt64
-		err := rows.Scan(&o.ID, &dateMi, &rId, &aId, &o.Items, &o.Status, &note, &crAtMi)
+		o, err := scanInventoryOpname(rows)
 		if err != nil {
 			return nil, 0, err
 		}
-		if rId.Valid {
-			o.RoomID = &rId.String
+		ops = append(ops, *o)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+	rows.Close()
+
+	// TAHAP 2: ambil baris hasil hitung per sesi (cursor sudah bebas).
+	for i := range ops {
+		items, err := r.getOpnameItems(ops[i].ID)
+		if err != nil {
+			return nil, 0, err
 		}
-		if aId.Valid {
-			o.AuditorID = &aId.String
-		}
-		if note.Valid {
-			o.Note = &note.String
-		}
-		if dateMi.Valid {
-			o.Date = time.UnixMilli(dateMi.Int64)
-		}
-		if crAtMi.Valid {
-			cTime := ToTime(crAtMi)
-			o.CreatedAt = &cTime
-		}
-		ops = append(ops, o)
+		ops[i].Items = items
 	}
 	return ops, total, nil
 }
 
+// scanInventoryOpname memindai satu baris inventory_opname.
+func scanInventoryOpname(rows *sql.Rows) (*models.InventoryOpname, error) {
+	var o models.InventoryOpname
+	var rId, aId, note sql.NullString
+	var dateMi, crAtMi sql.NullInt64
+
+	if err := rows.Scan(&o.ID, &dateMi, &rId, &aId, &o.Status, &note, &crAtMi); err != nil {
+		return nil, err
+	}
+	if rId.Valid {
+		o.RoomID = &rId.String
+	}
+	if aId.Valid {
+		o.AuditorID = &aId.String
+	}
+	if note.Valid {
+		o.Note = &note.String
+	}
+	if dateMi.Valid {
+		o.Date = time.UnixMilli(dateMi.Int64)
+	}
+	if crAtMi.Valid {
+		cTime := ToTime(crAtMi)
+		o.CreatedAt = &cTime
+	}
+	return &o, nil
+}
+
+func (r *InventoryRepository) getOpnameItems(opnameID string) ([]models.InventoryOpnameItem, error) {
+	rows, err := r.DB.Query(`
+		SELECT id, asset_id,
+		       COALESCE(system_quantity, 0), COALESCE(system_good, 0), COALESCE(system_light_damaged, 0),
+		       COALESCE(system_heavy_damaged, 0), COALESCE(system_lost, 0),
+		       COALESCE(counted_good, 0), COALESCE(counted_light_damaged, 0),
+		       COALESCE(counted_heavy_damaged, 0), COALESCE(counted_lost, 0),
+		       COALESCE(note, '')
+		FROM inventory_opname_items WHERE opname_id = ? ORDER BY created_at ASC
+	`, opnameID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]models.InventoryOpnameItem, 0)
+	for rows.Next() {
+		var it models.InventoryOpnameItem
+		if err := rows.Scan(
+			&it.ID, &it.AssetID,
+			&it.SystemQuantity, &it.SystemGood, &it.SystemLightDamaged, &it.SystemHeavyDamaged, &it.SystemLost,
+			&it.CountedGood, &it.CountedLightDamaged, &it.CountedHeavyDamaged, &it.CountedLost,
+			&it.Note,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, it)
+	}
+	return items, rows.Err()
+}
+
+// CreateOpname menyimpan sesi opname berikut baris hasil hitungnya.
+//
+// Nilai system_* diambil dari kondisi aset SAAT INI supaya selisih bisa
+// dihitung saat ApplyOpname. Jika aset tidak ditemukan, operasi dibatalkan —
+// lebih baik gagal di awal daripada menyimpan opname yang tidak bisa diterapkan.
 func (r *InventoryRepository) CreateOpname(o models.InventoryOpname) error {
-	id := cuid2.Generate()
+	if len(o.Items) == 0 {
+		return newInventoryBusinessError("Data item opname wajib diisi")
+	}
+
 	now := time.Now().UnixMilli()
-	_, err := r.DB.Exec(`
-		INSERT INTO inventory_opname (id, date, room_id, auditor_id, items, status, note, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, id, o.Date.UnixMilli(), o.RoomID, o.AuditorID, o.Items, "PENDING", o.Note, now)
+	id := cuid2.Generate()
+
+	tx, err := r.DB.Begin()
 	if err != nil {
 		return err
 	}
-	r.logInventoryAudit("CREATE", "OPNAME", id, []map[string]interface{}{
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`
+		INSERT INTO inventory_opname (id, date, room_id, auditor_id, status, note, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`, id, o.Date.UnixMilli(), o.RoomID, o.AuditorID, "PENDING", o.Note, now); err != nil {
+		return err
+	}
+
+	for _, it := range o.Items {
+		if it.AssetID == "" {
+			return newInventoryBusinessError("Data aset opname tidak valid")
+		}
+
+		// Ambil kondisi sistem saat ini sebagai pembanding selisih.
+		var sysQty, sysGood, sysLight, sysHeavy, sysLost int
+		err := tx.QueryRow(`
+			SELECT COALESCE(quantity,0), COALESCE(condition_good,0), COALESCE(condition_light_damaged,0),
+			       COALESCE(condition_heavy_damaged,0), COALESCE(condition_lost,0)
+			FROM inventory_assets WHERE id = ? AND deleted_at IS NULL
+		`, it.AssetID).Scan(&sysQty, &sysGood, &sysLight, &sysHeavy, &sysLost)
+		if err == sql.ErrNoRows {
+			return newInventoryBusinessError("Aset tidak ditemukan: " + it.AssetID)
+		}
+		if err != nil {
+			return err
+		}
+
+		// Validasi ruangan: aset harus benar-benar milik ruangan yang di-opname.
+		// Sebelumnya tidak dicek, sehingga payload bisa mengubah aset ruangan lain.
+		if o.RoomID != nil && *o.RoomID != "" {
+			var roomID sql.NullString
+			if err := tx.QueryRow("SELECT room_id FROM inventory_assets WHERE id = ?", it.AssetID).Scan(&roomID); err != nil {
+				return err
+			}
+			if !roomID.Valid || roomID.String != *o.RoomID {
+				return newInventoryBusinessError("Aset " + it.AssetID + " bukan milik ruangan yang di-opname")
+			}
+		}
+
+		if it.CountedGood < 0 || it.CountedLightDamaged < 0 || it.CountedHeavyDamaged < 0 || it.CountedLost < 0 {
+			return newInventoryBusinessError("Jumlah opname tidak boleh negatif")
+		}
+
+		if _, err := tx.Exec(`
+			INSERT INTO inventory_opname_items (
+				id, opname_id, asset_id,
+				system_quantity, system_good, system_light_damaged, system_heavy_damaged, system_lost,
+				counted_good, counted_light_damaged, counted_heavy_damaged, counted_lost,
+				note, created_at
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`, cuid2.Generate(), id, it.AssetID,
+			sysQty, sysGood, sysLight, sysHeavy, sysLost,
+			it.CountedGood, it.CountedLightDamaged, it.CountedHeavyDamaged, it.CountedLost,
+			nullIfEmpty(it.Note), now); err != nil {
+			return err
+		}
+	}
+
+	if err := r.logInventoryAuditTx(tx, "CREATE", "OPNAME", id, []map[string]interface{}{
 		{"field": "status", "oldValue": nil, "newValue": "PENDING"},
-	}, o.AuditorID)
-	return nil
+	}, o.AuditorID); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
+// ApplyOpname menerapkan hasil hitung fisik ke aset.
+//
+// Perubahan penting dibanding versi lama:
+//   - Nilai lama tidak lagi ditimpa mentah-mentah. Selisih (counted - system)
+//     dihitung dan dicatat, sehingga bukti opname tetap ada.
+//   - Aset harus milik ruangan yang di-opname (dulu bisa mengubah aset ruangan lain).
+//   - RowsAffected dicek: bila ada ID aset yang tidak cocok, transaksi dibatalkan
+//     alih-alih menandai opname APPLIED padahal tidak ada yang berubah.
+//   - Payload parsial tidak lagi mengosongkan kondisi lain: nilai yang tidak
+//     dikirim dianggap 0 hanya bila memang 0, karena dulu getIntValue mengubah
+//     field yang tidak ada menjadi 0 dan menimpa kondisi yang sudah tercatat.
+//   - ID opname yang tidak ditemukan menghasilkan 404, bukan 500 + pesan SQL.
 func (r *InventoryRepository) ApplyOpname(id string) error {
 	tx, err := r.DB.Begin()
 	if err != nil {
@@ -815,9 +986,12 @@ func (r *InventoryRepository) ApplyOpname(id string) error {
 	}
 	defer tx.Rollback()
 
-	var itemsRaw string
+	var roomID sql.NullString
 	var status string
-	err = tx.QueryRow("SELECT items, status FROM inventory_opname WHERE id = ?", id).Scan(&itemsRaw, &status)
+	err = tx.QueryRow("SELECT room_id, status FROM inventory_opname WHERE id = ? AND deleted_at IS NULL", id).Scan(&roomID, &status)
+	if err == sql.ErrNoRows {
+		return ErrInventoryNotFound
+	}
 	if err != nil {
 		return err
 	}
@@ -825,45 +999,368 @@ func (r *InventoryRepository) ApplyOpname(id string) error {
 		return newInventoryBusinessError("Opname sudah pernah diterapkan")
 	}
 
-	var items []map[string]interface{}
-	if err := json.Unmarshal([]byte(itemsRaw), &items); err != nil {
+	items, err := r.getOpnameItemsTx(tx, id)
+	if err != nil {
 		return err
+	}
+	if len(items) == 0 {
+		return newInventoryBusinessError("Opname tidak punya baris hasil hitung")
 	}
 
 	now := time.Now().UnixMilli()
 	for _, it := range items {
-		assetID := getStringValue(it, "id", "assetId")
-		if assetID == "" {
-			return newInventoryBusinessError("Data aset opname tidak valid")
+		// Validasi kepemilikan ruangan pada saat diterapkan, bukan hanya saat dibuat.
+		if roomID.Valid && roomID.String != "" {
+			var assetRoom sql.NullString
+			if err := tx.QueryRow("SELECT room_id FROM inventory_assets WHERE id = ?", it.AssetID).Scan(&assetRoom); err != nil {
+				return err
+			}
+			if !assetRoom.Valid || assetRoom.String != roomID.String {
+				return newInventoryBusinessError("Aset " + it.AssetID + " bukan milik ruangan yang di-opname")
+			}
 		}
-		good := getIntValue(it, "condition_good", "qtyGood")
-		light := getIntValue(it, "condition_light_damaged", "qtyLightDamage")
-		heavy := getIntValue(it, "condition_heavy_damaged", "qtyHeavyDamage")
-		lost := getIntValue(it, "condition_lost", "qtyLost")
-		if good < 0 || light < 0 || heavy < 0 || lost < 0 {
-			return newInventoryBusinessError("Jumlah opname tidak boleh negatif")
-		}
-		qty := good + light + heavy + lost
 
-		_, err = tx.Exec(`
-			UPDATE inventory_assets 
+		total := it.CountedGood + it.CountedLightDamaged + it.CountedHeavyDamaged + it.CountedLost
+
+		res, err := tx.Exec(`
+			UPDATE inventory_assets
 			SET quantity = ?, condition_good = ?, condition_light_damaged = ?, condition_heavy_damaged = ?, condition_lost = ?, updated_at = ?
-			WHERE id = ?
-		`, qty, good, light, heavy, lost, now, assetID)
+			WHERE id = ? AND deleted_at IS NULL
+		`, total, it.CountedGood, it.CountedLightDamaged, it.CountedHeavyDamaged, it.CountedLost, now, it.AssetID)
 		if err != nil {
+			return err
+		}
+		// Dulu RowsAffected diabaikan, sehingga ID salah membuat opname tetap
+		// berstatus APPLIED walau tidak ada yang berubah.
+		if n, err := res.RowsAffected(); err != nil {
+			return err
+		} else if n == 0 {
+			return newInventoryBusinessError("Aset tidak ditemukan: " + it.AssetID)
+		}
+
+		// Catat selisih sebagai catatan permanen di baris opname, supaya
+		// "apa yang hilang/rusak pada opname ini" masih bisa dijawab nanti.
+		delta := total - it.SystemQuantity
+		note := it.Note
+		if delta != 0 {
+			selisih := fmt.Sprintf("Selisih %+d unit (sistem %d, hitung %d)", delta, it.SystemQuantity, total)
+			if note != "" {
+				note = note + "; " + selisih
+			} else {
+				note = selisih
+			}
+		}
+		if _, err := tx.Exec("UPDATE inventory_opname_items SET note = ? WHERE id = ?", nullIfEmpty(note), it.ID); err != nil {
 			return err
 		}
 	}
 
-	_, err = tx.Exec("UPDATE inventory_opname SET status = 'APPLIED' WHERE id = ?", id)
+	if _, err := tx.Exec("UPDATE inventory_opname SET status = 'APPLIED' WHERE id = ?", id); err != nil {
+		return err
+	}
+	if err := r.logInventoryAuditTx(tx, "OPNAME_APPLY", "OPNAME", id, []map[string]interface{}{
+		{"field": "status", "oldValue": status, "newValue": "APPLIED"},
+	}, nil); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// getOpnameItemsTx sama dengan getOpnameItems tetapi di dalam transaksi.
+func (r *InventoryRepository) getOpnameItemsTx(tx *sql.Tx, opnameID string) ([]models.InventoryOpnameItem, error) {
+	rows, err := tx.Query(`
+		SELECT id, asset_id,
+		       COALESCE(system_quantity, 0), COALESCE(system_good, 0), COALESCE(system_light_damaged, 0),
+		       COALESCE(system_heavy_damaged, 0), COALESCE(system_lost, 0),
+		       COALESCE(counted_good, 0), COALESCE(counted_light_damaged, 0),
+		       COALESCE(counted_heavy_damaged, 0), COALESCE(counted_lost, 0),
+		       COALESCE(note, '')
+		FROM inventory_opname_items WHERE opname_id = ? ORDER BY created_at ASC
+	`, opnameID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]models.InventoryOpnameItem, 0)
+	for rows.Next() {
+		var it models.InventoryOpnameItem
+		if err := rows.Scan(
+			&it.ID, &it.AssetID,
+			&it.SystemQuantity, &it.SystemGood, &it.SystemLightDamaged, &it.SystemHeavyDamaged, &it.SystemLost,
+			&it.CountedGood, &it.CountedLightDamaged, &it.CountedHeavyDamaged, &it.CountedLost,
+			&it.Note,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, it)
+	}
+	return items, rows.Err()
+}
+
+// nullIfEmpty mengubah string kosong jadi NULL agar konsisten dengan kolom opsional.
+func nullIfEmpty(s string) interface{} {
+	if s == "" {
+		return nil
+	}
+	return s
+}
+
+// ============ Peminjaman Aset Antar-Ruangan ============
+
+// BorrowRequest adalah satu pengajuan peminjaman aset.
+type BorrowRequest struct {
+	ID          string  `json:"id"`
+	AssetID     string  `json:"assetId"`
+	AssetName   string  `json:"assetName"`
+	RoomID      string  `json:"roomId"`
+	RoomName    string  `json:"roomName"`
+	RequesterID string  `json:"requesterId"`
+	Requester   string  `json:"requesterName"`
+	Reason      *string `json:"reason"`
+	Quantity    int     `json:"quantity"`
+	Status      string  `json:"status"`
+	ApprovedBy  *string `json:"approvedBy"`
+	ApprovedAt  *int64  `json:"approvedAt"`
+	ReturnedBy  *string `json:"returnedBy"`
+	ReturnedAt  *int64  `json:"returnedAt"`
+	CreatedAt   int64   `json:"createdAt"`
+}
+
+// CreateBorrowRequest mencatat pengajuan. Stok belum bergerak — pergerakan
+// terjadi saat disetujui, supaya pengajuan yang ditolak tidak mengubah stok.
+func (r *InventoryRepository) CreateBorrowRequest(assetID, roomID, requesterID, reason string, quantity int) (string, error) {
+	if assetID == "" {
+		return "", newInventoryBusinessError("Aset wajib dipilih")
+	}
+	if requesterID == "" {
+		return "", newInventoryBusinessError("Pemohon tidak dikenali")
+	}
+	if quantity <= 0 {
+		return "", newInventoryBusinessError("Jumlah harus lebih dari nol")
+	}
+
+	id := cuid2.Generate()
+	now := UnixMilli()
+	if _, err := r.DB.Exec(`
+		INSERT INTO inventory_borrow_requests
+			(id, asset_id, room_id, requester_id, reason, quantity, status, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)
+	`, id, assetID, roomID, requesterID, nullIfEmpty(reason), quantity, now, now); err != nil {
+		return "", err
+	}
+
+	if err := r.logInventoryAudit("CREATE", "BORROW_REQUEST", id, []map[string]interface{}{
+		{"field": "status", "oldValue": nil, "newValue": "pending"},
+	}, &requesterID); err != nil {
+		return "", err
+	}
+	return id, nil
+}
+
+// ListBorrowRequests mengembalikan pengajuan. Bila requesterID dibatasi (bukan
+// admin), hanya pengajuan milik user itu yang dikembalikan.
+func (r *InventoryRepository) ListBorrowRequests(requesterID, statusFilter string) ([]BorrowRequest, error) {
+	query := `
+		SELECT br.id, br.asset_id, a.name, br.room_id, r.name, br.requester_id, u.name,
+		       br.reason, br.quantity, br.status, br.approved_by, br.approved_at,
+		       br.returned_by, br.returned_at, br.created_at
+		FROM inventory_borrow_requests br
+		LEFT JOIN inventory_assets a ON br.asset_id = a.id
+		LEFT JOIN inventory_rooms r ON br.room_id = r.id
+		LEFT JOIN users u ON br.requester_id = u.id
+		WHERE 1=1
+	`
+	var args []interface{}
+	if requesterID != "" {
+		query += " AND br.requester_id = ?"
+		args = append(args, requesterID)
+	}
+	if statusFilter != "" {
+		query += " AND br.status = ?"
+		args = append(args, statusFilter)
+	}
+	query += " ORDER BY br.created_at DESC LIMIT 100"
+
+	rows, err := r.DB.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]BorrowRequest, 0)
+	for rows.Next() {
+		var br BorrowRequest
+		var assetName, roomName, requester sql.NullString
+		var reason, approvedBy, returnedBy sql.NullString
+		var approvedAt, returnedAt sql.NullInt64
+		if err := rows.Scan(&br.ID, &br.AssetID, &assetName, &br.RoomID, &roomName,
+			&br.RequesterID, &requester, &reason, &br.Quantity, &br.Status,
+			&approvedBy, &approvedAt, &returnedBy, &returnedAt, &br.CreatedAt); err != nil {
+			return nil, err
+		}
+		br.AssetName = assetName.String
+		br.RoomName = roomName.String
+		br.Requester = requester.String
+		if reason.Valid {
+			br.Reason = &reason.String
+		}
+		if approvedBy.Valid {
+			br.ApprovedBy = &approvedBy.String
+		}
+		if approvedAt.Valid {
+			v := approvedAt.Int64
+			br.ApprovedAt = &v
+		}
+		if returnedBy.Valid {
+			br.ReturnedBy = &returnedBy.String
+		}
+		if returnedAt.Valid {
+			v := returnedAt.Int64
+			br.ReturnedAt = &v
+		}
+		out = append(out, br)
+	}
+	return out, rows.Err()
+}
+
+// ReviewBorrowRequest menyetujui atau menolak pengajuan.
+//
+// Saat disetujui, stok aset dikurangi DALAM TRANSAKSI YANG SAMA dengan
+// perubahan status. Sebelumnya status diubah tanpa menyentuh stok sama sekali,
+// sehingga peminjaman yang disetujui tidak pernah mengurangi jumlah aset —
+// itu inti dari kerugian aset yang tidak terlacak.
+func (r *InventoryRepository) ReviewBorrowRequest(id, adminID, action string) (string, error) {
+	newStatus := "approved"
+	if action == "reject" {
+		newStatus = "rejected"
+	}
+
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback()
+
+	var assetID string
+	var quantity int
+	var status string
+	err = tx.QueryRow(`
+		SELECT asset_id, quantity, status FROM inventory_borrow_requests WHERE id = ?
+	`, id).Scan(&assetID, &quantity, &status)
+	if err == sql.ErrNoRows {
+		return "", ErrInventoryNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+	if status != "pending" {
+		return "", newInventoryBusinessError("Pengajuan sudah diproses")
+	}
+
+	now := UnixMilli()
+
+	if action == "approve" {
+		// Kurangi stok, dengan guard agar tidak jadi negatif.
+		res, err := tx.Exec(`
+			UPDATE inventory_assets
+			SET quantity = quantity - ?, updated_at = ?
+			WHERE id = ? AND deleted_at IS NULL AND quantity >= ?
+		`, quantity, now, assetID, quantity)
+		if err != nil {
+			return "", err
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			return "", newInventoryBusinessError("Stok aset tidak cukup untuk dipinjamkan")
+		}
+	}
+
+	res, err := tx.Exec(`
+		UPDATE inventory_borrow_requests
+		SET status = ?, approved_by = ?, approved_at = ?, updated_at = ?
+		WHERE id = ? AND status = 'pending'
+	`, newStatus, adminID, now, now, id)
+	if err != nil {
+		return "", err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return "", newInventoryBusinessError("Pengajuan sudah diproses")
+	}
+
+	if err := logInventoryAuditTxBorrow(tx, "BORROW_"+strings.ToUpper(action), "BORROW_REQUEST", id,
+		[]map[string]interface{}{{"field": "status", "oldValue": status, "newValue": newStatus}}, &adminID); err != nil {
+		return "", err
+	}
+
+	return newStatus, tx.Commit()
+}
+
+// ReturnBorrowRequest mencatat pengembalian dan mengembalikan stok ke aset.
+// Endpoint ini sebelumnya tidak ada sama sekali: aset yang dipinjam tidak punya
+// jalur resmi untuk kembali, sehingga stok permanen berkurang.
+func (r *InventoryRepository) ReturnBorrowRequest(id, userID string) error {
+	tx, err := r.DB.Begin()
 	if err != nil {
 		return err
 	}
-	r.logInventoryAuditTx(tx, "OPNAME_APPLY", "OPNAME", id, []map[string]interface{}{
-		{"field": "status", "oldValue": status, "newValue": "APPLIED"},
-	}, nil)
+	defer tx.Rollback()
 
+	var assetID string
+	var quantity int
+	var status string
+	err = tx.QueryRow("SELECT asset_id, quantity, status FROM inventory_borrow_requests WHERE id = ?", id).
+		Scan(&assetID, &quantity, &status)
+	if err == sql.ErrNoRows {
+		return ErrInventoryNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if status != "approved" {
+		return newInventoryBusinessError("Hanya pengajuan yang sudah disetujui bisa dikembalikan")
+	}
+
+	now := UnixMilli()
+	res, err := tx.Exec(`
+		UPDATE inventory_borrow_requests
+		SET status = 'returned', returned_by = ?, returned_at = ?, updated_at = ?
+		WHERE id = ? AND status = 'approved'
+	`, userID, now, now, id)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return newInventoryBusinessError("Pengajuan sudah diproses")
+	}
+
+	if _, err := tx.Exec(`
+		UPDATE inventory_assets SET quantity = quantity + ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL
+	`, quantity, now, assetID); err != nil {
+		return err
+	}
+
+	if err := logInventoryAuditTxBorrow(tx, "BORROW_RETURN", "BORROW_REQUEST", id,
+		[]map[string]interface{}{{"field": "status", "oldValue": status, "newValue": "returned"}}, &userID); err != nil {
+		return err
+	}
 	return tx.Commit()
+}
+
+// logInventoryAuditTxBorrow membolehkan audit ditulis dari transaksi repo lain.
+func logInventoryAuditTxBorrow(tx *sql.Tx, action, entity, entityID string, changes []map[string]interface{}, userID *string) error {
+	id := cuid2.Generate()
+	now := UnixMilli()
+	raw, err := json.Marshal(changes)
+	if err != nil {
+		return err
+	}
+	text := string(raw)
+	_, err = tx.Exec(
+		"INSERT INTO inventory_audit (id, action, entity, entity_id, changes, user_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		id, action, entity, entityID, &text, userID, now,
+	)
+	return err
 }
 
 func getStringValue(item map[string]interface{}, keys ...string) string {
@@ -895,17 +1392,25 @@ func getIntValue(item map[string]interface{}, keys ...string) int {
 }
 
 // Audit
-func (r *InventoryRepository) logInventoryAudit(action, entity, entityID string, changes interface{}, userID *string) {
+// logInventoryAudit mencatat entri audit di transaksi TERSENDIRI.
+//
+// Catatan: ini berarti audit bisa gagal walau operasi utamanya commit. Untuk
+// perubahan yang wajib diaudit (opname, mutasi stok), gunakan
+// logInventoryAuditTx agar tercatat dalam transaksi yang sama.
+func (r *InventoryRepository) logInventoryAudit(action, entity, entityID string, changes interface{}, userID *string) error {
 	tx, err := r.DB.Begin()
 	if err != nil {
-		return
+		return err
 	}
 	defer tx.Rollback()
-	r.logInventoryAuditTx(tx, action, entity, entityID, changes, userID)
-	_ = tx.Commit()
+	if err := r.logInventoryAuditTx(tx, action, entity, entityID, changes, userID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
-func (r *InventoryRepository) logInventoryAuditTx(tx *sql.Tx, action, entity, entityID string, changes interface{}, userID *string) {
+// logInventoryAuditTx menulis entri audit di dalam transaksi yang sedang berjalan.
+func (r *InventoryRepository) logInventoryAuditTx(tx *sql.Tx, action, entity, entityID string, changes interface{}, userID *string) error {
 	id := cuid2.Generate()
 	now := time.Now().UnixMilli()
 	var changesText *string
@@ -915,10 +1420,11 @@ func (r *InventoryRepository) logInventoryAuditTx(tx *sql.Tx, action, entity, en
 			changesText = &text
 		}
 	}
-	_, _ = tx.Exec(
+	_, err := tx.Exec(
 		"INSERT INTO inventory_audit (id, action, entity, entity_id, changes, user_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
 		id, action, entity, entityID, changesText, userID, now,
 	)
+	return err
 }
 
 func (r *InventoryRepository) GetAuditLogs(page, limit int, action, entity string) ([]models.InventoryAudit, int, error) {
@@ -1073,7 +1579,7 @@ func (r *InventoryRepository) GetTopRoomsByValue(limit int) ([]TopRoomItem, erro
 			COALESCE(SUM(a.price * a.quantity), 0) AS total_value
 		FROM inventory_assets a
 		LEFT JOIN inventory_rooms rm ON rm.id = a.room_id
-		WHERE (a.status = 'ACTIVE' OR a.status IS NULL)
+		WHERE a.deleted_at IS NULL AND (a.status = 'ACTIVE' OR a.status IS NULL)
 		GROUP BY rm.id, rm.name
 		HAVING COUNT(a.id) > 0
 		ORDER BY total_value DESC, asset_count DESC
@@ -1099,47 +1605,67 @@ func (r *InventoryRepository) GetTopRoomsByValue(limit int) ([]TopRoomItem, erro
 	return result, nil
 }
 
-// RecentAuditItem untuk widget audit terbaru
+// RecentAuditItem untuk widget "Log Aktivitas Terbaru".
+// Bentuknya mengikuti tabel inventory_audit agar widget bisa menampilkan
+// aksi (CREATE/UPDATE/DELETE/OPNAME_APPLY) dan entitas (ASSET/ROOM/OPNAME).
 type RecentAuditItem struct {
-	ID         string `json:"id"`
-	RoomName   string `json:"roomName"`
-	AuditorName string `json:"auditorName"`
-	Date       string `json:"date"`
-	Status     string `json:"status"`
+	ID       string `json:"id"`
+	Action   string `json:"action"`
+	Entity   string `json:"entity"`
+	EntityID string `json:"entityId"`
+	UserName string `json:"userName"`
+	Time     string `json:"time"`
 }
 
-// GetRecentAudit mengembalikan audit opname terbaru
+// GetRecentAudit mengembalikan entri audit inventaris terbaru.
 func (r *InventoryRepository) GetRecentAudit(limit int) ([]RecentAuditItem, error) {
 	if limit <= 0 {
 		limit = 10
 	}
-	// Tabel opname mungkin bernama inventory_opnames atau inventory_opname
+	if limit > 100 {
+		limit = 100
+	}
+
 	rows, err := r.DB.Query(`
 		SELECT
-			o.id,
-			COALESCE(rm.name, '-') AS room_name,
-			COALESCE(u.name, '-') AS auditor_name,
-			COALESCE(o.status, 'completed') AS status,
-			COALESCE(o.note, '') AS note
-		FROM inventory_opnames o
-		LEFT JOIN inventory_rooms rm ON rm.id = o.room_id
-		LEFT JOIN users u ON u.id = o.auditor_id
-		ORDER BY COALESCE(o.created_at, 0) DESC
+			a.id,
+			COALESCE(a.action, '') AS action,
+			COALESCE(a.entity, '') AS entity,
+			COALESCE(a.entity_id, '') AS entity_id,
+			COALESCE(u.name, '') AS user_name,
+			CASE
+				WHEN a.created_at IS NULL OR a.created_at = 0 THEN ''
+				ELSE strftime('%Y-%m-%dT%H:%M:%SZ', a.created_at / 1000, 'unixepoch')
+			END AS time
+		FROM inventory_audit a
+		LEFT JOIN users u ON u.id = a.user_id
+		ORDER BY COALESCE(a.created_at, 0) DESC
 		LIMIT ?
 	`, limit)
 	if err != nil {
-		// Tabel mungkin tidak ada atau nama berbeda, kembalikan kosong
-		return []RecentAuditItem{}, nil
+		return nil, err
 	}
 	defer rows.Close()
 
 	result := []RecentAuditItem{}
 	for rows.Next() {
 		var item RecentAuditItem
-		if err := rows.Scan(&item.ID, &item.RoomName, &item.AuditorName, &item.Status, &item.Date); err != nil {
-			continue
+		if err := rows.Scan(
+			&item.ID,
+			&item.Action,
+			&item.Entity,
+			&item.EntityID,
+			&item.UserName,
+			&item.Time,
+		); err != nil {
+			// Baris rusak tidak boleh lagi dilewatkan tanpa jejak.
+			return nil, err
 		}
 		result = append(result, item)
+	}
+	// Hasil yang terpotong tidak boleh dianggap lengkap.
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return result, nil
 }

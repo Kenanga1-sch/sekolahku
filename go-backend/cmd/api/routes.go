@@ -198,28 +198,46 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	auth.GET("/classes/stats", h.Academic.GetClassesStats)
 
 	// Inventory
+	// Inventory — scope PIC ruangan: guru bisa kelola ruangannya, admin bebas
+	// (lihat inventory_handler_scope.go). Yang bersifat master data / jejak audit
+	// dikunci ke admin di level rute, bukan hanya mengandalkan handler.
 	auth.GET("/inventory/stats", h.Inventory.GetStats)
+	auth.GET("/inventory/data", h.Inventory.GetData)
 	auth.GET("/inventory/rooms", h.Inventory.GetRooms)
 	auth.GET("/inventory/rooms/:id", h.Inventory.GetRoom)
-	auth.POST("/inventory/rooms", h.Inventory.CreateRoom)
-	auth.PUT("/inventory/rooms/:id", h.Inventory.UpdateRoom)
-	auth.DELETE("/inventory/rooms/:id", h.Inventory.DeleteRoom)
+	auth.PUT("/inventory/rooms/:id", h.Inventory.UpdateRoom) // PIC boleh sunting ruangannya
 	auth.GET("/inventory/assets", h.Inventory.GetAssets)
 	auth.GET("/inventory/assets/:id", h.Inventory.GetAsset)
-	auth.POST("/inventory/assets", h.Inventory.CreateAsset)
 	auth.PUT("/inventory/assets/:id", h.Inventory.UpdateAsset)
-	auth.DELETE("/inventory/assets/:id", h.Inventory.DeleteAsset)
 	auth.GET("/inventory/items", h.Inventory.GetItems)
 	auth.GET("/inventory/items/:id", h.Inventory.GetItem)
-	auth.POST("/inventory/items", h.Inventory.CreateItem)
 	auth.PUT("/inventory/items/:id", h.Inventory.UpdateItem)
-	auth.DELETE("/inventory/items/:id", h.Inventory.DeleteItem)
 	auth.GET("/inventory/transactions", h.Inventory.GetTransactions)
 	auth.POST("/inventory/transactions", h.Inventory.CreateTransaction)
 	auth.GET("/inventory/opname", h.Inventory.GetOpnames)
 	auth.POST("/inventory/opname", h.Inventory.CreateOpname)
 	auth.POST("/inventory/opname/:id/apply", h.Inventory.ApplyOpname)
-	auth.GET("/inventory/audit", h.Inventory.GetAuditLogs)
+	auth.POST("/inventory/borrow-requests", h.Inventory.CreateBorrowRequest)
+	auth.GET("/inventory/borrow-requests", h.Inventory.GetBorrowRequests)
+
+	// Struktur ruangan (membuat/menghapus ruangan = menentukan PIC): admin saja.
+	adminGroup.POST("/inventory/rooms", h.Inventory.CreateRoom)
+	adminGroup.DELETE("/inventory/rooms/:id", h.Inventory.DeleteRoom)
+
+	// Aset & barang: PIC boleh menambah/menghapus di ruangannya sendiri,
+	// dijaga oleh ensureAssetRoomScope / ensureItemLocationScope di handler.
+	// Dulu CreateAsset dan CreateItem tidak punya cek otorisasi sama sekali.
+	auth.POST("/inventory/assets", h.Inventory.CreateAsset)
+	auth.DELETE("/inventory/assets/:id", h.Inventory.DeleteAsset)
+	auth.POST("/inventory/items", h.Inventory.CreateItem)
+	auth.DELETE("/inventory/items/:id", h.Inventory.DeleteItem)
+
+	// Jejak audit memuat nama user, tidak untuk dibaca peran apa pun.
+	adminGroup.GET("/inventory/audit", h.Inventory.GetAuditLogs)
+
+	// Persetujuan peminjaman: admin; pengembalian: pemohon atau admin (dicek di repo)
+	adminGroup.POST("/inventory/borrow-requests/:id/review", h.Inventory.ReviewBorrowRequest)
+	auth.POST("/inventory/borrow-requests/:id/return", h.Inventory.ReturnBorrowRequest)
 
 	// SPMB
 	adminGroup.GET("/spmb/periods/active", h.SPMB.GetActivePeriod)

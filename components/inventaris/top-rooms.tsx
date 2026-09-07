@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { goGet } from "@/lib/api-client";
-import { Home, TrendingUp } from "lucide-react";
+import { useWidgetData, WidgetError } from "./use-widget-data";
+import { TrendingUp } from "lucide-react";
 
 // Types for API response
 interface TopRoom {
@@ -26,22 +24,10 @@ function formatCurrency(value: number): string {
 }
 
 export function TopRoomsWidget() {
-    const [rooms, setRooms] = useState<TopRoom[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        async function loadData() {
-            try {
-                const data: any = await goGet("/api/inventaris/data?type=top-rooms");
-                setRooms(data);
-            } catch {
-                // Fail silently
-            } finally {
-                setLoading(false);
-            }
-        }
-        loadData();
-    }, []);
+    const { data: rooms, loading, error, reload } = useWidgetData<TopRoom[]>(
+        "/api/inventory/data?type=top-rooms",
+        []
+    );
 
     if (loading) {
         return (
@@ -78,6 +64,9 @@ export function TopRoomsWidget() {
                 </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
+                {error ? (
+                    <WidgetError message={error} onRetry={reload} height={280} />
+                ) : (
                 <ScrollArea className="h-[280px] px-6">
                     {rooms.length === 0 ? (
                         <div className="h-full flex items-center justify-center text-muted-foreground py-8">
@@ -112,6 +101,7 @@ export function TopRoomsWidget() {
                         </div>
                     )}
                 </ScrollArea>
+                )}
             </CardContent>
         </Card>
     );

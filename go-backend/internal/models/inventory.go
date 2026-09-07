@@ -77,14 +77,35 @@ type InventoryTransaction struct {
 }
 
 type InventoryOpname struct {
-	ID        string     `json:"id"`
-	Date      time.Time  `json:"date"`
-	RoomID    *string    `json:"room"`
-	AuditorID *string    `json:"auditor"`
-	Items     string     `json:"items"`  // JSON blob string
-	Status    string     `json:"status"` // PENDING, APPLIED
-	Note      *string    `json:"note"`
-	CreatedAt *time.Time `json:"createdAt"`
+	ID        string                `json:"id"`
+	Date      time.Time             `json:"date"`
+	RoomID    *string               `json:"room"`
+	AuditorID *string               `json:"auditor"`
+	Items     []InventoryOpnameItem `json:"items"`
+	Status    string                `json:"status"` // PENDING, APPLIED
+	Note      *string               `json:"note"`
+	CreatedAt *time.Time            `json:"createdAt"`
+}
+
+// InventoryOpnameItem adalah satu baris hasil hitung fisik.
+//
+// Kolom system_* diisi pada saat opname dibuat (angka menurut sistem), dan
+// counted_* diisi hasil hitung di lapangan. Selisihnya (counted - system)
+// tersimpan permanen, sehingga setelah opname diterapkan masih bisa
+// dilacak berapa selisihnya. Sebelumnya info ini tidak disimpan sama sekali.
+type InventoryOpnameItem struct {
+	ID                  string `json:"id,omitempty"`
+	AssetID             string `json:"assetId"`
+	SystemQuantity      int    `json:"systemQty"`
+	SystemGood          int    `json:"systemGood"`
+	SystemLightDamaged  int    `json:"systemLightDamaged"`
+	SystemHeavyDamaged  int    `json:"systemHeavyDamaged"`
+	SystemLost          int    `json:"systemLost"`
+	CountedGood         int    `json:"qtyGood"`
+	CountedLightDamaged int    `json:"qtyLightDamage"`
+	CountedHeavyDamaged int    `json:"qtyHeavyDamage"`
+	CountedLost         int    `json:"qtyLost"`
+	Note                string `json:"note,omitempty"`
 }
 
 type InventoryAudit struct {
