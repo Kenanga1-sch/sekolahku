@@ -10,6 +10,7 @@ import {
     Filter,
     ArrowLeft,
     HandHeart,
+    Printer,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -51,6 +52,7 @@ import {
 import type { InventoryAsset, InventoryRoom } from "@/types/inventory";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { toast } from "sonner";
+import { uploadPhoto } from "@/lib/inventory";
 
 const CATEGORIES = [
     "Elektronik",
@@ -83,6 +85,7 @@ export default function AsetPage() {
         const picId = (asset.expand?.room as any)?.picId || (asset.expand?.room as any)?.pic?.id;
         return picId === user?.id;
     };
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
     // Form state
     const [formData, setFormData] = useState({
@@ -94,11 +97,13 @@ export default function AsetPage() {
         quantity: "1",
         room: "",
         notes: "",
-        // Breakdown
         condition_good: "1",
         condition_light_damaged: "0",
         condition_heavy_damaged: "0",
         condition_lost: "0",
+        funding_source: "",
+        fiscal_year: new Date().getFullYear().toString(),
+        photo_url: "",
     });
 
     const loadData = useCallback(async () => {
@@ -169,6 +174,9 @@ export default function AsetPage() {
                 condition_light_damaged: parseInt(formData.condition_light_damaged) || 0,
                 condition_heavy_damaged: parseInt(formData.condition_heavy_damaged) || 0,
                 condition_lost: parseInt(formData.condition_lost) || 0,
+                fundingSource: formData.funding_source || undefined,
+                fiscalYear: formData.fiscal_year ? parseInt(formData.fiscal_year) : undefined,
+                photoUrl: formData.photo_url || undefined,
             };
 
             if (editingAsset) {
@@ -234,6 +242,9 @@ export default function AsetPage() {
             condition_light_damaged: "0",
             condition_heavy_damaged: "0",
             condition_lost: "0",
+            funding_source: "",
+            fiscal_year: new Date().getFullYear().toString(),
+            photo_url: "",
         });
     };
 
@@ -252,6 +263,9 @@ export default function AsetPage() {
             condition_light_damaged: (asset.condition_light_damaged || 0).toString(),
             condition_heavy_damaged: (asset.condition_heavy_damaged || 0).toString(),
             condition_lost: (asset.condition_lost || 0).toString(),
+            funding_source: asset.fundingSource || "",
+            fiscal_year: (asset.fiscalYear || new Date().getFullYear()).toString(),
+            photo_url: asset.photoUrl || "",
         });
         setIsAddDialogOpen(true);
     };
@@ -435,6 +449,85 @@ export default function AsetPage() {
                                         rows={2}
                                     />
                                 </div>
+
+                                <div className="border rounded-md p-4 bg-muted/50">
+                                    <Label className="mb-2 block font-semibold">Label & Sumber Dana</Label>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="funding_source">Sumber Dana</Label>
+                                            <Select
+                                                value={formData.funding_source}
+                                                onValueChange={(value) => setFormData({ ...formData, funding_source: value })}
+                                            >
+                                                <SelectTrigger id="funding_source">
+                                                    <SelectValue placeholder="Pilih sumber dana" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="BOSP Reguler">BOSP Reguler</SelectItem>
+                                                    <SelectItem value="BOSP Kinerja">BOSP Kinerja</SelectItem>
+                                                    <SelectItem value="APBD">APBD</SelectItem>
+                                                    <SelectItem value="BOSDA">BOSDA</SelectItem>
+                                                    <SelectItem value="Komite Sekolah">Komite Sekolah</SelectItem>
+                                                    <SelectItem value="Hibah">Hibah</SelectItem>
+                                                    <SelectItem value="Swadaya">Swadaya</SelectItem>
+                                                    <SelectItem value="Lainnya">Lainnya</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="fiscal_year">Tahun Anggaran</Label>
+                                            <Input
+                                                id="fiscal_year"
+                                                type="number"
+                                                min="2020"
+                                                max="2035"
+                                                value={formData.fiscal_year}
+                                                onChange={(e) => setFormData({ ...formData, fiscal_year: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        <Label>Foto Barang (opsional)</Label>
+                                        {formData.photo_url ? (
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-20 h-20 rounded-md border overflow-hidden bg-muted flex-shrink-0">
+                                                    <img src={formData.photo_url} alt="Preview" className="w-full h-full object-cover" />
+                                                </div>
+                                                <Button type="button" variant="outline" size="sm"
+                                                    onClick={() => setFormData({ ...formData, photo_url: "" })}>
+                                                    <Trash2 className="h-4 w-4 mr-1" /> Hapus Foto
+                                                </Button>
+                                            </div>
+                                        ) : (
+                                            <div className="relative">
+                                                <Button type="button" variant="outline" size="sm">
+                                                    Pilih Foto
+                                                </Button>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    className="absolute inset-0 opacity-0 cursor-pointer w-full"
+                                                    onChange={async (e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (!file) return;
+                                                        try {
+                                                            const url = await uploadPhoto(file);
+                                                            setFormData({ ...formData, photo_url: url });
+                                                            toast.success("Foto berhasil diunggah");
+                                                        } catch (err) {
+                                                            toast.error("Gagal mengunggah foto");
+                                                        }
+                                                        e.target.value = "";
+                                                    }}
+                                                />
+                                            </div>
+                                        )}
+                                        <p className="text-xs text-muted-foreground">
+                                            Opsional. Ditampilkan di halaman publik saat QR discan.
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
                             <DialogFooter>
                                 <Button type="submit">
@@ -472,6 +565,15 @@ export default function AsetPage() {
                             </SelectContent>
                         </Select>
                     </div>
+                    <div className="flex gap-2 mt-2">
+                        <Button variant="default" size="sm" disabled={selectedIds.length === 0}
+                            onClick={() => {
+                                const ids = selectedIds.join(",");
+                                window.open(`/inventaris/label?assets=${ids}`, '_blank');
+                            }}>
+                            Cetak Label ({selectedIds.length})
+                        </Button>
+                    </div>
                 </CardContent>
             </Card>
 
@@ -480,6 +582,20 @@ export default function AsetPage() {
                 data={loading ? [] : assets}
                 getRowId={(asset) => asset.id}
                 loading={loading}
+                selectable
+                selectedIds={selectedIds}
+                onToggleSelect={(id) => {
+                    setSelectedIds((prev) =>
+                        prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+                    );
+                }}
+                onToggleSelectAll={() => {
+                    if (selectedIds.length === assets.length) {
+                        setSelectedIds([]);
+                    } else {
+                        setSelectedIds(assets.map((a) => a.id));
+                    }
+                }}
                 emptyTitle="Belum ada aset"
                 emptyDescription='Belum ada aset. Klik "Tambah Aset" untuk menambahkan.'
                 columns={[
@@ -537,6 +653,10 @@ export default function AsetPage() {
                             <DropdownMenuItem onClick={() => openEditDialog(asset)}>
                                 <Pencil className="h-4 w-4 mr-2" />
                                 Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => window.open(`/inventaris/label?assets=${asset.id}`, '_blank')}>
+                                <Printer className="h-4 w-4 mr-2" />
+                                Cetak Label
                             </DropdownMenuItem>
                             {!isMyRoom(asset) && (
                                 <DropdownMenuItem onClick={() => openBorrowDialog(asset)}>

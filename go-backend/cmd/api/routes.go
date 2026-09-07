@@ -12,69 +12,67 @@ import (
 
 // Repositories holds all repository instances.
 type Repositories struct {
-	User               *repository.UserRepository
-	Academic           *repository.AcademicRepository
-	Inventory          *repository.InventoryRepository
-	SPMB               *repository.SPMBRepository
-	Student            *repository.StudentRepository
-	Employee           *repository.EmployeeRepository
-	Savings            *repository.SavingsRepository
-	Library            *repository.LibraryRepository
-	EOffice            *repository.EOfficeRepository
-	AcademicAdv        *repository.AcademicAdvRepository
-	Attendance         *repository.AttendanceRepository
-	Loan               *repository.LoanRepository
-	Setting            *repository.SettingRepository
-	Alumni             *repository.AlumniRepository
-	Mutasi             *repository.MutasiRepository
-	Gallery            *repository.GalleryRepository
-	StaffProfile       *repository.StaffProfileRepository
-	Announcement       *repository.AnnouncementRepository
-	AuditLog           *repository.AuditLogRepository
-	Notification       *repository.NotificationRepository
-	TelegramBackup     *repository.TelegramBackupRepository
-	Dashboard          *repository.DashboardRepository
-	Public             *repository.PublicRepository
-	FAQ                *repository.FAQRepository
-	Contact            *repository.ContactRepository
-	Sync               *repository.SyncRepository
-	Integration        *repository.IntegrationRepository
-	Document           *repository.DocumentRepository
-	Holiday            *repository.SchoolHolidayRepository
+	User           *repository.UserRepository
+	Academic       *repository.AcademicRepository
+	Inventory      *repository.InventoryRepository
+	SPMB           *repository.SPMBRepository
+	Student        *repository.StudentRepository
+	Employee       *repository.EmployeeRepository
+	Savings        *repository.SavingsRepository
+	Library        *repository.LibraryRepository
+	EOffice        *repository.EOfficeRepository
+	AcademicAdv    *repository.AcademicAdvRepository
+	Attendance     *repository.AttendanceRepository
+	Loan           *repository.LoanRepository
+	Setting        *repository.SettingRepository
+	Alumni         *repository.AlumniRepository
+	Mutasi         *repository.MutasiRepository
+	Gallery        *repository.GalleryRepository
+	Announcement   *repository.AnnouncementRepository
+	AuditLog       *repository.AuditLogRepository
+	Notification   *repository.NotificationRepository
+	TelegramBackup *repository.TelegramBackupRepository
+	Dashboard      *repository.DashboardRepository
+	Public         *repository.PublicRepository
+	FAQ            *repository.FAQRepository
+	Contact        *repository.ContactRepository
+	Sync           *repository.SyncRepository
+	Integration    *repository.IntegrationRepository
+	Document       *repository.DocumentRepository
+	Holiday        *repository.SchoolHolidayRepository
 }
 
 // AllHandlers holds all HTTP handler instances.
 type AllHandlers struct {
-	Auth            *handlers.AuthHandler
-	Academic        *handlers.AcademicHandler
-	Inventory       *handlers.InventoryHandler
-	SPMB            *handlers.SPMBHandler
-	Student         *handlers.StudentHandler
-	Employee        *handlers.EmployeeHandler
-	Savings         *handlers.SavingsHandler
-	Library         *handlers.LibraryHandler
-	EOffice         *handlers.EOfficeHandler
-	AcademicAdv     *handlers.AcademicAdvHandler
-	Attendance      *handlers.AttendanceHandler
-	Loan            *handlers.LoanHandler
-	Setting         *handlers.SettingHandler
-	Alumni          *handlers.AlumniHandler
-	Mutasi          *handlers.MutasiHandler
-	Gallery         *handlers.GalleryHandler
-	StaffProfile    *handlers.StaffProfileHandler
-	Announcement    *handlers.AnnouncementHandler
-	AuditLog        *handlers.AuditLogHandler
-	Notification    *handlers.NotificationHandler
-	TelegramBackup  *handlers.TelegramBackupHandler
-	User            *handlers.UserHandler
-	Dashboard       *handlers.DashboardHandler
-	Public          *handlers.PublicHandler
-	FAQ             *handlers.FAQHandler
-	Contact         *handlers.ContactHandler
-	Upload          *handlers.UploadHandler
-	Integration     *handlers.IntegrationHandler
-	Document        *handlers.DocumentHandler
-	Sync            *handlers.SyncHandler
+	Auth           *handlers.AuthHandler
+	Academic       *handlers.AcademicHandler
+	Inventory      *handlers.InventoryHandler
+	SPMB           *handlers.SPMBHandler
+	Student        *handlers.StudentHandler
+	Employee       *handlers.EmployeeHandler
+	Savings        *handlers.SavingsHandler
+	Library        *handlers.LibraryHandler
+	EOffice        *handlers.EOfficeHandler
+	AcademicAdv    *handlers.AcademicAdvHandler
+	Attendance     *handlers.AttendanceHandler
+	Loan           *handlers.LoanHandler
+	Setting        *handlers.SettingHandler
+	Alumni         *handlers.AlumniHandler
+	Mutasi         *handlers.MutasiHandler
+	Gallery        *handlers.GalleryHandler
+	Announcement   *handlers.AnnouncementHandler
+	AuditLog       *handlers.AuditLogHandler
+	Notification   *handlers.NotificationHandler
+	TelegramBackup *handlers.TelegramBackupHandler
+	User           *handlers.UserHandler
+	Dashboard      *handlers.DashboardHandler
+	Public         *handlers.PublicHandler
+	FAQ            *handlers.FAQHandler
+	Contact        *handlers.ContactHandler
+	Upload         *handlers.UploadHandler
+	Integration    *handlers.IntegrationHandler
+	Document       *handlers.DocumentHandler
+	Sync           *handlers.SyncHandler
 }
 
 // registerRoutes registers all API routes on the Echo server.
@@ -152,11 +150,12 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	publicGroup.GET("/mutasi/status/:regNum", h.Mutasi.GetPublicMutasiStatus, publicFormLimit)
 	publicGroup.POST("/mutasi-keluar/validate", h.Mutasi.ValidatePublicMutasiOut, publicFormLimit)
 	publicGroup.POST("/mutasi-keluar/request", h.Mutasi.CreatePublicMutasiOutRequest, publicFormLimit)
-	publicGroup.POST("/tabungan/check-balance", h.Savings.CheckPublicBalance)
+	publicGroup.POST("/tabungan/check-balance", h.Savings.CheckPublicBalance, publicFormLimit)
 	publicGroup.GET("/spmb/reference-date", h.SPMB.GetReferenceDate)
-	publicGroup.POST("/kiosk/attendance", h.Attendance.KioskRecordAttendance)
-	publicGroup.POST("/kiosk/savings-deposit", h.Savings.KioskDeposit)
-	publicGroup.GET("/kiosk/savings-lookup", h.Savings.GetSiswa)
+	// Label inventaris: halaman detail yang dibuka lewat QR pada stiker fisik.
+	// Sengaja publik — QR harus bisa discan siapa pun. Handler membatasi
+	// respons hanya pada field aman (tanpa harga, catatan, user_id).
+	publicGroup.GET("/inventory/label", h.Inventory.GetPublicLabel)
 	publicGroup.POST("/sync/dapodik/students", h.Sync.SyncDapodikStudents)
 
 	// Public compatibility aliases
@@ -174,6 +173,9 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 
 	bendaharaGroup := auth.Group("")
 	bendaharaGroup.Use(authMiddleware.RoleMiddleware(authMiddleware.RoleSuperadmin, authMiddleware.RoleAdmin, authMiddleware.RoleBendahara))
+
+	guruGroup := auth.Group("")
+	guruGroup.Use(authMiddleware.RoleMiddleware(authMiddleware.RoleSuperadmin, authMiddleware.RoleAdmin, authMiddleware.RoleGuru, authMiddleware.RoleStaff))
 
 	// Dashboard
 	adminGroup.GET("/admin/dashboard/stats", h.Dashboard.GetStats)
@@ -197,7 +199,6 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	adminGroup.POST("/academic/promotion", h.Academic.ProcessPromotion)
 	auth.GET("/classes/stats", h.Academic.GetClassesStats)
 
-	// Inventory
 	// Inventory — scope PIC ruangan: guru bisa kelola ruangannya, admin bebas
 	// (lihat inventory_handler_scope.go). Yang bersifat master data / jejak audit
 	// dikunci ke admin di level rute, bukan hanya mengandalkan handler.
@@ -238,6 +239,8 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	// Persetujuan peminjaman: admin; pengembalian: pemohon atau admin (dicek di repo)
 	adminGroup.POST("/inventory/borrow-requests/:id/review", h.Inventory.ReviewBorrowRequest)
 	auth.POST("/inventory/borrow-requests/:id/return", h.Inventory.ReturnBorrowRequest)
+
+	adminGroup.POST("/inventory/borrow-requests/:id/review", h.Inventory.ReviewBorrowRequest)
 
 	// SPMB
 	adminGroup.GET("/spmb/periods/active", h.SPMB.GetActivePeriod)
@@ -286,12 +289,6 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	adminGroup.POST("/master/employees", h.Employee.CreateEmployee)
 	adminGroup.PUT("/master/employees/:id", h.Employee.UpdateEmployee)
 	adminGroup.DELETE("/master/employees/:id", h.Employee.DeleteEmployee)
-
-	// Staff & Profile
-	adminGroup.GET("/admin/staff", h.StaffProfile.GetProfiles)
-	adminGroup.POST("/admin/staff", h.StaffProfile.CreateProfile)
-	adminGroup.PATCH("/admin/staff/:id", h.StaffProfile.UpdateProfile)
-	adminGroup.DELETE("/admin/staff/:id", h.StaffProfile.DeleteProfile)
 
 	// FAQ & Contact
 	adminGroup.GET("/faqs", h.FAQ.ListFAQsAdmin)
@@ -518,17 +515,24 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	adminGroup.POST("/academic/adv/scan", h.AcademicAdv.RecordQRScan)
 	adminGroup.POST("/academic/adv/bulk-grades", h.AcademicAdv.BulkGrades)
 
-	// Attendance
-	auth.GET("/attendance/stats", h.Attendance.GetStats)
-	auth.GET("/attendance/daily", h.Attendance.GetDailyClass)
-	auth.POST("/attendance/manual", h.Attendance.RecordManual)
-	auth.POST("/attendance/scan", h.Attendance.ScanQR)
-	auth.GET("/attendance/report", h.Attendance.GetReport)
-	auth.GET("/attendance/export", h.Attendance.ExportCSV)
-	auth.GET("/attendance/student-summary/:studentId", h.Attendance.GetStudentSummary)
+	// Kiosk (dibuka dari HP guru yang sudah login; ikut role guru+)
+	guruGroup.POST("/kiosk/attendance", h.Attendance.KioskRecordAttendance)
+	guruGroup.POST("/kiosk/savings-deposit", h.Savings.KioskDeposit)
+	guruGroup.GET("/kiosk/savings-lookup", h.Savings.GetSiswa)
+
+	// Attendance (mutasi & laporan hanya guru ke atas; siswa hanya rangkuman sendiri)
+	guruGroup.GET("/attendance/stats", h.Attendance.GetStats)
+	guruGroup.GET("/attendance/daily", h.Attendance.GetDailyClass)
+	guruGroup.POST("/attendance/manual", h.Attendance.RecordManual)
+	guruGroup.POST("/attendance/scan", h.Attendance.ScanQR)
+	guruGroup.GET("/attendance/report", h.Attendance.GetReport)
+	guruGroup.GET("/attendance/export", h.Attendance.ExportCSV)
+	guruGroup.GET("/attendance/student-summary/:studentId", h.Attendance.GetStudentSummary)
 	auth.GET("/attendance/holiday", h.Attendance.CheckHoliday)
 	adminGroup.GET("/school-holidays", h.Attendance.ListSchoolHolidays)
+	adminGroup.GET("/school-holidays/national", h.Attendance.GetNationalHolidays)
 	adminGroup.POST("/school-holidays", h.Attendance.CreateSchoolHoliday)
+	adminGroup.PUT("/school-holidays/:id", h.Attendance.UpdateSchoolHoliday)
 	adminGroup.DELETE("/school-holidays/:id", h.Attendance.DeleteSchoolHoliday)
 
 	// Loan
@@ -540,6 +544,7 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 
 	// Alumni
 	adminGroup.GET("/alumni/stats", h.Alumni.GetAlumniStats)
+	adminGroup.GET("/alumni/graduation-years", h.Alumni.GetAlumniGraduationYears)
 	auth.GET("/alumni/document-types", h.Alumni.GetDocumentTypes)
 	adminGroup.POST("/alumni/graduate", h.Alumni.GraduateStudents)
 	adminGroup.POST("/alumni/import-bulk", h.Alumni.ImportBulkAlumni)

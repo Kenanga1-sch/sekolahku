@@ -226,3 +226,30 @@ export async function reviewBorrowRequest(id: string, action: "approve" | "rejec
 export async function returnBorrowRequest(id: string): Promise<{ status: string }> {
     return await goPost(`/api/inventory/borrow-requests/${id}/return`, {});
 }
+
+// ============ Upload Foto untuk Label ============
+
+/**
+ * Unggah foto aset/barang ke folder `inventory` dan kembalikan URL-nya.
+ * Foto bersifat opsional — kalau tidak ada, halaman detail publik menampilkan
+ * placeholder, bukan error.
+ */
+export async function uploadPhoto(file: File): Promise<string> {
+    let uploadFile = file;
+    try {
+        const { compressImage } = await import("@/lib/utils");
+        if (file.type.startsWith("image/")) {
+            uploadFile = await compressImage(file, 1024, 0.85);
+        }
+    } catch {
+        // Kompresi gagal tidak fatal — unggah berkas aslinya.
+    }
+    const form = new FormData();
+    form.append("file", uploadFile);
+    form.append("folder", "inventory");
+    const res = await goPost<{ success: boolean; url: string }>("/api/upload", form);
+    if (!res?.url) {
+        throw new Error("Upload gagal: server tidak mengembalikan URL");
+    }
+    return res.url;
+}

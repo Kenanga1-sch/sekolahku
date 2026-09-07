@@ -102,6 +102,9 @@ export interface InventoryAsset extends TimestampedRecord {
     purchase_date?: string | null;
     notes?: string | null;
     status: string;
+    fundingSource?: string | null;
+    fiscalYear?: number | null;
+    photoUrl?: string | null;
     expand?: {
         room?: { id: string; name: string };
     };

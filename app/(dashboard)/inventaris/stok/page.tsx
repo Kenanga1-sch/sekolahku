@@ -8,7 +8,8 @@ import {
   MoreVertical, 
   Edit, 
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Printer
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +41,7 @@ import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { goGet, goPost, goDelete } from "@/lib/api-client";
+import { uploadPhoto } from "@/lib/inventory";
 
 // Manual debounce if hook helps avoid lookup
 function useDebouncedValue(value: string, delay: number) {
@@ -62,6 +64,7 @@ export default function StokPage() {
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -72,13 +75,16 @@ export default function StokPage() {
     minStock: 5,
     price: 0,
     location: "",
+    funding_source: "",
+    fiscal_year: new Date().getFullYear(),
+    photo_url: "",
   });
 
   const fetchItems = async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (debouncedSearch) params.set("q", debouncedSearch);
+      if (debouncedSearch) params.set("search", debouncedSearch);
       if (categoryFilter && categoryFilter !== "ALL") params.set("category", categoryFilter);
       
       const res: any = await goGet(`/api/inventory/items?${params.toString()}`);
@@ -99,7 +105,13 @@ export default function StokPage() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const res: any = await goPost("/api/inventory/items", formData);
+      const payload = {
+        ...formData,
+        fundingSource: formData.funding_source || undefined,
+        fiscalYear: formData.fiscal_year || undefined,
+        photoUrl: formData.photo_url || undefined,
+      };
+      const res: any = await goPost("/api/inventory/items", payload);
 
       if (res.error) throw new Error(res.error || "Failed to create");
       
@@ -113,6 +125,9 @@ export default function StokPage() {
         minStock: 5,
         price: 0,
         location: "",
+        funding_source: "",
+        fiscal_year: new Date().getFullYear(),
+        photo_url: "",
       });
       fetchItems();
     } catch (error) {
@@ -234,6 +249,83 @@ export default function StokPage() {
                 </div>
               </div>
 
+              <div className="border rounded-md p-4 bg-muted/50 space-y-4">
+                <Label className="block font-semibold">Label & Sumber Dana</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="funding_source">Sumber Dana</Label>
+                    <Select value={formData.funding_source}
+                      onValueChange={(val) => setFormData({...formData, funding_source: val})}
+                    >
+                      <SelectTrigger id="funding_source">
+                        <SelectValue placeholder="Pilih sumber dana" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="BOSP Reguler">BOSP Reguler</SelectItem>
+                        <SelectItem value="BOSP Kinerja">BOSP Kinerja</SelectItem>
+                        <SelectItem value="APBD">APBD</SelectItem>
+                        <SelectItem value="BOSDA">BOSDA</SelectItem>
+                        <SelectItem value="Komite Sekolah">Komite Sekolah</SelectItem>
+                        <SelectItem value="Hibah">Hibah</SelectItem>
+                        <SelectItem value="Swadaya">Swadaya</SelectItem>
+                        <SelectItem value="Lainnya">Lainnya</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="fiscal_year">Tahun Anggaran</Label>
+                    <Input id="fiscal_year"
+                      type="number"
+                      min="2020"
+                      max="2035"
+                      value={formData.fiscal_year}
+                      onChange={(e) => setFormData({...formData, fiscal_year: parseInt(e.target.value) || new Date().getFullYear()})}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Foto Barang (opsional)</Label>
+                  {formData.photo_url ? (
+                    <div className="flex items-start gap-3">
+                      <div className="w-20 h-20 rounded-md border overflow-hidden bg-muted flex-shrink-0">
+                        <img src={formData.photo_url} alt="Preview" className="w-full h-full object-cover" />
+                      </div>
+                      <Button type="button" variant="outline" size="sm"
+                        onClick={() => setFormData({...formData, photo_url: ""})}>
+                        <Trash2 className="h-4 w-4 mr-1" /> Hapus Foto
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <Button type="button" variant="outline" size="sm">
+                        Pilih Foto
+                      </Button>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="absolute inset-0 opacity-0 cursor-pointer w-full"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          try {
+                            const url = await uploadPhoto(file);
+                            setFormData({...formData, photo_url: url});
+                            toast.success("Foto berhasil diunggah");
+                          } catch {
+                            toast.error("Gagal mengunggah foto");
+                          }
+                          e.target.value = "";
+                        }}
+                      />
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Opsional. Ditampilkan di halaman publik saat QR discan.
+                  </p>
+                </div>
+              </div>
+
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)}>
                   Batal
@@ -267,16 +359,41 @@ export default function StokPage() {
             <SelectItem value="ATK">ATK</SelectItem>
             <SelectItem value="ART">Rumah Tangga</SelectItem>
             <SelectItem value="KEBERSIHAN">Kebersihan</SelectItem>
-            <SelectItem value="ELEKTRONIK">Elektronik</SelectItem>
-             <SelectItem value="LAINNYA">Lainnya</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+             <SelectItem value="ELEKTRONIK">Elektronik</SelectItem>
+              <SelectItem value="LAINNYA">Lainnya</SelectItem>
+           </SelectContent>
+         </Select>
+       </div>
 
-      <DataTable
-        data={loading ? [] : items}
-        getRowId={(item) => item.id}
-        loading={loading}
+       <div className="flex justify-end">
+         <Button size="sm" disabled={selectedIds.length === 0}
+           onClick={() => {
+             const ids = selectedIds.join(",");
+             window.open(`/inventaris/label?items=${ids}`, '_blank');
+           }}>
+           <Printer className="h-4 w-4 mr-2" />
+           Cetak Label ({selectedIds.length})
+         </Button>
+       </div>
+
+       <DataTable
+         data={loading ? [] : items}
+         getRowId={(item) => item.id}
+         loading={loading}
+         selectable
+         selectedIds={selectedIds}
+         onToggleSelect={(id) => {
+           setSelectedIds((prev) =>
+             prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+           );
+         }}
+         onToggleSelectAll={() => {
+           if (selectedIds.length === items.length) {
+             setSelectedIds([]);
+           } else {
+             setSelectedIds(items.map((i: any) => i.id));
+           }
+         }}
         emptyTitle="Tidak ada barang ditemukan."
         emptyDescription="Coba ubah kata kunci pencarian atau filter kategori."
         columns={[
@@ -335,14 +452,17 @@ export default function StokPage() {
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => router.push(`/inventaris/stok/detail?id=${item.id}`)}>
-                 <Edit className="mr-2 h-4 w-4" /> Edit Detail
-              </DropdownMenuItem>
-              <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(item.id)}>
-                 <Trash2 className="mr-2 h-4 w-4" /> Hapus
-              </DropdownMenuItem>
-            </DropdownMenuContent>
+             <DropdownMenuContent align="end">
+               <DropdownMenuItem onClick={() => router.push(`/inventaris/stok/detail?id=${item.id}`)}>
+                  <Edit className="mr-2 h-4 w-4" /> Edit Detail
+               </DropdownMenuItem>
+               <DropdownMenuItem onClick={() => window.open(`/inventaris/label?items=${item.id}`, '_blank')}>
+                  <Printer className="mr-2 h-4 w-4" /> Cetak Label
+               </DropdownMenuItem>
+               <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(item.id)}>
+                  <Trash2 className="mr-2 h-4 w-4" /> Hapus
+               </DropdownMenuItem>
+             </DropdownMenuContent>
           </DropdownMenu>
         )}
       />
