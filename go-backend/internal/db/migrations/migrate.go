@@ -19,6 +19,36 @@ var postMigrations = map[int]func(*sql.DB) error{
 	34: MigrateInventoryData,
 }
 
+// stripTxControl menghapus statement kontrol transaksi (BEGIN/COMMIT/ROLLBACK)
+// yang tertulis di dalam file migrasi. Transaksi dikelola oleh Go di
+// RunMigrations, jadi statement ini tidak boleh ikut dieksekusi.
+func stripTxControl(statements []string) []string {
+	out := make([]string, 0, len(statements))
+	for _, s := range statements {
+		t := strings.ToUpper(strings.TrimSpace(s))
+		t = strings.TrimSuffix(t, ";")
+		t = strings.TrimSpace(t)
+		if t == "BEGIN" || t == "BEGIN TRANSACTION" || t == "COMMIT" || t == "ROLLBACK" || t == "END" {
+			continue
+		}
+		out = append(out, s)
+	}
+	return out
+}
+
+// finishTx menutup transaksi: commit bila sukses, rollback bila gagal.
+// Selalu menutup, sehingga transaksi tidak pernah menggantung.
+func finishTx(tx *sql.Tx, failed bool) error {
+	if failed {
+		if err := tx.Rollback(); err != nil {
+			// Rollback bisa gagal bila transaksi sudah selesai; itu tidak fatal.
+			log.Printf("Note: rollback migration: %v", err)
+		}
+		return nil
+	}
+	return tx.Commit()
+}
+
 func RunMigrations(db *sql.DB) error {
 	// 1. Create migration tracking table
 	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS _migrations (version INTEGER PRIMARY KEY)`)
@@ -66,6 +96,8 @@ func RunMigrations(db *sql.DB) error {
 			return err
 		}
 
+		migrationFailed := false
+
 		// Execute SQL (custom parser to handle triggers properly)
 		var statements []string
 		var currentStmt string
@@ -101,19 +133,57 @@ func RunMigrations(db *sql.DB) error {
 			statements = append(statements, currentStmt)
 		}
 
+		// Buang BEGIN/COMMIT yang tertulis di dalam file: migrasi dijalankan
+		// dalam satu transaksi Go di bawah, jadi BEGIN/COMMIT di SQL justru
+		// membuka transaksi bersarang yang tidak pernah ditutup bila migrasi
+		// gagal di tengah (menggantung dan menggulung balik pekerjaan migrasi
+		// sesudahnya).
+		statements = stripTxControl(statements)
+
+		// Jalankan seluruh statement dalam satu transaksi supaya gagal = atomik.
+		tx, err := db.Begin()
+		if err != nil {
+			return err
+		}
+
 		for _, stmt := range statements {
 			stmt = strings.TrimSpace(stmt)
 			if stmt == "" {
 				continue
 			}
-			_, err = db.Exec(stmt)
+			_, err = tx.Exec(stmt)
 			if err != nil {
 				if strings.Contains(err.Error(), "duplicate column name") {
 					log.Printf("Ignoring duplicate column error in %s: %v", fName, err)
 					continue
 				}
-				return fmt.Errorf("failed migration %s: %w", fName, err)
+				// Sebagian migrasi lama bergantung pada tabel yang baru dibuat
+				// createCoreTables, yang berjalan SETELAH RunMigrations. Di basis
+				// data benar-benar baru, migrasi seperti 000007 karena itu gagal
+				// ("no such table"), dan sebelumnya satu kegagalan menghentikan
+				// SELURUH rantai — akibatnya migrasi berikutnya (termasuk
+				// 000034/000036 yang membuat tabel inventaris) tidak pernah
+				// dijalankan dan instalasi baru kehilangan modul inventaris.
+				//
+				// Karena itu kegagalan dicatat dan dilewati, bukan dihentikan.
+				// Migrasi yang gagal TIDAK ditandai sukses, sehingga akan dicoba
+				// lagi pada start berikutnya (setelah tabel inti ada).
+				//
+				// Rollback dulu supaya transaksi ini tidak menggantung dan tidak
+				// menggulung balik pekerjaan migrasi-migrasi sesudahnya.
+				log.Printf("WARNING: skipping migration %s (will retry next start): %v", fName, err)
+				migrationFailed = true
+				break
 			}
+		}
+
+		if err := finishTx(tx, migrationFailed); err != nil {
+			return err
+		}
+
+		// Migrasi yang gagal tidak ditandai sukses, supaya dicoba ulang nanti.
+		if migrationFailed {
+			continue
 		}
 
 		// Record success

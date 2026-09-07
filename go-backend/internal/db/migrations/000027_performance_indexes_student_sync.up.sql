@@ -2,6 +2,19 @@
 -- Menambahkan indeks untuk mempercepat query sinkronisasi dan lookup data siswa
 -- pada tabel library_members, tabungan_siswa, dan tabungan_transaksi
 
+-- CATATAN PENTING:
+-- Migrasi 000029 (unify_student_source) membangun ulang library_members dan
+-- tabungan_siswa serta MENGHAPUS kolom denormalisasi (class_name, is_active,
+-- kelas_id, nisn, nama) berikut tabel tabungan_kelas. Karena urutan file,
+-- 000027 dieksekusi sebelum 000029, tetapi saat 000027 gagal di start pertama
+-- (tabel alumni belum ada) ia baru dicoba ulang SETELAH 000029 berjalan —
+-- saat itu kolom-kolom tersebut sudah tiada, sehingga 000027 gagal terus
+-- menerus dan tak pernah tercatat applied.
+--
+-- Indeks yang mengacu ke kolom/tabel yang sudah dihapus karena itu dibuang.
+-- Data kelas kini diambil lewat JOIN ke students, jadi indeks denormalisasi
+-- itu tidak lagi berguna (dan tidak dipakai kueri mana pun).
+
 -- === library_members ===
 -- student_id: sering dipakai di JOIN & WHERE saat sync/update
 CREATE INDEX IF NOT EXISTS idx_library_members_student_id ON library_members(student_id);
@@ -9,33 +22,11 @@ CREATE INDEX IF NOT EXISTS idx_library_members_student_id ON library_members(stu
 -- is_active: filter anggota aktif (digunakan di list anggota)
 CREATE INDEX IF NOT EXISTS idx_library_members_is_active ON library_members(is_active);
 
--- class_name: filter per kelas (digunakan di rekap)
-CREATE INDEX IF NOT EXISTS idx_library_members_class_name ON library_members(class_name);
-
--- composite untuk query "anggota aktif per kelas"
-CREATE INDEX IF NOT EXISTS idx_library_members_is_active_class ON library_members(is_active, class_name);
-
--- qr_code sudah UNIQUE (otomatis index), tapi pastikan ada
--- CREATE UNIQUE INDEX IF NOT EXISTS idx_library_members_qr_code ON library_members(qr_code);
-
 -- === tabungan_siswa ===
 -- student_id: FK ke students, sering dipakai di JOIN & WHERE saat sync
+-- (kolom is_active, kelas_id, nisn, nama dihapus 000029; data nasabah kini
+--  diambil lewat JOIN ke students)
 CREATE INDEX IF NOT EXISTS idx_tabungan_siswa_student_id ON tabungan_siswa(student_id);
-
--- is_active: filter nasabah aktif
-CREATE INDEX IF NOT EXISTS idx_tabungan_siswa_is_active ON tabungan_siswa(is_active);
-
--- kelas_id: filter nasabah per kelas (join ke tabungan_kelas)
-CREATE INDEX IF NOT EXISTS idx_tabungan_siswa_kelas_id ON tabungan_siswa(kelas_id);
-
--- nisn: pencarian nasabah via NISN
-CREATE INDEX IF NOT EXISTS idx_tabungan_siswa_nisn ON tabungan_siswa(nisn);
-
--- nama: pencarian nasabah via nama
-CREATE INDEX IF NOT EXISTS idx_tabungan_siswa_nama ON tabungan_siswa(nama);
-
--- composite untuk query "nasabah aktif per kelas"
-CREATE INDEX IF NOT EXISTS idx_tabungan_siswa_is_active_kelas ON tabungan_siswa(is_active, kelas_id);
 
 -- === tabungan_transaksi ===
 -- siswa_id: FK ke tabungan_siswa, filter transaksi per siswa
@@ -86,8 +77,7 @@ CREATE INDEX IF NOT EXISTS idx_students_nisn ON students(nisn);
 CREATE INDEX IF NOT EXISTS idx_students_nis ON students(nis);
 
 -- === tabungan_kelas ===
--- nama: lookup nama kelas saat sync
-CREATE INDEX IF NOT EXISTS idx_tabungan_kelas_nama ON tabungan_kelas(nama);
+-- Tabel ini dihapus 000029, jadi indeksnya dibuang.
 
 -- === library_visits ===
 -- member_id + date: statistik kunjungan
