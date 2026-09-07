@@ -40,6 +40,9 @@ type InventoryAsset struct {
 	PurchaseDate          *time.Time            `json:"purchase_date"`
 	Notes                 *string               `json:"notes"`
 	Status                string                `json:"status"`
+	FundingSource         *string               `json:"fundingSource"`
+	FiscalYear            *int                  `json:"fiscalYear"`
+	PhotoUrl              *string               `json:"photoUrl"`
 	CreatedAt             *time.Time            `json:"created_at"`
 	UpdatedAt             *time.Time            `json:"updated_at"`
 }
@@ -54,6 +57,9 @@ type InventoryItem struct {
 	CurrentStock int        `json:"currentStock"`
 	Location     *string    `json:"location"`
 	Price        int        `json:"price"`
+	FundingSource *string   `json:"fundingSource"`
+	FiscalYear    *int      `json:"fiscalYear"`
+	PhotoUrl      *string   `json:"photoUrl"`
 	CreatedAt    *time.Time `json:"createdAt"`
 	UpdatedAt    *time.Time `json:"updatedAt"`
 }

@@ -73,6 +73,7 @@ func setupInventorySchemaFromMigrations(t *testing.T) *sql.DB {
 		t.Fatalf("post-34: %v", err)
 	}
 	applyMigrationFile(t, db, "000035_inventory_item_room.up.sql")
+	applyMigrationFile(t, db, "000036_inventory_label.up.sql")
 
 	return db
 }

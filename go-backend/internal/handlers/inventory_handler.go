@@ -35,6 +35,9 @@ type inventoryAssetPayload struct {
 	ConditionHeavyDamaged int     `json:"condition_heavy_damaged"`
 	ConditionLost         int     `json:"condition_lost"`
 	Notes                 *string `json:"notes"`
+	FundingSource         *string `json:"fundingSource"`
+	FiscalYear            *int    `json:"fiscalYear"`
+	PhotoUrl              *string `json:"photoUrl"`
 }
 
 type inventoryTransactionPayload struct {
@@ -151,6 +154,9 @@ func buildInventoryAsset(payload inventoryAssetPayload) (models.InventoryAsset, 
 		ConditionLost:         payload.ConditionLost,
 		PurchaseDate:          purchaseDate,
 		Notes:                 normalizeStringPtr(payload.Notes),
+		FundingSource:         normalizeStringPtr(payload.FundingSource),
+		FiscalYear:            payload.FiscalYear,
+		PhotoUrl:              normalizeStringPtr(payload.PhotoUrl),
 	}, nil
 }
 

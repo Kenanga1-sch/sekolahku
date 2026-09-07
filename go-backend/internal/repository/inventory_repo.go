@@ -280,7 +280,7 @@ func (r *InventoryRepository) DeleteRoom(id string) error {
 const assetSelectColumns = `
 		SELECT a.id, a.name, a.code, COALESCE(a.category, ''), a.price, a.quantity, a.room_id,
 		       a.condition_good, a.condition_light_damaged, a.condition_heavy_damaged, a.condition_lost,
-		       a.purchase_date, a.notes, COALESCE(a.status, 'ACTIVE'), a.created_at, a.updated_at,
+		       a.purchase_date, a.notes, COALESCE(a.status, 'ACTIVE'), a.funding_source, a.fiscal_year, a.photo_url, a.created_at, a.updated_at,
 		       r.name
 		FROM inventory_assets a
 		LEFT JOIN inventory_rooms r ON r.id = a.room_id AND r.deleted_at IS NULL
@@ -290,13 +290,14 @@ const assetSelectColumns = `
 // Urutan kolom harus sama persis dengan konstanta di atas.
 func scanInventoryAsset(rows rowScanner) (models.InventoryAsset, error) {
 	var a models.InventoryAsset
-	var code, roomID, roomName, notes sql.NullString
+	var code, roomID, roomName, notes, fundingSource, photoUrl sql.NullString
+	var fiscalYear sql.NullInt64
 	var pDate, crAt, upAt sql.NullInt64
 
 	if err := rows.Scan(
 		&a.ID, &a.Name, &code, &a.Category, &a.Price, &a.Quantity, &roomID,
 		&a.ConditionGood, &a.ConditionLightDamaged, &a.ConditionHeavyDamaged, &a.ConditionLost,
-		&pDate, &notes, &a.Status, &crAt, &upAt,
+		&pDate, &notes, &a.Status, &fundingSource, &fiscalYear, &photoUrl, &crAt, &upAt,
 		&roomName,
 	); err != nil {
 		return a, err
@@ -311,11 +312,20 @@ func scanInventoryAsset(rows rowScanner) (models.InventoryAsset, error) {
 	if notes.Valid {
 		a.Notes = &notes.String
 	}
-	// Nama ruangan diekspose lewat expand.room, sesuai bentuk respons lama.
 	if roomID.Valid && roomName.Valid {
 		a.Expand = &models.InventoryAssetExpand{
 			Room: &models.InventoryRoom{ID: roomID.String, Name: roomName.String},
 		}
+	}
+	if fundingSource.Valid {
+		a.FundingSource = &fundingSource.String
+	}
+	if fiscalYear.Valid {
+		v := int(fiscalYear.Int64)
+		a.FiscalYear = &v
+	}
+	if photoUrl.Valid {
+		a.PhotoUrl = &photoUrl.String
 	}
 
 	if pDate.Valid {
@@ -417,13 +427,13 @@ func (r *InventoryRepository) CreateAsset(a models.InventoryAsset) (string, erro
 		INSERT INTO inventory_assets (
 			id, name, code, category, price, quantity, room_id,
 			condition_good, condition_light_damaged, condition_heavy_damaged, condition_lost,
-			purchase_date, notes, status, created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			purchase_date, notes, status, funding_source, fiscal_year, photo_url, created_at, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	_, err := r.DB.Exec(query,
 		id, a.Name, a.Code, a.Category, a.Price, a.Quantity, a.RoomID,
 		a.ConditionGood, a.ConditionLightDamaged, a.ConditionHeavyDamaged, a.ConditionLost,
-		pDate, a.Notes, "ACTIVE", now, now)
+		pDate, a.Notes, "ACTIVE", a.FundingSource, a.FiscalYear, a.PhotoUrl, now, now)
 
 	if err != nil {
 		return "", err
@@ -447,13 +457,13 @@ func (r *InventoryRepository) UpdateAsset(id string, a models.InventoryAsset) er
 		UPDATE inventory_assets SET
 			name = ?, code = ?, category = ?, price = ?, quantity = ?, room_id = ?,
 			condition_good = ?, condition_light_damaged = ?, condition_heavy_damaged = ?, condition_lost = ?,
-			purchase_date = ?, notes = ?, updated_at = ?
+			purchase_date = ?, notes = ?, funding_source = ?, fiscal_year = ?, photo_url = ?, updated_at = ?
 		WHERE id = ?
 	`
 	_, err := r.DB.Exec(query,
 		a.Name, a.Code, a.Category, a.Price, a.Quantity, a.RoomID,
 		a.ConditionGood, a.ConditionLightDamaged, a.ConditionHeavyDamaged, a.ConditionLost,
-		pDate, a.Notes, now, id)
+		pDate, a.Notes, a.FundingSource, a.FiscalYear, a.PhotoUrl, now, id)
 	if err == nil {
 		r.logInventoryAudit("UPDATE", "ASSET", id, []map[string]interface{}{
 			{"field": "asset", "oldValue": nil, "newValue": a.Name},
@@ -482,11 +492,12 @@ type inventoryRowScanner interface {
 
 func scanInventoryItem(scanner inventoryRowScanner) (*models.InventoryItem, error) {
 	var i models.InventoryItem
-	var code, loc sql.NullString
+	var code, loc, fundingSource, photoUrl sql.NullString
+	var fiscalYear sql.NullInt64
 	var crAt, upAt sql.NullInt64
 	err := scanner.Scan(
 		&i.ID, &i.Name, &code, &i.Category, &i.Unit,
-		&i.MinStock, &i.CurrentStock, &loc, &i.Price, &crAt, &upAt,
+		&i.MinStock, &i.CurrentStock, &loc, &i.Price, &fundingSource, &fiscalYear, &photoUrl, &crAt, &upAt,
 	)
 	if err != nil {
 		return nil, err
@@ -496,6 +507,16 @@ func scanInventoryItem(scanner inventoryRowScanner) (*models.InventoryItem, erro
 	}
 	if loc.Valid {
 		i.Location = &loc.String
+	}
+	if fundingSource.Valid {
+		i.FundingSource = &fundingSource.String
+	}
+	if fiscalYear.Valid {
+		v := int(fiscalYear.Int64)
+		i.FiscalYear = &v
+	}
+	if photoUrl.Valid {
+		i.PhotoUrl = &photoUrl.String
 	}
 	if crAt.Valid {
 		cTime := ToTime(crAt)
@@ -510,7 +531,7 @@ func scanInventoryItem(scanner inventoryRowScanner) (*models.InventoryItem, erro
 
 func (r *InventoryRepository) GetItems(page, limit int, search, category string) ([]models.InventoryItem, int, error) {
 	offset := (page - 1) * limit
-	query := "SELECT id, name, code, category, unit, min_stock, current_stock, location, price, created_at, updated_at FROM inventory_items WHERE deleted_at IS NULL"
+	query := "SELECT id, name, code, category, unit, min_stock, current_stock, location, price, funding_source, fiscal_year, photo_url, created_at, updated_at FROM inventory_items WHERE deleted_at IS NULL"
 	var args []interface{}
 
 	if search != "" {
@@ -551,7 +572,7 @@ func (r *InventoryRepository) GetItems(page, limit int, search, category string)
 
 func (r *InventoryRepository) getItemOnlyByID(id string) (*models.InventoryItem, error) {
 	item, err := scanInventoryItem(r.DB.QueryRow(
-		"SELECT id, name, code, category, unit, min_stock, current_stock, location, price, created_at, updated_at FROM inventory_items WHERE id = ? AND deleted_at IS NULL",
+		"SELECT id, name, code, category, unit, min_stock, current_stock, location, price, funding_source, fiscal_year, photo_url, created_at, updated_at FROM inventory_items WHERE id = ? AND deleted_at IS NULL",
 		id,
 	))
 	if err != nil {
@@ -578,8 +599,8 @@ func (r *InventoryRepository) GetItemByID(id string) (*models.InventoryItem, []m
 func (r *InventoryRepository) CreateItem(i models.InventoryItem) (*models.InventoryItem, error) {
 	id := cuid2.Generate()
 	now := time.Now().UnixMilli()
-	query := `INSERT INTO inventory_items (id, name, code, category, unit, min_stock, current_stock, location, price, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	_, err := r.DB.Exec(query, id, i.Name, i.Code, i.Category, i.Unit, i.MinStock, i.CurrentStock, i.Location, i.Price, now, now)
+	query := `INSERT INTO inventory_items (id, name, code, category, unit, min_stock, current_stock, location, price, funding_source, fiscal_year, photo_url, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	_, err := r.DB.Exec(query, id, i.Name, i.Code, i.Category, i.Unit, i.MinStock, i.CurrentStock, i.Location, i.Price, i.FundingSource, i.FiscalYear, i.PhotoUrl, now, now)
 	if err != nil {
 		return nil, err
 	}
@@ -594,9 +615,9 @@ func (r *InventoryRepository) UpdateItem(id string, i models.InventoryItem) (*mo
 	now := time.Now().UnixMilli()
 	result, err := r.DB.Exec(`
 		UPDATE inventory_items
-		SET name = ?, code = ?, category = ?, unit = ?, min_stock = ?, current_stock = ?, location = ?, price = ?, updated_at = ?
+		SET name = ?, code = ?, category = ?, unit = ?, min_stock = ?, current_stock = ?, location = ?, price = ?, funding_source = ?, fiscal_year = ?, photo_url = ?, updated_at = ?
 		WHERE id = ?
-	`, i.Name, i.Code, i.Category, i.Unit, i.MinStock, i.CurrentStock, i.Location, i.Price, now, id)
+	`, i.Name, i.Code, i.Category, i.Unit, i.MinStock, i.CurrentStock, i.Location, i.Price, i.FundingSource, i.FiscalYear, i.PhotoUrl, now, id)
 	if err != nil {
 		return nil, err
 	}
