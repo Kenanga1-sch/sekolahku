@@ -177,6 +177,7 @@ func (h *InventoryHandler) CreateTransaction(c echo.Context) error {
 		ItemID:      itemID,
 		Type:        strings.ToUpper(strings.TrimSpace(payload.Type)),
 		Quantity:    payload.Quantity,
+		UnitNumbers: payload.UnitNumbers,
 		Date:        date,
 		Description: normalizeStringPtr(payload.Description),
 		Recipient:   normalizeStringPtr(payload.Recipient),

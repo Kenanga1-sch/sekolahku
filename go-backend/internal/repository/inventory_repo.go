@@ -777,13 +777,25 @@ func (r *InventoryRepository) CreateTransaction(t models.InventoryTransaction) e
 		return err
 	}
 
-	if t.Type == "IN" {
+	// Unit-unit pelacakan dijaga bersama stok dalam transaksi yang sama, supaya
+	// invariant "unit AVAILABLE == current_stock" tidak pernah meleset.
+	switch t.Type {
+	case "IN":
 		_, err = tx.Exec("UPDATE inventory_items SET current_stock = current_stock + ?, updated_at = ? WHERE id = ?", t.Quantity, now, t.ItemID)
-	} else {
+		if err != nil {
+			return err
+		}
+		if err := r.createBatchForInTx(tx, t, id, t.UserID, now); err != nil {
+			return err
+		}
+	case "OUT":
 		_, err = tx.Exec("UPDATE inventory_items SET current_stock = current_stock - ?, updated_at = ? WHERE id = ?", t.Quantity, now, t.ItemID)
-	}
-	if err != nil {
-		return err
+		if err != nil {
+			return err
+		}
+		if err := r.issueUnitsForOutTx(tx, t, id, now); err != nil {
+			return err
+		}
 	}
 
 	r.logInventoryAuditTx(tx, "UPDATE", "ITEM", t.ItemID, []map[string]interface{}{
@@ -792,6 +804,91 @@ func (r *InventoryRepository) CreateTransaction(t models.InventoryTransaction) e
 	}, t.UserID)
 
 	return tx.Commit()
+}
+
+// issueUnitsForOutTx menandai unit keluarnya transaksi OUT.
+//
+// Bila nomor sudah ditentukan (UnitNumbers diisi), nomor itulah yang dipakai —
+// inilah yang memungkinkan pencatatan "nomor 3 & 4 ke perpustakaan". Bila
+// kosong (transaksi lama / input massal), diambil nomor terkecil yang masih
+// tersedia agar stok tetap konsisten.
+func (r *InventoryRepository) issueUnitsForOutTx(tx *sql.Tx, t models.InventoryTransaction, trxID string, now int64) error {
+	when := time.UnixMilli(now)
+	if t.Date != nil {
+		when = *t.Date
+	}
+	year := YearOf(when)
+
+	issuedTo := ""
+	if t.Recipient != nil {
+		issuedTo = *t.Recipient
+	}
+
+	numbers := t.UnitNumbers
+	if len(numbers) == 0 {
+		rows, err := tx.Query(`
+			SELECT unit_no FROM inventory_item_units
+			WHERE item_id = ? AND year = ? AND status = ? AND deleted_at IS NULL
+			ORDER BY unit_no ASC LIMIT ?
+		`, t.ItemID, year, string(models.ItemUnitAvailable), t.Quantity)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var no int
+			if err := rows.Scan(&no); err != nil {
+				return err
+			}
+			numbers = append(numbers, no)
+		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
+	}
+
+	if len(numbers) == 0 {
+		// Barang ini belum punya unit terlacak (data sebelum fitur ini aktif).
+		// Stok sudah dikurangi; jangan batalkan transaksi hanya karena
+		// pelacakannya belum ada.
+		return nil
+	}
+
+	upd, err := tx.Prepare(`
+		UPDATE inventory_item_units
+		SET status = ?, issued_to = ?, issued_at = ?, transaction_id = ?, updated_at = ?
+		WHERE item_id = ? AND year = ? AND unit_no = ? AND deleted_at IS NULL AND status = ?
+	`)
+	if err != nil {
+		return err
+	}
+	defer upd.Close()
+
+	for _, no := range numbers {
+		res, err := upd.Exec(string(models.ItemUnitIssued), issuedTo, now, trxID, now,
+			t.ItemID, year, no, string(models.ItemUnitAvailable))
+		if err != nil {
+			return err
+		}
+		n, err := res.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			var exists int
+			if err := tx.QueryRow(`
+				SELECT COUNT(*) FROM inventory_item_units
+				WHERE item_id = ? AND year = ? AND unit_no = ? AND deleted_at IS NULL
+			`, t.ItemID, year, no).Scan(&exists); err != nil {
+				return err
+			}
+			if exists == 0 {
+				return fmt.Errorf("%w: nomor %d tahun %d", ErrUnitNotFound, no, year)
+			}
+			return fmt.Errorf("%w: nomor %d sudah keluar", ErrUnitNotAvailable, no)
+		}
+	}
+	return nil
 }
 
 func stockDelta(trxType string, quantity int) int {

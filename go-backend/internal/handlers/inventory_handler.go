@@ -44,6 +44,7 @@ type inventoryTransactionPayload struct {
 	ItemID      string  `json:"itemId"`
 	Type        string  `json:"type"`
 	Quantity    int     `json:"quantity"`
+	UnitNumbers []int   `json:"unitNumbers"`
 	Date        *string `json:"date"`
 	Description *string `json:"description"`
 	Recipient   *string `json:"recipient"`
@@ -103,6 +104,11 @@ func inventoryError(c echo.Context, err error) error {
 	case errors.Is(err, repository.ErrInventoryNotFound):
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Data tidak ditemukan"})
 	case errors.Is(err, repository.ErrInventoryBusinessRule):
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	// Nomor bungkus yang sudah keluar atau tidak dikenal adalah kesalahan
+	// input, bukan kegagalan server. Tanpa cabang ini petugas hanya melihat
+	// "Terjadi kesalahan internal" dan tidak tahu nomor mana yang bermasalah.
+	case errors.Is(err, repository.ErrUnitNotAvailable), errors.Is(err, repository.ErrUnitNotFound):
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	default:
 		c.Logger().Error("inventory error:", err)

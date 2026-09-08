@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"time"
+
+	"github.com/sekolahku/go-backend/internal/models"
 )
 
 // PublicLabelResponse adalah bentuk respons endpoint publik untuk halaman
@@ -25,10 +27,16 @@ type PublicLabelResponse struct {
 	PhotoUrl      string             `json:"photoUrl,omitempty"`
 	Quantity      int                `json:"quantity"`
 	UnitNumber    int                `json:"unitNumber,omitempty"`
-	Condition     *PublicCondition   `json:"condition,omitempty"`
-	ActiveBorrow  *PublicBorrowInfo  `json:"activeBorrow,omitempty"`
-	Transfers     []PublicTransfer   `json:"transfers,omitempty"`
-	RecentTx      []PublicTxLine     `json:"recentTransactions,omitempty"`
+	UnitYear      int                `json:"unitYear,omitempty"`
+	// UnitStatus & UnitIssuedTo menjawab "bungkus nomor ini ke mana". Hanya
+	// diisi untuk barang habis pakai yang dilacak per bungkus.
+	UnitStatus   string             `json:"unitStatus,omitempty"`
+	UnitIssuedTo string             `json:"unitIssuedTo,omitempty"`
+	BatchCode    string             `json:"batchCode,omitempty"`
+	Condition    *PublicCondition   `json:"condition,omitempty"`
+	ActiveBorrow *PublicBorrowInfo  `json:"activeBorrow,omitempty"`
+	Transfers    []PublicTransfer   `json:"transfers,omitempty"`
+	RecentTx     []PublicTxLine     `json:"recentTransactions,omitempty"`
 }
 
 type PublicCondition struct {
@@ -149,7 +157,17 @@ func (r *InventoryRepository) GetPublicAssetLabel(id string, unitNumber int) (*P
 
 // GetPublicItemLabel menyusun respons halaman publik untuk satu barang
 // habis pakai.
-func (r *InventoryRepository) GetPublicItemLabel(id string, unitNumber int) (*PublicLabelResponse, error) {
+func (r *InventoryRepository) GetPublicItemLabel(id string, unitNumber int, batchID string) (*PublicLabelResponse, error) {
+	// Kode batch diambil bila QR membawa id batch, supaya label bisa
+	// menampilkan "HVS-2026-01" tanpa kueri tambahan.
+	batchCode := ""
+	if batchID != "" {
+		if err := r.DB.QueryRow(
+			"SELECT COALESCE(batch_code, '') FROM inventory_item_batches WHERE id = ? AND deleted_at IS NULL",
+			batchID).Scan(&batchCode); err != nil {
+			batchCode = ""
+		}
+	}
 	var (
 		name, category, unit              string
 		code, location, fundingSource     sql.NullString
@@ -184,6 +202,29 @@ func (r *InventoryRepository) GetPublicItemLabel(id string, unitNumber int) (*Pu
 		Quantity:   currentStock,
 		UnitNumber: unitNumber,
 	}
+
+	// Untuk barang habis pakai, nomor pada label merujuk ke satu bungkus
+	// fisik. Tampilkan ke mana bungkus itu pergi — inilah inti pelacakannya.
+	if unitNumber > 0 && batchID != "" {
+		if u, err := r.getItemUnit(batchID, unitNumber); err == nil && u != nil {
+			resp.BatchCode = batchCode
+			resp.UnitYear = u.Year
+			resp.UnitStatus = string(u.Status)
+			if u.IssuedTo != nil {
+				resp.UnitIssuedTo = *u.IssuedTo
+			}
+		}
+	} else if unitNumber > 0 {
+		// Format lama: QR hanya membawa item & nomor. Cari di tahun berjalan,
+		// lalu mundur ke tahun sebelumnya bila tidak ketemu.
+		if u, err := r.findItemUnit(id, unitNumber); err == nil && u != nil {
+			resp.UnitYear = u.Year
+			resp.UnitStatus = string(u.Status)
+			if u.IssuedTo != nil {
+				resp.UnitIssuedTo = *u.IssuedTo
+			}
+		}
+	}
 	if fundingSource.Valid {
 		resp.FundingSource = fundingSource.String
 	}
@@ -217,6 +258,82 @@ func (r *InventoryRepository) GetPublicItemLabel(id string, unitNumber int) (*Pu
 	}
 
 	return resp, nil
+}
+
+// getItemUnit mengambil satu bungkus berdasarkan batch & nomor.
+func (r *InventoryRepository) getItemUnit(batchID string, unitNo int) (*models.ItemUnit, error) {
+	var u models.ItemUnit
+	var batchCol, issuedTo, trxID sql.NullString
+	var issuedAt, crAt, upAt sql.NullInt64
+	err := r.DB.QueryRow(`
+		SELECT id, item_id, batch_id, unit_no, year, status, issued_to, issued_at, transaction_id, created_at, updated_at
+		FROM inventory_item_units
+		WHERE batch_id = ? AND unit_no = ? AND deleted_at IS NULL
+	`, batchID, unitNo).Scan(&u.ID, &u.ItemID, &batchCol, &u.UnitNo, &u.Year, &u.Status,
+		&issuedTo, &issuedAt, &trxID, &crAt, &upAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if batchCol.Valid {
+		v := batchCol.String
+		u.BatchID = &v
+	}
+	if issuedTo.Valid {
+		v := issuedTo.String
+		u.IssuedTo = &v
+	}
+	return &u, nil
+}
+
+// findItemUnit mencari bungkus dari item + nomor saja (format QR lama).
+// Dicoba tahun berjalan dulu, lalu tahun-tahun sebelumnya yang pernah dipakai
+// item ini, karena penomoran dimulai ulang tiap tahun sehingga nomor yang sama
+// bisa muncul di beberapa tahun.
+func (r *InventoryRepository) findItemUnit(itemID string, unitNo int) (*models.ItemUnit, error) {
+	var years []int
+	rows, err := r.DB.Query(`
+		SELECT DISTINCT year FROM inventory_item_units
+		WHERE item_id = ? AND deleted_at IS NULL ORDER BY year DESC
+	`, itemID)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var y int
+		if err := rows.Scan(&y); err == nil {
+			years = append(years, y)
+		}
+	}
+	rows.Close()
+	if len(years) == 0 {
+		return nil, nil
+	}
+	for _, y := range years {
+		var u models.ItemUnit
+		var batchCol, issuedTo, trxID sql.NullString
+		var issuedAt, crAt, upAt sql.NullInt64
+		err := r.DB.QueryRow(`
+			SELECT id, item_id, batch_id, unit_no, year, status, issued_to, issued_at, transaction_id, created_at, updated_at
+			FROM inventory_item_units
+			WHERE item_id = ? AND year = ? AND unit_no = ? AND deleted_at IS NULL
+		`, itemID, y, unitNo).Scan(&u.ID, &u.ItemID, &batchCol, &u.UnitNo, &u.Year, &u.Status,
+			&issuedTo, &issuedAt, &trxID, &crAt, &upAt)
+		if err == nil {
+			if issuedTo.Valid {
+				v := issuedTo.String
+				u.IssuedTo = &v
+			}
+			if batchCol.Valid {
+				v := batchCol.String
+				u.BatchID = &v
+			}
+			return &u, nil
+		}
+	}
+	return nil, nil
 }
 
 // getAssetRoomTransfers membaca riwayat pemindahan ruangan dari inventory_audit.

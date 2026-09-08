@@ -74,6 +74,7 @@ func setupInventorySchemaFromMigrations(t *testing.T) *sql.DB {
 	}
 	applyMigrationFile(t, db, "000035_inventory_item_room.up.sql")
 	applyMigrationFile(t, db, "000036_inventory_label.up.sql")
+	applyMigrationFile(t, db, "000037_inventory_item_batch.up.sql")
 
 	return db
 }

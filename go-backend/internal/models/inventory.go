@@ -74,17 +74,21 @@ type InventoryAssetExpand struct {
 }
 
 type InventoryTransaction struct {
-	ID          string         `json:"id"`
-	ItemID      string         `json:"itemId"`
-	Item        *InventoryItem `json:"item,omitempty"`
-	Type        string         `json:"type"` // IN, OUT
-	Quantity    int            `json:"quantity"`
-	Date        *time.Time     `json:"date"`
-	Description *string        `json:"description"`
-	Recipient   *string        `json:"recipient"`
-	ProofImage  *string        `json:"proofImage"`
-	UserID      *string        `json:"userId"`
-	CreatedAt   *time.Time     `json:"createdAt"`
+	ID       string         `json:"id"`
+	ItemID   string         `json:"itemId"`
+	Item     *InventoryItem `json:"item,omitempty"`
+	Type     string         `json:"type"` // IN, OUT
+	Quantity int            `json:"quantity"`
+	// UnitNumbers berisi nomor-nomor bungkus yang keluar, misalnya [3, 4] untuk
+	// "2 rim ke perpustakaan". Bila kosong, nomor terkecil yang masih tersedia
+	// dipakai otomatis agar stok tetap konsisten.
+	UnitNumbers []int       `json:"unitNumbers,omitempty"`
+	Date        *time.Time  `json:"date"`
+	Description *string     `json:"description"`
+	Recipient   *string     `json:"recipient"`
+	ProofImage  *string     `json:"proofImage"`
+	UserID      *string     `json:"userId"`
+	CreatedAt   *time.Time  `json:"createdAt"`
 }
 
 type InventoryOpname struct {
@@ -127,6 +131,57 @@ type InventoryAudit struct {
 	Changes   json.RawMessage `json:"changes,omitempty"`
 	UserID    *string         `json:"user_id"`
 	CreatedAt *time.Time      `json:"created_at"`
+}
+
+// ItemUnitStatus adalah keadaan satu bungkus/unit barang habis pakai.
+type ItemUnitStatus string
+
+const (
+	// UnitUnitAvailable berarti unit masih tersedia di gudang.
+	ItemUnitAvailable ItemUnitStatus = "AVAILABLE"
+	// ItemUnitIssued berarti unit sudah keluar; IssuedTo mencatat ke mana.
+	ItemUnitIssued ItemUnitStatus = "ISSUED"
+)
+
+// ItemBatch adalah satu kali penerimaan barang habis pakai. Setiap penerimaan
+// membentuk batch dengan rentang nomor sendiri.
+//
+// Penomoran berlanjut antar batch dalam satu tahun, lalu mulai dari 1 lagi saat
+// tahun berganti. Karena nomor berulang tiap tahun, label wajib mencantumkan
+// tahun — itulah sebabnya Year disimpan di sini.
+type ItemBatch struct {
+	ID            string  `json:"id"`
+	ItemID        string  `json:"itemId"`
+	BatchCode     string  `json:"batchCode,omitempty"`
+	Year          int     `json:"year"`
+	StartNo       int     `json:"startNo"`
+	EndNo         int     `json:"endNo"`
+	Quantity      int     `json:"quantity"`
+	FundingSource *string `json:"fundingSource,omitempty"`
+	FiscalYear    *int    `json:"fiscalYear,omitempty"`
+	ReceivedAt    *int64  `json:"receivedAt,omitempty"`
+	Description   *string `json:"description,omitempty"`
+	TransactionID *string `json:"transactionId,omitempty"`
+	CreatedAt     *int64  `json:"createdAt,omitempty"`
+	UpdatedAt     *int64  `json:"updatedAt,omitempty"`
+}
+
+// ItemUnit adalah satu bungkus/unit fisik barang habis pakai.
+//
+// Inisial ini yang memungkinkan pertanyaan "nomor berapa yang keluar ke mana"
+// dijawab: tiap nomor punya baris sendiri berikut status dan tujuannya.
+type ItemUnit struct {
+	ID            string         `json:"id"`
+	ItemID        string         `json:"itemId"`
+	BatchID       *string        `json:"batchId,omitempty"`
+	UnitNo        int            `json:"unitNo"`
+	Year          int            `json:"year"`
+	Status        ItemUnitStatus `json:"status"`
+	IssuedTo      *string        `json:"issuedTo,omitempty"`
+	IssuedAt      *int64         `json:"issuedAt,omitempty"`
+	TransactionID *string        `json:"transactionId,omitempty"`
+	CreatedAt     *int64         `json:"createdAt,omitempty"`
+	UpdatedAt     *int64         `json:"updatedAt,omitempty"`
 }
 
 type InventoryStats struct {

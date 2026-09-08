@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 )
@@ -28,6 +29,9 @@ func (h *InventoryHandler) GetPublicLabel(c echo.Context) error {
 			unit = n
 		}
 	}
+	// b = id batch. Bila ada, nomor unit ditafsirkan dalam batch itu, sehingga
+	// nomor yang sama di batch berbeda tidak rancu.
+	batch := strings.TrimSpace(c.QueryParam("b"))
 
 	if id == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "id wajib diisi"})
@@ -41,7 +45,7 @@ func (h *InventoryHandler) GetPublicLabel(c echo.Context) error {
 		}
 		return c.JSON(http.StatusOK, data)
 	case "item", "stok", "barang":
-		data, err := h.Repo.GetPublicItemLabel(id, unit)
+		data, err := h.Repo.GetPublicItemLabel(id, unit, batch)
 		if err != nil {
 			return inventoryError(c, err)
 		}

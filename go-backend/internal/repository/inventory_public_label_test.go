@@ -54,7 +54,7 @@ func TestPublicLabelItemAndMissing(t *testing.T) {
 	r := newRepo(db)
 
 	// Item (barang habis pakai)
-	resp, err := r.GetPublicItemLabel("i-1", 7)
+	resp, err := r.GetPublicItemLabel("i-1", 7, "")
 	if err != nil {
 		t.Fatalf("GetPublicItemLabel: %v", err)
 	}

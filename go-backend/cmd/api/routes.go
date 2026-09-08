@@ -215,6 +215,13 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	auth.PUT("/inventory/items/:id", h.Inventory.UpdateItem)
 	auth.GET("/inventory/transactions", h.Inventory.GetTransactions)
 	auth.POST("/inventory/transactions", h.Inventory.CreateTransaction)
+	// Pelacakan per bungkus (nomor berapa keluar ke mana) untuk barang habis
+	// pakai. Mengikuti scope PIC ruangan yang sama dengan item induknya.
+	auth.GET("/inventory/items/:id/units", h.Inventory.GetItemUnits)
+	auth.GET("/inventory/items/:id/units/:no", h.Inventory.GetItemUnitDetail)
+	auth.POST("/inventory/items/:id/units/issue", h.Inventory.IssueItemUnits)
+	auth.POST("/inventory/items/:id/units/return", h.Inventory.ReturnItemUnits)
+	auth.GET("/inventory/items/:id/batches", h.Inventory.GetItemBatches)
 	auth.GET("/inventory/opname", h.Inventory.GetOpnames)
 	auth.POST("/inventory/opname", h.Inventory.CreateOpname)
 	auth.POST("/inventory/opname/:id/apply", h.Inventory.ApplyOpname)
