@@ -36,6 +36,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { goGet, goPost } from "@/lib/api-client";
+import { UnitNumberPicker } from "@/components/inventory/unit-number-picker";
 
 export default function BarangKeluarPage() {
   const router = useRouter();
@@ -49,6 +50,12 @@ export default function BarangKeluarPage() {
   const [description, setDescription] = useState("");
   const [recipient, setRecipient] = useState("");
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]); // YYYY-MM-DD
+  // Nomor bungkus yang keluar. Kosong = sistem isi otomatis nomor terkecil.
+  const [unitNumbers, setUnitNumbers] = useState<number[]>([]);
+
+  // Tahun penomoran mengikuti tanggal transaksi, karena nomor dimulai ulang
+  // setiap ganti tahun.
+  const trxYear = date ? parseInt(date.slice(0, 4), 10) || new Date().getFullYear() : new Date().getFullYear();
 
   useEffect(() => {
     const loadItems = async () => {
@@ -63,6 +70,12 @@ export default function BarangKeluarPage() {
   }, []);
 
   const selectedItem = items.find((i) => i.id === selectedItemId);
+
+  // Nomor milik barang tertentu; ganti barang harus mengosongkan pilihan
+  // agar tidak terkirim nomor dari barang lain.
+  useEffect(() => {
+    setUnitNumbers([]);
+  }, [selectedItemId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,6 +96,9 @@ export default function BarangKeluarPage() {
         itemId: selectedItemId,
         type: "OUT", // OUTGOING
         quantity: qty,
+        // Nomor bungkus ikut terkirim sehingga tercatat "nomor 3 & 4 ke
+        // perpustakaan". Bila kosong, backend mengisi nomor terkecil.
+        unitNumbers: unitNumbers.length > 0 ? unitNumbers : undefined,
         description: description || "Pemakaian Rutin",
         recipient: recipient,
         date: date,
@@ -212,6 +228,17 @@ export default function BarangKeluarPage() {
                      />
                   </div>
                </div>
+
+               {/* Pelacakan per bungkus: mencatat nomor berapa yang keluar ke
+                   mana. Hanya untuk barang yang dilacak per bungkus; bila
+                   kosong, nomor diisi otomatis oleh backend. */}
+               <UnitNumberPicker
+                  itemId={selectedItemId}
+                  year={trxYear}
+                  quantity={parseInt(quantity, 10) || 0}
+                  selected={unitNumbers}
+                  onChange={setUnitNumbers}
+               />
 
                <div className="space-y-2">
                   <Label htmlFor="nama-pengambil-penerima">Nama Pengambil / Penerima</Label>

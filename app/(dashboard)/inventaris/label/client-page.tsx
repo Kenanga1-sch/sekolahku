@@ -27,10 +27,30 @@ interface AssetLabel {
   id: string;
   name: string;
   code: string;
+  unit?: string;
   fundingSource: string;
   fiscalYear: number;
   quantity: number;
+  // Rentang nomor unit untuk barang habis pakai. Diisi dari batch, sehingga
+  // nomor tidak lagi mengikuti stok berjalan yang naik-turun.
+  batchId?: string;
+  batchCode?: string;
+  startNo?: number;
+  total?: number;
   type: "asset" | "item";
+}
+
+// Buka bungkus respons yang tidak konsisten antar endpoint:
+//   GET /api/inventory/assets/:id -> objek datar
+//   GET /api/inventory/items/:id  -> { success, item: {...}, history }
+// Dulu pembungkus ini tidak dibuka untuk barang, sehingga id/name/code/
+// fundingSource seluruhnya undefined dan label tercetak "undefined/200".
+function unwrapRecord(res: any): any {
+  if (!res) return null;
+  if (res.error) return null;
+  if (res.item && typeof res.item === "object") return res.item;
+  if (res.data && typeof res.data === "object") return res.data;
+  return res;
 }
 
 interface PrintConfig {
@@ -101,14 +121,19 @@ export function LabelPrintClient() {
       if (itemIds) {
         for (const id of itemIds.split(",").filter(Boolean)) {
           try {
-            const res = await goGet(`/api/inventory/items/${id}`);
-            if (res && !res.error) {
+            const raw: any = await goGet(`/api/inventory/items/${id}`);
+            const res = unwrapRecord(raw);
+            if (res) {
               result.push({
                 id: res.id,
                 name: res.name,
                 code: res.code || "",
+                unit: res.unit || "",
                 fundingSource: res.fundingSource || "",
                 fiscalYear: res.fiscalYear || new Date().getFullYear(),
+                // Untuk barang habis pakai, banyaknya label mengikuti stok
+                // saat ini sampai penomoran berbasis batch siap (total bisa
+                // disunting di halaman ini).
                 quantity: res.currentStock || 1,
                 type: "item",
               });
@@ -168,12 +193,21 @@ export function LabelPrintClient() {
 
   const makeQRUrl = (item: AssetLabel, unitNo: number): string => {
     if (typeof window === "undefined") return "";
-    return `${window.location.origin}/inventaris/detail?id=${item.id}&t=${item.type}&u=${unitNo}`;
+    const params = new URLSearchParams({
+      id: item.id,
+      t: item.type,
+      u: String(unitNo),
+    });
+    if (item.batchId) params.set("b", item.batchId);
+    // Nomor unit barang habis pakai hanya bermakna bersama tahunnya, karena
+    // penomoran dimulai ulang setiap ganti tahun.
+    return `${window.location.origin}/inventaris/detail?${params.toString()}`;
   };
 
   const buildUnits = (item: AssetLabel): number[] => {
     const total = editingTotals[item.id] ?? item.quantity;
-    return Array.from({ length: Math.max(1, total) }, (_, i) => i + 1);
+    const start = item.startNo ?? 1;
+    return Array.from({ length: Math.max(1, total) }, (_, i) => start + i);
   };
 
   const handlePrint = () => window.print();
@@ -290,7 +324,9 @@ export function LabelPrintClient() {
                       <div className="min-w-0">
                         <p className="font-medium truncate">{item.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {item.code && `${item.code} · `}1/{total} label
+                          {item.code && `${item.code} · `}
+                          {item.batchCode ? `${item.batchCode} · ` : ""}
+                          nomor {item.startNo ?? 1}–{(item.startNo ?? 1) + total - 1} ({total} label)
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -329,14 +365,17 @@ export function LabelPrintClient() {
             return (
               <div key={`${item.id}-${unitNo}`} className="label-cell">
                 <div className="label-text">
+                  {/* Nama barang jadi baris utama: yang dicari saat memeriksa
+                      barang fisik adalah barang apa ini, bukan sumber dananya. */}
                   <div className="label-text-1">
-                    Inventaris {funding} {year}
+                    {showName ? truncate(item.name, 26) : "Inventaris"}
+                    {item.unit ? ` (${item.unit})` : ""}
                   </div>
-                  {showName && (
-                    <div className="label-text-2">
-                      {truncate(item.name, 28)}{item.code ? ` · ${item.code}` : ""}
-                    </div>
-                  )}
+                  <div className="label-text-2">
+                    {item.batchCode ? `${item.batchCode} · ` : ""}
+                    {funding} {year}
+                    {item.code ? ` · ${item.code}` : ""}
+                  </div>
                 </div>
                 <div className="label-seq">
                   {unitNo}/{total}

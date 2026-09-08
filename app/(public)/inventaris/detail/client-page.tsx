@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Package, MapPin, Calendar, User, BookOpen, AlertCircle } from "lucide-react";
+import { Package, MapPin, Calendar, User, BookOpen, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,6 +20,10 @@ interface PublicLabelData {
   photoUrl?: string;
   quantity: number;
   unitNumber?: number;
+  unitYear?: number;
+  unitStatus?: string;
+  unitIssuedTo?: string;
+  batchCode?: string;
   condition?: { good: number; lightDamaged: number; heavyDamaged: number; lost: number };
   activeBorrow?: { requesterName: string; reason: string; since: string };
   transfers?: { fromRoom: string; toRoom: string; at: string }[];
@@ -45,6 +49,7 @@ export function PublicLabelDetailClient() {
     const id = searchParams.get("id");
     const t = searchParams.get("t") || searchParams.get("type") || "asset";
     const u = searchParams.get("u");
+    const b = searchParams.get("b");
 
     if (!id) {
       setError("ID tidak ditemukan");
@@ -52,7 +57,7 @@ export function PublicLabelDetailClient() {
       return;
     }
 
-    const fetchUrl = `/api/public/inventory/label?id=${encodeURIComponent(id)}&t=${encodeURIComponent(t)}${u ? `&u=${u}` : ""}`;
+    const fetchUrl = `/api/public/inventory/label?id=${encodeURIComponent(id)}&t=${encodeURIComponent(t)}${u ? `&u=${u}` : ""}${b ? `&b=${b}` : ""}`;
 
     fetch(fetchUrl)
       .then((res) => {
@@ -94,9 +99,45 @@ export function PublicLabelDetailClient() {
           Inventaris {data.fundingSource || "Sekolah"} {data.fiscalYear}
         </h1>
         <p className="text-sm text-muted-foreground">
-          Unit {data.unitNumber || 1} dari {data.quantity}
+          Nomor {data.unitNumber || 1}
+          {data.unitYear ? ` · ${data.unitYear}` : ""} dari {data.quantity}
+          {data.batchCode ? ` · ${data.batchCode}` : ""}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {data.name}
+          {data.unit ? ` (${data.unit})` : ""}
         </p>
       </div>
+
+      {/* Untuk barang habis pakai, nomor pada label merujuk satu bungkus
+          fisik. Tampilkan ke mana bungkus itu pergi — inilah yang ditanyakan
+          saat pemeriksaan. */}
+      {data.unitStatus && (
+        <div
+          className={`rounded-lg border px-4 py-3 text-center ${
+            data.unitStatus === "ISSUED"
+              ? "border-amber-300 bg-amber-50"
+              : "border-emerald-300 bg-emerald-50"
+          }`}
+        >
+          {data.unitStatus === "ISSUED" ? (
+            <>
+              <div className="flex items-center justify-center gap-2 font-semibold text-amber-800">
+                <AlertCircle className="h-4 w-4" /> Sudah keluar
+              </div>
+              {data.unitIssuedTo && (
+                <p className="mt-1 text-sm text-amber-700">
+                  ke {data.unitIssuedTo}
+                </p>
+              )}
+            </>
+          ) : (
+            <div className="flex items-center justify-center gap-2 font-semibold text-emerald-800">
+              <CheckCircle2 className="h-4 w-4" /> Tersedia di gudang
+            </div>
+          )}
+        </div>
+      )}
 
       {data.photoUrl ? (
         <div className="w-full h-40 rounded-lg overflow-hidden bg-muted">
