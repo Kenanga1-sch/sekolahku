@@ -36,7 +36,7 @@ func (r *AcademicAdvRepository) RecordQRScan(req models.AttendanceScanRequest) (
 	if req.SessionID != nil && *req.SessionID != "" {
 		err = tx.QueryRow("SELECT id, status, date, class_name FROM attendance_sessions WHERE id = ?", *req.SessionID).Scan(&sessionId, &sessionStatus, &sessionDate, &sessionClass)
 	} else {
-		today := time.Now().Format("2006-01-02")
+		today := TodayJakarta()
 		err = tx.QueryRow("SELECT id, status, date, class_name FROM attendance_sessions WHERE date = ? AND class_name = ? AND status = 'open'", today, className).Scan(&sessionId, &sessionStatus, &sessionDate, &sessionClass)
 	}
 

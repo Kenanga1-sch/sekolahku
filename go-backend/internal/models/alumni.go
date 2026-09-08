@@ -99,6 +99,9 @@ type Alumni struct {
 	MotherIncome    *string `json:"motherIncome"`
 	GuardianIncome  *string `json:"guardianIncome"`
 	ParentAddress   *string `json:"parentAddress"`
+	// Index buku induk fisik lama (penunjuk lokasi arsip)
+	BukuFisikNo *string `json:"bukuFisikNo"`
+	RegisterNo  *int    `json:"registerNo"`
 	CreatedAt                  *time.Time                 `json:"createdAt"`
 	UpdatedAt                  *time.Time                 `json:"updatedAt"`
 }

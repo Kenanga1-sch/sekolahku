@@ -15,7 +15,7 @@ import (
 )
 
 type EOfficeHandler struct {
-	Repo *repository.EOfficeRepository
+	Repo          *repository.EOfficeRepository
 	Notifications *repository.NotificationRepository
 }
 

@@ -16,10 +16,15 @@ import (
 
 type StudentHandler struct {
 	Repo *repository.StudentRepository
+	DB   *sql.DB
 }
 
-func NewStudentHandler(repo *repository.StudentRepository) *StudentHandler {
-	return &StudentHandler{Repo: repo}
+func NewStudentHandler(repo *repository.StudentRepository, db ...*sql.DB) *StudentHandler {
+	h := &StudentHandler{Repo: repo}
+	if len(db) > 0 {
+		h.DB = db[0]
+	}
+	return h
 }
 
 func (h *StudentHandler) GetStudents(c echo.Context) error {
@@ -79,11 +84,42 @@ func (h *StudentHandler) GetStudentByID(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Siswa tidak ditemukan"})
 	}
 
+	// Sertakan data Buku Induk (jika ada) agar halaman cetak siswa aktif
+	// menampilkan matriks nilai & perkembangan jasmani yang sama seperti mode alumni.
+	transcripts := []models.AlumniTranscript{}
+	healthRecords := []models.AlumniHealthRecord{}
+	attendanceSummaries := []models.AlumniAttendanceSummary{}
+	classHistory := []models.ClassHistoryEntry{}
+	bukuIndukID := ""
+	if h.DB != nil {
+		ar := repository.NewAlumniRepository(h.DB)
+		if bid, bidErr := ar.GetAlumniIDByStudentID(id); bidErr == nil {
+			bukuIndukID = bid
+		}
+		if tr, terr := ar.GetTranscriptsByStudentID(id); terr == nil {
+			transcripts = tr
+		}
+		if hr, herr := ar.GetHealthRecordsByStudentID(id); herr == nil {
+			healthRecords = hr
+		}
+		if at, aerr := ar.GetAttendanceByStudentID(id); aerr == nil {
+			attendanceSummaries = at
+		}
+		if ch, cerr := ar.GetClassHistoryByStudentID(id); cerr == nil {
+			classHistory = ch
+		}
+	}
+
 	log.Printf("[ACCESS] student_handler.GetStudentByID: user=%s role=%s accessed student=%s", userID, userRole, id)
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"success": true,
-		"data":    s,
+		"success":             true,
+		"data":                s,
+		"bukuIndukId":         bukuIndukID,
+		"transcripts":         transcripts,
+		"healthRecords":       healthRecords,
+		"attendanceSummaries": attendanceSummaries,
+		"classHistory":        classHistory,
 	})
 }
 
@@ -110,7 +146,6 @@ func (h *StudentHandler) CreateStudent(c echo.Context) error {
 		}
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
-
 
 	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true, "id": id})
 }
@@ -220,7 +255,7 @@ func (h *StudentHandler) UpdateStudent(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
 	}
 
-		err := h.Repo.UpdateStudent(id, s)
+	err := h.Repo.UpdateStudent(id, s)
 	if err != nil {
 		if strings.Contains(err.Error(), "sudah digunakan oleh siswa atas nama") {
 			return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": err.Error()})
@@ -235,7 +270,6 @@ func (h *StudentHandler) UpdateStudent(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 
-
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
 
@@ -244,7 +278,8 @@ func (h *StudentHandler) DeleteStudent(c echo.Context) error {
 	err := h.Repo.DeleteStudent(id)
 	if err != nil {
 		log.Printf("DeleteStudent ERROR: %v", err)
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+		// Teruskan alasan penolakan (tanggungan belum selesai) ke petugas
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": err.Error()})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }

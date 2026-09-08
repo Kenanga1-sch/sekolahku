@@ -87,10 +87,11 @@ func (r *AlumniRepository) ImportBulkAlumni(alumniList []models.Alumni) (int, in
 					mutasi_masuk_asal_sekolah=COALESCE(?, mutasi_masuk_asal_sekolah), mutasi_masuk_dari_kelas=COALESCE(?, mutasi_masuk_dari_kelas),
 					mutasi_masuk_diterima_tanggal=COALESCE(?, mutasi_masuk_diterima_tanggal), mutasi_masuk_di_kelas=COALESCE(?, mutasi_masuk_di_kelas),
 					scholarship_info=COALESCE(?, scholarship_info), mutation_out_class=COALESCE(?, mutation_out_class),
-					mutation_out_to_school=COALESCE(?, mutation_out_to_school), mutation_out_to_class=COALESCE(?, mutation_out_to_class),
-					mutation_out_date=COALESCE(?, mutation_out_date), dropped_out_date=COALESCE(?, dropped_out_date),
-					dropped_out_reason=COALESCE(?, dropped_out_reason)
-				WHERE id=?
+				mutation_out_to_school=COALESCE(?, mutation_out_to_school), mutation_out_to_class=COALESCE(?, mutation_out_to_class),
+				mutation_out_date=COALESCE(?, mutation_out_date), dropped_out_date=COALESCE(?, dropped_out_date),
+				dropped_out_reason=COALESCE(?, dropped_out_reason),
+				buku_fisik_no=COALESCE(?, buku_fisik_no), register_no=COALESCE(?, register_no)
+			WHERE id=?
 			`, a.NISN, a.NIS, a.FullName, a.Gender,
 				a.BirthPlace, a.BirthDate,
 				a.GraduationYear, timeToUnixMilli(a.GraduationDate),
@@ -117,6 +118,7 @@ func (r *AlumniRepository) ImportBulkAlumni(alumniList []models.Alumni) (int, in
 				a.MutasiMasukAsalSekolah, a.MutasiMasukDariKelas, a.MutasiMasukDiterimaTanggal, a.MutasiMasukDiKelas,
 				a.ScholarshipInfo, a.MutationOutClass, a.MutationOutToSchool, a.MutationOutToClass, a.MutationOutDate,
 				a.DroppedOutDate, a.DroppedOutReason,
+				a.BukuFisikNo, a.RegisterNo,
 				existingID,
 			)
 			if err != nil {
@@ -146,13 +148,14 @@ func (r *AlumniRepository) ImportBulkAlumni(alumniList []models.Alumni) (int, in
 					daily_language, living_with, guardian_education, previous_school_address,
 					previous_school_cert_no, previous_school_cert_date,
 					mutasi_masuk_asal_sekolah, mutasi_masuk_dari_kelas, mutasi_masuk_diterima_tanggal, mutasi_masuk_di_kelas,
-					scholarship_info, mutation_out_class, mutation_out_to_school, mutation_out_to_class, mutation_out_date,
-					dropped_out_date, dropped_out_reason
-				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-				          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-				          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-				          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-			`, id, a.StudentID, a.NISN, a.NIS, a.FullName, a.Gender, a.BirthPlace, a.BirthDate,
+				scholarship_info, mutation_out_class, mutation_out_to_school, mutation_out_to_class, mutation_out_date,
+				dropped_out_date, dropped_out_reason,
+				buku_fisik_no, register_no
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+			          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+			          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+			          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`, id, a.StudentID, a.NISN, a.NIS, a.FullName, a.Gender, a.BirthPlace, a.BirthDate,
 				a.GraduationYear, timeToUnixMilli(a.GraduationDate), a.FinalClass, a.Photo, a.ParentName, a.ParentPhone,
 				a.CurrentAddress, a.CurrentPhone, a.CurrentEmail, a.NextSchool, a.Notes,
 				a.NIK, a.Religion, a.Address, a.EnrolledYear, a.PreviousSchool,
@@ -168,6 +171,7 @@ func (r *AlumniRepository) ImportBulkAlumni(alumniList []models.Alumni) (int, in
 				a.MutasiMasukAsalSekolah, a.MutasiMasukDariKelas, a.MutasiMasukDiterimaTanggal, a.MutasiMasukDiKelas,
 				a.ScholarshipInfo, a.MutationOutClass, a.MutationOutToSchool, a.MutationOutToClass, a.MutationOutDate,
 				a.DroppedOutDate, a.DroppedOutReason,
+				a.BukuFisikNo, a.RegisterNo,
 			)
 			if err != nil {
 				logs = append(logs, fmt.Sprintf("Baris %d (%s): Gagal insert - %v", idx+1, a.FullName, err))

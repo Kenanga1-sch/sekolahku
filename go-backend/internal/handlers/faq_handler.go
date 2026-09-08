@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sekolahku/go-backend/internal/middleware"
@@ -29,8 +30,8 @@ func (h *FAQHandler) GetPublicFAQs(c echo.Context) error {
 
 	// Group by category
 	type CategoryGroup struct {
-		ID        string       `json:"id"`
-		Title     string       `json:"title"`
+		ID        string        `json:"id"`
+		Title     string        `json:"title"`
 		Questions []interface{} `json:"questions"`
 	}
 
@@ -67,12 +68,15 @@ func (h *FAQHandler) GetPublicFAQs(c echo.Context) error {
 			result = append(result, g)
 		}
 	}
-	
+
 	// Add other categories not in order
 	for cat, g := range groups {
 		found := false
 		for _, o := range order {
-			if cat == o { found = true; break }
+			if cat == o {
+				found = true
+				break
+			}
 		}
 		if !found {
 			result = append(result, g)
@@ -89,6 +93,9 @@ func (h *FAQHandler) CreateFAQ(c echo.Context) error {
 	var req models.CreateFAQRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
+	}
+	if strings.TrimSpace(req.Question) == "" || strings.TrimSpace(req.Answer) == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Pertanyaan dan jawaban wajib diisi"})
 	}
 
 	id, err := h.Repo.CreateFAQ(req)
@@ -124,6 +131,16 @@ func (h *FAQHandler) UpdateFAQ(c echo.Context) error {
 	var req models.UpdateFAQRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid payload"})
+	}
+	q, a := "", ""
+	if req.Question != nil {
+		q = *req.Question
+	}
+	if req.Answer != nil {
+		a = *req.Answer
+	}
+	if strings.TrimSpace(q) == "" || strings.TrimSpace(a) == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Pertanyaan dan jawaban wajib diisi"})
 	}
 
 	if err := h.Repo.UpdateFAQ(id, req); err != nil {

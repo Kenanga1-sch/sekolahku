@@ -126,8 +126,14 @@ func (r *LibraryRepository) CreateBook(input models.CreateBookRequest) error {
 		category = "Uncategorized"
 	}
 
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
 	catalogID := cuid2.Generate()
-	_, err := r.DB.Exec(`
+	_, err = tx.Exec(`
 		INSERT INTO library_catalog (id, isbn, title, author, publisher, year, category, description, cover, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, catalogID, isbn, title, author, input.Publisher, input.Year, category, input.Description, input.Cover, now, now)
@@ -140,7 +146,7 @@ func (r *LibraryRepository) CreateBook(input models.CreateBookRequest) error {
 		if i > 0 {
 			assetID = id + fmt.Sprintf("-%d", i+1)
 		}
-		_, err = r.DB.Exec(`
+		_, err = tx.Exec(`
 			INSERT INTO library_assets (id, catalog_id, status, location, condition, created_at, updated_at)
 			VALUES (?, ?, 'AVAILABLE', ?, 'Baik', ?, ?)
 		`, assetID, catalogID, input.Location, now, now)
@@ -148,7 +154,7 @@ func (r *LibraryRepository) CreateBook(input models.CreateBookRequest) error {
 			return err
 		}
 	}
-	return nil
+	return tx.Commit()
 }
 
 func (r *LibraryRepository) UpdateBook(id string, input models.UpdateBookRequest) error {

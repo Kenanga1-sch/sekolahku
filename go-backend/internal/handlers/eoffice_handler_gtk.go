@@ -47,46 +47,68 @@ func (h *EOfficeHandler) GetDaftar1Stats(c echo.Context) error {
 	monthStrFmt := fmt.Sprintf("%02d", reportMonth)
 	yearStrFmt := fmt.Sprintf("%d", reportYear)
 
-	type ck struct{ Grade int; Gender string }
+	type ck struct {
+		Grade  int
+		Gender string
+	}
 	active := make(map[ck]int)
 	rows, _ := h.Repo.DB.Query(`SELECT c.grade,s.gender,COUNT(*) FROM students s JOIN student_classes c ON s.class_id=c.id WHERE s.status='active' GROUP BY c.grade,s.gender`)
 	for rows != nil && rows.Next() {
-		var g int; var gen string; var c int
+		var g int
+		var gen string
+		var c int
 		if rows.Scan(&g, &gen, &c) == nil {
 			active[ck{g, strings.ToUpper(gen)}] = c
 		}
 	}
-	if rows != nil { rows.Close() }
+	if rows != nil {
+		rows.Close()
+	}
 
 	masuk := make(map[ck]int)
 	rows, _ = h.Repo.DB.Query(`SELECT target_grade,gender,COUNT(*) FROM mutasi_requests WHERE status_approval='approved' AND strftime('%m',datetime(updated_at/1000,'unixepoch'))=? AND strftime('%Y',datetime(updated_at/1000,'unixepoch'))=? GROUP BY target_grade,gender`, monthStrFmt, yearStrFmt)
 	for rows != nil && rows.Next() {
-		var g int; var gen string; var c int
+		var g int
+		var gen string
+		var c int
 		if rows.Scan(&g, &gen, &c) == nil {
 			masuk[ck{g, strings.ToUpper(gen)}] = c
 		}
 	}
-	if rows != nil { rows.Close() }
+	if rows != nil {
+		rows.Close()
+	}
 
 	keluar := make(map[ck]int)
 	rows, _ = h.Repo.DB.Query(`SELECT c.grade,s.gender,COUNT(*) FROM mutasi_out_requests m JOIN students s ON m.student_id=s.id JOIN student_classes c ON s.class_id=c.id WHERE m.status='completed' AND strftime('%m',datetime(COALESCE(m.completed_at,m.updated_at)/1000,'unixepoch'))=? AND strftime('%Y',datetime(COALESCE(m.completed_at,m.updated_at)/1000,'unixepoch'))=? GROUP BY c.grade,s.gender`, monthStrFmt, yearStrFmt)
 	for rows != nil && rows.Next() {
-		var g int; var gen string; var c int
+		var g int
+		var gen string
+		var c int
 		if rows.Scan(&g, &gen, &c) == nil {
 			keluar[ck{g, strings.ToUpper(gen)}] = c
 		}
 	}
-	if rows != nil { rows.Close() }
+	if rows != nil {
+		rows.Close()
+	}
 
 	td := map[string]interface{}{
-		"bulan": monthNames[reportMonth] + " " + strconv.Itoa(reportYear),
+		"bulan":           monthNames[reportMonth] + " " + strconv.Itoa(reportYear),
 		"tahun_pelajaran": academicYear, "sekolah_nama": schoolName, "sekolah_npsn": schoolNpsn,
 		"sekolah_alamat": schoolAddress, "kepala_sekolah_nama": principalName, "kepala_sekolah_nip": principalNip,
 		"pengawas_nama": "H. Taryani, S.Pd., M.MP.d", "pengawas_nip": "197004141992031005",
 	}
 
 	lastDay := 31
-	if reportMonth == 4 || reportMonth == 6 || reportMonth == 9 || reportMonth == 11 { lastDay = 30 } else if reportMonth == 2 { lastDay = 28; if reportYear%4 == 0 && (reportYear%100 != 0 || reportYear%400 == 0) { lastDay = 29 } }
+	if reportMonth == 4 || reportMonth == 6 || reportMonth == 9 || reportMonth == 11 {
+		lastDay = 30
+	} else if reportMonth == 2 {
+		lastDay = 28
+		if reportYear%4 == 0 && (reportYear%100 != 0 || reportYear%400 == 0) {
+			lastDay = 29
+		}
+	}
 	td["tanggal_laporan"] = "Indramayu, " + strconv.Itoa(lastDay) + " " + monthNames[reportMonth] + " " + strconv.Itoa(reportYear)
 
 	var tLL, tLP, tML, tMP, tKL, tKP, tAL, tAP int
@@ -95,10 +117,30 @@ func (h *EOfficeHandler) GetDaftar1Stats(c echo.Context) error {
 		var cLL, cLP, cML, cMP, cKL, cKP, cAL, cAP int
 		for _, gen := range []string{"L", "P"} {
 			k := ck{g, gen}
-			a := active[k]; m := masuk[k]; kl := keluar[k]
-			l := a - m + kl; if l < 0 { l = 0 }
-			ak := l + m - kl; if ak < 0 { ak = 0 }
-			if gen == "L" { cLL, cML, cKL, cAL = l, m, kl, ak; tLL += l; tML += m; tKL += kl; tAL += ak } else { cLP, cMP, cKP, cAP = l, m, kl, ak; tLP += l; tMP += m; tKP += kl; tAP += ak }
+			a := active[k]
+			m := masuk[k]
+			kl := keluar[k]
+			l := a - m + kl
+			if l < 0 {
+				l = 0
+			}
+			ak := l + m - kl
+			if ak < 0 {
+				ak = 0
+			}
+			if gen == "L" {
+				cLL, cML, cKL, cAL = l, m, kl, ak
+				tLL += l
+				tML += m
+				tKL += kl
+				tAL += ak
+			} else {
+				cLP, cMP, cKP, cAP = l, m, kl, ak
+				tLP += l
+				tMP += m
+				tKP += kl
+				tAP += ak
+			}
 		}
 		r := roman[g]
 		td["m_"+r+"_l_lalu"], td["m_"+r+"_p_lalu"], td["m_"+r+"_t_lalu"] = cLL, cLP, cLL+cLP
@@ -114,19 +156,33 @@ func (h *EOfficeHandler) GetDaftar1Stats(c echo.Context) error {
 	// Age stats
 	ageKeys := []string{"under5", "6", "7", "8", "9", "10", "11", "12", "over13"}
 	for _, ak := range ageKeys {
-		for g := 1; g <= 6; g++ { gs := strconv.Itoa(g); td["u_"+ak+"_"+gs+"_l"] = 0; td["u_"+ak+"_"+gs+"_p"] = 0; td["u_"+ak+"_"+gs+"_t"] = 0 }
+		for g := 1; g <= 6; g++ {
+			gs := strconv.Itoa(g)
+			td["u_"+ak+"_"+gs+"_l"] = 0
+			td["u_"+ak+"_"+gs+"_p"] = 0
+			td["u_"+ak+"_"+gs+"_t"] = 0
+		}
 		td["u_"+ak+"_t_l"], td["u_"+ak+"_t_p"], td["u_"+ak+"_t_t"] = 0, 0, 0
 	}
 	reportDate := time.Date(reportYear, time.Month(reportMonth), lastDay, 23, 59, 59, 0, time.Local)
 	rows, _ = h.Repo.DB.Query(`SELECT c.grade,s.gender,s.birth_date FROM students s JOIN student_classes c ON s.class_id=c.id WHERE s.status='active' AND s.birth_date IS NOT NULL AND s.birth_date!=''`)
 	for rows != nil && rows.Next() {
-		var g int; var gen, bd string
+		var g int
+		var gen, bd string
 		if rows.Scan(&g, &gen, &bd) == nil {
 			if b, e := time.Parse("2006-01-02", bd); e == nil {
 				age := reportDate.Year() - b.Year()
-				if reportDate.Month() < b.Month() || (reportDate.Month() == b.Month() && reportDate.Day() < b.Day()) { age-- }
+				if reportDate.Month() < b.Month() || (reportDate.Month() == b.Month() && reportDate.Day() < b.Day()) {
+					age--
+				}
 				var ak string
-				if age < 6 { ak = "under5" } else if age > 12 { ak = "over13" } else { ak = strconv.Itoa(age) }
+				if age < 6 {
+					ak = "under5"
+				} else if age > 12 {
+					ak = "over13"
+				} else {
+					ak = strconv.Itoa(age)
+				}
 				gs, genL := strconv.Itoa(g), strings.ToLower(gen)
 				td["u_"+ak+"_"+gs+"_"+genL] = td["u_"+ak+"_"+gs+"_"+genL].(int) + 1
 				td["u_"+ak+"_"+gs+"_t"] = td["u_"+ak+"_"+gs+"_t"].(int) + 1
@@ -135,21 +191,33 @@ func (h *EOfficeHandler) GetDaftar1Stats(c echo.Context) error {
 			}
 		}
 	}
-	if rows != nil { rows.Close() }
+	if rows != nil {
+		rows.Close()
+	}
 
 	// Religion stats
 	religions := []string{"islam", "katolik", "protestan", "hindu", "budha"}
 	for _, rk := range religions {
-		for g := 1; g <= 6; g++ { gs := strconv.Itoa(g); td["r_"+rk+"_"+gs+"_l"] = 0; td["r_"+rk+"_"+gs+"_p"] = 0; td["r_"+rk+"_"+gs+"_t"] = 0 }
+		for g := 1; g <= 6; g++ {
+			gs := strconv.Itoa(g)
+			td["r_"+rk+"_"+gs+"_l"] = 0
+			td["r_"+rk+"_"+gs+"_p"] = 0
+			td["r_"+rk+"_"+gs+"_t"] = 0
+		}
 		td["r_"+rk+"_t_l"], td["r_"+rk+"_t_p"], td["r_"+rk+"_t_t"] = 0, 0, 0
 	}
 	rows, _ = h.Repo.DB.Query(`SELECT c.grade,s.gender,COALESCE(s.religion,'Islam') FROM students s JOIN student_classes c ON s.class_id=c.id WHERE s.status='active'`)
 	for rows != nil && rows.Next() {
-		var g int; var gen, rel string
+		var g int
+		var gen, rel string
 		if rows.Scan(&g, &gen, &rel) == nil {
 			rel = strings.ToLower(strings.TrimSpace(rel))
-			if rel == "" { rel = "islam" }
-			if rel != "islam" && rel != "katolik" && rel != "protestan" && rel != "hindu" && rel != "budha" { rel = "islam" }
+			if rel == "" {
+				rel = "islam"
+			}
+			if rel != "islam" && rel != "katolik" && rel != "protestan" && rel != "hindu" && rel != "budha" {
+				rel = "islam"
+			}
 			gs, genL := strconv.Itoa(g), strings.ToLower(gen)
 			td["r_"+rel+"_"+gs+"_"+genL] = td["r_"+rel+"_"+gs+"_"+genL].(int) + 1
 			td["r_"+rel+"_"+gs+"_t"] = td["r_"+rel+"_"+gs+"_t"].(int) + 1
@@ -157,7 +225,9 @@ func (h *EOfficeHandler) GetDaftar1Stats(c echo.Context) error {
 			td["r_"+rel+"_t_t"] = td["r_"+rel+"_t_t"].(int) + 1
 		}
 	}
-	if rows != nil { rows.Close() }
+	if rows != nil {
+		rows.Close()
+	}
 
 	// Inventory stats
 	type ii struct{ B, S, R int }
@@ -165,15 +235,20 @@ func (h *EOfficeHandler) GetDaftar1Stats(c echo.Context) error {
 	dbInv := make(map[string]ii)
 	rows, _ = h.Repo.DB.Query(`SELECT name,SUM(condition_good),SUM(condition_light_damaged),SUM(condition_heavy_damaged) FROM inventory_assets WHERE status='ACTIVE' GROUP BY name`)
 	for rows != nil && rows.Next() {
-		var n string; var gd, lt, hv int
+		var n string
+		var gd, lt, hv int
 		if rows.Scan(&n, &gd, &lt, &hv) == nil {
 			dbInv[strings.ToLower(strings.TrimSpace(n))] = ii{gd, lt, hv}
 		}
 	}
-	if rows != nil { rows.Close() }
+	if rows != nil {
+		rows.Close()
+	}
 	for key, def := range invDef {
 		b, s, r := def.B, def.S, def.R
-		if dv, ok := dbInv[key]; ok { b, s, r = dv.B, dv.S, dv.R }
+		if dv, ok := dbInv[key]; ok {
+			b, s, r = dv.B, dv.S, dv.R
+		}
 		td["i_"+key+"_baik"], td["i_"+key+"_sedang"], td["i_"+key+"_rusak"], td["i_"+key+"_jumlah"] = b, s, r, b+s+r
 	}
 
@@ -186,7 +261,8 @@ func (h *EOfficeHandler) GetDaftar1Stats(c echo.Context) error {
 	td["air_bersih"], td["hari_efektif"] = "Ledeng", 20
 
 	type GTKRow struct {
-		No int `json:"no"`; Nama, Nip, Gender, TTL, Gol, Status, Pendidikan, TglMengabdi, TmtCpns, TmtGol, NRG, NUPTK, Mengajar, JPL string `json:",omitempty"`
+		No                                                                                                       int    `json:"no"`
+		Nama, Nip, Gender, TTL, Gol, Status, Pendidikan, TglMengabdi, TmtCpns, TmtGol, NRG, NUPTK, Mengajar, JPL string `json:",omitempty"`
 	}
 	var gtkList []GTKRow
 	var nKep, nGKelas, nInggris, nPenjas, nAgama, nOp, nPenjaga int
@@ -197,21 +273,35 @@ func (h *EOfficeHandler) GetDaftar1Stats(c echo.Context) error {
 			var nm, np, pos, cat, deg string
 			if rows.Scan(&nm, &np, &pos, &cat, &deg) == nil {
 				gtk := GTKRow{No: idx, Nama: nm, Nip: np, Pendidikan: deg}
-				if gtk.Pendidikan == "" { gtk.Pendidikan = "S-1" }
-				if s, ok := gtkStaticDetails[np]; ok { gtk.Gender, gtk.TTL, gtk.Gol, gtk.Status, gtk.Pendidikan, gtk.TglMengabdi, gtk.TmtCpns, gtk.TmtGol, gtk.NRG, gtk.NUPTK, gtk.Mengajar, gtk.JPL = s.Gender, s.TTL, s.Gol, s.Status, s.Pendidikan, s.TglMengabdi, s.TmtCpns, s.TmtGol, s.NRG, s.NUPTK, s.Mengajar, s.JPL }
+				if gtk.Pendidikan == "" {
+					gtk.Pendidikan = "S-1"
+				}
+				if s, ok := gtkStaticDetails[np]; ok {
+					gtk.Gender, gtk.TTL, gtk.Gol, gtk.Status, gtk.Pendidikan, gtk.TglMengabdi, gtk.TmtCpns, gtk.TmtGol, gtk.NRG, gtk.NUPTK, gtk.Mengajar, gtk.JPL = s.Gender, s.TTL, s.Gol, s.Status, s.Pendidikan, s.TglMengabdi, s.TmtCpns, s.TmtGol, s.NRG, s.NUPTK, s.Mengajar, s.JPL
+				}
 				gtk.Status = orDefault(gtk.Status, "Honorer")
 				pl, cl := strings.ToLower(pos), strings.ToLower(cat)
 				switch {
-				case cl == "kepsek" || strings.Contains(pl, "kepala sekolah"): nKep++
-				case strings.Contains(pl, "guru kelas") || strings.Contains(pl, "kelas"): nGKelas++
-				case strings.Contains(pl, "inggris"): nInggris++
-				case strings.Contains(pl, "penjas") || strings.Contains(pl, "pjok") || strings.Contains(pl, "olahraga"): nPenjas++
-				case strings.Contains(pl, "agama") || strings.Contains(pl, "pai"): nAgama++
-				case strings.Contains(pl, "operator"): nOp++
-				case strings.Contains(pl, "penjaga") || cl == "support": nPenjaga++
+				case cl == "kepsek" || strings.Contains(pl, "kepala sekolah"):
+					nKep++
+				case strings.Contains(pl, "guru kelas") || strings.Contains(pl, "kelas"):
+					nGKelas++
+				case strings.Contains(pl, "inggris"):
+					nInggris++
+				case strings.Contains(pl, "penjas") || strings.Contains(pl, "pjok") || strings.Contains(pl, "olahraga"):
+					nPenjas++
+				case strings.Contains(pl, "agama") || strings.Contains(pl, "pai"):
+					nAgama++
+				case strings.Contains(pl, "operator"):
+					nOp++
+				case strings.Contains(pl, "penjaga") || cl == "support":
+					nPenjaga++
 				}
-				if deg != "" { gtk.Nama = nm + ", " + deg }
-				gtkList = append(gtkList, gtk); idx++
+				if deg != "" {
+					gtk.Nama = nm + ", " + deg
+				}
+				gtkList = append(gtkList, gtk)
+				idx++
 			}
 		}
 		rows.Close()
@@ -222,4 +312,9 @@ func (h *EOfficeHandler) GetDaftar1Stats(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": td})
 }
 
-func orDefault(s, def string) string { if s == "" { return def }; return s }
+func orDefault(s, def string) string {
+	if s == "" {
+		return def
+	}
+	return s
+}

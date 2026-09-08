@@ -74,7 +74,9 @@ func (h *LoanHandler) AddPayment(c echo.Context) error {
 
 func (h *LoanHandler) RejectLoan(c echo.Context) error {
 	id := c.Param("id")
-	var req struct{Reason string `json:"reason"`}
+	var req struct {
+		Reason string `json:"reason"`
+	}
 	c.Bind(&req)
 	if err := h.Repo.RejectLoan(id, req.Reason); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})

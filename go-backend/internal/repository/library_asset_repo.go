@@ -235,8 +235,8 @@ func (r *LibraryRepository) GenerateQRBatch(prefix string, count int) ([]string,
 		count = 500
 	}
 
-	date := time.Now().Format("2006-01-02")
-	dateCode := time.Now().Format("20060102")
+	date := TodayJakarta()
+	dateCode := NowJakarta().Format("20060102")
 	startSequence := 1
 	if err := r.DB.QueryRow(`
 		SELECT COALESCE(MAX(end_sequence), 0) + 1

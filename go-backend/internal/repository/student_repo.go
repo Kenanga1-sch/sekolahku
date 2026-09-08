@@ -217,13 +217,17 @@ func (r *StudentRepository) GetStudents(page, limit int, query, status, classID 
 		statusLower := strings.ToLower(strings.TrimSpace(status))
 		switch statusLower {
 		case "active", "aktif":
-			where = append(where, "(status = 'active' OR is_active = 1)")
+			where = append(where, "(status = 'active' OR is_active = 1) AND status != 'deleted'")
 		case "inactive", "nonactive", "non-active", "tidak aktif", "non-aktif":
-			where = append(where, "(status = 'inactive' OR is_active = 0)")
+			where = append(where, "(status = 'inactive' OR is_active = 0) AND status != 'deleted'")
+		case "deleted", "arsip":
+			where = append(where, "status = 'deleted'")
 		default:
-			where = append(where, "status = ?")
+			where = append(where, "status = ? AND status != 'deleted'")
 			args = append(args, statusLower)
 		}
+	} else {
+		where = append(where, "status != 'deleted'")
 	}
 
 	if classID != "" {
@@ -549,7 +553,6 @@ func (r *StudentRepository) UpdateStudent(id string, s models.Student) error {
 		}
 	}
 
-
 	// Resolve class linkage: classId ↔ className
 	if s.ClassID != nil && *s.ClassID != "" {
 		var className string
@@ -586,7 +589,7 @@ func (r *StudentRepository) UpdateStudent(id string, s models.Student) error {
 func (r *StudentRepository) checkDuplicateNISAndNISN(excludeID string, nis *string, nisn *string) error {
 	if nis != nil && *nis != "" {
 		var name string
-		
+
 		// Check students table
 		query := "SELECT full_name FROM students WHERE nis = ?"
 		args := []interface{}{*nis}
@@ -614,7 +617,7 @@ func (r *StudentRepository) checkDuplicateNISAndNISN(excludeID string, nis *stri
 
 	if nisn != nil && *nisn != "" {
 		var name string
-		
+
 		// Check students table
 		query := "SELECT full_name FROM students WHERE nisn = ?"
 		args := []interface{}{*nisn}
@@ -654,9 +657,18 @@ func (r *StudentRepository) GetStudentHealth() (*models.StudentHealth, error) {
 		return nil, err
 	}
 
+	// Buku Induk coverage: students without a linked alumni (buku induk) record
+	var missingBukuInduk, activeWithoutBukuInduk int
+	if err := r.DB.QueryRow(`SELECT COUNT(*) FROM students s WHERE NOT EXISTS (SELECT 1 FROM alumni a WHERE a.student_id = s.id)`).Scan(&missingBukuInduk); err != nil {
+		return nil, err
+	}
+	if err := r.DB.QueryRow(`SELECT COUNT(*) FROM students s WHERE s.is_active = 1 AND NOT EXISTS (SELECT 1 FROM alumni a WHERE a.student_id = s.id)`).Scan(&activeWithoutBukuInduk); err != nil {
+		return nil, err
+	}
+
 	missingDocs := 0
-	missingWeighted := missingNIK + missingMother + missingDocs
-	maxIssues := total * 3
+	missingWeighted := missingNIK + missingMother + missingDocs + activeWithoutBukuInduk
+	maxIssues := total * 4
 	completeness := 100
 	if maxIssues > 0 {
 		completeness = int(math.Round((1 - float64(missingWeighted)/float64(maxIssues)) * 100))
@@ -666,17 +678,38 @@ func (r *StudentRepository) GetStudentHealth() (*models.StudentHealth, error) {
 	}
 
 	return &models.StudentHealth{
-		TotalStudents: total,
-		MissingNik:    missingNIK,
-		MissingMother: missingMother,
-		MissingDocs:   missingDocs,
-		Completeness:  completeness,
+		TotalStudents:          total,
+		MissingNik:             missingNIK,
+		MissingMother:          missingMother,
+		MissingDocs:            missingDocs,
+		MissingBukuInduk:       missingBukuInduk,
+		ActiveWithoutBukuInduk: activeWithoutBukuInduk,
+		Completeness:           completeness,
 	}, nil
 }
 
 func (r *StudentRepository) DeleteStudent(id string) error {
-	_, err := r.DB.Exec("DELETE FROM students WHERE id = ?", id)
-	return err
+	// Siswa dengan tanggungan (buku pinjaman, denda, saldo tabungan) tidak boleh dihapus
+	clear, reason, err := CheckStudentClearance(r.DB, id)
+	if err != nil {
+		return err
+	}
+	if !clear {
+		return fmt.Errorf("siswa tidak dapat dihapus: %s", reason)
+	}
+
+	// Soft delete: arsipkan, jangan dibakar — riwayat tabungan/perpustakaan/buku induk tetap utuh
+	now := time.Now().UnixMilli()
+	_, err = r.DB.Exec(`
+		UPDATE students SET is_active = 0, status = 'deleted', updated_at = ? WHERE id = ?
+	`, now, id)
+	if err != nil {
+		return err
+	}
+
+	// Sinkronkan status arsip ke buku induk (jangan timpa data kelulusan yang sudah ada)
+	_ = AutoSyncStudentToBukuInduk(r.DB, id)
+	return nil
 }
 
 func (r *StudentRepository) GetStudentsByIDs(ids []string) ([]models.Student, error) {

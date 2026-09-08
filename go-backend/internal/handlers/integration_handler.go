@@ -155,7 +155,7 @@ func (h *IntegrationHandler) TestConnection(c echo.Context) error {
 	client := http.Client{
 		Timeout: 3 * time.Second,
 	}
-	
+
 	req, err := http.NewRequest("GET", dapodikURL, nil)
 	if err != nil {
 		return c.JSON(http.StatusOK, map[string]interface{}{

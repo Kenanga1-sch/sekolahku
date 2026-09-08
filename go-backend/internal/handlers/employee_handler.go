@@ -3,6 +3,7 @@ package handlers
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -55,6 +56,41 @@ func (h *EmployeeHandler) GetEmployeesWithoutAccount(c echo.Context) error {
 	})
 }
 
+// validateEmployeeIdentityNumbers memeriksa format NIP (18 digit), NUPTK (16 digit),
+// dan NIK (16 digit) — semua angka. Kosong diperbolehkan, salah format ditolak.
+func validateEmployeeIdentityNumbers(req models.CreateEmployeeRequest) string {
+	check := func(label string, v *string, length int) string {
+		if v == nil {
+			return ""
+		}
+		// Bersihkan spasi & titik pemisah yang lazim dipakai (contoh: "1601 0201 0180 0001")
+		var b strings.Builder
+		for _, r := range *v {
+			if r >= '0' && r <= '9' {
+				b.WriteRune(r)
+			}
+		}
+		digits := b.String()
+		if digits == "" && strings.TrimSpace(*v) == "" {
+			return ""
+		}
+		if len(digits) != length {
+			return fmt.Sprintf("%s harus %d digit (tertulis %d digit)", label, length, len(digits))
+		}
+		return ""
+	}
+	if msg := check("NIP", req.NIP, 18); msg != "" {
+		return msg
+	}
+	if msg := check("NUPTK", req.NUPTK, 16); msg != "" {
+		return msg
+	}
+	if msg := check("NIK", req.NIK, 16); msg != "" {
+		return msg
+	}
+	return ""
+}
+
 func (h *EmployeeHandler) CreateEmployee(c echo.Context) error {
 	var req models.CreateEmployeeRequest
 	if err := c.Bind(&req); err != nil {
@@ -71,6 +107,10 @@ func (h *EmployeeHandler) CreateEmployee(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Role harus guru, staff, atau admin"})
 	}
 	req.Role = role
+
+	if msg := validateEmployeeIdentityNumbers(req); msg != "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": msg})
+	}
 
 	id, err := h.Repo.CreateEmployee(req)
 	if err != nil {
@@ -127,6 +167,11 @@ func (h *EmployeeHandler) BulkImportEmployees(c echo.Context) error {
 			JoinDate:         optionalImportStringPtr(importString(row, "TanggalMasuk", "joinDate")),
 		}
 
+		if msg := validateEmployeeIdentityNumbers(req); msg != "" {
+			errors = append(errors, "Baris "+strconv.Itoa(index+1)+": "+msg)
+			continue
+		}
+
 		if _, err := h.Repo.CreateEmployee(req); err != nil {
 			errors = append(errors, "Baris "+strconv.Itoa(index+1)+": "+err.Error())
 			continue
@@ -156,6 +201,10 @@ func (h *EmployeeHandler) UpdateEmployee(c echo.Context) error {
 	var req models.CreateEmployeeRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid payload"})
+	}
+
+	if msg := validateEmployeeIdentityNumbers(req); msg != "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": msg})
 	}
 
 	if err := h.Repo.UpdateEmployee(id, req); err != nil {

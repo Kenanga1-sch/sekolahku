@@ -50,11 +50,11 @@ func parseSPMBDateMillis(value string) (int64, error) {
 
 func periodYearFromMillis(value int64) string {
 	if value == 0 {
-		return fmt.Sprintf("%d", time.Now().Year())
+		return fmt.Sprintf("%d", CurrentYearJakarta())
 	}
 	t := SafeTime(sql.NullInt64{Int64: value, Valid: true})
 	if t == nil {
-		return fmt.Sprintf("%d", time.Now().Year())
+		return fmt.Sprintf("%d", CurrentYearJakarta())
 	}
 	return fmt.Sprintf("%d", t.Year())
 }
@@ -100,7 +100,7 @@ func (r *SPMBRepository) defaultAcademicYear(startMillis int64) string {
 		return strings.TrimSpace(academicYear.String)
 	}
 
-	year := time.Now().Year()
+	year := CurrentYearJakarta()
 	if startMillis != 0 {
 		if t := SafeTime(sql.NullInt64{Int64: startMillis, Valid: true}); t != nil {
 			year = t.Year()
@@ -449,7 +449,7 @@ func (r *SPMBRepository) CreateRegistrant(reg models.SPMBRegistrant, periodID st
 	}
 
 	// Generate registration number (Format: SPMB-YYYY-XXXX) inside transaction
-	year := time.Now().Year()
+	year := CurrentYearJakarta()
 	var lastCount int
 	err = tx.QueryRow(`SELECT count(*) FROM spmb_registrants WHERE registration_number LIKE ?`, fmt.Sprintf("SPMB-%d-%%", year)).Scan(&lastCount)
 	if err != nil {
@@ -737,6 +737,14 @@ func (r *SPMBRepository) UpdateRegistrantStatus(id string, status string, notes 
 }
 
 func (r *SPMBRepository) DeleteRegistrant(id string) error {
+	// Pendaftar yang sudah dipromosikan jadi siswa tidak boleh dihapus (jejak data siswa terhubung)
+	var status string
+	if err := r.DB.QueryRow("SELECT status FROM spmb_registrants WHERE id = ?", id).Scan(&status); err != nil {
+		return err
+	}
+	if status == "promoted" {
+		return errors.New("pendaftar ini sudah menjadi siswa dan tidak dapat dihapus")
+	}
 	_, err := r.DB.Exec(`DELETE FROM spmb_registrants WHERE id = ?`, id)
 	return err
 }
@@ -873,8 +881,16 @@ func (r *SPMBRepository) PromoteToStudent(registrantID string, req models.SPMBPr
 		return fmt.Errorf("hanya pendaftar diterima yang bisa dipromosikan")
 	}
 
+	// Transaksi penuh: siswa + riwayat kelas + buku induk + status pendaftar
+	// gagal di satu langkah = semua dibatalkan, tidak ada data setengah jadi.
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
 	var className sql.NullString
-	if err := r.DB.QueryRow(`SELECT name FROM student_classes WHERE id = ?`, req.ClassID).Scan(&className); err != nil {
+	if err := tx.QueryRow(`SELECT name FROM student_classes WHERE id = ?`, req.ClassID).Scan(&className); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("kelas tujuan tidak ditemukan")
 		}
@@ -883,7 +899,7 @@ func (r *SPMBRepository) PromoteToStudent(registrantID string, req models.SPMBPr
 
 	now := time.Now().UnixMilli()
 	studentID := cuid2.Generate()
-	_, err = r.DB.Exec(`
+	_, err = tx.Exec(`
 		INSERT INTO students (
 			id, nik, nisn, full_name, gender, birth_place, birth_date, religion,
 			address, father_name, father_nik, mother_name, mother_nik,
@@ -903,14 +919,24 @@ func (r *SPMBRepository) PromoteToStudent(registrantID string, req models.SPMBPr
 	// Insert initial class history
 	var grade int
 	var academicYear string
-	if err2 := r.DB.QueryRow("SELECT grade, academic_year FROM student_classes WHERE id = ?", req.ClassID).Scan(&grade, &academicYear); err2 == nil {
+	if err2 := tx.QueryRow("SELECT grade, academic_year FROM student_classes WHERE id = ?", req.ClassID).Scan(&grade, &academicYear); err2 == nil {
 		historyID := cuid2.Generate()
-		r.DB.Exec(`
+		if _, err2 := tx.Exec(`
 			INSERT INTO student_class_history (id, student_id, class_id, class_name, academic_year, grade, status, record_date)
 			VALUES (?, ?, ?, ?, ?, ?, 'enrolled', ?)
-		`, historyID, studentID, req.ClassID, className.String, academicYear, grade, time.Now().Unix())
+		`, historyID, studentID, req.ClassID, className.String, academicYear, grade, time.Now().Unix()); err2 != nil {
+			return err2
+		}
 	}
 
-	_, err = r.DB.Exec(`UPDATE spmb_registrants SET status = 'promoted', updated_at = ? WHERE id = ?`, now, registrantID)
-	return err
+	// Ensure the promoted student immediately has a Buku Induk record
+	if err2 := AutoSyncStudentToBukuInduk(tx, studentID); err2 != nil {
+		return fmt.Errorf("gagal sinkronisasi buku induk: %w", err2)
+	}
+
+	if _, err = tx.Exec(`UPDATE spmb_registrants SET status = 'promoted', updated_at = ? WHERE id = ?`, now, registrantID); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }

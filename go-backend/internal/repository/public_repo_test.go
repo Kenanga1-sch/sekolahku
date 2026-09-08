@@ -7,6 +7,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// Schema test disamakan dengan tabel produksi: employee_details TIDAK punya kolom is_active.
 func setupPublicStaffTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 
@@ -14,6 +15,7 @@ func setupPublicStaffTestDB(t *testing.T) *sql.DB {
 	if err != nil {
 		t.Fatalf("failed to open in-memory db: %v", err)
 	}
+	db.SetMaxOpenConns(1) // :memory: modernc sqlite: koneksi baru = DB baru
 
 	_, err = db.Exec(`
 		CREATE TABLE employee_details (
@@ -25,7 +27,6 @@ func setupPublicStaffTestDB(t *testing.T) *sql.DB {
 			photo_url TEXT,
 			quote TEXT,
 			display_order INTEGER DEFAULT 0,
-			is_active BOOLEAN DEFAULT 1,
 			created_at INTEGER,
 			updated_at INTEGER
 		);
@@ -42,11 +43,11 @@ func TestPublicRepositoryGetPublicStaffUsesStaffProfiles(t *testing.T) {
 	defer db.Close()
 
 	_, err := db.Exec(`
-		INSERT INTO employee_details (id, name, degree, job_type, category, photo_url, quote, display_order, is_active)
+		INSERT INTO employee_details (id, name, degree, job_type, category, photo_url, quote, display_order)
 		VALUES
-			('staff-2', 'Guru Dua', 'S.Pd', 'Guru Kelas 2', 'guru', '/uploads/staff/guru.jpg', 'Belajar', 2, 1),
-			('staff-1', 'Kepala Sekolah', 'M.Pd', 'Kepala Sekolah', 'kepsek', '/uploads/staff/kepsek.jpg', 'Melayani', 10, 1),
-			('staff-3', 'Tidak Aktif', NULL, 'Operator', 'staff', NULL, NULL, 1, 0)
+			('staff-2', 'Guru Dua', 'S.Pd', 'Guru Kelas 2', 'guru', '/uploads/staff/guru.jpg', 'Belajar', 2),
+			('staff-1', 'Kepala Sekolah', 'M.Pd', 'Kepala Sekolah', 'kepsek', '/uploads/staff/kepsek.jpg', 'Melayani', 10),
+			('staff-3', 'Staf Ops', NULL, 'Operator', 'staff', NULL, NULL, 1)
 	`)
 	if err != nil {
 		t.Fatalf("failed to seed staff profiles: %v", err)
@@ -56,17 +57,17 @@ func TestPublicRepositoryGetPublicStaffUsesStaffProfiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetPublicStaff returned error: %v", err)
 	}
-	if total != 2 {
-		t.Fatalf("expected two active staff profiles, got %d", len(staff))
+	if total != 3 {
+		t.Fatalf("expected three staff profiles, got %d", total)
+	}
+	if len(staff) != 3 {
+		t.Fatalf("expected three staff rows, got %d", len(staff))
 	}
 	if staff[0].ID != "staff-1" || staff[0].Category != "kepsek" {
 		t.Fatalf("expected kepala sekolah first, got %#v", staff[0])
 	}
-	if staff[1].ID != "staff-2" || staff[1].Position != "Guru Kelas 2" {
-		t.Fatalf("expected guru profile second, got %#v", staff[1])
-	}
-	// also verify that total matches active count (is_active = 1)
-	if total != 2 {
-		t.Fatalf("expected total active = 2, got %d", total)
+	// Urutan produksi: kepsek dulu, lalu display_order ASC — staff-3 (order 1) sebelum staff-2 (order 2)
+	if staff[1].ID != "staff-3" || staff[2].ID != "staff-2" || staff[2].Position != "Guru Kelas 2" {
+		t.Fatalf("unexpected order after kepsek: %#v", staff[1:])
 	}
 }

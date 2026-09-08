@@ -218,6 +218,39 @@ func (h *SPMBHandler) Register(c echo.Context) error {
 	}
 	m.PeriodID = period.ID
 
+	// Validasi umur sejak pendaftaran: calon SD minimal 5 tahun pada 1 Juli tahun ajaran berjalan.
+	// Saring di depan pintu, bukan saat seleksi — hemat waktu petugas memverifikasi berkas jelas gagal.
+	if birthDate := strings.TrimSpace(m.BirthDate); birthDate != "" {
+		if t, err := time.Parse("2006-01-02", birthDate); err == nil {
+			if _, _, group := calculateAge(birthDate, getAgeReferenceDate()); group == 4 {
+				age := getAgeReferenceDate().Year() - t.Year()
+				return c.JSON(http.StatusBadRequest, map[string]interface{}{
+					"success": false,
+					"error": map[string]interface{}{
+						"code":    "age_requirement_not_met",
+						"message": fmt.Sprintf("Usia calon siswa kurang dari syarat minimal 5 tahun (saat ini %d tahun). Pendaftaran ditolak.", age),
+					},
+				})
+			}
+		} else {
+			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+				"success": false,
+				"error": map[string]interface{}{
+					"code":    "invalid_birth_date",
+					"message": "Tanggal lahir harus format YYYY-MM-DD",
+				},
+			})
+		}
+	} else {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error": map[string]interface{}{
+				"code":    "birth_date_required",
+				"message": "Tanggal lahir wajib diisi",
+			},
+		})
+	}
+
 	if m.HomeLat != 0 || m.HomeLng != 0 {
 		if m.HomeLat < -90 || m.HomeLat > 90 || m.HomeLng < -180 || m.HomeLng > 180 {
 			return c.JSON(http.StatusBadRequest, map[string]interface{}{
@@ -245,8 +278,8 @@ func (h *SPMBHandler) Register(c echo.Context) error {
 					"registration_number": duplicate.RegistrationNumber,
 				},
 				"data": map[string]interface{}{
-					"id":                   duplicate.ID,
-					"registration_number":  duplicate.RegistrationNumber,
+					"id":                  duplicate.ID,
+					"registration_number": duplicate.RegistrationNumber,
 				},
 			})
 		}
@@ -262,8 +295,8 @@ func (h *SPMBHandler) Register(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
 		"data": map[string]interface{}{
-			"id":                   id,
-			"registration_number":   regNum,
+			"id":                  id,
+			"registration_number": regNum,
 		},
 	})
 }
@@ -275,6 +308,20 @@ func (h *SPMBHandler) UploadDocuments(c echo.Context) error {
 	}
 	if strings.Contains(registrantId, "..") || strings.ContainsAny(registrantId, "\\/:*?\"<>|") {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ID pendaftar tidak valid"})
+	}
+
+	// Kunci pintu: nomor registrasi wajib cocok dengan pendaftar (hanya pemilik yang tahu).
+	// ponytail: nomor registrasi = kunci; ganti upload token berexpiry bila butuh lebih ketat.
+	regNum := c.FormValue("registrationNumber")
+	if strings.TrimSpace(regNum) == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Nomor pendaftaran diperlukan untuk mengunggah dokumen"})
+	}
+	reg, err := h.Repo.GetRegistrantByNumber(registrantId)
+	if err != nil || reg == nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Pendaftar tidak ditemukan"})
+	}
+	if reg.RegistrationNumber != strings.TrimSpace(regNum) {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Nomor pendaftaran tidak cocok"})
 	}
 
 	form, err := c.MultipartForm()

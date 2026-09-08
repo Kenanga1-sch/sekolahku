@@ -19,58 +19,33 @@ func NewAlumniHandler(repo *repository.AlumniRepository) *AlumniHandler {
 	return &AlumniHandler{Repo: repo}
 }
 
+// alumniPayload embeds the full Alumni model so every form field
+// (buku induk extensions, physical register index, etc.) is bound
+// instead of silently dropped. GraduationDate is shadowed as string
+// because the frontend sends "YYYY-MM-DD" (HTML date input), which
+// cannot unmarshal into *time.Time.
 type alumniPayload struct {
-	StudentID      string `json:"studentId"`
-	NISN            string `json:"nisn"`
-	NIS             string `json:"nis"`
-	FullName        string `json:"fullName"`
-	Gender          string `json:"gender"`
-	BirthPlace      string `json:"birthPlace"`
-	BirthDate       string `json:"birthDate"`
-	GraduationYear  string `json:"graduationYear"`
-	GraduationDate  string `json:"graduationDate"`
-	FinalClass      string `json:"finalClass"`
-	Photo           string `json:"photo"`
-	ParentName      string `json:"parentName"`
-	ParentPhone     string `json:"parentPhone"`
-	CurrentAddress  string `json:"currentAddress"`
-	CurrentPhone    string `json:"currentPhone"`
-	CurrentEmail    string `json:"currentEmail"`
-	NextSchool      string `json:"nextSchool"`
-	Status          string `json:"status"`
-	Notes           string `json:"notes"`
+	models.Alumni
+	GraduationDate string `json:"graduationDate"`
 }
 
 func (p alumniPayload) ToModel() (models.Alumni, error) {
+	a := p.Alumni
 	graduationDate, err := shared.ParseOptionalDate(p.GraduationDate)
 	if err != nil {
 		return models.Alumni{}, err
 	}
-	statusVal := strings.TrimSpace(p.Status)
-	if statusVal == "" {
-		statusVal = "graduated"
+	a.GraduationDate = graduationDate
+	a.FullName = strings.TrimSpace(a.FullName)
+	a.GraduationYear = strings.TrimSpace(a.GraduationYear)
+	a.Status = strings.TrimSpace(a.Status)
+	if a.Status == "" {
+		a.Status = "graduated"
 	}
-	return models.Alumni{
-		StudentID:      shared.StringPtr(p.StudentID),
-		NISN:           shared.StringPtr(p.NISN),
-		NIS:            shared.StringPtr(p.NIS),
-		FullName:       strings.TrimSpace(p.FullName),
-		Gender:         shared.StringPtr(p.Gender),
-		BirthPlace:     shared.StringPtr(p.BirthPlace),
-		BirthDate:      shared.StringPtr(p.BirthDate),
-		GraduationYear: strings.TrimSpace(p.GraduationYear),
-		GraduationDate: graduationDate,
-		FinalClass:     shared.StringPtr(p.FinalClass),
-		Photo:          shared.StringPtr(p.Photo),
-		ParentName:     shared.StringPtr(p.ParentName),
-		ParentPhone:    shared.StringPtr(p.ParentPhone),
-		CurrentAddress: shared.StringPtr(p.CurrentAddress),
-		CurrentPhone:   shared.StringPtr(p.CurrentPhone),
-		CurrentEmail:   shared.StringPtr(p.CurrentEmail),
-		NextSchool:     shared.StringPtr(p.NextSchool),
-		Status:         statusVal,
-		Notes:          shared.StringPtr(p.Notes),
-	}, nil
+	if a.StudentID != nil && *a.StudentID == "" {
+		a.StudentID = nil
+	}
+	return a, nil
 }
 
 // resolveStoredFilePath converts a stored path (like "/uploads/...") to a filesystem path.
@@ -91,6 +66,14 @@ func (h *AlumniHandler) GetAlumniStats(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": stats})
+}
+
+func (h *AlumniHandler) GetAlumniGraduationYears(c echo.Context) error {
+	years, err := h.Repo.GetAlumniGraduationYears()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": years})
 }
 
 func (h *AlumniHandler) GetAlumni(c echo.Context) error {
@@ -118,13 +101,17 @@ func (h *AlumniHandler) CreateAlumni(c echo.Context) error {
 	if err != nil {
 		return shared.BadRequest(c, err.Error())
 	}
-	if a.FullName == "" || a.GraduationYear == "" {
-		return shared.BadRequest(c, "Nama dan tahun lulus wajib diisi")
+	if a.FullName == "" {
+		return shared.BadRequest(c, "Nama wajib diisi")
+	}
+	if a.Status == "graduated" && a.GraduationYear == "" {
+		return shared.BadRequest(c, "Tahun lulus wajib diisi untuk alumni yang lulus")
 	}
 	id, err := h.Repo.CreateAlumni(a)
 	if err != nil {
 		return shared.InternalError(c)
 	}
+
 	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true, "id": id})
 }
 
@@ -148,8 +135,11 @@ func (h *AlumniHandler) UpdateAlumni(c echo.Context) error {
 	if err != nil {
 		return shared.BadRequest(c, err.Error())
 	}
-	if a.FullName == "" || a.GraduationYear == "" {
-		return shared.BadRequest(c, "Nama dan tahun lulus wajib diisi")
+	if a.FullName == "" {
+		return shared.BadRequest(c, "Nama wajib diisi")
+	}
+	if a.Status == "graduated" && a.GraduationYear == "" {
+		return shared.BadRequest(c, "Tahun lulus wajib diisi untuk alumni yang lulus")
 	}
 	if err := h.Repo.UpdateAlumni(c.Param("id"), a); err != nil {
 		return shared.InternalError(c)

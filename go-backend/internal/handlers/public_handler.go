@@ -25,11 +25,11 @@ func (h *PublicHandler) GetHomepageData(c echo.Context) error {
 		})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"success":  true,
-		"settings": data.Settings,
-		"news":     data.News,
+		"success":      true,
+		"settings":     data.Settings,
+		"news":         data.News,
 		"activePeriod": data.ActivePeriod,
-		"stats":     data.Stats,
+		"stats":        data.Stats,
 	})
 }
 

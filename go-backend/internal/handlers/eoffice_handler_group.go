@@ -35,7 +35,7 @@ func (h *EOfficeHandler) CreateTemplateGroup(c echo.Context) error {
 	if strings.TrimSpace(g.Name) == "" {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Nama grup wajib diisi"})
 	}
-	
+
 	id, err := h.Repo.CreateTemplateGroup(g)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
@@ -71,12 +71,12 @@ func (h *EOfficeHandler) DeleteTemplateGroup(c echo.Context) error {
 
 func (h *EOfficeHandler) GenerateGroupAndSubmit(c echo.Context) error {
 	var req struct {
-		GroupID            string            `json:"groupId"`
-		ClassificationCode string            `json:"classificationCode"`
-		Recipient          string            `json:"recipient"`
-		SubjectPrefix      string            `json:"subjectPrefix"`
-		MailNumber         string            `json:"mailNumber"` // Optionally left blank to auto-generate
-		DateOfLetter       string            `json:"dateOfLetter"`
+		GroupID            string `json:"groupId"`
+		ClassificationCode string `json:"classificationCode"`
+		Recipient          string `json:"recipient"`
+		SubjectPrefix      string `json:"subjectPrefix"`
+		MailNumber         string `json:"mailNumber"` // Optionally left blank to auto-generate
+		DateOfLetter       string `json:"dateOfLetter"`
 	}
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
@@ -105,7 +105,7 @@ func (h *EOfficeHandler) GenerateGroupAndSubmit(c echo.Context) error {
 		} else {
 			subject = subject + " - " + item.Template.Name
 		}
-		
+
 		sk := models.SuratKeluar{
 			MailNumber:         req.MailNumber, // Note: if blank, repo will auto-generate sequence
 			Recipient:          req.Recipient,
@@ -116,12 +116,12 @@ func (h *EOfficeHandler) GenerateGroupAndSubmit(c echo.Context) error {
 			Status:             "Menunggu Verifikasi",
 			CreatedBy:          &uid,
 		}
-		
+
 		// If MailNumber is not blank, we might have duplicate mail numbers. That is usually allowed for bundles.
 		// However, CreateSuratKeluar (or CreateSuratKeluarFromTemplate) handles it.
 		// Wait, CreateSuratKeluarFromTemplate doesn't auto-generate mail number! It assumes it's provided.
 		// So we use CreateSuratKeluar which auto-generates if blank.
-		
+
 		id, _, err := h.Repo.CreateSuratKeluar(sk)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
@@ -130,8 +130,8 @@ func (h *EOfficeHandler) GenerateGroupAndSubmit(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusCreated, map[string]interface{}{
-		"success": true, 
-		"ids": generatedIds, 
-		"status": "Menunggu Verifikasi",
+		"success": true,
+		"ids":     generatedIds,
+		"status":  "Menunggu Verifikasi",
 	})
 }

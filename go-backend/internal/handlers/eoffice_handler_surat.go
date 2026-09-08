@@ -230,8 +230,8 @@ func (h *EOfficeHandler) UpdateSuratMasukStatus(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "ID surat wajib diisi"})
 	}
 	var req struct {
-		Status           *string `json:"status"`
-		ArchiveLocation  *string `json:"archiveLocation"`
+		Status          *string `json:"status"`
+		ArchiveLocation *string `json:"archiveLocation"`
 	}
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
@@ -335,7 +335,7 @@ func (h *EOfficeHandler) UploadDocx(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 
-	filename := fmt.Sprintf("%d_%s", time.Now().UnixNano(), file.Filename)
+	filename := fmt.Sprintf("%d_%s", time.Now().UnixNano(), cleanUploadName(file.Filename))
 	outPath := filepath.Join(outDir, filename)
 
 	dst, err := os.Create(outPath)

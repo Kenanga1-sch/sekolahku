@@ -58,6 +58,21 @@ func (r *SchoolHolidayRepository) Create(h SchoolHoliday) error {
 	return err
 }
 
+func (r *SchoolHolidayRepository) Update(id string, title, description string) error {
+	title = strings.TrimSpace(title)
+	res, err := r.DB.Exec(`
+		UPDATE school_holidays SET title = ?, description = ?, updated_at = ? WHERE id = ?
+	`, title, description, UnixMilli(), id)
+	if err != nil {
+		return err
+	}
+	affected, err := res.RowsAffected()
+	if err == nil && affected == 0 {
+		return errors.New("hari libur tidak ditemukan")
+	}
+	return nil
+}
+
 func (r *SchoolHolidayRepository) Delete(id string) error {
 	res, err := r.DB.Exec("DELETE FROM school_holidays WHERE id = ?", id)
 	if err != nil {

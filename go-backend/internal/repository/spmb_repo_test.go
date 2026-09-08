@@ -120,12 +120,14 @@ func setupSPMBTestDB(t *testing.T) *sql.DB {
 			id TEXT PRIMARY KEY,
 			nik TEXT,
 			nisn TEXT,
+			nis TEXT,
 			full_name TEXT,
 			gender TEXT,
 			birth_place TEXT,
 			birth_date TEXT,
 			religion TEXT,
 			address TEXT,
+			parent_name TEXT,
 			father_name TEXT,
 			father_nik TEXT,
 			mother_name TEXT,
@@ -137,12 +139,29 @@ func setupSPMBTestDB(t *testing.T) *sql.DB {
 			class_id TEXT,
 			class_name TEXT,
 			status TEXT,
+			photo TEXT,
 			qr_code TEXT,
 			is_active INTEGER,
 			enrolled_at INTEGER,
 			created_at INTEGER,
 			updated_at INTEGER,
 			kip TEXT
+		);
+		CREATE TABLE alumni (
+			id TEXT PRIMARY KEY,
+			student_id TEXT,
+			nisn TEXT, nis TEXT, full_name TEXT, gender TEXT, birth_place TEXT, birth_date TEXT,
+			graduation_year TEXT, graduation_date TEXT, final_class TEXT, photo TEXT,
+			parent_name TEXT, parent_phone TEXT, current_address TEXT, current_phone TEXT,
+			current_email TEXT, next_school TEXT, notes TEXT,
+			nik TEXT, religion TEXT, address TEXT, enrolled_year TEXT, previous_school TEXT,
+			father_name TEXT, father_nik TEXT, father_education TEXT, father_job TEXT,
+			mother_name TEXT, mother_nik TEXT, mother_education TEXT, mother_job TEXT,
+			guardian_name TEXT, guardian_nik TEXT, guardian_relation TEXT, guardian_job TEXT, guardian_phone TEXT,
+			sibling_count INTEGER, child_order INTEGER, height INTEGER, weight INTEGER, blood_type TEXT,
+			medical_notes TEXT, special_needs TEXT, current_occupation TEXT, current_institution TEXT,
+			last_education_level TEXT, final_grade_avg TEXT,
+			status TEXT, created_at INTEGER, updated_at INTEGER
 		);
 	`)
 	if err != nil {

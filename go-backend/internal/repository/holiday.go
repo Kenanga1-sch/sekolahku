@@ -48,9 +48,17 @@ func SetHolidayDB(db *sql.DB) {
 	globalDB = db
 }
 
+func NationalHolidays() map[string]string {
+	holidays := make(map[string]string, len(nationalHolidays))
+	for date, reason := range nationalHolidays {
+		holidays[date] = reason
+	}
+	return holidays
+}
+
 func IsHoliday(date string) (bool, string) {
 	if date == "" {
-		date = time.Now().Format("2006-01-02")
+		date = TodayJakarta()
 	}
 
 	t, err := time.Parse("2006-01-02", date)
@@ -78,7 +86,7 @@ func IsHoliday(date string) (bool, string) {
 }
 
 func IsTodayHoliday() (bool, string) {
-	return IsHoliday(time.Now().Format("2006-01-02"))
+	return IsHoliday(TodayJakarta())
 }
 
 func IsDateInList(date string) bool {

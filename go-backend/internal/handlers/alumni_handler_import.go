@@ -11,8 +11,8 @@ import (
 func (h *AlumniHandler) GraduateStudents(c echo.Context) error {
 	var req struct {
 		StudentIDs         []string `json:"studentIds"`
-		GraduationYear    string   `json:"graduationYear"`
-		GraduationDate    string   `json:"graduationDate"`
+		GraduationYear     string   `json:"graduationYear"`
+		GraduationDate     string   `json:"graduationDate"`
 		DeactivateStudents bool     `json:"deactivateStudents"`
 	}
 	if err := c.Bind(&req); err != nil {

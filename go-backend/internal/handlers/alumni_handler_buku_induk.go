@@ -23,12 +23,12 @@ func (h *AlumniHandler) CreateAchievement(c echo.Context) error {
 	alumniID := c.Param("id")
 	var req struct {
 		Type           string  `json:"type"`
-		Title         string  `json:"title"`
-		Description   *string `json:"description"`
-		Level         string  `json:"level"`
-		Ranking       *string `json:"ranking"`
-		Year          string  `json:"year"`
-		Organizer     *string `json:"organizer"`
+		Title          string  `json:"title"`
+		Description    *string `json:"description"`
+		Level          string  `json:"level"`
+		Ranking        *string `json:"ranking"`
+		Year           string  `json:"year"`
+		Organizer      *string `json:"organizer"`
 		CertificateURL *string `json:"certificateUrl"`
 	}
 	if err := c.Bind(&req); err != nil {
@@ -66,12 +66,12 @@ func (h *AlumniHandler) CreateAchievement(c echo.Context) error {
 func (h *AlumniHandler) UpdateAchievement(c echo.Context) error {
 	var req struct {
 		Type           *string `json:"type"`
-		Title         *string `json:"title"`
-		Description   *string `json:"description"`
-		Level         *string `json:"level"`
-		Ranking       *string `json:"ranking"`
-		Year          *string `json:"year"`
-		Organizer     *string `json:"organizer"`
+		Title          *string `json:"title"`
+		Description    *string `json:"description"`
+		Level          *string `json:"level"`
+		Ranking        *string `json:"ranking"`
+		Year           *string `json:"year"`
+		Organizer      *string `json:"organizer"`
 		CertificateURL *string `json:"certificateUrl"`
 	}
 	if err := c.Bind(&req); err != nil {
@@ -210,13 +210,13 @@ func (h *AlumniHandler) GetTranscripts(c echo.Context) error {
 func (h *AlumniHandler) CreateTranscript(c echo.Context) error {
 	alumniID := c.Param("id")
 	var req struct {
-		AcademicYear string   `json:"academicYear"`
-		Semester     string   `json:"semester"`
-		SubjectName  string   `json:"subjectName"`
-		SubjectCode *string   `json:"subjectCode"`
-		Score        float64  `json:"score"`
-		ScoreLetter *string   `json:"scoreLetter"`
-		Notes        *string   `json:"notes"`
+		AcademicYear string  `json:"academicYear"`
+		Semester     string  `json:"semester"`
+		SubjectName  string  `json:"subjectName"`
+		SubjectCode  *string `json:"subjectCode"`
+		Score        float64 `json:"score"`
+		ScoreLetter  *string `json:"scoreLetter"`
+		Notes        *string `json:"notes"`
 	}
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "Input tidak valid")
@@ -254,11 +254,11 @@ func (h *AlumniHandler) SaveTranscriptsBulk(c echo.Context) error {
 		AcademicYear string `json:"academicYear"`
 		Semester     string `json:"semester"`
 		Grades       []struct {
-			SubjectName string   `json:"subjectName"`
-			SubjectCode *string  `json:"subjectCode"`
-			Score       float64  `json:"score"`
-			ScoreLetter *string  `json:"scoreLetter"`
-			Notes       *string  `json:"notes"`
+			SubjectName string  `json:"subjectName"`
+			SubjectCode *string `json:"subjectCode"`
+			Score       float64 `json:"score"`
+			ScoreLetter *string `json:"scoreLetter"`
+			Notes       *string `json:"notes"`
 		} `json:"grades"`
 	}
 	if err := c.Bind(&req); err != nil {
@@ -301,10 +301,10 @@ func (h *AlumniHandler) UpdateTranscript(c echo.Context) error {
 		AcademicYear *string  `json:"academicYear"`
 		Semester     *string  `json:"semester"`
 		SubjectName  *string  `json:"subjectName"`
-		SubjectCode *string   `json:"subjectCode"`
-		Score       *float64  `json:"score"`
-		ScoreLetter *string   `json:"scoreLetter"`
-		Notes       *string   `json:"notes"`
+		SubjectCode  *string  `json:"subjectCode"`
+		Score        *float64 `json:"score"`
+		ScoreLetter  *string  `json:"scoreLetter"`
+		Notes        *string  `json:"notes"`
 	}
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "Input tidak valid")

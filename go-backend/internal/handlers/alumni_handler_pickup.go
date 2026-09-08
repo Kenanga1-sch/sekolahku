@@ -17,8 +17,8 @@ func (h *AlumniHandler) CreatePickup(c echo.Context) error {
 		RecipientRelation string  `json:"recipientRelation"`
 		RecipientIDNumber string  `json:"recipientIdNumber"`
 		RecipientPhone    string  `json:"recipientPhone"`
-		PickupDate       string  `json:"pickupDate"`
-		Notes            string  `json:"notes"`
+		PickupDate        string  `json:"pickupDate"`
+		Notes             string  `json:"notes"`
 	}
 	if err := c.Bind(&req); err != nil {
 		return shared.BadRequest(c, "Input tidak valid")
@@ -33,9 +33,9 @@ func (h *AlumniHandler) CreatePickup(c echo.Context) error {
 
 	p := models.DocumentPickup{
 		AlumniID:          alumniID,
-		DocumentTypeID:     req.DocumentTypeID,
-		RecipientName:      strings.TrimSpace(req.RecipientName),
-		RecipientRelation:  shared.StringPtr(req.RecipientRelation),
+		DocumentTypeID:    req.DocumentTypeID,
+		RecipientName:     strings.TrimSpace(req.RecipientName),
+		RecipientRelation: shared.StringPtr(req.RecipientRelation),
 		RecipientIDNumber: shared.StringPtr(req.RecipientIDNumber),
 		RecipientPhone:    shared.StringPtr(req.RecipientPhone),
 		PickupDate:        pickupDate,

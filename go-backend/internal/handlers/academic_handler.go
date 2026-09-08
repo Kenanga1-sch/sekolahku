@@ -20,7 +20,7 @@ func NewAcademicHandler(repo *repository.AcademicRepository) *AcademicHandler {
 
 func (h *AcademicHandler) GetActiveAcademicYear(c echo.Context) error {
 	activeYear, err := h.Repo.GetActiveAcademicYear()
-	
+
 	if err != nil {
 		c.Logger().Error("Failed to get active academic year:", err)
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
@@ -38,10 +38,10 @@ func (h *AcademicHandler) GetActiveAcademicYear(c echo.Context) error {
 
 func (h *AcademicHandler) GetHomepageData(c echo.Context) error {
 	year, _ := h.Repo.GetActiveAcademicYear()
-	
+
 	// Just return basic info for now, can be expanded
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"success": true,
+		"success":    true,
 		"activeYear": year,
 		"stats": map[string]int{
 			"studentCount": 120, // Mock or fetch from student repo

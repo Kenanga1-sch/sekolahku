@@ -155,12 +155,16 @@ func (r *EOfficeRepository) IncrementLetterSequence(req models.IncrementRequest)
 		}
 	}
 
+	// ponytail: unique index idx_generated_letters_number menolak nomor surat kembar
 	_, err = tx.Exec(`
 		INSERT INTO generated_letters (id, letter_number, classification_code, sequence_number, recipient, template_id, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
 	`, cuid2.Generate(), req.LetterNumber, req.ClassificationCode, req.SequenceNumber, req.Recipient, req.TemplateID, now)
 
 	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return fmt.Errorf("nomor urut %d sudah dipakai surat lain, muat ulang untuk nomor baru", req.SequenceNumber)
+		}
 		return err
 	}
 
@@ -349,12 +353,28 @@ func (r *EOfficeRepository) CreateSuratMasuk(s models.SuratMasuk) (string, error
 		rAt = now
 	}
 	if strings.TrimSpace(s.AgendaNumber) == "" {
-		received := time.UnixMilli(rAt)
-		startOfYear := time.Date(received.Year(), 1, 1, 0, 0, 0, 0, received.Location()).UnixMilli()
-		endOfYear := time.Date(received.Year()+1, 1, 1, 0, 0, 0, 0, received.Location()).UnixMilli()
-		var count int
-		_ = r.DB.QueryRow("SELECT COUNT(*) FROM surat_masuk WHERE received_at >= ? AND received_at < ?", startOfYear, endOfYear).Scan(&count)
-		s.AgendaNumber = fmt.Sprintf("SM-%d-%04d", received.Year(), count+1)
+		// ponytail: hitung-lalu-insert bisa tabrakan saat dua staf input bersamaan;
+		// unique index menolak nomor kembar, retry dengan nomor berikutnya (maks 5x).
+		for attempt := 0; attempt < 5; attempt++ {
+			received := time.UnixMilli(rAt)
+			startOfYear := time.Date(received.Year(), 1, 1, 0, 0, 0, 0, received.Location()).UnixMilli()
+			endOfYear := time.Date(received.Year()+1, 1, 1, 0, 0, 0, 0, received.Location()).UnixMilli()
+			var count int
+			_ = r.DB.QueryRow("SELECT COUNT(*) FROM surat_masuk WHERE received_at >= ? AND received_at < ?", startOfYear, endOfYear).Scan(&count)
+			s.AgendaNumber = fmt.Sprintf("SM-%d-%04d", received.Year(), count+1+attempt)
+
+			_, err := r.DB.Exec(`
+				INSERT INTO surat_masuk (id, agenda_number, original_number, sender, subject, date_of_letter, received_at, classification_code, file_path, status, notes, created_at, updated_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Menunggu Disposisi', ?, ?, ?)
+			`, id, s.AgendaNumber, s.OriginalNumber, s.Sender, s.Subject, s.DateOfLetter, rAt, s.ClassificationCode, s.FilePath, s.Notes, now, now)
+			if err == nil {
+				return id, nil
+			}
+			if !strings.Contains(err.Error(), "UNIQUE constraint failed") {
+				return "", err
+			}
+		}
+		return "", fmt.Errorf("gagal membuat nomor agenda unik, coba lagi")
 	}
 
 	query := `
@@ -656,25 +676,32 @@ func (r *EOfficeRepository) CreateSuratKeluarFromTemplate(req models.SuratKeluar
 // VerifySuratKeluar approves a surat_keluar with digital signature and auto-generates agenda number
 func (r *EOfficeRepository) VerifySuratKeluar(id, verifiedBy, digitalSignature string) error {
 	now := UnixMilli()
-	letterDate := time.Now()
+	letterDate := NowJakarta()
 	startOfYear := time.Date(letterDate.Year(), 1, 1, 0, 0, 0, 0, letterDate.Location()).UnixMilli()
 	endOfYear := time.Date(letterDate.Year()+1, 1, 1, 0, 0, 0, 0, letterDate.Location()).UnixMilli()
 	var count int
 	r.DB.QueryRow("SELECT COUNT(*) FROM surat_keluar WHERE status = 'Terverifikasi' AND verified_at >= ? AND verified_at < ?", startOfYear, endOfYear).Scan(&count)
-	agendaNumber := fmt.Sprintf("SK-%d-%04d", letterDate.Year(), count+1)
 
-	res, err := r.DB.Exec(`
-		UPDATE surat_keluar
-		SET status = 'Terverifikasi', verified_by = ?, verified_at = ?, digital_signature = ?, agenda_number = ?, updated_at = ?
-		WHERE id = ? AND status = 'Menunggu Verifikasi'
-	`, verifiedBy, now, digitalSignature, agendaNumber, now, id)
-	if err != nil {
-		return err
+	// ponytail: unique index menolak nomor kembar (verifikasi bersamaan), retry dengan nomor berikutnya
+	for attempt := 0; attempt < 5; attempt++ {
+		agendaNumber := fmt.Sprintf("SK-%d-%04d", letterDate.Year(), count+1+attempt)
+		res, err := r.DB.Exec(`
+			UPDATE surat_keluar
+			SET status = 'Terverifikasi', verified_by = ?, verified_at = ?, digital_signature = ?, agenda_number = ?, updated_at = ?
+			WHERE id = ? AND status = 'Menunggu Verifikasi'
+		`, verifiedBy, now, digitalSignature, agendaNumber, now, id)
+		if err != nil {
+			if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+				continue
+			}
+			return err
+		}
+		if affected, _ := res.RowsAffected(); affected == 0 {
+			return sql.ErrNoRows
+		}
+		return nil
 	}
-	if affected, _ := res.RowsAffected(); affected == 0 {
-		return sql.ErrNoRows
-	}
-	return nil
+	return fmt.Errorf("gagal membuat nomor agenda unik, coba lagi")
 }
 
 // SetSuratKeluarRevision sets status to "Revisi" with a revision note

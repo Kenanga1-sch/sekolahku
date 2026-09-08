@@ -12,7 +12,7 @@ import (
 )
 
 type AttendanceHandler struct {
-	Repo   *repository.AttendanceRepository
+	Repo    *repository.AttendanceRepository
 	Holiday *repository.SchoolHolidayRepository
 }
 
@@ -47,11 +47,7 @@ func (h *AttendanceHandler) RecordManual(c echo.Context) error {
 	}
 
 	if err := h.Repo.RecordManualV2(req); err != nil {
-		status := http.StatusBadRequest
-		if err == repository.ErrHoliday {
-			status = http.StatusBadRequest
-		}
-		return c.JSON(status, map[string]interface{}{"success": false, "error": err.Error()})
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
@@ -98,8 +94,27 @@ func (h *AttendanceHandler) KioskRecordAttendance(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "QR Code diperlukan"})
 	}
 
-	res, err := h.Repo.RecordQRScanV2(models.AttendanceScanRequest{QRCode: req.QRCode})
+	// Catat guru yang memindai (dari session JWT)
+	recordedBy := "kiosk"
+	if name, ok := c.Get("user_email").(string); ok && name != "" {
+		recordedBy = name
+	}
+
+	res, err := h.Repo.RecordQRScanV2(models.AttendanceScanRequest{QRCode: req.QRCode, RecordedBy: recordedBy})
 	if err != nil {
+		if err == repository.ErrAlreadyRecorded || err == repository.ErrStudentNotFound ||
+			err == repository.ErrNoClass || err == repository.ErrHoliday || err == repository.ErrInvalidStatus {
+			var student interface{}
+			if res != nil {
+				student = res.Student
+			}
+			return c.JSON(http.StatusOK, map[string]interface{}{
+				"success":            false,
+				"attendanceRecorded": false,
+				"error":              err.Error(),
+				"student":            student,
+			})
+		}
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"success":            false,
 			"attendanceRecorded": false,
@@ -217,6 +232,27 @@ func (h *AttendanceHandler) CreateSchoolHoliday(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal menambah hari libur"})
 	}
 	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true})
+}
+
+func (h *AttendanceHandler) UpdateSchoolHoliday(c echo.Context) error {
+	var hd repository.SchoolHoliday
+	if err := c.Bind(&hd); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Data tidak valid"})
+	}
+	if strings.TrimSpace(hd.Title) == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Judul wajib diisi"})
+	}
+	if err := h.Holiday.Update(c.Param("id"), hd.Title, hd.Description); err != nil {
+		if err.Error() == "hari libur tidak ditemukan" {
+			return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Hari libur tidak ditemukan"})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal memperbarui hari libur"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
+}
+
+func (h *AttendanceHandler) GetNationalHolidays(c echo.Context) error {
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": repository.NationalHolidays()})
 }
 
 func (h *AttendanceHandler) DeleteSchoolHoliday(c echo.Context) error {

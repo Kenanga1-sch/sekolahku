@@ -140,13 +140,12 @@ func (r *PublicRepository) GetPublicStaff(page, perPage int) ([]models.PublicSta
 	offset := (page - 1) * perPage
 
 	var total int
-	r.DB.QueryRow("SELECT COUNT(*) FROM employee_details WHERE is_active = 1").Scan(&total)
+	r.DB.QueryRow("SELECT COUNT(*) FROM employee_details").Scan(&total)
 
 	query := `
-		SELECT id, name, is_active, photo_url,
+		SELECT id, name, photo_url,
 		       category, degree, job_type as position, quote
 		FROM employee_details
-		WHERE is_active = 1
 		ORDER BY 
 			CASE WHEN category = 'kepsek' THEN 0 ELSE 1 END,
 			display_order ASC,
@@ -163,14 +162,13 @@ func (r *PublicRepository) GetPublicStaff(page, perPage int) ([]models.PublicSta
 	for rows.Next() {
 		var s models.PublicStaff
 		var img, cat, deg, job, quote sql.NullString
-		var isActive bool
 
-		err := rows.Scan(&s.ID, &s.Name, &isActive, &img, &cat, &deg, &job, &quote)
+		err := rows.Scan(&s.ID, &s.Name, &img, &cat, &deg, &job, &quote)
 		if err != nil {
 			return nil, 0, err
 		}
 
-		s.IsActive = isActive
+		s.IsActive = true
 		if img.Valid {
 			s.PhotoURL = img.String
 		}

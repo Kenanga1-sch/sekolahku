@@ -18,7 +18,17 @@ var (
 	ErrStudentNotFound  = errors.New("siswa tidak ditemukan")
 	ErrNoClass          = errors.New("siswa belum memiliki kelas")
 	ErrInvalidStatus    = errors.New("status presensi tidak valid")
+	ErrInvalidDate      = errors.New("tanggal harus format YYYY-MM-DD")
 )
+
+func isUniqueViolation(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
+}
+
+func isValidDate(date string) bool {
+	_, err := time.Parse("2006-01-02", date)
+	return err == nil
+}
 
 type AttendanceRepository struct {
 	DB *sql.DB
@@ -34,6 +44,11 @@ func normalizeAttendanceStatus(status string) string {
 		return "hadir"
 	}
 	return status
+}
+
+// today mengembalikan tanggal hari ini WIB, terlepas dari timezone server.
+func today() string {
+	return TodayJakarta()
 }
 
 func isValidAttendanceStatus(status string) bool {
@@ -99,7 +114,7 @@ func reportTimeString(t *time.Time) *string {
 }
 
 func (r *AttendanceRepository) GetStats() (*models.AttendanceStats, error) {
-	today := time.Now().Format("2006-01-02")
+	today := today()
 
 	var stats models.AttendanceStats
 	if err := r.DB.QueryRow("SELECT COUNT(*) FROM students WHERE status = 'active' OR is_active = 1").Scan(&stats.TotalStudents); err != nil {
@@ -142,7 +157,10 @@ type DailyClassResult struct {
 
 func (r *AttendanceRepository) GetDailyClass(date, className string) (*DailyClassResult, error) {
 	if date == "" {
-		date = time.Now().Format("2006-01-02")
+		date = today()
+	}
+	if !isValidDate(date) {
+		return nil, ErrInvalidDate
 	}
 
 	result := &DailyClassResult{
@@ -285,7 +303,10 @@ func (r *AttendanceRepository) RecordManualV2(req models.AttendanceManualRequest
 	}
 	date := strings.TrimSpace(req.Date)
 	if date == "" {
-		date = time.Now().Format("2006-01-02")
+		date = today()
+	}
+	if !isValidDate(date) {
+		return ErrInvalidDate
 	}
 	className := strings.TrimSpace(req.ClassName)
 	studentID := strings.TrimSpace(req.StudentID)
@@ -340,6 +361,9 @@ func (r *AttendanceRepository) RecordManualV2(req models.AttendanceManualRequest
 		VALUES (?, ?, ?, ?, ?, 'admin', 'manual', ?, ?)
 	`, cuid2.Generate(), sessionID, studentID, status, checkInTime, now, now)
 	if err != nil {
+		if isUniqueViolation(err) {
+			return ErrAlreadyRecorded
+		}
 		return err
 	}
 
@@ -357,7 +381,7 @@ func (r *AttendanceRepository) RecordQRScanV2(req models.AttendanceScanRequest) 
 		return nil, errors.New("QR code kosong")
 	}
 
-	date := time.Now().Format("2006-01-02")
+	date := today()
 	if isHoliday, _ := IsHoliday(date); isHoliday {
 		return nil, ErrHoliday
 	}
@@ -409,6 +433,9 @@ func (r *AttendanceRepository) RecordQRScanV2(req models.AttendanceScanRequest) 
 		VALUES (?, ?, ?, ?, ?, ?, 'qr_scan', ?, ?)
 	`, cuid2.Generate(), sessionID, studentID, status, now, recordedBy, now, now)
 	if err != nil {
+		if isUniqueViolation(err) {
+			return &models.ScanResult{Student: studentPayload}, ErrAlreadyRecorded
+		}
 		return nil, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -459,6 +486,9 @@ func (r *AttendanceRepository) ExportAttendance(startDate, endDate, className st
 }
 
 func (r *AttendanceRepository) GetAttendanceReport(startDate, endDate, className string) (*models.AttendanceReportResponse, error) {
+	if !isValidDate(startDate) || !isValidDate(endDate) {
+		return nil, ErrInvalidDate
+	}
 	query := `
 		SELECT ar.id, asess.date, asess.class_name, ar.student_id, s.full_name, s.nis, s.nisn,
 		       ar.status, ar.check_in_time, ar.record_method

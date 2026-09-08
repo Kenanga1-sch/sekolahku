@@ -71,7 +71,7 @@ func (r *DashboardRepository) GetDashboardStats() (*models.DashboardStats, error
 	`).Scan(&stats.ModuleStats.Tabungan.TotalStudents)
 	r.DB.QueryRow("SELECT COUNT(*) FROM tabungan_setoran WHERE status = 'pending'").Scan(&stats.ModuleStats.Tabungan.PendingSetoran)
 
-	now := time.Now()
+	now := NowJakarta()
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).UnixMilli()
 	r.DB.QueryRow("SELECT COUNT(*) FROM tabungan_transaksi WHERE created_at >= ?", todayStart).Scan(&stats.ModuleStats.Tabungan.TodayTransactions)
 
@@ -85,22 +85,34 @@ func (r *DashboardRepository) GetDashboardStats() (*models.DashboardStats, error
 		WHERE s.date = ? AND ar.status = 'hadir'
 	`, today).Scan(&stats.PresensiHariIni)
 
-	// 5. Registration trend
+	// 5. Registration trend — satu query GROUP BY untuk 7 hari (bukan 7 query)
 	stats.RegistrationTrend = []models.RegistrationTrendPoint{}
-	startDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).AddDate(0, 0, -6)
+	now2 := NowJakarta()
+	startDay := time.Date(now2.Year(), now2.Month(), now2.Day(), 0, 0, 0, 0, now2.Location()).AddDate(0, 0, -6)
+	endDay := startDay.AddDate(0, 0, 7)
+	countsByDate := make(map[string]int)
+	trendRows, err := r.DB.Query(`
+		SELECT date(created_at / 1000, 'unixepoch'), COUNT(*)
+		FROM spmb_registrants
+		WHERE COALESCE(is_active, 1) = 1
+		  AND created_at >= ? AND created_at < ?
+		GROUP BY date(created_at / 1000, 'unixepoch')
+	`, startDay.UnixMilli(), endDay.UnixMilli())
+	if err == nil {
+		for trendRows.Next() {
+			var d string
+			var cnt int
+			if trendRows.Scan(&d, &cnt) == nil {
+				countsByDate[d] = cnt
+			}
+		}
+		trendRows.Close()
+	}
 	for i := 0; i < 7; i++ {
 		day := startDay.AddDate(0, 0, i)
-		var count int
-		_ = r.DB.QueryRow(`
-			SELECT COUNT(*)
-			FROM spmb_registrants
-			WHERE COALESCE(is_active, 1) = 1
-			  AND created_at >= ?
-			  AND created_at < ?
-		`, day.UnixMilli(), day.AddDate(0, 0, 1).UnixMilli()).Scan(&count)
 		stats.RegistrationTrend = append(stats.RegistrationTrend, models.RegistrationTrendPoint{
 			Date:  day.Format("2006-01-02"),
-			Count: count,
+			Count: countsByDate[day.Format("2006-01-02")],
 		})
 	}
 

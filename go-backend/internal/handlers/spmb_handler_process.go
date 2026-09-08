@@ -8,6 +8,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/sekolahku/go-backend/internal/middleware"
 	"github.com/sekolahku/go-backend/internal/models"
+	"github.com/sekolahku/go-backend/internal/repository"
 )
 
 // Age calculation helpers
@@ -50,9 +51,10 @@ func calculateAge(birthDateStr string, referenceDate time.Time) (int, int, int) 
 func getAgeReferenceDate() time.Time {
 	now := time.Now()
 	year := now.Year()
-	ref := time.Date(year, 7, 1, 0, 0, 0, 0, now.Location())
+	// Referensi umur = 1 Juli tahun ajaran berjalan, dihitung menurut WIB
+	ref := time.Date(year, 7, 1, 0, 0, 0, 0, repository.JakartaLoc())
 	if now.Month() < 7 {
-		ref = time.Date(year-1, 7, 1, 0, 0, 0, 0, now.Location())
+		ref = time.Date(year-1, 7, 1, 0, 0, 0, 0, repository.JakartaLoc())
 	}
 	return ref
 }

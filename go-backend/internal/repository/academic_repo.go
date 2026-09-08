@@ -47,15 +47,22 @@ func (r *AcademicRepository) GetActiveAcademicYear() (string, error) {
 		return "", err
 	}
 
-	// 3. Final Fallback
-	return "2024/2025", nil
+	// 3. Final fallback: tahun ajaran berjalan menurut WIB (Jul-Jun), bukan literal kadaluarsa
+	y := CurrentYearJakarta()
+	if NowJakarta().Month() >= 7 {
+		return fmt.Sprintf("%d/%d", y, y+1), nil
+	}
+	return fmt.Sprintf("%d/%d", y-1, y), nil
 }
 
 func (r *AcademicRepository) GetClasses() ([]models.AcademicClass, error) {
 	// Default: filter by active academic year
 	activeYear, err := r.GetActiveAcademicYear()
 	if err != nil {
-		activeYear = "2024/2025"
+		activeYear = ""
+	}
+	if activeYear == "" {
+		return []models.AcademicClass{}, nil
 	}
 	return r.getClassesByYear(activeYear)
 }
@@ -341,17 +348,22 @@ func (r *AcademicRepository) ProcessPromotion(req models.PromotionRequest) (int,
 		return 0, fmt.Errorf("kelas tujuan wajib dipilih")
 	}
 	if req.ActionType == "graduation" {
-		// Graduation doesn't need target class; just deactivate student
+		// Graduation: transaksi penuh — gagal di tengah = semua dibatalkan
+		tx, err := r.DB.Begin()
+		if err != nil {
+			return 0, err
+		}
+		defer tx.Rollback()
+
 		now := time.Now().Unix()
 		count := 0
 		for _, studentId := range req.StudentIds {
-			_, err := r.DB.Exec(`UPDATE students SET status='graduated', is_active=0, updated_at=? WHERE id=?`, now, studentId)
-			if err != nil {
-				return count, err
+			if _, err := tx.Exec(`UPDATE students SET status='graduated', is_active=0, updated_at=? WHERE id=?`, now, studentId); err != nil {
+				return 0, err
 			}
 			count++
 		}
-		return count, nil
+		return count, tx.Commit()
 	}
 
 	tx, err := r.DB.Begin()
@@ -407,7 +419,7 @@ func (r *AcademicRepository) ProcessPromotion(req models.PromotionRequest) (int,
 func (r *AcademicRepository) GetClassesWithStats() ([]models.ClassStats, error) {
 	activeYear, err := r.GetActiveAcademicYear()
 	if err != nil {
-		activeYear = "2024/2025"
+		return nil, err
 	}
 
 	query := `
@@ -469,15 +481,11 @@ func (r *AcademicRepository) GetSuggestedCapacity(grade int, className string, a
 
 		// Try to match exact or similar class name from previous grade (e.g. 1A -> 2A)
 		err := r.DB.QueryRow(`
-			SELECT capacity, name FROM student_classes 
+			SELECT capacity, name FROM student_classes
 			WHERE grade = ? AND academic_year = ? AND capacity > 0
 			ORDER BY (CASE WHEN name = ? THEN 0 ELSE 1 END), name ASC
 			LIMIT 1
 		`, prevGrade, prevYear, className).Scan(&capacity, &foundName)
-		if err == nil && capacity > 0 {
-			return capacity, fmt.Sprintf("Kelas %d (%s) T.A %s", prevGrade, foundName, prevYear), nil
-		}
-
 		if err == nil && capacity > 0 {
 			return capacity, fmt.Sprintf("Kelas %d (%s) T.A %s", prevGrade, foundName, prevYear), nil
 		}

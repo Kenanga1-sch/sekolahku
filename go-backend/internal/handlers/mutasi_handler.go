@@ -16,8 +16,8 @@ import (
 )
 
 var (
-	nisnRegex      = regexp.MustCompile(`^[0-9]{10}$`)
-	whatsappRegex  = regexp.MustCompile(`^[0-9]{9,15}$`)
+	nisnRegex     = regexp.MustCompile(`^[0-9]{10}$`)
+	whatsappRegex = regexp.MustCompile(`^[0-9]{9,15}$`)
 )
 
 type MutasiHandler struct {
@@ -383,12 +383,12 @@ func (h *MutasiHandler) DirectMutasiMasuk(c echo.Context) error {
 
 func (h *MutasiHandler) DirectMutasiKeluar(c echo.Context) error {
 	var payload struct {
-		StudentID        string `json:"studentId"`
+		StudentID         string `json:"studentId"`
 		DestinationSchool string `json:"destinationSchool"`
-		DestinationClass string `json:"destinationClass"`
-		LetterNo         string `json:"letterNo"`
-		Reason           string `json:"reason"`
-		MutationDate     int64  `json:"mutationDate"`
+		DestinationClass  string `json:"destinationClass"`
+		LetterNo          string `json:"letterNo"`
+		Reason            string `json:"reason"`
+		MutationDate      int64  `json:"mutationDate"`
 	}
 	if err := c.Bind(&payload); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})

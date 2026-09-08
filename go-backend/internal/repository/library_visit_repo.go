@@ -15,7 +15,7 @@ func (r *LibraryRepository) HasVisitedToday(memberID string) (bool, error) {
 		SELECT COUNT(*)
 		FROM library_visits
 		WHERE member_id = ? AND date = ?
-	`, memberID, time.Now().Format("2006-01-02")).Scan(&count)
+	`, memberID, TodayJakarta()).Scan(&count)
 	return count > 0, err
 }
 
@@ -55,7 +55,7 @@ func (r *LibraryRepository) RecordGuestVisit(name, institution, purpose string) 
 
 func (r *LibraryRepository) GetVisits(date string, page, perPage int) ([]models.VisitDetail, int, error) {
 	if date == "" {
-		date = time.Now().Format("2006-01-02")
+		date = TodayJakarta()
 	}
 	if page < 1 {
 		page = 1

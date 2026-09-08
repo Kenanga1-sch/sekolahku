@@ -310,15 +310,11 @@ func (r *LibraryRepository) BorrowItem(memberId string, itemId string, loanDays 
 		return nil, errors.New("MAX_LIMIT_REACHED: member has reached maximum borrowing limit")
 	}
 
-	// 2. Verify Asset Available
-	var status string
+	// 2. Verify Asset Available (atomic: klaim langsung, cek RowsAffected untuk race)
 	var realItemId string
-	err = tx.QueryRow("SELECT id, status FROM library_assets WHERE id = ?", itemId).Scan(&realItemId, &status)
+	err = tx.QueryRow("SELECT id FROM library_assets WHERE id = ?", itemId).Scan(&realItemId)
 	if err != nil {
 		return nil, errors.New("asset not found")
-	}
-	if status != "AVAILABLE" {
-		return nil, errors.New("asset is not available for borrowing")
 	}
 
 	// 3. Create Loan
@@ -329,16 +325,18 @@ func (r *LibraryRepository) BorrowItem(memberId string, itemId string, loanDays 
 	dueDate := now.AddDate(0, 0, loanDays)
 	loanId := cuid2.Generate()
 
+	res, err := tx.Exec("UPDATE library_assets SET status = 'BORROWED', updated_at = ? WHERE id = ? AND status = 'AVAILABLE'", UnixMilli(), realItemId)
+	if err != nil {
+		return nil, err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return nil, errors.New("asset is not available for borrowing")
+	}
+
 	_, err = tx.Exec(`
 		INSERT INTO library_loans (id, member_id, item_id, borrow_date, due_date, is_returned, status, fine_amount, fine_paid, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, 0, 'borrowed', 0, 0, ?, ?)
 	`, loanId, memberId, realItemId, UnixMilli(), dueDate.UnixMilli(), UnixMilli(), UnixMilli())
-	if err != nil {
-		return nil, err
-	}
-
-	// 4. Update Asset
-	_, err = tx.Exec("UPDATE library_assets SET status = 'BORROWED', updated_at = ? WHERE id = ?", UnixMilli(), realItemId)
 	if err != nil {
 		return nil, err
 	}

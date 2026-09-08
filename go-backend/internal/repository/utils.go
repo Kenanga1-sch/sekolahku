@@ -114,6 +114,13 @@ type Queryer interface {
 	QueryRow(query string, args ...interface{}) *sql.Row
 }
 
+// SyncQueryer: Queryer + Exec — cukup untuk AutoSyncStudentToBukuInduk,
+// sehingga bisa dipanggil dengan *sql.DB maupun di dalam *sql.Tx.
+type SyncQueryer interface {
+	Queryer
+	Exec(query string, args ...interface{}) (sql.Result, error)
+}
+
 // CheckStudentClearance checks if the student has any outstanding library loans, unpaid fines, remaining savings balance, or unpaid savings debt.
 // Returns clear (bool), reason (string), and error.
 func CheckStudentClearance(db Queryer, studentID string) (bool, string, error) {
@@ -190,7 +197,7 @@ func CheckStudentClearance(db Queryer, studentID string) (bool, string, error) {
 }
 
 // AutoSyncStudentToBukuInduk ensures a student has a record in the alumni (Buku Induk) table.
-func AutoSyncStudentToBukuInduk(db *sql.DB, studentID string) error {
+func AutoSyncStudentToBukuInduk(db SyncQueryer, studentID string) error {
 	studentID = strings.TrimSpace(studentID)
 	if studentID == "" {
 		return nil
@@ -248,10 +255,19 @@ func AutoSyncStudentToBukuInduk(db *sql.DB, studentID string) error {
 
 	now := time.Now().UnixMilli()
 
-	// Get previous_school from spmb_registrants
+	// Ambil data tambahan dari pendaftaran SPMB (sebelumnya dibuang saat sinkronisasi).
+	// child_order, sibling_count, special_needs, height, weight sempat dipaksa 0/nil
+	// sehingga data yang diisi orang tua saat pendaftaran hilang dari Buku Induk.
 	var prevSch sql.NullString
-	db.QueryRow(`SELECT previous_school FROM spmb_registrants WHERE registration_number = ? OR student_nik = ? LIMIT 1`,
-		nis.String, nik.String).Scan(&prevSch)
+	var spmbChildOrder, spmbSiblingCount sql.NullInt64
+	var spmbSpecialNeeds sql.NullString
+	var spmbHeight, spmbWeight sql.NullInt64
+	db.QueryRow(`
+		SELECT previous_school, child_order, sibling_count, special_needs, height, weight
+		FROM spmb_registrants WHERE registration_number = ? OR student_nik = ? LIMIT 1`,
+		nis.String, nik.String).Scan(
+		&prevSch, &spmbChildOrder, &spmbSiblingCount, &spmbSpecialNeeds, &spmbHeight, &spmbWeight,
+	)
 
 	if alumniID == "" {
 		// Insert
@@ -285,7 +301,7 @@ func AutoSyncStudentToBukuInduk(db *sql.DB, studentID string) error {
 			optionalString(fn), optionalString(fnik), nil, nil,
 			optionalString(mn), optionalString(mnik), nil, nil,
 			optionalString(gn), optionalString(gnik), nil, nil, nil,
-			0, 0, 0, 0, nil, nil, nil,
+			spmbSiblingCount, spmbChildOrder, spmbHeight, spmbWeight, nil, nil, spmbSpecialNeeds,
 			nil, nil, nil, nil,
 			mappedStatus, now, now,
 		)
@@ -310,13 +326,20 @@ func AutoSyncStudentToBukuInduk(db *sql.DB, studentID string) error {
 		}
 
 		// Update (only update core personal details, not graduation / post-grad details unless empty)
+		// Data asal SPMB (child_order, sibling_count, height, weight, special_needs) hanya
+		// mengisi kolom yang MASIH KOSONG agar tidak menimpa inputan guru (COALESCE/NULLIF).
 		_, err = db.Exec(`
 			UPDATE alumni SET
 				nisn=?, nis=?, full_name=?, gender=?, birth_place=?, birth_date=?,
 				final_class=?, graduation_year=?, photo=?, parent_name=?, parent_phone=?, address=?,
 				nik=?, religion=?, enrolled_year=?, previous_school=?,
 				father_name=?, father_nik=?, mother_name=?, mother_nik=?,
-				guardian_name=?, guardian_nik=?, guardian_job=?, status=?, updated_at=?
+				guardian_name=?, guardian_nik=?, guardian_job=?, status=?, updated_at=?,
+				child_order    = COALESCE(NULLIF(child_order, 0), ?),
+				sibling_count  = COALESCE(NULLIF(sibling_count, 0), ?),
+				height         = COALESCE(NULLIF(height, 0), ?),
+				weight         = COALESCE(NULLIF(weight, 0), ?),
+				special_needs  = COALESCE(NULLIF(TRIM(COALESCE(special_needs, '')), ''), ?)
 			WHERE student_id=?
 		`, optionalString(nisn), optionalString(nis), fullName, optionalString(gender), optionalString(bp), optionalString(bd),
 			optionalString(sql.NullString{String: updateClass, Valid: updateClass != ""}), 
@@ -324,7 +347,9 @@ func AutoSyncStudentToBukuInduk(db *sql.DB, studentID string) error {
 			optionalString(photo), optionalString(pn), optionalString(pp), optionalString(addr),
 			optionalString(nik), optionalString(rel), optionalString(sql.NullString{String: enrolledYear, Valid: enrolledYear != ""}), optionalString(prevSch),
 			optionalString(fn), optionalString(fnik), optionalString(mn), optionalString(mnik),
-			optionalString(gn), optionalString(gnik), optionalString(gjob), mappedStatus, now, studentID)
+			optionalString(gn), optionalString(gnik), optionalString(gjob), mappedStatus, now,
+			spmbChildOrder, spmbSiblingCount, spmbHeight, spmbWeight, spmbSpecialNeeds,
+			studentID)
 		if err != nil {
 			return err
 		}

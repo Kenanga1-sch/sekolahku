@@ -71,13 +71,13 @@ func (r *AlumniRepository) SeedDocumentTypes() {
 
 func (r *AlumniRepository) GetAlumni(page, limit int, search, year, statusFilter string) ([]models.Alumni, int, error) {
 	offset := (page - 1) * limit
-	query := "SELECT id, nisn, nis, full_name, gender, graduation_year, final_class, photo, next_school, nik, enrolled_year, religion, address, status, created_at FROM alumni WHERE 1=1"
+	query := "SELECT id, nisn, nis, full_name, gender, graduation_year, final_class, photo, next_school, nik, enrolled_year, religion, address, status, buku_fisik_no, register_no, created_at FROM alumni WHERE 1=1"
 	var args []interface{}
 
 	if search != "" {
-		query += " AND (full_name LIKE ? OR nisn LIKE ? OR nis LIKE ? OR nik LIKE ?)"
+		query += " AND (full_name LIKE ? OR nisn LIKE ? OR nis LIKE ? OR nik LIKE ? OR buku_fisik_no LIKE ? OR CAST(register_no AS TEXT) LIKE ?)"
 		pattern := "%" + search + "%"
-		args = append(args, pattern, pattern, pattern, pattern)
+		args = append(args, pattern, pattern, pattern, pattern, pattern, pattern)
 	}
 	if year != "" {
 		query += " AND graduation_year = ?"
@@ -103,10 +103,11 @@ func (r *AlumniRepository) GetAlumni(page, limit int, search, year, statusFilter
 	var results []models.Alumni
 	for rows.Next() {
 		var a models.Alumni
-		var nisn, nis, gender, gradYear, fClass, photo, nSchool, nik, eYear, rel, addr, status sql.NullString
+		var nisn, nis, gender, gradYear, fClass, photo, nSchool, nik, eYear, rel, addr, status, bukuNo sql.NullString
+		var registerNo sql.NullInt64
 		var crAt sql.NullInt64
 		err := rows.Scan(&a.ID, &nisn, &nis, &a.FullName, &gender, &gradYear, &fClass, &photo, &nSchool,
-			&nik, &eYear, &rel, &addr, &status, &crAt)
+			&nik, &eYear, &rel, &addr, &status, &bukuNo, &registerNo, &crAt)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -124,6 +125,10 @@ func (r *AlumniRepository) GetAlumni(page, limit int, search, year, statusFilter
 		a.Status = status.String
 		if a.Status == "" {
 			a.Status = "graduated"
+		}
+		a.BukuFisikNo = optionalString(bukuNo)
+		if registerNo.Valid && registerNo.Int64 > 0 {
+			a.RegisterNo = intPtr(int(registerNo.Int64))
 		}
 		a.CreatedAt = SafeTime(crAt)
 		results = append(results, a)
@@ -184,7 +189,8 @@ func (r *AlumniRepository) GetAlumniByID(id string) (*models.Alumni, error) {
 		       scholarship_info, mutation_out_class, mutation_out_to_school, mutation_out_to_class, mutation_out_date,
 		       dropped_out_date, dropped_out_reason,
 		       ijazah_no, ijazah_date, skhun_no, skhun_date,
-		       father_income, mother_income, guardian_income, parent_address
+		       father_income, mother_income, guardian_income, parent_address,
+		       buku_fisik_no, register_no
 		FROM alumni WHERE id = ?
 	`
 	var a models.Alumni
@@ -206,6 +212,8 @@ func (r *AlumniRepository) GetAlumniByID(id string) (*models.Alumni, error) {
 	var sibKandung, sibTiri, sibAngkat sql.NullInt64
 	var ijazahNo, ijazahDate, skhunNo, skhunDate sql.NullString
 	var fatherIncome, motherIncome, guardianIncome, parentAddr sql.NullString
+	var bukuNo sql.NullString
+	var registerNo sql.NullInt64
 
 	err := r.DB.QueryRow(query, id).Scan(
 		&a.ID, &sid, &nisn, &nis, &a.FullName, &gender, &bp, &bd,
@@ -225,6 +233,7 @@ func (r *AlumniRepository) GetAlumniByID(id string) (*models.Alumni, error) {
 		&dropDate, &dropReason,
 		&ijazahNo, &ijazahDate, &skhunNo, &skhunDate,
 		&fatherIncome, &motherIncome, &guardianIncome, &parentAddr,
+		&bukuNo, &registerNo,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -313,6 +322,10 @@ func (r *AlumniRepository) GetAlumniByID(id string) (*models.Alumni, error) {
 	a.MotherIncome = optionalString(motherIncome)
 	a.GuardianIncome = optionalString(guardianIncome)
 	a.ParentAddress = optionalString(parentAddr)
+	a.BukuFisikNo = optionalString(bukuNo)
+	if registerNo.Valid && registerNo.Int64 > 0 {
+		a.RegisterNo = intPtr(int(registerNo.Int64))
+	}
 
 	a.GraduationDate = SafeTime(gd)
 	a.CreatedAt = SafeTime(crat)
@@ -362,11 +375,27 @@ func (r *AlumniRepository) CreateAlumni(a models.Alumni) (string, error) {
 			scholarship_info, mutation_out_class, mutation_out_to_school, mutation_out_to_class, mutation_out_date,
 			dropped_out_date, dropped_out_reason,
 			ijazah_no, ijazah_date, skhun_no, skhun_date,
-			father_income, mother_income, guardian_income, parent_address
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-		          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-		          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-		          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			father_income, mother_income, guardian_income, parent_address,
+			buku_fisik_no, register_no
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?,
+		          ?, ?, ?, ?, ?, ?,
+		          ?, ?, ?, ?, ?,
+		          ?, ?, ?, ?, ?,
+		          ?, ?, ?, ?,
+		          ?, ?, ?, ?,
+		          ?, ?, ?, ?, ?,
+		          ?, ?, ?, ?, ?, ?, ?,
+		          ?, ?, ?, ?,
+		          ?, ?, ?,
+		          ?, ?, ?, ?, ?,
+		          ?, ?, ?, ?,
+		          ?, ?,
+		          ?, ?, ?, ?,
+		          ?, ?, ?, ?, ?,
+		          ?, ?,
+		          ?, ?, ?, ?,
+		          ?, ?, ?, ?,
+		          ?, ?)
 	`, id, a.StudentID, a.NISN, a.NIS, a.FullName, a.Gender, a.BirthPlace, a.BirthDate,
 		a.GraduationYear, timeToUnixMilli(a.GraduationDate), a.FinalClass, a.Photo, a.ParentName, a.ParentPhone,
 		a.CurrentAddress, a.CurrentPhone, a.CurrentEmail, a.NextSchool, a.Notes,
@@ -385,6 +414,7 @@ func (r *AlumniRepository) CreateAlumni(a models.Alumni) (string, error) {
 		a.DroppedOutDate, a.DroppedOutReason,
 		a.IjazahNo, a.IjazahDate, a.SkhunNo, a.SkhunDate,
 		a.FatherIncome, a.MotherIncome, a.GuardianIncome, a.ParentAddress,
+		a.BukuFisikNo, a.RegisterNo,
 	)
 	return id, err
 }
@@ -417,7 +447,8 @@ func (r *AlumniRepository) UpdateAlumni(id string, a models.Alumni) error {
 			scholarship_info=?, mutation_out_class=?, mutation_out_to_school=?, mutation_out_to_class=?, mutation_out_date=?,
 			dropped_out_date=?, dropped_out_reason=?,
 			ijazah_no=?, ijazah_date=?, skhun_no=?, skhun_date=?,
-			father_income=?, mother_income=?, guardian_income=?, parent_address=?
+			father_income=?, mother_income=?, guardian_income=?, parent_address=?,
+			buku_fisik_no=?, register_no=?
 		WHERE id=?
 	`, a.NISN, a.NIS, a.FullName, a.Gender, a.BirthPlace, a.BirthDate,
 		a.GraduationYear, timeToUnixMilli(a.GraduationDate), a.FinalClass, a.Photo,
@@ -438,6 +469,7 @@ func (r *AlumniRepository) UpdateAlumni(id string, a models.Alumni) error {
 		a.DroppedOutDate, a.DroppedOutReason,
 		a.IjazahNo, a.IjazahDate, a.SkhunNo, a.SkhunDate,
 		a.FatherIncome, a.MotherIncome, a.GuardianIncome, a.ParentAddress,
+		a.BukuFisikNo, a.RegisterNo,
 		id,
 	)
 	return err
@@ -462,6 +494,26 @@ func (r *AlumniRepository) GetAlumniStats() (*models.AlumniStats, error) {
 	r.DB.QueryRow("SELECT COUNT(*) FROM alumni WHERE status='transferred'").Scan(&stats.TransferredCount)
 	r.DB.QueryRow("SELECT COUNT(*) FROM alumni WHERE status='dropped'").Scan(&stats.DroppedCount)
 	return stats, nil
+}
+
+// GetAlumniGraduationYears returns distinct graduation years present in
+// the data, sorted descending. Supports archives spanning decades — the
+// frontend no longer guesses a fixed 10-year window.
+func (r *AlumniRepository) GetAlumniGraduationYears() ([]string, error) {
+	rows, err := r.DB.Query("SELECT DISTINCT graduation_year FROM alumni WHERE graduation_year IS NOT NULL AND TRIM(graduation_year) != '' ORDER BY graduation_year DESC")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	years := []string{}
+	for rows.Next() {
+		var y string
+		if err := rows.Scan(&y); err == nil {
+			years = append(years, y)
+		}
+	}
+	return years, nil
 }
 
 func (r *AlumniRepository) SyncFromStudents() (int, error) {

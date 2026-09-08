@@ -37,6 +37,68 @@ func (r *AlumniRepository) GetTranscripts(alumniID string) ([]models.AlumniTrans
 	return res, nil
 }
 
+// GetAlumniIDByStudentID returns the linked alumni (Buku Induk) record id for a student,
+// or "" when the student has no buku induk record yet.
+func (r *AlumniRepository) GetAlumniIDByStudentID(studentID string) (string, error) {
+	var alumniID string
+	err := r.DB.QueryRow(`SELECT id FROM alumni WHERE student_id = ?`, studentID).Scan(&alumniID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", nil
+		}
+		return "", err
+	}
+	return alumniID, nil
+}
+
+// GetTranscriptsByStudentID fetches transcripts via the student's linked alumni record.
+// Returns an empty slice (not an error) when the student has no alumni/buku-induk record yet.
+func (r *AlumniRepository) GetTranscriptsByStudentID(studentID string) ([]models.AlumniTranscript, error) {
+	var alumniID string
+	err := r.DB.QueryRow(`SELECT id FROM alumni WHERE student_id = ?`, studentID).Scan(&alumniID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return []models.AlumniTranscript{}, nil
+		}
+		return nil, err
+	}
+	return r.GetTranscripts(alumniID)
+}
+
+// GetHealthRecordsByStudentID fetches health records via the student's linked alumni record.
+// Returns an empty slice (not an error) when the student has no alumni/buku-induk record yet.
+func (r *AlumniRepository) GetHealthRecordsByStudentID(studentID string) ([]models.AlumniHealthRecord, error) {
+	var alumniID string
+	err := r.DB.QueryRow(`SELECT id FROM alumni WHERE student_id = ?`, studentID).Scan(&alumniID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return []models.AlumniHealthRecord{}, nil
+		}
+		return nil, err
+	}
+	return r.GetHealthRecords(alumniID)
+}
+
+// GetAttendanceByStudentID fetches attendance summaries via the student's linked alumni record.
+// Returns an empty slice (not an error) when the student has no alumni/buku-induk record yet.
+func (r *AlumniRepository) GetAttendanceByStudentID(studentID string) ([]models.AlumniAttendanceSummary, error) {
+	var alumniID string
+	err := r.DB.QueryRow(`SELECT id FROM alumni WHERE student_id = ?`, studentID).Scan(&alumniID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return []models.AlumniAttendanceSummary{}, nil
+		}
+		return nil, err
+	}
+	return r.GetAttendanceSummaries(alumniID)
+}
+
+// GetClassHistoryByStudentID returns class history for a student id
+// (riwayat naik kelas tersimpan per student_id, bukan alumni id).
+func (r *AlumniRepository) GetClassHistoryByStudentID(studentID string) ([]models.ClassHistoryEntry, error) {
+	return r.GetClassHistory(studentID)
+}
+
 func (r *AlumniRepository) CreateTranscript(t models.AlumniTranscript) (string, error) {
 	id := cuid2.Generate()
 	now := time.Now().UnixMilli()

@@ -37,7 +37,8 @@ func studentIsActive(status sql.NullString, isActive sql.NullInt64) bool {
 // Stats
 func (r *SavingsRepository) GetSavingsStats() (*models.SavingsStats, error) {
 	stats := &models.SavingsStats{}
-	startOfDay := UnixMilli() - (UnixMilli() % 86400000)
+	// Awal hari menurut jam WIB (bukan UTC — transaksi "hari ini" tidak boleh bergeser 7 jam)
+	startOfDay := JakartaMidnight("")
 
 	r.DB.QueryRow(`
 		SELECT COUNT(*) FROM tabungan_siswa ts
@@ -137,7 +138,7 @@ func (r *SavingsRepository) GetRecentTransactions(limit int) ([]models.RecentTra
 
 func (r *SavingsRepository) GetTransactionTrend() ([]models.TransactionTrendItem, error) {
 	items := make([]models.TransactionTrendItem, 0, 7)
-	now := time.Now()
+	now := NowJakarta()
 	for i := 6; i >= 0; i-- {
 		day := now.AddDate(0, 0, -i)
 		start := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location()).UnixMilli()

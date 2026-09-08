@@ -92,7 +92,7 @@ func (h *TelegramBackupHandler) RestoreBackup(c echo.Context) error {
 	if _, err = io.Copy(tempFile, src); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal menyimpan file temporary"})
 	}
-	
+
 	// Close tempFile so it can be read by zip reader
 	tempFile.Close()
 
@@ -136,7 +136,7 @@ func (h *TelegramBackupHandler) RestoreBackup(c echo.Context) error {
 		}
 
 		io.Copy(outFile, rc)
-		
+
 		outFile.Close()
 		rc.Close()
 	}
@@ -172,7 +172,7 @@ func SendBackupToTelegram(botToken, chatID string) error {
 
 	// Add chat_id field
 	_ = writer.WriteField("chat_id", chatID)
-	
+
 	// Add caption
 	caption := fmt.Sprintf("📦 *Backup Lengkap Sekolahku*\n📅 Waktu: %s\n📁 Isi: Database & Folder Uploads", time.Now().Format("2006-01-02 15:04:05"))
 	_ = writer.WriteField("caption", caption)
@@ -184,12 +184,12 @@ func SendBackupToTelegram(botToken, chatID string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	_, err = io.Copy(part, file)
 	if err != nil {
 		return err
 	}
-	
+
 	err = writer.Close()
 	if err != nil {
 		return err
@@ -227,9 +227,9 @@ func createBackupZip() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	zipPath := tempFile.Name()
-	
+
 	zipWriter := zip.NewWriter(tempFile)
 
 	addPathToZip := func(basePath string) error {
@@ -240,7 +240,7 @@ func createBackupZip() (string, error) {
 				}
 				return err
 			}
-            
+
 			header, err := zip.FileInfoHeader(info)
 			if err != nil {
 				return err
@@ -282,7 +282,7 @@ func createBackupZip() (string, error) {
 	for _, p := range pathsToBackup {
 		_ = addPathToZip(p)
 	}
-	
+
 	zipWriter.Close()
 	tempFile.Close()
 
