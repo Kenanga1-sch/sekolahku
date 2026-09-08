@@ -94,3 +94,7 @@ go-backend/test_db.js
 *.db
 *.db-shm
 *.db-wal
+
+# agent tooling (third-party, not part of the app)
+agent/
+.agents/
