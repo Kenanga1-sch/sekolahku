@@ -101,11 +101,11 @@ export default function TabBendahara({ onChanged }: TabBendaharaProps) {
 
     return (
         <Tabs defaultValue="brankas" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl">
-                <TabsTrigger value="brankas" className="rounded-lg">Brankas & Saldo</TabsTrigger>
-                <TabsTrigger value="verifikasi" className="rounded-lg">Verifikasi Setoran</TabsTrigger>
-                <TabsTrigger value="hutang" className="rounded-lg">Manajemen Hutang</TabsTrigger>
-                <TabsTrigger value="struktur" className="rounded-lg">Struktur & PJ</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-2 md:grid-cols-4 bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl">
+                <TabsTrigger value="brankas" className="rounded-lg text-xs sm:text-sm">Brankas & Saldo</TabsTrigger>
+                <TabsTrigger value="verifikasi" className="rounded-lg text-xs sm:text-sm">Verifikasi Setoran</TabsTrigger>
+                <TabsTrigger value="hutang" className="rounded-lg text-xs sm:text-sm">Manajemen Hutang</TabsTrigger>
+                <TabsTrigger value="struktur" className="rounded-lg text-xs sm:text-sm">Struktur & PJ</TabsTrigger>
             </TabsList>
             
             <TabsContent value="brankas" className="space-y-4">

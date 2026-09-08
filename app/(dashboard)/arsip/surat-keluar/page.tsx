@@ -3,11 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { 
-    Plus, 
-    Search, 
-    Filter, 
-    Calendar,
+import {
+    Plus,
+    Search,
     Send,
     MoreHorizontal,
     FileText,
@@ -16,27 +14,16 @@ import {
     Loader2,
     ArrowLeft,
     Download,
-    ChevronLeft,
-    ChevronRight,
     RotateCcw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+import { DataTable, TablePagination } from "@/components/data-table";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -51,7 +38,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input as InputField } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Checkbox } from "@/components/ui/checkbox";
 import JSZip from "jszip";
 import { formatDate, normalizePublicPath, extractFilename } from "@/lib/utils";
 import { goGet, goPost } from "@/lib/api-client";
@@ -354,154 +340,129 @@ export default function SuratKeluarPage() {
             </div>
 
             {/* Data Table */}
-            <Card className="overflow-hidden">
-                <Table>
-                    <TableHeader className="bg-muted/50">
-                        <TableRow>
-                            <TableHead className="w-[40px]">
-                                <Checkbox 
-                                    checked={data.length > 0 && selectedIds.length === data.filter(item => item.filePath || item.finalFilePath).length}
-                                    onCheckedChange={toggleSelectAll}
-                                />
-                            </TableHead>
-                            <TableHead>Nomor Surat</TableHead>
-                            <TableHead>Tujuan</TableHead>
-                            <TableHead className="w-[40%]">Perihal</TableHead>
-                            <TableHead>Tgl Surat</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead></TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {loading ? (
-                            <TableRow>
-                                <TableCell colSpan={7} className="text-center py-8">
-                                    Memuat data...
-                                </TableCell>
-                            </TableRow>
-                        ) : data.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
-                                    Belum ada surat keluar.
-                                </TableCell>
-                            </TableRow>
-                        ) : (
-                            data.map((item) => (
-                                <TableRow key={item.id} className="hover:bg-muted/50 cursor-pointer" onClick={() => router.push(`/arsip/surat-keluar/detail?id=${item.id}`)}>
-                                    <TableCell onClick={(e) => e.stopPropagation()} className="w-[40px]">
-                                        {(item.filePath || item.finalFilePath) ? (
-                                            <Checkbox 
-                                                checked={selectedIds.includes(item.id)}
-                                                onCheckedChange={() => toggleSelectOne(item.id)}
-                                            />
-                                        ) : null}
-                                    </TableCell>
-                                    <TableCell className="font-mono text-sm font-medium text-blue-600">
-                                        {item.mailNumber}
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="font-semibold">{item.recipient}</div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="line-clamp-2 text-sm">{item.subject}</div>
-                                        {item.classification && (
-                                            <Badge variant="outline" className="mt-1 text-[10px] h-5">
-                                                {item.classification.code} - {item.classification.name}
-                                            </Badge>
-                                        )}
-                                    </TableCell>
-                                    <TableCell className="text-sm">
-                                        {formatDate(item.dateOfLetter)}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge variant="secondary" className={getStatusColor(item.status)}>
-                                            {item.status}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell onClick={(e) => e.stopPropagation()}>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="outline" size="icon-sm" className="h-8 w-8 text-muted-foreground hover:text-foreground bg-white border-slate-200 shadow-sm" onClick={(e) => e.stopPropagation()}>
-                                                    <MoreHorizontal className="h-4 w-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                {item.status === "Draft" && (
-                                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleSubmitToVerification(item.id); }} disabled={acting}>
-                                                        <Send className="h-4 w-4 mr-2" />
-                                                        Kirim ke Verifikasi
-                                                    </DropdownMenuItem>
-                                                )}
-                                                {item.status === "Revisi" && (
-                                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleSubmitToVerification(item.id); }} disabled={acting}>
-                                                        <RotateCcw className="h-4 w-4 mr-2 text-orange-600" />
-                                                        Kirim Ulang ke Verifikasi
-                                                    </DropdownMenuItem>
-                                                )}
-                                                {item.status === "Menunggu Verifikasi" && (
-                                                    <>
-                                                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setVerifyDialog({ open: true, id: item.id }); }}>
-                                                            <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
-                                                            Verifikasi & TTD
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setRevisionDialog({ open: true, id: item.id }); }}>
-                                                            <XCircle className="h-4 w-4 mr-2 text-red-600" />
-                                                            Minta Revisi
-                                                        </DropdownMenuItem>
-                                                    </>
-                                                )}
-                                                <DropdownMenuItem asChild>
-                                                    <Link href={`/arsip/surat-keluar/detail?id=${item.id}`}>
-                                                        <FileText className="h-4 w-4 mr-2" />
-                                                        Detail
-                                                    </Link>
-                                                </DropdownMenuItem>
-                                                {(item.finalFilePath || item.filePath) && (
-                                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDownloadSingle(item); }}>
-                                                        <Download className="h-4 w-4 mr-2" />
-                                                        Download File
-                                                    </DropdownMenuItem>
-                                                )}
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                        )}
-                    </TableBody>
-                </Table>
-
-                {/* Pagination Controls */}
-                {totalPages > 1 && (
-                    <div className="flex items-center justify-between px-6 py-4 border-t bg-card text-slate-900 dark:text-slate-100">
-                        <div className="text-xs text-muted-foreground font-medium">
-                            Halaman <span className="text-slate-900 dark:text-slate-100 font-bold">{page}</span> dari <span className="text-slate-900 dark:text-slate-100 font-bold">{totalPages}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setPage(prev => Math.max(prev - 1, 1))}
-                                disabled={page === 1}
-                                className="h-8 text-xs font-semibold px-3 flex items-center gap-1 border-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-950"
-                            >
-                                <ChevronLeft className="h-3.5 w-3.5" />
-                                Sebelumnya
+            <DataTable
+                data={loading ? [] : data}
+                getRowId={(item) => item.id}
+                loading={loading}
+                selectable
+                selectedIds={selectedIds}
+                onToggleSelect={toggleSelectOne}
+                onToggleSelectAll={toggleSelectAll}
+                onRowClick={(item) => router.push(`/arsip/surat-keluar/detail?id=${item.id}`)}
+                emptyTitle="Belum ada surat keluar."
+                emptyDescription="Surat yang diterbitkan akan tercatat di sini."
+                actions={(item) => (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="icon-sm" className="h-8 w-8 text-muted-foreground hover:text-foreground bg-white border-slate-200 shadow-sm" onClick={(e) => e.stopPropagation()}>
+                                <MoreHorizontal className="h-4 w-4" />
                             </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setPage(prev => Math.min(prev + 1, totalPages))}
-                                disabled={page === totalPages}
-                                className="h-8 text-xs font-semibold px-3 flex items-center gap-1 border-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-950"
-                            >
-                                Berikutnya
-                                <ChevronRight className="h-3.5 w-3.5" />
-                            </Button>
-                        </div>
-                    </div>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            {item.status === "Draft" && (
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleSubmitToVerification(item.id); }} disabled={acting}>
+                                    <Send className="h-4 w-4 mr-2" />
+                                    Kirim ke Verifikasi
+                                </DropdownMenuItem>
+                            )}
+                            {item.status === "Revisi" && (
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleSubmitToVerification(item.id); }} disabled={acting}>
+                                    <RotateCcw className="h-4 w-4 mr-2 text-orange-600" />
+                                    Kirim Ulang ke Verifikasi
+                                </DropdownMenuItem>
+                            )}
+                            {item.status === "Menunggu Verifikasi" && (
+                                <>
+                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setVerifyDialog({ open: true, id: item.id }); }}>
+                                        <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
+                                        Verifikasi & TTD
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setRevisionDialog({ open: true, id: item.id }); }}>
+                                        <XCircle className="h-4 w-4 mr-2 text-red-600" />
+                                        Minta Revisi
+                                    </DropdownMenuItem>
+                                </>
+                            )}
+                            <DropdownMenuItem asChild>
+                                <Link href={`/arsip/surat-keluar/detail?id=${item.id}`}>
+                                    <FileText className="h-4 w-4 mr-2" />
+                                    Detail
+                                </Link>
+                            </DropdownMenuItem>
+                            {(item.finalFilePath || item.filePath) && (
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDownloadSingle(item); }}>
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Download File
+                                </DropdownMenuItem>
+                            )}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 )}
-            </Card>
+                columns={[
+                    {
+                        key: "mailNumber",
+                        header: "Nomor Surat",
+                        card: "field",
+                        render: (item) => (
+                            <span className="font-mono text-sm font-medium text-blue-600">
+                                {item.mailNumber}
+                            </span>
+                        ),
+                    },
+                    {
+                        key: "recipient",
+                        header: "Tujuan",
+                        card: "title",
+                        render: (item) => (
+                            <div className="font-semibold">{item.recipient}</div>
+                        ),
+                    },
+                    {
+                        key: "subject",
+                        header: "Perihal",
+                        width: "40%",
+                        card: "field",
+                        render: (item) => (
+                            <div>
+                                <div className="line-clamp-2 text-sm">{item.subject}</div>
+                                {item.classification && (
+                                    <Badge variant="outline" className="mt-1 text-[10px] h-5">
+                                        {item.classification.code} - {item.classification.name}
+                                    </Badge>
+                                )}
+                            </div>
+                        ),
+                    },
+                    {
+                        key: "dateOfLetter",
+                        header: "Tgl Surat",
+                        card: "field",
+                        render: (item) => (
+                            <span className="text-sm">{formatDate(item.dateOfLetter)}</span>
+                        ),
+                    },
+                    {
+                        key: "status",
+                        header: "Status",
+                        card: "field",
+                        render: (item) => (
+                            <Badge variant="secondary" className={getStatusColor(item.status)}>
+                                {item.status}
+                            </Badge>
+                        ),
+                    },
+                ]}
+            />
+
+            {/* Pagination */}
+            {!loading && data.length > 0 && (
+                <TablePagination
+                    page={page}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                    label={`${data.length} surat`}
+                />
+            )}
 
             {/* Verify Dialog */}
             <Dialog open={verifyDialog.open} onOpenChange={(o) => { if (!o) setVerifyDialog({ open: false, id: "" }); }}>
@@ -570,11 +531,11 @@ export default function SuratKeluarPage() {
 
             {/* Floating Batch Actions Bar */}
             {selectedIds.length > 0 && (
-                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-6 py-4 rounded-full shadow-2xl flex items-center gap-6 animate-in slide-in-from-bottom-4 duration-300">
+                <div className="fixed bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-6 py-4 rounded-2xl md:rounded-full shadow-2xl flex flex-wrap justify-center items-center gap-3 md:gap-6 animate-in slide-in-from-bottom-4 duration-300 max-w-[calc(100vw-2rem)]">
                     <span className="text-sm font-medium">
                         {selectedIds.length} surat terpilih
                     </span>
-                    <div className="h-4 w-[1px] bg-slate-700" />
+                    <div className="hidden md:block h-4 w-[1px] bg-slate-700" />
                     <div className="flex gap-2">
                         <Button 
                             size="sm" 

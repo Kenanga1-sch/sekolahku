@@ -2,18 +2,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/data-table";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -200,163 +191,158 @@ export default function TabunganVerifikasiPage() {
                 </TabsList>
 
                 <TabsContent value="pending">
-                    <Card>
-                        <CardContent className="p-0">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Tanggal</TableHead>
-                                        <TableHead>Guru</TableHead>
-                                        <TableHead>Total Sistem</TableHead>
-                                        <TableHead>Catatan</TableHead>
-                                        <TableHead className="text-right">Aksi</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {isLoading ? (
-                                        <TableRow>
-                                            <TableCell colSpan={5} className="h-24 text-center">
-                                                <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : setoranList.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
-                                                <div className="flex flex-col items-center gap-2">
-                                                    <CheckCircle2 className="h-8 w-8 text-green-500/50" />
-                                                    <p>Semua setoran telah diverifikasi</p>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        setoranList.map((item) => (
-                                            <TableRow key={item.id}>
-                                                <TableCell className="font-medium">
-                                                    {formatDateTime(item.createdAt)}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex flex-col">
-                                                        <span className="font-medium">{item.guru?.fullName || item.guru?.name}</span>
-                                                        <span className="text-xs text-muted-foreground">Guru Wali</span>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="font-mono font-medium">
-                                                        {formatRupiah(item.totalNominal)}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="max-w-[200px]">
-                                                    <p className="truncate text-sm text-muted-foreground">
-                                                        {item.catatan || "-"}
-                                                    </p>
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <div className="flex justify-end gap-2">
-                                                        <Button variant="outline" size="sm" asChild>
-                                                            <Link href={`/tabungan/setoran/detail?id=${item.id}`}>
-                                                                Detail
-                                                            </Link>
-                                                        </Button>
-                                                        <Button 
-                                                            variant="default" 
-                                                            size="sm"
-                                                            className="bg-green-600 hover:bg-green-700"
-                                                            onClick={() => {
-                                                                setVerifyId(item.id);
-                                                                setVerifyAction("approve");
-                                                                setNominalFisikInput(item.totalNominal.toString());
-                                                            }}
-                                                        >
-                                                            Terima
-                                                        </Button>
-                                                        <Button 
-                                                            variant="destructive" 
-                                                            size="sm"
-                                                            onClick={() => {
-                                                                setVerifyId(item.id);
-                                                                setVerifyAction("reject");
-                                                                setCatatanInternal("");
-                                                            }}
-                                                        >
-                                                            Tolak
-                                                        </Button>
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </CardContent>
-                    </Card>
+                    <DataTable
+                        data={isLoading ? [] : setoranList}
+                        getRowId={(item) => item.id}
+                        loading={isLoading}
+                        emptyTitle="Semua setoran telah diverifikasi"
+                        emptyDescription="Tidak ada setoran yang menunggu verifikasi."
+                        columns={[
+                            {
+                                key: "createdAt",
+                                header: "Tanggal",
+                                card: "field",
+                                render: (item) => (
+                                    <span className="font-medium">
+                                        {formatDateTime(item.createdAt)}
+                                    </span>
+                                ),
+                            },
+                            {
+                                key: "guru",
+                                header: "Guru",
+                                card: "title",
+                                render: (item) => (
+                                    <div className="flex flex-col">
+                                        <span className="font-medium">{item.guru?.fullName || item.guru?.name}</span>
+                                        <span className="text-xs text-muted-foreground">Guru Wali</span>
+                                    </div>
+                                ),
+                            },
+                            {
+                                key: "totalNominal",
+                                header: "Total Sistem",
+                                card: "field",
+                                render: (item) => (
+                                    <div className="font-mono font-medium">
+                                        {formatRupiah(item.totalNominal)}
+                                    </div>
+                                ),
+                            },
+                            {
+                                key: "catatan",
+                                header: "Catatan",
+                                card: "field",
+                                render: (item) => (
+                                    <p className="truncate text-sm text-muted-foreground">
+                                        {item.catatan || "-"}
+                                    </p>
+                                ),
+                            },
+                        ]}
+                        actions={(item) => (
+                            <div className="flex justify-end gap-2">
+                                <Button variant="outline" size="sm" asChild>
+                                    <Link href={`/tabungan/setoran/detail?id=${item.id}`}>
+                                        Detail
+                                    </Link>
+                                </Button>
+                                <Button
+                                    variant="default"
+                                    size="sm"
+                                    className="bg-green-600 hover:bg-green-700"
+                                    onClick={() => {
+                                        setVerifyId(item.id);
+                                        setVerifyAction("approve");
+                                        setNominalFisikInput(item.totalNominal.toString());
+                                    }}
+                                >
+                                    Terima
+                                </Button>
+                                <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => {
+                                        setVerifyId(item.id);
+                                        setVerifyAction("reject");
+                                        setCatatanInternal("");
+                                    }}
+                                >
+                                    Tolak
+                                </Button>
+                            </div>
+                        )}
+                    />
                 </TabsContent>
 
                 <TabsContent value="history">
-                    <Card>
-                        <CardContent className="p-0">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Tanggal</TableHead>
-                                        <TableHead>Guru</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead>Total</TableHead>
-                                        <TableHead>Selisih</TableHead>
-                                        <TableHead className="text-right">Aksi</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {isHistoryLoading ? (
-                                        <TableRow>
-                                            <TableCell colSpan={6} className="h-24 text-center">
-                                                <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : historyList.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
-                                                Belum ada riwayat verifikasi
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        historyList.map((item) => (
-                                            <TableRow key={item.id}>
-                                                <TableCell className="font-medium">
-                                                    {formatDateTime(item.createdAt)}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {item.guru?.fullName || item.guru?.name}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge 
-                                                        variant={item.status === "verified" ? "default" : "destructive"}
-                                                        className={item.status === "verified" ? "bg-green-600" : ""}
-                                                    >
-                                                        {item.status === "verified" ? "Diterima" : "Ditolak"}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="font-mono">
-                                                    {formatRupiah(item.totalNominal)}
-                                                </TableCell>
-                                                <TableCell className="font-mono">
-                                                    {item.selisih && item.selisih !== 0 ? (
-                                                        <span className="text-red-500">{formatRupiah(item.selisih)}</span>
-                                                    ) : "-"}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <Button variant="outline" size="sm" asChild>
-                                                        <Link href={`/tabungan/setoran/detail?id=${item.id}`}>
-                                                            Detail
-                                                        </Link>
-                                                    </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </CardContent>
-                    </Card>
+                    <DataTable
+                        data={isHistoryLoading ? [] : historyList}
+                        getRowId={(item) => item.id}
+                        loading={isHistoryLoading}
+                        emptyTitle="Belum ada riwayat verifikasi"
+                        emptyDescription="Riwayat verifikasi setoran akan muncul di sini."
+                        columns={[
+                            {
+                                key: "createdAt",
+                                header: "Tanggal",
+                                card: "field",
+                                render: (item) => (
+                                    <span className="font-medium">
+                                        {formatDateTime(item.createdAt)}
+                                    </span>
+                                ),
+                            },
+                            {
+                                key: "guru",
+                                header: "Guru",
+                                card: "title",
+                                render: (item) => item.guru?.fullName || item.guru?.name,
+                            },
+                            {
+                                key: "status",
+                                header: "Status",
+                                card: "field",
+                                render: (item) => (
+                                    <Badge
+                                        variant={item.status === "verified" ? "default" : "destructive"}
+                                        className={item.status === "verified" ? "bg-green-600" : ""}
+                                    >
+                                        {item.status === "verified" ? "Diterima" : "Ditolak"}
+                                    </Badge>
+                                ),
+                            },
+                            {
+                                key: "totalNominal",
+                                header: "Total",
+                                card: "field",
+                                render: (item) => (
+                                    <span className="font-mono">
+                                        {formatRupiah(item.totalNominal)}
+                                    </span>
+                                ),
+                            },
+                            {
+                                key: "selisih",
+                                header: "Selisih",
+                                card: "field",
+                                render: (item) => (
+                                    <span className="font-mono">
+                                        {item.selisih && item.selisih !== 0 ? (
+                                            <span className="text-red-500">{formatRupiah(item.selisih)}</span>
+                                        ) : "-"}
+                                    </span>
+                                ),
+                            },
+                        ]}
+                        actions={(item) => (
+                            <Button variant="outline" size="sm" asChild>
+                                <Link href={`/tabungan/setoran/detail?id=${item.id}`}>
+                                    Detail
+                                </Link>
+                            </Button>
+                        )}
+                    />
                 </TabsContent>
             </Tabs>
 

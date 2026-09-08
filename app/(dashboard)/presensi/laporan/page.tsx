@@ -16,14 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/data-table";
 import { ArrowLeft, Download, FileText, Filter, Loader2, Calendar as CalendarIcon, Printer, ChevronLeft, ChevronRight, User, Calendar, BarChart2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -636,28 +629,55 @@ export default function LaporanPresensiPage() {
                       </Button>
                     </div>
                   </div>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Tanggal</TableHead><TableHead>Kelas</TableHead><TableHead>Siswa</TableHead>
-                        <TableHead>Status</TableHead><TableHead>Waktu</TableHead><TableHead>Metode</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {paginatedRecords.map((record) => (
-                        <TableRow key={record.id}>
-                          <TableCell>{record.date}</TableCell>
-                          <TableCell>Kelas {record.className}</TableCell>
-                          <TableCell>
-                            <div><p className="font-medium">{record.studentName}</p><p className="text-xs text-muted-foreground">{record.nis || record.nisn || "-"}</p></div>
-                          </TableCell>
-                          <TableCell><Badge className={STATUS_BADGES[record.status]}>{STATUS_LABELS[record.status]}</Badge></TableCell>
-                          <TableCell>{record.checkInTime || "-"}</TableCell>
-                          <TableCell>{record.recordMethod === "qr_scan" ? "QR" : "Manual"}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  <DataTable
+                    data={paginatedRecords}
+                    getRowId={(record) => record.id}
+                    columns={[
+                      {
+                        key: "date",
+                        header: "Tanggal",
+                        card: "field",
+                        render: (record) => record.date,
+                      },
+                      {
+                        key: "studentName",
+                        header: "Siswa",
+                        card: "title",
+                        render: (record) => (
+                          <div>
+                            <p className="font-medium">{record.studentName}</p>
+                            <p className="text-xs text-muted-foreground">Kelas {record.className} • {record.nis || record.nisn || "-"}</p>
+                          </div>
+                        ),
+                      },
+                      {
+                        key: "className",
+                        header: "Kelas",
+                        card: "hidden",
+                        render: (record) => `Kelas ${record.className}`,
+                      },
+                      {
+                        key: "status",
+                        header: "Status",
+                        card: "field",
+                        render: (record) => (
+                          <Badge className={STATUS_BADGES[record.status]}>{STATUS_LABELS[record.status]}</Badge>
+                        ),
+                      },
+                      {
+                        key: "checkInTime",
+                        header: "Waktu",
+                        card: "field",
+                        render: (record) => record.checkInTime || "-",
+                      },
+                      {
+                        key: "recordMethod",
+                        header: "Metode",
+                        card: "field",
+                        render: (record) => (record.recordMethod === "qr_scan" ? "QR" : "Manual"),
+                      },
+                    ]}
+                  />
                 </div>
               )}
             </CardContent>
@@ -874,37 +894,67 @@ function StudentDetailModal({
               <p>Belum ada data kehadiran untuk siswa ini</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-center">Tahun Ajaran</TableHead>
-                    <TableHead className="text-center">Hadir</TableHead>
-                    <TableHead className="text-center">Sakit</TableHead>
-                    <TableHead className="text-center">Izin</TableHead>
-                    <TableHead className="text-center">Alpha</TableHead>
-                    <TableHead className="text-center">Total Hari</TableHead>
-                    <TableHead className="text-center">% Kehadiran</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.map((d) => {
+            <DataTable
+              data={data}
+              getRowId={(d) => d.academicYear}
+              columns={[
+                {
+                  key: "academicYear",
+                  header: "Tahun Ajaran",
+                  card: "title",
+                  render: (d) => (
+                    <span className="font-medium text-center">{d.academicYear}</span>
+                  ),
+                },
+                {
+                  key: "hadir",
+                  header: "Hadir",
+                  card: "field",
+                  render: (d) => (
+                    <span className="text-green-700 font-medium text-center block">{d.hadir}</span>
+                  ),
+                },
+                {
+                  key: "sakit",
+                  header: "Sakit",
+                  card: "field",
+                  render: (d) => (
+                    <span className="text-yellow-700 text-center block">{d.sakit}</span>
+                  ),
+                },
+                {
+                  key: "izin",
+                  header: "Izin",
+                  card: "field",
+                  render: (d) => (
+                    <span className="text-blue-700 text-center block">{d.izin}</span>
+                  ),
+                },
+                {
+                  key: "alpha",
+                  header: "Alpha",
+                  card: "field",
+                  render: (d) => (
+                    <span className="text-red-700 text-center block">{d.alpha}</span>
+                  ),
+                },
+                {
+                  key: "totalDays",
+                  header: "Total Hari",
+                  card: "field",
+                  render: (d) => <span className="text-center block">{d.totalDays}</span>,
+                },
+                {
+                  key: "pct",
+                  header: "% Kehadiran",
+                  card: "field",
+                  render: (d) => {
                     const pct = d.totalDays > 0 ? Math.round((d.hadir / d.totalDays) * 1000) / 10 : 0;
-                    return (
-                      <TableRow key={d.academicYear}>
-                        <TableCell className="font-medium text-center">{d.academicYear}</TableCell>
-                        <TableCell className="text-center text-green-700 font-medium">{d.hadir}</TableCell>
-                        <TableCell className="text-center text-yellow-700">{d.sakit}</TableCell>
-                        <TableCell className="text-center text-blue-700">{d.izin}</TableCell>
-                        <TableCell className="text-center text-red-700">{d.alpha}</TableCell>
-                        <TableCell className="text-center">{d.totalDays}</TableCell>
-                        <TableCell className="text-center font-semibold text-purple-700">{pct}%</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+                    return <span className="font-semibold text-purple-700 text-center block">{pct}%</span>;
+                  },
+                },
+              ]}
+            />
           )}
         </div>
       </DialogContent>

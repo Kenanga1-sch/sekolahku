@@ -4,8 +4,8 @@ import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, FileCode, CheckCircle, AlertCircle, Loader2, Download } from "lucide-react";
+import { DataTable } from "@/components/data-table";
+import { Upload, AlertCircle, Loader2, Download } from "lucide-react";
 import { showSuccess, showError } from "@/lib/toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -158,30 +158,38 @@ export function EmployeeImportDialog({ open, onOpenChange, onSuccess }: Employee
                     </Button>
                 </div>
                 
-                <ScrollArea className="h-[300px] border rounded-md">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>No</TableHead>
-                                <TableHead>Nama</TableHead>
-                                <TableHead>Email</TableHead>
-                                <TableHead>Role</TableHead>
-                                <TableHead>Status</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {fileData.map((row, i) => (
-                                <TableRow key={i}>
-                                    <TableCell>{i + 1}</TableCell>
-                                    <TableCell>{row.NamaLengkap}</TableCell>
-                                    <TableCell>{row.Email}</TableCell>
-                                    <TableCell>{row.Role}</TableCell>
-                                    <TableCell>{row.StatusKepegawaian}</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </ScrollArea>
+                 <div className="max-h-[300px] overflow-y-auto border rounded-md">
+                    <DataTable
+                        data={fileData}
+                        getRowId={(row, i) => row.Email ?? `row-${i}`}
+                        columns={[
+                            {
+                                key: "NamaLengkap",
+                                header: "Nama",
+                                card: "title",
+                                render: (row) => <span className="font-medium">{row.NamaLengkap}</span>,
+                            },
+                            {
+                                key: "Email",
+                                header: "Email",
+                                card: "field",
+                                render: (row) => row.Email,
+                            },
+                            {
+                                key: "Role",
+                                header: "Role",
+                                card: "field",
+                                render: (row) => row.Role,
+                            },
+                            {
+                                key: "StatusKepegawaian",
+                                header: "Status",
+                                card: "field",
+                                render: (row) => row.StatusKepegawaian,
+                            },
+                        ]}
+                    />
+                 </div>
              </div>
         )}
 

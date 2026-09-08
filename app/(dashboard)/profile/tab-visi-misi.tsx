@@ -234,20 +234,20 @@ export default function TabVisiMisi({ settings, setSettings }: TabVisiMisiProps)
 
   return (
     <Tabs defaultValue="visimisi" className="space-y-6">
-      <TabsList className="bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl flex flex-wrap w-full">
-        <TabsTrigger value="visimisi" className="rounded-lg flex-1 whitespace-nowrap text-xs px-2">
+      <TabsList className="bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl w-full">
+        <TabsTrigger value="visimisi" className="rounded-lg whitespace-nowrap text-xs px-2">
           <span className="hidden sm:inline">Visi, Misi & Indikator</span>
           <span className="sm:hidden">Visi & Misi</span>
         </TabsTrigger>
-        <TabsTrigger value="sejarah" className="rounded-lg flex-1 whitespace-nowrap text-xs px-2">
+        <TabsTrigger value="sejarah" className="rounded-lg whitespace-nowrap text-xs px-2">
           <span className="hidden sm:inline">Sejarah & Prestasi</span>
           <span className="sm:hidden">Sejarah</span>
         </TabsTrigger>
-        <TabsTrigger value="kurikulum" className="rounded-lg flex-1 whitespace-nowrap text-xs px-2">
+        <TabsTrigger value="kurikulum" className="rounded-lg whitespace-nowrap text-xs px-2">
           <span className="hidden sm:inline">Kurikulum & Ekstra</span>
           <span className="sm:hidden">Kurikulum</span>
         </TabsTrigger>
-        <TabsTrigger value="landing" className="rounded-lg flex-1 whitespace-nowrap text-xs px-2">Landing</TabsTrigger>
+        <TabsTrigger value="landing" className="rounded-lg whitespace-nowrap text-xs px-2">Landing</TabsTrigger>
       </TabsList>
 
       {/* TABS CONTENT 1: VISI MISI */}
@@ -393,7 +393,7 @@ export default function TabVisiMisi({ settings, setSettings }: TabVisiMisiProps)
 
         {/* Misi */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <CardTitle className="flex items-center gap-2 text-indigo-600">
                 <Target className="h-5 w-5" /> Misi Sekolah
@@ -436,7 +436,7 @@ export default function TabVisiMisi({ settings, setSettings }: TabVisiMisiProps)
 
         {/* Indikator Visi */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <CardTitle className="flex items-center gap-2 text-indigo-600">
                 <Target className="h-5 w-5" /> Indikator Fokus Siswa
@@ -490,7 +490,7 @@ export default function TabVisiMisi({ settings, setSettings }: TabVisiMisiProps)
       <TabsContent value="sejarah" className="space-y-6">
         {/* Timeline Sejarah */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <CardTitle className="flex items-center gap-2 text-indigo-600">
                 <Calendar className="h-5 w-5" /> Garis Waktu Sejarah
@@ -550,7 +550,7 @@ export default function TabVisiMisi({ settings, setSettings }: TabVisiMisiProps)
 
         {/* Prestasi Ringkas */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <CardTitle className="flex items-center gap-2 text-indigo-600">
                 <Award className="h-5 w-5" /> Statistik & Prestasi Ringkas
@@ -645,7 +645,7 @@ export default function TabVisiMisi({ settings, setSettings }: TabVisiMisiProps)
 
         {/* Ekstrakurikuler */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <CardTitle className="flex items-center gap-2 text-indigo-600">
                 <GraduationCap className="h-5 w-5" /> Daftar Ekstrakurikuler

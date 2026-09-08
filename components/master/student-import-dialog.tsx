@@ -6,10 +6,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable, type Column } from "@/components/data-table";
 import { Loader2, FileSpreadsheet, AlertTriangle } from "lucide-react";
 import { showSuccess, showError, showWarning } from "@/lib/toast";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { goPost } from "@/lib/api-client";
 
 interface StudentImportDialogProps {
@@ -294,28 +294,26 @@ export function StudentImportDialog({ open, onOpenChange, onSuccess }: StudentIm
                                 <Label>Preview Data ({previewData.length} baris)</Label>
                                 <span className="text-xs text-muted-foreground">Periksa data sebelum import</span>
                             </div>
-                            <div className="border rounded-md overflow-hidden">
-                                <ScrollArea className="h-64 max-w-[85vw] w-full whitespace-nowrap">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                {previewData.length > 0 && Object.keys(previewData[0]).map((col) => (
-                                                    <TableHead key={col} className="whitespace-nowrap px-4">{col}</TableHead>
-                                                ))}
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {previewData.slice(0, 50).map((row, i) => (
-                                                <TableRow key={i}>
-                                                    {Object.keys(previewData[0]).map((col) => (
-                                                        <TableCell key={col} className="whitespace-nowrap px-4">{row[col] !== undefined && row[col] !== null && row[col] !== "" ? String(row[col]) : "-"}</TableCell>
-                                                    ))}
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                    <ScrollBar orientation="horizontal" />
-                                </ScrollArea>
+                            <div className="max-h-64 overflow-y-auto">
+                                <DataTable
+                                    data={previewData.slice(0, 50)}
+                                    getRowId={(row, i) => String(row.nis ?? row.nisn ?? `row-${i}`)}
+                                    columns={Object.keys(previewData[0]).map((col): Column<Record<string, unknown>> => ({
+                                        key: col,
+                                        header: col,
+                                        card: col === "fullName"
+                                            ? "title"
+                                            : ["nis", "nisn", "gender", "className"].includes(col)
+                                                ? "field"
+                                                : "hidden",
+                                        render: (row) => {
+                                            const value = row[col];
+                                            return value !== undefined && value !== null && value !== ""
+                                                ? String(value)
+                                                : "-";
+                                        },
+                                    }))}
+                                />
                             </div>
                         </div>
                     )}

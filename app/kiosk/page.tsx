@@ -67,16 +67,16 @@ async function apiFindLoanByItemId(itemId: string) {
 // ==========================================
 
 async function apiAttendanceScan(qrCode: string) {
-    return goPost("/api/public/kiosk/attendance", { qrCode }, { skipRetry: true });
+    return goPost("/api/kiosk/attendance", { qrCode }, { skipRetry: true });
 }
 
 async function apiSavingsLookup(qrCode: string) {
     const { goGet } = await import("@/lib/api-client");
-    return goGet(`/api/public/kiosk/savings-lookup?qrCode=${encodeURIComponent(qrCode)}`, { skipRetry: true });
+    return goGet(`/api/kiosk/savings-lookup?qrCode=${encodeURIComponent(qrCode)}`, { skipRetry: true });
 }
 
 async function apiSavingsDeposit(qrCode: string, nominal: number) {
-    return goPost("/api/public/kiosk/savings-deposit", { qrCode, nominal }, { skipRetry: true });
+    return goPost("/api/kiosk/savings-deposit", { qrCode, nominal }, { skipRetry: true });
 }
 
 // ==========================================

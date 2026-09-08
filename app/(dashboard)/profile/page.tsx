@@ -416,40 +416,43 @@ export default function ProfilePage() {
             </Card>
 
             <Tabs defaultValue="personal" onValueChange={setActiveTab} className="w-full">
-                <TabsList className="flex flex-wrap w-full justify-start gap-1.5 mb-6 bg-slate-150/80 dark:bg-zinc-900/80 border border-slate-200/40 dark:border-zinc-800/40 p-1.5 rounded-xl h-auto">
-                    <TabsTrigger value="personal" className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all cursor-pointer flex-1 min-w-[120px] whitespace-nowrap text-xs">
-                        <User className="h-4 w-4" />
-                        Profil Saya
-                    </TabsTrigger>
-                    <TabsTrigger value="security" className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all cursor-pointer flex-1 min-w-[120px] whitespace-nowrap text-xs">
-                        <Shield className="h-4 w-4" />
-                        Keamanan
-                    </TabsTrigger>
-                    <TabsTrigger value="activity" className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all cursor-pointer flex-1 min-w-[120px] whitespace-nowrap text-xs">
-                        <History className="h-4 w-4" />
-                        Aktivitas Saya
-                    </TabsTrigger>
-                    {(user.role === "admin" || user.role === "superadmin") && (
-                        <>
-                            <TabsTrigger value="sekolah" className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all cursor-pointer flex-1 min-w-[120px] whitespace-nowrap text-xs">
-                                <Settings className="h-4 w-4" />
-                                Pengaturan Sekolah
-                            </TabsTrigger>
-                            <TabsTrigger value="users" className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all cursor-pointer flex-1 min-w-[120px] whitespace-nowrap text-xs">
-                                <Users className="h-4 w-4" />
-                                Manajemen Pengguna
-                            </TabsTrigger>
-                            <TabsTrigger value="system-logs" className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all cursor-pointer flex-1 min-w-[120px] whitespace-nowrap text-xs">
-                                <Activity className="h-4 w-4" />
-                                Log Aktivitas Sistem
-                            </TabsTrigger>
-                            <TabsTrigger value="backup" className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all cursor-pointer flex-1 min-w-[120px] whitespace-nowrap text-xs">
-                                <Database className="h-4 w-4" />
-                                Backup Telegram
-                            </TabsTrigger>
-                        </>
-                    )}
-                </TabsList>
+                <div className="relative mb-6">
+                    <TabsList className="w-full justify-start gap-1.5 bg-slate-150/80 dark:bg-zinc-900/80 border border-slate-200/40 dark:border-zinc-800/40 p-1.5 rounded-xl h-auto">
+                        <TabsTrigger value="personal" className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all cursor-pointer whitespace-nowrap text-xs">
+                            <User className="h-4 w-4" />
+                            Profil Saya
+                        </TabsTrigger>
+                        <TabsTrigger value="security" className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all cursor-pointer whitespace-nowrap text-xs">
+                            <Shield className="h-4 w-4" />
+                            Keamanan
+                        </TabsTrigger>
+                        <TabsTrigger value="activity" className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all cursor-pointer whitespace-nowrap text-xs">
+                            <History className="h-4 w-4" />
+                            Aktivitas Saya
+                        </TabsTrigger>
+                        {(user.role === "admin" || user.role === "superadmin") && (
+                            <>
+                                <TabsTrigger value="sekolah" className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all cursor-pointer whitespace-nowrap text-xs">
+                                    <Settings className="h-4 w-4" />
+                                    Pengaturan Sekolah
+                                </TabsTrigger>
+                                <TabsTrigger value="users" className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all cursor-pointer whitespace-nowrap text-xs">
+                                    <Users className="h-4 w-4" />
+                                    Manajemen Pengguna
+                                </TabsTrigger>
+                                <TabsTrigger value="system-logs" className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all cursor-pointer whitespace-nowrap text-xs">
+                                    <Activity className="h-4 w-4" />
+                                    Log Aktivitas Sistem
+                                </TabsTrigger>
+                                <TabsTrigger value="backup" className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all cursor-pointer whitespace-nowrap text-xs">
+                                    <Database className="h-4 w-4" />
+                                    Backup Telegram
+                                </TabsTrigger>
+                            </>
+                        )}
+                    </TabsList>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-slate-150 to-transparent dark:from-zinc-900 sm:hidden" aria-hidden="true" />
+                </div>
 
                 {/* Personal Tab */}
                 <TabsContent value="personal" className="space-y-6">

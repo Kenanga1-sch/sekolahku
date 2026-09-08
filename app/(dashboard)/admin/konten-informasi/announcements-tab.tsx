@@ -1,10 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
+import { DataTable } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,9 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Plus, RefreshCw, Search, Newspaper, MoreHorizontal, Pencil, Eye, EyeOff, Star, Trash2, Loader2, X, ImageIcon } from "lucide-react";
+import { Plus, RefreshCw, Search, MoreHorizontal, Pencil, Eye, EyeOff, Star, Trash2, Loader2, X, ImageIcon } from "lucide-react";
 import Image from "next/image";
-import { cn } from "@/lib/utils";
 import type { useAnnouncements } from "./use-announcements";
 
 function generateSlug(title: string): string {
@@ -67,81 +64,75 @@ export function AnnouncementsTab(hook: AnnouncementsHook) {
         </div>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Judul</TableHead><TableHead>Kategori</TableHead>
-                <TableHead>Status</TableHead><TableHead>Tanggal</TableHead><TableHead className="w-12"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                    <TableCell><Skeleton className="h-6 w-20" /></TableCell>
-                    <TableCell><Skeleton className="h-6 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                    <TableCell><Skeleton className="h-8 w-8" /></TableCell>
-                  </TableRow>
-                ))
-              ) : filtered.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-8">
-                    <Newspaper className="h-12 w-12 mx-auto text-muted-foreground/50 mb-2" />
-                    <p className="text-muted-foreground">Belum ada pengumuman</p>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filtered.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell>
-                      <div><p className="font-medium line-clamp-1">{item.title}</p><p className="text-xs text-muted-foreground line-clamp-1">{item.excerpt}</p></div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getCategoryColor(item.category || "")}>
-                        {announcementCategories.find((c) => c.value === item.category)?.label || item.category}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className={item.isPublished ? "border-green-500 text-green-600" : ""}>
-                          {item.isPublished ? "Terbit" : "Draft"}
-                        </Badge>
-                        {item.isFeatured && <Star className="h-4 w-4 text-amber-500 fill-amber-500" />}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {item.publishedAt ? new Date(item.publishedAt).toLocaleDateString("id-ID") : item.createdAt ? new Date(item.createdAt).toLocaleDateString("id-ID") : "-"}
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openEdit(item)}><Pencil className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => togglePublish(item.id, item.isPublished ?? false)}>
-                            {item.isPublished ? <><EyeOff className="h-4 w-4 mr-2" />Jadikan Draft</> : <><Eye className="h-4 w-4 mr-2" />Terbitkan</>}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => toggleFeatured(item.id, item.isFeatured ?? false)}>
-                            <Star className="h-4 w-4 mr-2" />{item.isFeatured ? "Hapus Featured" : "Jadikan Featured"}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(item.id)}>
-                            <Trash2 className="h-4 w-4 mr-2" />Hapus
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <DataTable
+        data={filtered}
+        getRowId={(item) => item.id}
+        loading={loading}
+        emptyTitle="Belum ada pengumuman"
+        emptyDescription="Pengumuman dan berita yang dibuat akan tampil di sini."
+        columns={[
+          {
+            key: "title",
+            header: "Judul",
+            card: "title",
+            render: (item) => (
+              <div><p className="font-medium line-clamp-1">{item.title}</p><p className="text-xs text-muted-foreground line-clamp-1">{item.excerpt}</p></div>
+            ),
+          },
+          {
+            key: "category",
+            header: "Kategori",
+            card: "field",
+            render: (item) => (
+              <Badge className={getCategoryColor(item.category || "")}>
+                {announcementCategories.find((c) => c.value === item.category)?.label || item.category}
+              </Badge>
+            ),
+          },
+          {
+            key: "isPublished",
+            header: "Status",
+            card: "field",
+            render: (item) => (
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className={item.isPublished ? "border-green-500 text-green-600" : ""}>
+                  {item.isPublished ? "Terbit" : "Draft"}
+                </Badge>
+                {item.isFeatured && <Star className="h-4 w-4 text-amber-500 fill-amber-500" />}
+              </div>
+            ),
+          },
+          {
+            key: "publishedAt",
+            header: "Tanggal",
+            card: "field",
+            render: (item) => (
+              <span className="text-muted-foreground text-sm">
+                {item.publishedAt ? new Date(item.publishedAt).toLocaleDateString("id-ID") : item.createdAt ? new Date(item.createdAt).toLocaleDateString("id-ID") : "-"}
+              </span>
+            ),
+          },
+        ]}
+        actions={(item) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => openEdit(item)}><Pencil className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => togglePublish(item.id, item.isPublished ?? false)}>
+                {item.isPublished ? <><EyeOff className="h-4 w-4 mr-2" />Jadikan Draft</> : <><Eye className="h-4 w-4 mr-2" />Terbitkan</>}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => toggleFeatured(item.id, item.isFeatured ?? false)}>
+                <Star className="h-4 w-4 mr-2" />{item.isFeatured ? "Hapus Featured" : "Jadikan Featured"}
+              </DropdownMenuItem>
+              <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(item.id)}>
+                <Trash2 className="h-4 w-4 mr-2" />Hapus
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      />
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

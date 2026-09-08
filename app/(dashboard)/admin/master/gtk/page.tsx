@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Search, MoreHorizontal, Pencil, Trash2, Upload, Users, GraduationCap, Award, BookOpen, AlertCircle } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Pencil, Trash2, Upload, Users, GraduationCap, Award, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable, TablePagination } from "@/components/data-table";
 import { useSortableData } from "@/hooks/use-sortable-data";
-import { SortableTableHead } from "@/components/ui/sortable-table-head";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -288,148 +287,142 @@ export default function MasterGTKPage() {
                     </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="hover:bg-transparent bg-slate-50/50">
-                                <TableHead className="w-[70px]">Foto</TableHead>
-                                <SortableTableHead label="Nama Lengkap & Email" sortKey="fullName" sortConfig={sortConfig} onSort={requestSort} />
-                                <SortableTableHead label="Gelar" sortKey="degree" sortConfig={sortConfig} onSort={requestSort} />
-                                <SortableTableHead label="Identitas Pegawai" sortKey="nip" sortConfig={sortConfig} onSort={requestSort} />
-                                <SortableTableHead label="Tugas Utama / Jabatan" sortKey="jobType" sortConfig={sortConfig} onSort={requestSort} />
-                                <SortableTableHead label="Kepegawaian" sortKey="employmentStatus" sortConfig={sortConfig} onSort={requestSort} />
-                                <TableHead>Kategori</TableHead>
-                                <TableHead>Urutan</TableHead>
-                                <TableHead className="text-right pr-6">Aksi</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {isLoading ? (
-                                // Premium Shimmer Skeleton Loader rows
-                                Array.from({ length: 5 }).map((_, idx) => (
-                                    <TableRow key={idx}>
-                                        <TableCell><div className="h-9 w-9 rounded-full bg-slate-100 dark:bg-slate-800 animate-pulse" /></TableCell>
-                                        <TableCell>
-                                            <div className="h-4 w-36 bg-slate-100 dark:bg-slate-800 rounded animate-pulse mb-1.5" />
-                                            <div className="h-3 w-28 bg-slate-100 dark:bg-slate-800 rounded animate-pulse" />
-                                        </TableCell>
-                                        <TableCell><div className="h-4 w-12 bg-slate-100 dark:bg-slate-800 rounded animate-pulse" /></TableCell>
-                                        <TableCell>
-                                            <div className="h-4 w-28 bg-slate-100 dark:bg-slate-800 rounded animate-pulse mb-1.5" />
-                                            <div className="h-3 w-24 bg-slate-100 dark:bg-slate-800 rounded animate-pulse" />
-                                        </TableCell>
-                                        <TableCell><div className="h-6 w-20 bg-slate-100 dark:bg-slate-800 rounded-full animate-pulse" /></TableCell>
-                                        <TableCell><div className="h-6 w-14 bg-slate-100 dark:bg-slate-800 rounded-full animate-pulse" /></TableCell>
-                                        <TableCell><div className="h-6 w-16 bg-slate-100 dark:bg-slate-800 rounded-full animate-pulse" /></TableCell>
-                                        <TableCell><div className="h-4 w-8 bg-slate-100 dark:bg-slate-800 rounded animate-pulse" /></TableCell>
-                                        <TableCell><div className="h-8 w-8 bg-slate-100 dark:bg-slate-800 rounded animate-pulse ml-auto" /></TableCell>
-                                    </TableRow>
-                                ))
-                            ) : filteredEmployees.length === 0 ? (
-                                 <TableRow>
-                                    <TableCell colSpan={9} className="h-32 text-center text-muted-foreground">
-                                        <div className="flex flex-col items-center justify-center gap-1.5 py-4">
-                                            <AlertCircle className="h-8 w-8 text-slate-400" />
-                                            <span className="font-semibold text-sm">Tidak Ada Data GTK</span>
-                                            <span className="text-xs">Coba ubah filter kategori atau kata kunci pencarian Anda.</span>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                filteredEmployees.map((emp) => {
-                                    const isPrincipal = emp.category === "kepsek";
-                                    return (
-                                        <TableRow 
-                                            key={emp.id}
-                                            className={isPrincipal ? "bg-amber-50/15 hover:bg-amber-50/25 dark:bg-amber-950/5" : ""}
-                                        >
-                                            <TableCell>
-                                                <Avatar className="h-9 w-9 border border-slate-100 shadow-sm">
-                                                    <AvatarImage src={emp.photoUrl || undefined} />
-                                                    <AvatarFallback className="text-xs font-semibold bg-slate-100 text-slate-700">
-                                                        {(emp.fullName || '?')[0].toUpperCase()}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                            </TableCell>
-                                            <TableCell className="font-medium">
-                                                <div className="flex flex-col">
-                                                    <span className="font-semibold text-slate-800 dark:text-slate-200">
-                                                        {emp.fullName}
-                                                    </span>
-                                                    <span className="text-xs text-muted-foreground">{emp.email}</span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="text-sm text-slate-600">
-                                                {emp.degree || '-'}
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex flex-col text-xs space-y-0.5">
-                                                    <span className="font-medium text-slate-800">{emp.nip ? `NIP. ${emp.nip}` : '-'}</span>
-                                                    <span className="text-muted-foreground">{emp.nuptk ? `NUPTK. ${emp.nuptk}` : '-'}</span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge variant="outline" className="text-[11px] font-medium border-slate-200 py-0.5 px-2 bg-slate-50/50">
-                                                    {emp.jobType || 'Belum diatur'}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge className={`text-[11px] font-semibold py-0.5 px-2 border ${
-                                                    STATUS_COLORS[emp.employmentStatus] || 'bg-slate-50 text-slate-700 border-slate-200'
-                                                }`}>
-                                                    {emp.employmentStatus || '-'}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge variant="outline" className={`capitalize text-[11px] font-semibold py-0.5 px-2 border ${
-                                                    CATEGORY_COLORS[emp.category || ''] || 'bg-slate-50 text-slate-700'
-                                                }`}>
-                                                    {categoryLabel(emp.category)}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="text-xs font-semibold text-slate-500 font-mono">
-                                                {emp.displayOrder ?? '-'}
-                                            </TableCell>
-                                            <TableCell className="text-right pr-6">
-                                                 <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                         <Button variant="outline" size="icon" className="h-8 w-8 text-slate-500 hover:text-slate-800 bg-white border-slate-200 shadow-sm">
-                                                             <span className="sr-only">Open menu</span>
-                                                             <MoreHorizontal className="h-4 w-4" />
-                                                         </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem onClick={() => handleEdit(emp.id)} className="cursor-pointer">
-                                                            <Pencil className="mr-2 h-4 w-4 text-slate-500" /> Edit Detail
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem className="text-rose-600 focus:text-rose-700 cursor-pointer" onClick={() => handleDelete(emp.id)}>
-                                                            <Trash2 className="mr-2 h-4 w-4 text-rose-500" /> Hapus Akun
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                 </DropdownMenu>
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                })
-                            )}
-                        </TableBody>
-                    </Table>
+                    <DataTable
+                        data={isLoading ? [] : filteredEmployees}
+                        getRowId={(emp) => emp.id}
+                        loading={isLoading}
+                        sortConfig={sortConfig}
+                        onSort={requestSort}
+                        emptyTitle="Tidak Ada Data GTK"
+                        emptyDescription="Coba ubah filter kategori atau kata kunci pencarian Anda."
+                        columns={[
+                            {
+                                key: "photoUrl",
+                                header: "Foto",
+                                card: "hidden",
+                                width: "70px",
+                                render: (emp) => (
+                                    <Avatar className="h-9 w-9 border border-slate-100 shadow-sm">
+                                        <AvatarImage src={emp.photoUrl || undefined} />
+                                        <AvatarFallback className="text-xs font-semibold bg-slate-100 text-slate-700">
+                                            {(emp.fullName || '?')[0].toUpperCase()}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                ),
+                            },
+                            {
+                                key: "fullName",
+                                header: "Nama Lengkap & Email",
+                                sortable: true,
+                                card: "title",
+                                render: (emp) => (
+                                    <div className="flex flex-col">
+                                        <span className="font-semibold text-slate-800 dark:text-slate-200">
+                                            {emp.fullName}
+                                        </span>
+                                        <span className="text-xs text-muted-foreground">{emp.email}</span>
+                                    </div>
+                                ),
+                            },
+                            {
+                                key: "degree",
+                                header: "Gelar",
+                                sortable: true,
+                                card: "hidden",
+                                render: (emp) => (
+                                    <span className="text-sm text-slate-600">{emp.degree || '-'}</span>
+                                ),
+                            },
+                            {
+                                key: "nip",
+                                header: "Identitas Pegawai",
+                                sortable: true,
+                                card: "hidden",
+                                render: (emp) => (
+                                    <div className="flex flex-col text-xs space-y-0.5">
+                                        <span className="font-medium text-slate-800">{emp.nip ? `NIP. ${emp.nip}` : '-'}</span>
+                                        <span className="text-muted-foreground">{emp.nuptk ? `NUPTK. ${emp.nuptk}` : '-'}</span>
+                                    </div>
+                                ),
+                            },
+                            {
+                                key: "jobType",
+                                header: "Tugas Utama / Jabatan",
+                                sortable: true,
+                                card: "field",
+                                render: (emp) => (
+                                    <Badge variant="outline" className="text-[11px] font-medium border-slate-200 py-0.5 px-2 bg-slate-50/50">
+                                        {emp.jobType || 'Belum diatur'}
+                                    </Badge>
+                                ),
+                            },
+                            {
+                                key: "employmentStatus",
+                                header: "Kepegawaian",
+                                sortable: true,
+                                card: "field",
+                                render: (emp) => (
+                                    <Badge className={`text-[11px] font-semibold py-0.5 px-2 border ${
+                                        STATUS_COLORS[emp.employmentStatus] || 'bg-slate-50 text-slate-700 border-slate-200'
+                                    }`}>
+                                        {emp.employmentStatus || '-'}
+                                    </Badge>
+                                ),
+                            },
+                            {
+                                key: "category",
+                                header: "Kategori",
+                                card: "field",
+                                render: (emp) => (
+                                    <Badge variant="outline" className={`capitalize text-[11px] font-semibold py-0.5 px-2 border ${
+                                        CATEGORY_COLORS[emp.category || ''] || 'bg-slate-50 text-slate-700'
+                                    }`}>
+                                        {categoryLabel(emp.category)}
+                                    </Badge>
+                                ),
+                            },
+                            {
+                                key: "displayOrder",
+                                header: "Urutan",
+                                card: "hidden",
+                                render: (emp) => (
+                                    <span className="text-xs font-semibold text-slate-500 font-mono">
+                                        {emp.displayOrder ?? '-'}
+                                    </span>
+                                ),
+                            },
+                        ]}
+                        actions={(emp) => (
+                             <DropdownMenu>
+                                 <DropdownMenuTrigger asChild>
+                                     <Button variant="outline" size="icon" className="h-8 w-8 text-slate-500 hover:text-slate-800 bg-white border-slate-200 shadow-sm">
+                                         <span className="sr-only">Open menu</span>
+                                         <MoreHorizontal className="h-4 w-4" />
+                                     </Button>
+                                 </DropdownMenuTrigger>
+                                 <DropdownMenuContent align="end">
+                                     <DropdownMenuItem onClick={() => handleEdit(emp.id)} className="cursor-pointer">
+                                         <Pencil className="mr-2 h-4 w-4 text-slate-500" /> Edit Detail
+                                     </DropdownMenuItem>
+                                     <DropdownMenuItem className="text-rose-600 focus:text-rose-700 cursor-pointer" onClick={() => handleDelete(emp.id)}>
+                                         <Trash2 className="mr-2 h-4 w-4 text-rose-500" /> Hapus Akun
+                                     </DropdownMenuItem>
+                                 </DropdownMenuContent>
+                             </DropdownMenu>
+                        )}
+                    />
                 </CardContent>
             </Card>
 
             {/* Pagination */}
-             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800">
-                <div className="text-sm text-muted-foreground">
-                    Menampilkan halaman <span className="font-semibold text-slate-800">{page}</span> dari <span className="font-semibold text-slate-800">{totalPages}</span> halaman
-                </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="border-slate-200">
-                        Previous
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="border-slate-200">
-                        Next
-                    </Button>
-                </div>
-            </div>
+             {!isLoading && employees.length > 0 && (
+                <TablePagination
+                    page={page}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                    label={`Total ${totalEmployees} GTK`}
+                />
+            )}
         </div>
     );
 }

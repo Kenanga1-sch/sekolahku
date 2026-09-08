@@ -5,14 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/data-table";
 import {
     Dialog,
     DialogContent,
@@ -28,7 +21,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Loader2, Info, User } from "lucide-react";
+import { Plus, Pencil, Trash2, Info } from "lucide-react";
 import { showSuccess, showError } from "@/lib/toast";
 import { goGet, goPost, goPut, goDelete } from "@/lib/api-client";
 
@@ -188,7 +181,7 @@ export default function TabKelas() {
     return (
         <div className="space-y-6">
             <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div>
                         <CardTitle>Daftar Kelas</CardTitle>
                         <CardDescription>Tahun Ajaran {academicYear} • Kuota dikunci sesuai angkatan saat Kelas 1</CardDescription>
@@ -199,58 +192,56 @@ export default function TabKelas() {
                     </Button>
                 </CardHeader>
                 <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Tingkat</TableHead>
-                                <TableHead>Nama Kelas</TableHead>
-                                <TableHead>Wali Kelas</TableHead>
-                                <TableHead>Kapasitas (Kuota Angkatan)</TableHead>
-                                <TableHead className="text-right">Aksi</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {isLoading ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-8">
-                                        <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
-                                    </TableCell>
-                                </TableRow>
-                            ) : classes.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                                        Belum ada data kelas.
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                classes.map((c) => (
-                                    <TableRow key={c.id}>
-                                        <TableCell>Kelas {c.grade}</TableCell>
-                                        <TableCell className="font-bold">{c.name}</TableCell>
-                                        <TableCell>{c.teacherName || "-"}</TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-semibold">{c.capacity} Siswa</span>
-                                                <span className="text-[10px] text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded font-medium">
-                                                    Kuota Angkatan
-                                                </span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(c)}>
-                                                    <Pencil className="h-4 w-4" />
-                                                </Button>
-                                                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(c.id)}>
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
+                    <DataTable
+                        data={classes}
+                        getRowId={(c) => c.id}
+                        loading={isLoading}
+                        emptyTitle="Belum ada data kelas"
+                        emptyDescription="Kelas yang dibuat akan tampil di sini."
+                        columns={[
+                            {
+                                key: "grade",
+                                header: "Tingkat",
+                                card: "field",
+                                render: (c) => `Kelas ${c.grade}`,
+                            },
+                            {
+                                key: "name",
+                                header: "Nama Kelas",
+                                card: "title",
+                                render: (c) => <span className="font-bold">{c.name}</span>,
+                            },
+                            {
+                                key: "teacherName",
+                                header: "Wali Kelas",
+                                card: "field",
+                                render: (c) => c.teacherName || "-",
+                            },
+                            {
+                                key: "capacity",
+                                header: "Kapasitas (Kuota Angkatan)",
+                                card: "field",
+                                render: (c) => (
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-semibold">{c.capacity} Siswa</span>
+                                        <span className="text-[10px] text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded font-medium">
+                                            Kuota Angkatan
+                                        </span>
+                                    </div>
+                                ),
+                            },
+                        ]}
+                        actions={(c) => (
+                            <div className="flex justify-end gap-2">
+                                <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(c)}>
+                                    <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(c.id)}>
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        )}
+                    />
                 </CardContent>
             </Card>
 

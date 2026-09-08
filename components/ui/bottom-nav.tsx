@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -8,18 +8,24 @@ import {
   Users,
   Library,
   Wallet,
+  ClipboardList,
+  Package,
+  UserCircle,
   Menu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { UserRole } from "@/types";
 
 interface BottomNavItem {
   href: string;
   label: string;
   icon: React.ElementType;
   matchPaths?: string[];
+  roles?: UserRole[];
 }
 
-const leftItems: BottomNavItem[] = [
+// Ordered by priority; first 4 visible items fill the nav (2 left, 2 right of the FAB)
+const allItems: BottomNavItem[] = [
   {
     href: "/overview",
     label: "Beranda",
@@ -30,16 +36,15 @@ const leftItems: BottomNavItem[] = [
     href: "/admin/siswa",
     label: "Siswa",
     icon: Users,
-    matchPaths: ["/admin/siswa", "/admin/akademik", "/admin/master", "/presensi", "/tabungan"],
+    matchPaths: ["/admin/siswa", "/admin/akademik", "/admin/master"],
+    roles: ["admin", "superadmin"],
   },
-];
-
-const rightItems: BottomNavItem[] = [
   {
     href: "/perpustakaan",
     label: "Perpus",
     icon: Library,
     matchPaths: ["/perpustakaan"],
+    roles: ["admin", "superadmin"],
   },
   {
     href: "/tabungan",
@@ -47,14 +52,51 @@ const rightItems: BottomNavItem[] = [
     icon: Wallet,
     matchPaths: ["/tabungan"],
   },
+  {
+    href: "/inventaris",
+    label: "Inventaris",
+    icon: Package,
+    matchPaths: ["/inventaris"],
+  },
+  {
+    href: "/presensi",
+    label: "Presensi",
+    icon: ClipboardList,
+    matchPaths: ["/presensi"],
+    roles: ["admin", "superadmin", "guru"],
+  },
+  {
+    href: "/profile",
+    label: "Profil",
+    icon: UserCircle,
+    matchPaths: ["/profile", "/profil"],
+  },
 ];
+
+function filterItemsByRole(items: BottomNavItem[], userRole?: string | null): BottomNavItem[] {
+  // While auth is loading (no role), only show role-agnostic items to avoid flashing restricted links
+  if (!userRole) return items.filter((item) => !item.roles);
+  const normalized = userRole.toLowerCase();
+  return items.filter(
+    (item) => !item.roles || item.roles.some((role) => role.toLowerCase() === normalized)
+  );
+}
 
 interface BottomNavProps {
   onMenuClick: () => void;
+  userRole?: string | null;
 }
 
-export function BottomNav({ onMenuClick }: BottomNavProps) {
+export function BottomNav({ onMenuClick, userRole }: BottomNavProps) {
   const pathname = usePathname();
+
+  const visibleItems = useMemo(
+    () => filterItemsByRole(allItems, userRole).slice(0, 4),
+    [userRole]
+  );
+  const splitIndex = Math.ceil(visibleItems.length / 2);
+  const leftItems = visibleItems.slice(0, splitIndex);
+  const rightItems = visibleItems.slice(splitIndex);
 
   const isActive = (item: BottomNavItem) => {
     if (item.matchPaths) {

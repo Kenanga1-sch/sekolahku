@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
     Select,
     SelectContent,
@@ -23,14 +22,7 @@ import {
     DialogTitle,
     DialogFooter,
 } from "@/components/ui/dialog";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+import { DataTable, TablePagination } from "@/components/data-table";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -53,7 +45,6 @@ import {
     MoreHorizontal,
     Pencil,
     Trash2,
-    Users,
     Loader2,
     QrCode,
     Wallet,
@@ -65,7 +56,6 @@ import { showSuccess, showError } from "@/lib/toast";
 import { goGet, goPost, goPut, goDelete } from "@/lib/api-client";
 import type { TabunganSiswaWithRelations, TabunganKelasWithRelations, TabunganSiswaFormData } from "@/types/tabungan";
 import { useSortableData } from "@/hooks/use-sortable-data";
-import { SortableTableHead } from "@/components/ui/sortable-table-head";
 
 function formatRupiah(amount: number): string {
     return new Intl.NumberFormat("id-ID", {
@@ -287,115 +277,89 @@ export default function TabunganSiswaPage() {
             </Card>
 
             {/* Table */}
-            <Card>
-                <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <SortableTableHead label="NISN" sortKey="nisn" sortConfig={sortConfig} onSort={requestSort} />
-                                <SortableTableHead label="Nama" sortKey="nama" sortConfig={sortConfig} onSort={requestSort} />
-                                <SortableTableHead label="Kelas" sortKey="kelas.nama" sortConfig={sortConfig} onSort={requestSort} />
-                                <SortableTableHead label="Saldo" sortKey="saldoTerakhir" sortConfig={sortConfig} onSort={requestSort} className="text-right" />
-                                <TableHead className="w-12 sticky right-0 bg-white dark:bg-zinc-950 border-l border-slate-100 dark:border-zinc-800 z-10 shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.1)]"></TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {isLoading ? (
-                                Array.from({ length: 5 }).map((_, i) => (
-                                    <TableRow key={i}>
-                                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                                        <TableCell><Skeleton className="h-6 w-12" /></TableCell>
-                                        <TableCell><Skeleton className="h-4 w-24 ml-auto" /></TableCell>
-                                        <TableCell className="sticky right-0 bg-white dark:bg-zinc-950 border-l border-slate-100 dark:border-zinc-800 shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.1)]"><Skeleton className="h-8 w-8" /></TableCell>
-                                    </TableRow>
-                                ))
-                            ) : siswa.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-8">
-                                        <Users className="h-12 w-12 mx-auto text-muted-foreground/50 mb-2" />
-                                        <p className="text-muted-foreground">Belum ada data siswa</p>
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                sortedSiswa.map((s) => (
-                                    <TableRow key={s.id}>
-                                        <TableCell className="font-mono">{s.nisn}</TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-medium">{s.nama}</span>
-                                                <QrCode className="h-3 w-3 text-muted-foreground" />
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline">{s.kelas?.nama || "-"}</Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <div className="flex items-center justify-end gap-1">
-                                                <Wallet className="h-3 w-3 text-green-600" />
-                                                <span className="font-medium text-green-600">
-                                                    {formatRupiah(s.saldoTerakhir)}
-                                                </span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="sticky right-0 bg-white dark:bg-zinc-950 border-l border-slate-100 dark:border-zinc-800 shadow-[-8px_0_16px_-8px_rgba(0,0,0,0.1)]">
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="outline" size="icon-sm" className="h-8 w-8 border-slate-200 bg-white shadow-sm hover:bg-slate-50 text-muted-foreground hover:text-foreground">
-                                                        <MoreHorizontal className="h-4 w-4" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem onClick={() => handleEdit(s)}>
-                                                        <Pencil className="h-4 w-4 mr-2" />
-                                                        Edit
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem
-                                                        className="text-destructive"
-                                                        onClick={() => setDeleteId(s.id)}
-                                                    >
-                                                        <Trash2 className="h-4 w-4 mr-2" />
-                                                        Hapus
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-
-                    {/* Pagination */}
-                    {siswa.length > 0 && (
-                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-slate-100 dark:border-zinc-800">
-                            <div className="text-sm text-muted-foreground">
-                                Halaman {page} dari {totalPages}
+            <DataTable
+                data={isLoading ? [] : sortedSiswa}
+                getRowId={(s) => s.id}
+                loading={isLoading}
+                sortConfig={sortConfig}
+                onSort={requestSort}
+                emptyTitle="Belum ada data siswa"
+                emptyDescription="Data siswa akan muncul di sini setelah sinkronisasi atau ditambahkan manual."
+                columns={[
+                    {
+                        key: "nisn",
+                        header: "NISN",
+                        sortable: true,
+                        card: "field",
+                        render: (s) => <span className="font-mono">{s.nisn}</span>,
+                    },
+                    {
+                        key: "nama",
+                        header: "Nama",
+                        sortable: true,
+                        card: "title",
+                        render: (s) => (
+                            <div className="flex items-center gap-2">
+                                <span className="font-medium">{s.nama}</span>
+                                <QrCode className="h-3 w-3 text-muted-foreground" />
                             </div>
-                            {totalPages > 1 && (
-                                <div className="flex gap-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        disabled={page <= 1}
-                                        onClick={() => setPage((p) => p - 1)}
-                                    >
-                                        Sebelumnya
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        disabled={page >= totalPages}
-                                        onClick={() => setPage((p) => p + 1)}
-                                    >
-                                        Selanjutnya
-                                    </Button>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
+                        ),
+                    },
+                    {
+                        key: "kelas.nama",
+                        header: "Kelas",
+                        sortable: true,
+                        card: "field",
+                        render: (s) => <Badge variant="outline">{s.kelas?.nama || "-"}</Badge>,
+                    },
+                    {
+                        key: "saldoTerakhir",
+                        header: "Saldo",
+                        sortable: true,
+                        card: "field",
+                        render: (s) => (
+                            <div className="flex items-center gap-1">
+                                <Wallet className="h-3 w-3 text-green-600" />
+                                <span className="font-medium text-green-600">
+                                    {formatRupiah(s.saldoTerakhir)}
+                                </span>
+                            </div>
+                        ),
+                    },
+                ]}
+                actions={(s) => (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="icon-sm" className="h-8 w-8 border-slate-200 bg-white shadow-sm hover:bg-slate-50 text-muted-foreground hover:text-foreground">
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleEdit(s)}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => setDeleteId(s.id)}
+                            >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Hapus
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
+            />
+
+            {/* Pagination */}
+            {!isLoading && siswa.length > 0 && (
+                <TablePagination
+                    page={page}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                    label={`${siswa.length} siswa`}
+                />
+            )}
 
             {/* Siswa Form Dialog */}
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

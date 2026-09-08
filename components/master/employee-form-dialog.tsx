@@ -211,7 +211,7 @@ export function EmployeeFormDialog({ open, onOpenChange, employeeId, onSuccess }
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <Tabs defaultValue="account">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3">
                     <TabsTrigger value="account">Akun Login</TabsTrigger>
                     <TabsTrigger value="employment">Kepegawaian</TabsTrigger>
                     <TabsTrigger value="public">Profil Publik</TabsTrigger>

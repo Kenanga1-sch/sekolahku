@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DataTable } from "@/components/data-table";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -508,204 +509,202 @@ export default function HutangManagementPage() {
                             </div>
                         </CardHeader>
                         <CardContent className="p-0">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="w-[40px]"></TableHead>
-                                        <TableHead>Siswa</TableHead>
-                                        <TableHead>Barang</TableHead>
-                                        <TableHead>Kategori</TableHead>
-                                        <TableHead className="text-right">Total Hutang</TableHead>
-                                        <TableHead className="text-right">Terbayar</TableHead>
-                                        <TableHead className="text-right">Sisa Tagihan</TableHead>
-                                        <TableHead>Tanggal Ambil</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead className="text-right">Aksi</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {isLoading ? (
-                                        <TableRow>
-                                            <TableCell colSpan={10} className="h-24 text-center">
-                                                <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : filteredHutang.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
-                                                Tidak ada data hutang ditemukan
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        filteredHutang.map((h) => {
+                            <DataTable<Hutang>
+                                data={isLoading ? [] : filteredHutang}
+                                getRowId={(h) => h.id}
+                                loading={isLoading}
+                                emptyTitle="Tidak ada data hutang ditemukan"
+                                emptyDescription="Tagihan hutang siswa akan muncul di sini."
+                                expandedRowIds={Object.keys(expandedRows)}
+                                onToggleExpand={toggleRow}
+                                columns={[
+                                    {
+                                        key: "siswa.nama",
+                                        header: "Siswa",
+                                        card: "title",
+                                        render: (h) => (
+                                            <div className="flex flex-col">
+                                                <span className="font-semibold text-slate-800 dark:text-slate-200">{h.siswa?.nama || "-"}</span>
+                                                <span className="text-xs text-muted-foreground">NISN: {h.siswa?.nisn || "-"} • Kelas {h.siswa?.kelas || "-"}</span>
+                                            </div>
+                                        ),
+                                    },
+                                    {
+                                        key: "namaBarang",
+                                        header: "Barang",
+                                        card: "field",
+                                        render: (h) => (
+                                            <div className="flex flex-col">
+                                                <span className="font-medium">{h.namaBarang}</span>
+                                                <span className="text-xs text-muted-foreground">
+                                                    {formatRupiah(h.nominal)} x{h.jumlah}
+                                                </span>
+                                            </div>
+                                        ),
+                                    },
+                                    {
+                                        key: "kategori",
+                                        header: "Kategori",
+                                        card: "field",
+                                        render: (h) => (
+                                            <Badge variant="secondary" className="capitalize text-[11px] font-normal px-2 py-0.5">
+                                                {h.kategori}
+                                            </Badge>
+                                        ),
+                                    },
+                                    {
+                                        key: "total",
+                                        header: "Total Hutang",
+                                        card: "field",
+                                        render: (h) => {
                                             const totalHutang = h.nominal * h.jumlah;
-                                            const sisaHutang = totalHutang - h.terbayar;
-                                            const isExpanded = !!expandedRows[h.id];
-
                                             return (
-                                                <>
-                                                    <TableRow key={h.id} className={isExpanded ? "bg-slate-50/40 dark:bg-slate-900/10" : ""}>
-                                                        <TableCell className="p-0 text-center">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8"
-                                                                onClick={() => toggleRow(h.id)}
-                                                                title="Lihat Riwayat Pembayaran"
-                                                            >
-                                                                {isExpanded ? (
-                                                                    <ChevronUp className="h-4 w-4 text-slate-500" />
-                                                                ) : (
-                                                                    <ChevronDown className="h-4 w-4 text-slate-500" />
-                                                                )}
-                                                            </Button>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div className="flex flex-col">
-                                                                <span className="font-semibold text-slate-800 dark:text-slate-200">{h.siswa?.nama || "-"}</span>
-                                                                <span className="text-xs text-muted-foreground">NISN: {h.siswa?.nisn || "-"} • Kelas {h.siswa?.kelas || "-"}</span>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <div className="flex flex-col">
-                                                                <span className="font-medium">{h.namaBarang}</span>
-                                                                <span className="text-xs text-muted-foreground">
-                                                                    {formatRupiah(h.nominal)} x{h.jumlah}
-                                                                </span>
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Badge variant="secondary" className="capitalize text-[11px] font-normal px-2 py-0.5">
-                                                                {h.kategori}
-                                                            </Badge>
-                                                        </TableCell>
-                                                        <TableCell className="text-right font-mono font-semibold">
-                                                            {formatRupiah(totalHutang)}
-                                                        </TableCell>
-                                                        <TableCell className="text-right font-mono text-emerald-600">
-                                                            {formatRupiah(h.terbayar)}
-                                                        </TableCell>
-                                                        <TableCell className="text-right font-mono font-bold text-slate-900 dark:text-white">
-                                                            {formatRupiah(sisaHutang)}
-                                                        </TableCell>
-                                                        <TableCell className="text-sm">
-                                                            {formatDate(h.tanggalAmbil)}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Badge variant="outline" className={`capitalize font-medium text-[11px] px-2 py-0.5 ${STATUS_COLORS[h.status]}`}>
-                                                                {h.status}
-                                                            </Badge>
-                                                        </TableCell>
-                                                        <TableCell className="text-right">
-                                                            <div className="flex justify-end items-center gap-1.5">
-                                                                {(h.status === "aktif" || h.status === "cicilan") && (
-                                                                    <>
-                                                                        <Button
-                                                                            variant="default"
-                                                                            size="sm"
-                                                                            className="h-8 shadow-sm"
-                                                                            onClick={() => {
-                                                                                setPayDialog({ open: true, hutang: h });
-                                                                                setPayAmount(sisaHutang.toString());
-                                                                                setPaymentMethod("cash");
-                                                                            }}
-                                                                        >
-                                                                            <Coins className="h-3.5 w-3.5 mr-1" />
-                                                                            Bayar
-                                                                        </Button>
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="icon"
-                                                                            className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/20"
-                                                                            onClick={() => setCancelDialog({
-                                                                                open: true,
-                                                                                hutangId: h.id,
-                                                                                studentName: h.siswa?.nama || "Siswa",
-                                                                                itemName: h.namaBarang
-                                                                            })}
-                                                                            title="Batalkan Hutang"
-                                                                        >
-                                                                            <Ban className="h-4 w-4" />
-                                                                        </Button>
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                    
-                                                    {/* Expanded Row for Payments History */}
-                                                    {isExpanded && (
-                                                        <TableRow className="bg-slate-50/30 hover:bg-slate-50/30 dark:bg-slate-900/5 dark:hover:bg-slate-900/5">
-                                                            <TableCell colSpan={10} className="p-4 border-t border-slate-100 dark:border-slate-800">
-                                                                <div className="pl-8 pr-4 py-2 space-y-3">
-                                                                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                                                                        <History className="h-3.5 w-3.5" />
-                                                                        <span>Riwayat Transaksi Pembayaran Cicilan</span>
-                                                                    </div>
-                                                                    
-                                                                    {loadingPayments[h.id] ? (
-                                                                        <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-                                                                            <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                                                                            Memuat data cicilan...
-                                                                        </div>
-                                                                    ) : !paymentsCache[h.id] || paymentsCache[h.id].length === 0 ? (
-                                                                        <div className="text-sm text-muted-foreground py-2 pl-2 border-l-2 border-slate-200">
-                                                                            Belum ada riwayat cicilan untuk tagihan ini.
-                                                                        </div>
-                                                                    ) : (
-                                                                        <div className="border border-slate-100 dark:border-slate-800 rounded-md overflow-hidden bg-white dark:bg-slate-950 max-w-3xl">
-                                                                            <Table>
-                                                                                <TableHeader className="bg-slate-50/50 dark:bg-slate-900/50">
-                                                                                    <TableRow>
-                                                                                        <TableHead className="text-xs py-2">Tanggal</TableHead>
-                                                                                        <TableHead className="text-xs py-2 text-right">Nominal Cicilan</TableHead>
-                                                                                        <TableHead className="text-xs py-2">Metode</TableHead>
-                                                                                        <TableHead className="text-xs py-2">Operator</TableHead>
-                                                                                    </TableRow>
-                                                                                </TableHeader>
-                                                                                <TableBody>
-                                                                                    {paymentsCache[h.id].map((payment) => (
-                                                                                        <TableRow key={payment.id} className="hover:bg-slate-50/20 dark:hover:bg-slate-900/20">
-                                                                                            <TableCell className="py-2 text-xs font-medium">
-                                                                                                {formatDateTime(payment.createdAt)}
-                                                                                            </TableCell>
-                                                                                            <TableCell className="py-2 text-xs text-right font-mono font-bold text-emerald-600">
-                                                                                                {formatRupiah(payment.nominal)}
-                                                                                            </TableCell>
-                                                                                            <TableCell className="py-2 text-xs">
-                                                                                                <Badge variant="outline" className={`text-[10px] uppercase font-semibold py-0.5 px-1.5 ${
-                                                                                                    payment.metode === "cash" 
-                                                                                                        ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400" 
-                                                                                                        : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/20 dark:text-blue-400"
-                                                                                                }`}>
-                                                                                                    {payment.metode === "cash" ? "Tunai (Cash)" : "Tabungan"}
-                                                                                                </Badge>
-                                                                                            </TableCell>
-                                                                                            <TableCell className="py-2 text-xs text-muted-foreground">
-                                                                                                {payment.dicatatOleh || "Sistem"}
-                                                                                            </TableCell>
-                                                                                        </TableRow>
-                                                                                    ))}
-                                                                                </TableBody>
-                                                                            </Table>
-                                                                        </div>
-                                                                    )}
-                                                                    {h.catatan && (
-                                                                        <div className="text-xs text-muted-foreground bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded border border-slate-100 dark:border-slate-800 max-w-3xl">
-                                                                            <span className="font-semibold text-slate-700 dark:text-slate-300 block mb-0.5">Catatan Internal:</span>
-                                                                            {h.catatan}
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    )}
-                                                </>
+                                                <span className="font-mono font-semibold">
+                                                    {formatRupiah(totalHutang)}
+                                                </span>
                                             );
-                                        })
-                                    )}
-                                </TableBody>
-                            </Table>
+                                        },
+                                    },
+                                    {
+                                        key: "terbayar",
+                                        header: "Terbayar",
+                                        card: "field",
+                                        render: (h) => (
+                                            <span className="font-mono text-emerald-600">
+                                                {formatRupiah(h.terbayar)}
+                                            </span>
+                                        ),
+                                    },
+                                    {
+                                        key: "sisa",
+                                        header: "Sisa Tagihan",
+                                        card: "field",
+                                        render: (h) => {
+                                            const sisaHutang = h.nominal * h.jumlah - h.terbayar;
+                                            return (
+                                                <span className="font-mono font-bold text-slate-900 dark:text-white">
+                                                    {formatRupiah(sisaHutang)}
+                                                </span>
+                                            );
+                                        },
+                                    },
+                                    {
+                                        key: "tanggalAmbil",
+                                        header: "Tanggal Ambil",
+                                        card: "field",
+                                        render: (h) => (
+                                            <span className="text-sm">{formatDate(h.tanggalAmbil)}</span>
+                                        ),
+                                    },
+                                    {
+                                        key: "status",
+                                        header: "Status",
+                                        card: "field",
+                                        render: (h) => (
+                                            <Badge variant="outline" className={`capitalize font-medium text-[11px] px-2 py-0.5 ${STATUS_COLORS[h.status]}`}>
+                                                {h.status}
+                                            </Badge>
+                                        ),
+                                    },
+                                ]}
+                                actions={(h) => {
+                                    const sisaHutang = h.nominal * h.jumlah - h.terbayar;
+                                    if (h.status !== "aktif" && h.status !== "cicilan") return null;
+                                    return (
+                                        <div className="flex justify-end items-center gap-1.5">
+                                            <Button
+                                                variant="default"
+                                                size="sm"
+                                                className="h-8 shadow-sm"
+                                                onClick={() => {
+                                                    setPayDialog({ open: true, hutang: h });
+                                                    setPayAmount(sisaHutang.toString());
+                                                    setPaymentMethod("cash");
+                                                }}
+                                            >
+                                                <Coins className="h-3.5 w-3.5 mr-1" />
+                                                Bayar
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                                                onClick={() => setCancelDialog({
+                                                    open: true,
+                                                    hutangId: h.id,
+                                                    studentName: h.siswa?.nama || "Siswa",
+                                                    itemName: h.namaBarang
+                                                })}
+                                                title="Batalkan Hutang"
+                                            >
+                                                <Ban className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    );
+                                }}
+                                expandedContent={(h) => (
+                                    <div className="space-y-3">
+                                        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                                            <History className="h-3.5 w-3.5" />
+                                            <span>Riwayat Transaksi Pembayaran Cicilan</span>
+                                        </div>
+
+                                        {loadingPayments[h.id] ? (
+                                            <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                                                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                                Memuat data cicilan...
+                                            </div>
+                                        ) : !paymentsCache[h.id] || paymentsCache[h.id].length === 0 ? (
+                                            <div className="text-sm text-muted-foreground py-2 pl-2 border-l-2 border-slate-200">
+                                                Belum ada riwayat cicilan untuk tagihan ini.
+                                            </div>
+                                        ) : (
+                                            <div className="border border-slate-100 dark:border-slate-800 rounded-md overflow-hidden bg-white dark:bg-slate-950 max-w-3xl">
+                                                <Table>
+                                                    <TableHeader className="bg-slate-50/50 dark:bg-slate-900/50">
+                                                        <TableRow>
+                                                            <TableHead className="text-xs py-2">Tanggal</TableHead>
+                                                            <TableHead className="text-xs py-2 text-right">Nominal Cicilan</TableHead>
+                                                            <TableHead className="text-xs py-2">Metode</TableHead>
+                                                            <TableHead className="text-xs py-2">Operator</TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {paymentsCache[h.id].map((payment) => (
+                                                            <TableRow key={payment.id} className="hover:bg-slate-50/20 dark:hover:bg-slate-900/20">
+                                                                <TableCell className="py-2 text-xs font-medium">
+                                                                    {formatDateTime(payment.createdAt)}
+                                                                </TableCell>
+                                                                <TableCell className="py-2 text-xs text-right font-mono font-bold text-emerald-600">
+                                                                    {formatRupiah(payment.nominal)}
+                                                                </TableCell>
+                                                                <TableCell className="py-2 text-xs">
+                                                                    <Badge variant="outline" className={`text-[10px] uppercase font-semibold py-0.5 px-1.5 ${
+                                                                        payment.metode === "cash"
+                                                                            ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400"
+                                                                            : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/20 dark:text-blue-400"
+                                                                    }`}>
+                                                                        {payment.metode === "cash" ? "Tunai (Cash)" : "Tabungan"}
+                                                                    </Badge>
+                                                                </TableCell>
+                                                                <TableCell className="py-2 text-xs text-muted-foreground">
+                                                                    {payment.dicatatOleh || "Sistem"}
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        )}
+                                        {h.catatan && (
+                                            <div className="text-xs text-muted-foreground bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded border border-slate-100 dark:border-slate-800 max-w-3xl">
+                                                <span className="font-semibold text-slate-700 dark:text-slate-300 block mb-0.5">Catatan Internal:</span>
+                                                {h.catatan}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            />
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -961,62 +960,45 @@ export default function HutangManagementPage() {
                                     </div>
 
                                     <div className="border rounded-lg max-h-[400px] overflow-y-auto">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead className="w-[50px]">
-                                                        <div className="flex items-center justify-center">
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={batchSiswaIds.length === batchFilteredSiswa.length && batchFilteredSiswa.length > 0}
-                                                                onChange={(e) => {
-                                                                    if (e.target.checked) {
-                                                                        setBatchSiswaIds(batchFilteredSiswa.map(s => s.id));
-                                                                    } else {
-                                                                        setBatchSiswaIds([]);
-                                                                    }
-                                                                }}
-                                                                className="h-4 w-4 rounded border-gray-300"
-                                                            />
-                                                        </div>
-                                                    </TableHead>
-                                                    <TableHead>Nama Siswa</TableHead>
-                                                    <TableHead>NISN</TableHead>
-                                                    <TableHead>Kelas</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {batchFilteredSiswa.length === 0 ? (
-                                                    <TableRow>
-                                                        <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                                                            Tidak ada siswa di kelas yang dipilih
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ) : (
-                                                    batchFilteredSiswa.map((student) => (
-                                                        <TableRow 
-                                                            key={student.id} 
-                                                            className="cursor-pointer hover:bg-muted/50"
-                                                            onClick={() => toggleBatchSiswa(student.id)}
-                                                        >
-                                                            <TableCell className="text-center">
-                                                                <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={batchSiswaIds.includes(student.id)}
-                                                                        onChange={() => toggleBatchSiswa(student.id)}
-                                                                        className="h-4 w-4 rounded border-gray-300"
-                                                                    />
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell className="font-medium">{student.nama}</TableCell>
-                                                            <TableCell>{student.nisn}</TableCell>
-                                                            <TableCell>{student.kelas?.nama}</TableCell>
-                                                        </TableRow>
-                                                    ))
-                                                )}
-                                            </TableBody>
-                                        </Table>
+                                        <DataTable
+                                            data={batchFilteredSiswa}
+                                            getRowId={(student) => student.id}
+                                            emptyTitle="Tidak ada siswa di kelas yang dipilih"
+                                            emptyDescription="Pilih kelas terlebih dahulu."
+                                            selectable
+                                            selectedIds={batchSiswaIds}
+                                            onToggleSelect={toggleBatchSiswa}
+                                            onToggleSelectAll={() => {
+                                                if (batchSiswaIds.length !== batchFilteredSiswa.length) {
+                                                    setBatchSiswaIds(batchFilteredSiswa.map(s => s.id));
+                                                } else {
+                                                    setBatchSiswaIds([]);
+                                                }
+                                            }}
+                                            onRowClick={(student) => toggleBatchSiswa(student.id)}
+                                            columns={[
+                                                {
+                                                    key: "nama",
+                                                    header: "Nama Siswa",
+                                                    card: "title",
+                                                    render: (student) => (
+                                                        <span className="font-medium">{student.nama}</span>
+                                                    ),
+                                                },
+                                                {
+                                                    key: "nisn",
+                                                    header: "NISN",
+                                                    card: "field",
+                                                    render: (student) => student.nisn,
+                                                },
+                                                {
+                                                    key: "kelas.nama",
+                                                    header: "Kelas",
+                                                    card: "field",
+                                                    render: (student) => student.kelas?.nama,
+                                                },
+                                            ]}
+                                        />
                                     </div>
                                 </div>
 

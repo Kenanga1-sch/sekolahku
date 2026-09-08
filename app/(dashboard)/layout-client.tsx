@@ -65,20 +65,71 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { SchoolSettings } from "@/types";
 
-// Page title mapping for mobile header
+// Page title mapping for mobile header (longest-prefix match)
 const PAGE_TITLES: Record<string, string> = {
   "/overview": "Beranda",
+  // Perpustakaan
+  "/perpustakaan/buku": "Data Buku",
+  "/perpustakaan/anggota": "Anggota Perpustakaan",
+  "/perpustakaan/peminjaman": "Peminjaman Buku",
+  "/perpustakaan/kunjungan/manual": "Kunjungan Manual",
+  "/perpustakaan/binding": "Penjilidan Buku",
+  "/perpustakaan/qr-generator": "Generator QR Buku",
+  "/perpustakaan/laporan": "Laporan Perpustakaan",
   "/perpustakaan": "Perpustakaan",
+  // Inventaris
+  "/inventaris/aset": "Daftar Aset",
+  "/inventaris/stok": "Barang Habis Pakai",
+  "/inventaris/ruangan": "Ruangan",
+  "/inventaris/peminjaman": "Peminjaman Barang",
+  "/inventaris/opname": "Stok Opname",
+  "/inventaris/audit": "Audit Aset",
+  "/inventaris/laporan": "Laporan Inventaris",
   "/inventaris": "Inventaris",
+  // Arsip
+  "/arsip/surat-masuk": "Surat Masuk",
+  "/arsip/surat-keluar": "Surat Keluar",
+  "/arsip/dokumen": "Dokumen",
+  "/arsip/laporan": "Laporan Arsip",
+  "/arsip/pengaturan": "Pengaturan Arsip",
   "/arsip": "E-Arsip",
+  // Tabungan
+  "/tabungan/riwayat": "Riwayat Transaksi",
+  "/tabungan/siswa": "Tabungan Siswa",
+  "/tabungan/setoran": "Setoran",
+  "/tabungan/penarikan": "Penarikan",
+  "/tabungan/verifikasi": "Verifikasi",
+  "/tabungan/pengguna": "Pengguna Tabungan",
+  "/tabungan/brankas": "Brankas",
+  "/tabungan/hutang": "Hutang Siswa",
+  "/tabungan/laporan": "Laporan Tabungan",
+  "/tabungan/scan": "Scan Tabungan",
   "/tabungan": "Tabungan",
-  "/admin/master/gtk": "Direktori GTK",
-  "/admin/siswa": "Manajemen Siswa",
+  // Presensi
+  "/presensi/laporan": "Laporan Presensi",
+  "/presensi/scan": "Scan Presensi",
+  "/presensi/holidays": "Hari Libur",
   "/presensi": "Presensi",
-  "/admin/konten-informasi": "Informasi",
-  "/profile": "Profil",
-  "/admin/notifikasi": "Notifikasi",
+  // Admin
+  "/admin/siswa/spmb-detail": "Detail Pendaftar SPMB",
+  "/admin/siswa/buku-induk": "Buku Induk",
+  "/admin/siswa/import": "Import Siswa",
+  "/admin/siswa/kelulusan": "Kelulusan",
+  "/admin/siswa/alumni": "Alumni",
+  "/admin/siswa/cetak": "Cetak",
+  "/admin/siswa/detail": "Detail Siswa",
+  "/admin/siswa": "Manajemen Siswa",
+  "/admin/master/gtk": "Direktori GTK",
+  "/admin/akademik": "Akademik",
+  "/admin/surat/template": "Template Surat",
   "/admin/surat": "Surat",
+  "/admin/konten-informasi": "Pusat Informasi",
+  "/admin/halaman-depan": "Halaman Depan",
+  "/admin/notifikasi": "Notifikasi",
+  "/admin": "Administrasi",
+  // Profil
+  "/profil/ganti-password": "Ganti Password",
+  "/profile": "Profil",
 };
 
 // Pre-compute sorted keys (longest first for prefix matching)
@@ -448,7 +499,7 @@ export default function DashboardLayoutClient({
 
       {/* Bottom Navigation - Mobile Only */}
       <div className="print:hidden">
-        <BottomNav onMenuClick={() => handleSetOpen(true)} />
+        <BottomNav onMenuClick={() => handleSetOpen(true)} userRole={normalizedRaw} />
       </div>
     </div>
   );

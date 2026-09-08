@@ -36,7 +36,7 @@ export default function KontenInformasiPage() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex border-b border-zinc-200 dark:border-zinc-800">
+      <div className="flex border-b border-zinc-200 dark:border-zinc-800 overflow-x-auto">
         {tabs.map((tab) => (
           <button
             key={tab.id}

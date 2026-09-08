@@ -64,7 +64,7 @@ export default function AuthLayout({
                 <p>© {new Date().getFullYear()} {settings?.school_name || "Sekolah"}</p>
                 <div className="flex gap-4">
                   <Link href="/spmb" className="hover:text-white transition-colors">SPMB</Link>
-                  <Link href="/layanan/mutasi-masuk" className="hover:text-white transition-colors">Layanan</Link>
+                  <Link href="/layanan" className="hover:text-white transition-colors">Layanan</Link>
                 </div>
               </div>
             </div>

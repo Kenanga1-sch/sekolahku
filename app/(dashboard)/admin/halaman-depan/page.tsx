@@ -251,7 +251,7 @@ export default function HalamanDepanPage() {
 
               <div className="p-4 border rounded-lg bg-slate-50 dark:bg-zinc-900/50 space-y-4">
                 <h3 className="font-medium">Tombol Aksi Utama</h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <Label>Label Tombol</Label>
                     <Input 

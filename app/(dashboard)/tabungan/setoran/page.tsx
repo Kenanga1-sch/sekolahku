@@ -5,15 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/data-table";
 import {
     Alert,
     AlertDescription,
@@ -225,35 +217,51 @@ export default function TabunganSetoranPage() {
                                 <CardDescription>Pastikan jumlah uang fisik sesuai dengan total di atas sebelum mengajukan setoran.</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Waktu</TableHead>
-                                            <TableHead>Siswa</TableHead>
-                                            <TableHead>Tipe</TableHead>
-                                            <TableHead className="text-right">Nominal</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {transactions.map((t) => (
-                                            <TableRow key={t.id}>
-                                                <TableCell>{formatDateTime(t.createdAt)}</TableCell>
-                                                <TableCell>
+                                <DataTable
+                                    data={transactions}
+                                    getRowId={(t) => t.id}
+                                    emptyTitle="Tidak ada transaksi"
+                                    emptyDescription="Belum ada transaksi yang perlu disetor."
+                                    columns={[
+                                        {
+                                            key: "createdAt",
+                                            header: "Waktu",
+                                            card: "field",
+                                            render: (t) => formatDateTime(t.createdAt),
+                                        },
+                                        {
+                                            key: "siswa.nama",
+                                            header: "Siswa",
+                                            card: "title",
+                                            render: (t) => (
+                                                <div>
                                                     <div className="font-medium">{t.siswa?.nama}</div>
                                                     <div className="text-xs text-muted-foreground">{t.siswa?.nisn}</div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge variant={t.tipe === "setor" ? "outline" : "destructive"} className={t.tipe === "setor" ? "text-green-600 border-green-600" : ""}>
-                                                        {t.tipe === "setor" ? "Setor" : "Tarik"}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="text-right font-mono">
+                                                </div>
+                                            ),
+                                        },
+                                        {
+                                            key: "tipe",
+                                            header: "Tipe",
+                                            card: "field",
+                                            render: (t) => (
+                                                <Badge variant={t.tipe === "setor" ? "outline" : "destructive"} className={t.tipe === "setor" ? "text-green-600 border-green-600" : ""}>
+                                                    {t.tipe === "setor" ? "Setor" : "Tarik"}
+                                                </Badge>
+                                            ),
+                                        },
+                                        {
+                                            key: "nominal",
+                                            header: "Nominal",
+                                            card: "field",
+                                            render: (t) => (
+                                                <span className="font-mono">
                                                     {formatRupiah(t.nominal)}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
+                                                </span>
+                                            ),
+                                        },
+                                    ]}
+                                />
 
                                 <div className="bg-muted/50 p-4 rounded-lg flex items-start gap-4 border">
                                     <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5" />
@@ -303,74 +311,81 @@ export default function TabunganSetoranPage() {
                             <CardDescription>Daftar setoran yang pernah diajukan ke bendahara</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Tanggal</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead>Total</TableHead>
-                                        <TableHead>Catatan</TableHead>
-                                        <TableHead className="w-[100px]">Aksi</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {history.length > 0 ? (
-                                        history.map((h) => (
-                                            <TableRow key={h.id}>
-                                                <TableCell className="font-medium">
-                                                    {formatDateTime(h.createdAt)}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge 
-                                                        variant={
-                                                            h.status === "verified" ? "default" : 
-                                                            h.status === "rejected" ? "destructive" : "secondary"
-                                                        }
-                                                        className={h.status === "verified" ? "bg-green-600 hover:bg-green-700" : ""}
-                                                    >
-                                                        {h.status === "verified" && <CheckCircle2 className="h-3 w-3 mr-1" />}
-                                                        {h.status === "rejected" && <XCircle className="h-3 w-3 mr-1" />}
-                                                        {h.status === "pending" && <Clock className="h-3 w-3 mr-1" />}
-                                                        {h.status === "verified" ? "Diterima" : 
-                                                         h.status === "rejected" ? "Ditolak" : "Menunggu"}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="font-mono">
-                                                    {formatRupiah(h.totalNominal)}
-                                                    {!!h.selisih && (
-                                                        <div className="text-xs text-red-500">
-                                                            Selisih: {formatRupiah(h.selisih)}
-                                                        </div>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="text-sm">
-                                                        {h.catatan || "-"}
-                                                        {h.status === "rejected" && (
-                                                            <div className="text-xs text-red-600 font-medium mt-1">
-                                                                Perlu diperbaiki
-                                                            </div>
-                                                        )}
+                            <DataTable
+                                data={history}
+                                getRowId={(h) => h.id}
+                                emptyTitle="Belum ada riwayat setoran"
+                                emptyDescription="Daftar setoran yang pernah diajukan akan muncul di sini."
+                                columns={[
+                                    {
+                                        key: "createdAt",
+                                        header: "Tanggal",
+                                        card: "field",
+                                        render: (h) => (
+                                            <span className="font-medium">
+                                                {formatDateTime(h.createdAt)}
+                                            </span>
+                                        ),
+                                    },
+                                    {
+                                        key: "status",
+                                        header: "Status",
+                                        card: "title",
+                                        render: (h) => (
+                                            <Badge
+                                                variant={
+                                                    h.status === "verified" ? "default" :
+                                                    h.status === "rejected" ? "destructive" : "secondary"
+                                                }
+                                                className={h.status === "verified" ? "bg-green-600 hover:bg-green-700" : ""}
+                                            >
+                                                {h.status === "verified" && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                                                {h.status === "rejected" && <XCircle className="h-3 w-3 mr-1" />}
+                                                {h.status === "pending" && <Clock className="h-3 w-3 mr-1" />}
+                                                {h.status === "verified" ? "Diterima" :
+                                                 h.status === "rejected" ? "Ditolak" : "Menunggu"}
+                                            </Badge>
+                                        ),
+                                    },
+                                    {
+                                        key: "totalNominal",
+                                        header: "Total",
+                                        card: "field",
+                                        render: (h) => (
+                                            <div className="font-mono">
+                                                {formatRupiah(h.totalNominal)}
+                                                {!!h.selisih && (
+                                                    <div className="text-xs text-red-500">
+                                                        Selisih: {formatRupiah(h.selisih)}
                                                     </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Button variant="ghost" size="sm" asChild>
-                                                        <Link href={`/tabungan/setoran/detail?id=${h.id}`}>
-                                                            Detail
-                                                        </Link>
-                                                    </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
-                                    ) : (
-                                        <TableRow>
-                                            <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                                                Belum ada riwayat setoran
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
+                                                )}
+                                            </div>
+                                        ),
+                                    },
+                                    {
+                                        key: "catatan",
+                                        header: "Catatan",
+                                        card: "field",
+                                        render: (h) => (
+                                            <div className="text-sm">
+                                                {h.catatan || "-"}
+                                                {h.status === "rejected" && (
+                                                    <div className="text-xs text-red-600 font-medium mt-1">
+                                                        Perlu diperbaiki
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ),
+                                    },
+                                ]}
+                                actions={(h) => (
+                                    <Button variant="ghost" size="sm" asChild>
+                                        <Link href={`/tabungan/setoran/detail?id=${h.id}`}>
+                                            Detail
+                                        </Link>
+                                    </Button>
+                                )}
+                            />
                         </CardContent>
                     </Card>
                 </TabsContent>

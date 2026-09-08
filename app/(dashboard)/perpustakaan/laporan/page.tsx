@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DataTable } from "@/components/data-table";
 import {
     Table,
     TableBody,
@@ -366,7 +367,7 @@ export default function LaporanPage() {
 
             {/* Report Tabs */}
             <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setHasSearched(false); }}>
-                <TabsList className="grid w-full grid-cols-4 max-w-2xl print:hidden">
+                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 max-w-2xl print:hidden">
                     <TabsTrigger value="peminjaman" className="gap-2">
                         <BookMarked className="h-4 w-4" />
                         <span className="hidden sm:inline">Peminjaman</span>
@@ -446,51 +447,131 @@ export default function LaporanPage() {
                                             <p>Tidak ada data peminjaman pada periode ini</p>
                                         </div>
                                     ) : (
-                                <div className="print-table-container rounded-lg border overflow-hidden">
-                                    <Table className="print-table">
-                                        <TableHeader className="print-table-header">
-                                            <TableRow>
-                                                <TableHead className="w-12 print:w-8">No</TableHead>
-                                                <TableHead className="print:w-32">Anggota</TableHead>
-                                                <TableHead className="print:w-40">Buku</TableHead>
-                                                <TableHead className="print:w-24">Tgl Pinjam</TableHead>
-                                                <TableHead className="print:w-24">Jatuh Tempo</TableHead>
-                                                <TableHead className="print:w-20">Status</TableHead>
-                                                <TableHead className="text-right print:w-24">Denda</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                                <TableBody>
-                                                    {loanData.map((item, index) => (
-                                                        <TableRow key={item.id}>
-                                                            <TableCell className="font-medium">{index + 1}</TableCell>
-                                                            <TableCell>
+                                        <>
+                                            {/* Tampilan layar: tabel responsif (card di mobile) */}
+                                            <div className="print:hidden">
+                                                <DataTable
+                                                    data={loanData.map((item, index) => ({ ...item, no: index + 1 }))}
+                                                    getRowId={(item) => item.id}
+                                                    columns={[
+                                                        {
+                                                            key: "no",
+                                                            header: "No",
+                                                            card: "hidden",
+                                                            render: (item) => (
+                                                                <span className="font-medium text-right">
+                                                                    {item.no}
+                                                                </span>
+                                                            ),
+                                                        },
+                                                        {
+                                                            key: "anggota",
+                                                            header: "Anggota",
+                                                            card: "title",
+                                                            render: (item) => (
                                                                 <div>
                                                                     <p className="font-medium">{item.memberName}</p>
-                                                                    <p className="text-xs text-muted-foreground">{item.memberClass || "-"}</p>
+                                                                    <p className="text-xs text-muted-foreground">
+                                                                        {item.memberClass || "-"}
+                                                                    </p>
                                                                 </div>
-                                                            </TableCell>
-                                                            <TableCell className="max-w-[200px] truncate">{item.itemTitle}</TableCell>
-                                                            <TableCell>{formatDate(item.borrowDate)}</TableCell>
-                                                            <TableCell>{formatDate(item.dueDate)}</TableCell>
-                                                            <TableCell>
+                                                            ),
+                                                        },
+                                                        {
+                                                            key: "itemTitle",
+                                                            header: "Buku",
+                                                            card: "field",
+                                                            render: (item) => (
+                                                                <span className="block max-w-[200px] truncate">
+                                                                    {item.itemTitle}
+                                                                </span>
+                                                            ),
+                                                        },
+                                                        {
+                                                            key: "borrowDate",
+                                                            header: "Tgl Pinjam",
+                                                            card: "field",
+                                                            render: (item) => formatDate(item.borrowDate),
+                                                        },
+                                                        {
+                                                            key: "dueDate",
+                                                            header: "Jatuh Tempo",
+                                                            card: "field",
+                                                            render: (item) => formatDate(item.dueDate),
+                                                        },
+                                                        {
+                                                            key: "isReturned",
+                                                            header: "Status",
+                                                            card: "field",
+                                                            render: (item) => (
                                                                 <Badge variant={item.isReturned ? "secondary" : "default"}>
                                                                     {item.isReturned ? "Kembali" : "Dipinjam"}
                                                                 </Badge>
-                                                            </TableCell>
-                                                            <TableCell className="text-right">
-                                                                {item.fineAmount > 0 ? (
-                                                                    <span className="text-red-500 font-medium">
+                                                            ),
+                                                        },
+                                                        {
+                                                            key: "fineAmount",
+                                                            header: "Denda",
+                                                            card: "field",
+                                                            render: (item) =>
+                                                                item.fineAmount > 0 ? (
+                                                                    <span className="block text-right text-red-500 font-medium">
                                                                         {formatCurrency(item.fineAmount)}
                                                                     </span>
                                                                 ) : (
-                                                                    "-"
-                                                                )}
-                                                            </TableCell>
+                                                                    <span className="block text-right">-</span>
+                                                                ),
+                                                        },
+                                                    ]}
+                                                />
+                                            </div>
+                                            {/* Versi cetak: tabel border formal (aksen cetak tidak ada yang dirusak) */}
+                                            <div className="print-table-container rounded-lg border overflow-hidden hidden print:block">
+                                                <Table className="print-table">
+                                                    <TableHeader className="print-table-header">
+                                                        <TableRow>
+                                                            <TableHead className="w-12 print:w-8">No</TableHead>
+                                                            <TableHead className="print:w-32">Anggota</TableHead>
+                                                            <TableHead className="print:w-40">Buku</TableHead>
+                                                            <TableHead className="print:w-24">Tgl Pinjam</TableHead>
+                                                            <TableHead className="print:w-24">Jatuh Tempo</TableHead>
+                                                            <TableHead className="print:w-20">Status</TableHead>
+                                                            <TableHead className="text-right print:w-24">Denda</TableHead>
                                                         </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
-                                        </div>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {loanData.map((item, index) => (
+                                                            <TableRow key={item.id}>
+                                                                <TableCell className="font-medium">{index + 1}</TableCell>
+                                                                <TableCell>
+                                                                    <div>
+                                                                        <p className="font-medium">{item.memberName}</p>
+                                                                        <p className="text-xs text-muted-foreground">{item.memberClass || "-"}</p>
+                                                                    </div>
+                                                                </TableCell>
+                                                                <TableCell className="max-w-[200px] truncate">{item.itemTitle}</TableCell>
+                                                                <TableCell>{formatDate(item.borrowDate)}</TableCell>
+                                                                <TableCell>{formatDate(item.dueDate)}</TableCell>
+                                                                <TableCell>
+                                                                    <Badge variant={item.isReturned ? "secondary" : "default"}>
+                                                                        {item.isReturned ? "Kembali" : "Dipinjam"}
+                                                                    </Badge>
+                                                                </TableCell>
+                                                                <TableCell className="text-right">
+                                                                    {item.fineAmount > 0 ? (
+                                                                        <span className="text-red-500 font-medium">
+                                                                            {formatCurrency(item.fineAmount)}
+                                                                        </span>
+                                                                    ) : (
+                                                                        "-"
+                                                                    )}
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        </>
                                     )}
                                 </CardContent>
                             </Card>
@@ -557,35 +638,88 @@ export default function LaporanPage() {
                                             <p>Tidak ada data kunjungan pada periode ini</p>
                                         </div>
                                     ) : (
-                                        <div className="print-table-container rounded-lg border overflow-hidden">
-                                            <Table className="print-table">
-                                                <TableHeader className="print-table-header">
-                                                    <TableRow>
-                                                        <TableHead className="w-12 print:w-8">No</TableHead>
-                                                        <TableHead className="print:w-32">Nama Anggota</TableHead>
-                                                        <TableHead className="print:w-20">Kelas</TableHead>
-                                                        <TableHead className="print:w-24">Tanggal</TableHead>
-                                                        <TableHead className="print:w-24">Waktu</TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {visitData.map((item, index) => (
-                                                        <TableRow key={item.id}>
-                                                            <TableCell className="font-medium">{index + 1}</TableCell>
-                                                            <TableCell className="font-medium">{item.memberName}</TableCell>
-                                                            <TableCell>{item.memberClass || "-"}</TableCell>
-                                                            <TableCell>{formatDate(item.date)}</TableCell>
-                                                            <TableCell>
-                                                                {new Date(item.timestamp).toLocaleTimeString("id-ID", {
+                                        <>
+                                            {/* Tampilan layar: tabel responsif (card di mobile) */}
+                                            <div className="print:hidden">
+                                                <DataTable
+                                                    data={visitData.map((item, index) => ({ ...item, no: index + 1 }))}
+                                                    getRowId={(item) => item.id}
+                                                    columns={[
+                                                        {
+                                                            key: "no",
+                                                            header: "No",
+                                                            card: "hidden",
+                                                            render: (item) => (
+                                                                <span className="font-medium text-right">
+                                                                    {item.no}
+                                                                </span>
+                                                            ),
+                                                        },
+                                                        {
+                                                            key: "memberName",
+                                                            header: "Nama Anggota",
+                                                            card: "title",
+                                                            render: (item) => (
+                                                                <span className="font-medium">{item.memberName}</span>
+                                                            ),
+                                                        },
+                                                        {
+                                                            key: "memberClass",
+                                                            header: "Kelas",
+                                                            card: "field",
+                                                            render: (item) => item.memberClass || "-",
+                                                        },
+                                                        {
+                                                            key: "date",
+                                                            header: "Tanggal",
+                                                            card: "field",
+                                                            render: (item) => formatDate(item.date),
+                                                        },
+                                                        {
+                                                            key: "timestamp",
+                                                            header: "Waktu",
+                                                            card: "field",
+                                                            render: (item) => (
+                                                                new Date(item.timestamp).toLocaleTimeString("id-ID", {
                                                                     hour: "2-digit",
                                                                     minute: "2-digit",
-                                                                })}
-                                                            </TableCell>
+                                                                })
+                                                            ),
+                                                        },
+                                                    ]}
+                                                />
+                                            </div>
+                                            {/* Versi cetak: tabel border formal */}
+                                            <div className="print-table-container rounded-lg border overflow-hidden hidden print:block">
+                                                <Table className="print-table">
+                                                    <TableHeader className="print-table-header">
+                                                        <TableRow>
+                                                            <TableHead className="w-12 print:w-8">No</TableHead>
+                                                            <TableHead className="print:w-32">Nama Anggota</TableHead>
+                                                            <TableHead className="print:w-20">Kelas</TableHead>
+                                                            <TableHead className="print:w-24">Tanggal</TableHead>
+                                                            <TableHead className="print:w-24">Waktu</TableHead>
                                                         </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
-                                        </div>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {visitData.map((item, index) => (
+                                                            <TableRow key={item.id}>
+                                                                <TableCell className="font-medium">{index + 1}</TableCell>
+                                                                <TableCell className="font-medium">{item.memberName}</TableCell>
+                                                                <TableCell>{item.memberClass || "-"}</TableCell>
+                                                                <TableCell>{formatDate(item.date)}</TableCell>
+                                                                <TableCell>
+                                                                    {new Date(item.timestamp).toLocaleTimeString("id-ID", {
+                                                                        hour: "2-digit",
+                                                                        minute: "2-digit",
+                                                                    })}
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        </>
                                     )}
                                 </CardContent>
                             </Card>
@@ -643,40 +777,104 @@ export default function LaporanPage() {
                                             <p>Tidak ada buku yang terlambat dikembalikan 🎉</p>
                                         </div>
                                     ) : (
-                                        <div className="print-table-container rounded-lg border overflow-hidden">
-                                            <Table className="print-table">
-                                                <TableHeader className="print-table-header">
-                                                    <TableRow>
-                                                        <TableHead className="w-12 print:w-8">No</TableHead>
-                                                        <TableHead className="print:w-32">Peminjam</TableHead>
-                                                        <TableHead className="print:w-40">Judul Buku</TableHead>
-                                                        <TableHead className="print:w-24">Jatuh Tempo</TableHead>
-                                                        <TableHead className="text-right print:w-24">Hari Terlambat</TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {overdueData.map((item, index) => {
-                                                        const daysOverdue = Math.ceil((Date.now() - new Date(item.dueDate).getTime()) / (1000 * 60 * 60 * 24));
-                                                        return (
-                                                            <TableRow key={item.id}>
-                                                                <TableCell className="font-medium">{index + 1}</TableCell>
-                                                                <TableCell>
-                                                                    <div>
-                                                                        <p className="font-medium">{item.member?.name || "-"}</p>
-                                                                        <p className="text-xs text-muted-foreground">{item.member?.className || "-"}</p>
-                                                                    </div>
-                                                                </TableCell>
-                                                                <TableCell className="max-w-[200px] truncate">{item.item?.catalog?.title || "-"}</TableCell>
-                                                                <TableCell>{formatDate(item.dueDate)}</TableCell>
-                                                                <TableCell className="text-right">
-                                                                    <Badge variant="destructive">{daysOverdue} hari</Badge>
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        );
-                                                    })}
-                                                </TableBody>
-                                            </Table>
-                                        </div>
+                                        <>
+                                            {/* Tampilan layar: tabel responsif (card di mobile) */}
+                                            <div className="print:hidden">
+                                                <DataTable
+                                                    data={overdueData.map((item, index) => ({ ...item, no: index + 1 }))}
+                                                    getRowId={(item) => item.id}
+                                                    columns={[
+                                                        {
+                                                            key: "no",
+                                                            header: "No",
+                                                            card: "hidden",
+                                                            render: (item) => (
+                                                                <span className="font-medium text-right">
+                                                                    {item.no}
+                                                                </span>
+                                                            ),
+                                                        },
+                                                        {
+                                                            key: "member.name",
+                                                            header: "Peminjam",
+                                                            card: "title",
+                                                            render: (item) => (
+                                                                <div>
+                                                                    <p className="font-medium">{item.member?.name || "-"}</p>
+                                                                    <p className="text-xs text-muted-foreground">
+                                                                        {item.member?.className || "-"}
+                                                                    </p>
+                                                                </div>
+                                                            ),
+                                                        },
+                                                        {
+                                                            key: "item.catalog.title",
+                                                            header: "Judul Buku",
+                                                            card: "field",
+                                                            render: (item) => (
+                                                                <span className="block max-w-[200px] truncate">
+                                                                    {item.item?.catalog?.title || "-"}
+                                                                </span>
+                                                            ),
+                                                        },
+                                                        {
+                                                            key: "dueDate",
+                                                            header: "Jatuh Tempo",
+                                                            card: "field",
+                                                            render: (item) => formatDate(item.dueDate),
+                                                        },
+                                                        {
+                                                            key: "daysOverdue",
+                                                            header: "Hari Terlambat",
+                                                            card: "field",
+                                                            render: (item) => {
+                                                                const daysOverdue = Math.ceil((Date.now() - new Date(item.dueDate).getTime()) / (1000 * 60 * 60 * 24));
+                                                                return (
+                                                                    <Badge variant="destructive">
+                                                                        <span className="block text-right">{daysOverdue} hari</span>
+                                                                    </Badge>
+                                                                );
+                                                            },
+                                                        },
+                                                    ]}
+                                                />
+                                            </div>
+                                            {/* Versi cetak: tabel border formal */}
+                                            <div className="print-table-container rounded-lg border overflow-hidden hidden print:block">
+                                                <Table className="print-table">
+                                                    <TableHeader className="print-table-header">
+                                                        <TableRow>
+                                                            <TableHead className="w-12 print:w-8">No</TableHead>
+                                                            <TableHead className="print:w-32">Peminjam</TableHead>
+                                                            <TableHead className="print:w-40">Judul Buku</TableHead>
+                                                            <TableHead className="print:w-24">Jatuh Tempo</TableHead>
+                                                            <TableHead className="text-right print:w-24">Hari Terlambat</TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {overdueData.map((item, index) => {
+                                                            const daysOverdue = Math.ceil((Date.now() - new Date(item.dueDate).getTime()) / (1000 * 60 * 60 * 24));
+                                                            return (
+                                                                <TableRow key={item.id}>
+                                                                    <TableCell className="font-medium">{index + 1}</TableCell>
+                                                                    <TableCell>
+                                                                        <div>
+                                                                            <p className="font-medium">{item.member?.name || "-"}</p>
+                                                                            <p className="text-xs text-muted-foreground">{item.member?.className || "-"}</p>
+                                                                        </div>
+                                                                    </TableCell>
+                                                                    <TableCell className="max-w-[200px] truncate">{item.item?.catalog?.title || "-"}</TableCell>
+                                                                    <TableCell>{formatDate(item.dueDate)}</TableCell>
+                                                                    <TableCell className="text-right">
+                                                                        <Badge variant="destructive">{daysOverdue} hari</Badge>
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            );
+                                                        })}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        </>
                                     )}
                                 </CardContent>
                             </Card>

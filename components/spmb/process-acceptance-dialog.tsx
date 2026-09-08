@@ -12,17 +12,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { DataTable } from "@/components/data-table";
 import {
   Play,
   Loader2,
@@ -249,55 +241,66 @@ export function ProcessAcceptanceDialog({
               </div>
 
               {/* Rankings Table */}
-              <ScrollArea className="h-[300px] border rounded-lg">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead className="w-16">Rank</TableHead>
-                      <TableHead>Nama</TableHead>
-                      <TableHead>Usia</TableHead>
-                      <TableHead>Prioritas</TableHead>
-                      <TableHead>Jarak</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(result?.rankings || preview?.rankings || []).map((item) => (
-                      <TableRow 
-                        key={item.id}
-                        className={
-                          item.rank <= quota 
-                            ? "bg-green-50/50 dark:bg-green-900/10" 
-                            : "bg-red-50/50 dark:bg-red-900/10"
-                        }
-                      >
-                        <TableCell>
-                          <span className={`font-bold ${item.rank <= quota ? "text-green-600" : "text-muted-foreground"}`}>
-                            #{item.rank}
-                          </span>
-                        </TableCell>
-                        <TableCell className="font-medium">{item.name}</TableCell>
-                        <TableCell className="text-sm">{item.age}</TableCell>
-                        <TableCell>{getPriorityGroupBadge(item.priorityGroup)}</TableCell>
-                        <TableCell className="text-sm">
+              <div className="max-h-[300px] overflow-y-auto border rounded-lg">
+                <DataTable
+                  data={(result?.rankings || preview?.rankings || [])}
+                  getRowId={(item) => item.id}
+                  columns={[
+                    {
+                      key: "rank",
+                      header: "Rank",
+                      card: "title",
+                      render: (item) => (
+                        <span className={`font-bold ${item.rank <= quota ? "text-green-600" : "text-muted-foreground"}`}>
+                          #{item.rank}
+                        </span>
+                      ),
+                    },
+                    {
+                      key: "name",
+                      header: "Nama",
+                      card: "field",
+                      render: (item) => <span className="font-medium">{item.name}</span>,
+                    },
+                    {
+                      key: "age",
+                      header: "Usia",
+                      card: "field",
+                      render: (item) => <span className="text-sm">{item.age}</span>,
+                    },
+                    {
+                      key: "priorityGroup",
+                      header: "Prioritas",
+                      card: "field",
+                      render: (item) => getPriorityGroupBadge(item.priorityGroup),
+                    },
+                    {
+                      key: "distance",
+                      header: "Jarak",
+                      card: "field",
+                      render: (item) => (
+                        <span className="text-sm">
                           {item.distance?.toFixed(1)} km
                           {item.isInZone && (
                             <Badge variant="outline" className="ml-1 text-xs">Domisili</Badge>
                           )}
-                        </TableCell>
-                        <TableCell>
-                          {result 
-                            ? getRecommendationBadge(item.recommendation || "")
-                            : item.rank <= quota 
-                              ? getRecommendationBadge("accepted")
-                              : getRecommendationBadge("waitlist")
-                          }
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
+                        </span>
+                      ),
+                    },
+                    {
+                      key: "status",
+                      header: "Status",
+                      card: "field",
+                      render: (item) =>
+                        result
+                          ? getRecommendationBadge(item.recommendation || "")
+                          : item.rank <= quota
+                            ? getRecommendationBadge("accepted")
+                            : getRecommendationBadge("waitlist"),
+                    },
+                  ]}
+                />
+              </div>
 
               {/* Garis kuota */}
               {!result && preview && preview.totalRegistrants > quota && (

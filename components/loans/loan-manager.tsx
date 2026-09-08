@@ -4,14 +4,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-    Table, 
-    TableBody, 
-    TableCell, 
-    TableHead, 
-    TableHeader, 
-    TableRow 
-} from "@/components/ui/table";
+import { DataTable } from "@/components/data-table";
 import { Plus, Check, X, FileText, Loader2, RefreshCcw } from "lucide-react";
 import { getLoans } from "@/actions/loans";
 import { format } from "date-fns";
@@ -110,83 +103,102 @@ export default function LoanManager() {
                         </p>
                     </div>
                 ) : (
-                    <div className="border rounded-lg overflow-hidden">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Pegawai</TableHead>
-                                    <TableHead>Tipe</TableHead>
-                                    <TableHead>Nominal</TableHead>
-                                    <TableHead>Tenor</TableHead>
-                                    <TableHead>Tanggal</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead className="text-right">Aksi</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {loans.map((loan) => (
-                                    <TableRow key={loan.id} className="hover:bg-muted/50">
-                                        <TableCell>
-                                            <div className="font-medium">{loan.employee?.user?.name || "Unknown"}</div>
-                                            <div className="text-xs text-muted-foreground">{loan.employee?.nip || "Pegawai"}</div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline">{loan.type}</Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="font-medium">{formatRupiah(loan.amountRequested)}</div>
-                                            {loan.amountApproved && loan.amountApproved !== loan.amountRequested && (
-                                                <div className="text-xs text-muted-foreground line-through">
-                                                    {formatRupiah(loan.amountApproved)}
-                                                </div>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>{loan.tenorMonths} Bulan</TableCell>
-                                        <TableCell className="text-muted-foreground text-sm">
-                                            {loan.createdAt ? format(new Date(loan.createdAt), "dd MMM yyyy", { locale: idLocale }) : "-"}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge className={statusColor(loan.status)} variant="secondary">
-                                                {loan.status}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            {loan.status === "PENDING" ? (
-                                                <div className="flex justify-end gap-2">
-                                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setLoanToReject(loan)}>
-                                                        <X className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => setLoanToApprove(loan)}>
-                                                        <Check className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
-                                            ) : (
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" className="h-8 w-8 p-0">
-                                                            <span className="sr-only">Open menu</span>
-                                                            <MoreHorizontal className="h-4 w-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                        <DropdownMenuLabel>Aksi</DropdownMenuLabel>
-                                                        <DropdownMenuItem onClick={() => setSelectedLoan(loan)}>
-                                                            <FileText className="mr-2 h-4 w-4" /> Detail Pinjaman
-                                                        </DropdownMenuItem>
-                                                        {loan.status === "APPROVED" && (
-                                                            <DropdownMenuItem disabled>
-                                                                <FileText className="mr-2 h-4 w-4" /> Lihat Jadwal Cicilan
-                                                            </DropdownMenuItem>
-                                                        )}
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            )}
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </div>
+                    <DataTable
+                        data={loans}
+                        getRowId={(loan) => loan.id}
+                        columns={[
+                            {
+                                key: "employee.user.name",
+                                header: "Pegawai",
+                                card: "title",
+                                render: (loan) => (
+                                    <div>
+                                        <div className="font-medium">{loan.employee?.user?.name || "Unknown"}</div>
+                                        <div className="text-xs text-muted-foreground">{loan.employee?.nip || "Pegawai"}</div>
+                                    </div>
+                                ),
+                            },
+                            {
+                                key: "type",
+                                header: "Tipe",
+                                card: "field",
+                                render: (loan) => <Badge variant="outline">{loan.type}</Badge>,
+                            },
+                            {
+                                key: "amountRequested",
+                                header: "Nominal",
+                                card: "field",
+                                render: (loan) => (
+                                    <div>
+                                        <div className="font-medium">{formatRupiah(loan.amountRequested)}</div>
+                                        {loan.amountApproved && loan.amountApproved !== loan.amountRequested && (
+                                            <div className="text-xs text-muted-foreground line-through">
+                                                {formatRupiah(loan.amountApproved)}
+                                            </div>
+                                        )}
+                                    </div>
+                                ),
+                            },
+                            {
+                                key: "tenorMonths",
+                                header: "Tenor",
+                                card: "field",
+                                render: (loan) => `${loan.tenorMonths} Bulan`,
+                            },
+                            {
+                                key: "createdAt",
+                                header: "Tanggal",
+                                card: "field",
+                                render: (loan) => (
+                                    <span className="text-muted-foreground text-sm">
+                                        {loan.createdAt ? format(new Date(loan.createdAt), "dd MMM yyyy", { locale: idLocale }) : "-"}
+                                    </span>
+                                ),
+                            },
+                            {
+                                key: "status",
+                                header: "Status",
+                                card: "field",
+                                render: (loan) => (
+                                    <Badge className={statusColor(loan.status)} variant="secondary">
+                                        {loan.status}
+                                    </Badge>
+                                ),
+                            },
+                        ]}
+                        actions={(loan) =>
+                            loan.status === "PENDING" ? (
+                                <div className="flex justify-end gap-2">
+                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setLoanToReject(loan)}>
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => setLoanToApprove(loan)}>
+                                        <Check className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            ) : (
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" className="h-8 w-8 p-0">
+                                            <span className="sr-only">Open menu</span>
+                                            <MoreHorizontal className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuLabel>Aksi</DropdownMenuLabel>
+                                        <DropdownMenuItem onClick={() => setSelectedLoan(loan)}>
+                                            <FileText className="mr-2 h-4 w-4" /> Detail Pinjaman
+                                        </DropdownMenuItem>
+                                        {loan.status === "APPROVED" && (
+                                            <DropdownMenuItem disabled>
+                                                <FileText className="mr-2 h-4 w-4" /> Lihat Jadwal Cicilan
+                                            </DropdownMenuItem>
+                                        )}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            )
+                        }
+                    />
                 )}
             </CardContent>
             

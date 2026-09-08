@@ -4,14 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/data-table";
 import {
     Select,
     SelectContent,
@@ -221,7 +214,7 @@ export default function TabunganPenggunaPage() {
 
                 <TabsContent value="wali-kelas" className="space-y-4 py-4">
                     <Card>
-                        <CardHeader className="flex flex-row items-center justify-between">
+                        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                             <div>
                                 <CardTitle>Data Wali Kelas</CardTitle>
                                 <CardDescription>
@@ -234,47 +227,48 @@ export default function TabunganPenggunaPage() {
                             </Button>
                         </CardHeader>
                         <CardContent>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Nama Kelas</TableHead>
-                                        <TableHead>Wali Kelas (Guru)</TableHead>
-                                        <TableHead className="w-[150px] text-right">Aksi</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {kelasList.map((k) => (
-                                        <TableRow key={k.id}>
-                                            <TableCell className="font-medium bg-muted/30">{k.nama}</TableCell>
-                                            <TableCell>
-                                                <div className="flex items-center gap-2">
-                                                    <ShieldCheck className={`h-4 w-4 ${k.waliKelas ? "text-green-500" : "text-gray-300"}`} />
-                                                    <span className={k.waliKelas ? "font-medium" : "text-muted-foreground italic"}>
-                                                        {k.waliKelasUser?.name || "Belum ditentukan"}
-                                                    </span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <div className="flex justify-end gap-2">
-                                                    <Button variant="ghost" size="icon" onClick={() => openEditClass(k)}>
-                                                        <Pencil className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteClass(k.id)}>
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                    {kelasList.length === 0 && !isLoading && (
-                                        <TableRow>
-                                            <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
-                                                Belum ada data kelas
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
+                            <DataTable
+                                data={isLoading ? [] : kelasList}
+                                getRowId={(k) => k.id}
+                                loading={isLoading}
+                                emptyTitle="Belum ada data kelas"
+                                emptyDescription="Tambahkan kelas untuk menugaskan wali kelas."
+                                columns={[
+                                    {
+                                        key: "nama",
+                                        header: "Nama Kelas",
+                                        card: "title",
+                                        render: (k) => (
+                                            <span className="font-medium bg-muted/30 px-2 py-0.5 rounded">
+                                                {k.nama}
+                                            </span>
+                                        ),
+                                    },
+                                    {
+                                        key: "waliKelasUser.name",
+                                        header: "Wali Kelas (Guru)",
+                                        card: "field",
+                                        render: (k) => (
+                                            <div className="flex items-center gap-2">
+                                                <ShieldCheck className={`h-4 w-4 ${k.waliKelas ? "text-green-500" : "text-gray-300"}`} />
+                                                <span className={k.waliKelas ? "font-medium" : "text-muted-foreground italic"}>
+                                                    {k.waliKelasUser?.name || "Belum ditentukan"}
+                                                </span>
+                                            </div>
+                                        ),
+                                    },
+                                ]}
+                                actions={(k) => (
+                                    <div className="flex justify-end gap-2">
+                                        <Button variant="ghost" size="icon" onClick={() => openEditClass(k)}>
+                                            <Pencil className="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteClass(k.id)}>
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                )}
+                            />
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -288,58 +282,58 @@ export default function TabunganPenggunaPage() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                             <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Nama Brankas</TableHead>
-                                        <TableHead>Tipe</TableHead>
-                                        <TableHead>PIC / Bendahara</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {brankasList.map((b) => (
-                                        <TableRow key={b.id}>
-                                            <TableCell className="font-medium">{b.nama}</TableCell>
-                                            <TableCell>
-                                                <Badge variant="outline">{b.tipe === "bank" ? "Rekening Bank" : "Tunai"}</Badge>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Select 
-                                                    value={b.picId || "unassigned"} 
-                                                    onValueChange={(val) => handleUpdateBrankasPIC(b.id, val === "unassigned" ? null : val)}
-                                                >
-                                                    <SelectTrigger className="w-[250px]">
-                                                        <SelectValue placeholder="Pilih PIC..." />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="unassigned">-- Belum Ada --</SelectItem>
-                                                        {staff.map((s) => (
-                                                            <SelectItem key={s.id} value={s.id}>
-                                                                {s.name} ({s.role})
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                    {brankasList.length === 0 && !isLoading && (
-                                        <TableRow>
-                                            <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
-                                                <div className="flex flex-col items-center gap-2">
-                                                    <p>Belum ada data brankas/rekening.</p>
-                                                    <Link href="/tabungan/brankas">
-                                                        <Button variant="outline" size="sm">
-                                                            <Plus className="h-4 w-4 mr-2" />
-                                                            Buat Akun Keuangan Baru
-                                                        </Button>
-                                                    </Link>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
+                            <DataTable
+                                data={isLoading ? [] : brankasList}
+                                getRowId={(b) => b.id}
+                                loading={isLoading}
+                                emptyTitle="Belum ada data brankas/rekening"
+                                emptyDescription="Buat akun keuangan terlebih dahulu untuk menugaskan PIC."
+                                emptyAction={{
+                                    label: "Buat Akun Keuangan",
+                                    href: "/tabungan/brankas",
+                                }}
+                                columns={[
+                                    {
+                                        key: "nama",
+                                        header: "Nama Brankas",
+                                        card: "title",
+                                        render: (b) => (
+                                            <span className="font-medium">{b.nama}</span>
+                                        ),
+                                    },
+                                    {
+                                        key: "tipe",
+                                        header: "Tipe",
+                                        card: "field",
+                                        render: (b) => (
+                                            <Badge variant="outline">{b.tipe === "bank" ? "Rekening Bank" : "Tunai"}</Badge>
+                                        ),
+                                    },
+                                    {
+                                        key: "picId",
+                                        header: "PIC / Bendahara",
+                                        card: "field",
+                                        render: (b) => (
+                                            <Select
+                                                value={b.picId || "unassigned"}
+                                                onValueChange={(val) => handleUpdateBrankasPIC(b.id, val === "unassigned" ? null : val)}
+                                            >
+                                                <SelectTrigger className="w-full sm:w-[250px]">
+                                                    <SelectValue placeholder="Pilih PIC..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="unassigned">-- Belum Ada --</SelectItem>
+                                                    {staff.map((s) => (
+                                                        <SelectItem key={s.id} value={s.id}>
+                                                            {s.name} ({s.role})
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        ),
+                                    },
+                                ]}
+                            />
                         </CardContent>
                     </Card>
                 </TabsContent>

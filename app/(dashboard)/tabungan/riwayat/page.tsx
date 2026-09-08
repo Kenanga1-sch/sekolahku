@@ -6,7 +6,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
     Select,
     SelectContent,
@@ -15,28 +14,19 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
-import {
     Search,
     ArrowDownCircle,
     ArrowUpCircle,
     CheckCircle2,
     XCircle,
     Clock,
-    History,
     ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
 import { goGet } from "@/lib/api-client";
 import type { TabunganTransaksiWithRelations, TransactionStatus } from "@/types/tabungan";
 import { useSortableData } from "@/hooks/use-sortable-data";
-import { SortableTableHead } from "@/components/ui/sortable-table-head";
+import { DataTable, TablePagination } from "@/components/data-table";
 
 function formatRupiah(amount: number): string {
     return new Intl.NumberFormat("id-ID", {
@@ -187,123 +177,124 @@ export default function TabunganRiwayatPage() {
             </Card>
 
             {/* Transactions Table */}
-            <Card>
-                <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <SortableTableHead label="Waktu" sortKey="createdAt" sortConfig={sortConfig} onSort={requestSort} />
-                                <SortableTableHead label="Siswa" sortKey="siswa.nama" sortConfig={sortConfig} onSort={requestSort} />
-                                <SortableTableHead label="Tipe" sortKey="tipe" sortConfig={sortConfig} onSort={requestSort} />
-                                <SortableTableHead label="Nominal" sortKey="nominal" sortConfig={sortConfig} onSort={requestSort} className="text-right" />
-                                <SortableTableHead label="Status" sortKey="status" sortConfig={sortConfig} onSort={requestSort} />
-                                <SortableTableHead label="Operator" sortKey="user.name" sortConfig={sortConfig} onSort={requestSort} />
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {isLoading ? (
-                                Array.from({ length: 5 }).map((_, i) => (
-                                    <TableRow key={i}>
-                                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                                        <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                                        <TableCell><Skeleton className="h-6 w-16" /></TableCell>
-                                        <TableCell><Skeleton className="h-4 w-24 ml-auto" /></TableCell>
-                                        <TableCell><Skeleton className="h-6 w-20" /></TableCell>
-                                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                                    </TableRow>
-                                ))
-                            ) : transactions.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-12">
-                                        <History className="h-16 w-16 mx-auto text-muted-foreground/50 mb-4" />
-                                        <p className="text-lg font-medium text-muted-foreground">
-                                            Belum ada transaksi
-                                        </p>
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                sortedTransactions.map((t) => {
-                                    const statusInfo = statusConfig[t.status];
-                                    const StatusIcon = statusInfo.icon;
-                                    return (
-                                        <TableRow key={t.id}>
-                                            <TableCell className="text-sm text-muted-foreground">
-                                                {formatDateTime(t.createdAt)}
-                                            </TableCell>
-                                            <TableCell>
-                                                <div>
-                                                    <p className="font-medium">{t.siswa?.nama || "-"}</p>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        {t.siswa?.kelas?.nama}
-                                                    </p>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge
-                                                    variant="outline"
-                                                    className={
-                                                        t.tipe === "setor"
-                                                            ? "border-green-500 text-green-600"
-                                                            : "border-red-500 text-red-600"
-                                                    }
-                                                >
-                                                    {t.tipe === "setor" ? (
-                                                        <ArrowDownCircle className="h-3 w-3 mr-1" />
-                                                    ) : (
-                                                        <ArrowUpCircle className="h-3 w-3 mr-1" />
-                                                    )}
-                                                    {t.tipe === "setor" ? "Setor" : "Tarik"}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="text-right font-mono font-semibold">
-                                                {formatRupiah(t.nominal)}
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge className={statusInfo.color}>
-                                                    <StatusIcon className="h-3 w-3 mr-1" />
-                                                    {statusInfo.label}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="text-sm text-muted-foreground">
-                                                {t.user?.name || "-"}
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                })
-                            )}
-                        </TableBody>
-                    </Table>
-
-                    {/* Pagination */}
-                    {transactions.length > 0 && (
-                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-slate-100 dark:border-zinc-800">
-                            <div className="text-sm text-muted-foreground">
-                                Halaman {page} dari {totalPages}
+            <DataTable
+                data={isLoading ? [] : sortedTransactions}
+                getRowId={(t) => t.id}
+                loading={isLoading}
+                sortConfig={sortConfig}
+                onSort={requestSort}
+                emptyTitle="Belum ada transaksi"
+                emptyDescription="Histori transaksi tabungan siswa akan muncul di sini."
+                columns={[
+                    {
+                        key: "createdAt",
+                        header: "Waktu",
+                        sortable: true,
+                        card: "hidden",
+                        render: (t) => (
+                            <span className="text-sm text-muted-foreground">
+                                {formatDateTime(t.createdAt)}
+                            </span>
+                        ),
+                    },
+                    {
+                        key: "siswa.nama",
+                        header: "Siswa",
+                        sortable: true,
+                        card: "title",
+                        render: (t) => (
+                            <div>
+                                <p className="font-medium">{t.siswa?.nama || "-"}</p>
+                                <p className="text-xs text-muted-foreground">
+                                    {t.siswa?.kelas?.nama}
+                                </p>
                             </div>
-                            {totalPages > 1 && (
-                                <div className="flex gap-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        disabled={page <= 1}
-                                        onClick={() => setPage((p) => p - 1)}
-                                    >
-                                        Sebelumnya
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        disabled={page >= totalPages}
-                                        onClick={() => setPage((p) => p + 1)}
-                                    >
-                                        Selanjutnya
-                                    </Button>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
+                        ),
+                    },
+                    {
+                        key: "createdAt",
+                        header: "Waktu",
+                        card: "field",
+                        render: (t) => (
+                            <span className="text-xs text-muted-foreground">
+                                {formatDateTime(t.createdAt)}
+                            </span>
+                        ),
+                    },
+                    {
+                        key: "tipe",
+                        header: "Tipe",
+                        sortable: true,
+                        card: "field",
+                        render: (t) => (
+                            <Badge
+                                variant="outline"
+                                className={
+                                    t.tipe === "setor"
+                                        ? "border-green-500 text-green-600"
+                                        : "border-red-500 text-red-600"
+                                }
+                            >
+                                {t.tipe === "setor" ? (
+                                    <ArrowDownCircle className="h-3 w-3 mr-1" />
+                                ) : (
+                                    <ArrowUpCircle className="h-3 w-3 mr-1" />
+                                )}
+                                {t.tipe === "setor" ? "Setor" : "Tarik"}
+                            </Badge>
+                        ),
+                    },
+                    {
+                        key: "nominal",
+                        header: "Nominal",
+                        sortable: true,
+                        card: "field",
+                        cardSpan: "full",
+                        render: (t) => (
+                            <span className="font-mono font-semibold">
+                                {formatRupiah(t.nominal)}
+                            </span>
+                        ),
+                    },
+                    {
+                        key: "status",
+                        header: "Status",
+                        sortable: true,
+                        card: "field",
+                        render: (t) => {
+                            const statusInfo = statusConfig[t.status];
+                            const StatusIcon = statusInfo.icon;
+                            return (
+                                <Badge className={statusInfo.color}>
+                                    <StatusIcon className="h-3 w-3 mr-1" />
+                                    {statusInfo.label}
+                                </Badge>
+                            );
+                        },
+                    },
+                    {
+                        key: "user.name",
+                        header: "Operator",
+                        sortable: true,
+                        card: "hidden",
+                        render: (t) => (
+                            <span className="text-sm text-muted-foreground">
+                                {t.user?.name || "-"}
+                            </span>
+                        ),
+                    },
+                ]}
+            />
+
+            {/* Pagination */}
+            {transactions.length > 0 && (
+                <TablePagination
+                    page={page}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                    label={`${transactions.length} transaksi`}
+                />
+            )}
         </div>
     );
 }

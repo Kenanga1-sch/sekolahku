@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
     Users,
-    Plus,
     Search,
     MoreHorizontal,
     Pencil,
@@ -12,26 +11,17 @@ import {
     IdCard,
     ArrowLeft,
     Printer,
-    Download,
     FileSpreadsheet,
     CreditCard,
     School,
     Upload,
-    RefreshCw 
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+import { DataTable, TablePagination } from "@/components/data-table";
 import {
     Dialog,
     DialogContent,
@@ -39,7 +29,6 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
 } from "@/components/ui/dialog";
 import {
     DropdownMenu,
@@ -64,7 +53,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { goGet, goPost, goPatch, goDelete } from "@/lib/api-client";
 import { useSortableData } from "@/hooks/use-sortable-data";
-import { SortableTableHead } from "@/components/ui/sortable-table-head";
 
 import type { LibraryMember } from "@/types/library";
 
@@ -369,10 +357,6 @@ export default function AnggotaPage() {
                         <FileSpreadsheet className="h-4 w-4" />
                         Export
                     </Button>
-                    <Button variant="outline" onClick={handleExport} className="hidden sm:flex gap-2">
-                        <FileSpreadsheet className="h-4 w-4" />
-                        Export
-                    </Button>
                 </div>
             </div>
 
@@ -478,140 +462,118 @@ export default function AnggotaPage() {
             </div>
 
             {/* Data Table */}
-            <Card className="overflow-hidden border-border shadow-sm">
-                <div className="p-0">
-                    <Table>
-                        <TableHeader className="bg-muted/50">
-                            <TableRow>
-                                <SortableTableHead label="Nama Anggota" sortKey="name" sortConfig={sortConfig} onSort={requestSort} className="font-semibold text-muted-foreground" />
-                                <SortableTableHead label="Kelas / Posisi" sortKey="className" sortConfig={sortConfig} onSort={requestSort} className="font-semibold text-muted-foreground" />
-                                <SortableTableHead label="NIS / ID" sortKey="studentId" sortConfig={sortConfig} onSort={requestSort} className="font-semibold text-muted-foreground" />
-                                <SortableTableHead label="Limit Pinjam" sortKey="maxBorrowLimit" sortConfig={sortConfig} onSort={requestSort} className="font-semibold text-muted-foreground text-center" />
-                                <TableHead className="font-semibold text-muted-foreground">Kode QR</TableHead>
-                                <TableHead className="w-[50px]"></TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {loading ? (
-                                <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
-                                        Memuat data anggota...
-                                    </TableCell>
-                                </TableRow>
-                            ) : members.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
-                                        <div className="flex flex-col items-center gap-2">
-                                            <Users className="h-8 w-8 opacity-20" />
-                                            <p>Belum ada data anggota.</p>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
+            <DataTable
+                data={loading ? [] : sortedMembers}
+                getRowId={(member) => member.id}
+                loading={loading}
+                sortConfig={sortConfig}
+                onSort={requestSort}
+                emptyTitle="Belum ada data anggota."
+                emptyDescription="Tambahkan anggota baru atau sinkronkan data siswa untuk memulai."
+                columns={[
+                    {
+                        key: "name",
+                        header: "Nama Anggota",
+                        sortable: true,
+                        card: "title",
+                        render: (member) => (
+                            <div className="font-medium text-foreground">{member.name}</div>
+                        ),
+                    },
+                    {
+                        key: "className",
+                        header: "Kelas / Posisi",
+                        sortable: true,
+                        card: "field",
+                        render: (member) => (
+                            member.className ? (
+                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800">
+                                    {member.className}
+                                </Badge>
                             ) : (
-                                sortedMembers.map((member) => (
-                                    <TableRow key={member.id} className="hover:bg-muted/50">
-                                        <TableCell>
-                                            <div className="font-medium text-foreground">{member.name}</div>
-                                            <div className="text-xs text-muted-foreground hidden sm:block md:hidden">
-                                                {member.studentId}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            {member.className ? (
-                                                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800">
-                                                    {member.className}
-                                                </Badge>
-                                            ) : (
-                                                <span className="text-muted-foreground text-sm">-</span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="text-muted-foreground font-mono text-xs">
-                                            {member.studentId || "-"}
-                                        </TableCell>
-                                        <TableCell className="text-center">
-                                            <Badge variant="secondary" className="bg-secondary text-secondary-foreground">
-                                                {member.maxBorrowLimit} Buku
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors" onClick={() => setMemberQR(member)}>
-                                                <QrCode className="h-4 w-4 text-muted-foreground" />
-                                                <code className="text-xs text-muted-foreground hover:text-primary transition-colors">
-                                                    {member.qrCode.substring(0, 8)}...
-                                                </code>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <DropdownMenu>
-                                                 <DropdownMenuTrigger asChild>
-                                                     <Button variant="outline" size="icon-sm" className="h-8 w-8 text-muted-foreground hover:text-foreground bg-background/50">
-                                                         <MoreHorizontal className="h-4 w-4" />
-                                                     </Button>
-                                                 </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuLabel>Aksi</DropdownMenuLabel>
-                                                    <DropdownMenuSeparator />
-                                                    <DropdownMenuItem onClick={() => openEditDialog(member)}>
-                                                        <Pencil className="h-4 w-4 mr-2" />
-                                                        Edit Data
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => setMemberToPrint(member)}>
-                                                        <IdCard className="h-4 w-4 mr-2 text-primary" />
-                                                        Cetak Kartu
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => setMemberQR(member)}>
-                                                        <QrCode className="h-4 w-4 mr-2" />
-                                                        Lihat QR Code
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuSeparator />
-                                                    <DropdownMenuItem 
-                                                        onClick={() => setMemberToDelete(member)}
-                                                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/10"
-                                                    >
-                                                        <Trash2 className="h-4 w-4 mr-2" />
-                                                        Hapus Anggota
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
-            </Card>
+                                <span className="text-muted-foreground text-sm">-</span>
+                            )
+                        ),
+                    },
+                    {
+                        key: "studentId",
+                        header: "NIS / ID",
+                        sortable: true,
+                        card: "field",
+                        render: (member) => (
+                            <span className="text-muted-foreground font-mono text-xs">
+                                {member.studentId || "-"}
+                            </span>
+                        ),
+                    },
+                    {
+                        key: "maxBorrowLimit",
+                        header: "Limit Pinjam",
+                        sortable: true,
+                        card: "field",
+                        render: (member) => (
+                            <Badge variant="secondary" className="bg-secondary text-secondary-foreground">
+                                {member.maxBorrowLimit} Buku
+                            </Badge>
+                        ),
+                    },
+                    {
+                        key: "qrCode",
+                        header: "Kode QR",
+                        card: "hidden",
+                        render: (member) => (
+                            <div className="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors" onClick={() => setMemberQR(member)}>
+                                <QrCode className="h-4 w-4 text-muted-foreground" />
+                                <code className="text-xs text-muted-foreground hover:text-primary transition-colors">
+                                    {member.qrCode.substring(0, 8)}...
+                                </code>
+                            </div>
+                        ),
+                    },
+                ]}
+                actions={(member) => (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="icon-sm" className="h-8 w-8 text-muted-foreground hover:text-foreground bg-background/50">
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Aksi</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => openEditDialog(member)}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Edit Data
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setMemberToPrint(member)}>
+                                <IdCard className="h-4 w-4 mr-2 text-primary" />
+                                Cetak Kartu
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setMemberQR(member)}>
+                                <QrCode className="h-4 w-4 mr-2" />
+                                Lihat QR Code
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                                onClick={() => setMemberToDelete(member)}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/10"
+                            >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Hapus Anggota
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
+            />
 
             {/* Pagination */}
-            {totalItems > 0 && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800">
-                    <div className="text-sm text-muted-foreground">
-                        Menampilkan {totalItems > 0 ? (page - 1) * perPage + 1 : 0} -{" "}
-                        {Math.min(page * perPage, totalItems)} dari{" "}
-                        {totalItems} anggota
-                    </div>
-
-                    {totalPages > 1 && (
-                        <div className="flex gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={page === 1}
-                                onClick={() => setPage(page - 1)}
-                            >
-                                Sebelumnya
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={page === totalPages}
-                                onClick={() => setPage(page + 1)}
-                            >
-                                Selanjutnya
-                            </Button>
-                        </div>
-                    )}
-                </div>
+            {!loading && totalItems > 0 && (
+                <TablePagination
+                    page={page}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                    label={`Menampilkan ${totalItems > 0 ? (page - 1) * perPage + 1 : 0} - ${Math.min(page * perPage, totalItems)} dari ${totalItems} anggota`}
+                />
             )}
 
             {/* --- DIALOGS --- */}

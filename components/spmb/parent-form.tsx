@@ -541,7 +541,7 @@ export default function ParentForm({ form, activeTab, onTabChange }: ParentFormP
             />
             </div>
 
-            <div className="grid grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             <FormField
                 control={form.control}
                 name="address_rt"

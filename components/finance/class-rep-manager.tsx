@@ -19,14 +19,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/data-table";
 import { assignClassRep } from "@/actions/savings-admin";
 import { showSuccess, showError } from "@/lib/toast";
 
@@ -60,36 +53,34 @@ export function ClassRepManager({ classes, employees }: ClassRepManagerProps) {
                     Penanggung Jawab Kelas (Wali Kelas / PJ Tabungan)
                     <Badge variant="outline" className="text-muted-foreground">{classes.length} Kelas</Badge>
                 </h3>
-                <div className="rounded-md border bg-background/50">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Nama Kelas</TableHead>
-                                <TableHead>Penanggung Jawab (PJ)</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {classes.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={2} className="text-center h-24 text-muted-foreground">Belum ada data kelas.</TableCell>
-                                </TableRow>
-                            ) : (
-                                classes.map((cls) => (
-                                    <TableRow key={cls.id}>
-                                        <TableCell className="font-medium">{cls.nama}</TableCell>
-                                        <TableCell>
-                                            <ClassRepSelector 
-                                                classId={cls.id} 
-                                                currentRepId={cls.waliKelas || cls.waliKelasUser?.id} 
-                                                employees={employees} 
-                                            />
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
+                <DataTable
+                    data={classes}
+                    getRowId={(cls) => cls.id}
+                    emptyTitle="Belum ada data kelas"
+                    emptyDescription="Kelas akan muncul setelah ditambahkan di modul tabungan."
+                    columns={[
+                        {
+                            key: "nama",
+                            header: "Nama Kelas",
+                            card: "title",
+                            render: (cls) => (
+                                <span className="font-medium">{cls.nama}</span>
+                            ),
+                        },
+                        {
+                            key: "waliKelas",
+                            header: "Penanggung Jawab (PJ)",
+                            card: "field",
+                            render: (cls) => (
+                                <ClassRepSelector
+                                    classId={cls.id}
+                                    currentRepId={cls.waliKelas || cls.waliKelasUser?.id}
+                                    employees={employees}
+                                />
+                            ),
+                        },
+                    ]}
+                />
             </CardContent>
         </Card>
     );
@@ -125,7 +116,7 @@ function ClassRepSelector({ classId, currentRepId, employees }: { classId: strin
               variant="outline"
               role="combobox"
               aria-expanded={open}
-              className="w-[200px] justify-between h-8"
+                className="w-full sm:w-[200px] justify-between h-8"
               disabled={loading}
             >
               {value

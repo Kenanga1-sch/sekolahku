@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { DataTable, TablePagination } from "@/components/data-table";
 import {
     Select,
     SelectContent,
@@ -13,14 +13,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
 import {
     Activity,
     RefreshCw,
@@ -38,7 +30,6 @@ import type { AuditAction, AuditResource } from "@/lib/audit";
 import { goGet } from "@/lib/api-client";
 import { formatDate } from "@/lib/utils";
 import { useSortableData } from "@/hooks/use-sortable-data";
-import { SortableTableHead } from "@/components/ui/sortable-table-head";
 
 interface AuditLogEntry {
     id?: string;
@@ -320,67 +311,74 @@ export default function TabSystemLogs() {
                 </CardContent>
             </Card>
 
-            <Card className="border-slate-200/80 dark:border-zinc-800/80">
-                <CardContent className="p-0 overflow-x-auto">
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="bg-muted/50">
-                                <SortableTableHead label="Waktu" sortKey="created" sortConfig={sortConfig} onSort={requestSort} className="w-44" />
-                                <SortableTableHead label="Aksi" sortKey="action" sortConfig={sortConfig} onSort={requestSort} className="w-28" />
-                                <SortableTableHead label="Resource" sortKey="resource" sortConfig={sortConfig} onSort={requestSort} className="w-32" />
-                                <TableHead>Detail</TableHead>
-                                <SortableTableHead label="User" sortKey="user_name" sortConfig={sortConfig} onSort={requestSort} />
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {isLoading ? (
-                                Array.from({ length: 5 }).map((_, i) => (
-                                    <TableRow key={i}>
-                                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                                        <TableCell><Skeleton className="h-6 w-20" /></TableCell>
-                                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                        <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                                    </TableRow>
-                                ))
-                            ) : logs.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="text-center py-12">
-                                        <Activity className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-                                        <p className="text-muted-foreground">Belum ada log aktivitas</p>
-                                    </TableCell>
-                                </TableRow>
-                            ) : sortedLogs.map((log) => (
-                                <TableRow key={log.id}>
-                                    <TableCell className="text-sm text-muted-foreground">{formatDate(log.created)}</TableCell>
-                                    <TableCell>
-                                        <Badge className={`gap-1 ${actionColors[log.action] ?? "bg-gray-100 text-gray-700"}`}>
-                                            {actionIcons[log.action] ?? <Activity className="h-4 w-4" />}
-                                            {actionLabels[log.action] ?? log.action}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="font-medium">{resourceLabels[log.resource] ?? log.resource}</TableCell>
-                                    <TableCell className="text-sm">{formatDetails(log.details)}</TableCell>
-                                    <TableCell className="text-sm text-muted-foreground">{log.user_name || log.user_email || "-"}</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                    {logs.length > 0 && (
-                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-slate-100 dark:border-zinc-800">
-                            <div className="text-sm text-muted-foreground">
-                                Halaman {page} dari {totalPages}
-                            </div>
-                            {totalPages > 1 && (
-                                <div className="flex gap-2">
-                                    <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Sebelumnya</Button>
-                                    <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Selanjutnya</Button>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
+            <DataTable
+                data={isLoading ? [] : sortedLogs}
+                getRowId={(log, i) => log.id ?? `log-${i}`}
+                loading={isLoading}
+                sortConfig={sortConfig}
+                onSort={requestSort}
+                emptyTitle="Belum ada log aktivitas"
+                emptyDescription="Aktivitas sistem akan tercatat di sini."
+                columns={[
+                    {
+                        key: "created",
+                        header: "Waktu",
+                        sortable: true,
+                        card: "field",
+                        render: (log) => (
+                            <span className="text-sm text-muted-foreground">{formatDate(log.created)}</span>
+                        ),
+                    },
+                    {
+                        key: "action",
+                        header: "Aksi",
+                        sortable: true,
+                        card: "title",
+                        render: (log) => (
+                            <Badge className={`gap-1 ${actionColors[log.action] ?? "bg-gray-100 text-gray-700"}`}>
+                                {actionIcons[log.action] ?? <Activity className="h-4 w-4" />}
+                                {actionLabels[log.action] ?? log.action}
+                            </Badge>
+                        ),
+                    },
+                    {
+                        key: "resource",
+                        header: "Resource",
+                        sortable: true,
+                        card: "field",
+                        render: (log) => (
+                            <span className="font-medium">{resourceLabels[log.resource] ?? log.resource}</span>
+                        ),
+                    },
+                    {
+                        key: "details",
+                        header: "Detail",
+                        card: "field",
+                        render: (log) => (
+                            <span className="text-sm">{formatDetails(log.details)}</span>
+                        ),
+                    },
+                    {
+                        key: "user_name",
+                        header: "User",
+                        sortable: true,
+                        card: "field",
+                        render: (log) => (
+                            <span className="text-sm text-muted-foreground">
+                                {log.user_name || log.user_email || "-"}
+                            </span>
+                        ),
+                    },
+                ]}
+            />
+            {!isLoading && logs.length > 0 && (
+                <TablePagination
+                    page={page}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                    label={`${logs.length} log`}
+                />
+            )}
         </div>
     );
 }

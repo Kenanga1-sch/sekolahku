@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable } from "@/components/data-table";
 import { toast } from "sonner";
 import { 
     ArrowLeft, 
@@ -518,7 +518,7 @@ export default function PengaturanPersuratanPage() {
                                 </div>
                                 <CardContent className="p-6 space-y-4">
                                     <div className="space-y-3">
-                                        <div className="grid grid-cols-2 gap-2">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                             <div className="space-y-1">
                                                 <Label className="text-[10px] uppercase text-muted-foreground font-semibold">Uji Coba Kode</Label>
                                                 <Input 
@@ -615,89 +615,88 @@ export default function PengaturanPersuratanPage() {
                             </div>
                         </CardHeader>
                         <CardContent className="p-0">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className="bg-slate-50 dark:bg-zinc-950">
-                                        <TableHead className="w-[140px] font-bold">Kode Klasifikasi</TableHead>
-                                        <TableHead className="font-bold">Kategori/Tujuan Dinas</TableHead>
-                                        <TableHead className="font-bold">Fungsi / Penjelasan Kode</TableHead>
-                                        <TableHead className="font-bold w-[120px] text-center">Status</TableHead>
-                                        <TableHead className="font-bold w-[120px] text-center">Aksi</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {isLoadingData ? (
-                                        [1, 2, 3].map((i) => (
-                                            <TableRow key={i}>
-                                                <TableCell><div className="h-4 w-20 bg-slate-100 dark:bg-zinc-950 rounded animate-pulse" /></TableCell>
-                                                <TableCell><div className="h-4 w-48 bg-slate-100 dark:bg-zinc-950 rounded animate-pulse" /></TableCell>
-                                                <TableCell><div className="h-4 w-64 bg-slate-100 dark:bg-zinc-950 rounded animate-pulse" /></TableCell>
-                                                <TableCell><div className="h-4 w-12 mx-auto bg-slate-100 dark:bg-zinc-950 rounded animate-pulse" /></TableCell>
-                                                <TableCell><div className="h-4 w-16 mx-auto bg-slate-100 dark:bg-zinc-950 rounded animate-pulse" /></TableCell>
-                                            </TableRow>
-                                        ))
-                                    ) : filteredClassifications.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
-                                                Tidak ada klasifikasi surat yang ditemukan.
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        filteredClassifications.map((item) => (
-                                            <TableRow key={item.code} className={`hover:bg-slate-50 dark:hover:bg-zinc-950/40 ${!item.isActive ? "opacity-60 bg-slate-50/30 dark:bg-zinc-950/10" : ""}`}>
-                                                <TableCell className="font-mono font-bold text-slate-800 dark:text-white">
-                                                    {item.code}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="space-y-1">
-                                                        <span className="font-medium text-foreground block">{item.name}</span>
-                                                        <Badge className={`text-[10px] font-medium border-0 px-2 py-0.5 ${getCategoryBadgeColor(item.code)}`}>
-                                                            {item.code.startsWith("400.3") ? "Permendagri 83/2022" : "Dinas"}
-                                                        </Badge>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="text-xs text-muted-foreground max-w-xs leading-relaxed">
-                                                    {item.description || <em className="text-slate-400">Belum ada penjelasan kode klasifikasi.</em>}
-                                                </TableCell>
-                                                <TableCell className="text-center">
-                                                    {item.isActive ? (
-                                                        <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-0 pointer-events-none">
-                                                            <Check className="h-3 w-3 mr-1" />
-                                                            Aktif
-                                                        </Badge>
-                                                    ) : (
-                                                        <Badge className="bg-slate-100 text-slate-500 dark:bg-zinc-900 dark:text-slate-400 border-0 pointer-events-none">
-                                                            Nonaktif
-                                                        </Badge>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell className="text-center">
-                                                    <div className="flex items-center justify-center gap-1">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={() => handleOpenEditDialog(item)}
-                                                            className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30"
-                                                            title="Edit Klasifikasi"
-                                                        >
-                                                            <Pencil className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={() => handleOpenDeleteDialog(item)}
-                                                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
-                                                            title="Hapus Klasifikasi"
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
-                                    )}
-                                </TableBody>
-                            </Table>
+                            <DataTable
+                                data={isLoadingData ? [] : filteredClassifications}
+                                getRowId={(item) => item.code}
+                                loading={isLoadingData}
+                                emptyTitle="Tidak ada klasifikasi surat yang ditemukan."
+                                emptyDescription="Coba kata kunci lain atau tambahkan klasifikasi baru."
+                                actions={(item) => (
+                                    <div className="flex items-center justify-center gap-1">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => handleOpenEditDialog(item)}
+                                            className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                                            title="Edit Klasifikasi"
+                                        >
+                                            <Pencil className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => handleOpenDeleteDialog(item)}
+                                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                                            title="Hapus Klasifikasi"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                )}
+                                columns={[
+                                    {
+                                        key: "code",
+                                        header: "Kode Klasifikasi",
+                                        width: "140px",
+                                        card: "title",
+                                        render: (item) => (
+                                            <span className="font-mono font-bold text-slate-800 dark:text-white">
+                                                {item.code}
+                                            </span>
+                                        ),
+                                    },
+                                    {
+                                        key: "name",
+                                        header: "Kategori/Tujuan Dinas",
+                                        card: "field",
+                                        render: (item) => (
+                                            <div className="space-y-1">
+                                                <span className="font-medium text-foreground block">{item.name}</span>
+                                                <Badge className={`text-[10px] font-medium border-0 px-2 py-0.5 ${getCategoryBadgeColor(item.code)}`}>
+                                                    {item.code.startsWith("400.3") ? "Permendagri 83/2022" : "Dinas"}
+                                                </Badge>
+                                            </div>
+                                        ),
+                                    },
+                                    {
+                                        key: "description",
+                                        header: "Fungsi / Penjelasan Kode",
+                                        card: "hidden",
+                                        render: (item) => (
+                                            <span className="block text-xs text-muted-foreground max-w-xs leading-relaxed">
+                                                {item.description || <em className="text-slate-400">Belum ada penjelasan kode klasifikasi.</em>}
+                                            </span>
+                                        ),
+                                    },
+                                    {
+                                        key: "isActive",
+                                        header: "Status",
+                                        width: "120px",
+                                        card: "field",
+                                        render: (item) =>
+                                            item.isActive ? (
+                                                <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-0 pointer-events-none">
+                                                    <Check className="h-3 w-3 mr-1" />
+                                                    Aktif
+                                                </Badge>
+                                            ) : (
+                                                <Badge className="bg-slate-100 text-slate-500 dark:bg-zinc-900 dark:text-slate-400 border-0 pointer-events-none">
+                                                    Nonaktif
+                                                </Badge>
+                                            ),
+                                    },
+                                ]}
+                            />
                         </CardContent>
                     </Card>
                 </TabsContent>

@@ -184,7 +184,8 @@ export function RegistrationPageClient({
       // Handle document upload if any
       if (data.documents && result.data?.id) {
         const formData = new FormData();
-        
+        formData.append("registrationNumber", result.data?.registration_number || "");
+
         Object.entries(data.documents).forEach(([key, file]) => {
             if (file instanceof File) {
                 formData.append("documents", file);

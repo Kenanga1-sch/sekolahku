@@ -15,17 +15,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import AsyncSelect from "react-select/async";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/data-table";
 import {
     Tabs,
     TabsContent,
@@ -39,7 +32,6 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
 } from "@/components/ui/dialog";
 import {
     AlertDialog,
@@ -192,96 +184,107 @@ export default function PeminjamanPage() {
         return memberName.includes(query) || itemTitle.includes(query);
     });
 
-    const LoanTable = ({ loans, showFine = false }: { loans: LibraryLoan[]; showFine?: boolean }) => (
-        <Table>
-            <TableHeader>
-                <TableRow>
-                    <TableHead>Peminjam</TableHead>
-                    <TableHead>Buku</TableHead>
-                    <TableHead>Tgl Pinjam</TableHead>
-                    <TableHead>Jatuh Tempo</TableHead>
-                    <TableHead>Status</TableHead>
-                    {showFine && <TableHead>Denda</TableHead>}
-                    <TableHead className="w-[100px]"></TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {loans.length === 0 ? (
-                    <TableRow>
-                        <TableCell colSpan={showFine ? 7 : 6} className="text-center py-8 text-muted-foreground">
-                            Tidak ada data peminjaman
-                        </TableCell>
-                    </TableRow>
-                ) : (
-                    loans.map((loan) => {
+    const LoanTable = ({ loans, showFine = false, loading = false }: { loans: LibraryLoan[]; showFine?: boolean; loading?: boolean }) => (
+        <DataTable
+            data={loans}
+            getRowId={(loan) => loan.id}
+            loading={loading}
+            emptyTitle="Tidak ada data peminjaman"
+            emptyDescription="Belum ada peminjaman pada kategori ini."
+            columns={[
+                {
+                    key: "member.name",
+                    header: "Peminjam",
+                    card: "title",
+                    render: (loan) => (
+                        <div>
+                            <p className="font-medium">{loan.member?.name || "-"}</p>
+                            <p className="text-xs text-muted-foreground">
+                                {loan.member?.className || ""}
+                            </p>
+                        </div>
+                    ),
+                },
+                {
+                    key: "item.catalog.title",
+                    header: "Buku",
+                    card: "field",
+                    render: (loan) => (
+                        <div>
+                            <p className="font-medium">{loan.item?.catalog?.title || "-"}</p>
+                            <Badge variant="outline" className="text-[10px] h-4 font-mono">{loan.itemId}</Badge>
+                        </div>
+                    ),
+                },
+                {
+                    key: "borrowDate",
+                    header: "Tgl Pinjam",
+                    card: "field",
+                    render: (loan) => formatDate(loan.borrowDate),
+                },
+                {
+                    key: "dueDate",
+                    header: "Jatuh Tempo",
+                    card: "field",
+                    render: (loan) => formatDate(loan.dueDate),
+                },
+                {
+                    key: "status",
+                    header: "Status",
+                    card: "field",
+                    render: (loan) => {
                         const daysUntilDue = getDaysUntilDue(loan.dueDate);
                         const isOverdue = daysUntilDue < 0;
-                        const fine = calculateFine(loan);
-
-                        return (
-                            <TableRow key={loan.id}>
-                                <TableCell>
-                                    <div>
-                                        <p className="font-medium">{loan.member?.name || "-"}</p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {loan.member?.className || ""}
-                                        </p>
-                                    </div>
-                                </TableCell>
-                                <TableCell>
-                                    <div>
-                                        <p className="font-medium">{loan.item?.catalog?.title || "-"}</p>
-                                        <Badge variant="outline" className="text-[10px] h-4 font-mono">{loan.itemId}</Badge>
-                                    </div>
-                                </TableCell>
-                                <TableCell>{formatDate(loan.borrowDate)}</TableCell>
-                                <TableCell>{formatDate(loan.dueDate)}</TableCell>
-                                <TableCell>
-                                    {isOverdue ? (
-                                        <Badge variant="destructive" className="gap-1">
-                                            <AlertTriangle className="h-3 w-3" />
-                                            Terlambat {Math.abs(daysUntilDue)} hari
-                                        </Badge>
-                                    ) : daysUntilDue <= 2 ? (
-                                        <Badge variant="secondary" className="gap-1 bg-yellow-100 text-yellow-800">
-                                            <Clock className="h-3 w-3" />
-                                            {daysUntilDue} hari lagi
-                                        </Badge>
-                                    ) : (
-                                        <Badge variant="secondary" className="gap-1">
-                                            <CheckCircle className="h-3 w-3" />
-                                            {daysUntilDue} hari
-                                        </Badge>
-                                    )}
-                                </TableCell>
-                                {showFine && (
-                                    <TableCell>
-                                        {fine > 0 ? (
-                                            <span className="text-red-600 font-medium">
-                                                Rp {fine.toLocaleString("id-ID")}
-                                            </span>
-                                        ) : (
-                                            "-"
-                                        )}
-                                    </TableCell>
-                                )}
-                                <TableCell>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="gap-1"
-                                        onClick={() => setReturningLoan(loan)}
-                                    >
-                                        <RotateCcw className="h-3 w-3" />
-                                        Kembalikan
-                                    </Button>
-                                </TableCell>
-                            </TableRow>
+                        return isOverdue ? (
+                            <Badge variant="destructive" className="gap-1">
+                                <AlertTriangle className="h-3 w-3" />
+                                Terlambat {Math.abs(daysUntilDue)} hari
+                            </Badge>
+                        ) : daysUntilDue <= 2 ? (
+                            <Badge variant="secondary" className="gap-1 bg-yellow-100 text-yellow-800">
+                                <Clock className="h-3 w-3" />
+                                {daysUntilDue} hari lagi
+                            </Badge>
+                        ) : (
+                            <Badge variant="secondary" className="gap-1">
+                                <CheckCircle className="h-3 w-3" />
+                                {daysUntilDue} hari
+                            </Badge>
                         );
-                    })
-                )}
-            </TableBody>
-        </Table>
+                    },
+                },
+                ...(showFine
+                    ? [
+                          {
+                              key: "fine",
+                              header: "Denda",
+                              card: "field" as const,
+                              render: (loan: LibraryLoan) => {
+                                  const fine = calculateFine(loan);
+                                  return fine > 0 ? (
+                                      <span className="text-red-600 font-medium">
+                                          Rp {fine.toLocaleString("id-ID")}
+                                      </span>
+                                  ) : (
+                                      "-"
+                                  );
+                              },
+                          },
+                      ]
+                    : []),
+            ]}
+            actions={(loan) => (
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1"
+                    onClick={() => setReturningLoan(loan)}
+                >
+                    <RotateCcw className="h-3 w-3" />
+                    Kembalikan
+                </Button>
+            )}
+        />
     );
 
     return (
@@ -381,31 +384,11 @@ export default function PeminjamanPage() {
                 </TabsList>
 
                 <TabsContent value="active" className="mt-4">
-                    <Card>
-                        <CardContent className="p-0">
-                            {loading ? (
-                                <div className="text-center py-8 text-muted-foreground">
-                                    Memuat...
-                                </div>
-                            ) : (
-                                <LoanTable loans={filteredActiveLoans} />
-                            )}
-                        </CardContent>
-                    </Card>
+                    <LoanTable loans={filteredActiveLoans} loading={loading} />
                 </TabsContent>
 
                 <TabsContent value="overdue" className="mt-4">
-                    <Card>
-                        <CardContent className="p-0">
-                            {loading ? (
-                                <div className="text-center py-8 text-muted-foreground">
-                                    Memuat...
-                                </div>
-                            ) : (
-                                <LoanTable loans={overdueLoans} showFine />
-                            )}
-                        </CardContent>
-                    </Card>
+                    <LoanTable loans={overdueLoans} showFine loading={loading} />
                 </TabsContent>
             </Tabs>
 

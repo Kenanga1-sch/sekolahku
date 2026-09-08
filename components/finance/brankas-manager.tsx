@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge"; // Badge not really needed
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DataTable } from "@/components/data-table";
 import {
   Dialog,
   DialogContent,
@@ -16,14 +17,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
 import { showSuccess, showError } from "@/lib/toast";
 import { Loader2, Landmark, Wallet, ArrowRightLeft, History } from "lucide-react";
 import { transferVaultFunds } from "@/actions/savings-admin";
@@ -161,49 +154,51 @@ export function BrankasManager({ vaults = [], recentTransactions = [], currentUs
                     <h3 className="font-semibold text-lg flex items-center gap-2 mb-4">
                         <History className="w-5 h-5" /> Riwayat Mutasi Brankas
                     </h3>
-                    <div className="rounded-md border">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Tanggal</TableHead>
-                                    <TableHead>Tipe Transaksi</TableHead>
-                                    <TableHead>Nominal</TableHead>
-                                    <TableHead>Oleh</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {recentTransactions.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Belum ada transaksi.</TableCell>
-                                    </TableRow>
-                                ) : (
-                                    recentTransactions.map((tx) => (
-                                        <TableRow key={tx.id}>
-                                            <TableCell>{new Date(tx.createdAt).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</TableCell>
-                                            <TableCell>
-                                                {(() => {
-                                                    const badgeProps = {
-                                                        "setor_ke_bank": { label: "Setor ke Bank", className: "bg-blue-100 text-blue-700 hover:bg-blue-200 border-none" },
-                                                        "tarik_dari_bank": { label: "Tarik dari Bank", className: "bg-orange-100 text-orange-700 hover:bg-orange-200 border-none" },
-                                                        "setor_ke_koperasi": { label: "Setoran Masuk", className: "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-none" },
-                                                        "tarik_dari_koperasi": { label: "Penarikan Keluar", className: "bg-red-100 text-red-700 hover:bg-red-200 border-none" },
-                                                    }[tx.tipe as string] || { label: tx.tipe, className: "bg-gray-100 text-gray-700 border-none" };
+                    <DataTable
+                        data={recentTransactions}
+                        getRowId={(tx) => tx.id}
+                        emptyTitle="Belum ada transaksi"
+                        emptyDescription="Riwayat mutasi brankas akan muncul di sini."
+                        columns={[
+                            {
+                                key: "createdAt",
+                                header: "Tanggal",
+                                card: "field",
+                                render: (tx) => new Date(tx.createdAt).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+                            },
+                            {
+                                key: "tipe",
+                                header: "Tipe Transaksi",
+                                card: "title",
+                                render: (tx) => {
+                                    const badgeProps = {
+                                        "setor_ke_bank": { label: "Setor ke Bank", className: "bg-blue-100 text-blue-700 hover:bg-blue-200 border-none" },
+                                        "tarik_dari_bank": { label: "Tarik dari Bank", className: "bg-orange-100 text-orange-700 hover:bg-orange-200 border-none" },
+                                        "setor_ke_koperasi": { label: "Setoran Masuk", className: "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-none" },
+                                        "tarik_dari_koperasi": { label: "Penarikan Keluar", className: "bg-red-100 text-red-700 hover:bg-red-200 border-none" },
+                                    }[tx.tipe as string] || { label: tx.tipe, className: "bg-gray-100 text-gray-700 border-none" };
 
-                                                    return (
-                                                        <Badge variant="outline" className={badgeProps.className}>
-                                                            {badgeProps.label}
-                                                        </Badge>
-                                                    );
-                                                })()}
-                                            </TableCell>
-                                            <TableCell className="font-medium">{formatCurrency(tx.nominal)}</TableCell>
-                                            <TableCell className="text-muted-foreground">{tx.user?.name || "System"}</TableCell>
-                                        </TableRow>
-                                    ))
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
+                                    return (
+                                        <Badge variant="outline" className={badgeProps.className}>
+                                            {badgeProps.label}
+                                        </Badge>
+                                    );
+                                },
+                            },
+                            {
+                                key: "nominal",
+                                header: "Nominal",
+                                card: "field",
+                                render: (tx) => <span className="font-medium">{formatCurrency(tx.nominal)}</span>,
+                            },
+                            {
+                                key: "user.name",
+                                header: "Oleh",
+                                card: "field",
+                                render: (tx) => <span className="text-muted-foreground">{tx.user?.name || "System"}</span>,
+                            },
+                        ]}
+                    />
                 </CardContent>
             </Card>
         </div>

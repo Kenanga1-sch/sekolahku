@@ -17,16 +17,9 @@ import {
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+import { DataTable, TablePagination } from "@/components/data-table";
 import {
     Dialog,
     DialogContent,
@@ -62,7 +55,6 @@ import {
 } from "@/lib/library";
 import type { LibraryItem, ItemCategory } from "@/types/library";
 import { useSortableData } from "@/hooks/use-sortable-data";
-import { SortableTableHead } from "@/components/ui/sortable-table-head";
 
 const CATEGORIES: { value: ItemCategory; label: string }[] = [
     { value: "FICTION", label: "Fiksi" },
@@ -256,7 +248,7 @@ export default function BukuPage() {
                                         required
                                     />
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="grid gap-2">
                                         <Label htmlFor="author">Penulis</Label>
                                         <Input
@@ -274,7 +266,7 @@ export default function BukuPage() {
                                         />
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="grid gap-2">
                                         <Label htmlFor="publisher">Penerbit</Label>
                                         <Input
@@ -293,7 +285,7 @@ export default function BukuPage() {
                                         />
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="grid gap-2">
                                         <Label htmlFor="category">Kategori</Label>
                                         <Select
@@ -400,111 +392,125 @@ export default function BukuPage() {
             </Card>
 
             {/* Table */}
-            <Card>
-                <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="w-[80px]">Sampul</TableHead>
-                                <SortableTableHead label="Judul" sortKey="catalog.title" sortConfig={sortConfig} onSort={requestSort} />
-                                <SortableTableHead label="Penulis" sortKey="catalog.author" sortConfig={sortConfig} onSort={requestSort} />
-                                <SortableTableHead label="Kategori" sortKey="catalog.category" sortConfig={sortConfig} onSort={requestSort} />
-                                <SortableTableHead label="Lokasi" sortKey="location" sortConfig={sortConfig} onSort={requestSort} />
-                                <SortableTableHead label="Status" sortKey="status" sortConfig={sortConfig} onSort={requestSort} />
-                                <TableHead className="w-[50px]"></TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {loading ? (
-                                <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-8">
-                                        Memuat...
-                                    </TableCell>
-                                </TableRow>
-                            ) : items.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                                        Belum ada buku. Klik &quot;Tambah Buku&quot; untuk menambahkan.
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                sortedItems.map((item) => (
-                                    <TableRow key={item.id}>
-                                        <TableCell>
-                                            <div className="w-12 h-16 rounded overflow-hidden border bg-muted flex items-center justify-center">
-                                                {item.catalog?.cover ? (
-                                                    <img 
-                                                        src={item.catalog.cover} 
-                                                        alt={item.catalog.title} 
-                                                        className="w-full h-full object-cover"
-                                                        onError={(e) => {
-                                                            (e.target as HTMLImageElement).src = "/images/placeholder-book.png";
-                                                        }}
-                                                    />
-                                                ) : (
-                                                    <Book className="h-6 w-6 text-muted-foreground/40" />
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex flex-col">
-                                                <p className="font-medium">{item.catalog?.title || "No Title"}</p>
-                                                <div className="flex gap-2 items-center">
-                                                    <Badge variant="outline" className="text-[10px] h-4 font-mono">{item.id}</Badge>
-                                                    {item.catalog?.isbn && (
-                                                        <p className="text-xs text-muted-foreground">ISBN: {item.catalog.isbn}</p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>{item.catalog?.author || "-"}</TableCell>
-                                        <TableCell>
-                                            <Badge variant="secondary">
-                                                {CATEGORIES.find((c) => c.value === item.catalog?.category)?.label || item.catalog?.category || "-"}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>{item.location || "-"}</TableCell>
-                                        <TableCell>
-                                            <Badge variant={item.status === "AVAILABLE" ? "default" : "destructive"}>
-                                                {item.status === "AVAILABLE" ? "Tersedia" : "Dipinjam"}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                     <Button variant="outline" size="icon-sm" className="h-8 w-8 text-muted-foreground hover:text-foreground bg-background/50">
-                                                         <MoreHorizontal className="h-4 w-4" />
-                                                     </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem onClick={() => openEditDialog(item)}>
-                                                        <Pencil className="h-4 w-4 mr-2" />
-                                                        Edit
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => {
-                                                        setSwappingItem(item);
-                                                        setIsSwapDialogOpen(true);
-                                                    }}>
-                                                        <QrCode className="h-4 w-4 mr-2" />
-                                                        Ganti QR Code
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem
-                                                        className="text-red-600"
-                                                        onClick={() => handleDelete(item.id)}
-                                                    >
-                                                        <Trash2 className="h-4 w-4 mr-2" />
-                                                        Hapus
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+            <DataTable
+                data={loading ? [] : sortedItems}
+                getRowId={(item) => item.id}
+                loading={loading}
+                sortConfig={sortConfig}
+                onSort={requestSort}
+                emptyTitle="Belum ada buku"
+                emptyDescription="Klik “Tambah Buku” untuk menambahkan koleksi pertama."
+                columns={[
+                    {
+                        key: "catalog.cover",
+                        header: "Sampul",
+                        card: "hidden",
+                        render: (item) => (
+                            <div className="w-12 h-16 rounded overflow-hidden border bg-muted flex items-center justify-center">
+                                {item.catalog?.cover ? (
+                                    <img
+                                        src={item.catalog.cover}
+                                        alt={item.catalog.title}
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                            (e.target as HTMLImageElement).src = "/images/placeholder-book.png";
+                                        }}
+                                    />
+                                ) : (
+                                    <Book className="h-6 w-6 text-muted-foreground/40" />
+                                )}
+                            </div>
+                        ),
+                    },
+                    {
+                        key: "catalog.title",
+                        header: "Judul",
+                        sortable: true,
+                        card: "title",
+                        render: (item) => (
+                            <p className="font-medium">{item.catalog?.title || "No Title"}</p>
+                        ),
+                    },
+                    {
+                        key: "id",
+                        header: "Kode / ISBN",
+                        card: "field",
+                        render: (item) => (
+                            <div className="flex flex-col items-start gap-1">
+                                <Badge variant="outline" className="text-[10px] h-4 font-mono">{item.id}</Badge>
+                                {item.catalog?.isbn && (
+                                    <p className="text-xs text-muted-foreground">ISBN: {item.catalog.isbn}</p>
+                                )}
+                            </div>
+                        ),
+                    },
+                    {
+                        key: "catalog.author",
+                        header: "Penulis",
+                        sortable: true,
+                        card: "field",
+                        render: (item) => item.catalog?.author || "-",
+                    },
+                    {
+                        key: "catalog.category",
+                        header: "Kategori",
+                        sortable: true,
+                        card: "field",
+                        render: (item) => (
+                            <Badge variant="secondary">
+                                {CATEGORIES.find((c) => c.value === item.catalog?.category)?.label || item.catalog?.category || "-"}
+                            </Badge>
+                        ),
+                    },
+                    {
+                        key: "location",
+                        header: "Lokasi",
+                        sortable: true,
+                        card: "field",
+                        render: (item) => item.location || "-",
+                    },
+                    {
+                        key: "status",
+                        header: "Status",
+                        sortable: true,
+                        card: "field",
+                        render: (item) => (
+                            <Badge variant={item.status === "AVAILABLE" ? "default" : "destructive"}>
+                                {item.status === "AVAILABLE" ? "Tersedia" : "Dipinjam"}
+                            </Badge>
+                        ),
+                    },
+                ]}
+                actions={(item) => (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                             <Button variant="outline" size="icon-sm" className="h-8 w-8 text-muted-foreground hover:text-foreground bg-background/50">
+                                 <MoreHorizontal className="h-4 w-4" />
+                             </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openEditDialog(item)}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                                setSwappingItem(item);
+                                setIsSwapDialogOpen(true);
+                            }}>
+                                <QrCode className="h-4 w-4 mr-2" />
+                                Ganti QR Code
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                className="text-red-600"
+                                onClick={() => handleDelete(item.id)}
+                            >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Hapus
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
+            />
 
             {/* Swap QR Dialog */}
             <Dialog open={isSwapDialogOpen} onOpenChange={setIsSwapDialogOpen}>
@@ -543,32 +549,13 @@ export default function BukuPage() {
             </Dialog>
 
             {/* Pagination */}
-            {items.length > 0 && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800">
-                    <div className="text-sm text-muted-foreground">
-                        Halaman {page} dari {totalPages}
-                    </div>
-                    {totalPages > 1 && (
-                        <div className="flex gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={page === 1}
-                                onClick={() => setPage(page - 1)}
-                            >
-                                Sebelumnya
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={page === totalPages}
-                                onClick={() => setPage(page + 1)}
-                            >
-                                Selanjutnya
-                            </Button>
-                        </div>
-                    )}
-                </div>
+            {!loading && items.length > 0 && (
+                <TablePagination
+                    page={page}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                    label={`${items.length} buku`}
+                />
             )}
         </div>
     );

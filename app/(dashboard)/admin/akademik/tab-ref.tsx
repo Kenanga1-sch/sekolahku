@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Plus, Pencil, Trash2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable } from "@/components/data-table";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -108,7 +108,7 @@ function AcademicYearsTab() {
 
     return (
         <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                     <CardTitle>Daftar Tahun Ajaran</CardTitle>
                     <CardDescription>Atur periode akademik sekolah.</CardDescription>
@@ -116,39 +116,53 @@ function AcademicYearsTab() {
                 <Button onClick={handleCreate}><Plus className="mr-2 h-4 w-4" /> Tambah</Button>
             </CardHeader>
             <CardContent>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Tahun Ajaran</TableHead>
-                            <TableHead>Semester</TableHead>
-                            <TableHead>Periode Tanggal</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead className="text-right">Aksi</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {data.map(item => (
-                            <TableRow key={item.id}>
-                                <TableCell className="font-medium">{item.name}</TableCell>
-                                <TableCell>{item.semester}</TableCell>
-                                <TableCell className="text-sm text-muted-foreground">
+                <DataTable
+                    data={data}
+                    getRowId={(item) => item.id}
+                    emptyTitle="Belum ada tahun ajaran"
+                    emptyDescription="Tambahkan tahun ajaran untuk mengatur periode akademik."
+                    columns={[
+                        {
+                            key: "name",
+                            header: "Tahun Ajaran",
+                            card: "title",
+                            render: (item) => <span className="font-medium">{item.name}</span>,
+                        },
+                        {
+                            key: "semester",
+                            header: "Semester",
+                            card: "field",
+                            render: (item) => item.semester,
+                        },
+                        {
+                            key: "startDate",
+                            header: "Periode Tanggal",
+                            card: "field",
+                            render: (item) => (
+                                <span className="text-sm text-muted-foreground">
                                     {item.startDate ? new Date(item.startDate).toLocaleDateString("id-ID") : "-"} s/d <br/>
                                     {item.endDate ? new Date(item.endDate).toLocaleDateString("id-ID") : "-"}
-                                </TableCell>
-                                <TableCell>
-                                    {item.isActive ? 
-                                        <Badge className="bg-emerald-500 hover:bg-emerald-600"><CheckCircle2 className="mr-1 h-3 w-3" /> Aktif</Badge> : 
-                                        <Badge variant="outline">Non-Aktif</Badge>
-                                    }
-                                </TableCell>
-                                <TableCell className="text-right space-x-2">
-                                    <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}><Pencil className="h-4 w-4" /></Button>
-                                    <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDelete(item.id)}><Trash2 className="h-4 w-4" /></Button>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                                </span>
+                            ),
+                        },
+                        {
+                            key: "isActive",
+                            header: "Status",
+                            card: "field",
+                            render: (item) => (
+                                item.isActive ? 
+                                    <Badge className="bg-emerald-500 hover:bg-emerald-600"><CheckCircle2 className="mr-1 h-3 w-3" /> Aktif</Badge> : 
+                                    <Badge variant="outline">Non-Aktif</Badge>
+                            ),
+                        },
+                    ]}
+                    actions={(item) => (
+                        <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}><Pencil className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDelete(item.id)}><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                    )}
+                />
             </CardContent>
 
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -169,7 +183,7 @@ function AcademicYearsTab() {
                                 </SelectContent>
                             </Select>
                         </div>
-                         <div className="grid grid-cols-2 gap-4">
+                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="grid gap-2">
                                 <Label>Mulai</Label>
                                 <Input type="date" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} />
@@ -256,49 +270,58 @@ function SubjectsTab() {
 
     return (
         <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                    <CardTitle>Daftar Mata Pelajaran</CardTitle>
                    <CardDescription>Kode dan nama mata pelajaran.</CardDescription>
                 </div>
                 <Button onClick={handleCreate}><Plus className="mr-2 h-4 w-4" /> Tambah</Button>
             </CardHeader>
-             <CardContent>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Kode</TableHead>
-                            <TableHead>Mata Pelajaran</TableHead>
-                            <TableHead>Kategori</TableHead>
-                             <TableHead className="text-right">Aksi</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {data.map(item => (
-                            <TableRow key={item.id}>
-                                <TableCell className="font-mono font-medium">{item.code}</TableCell>
-                                <TableCell>{item.name}</TableCell>
-                                <TableCell><Badge variant="secondary">{item.category}</Badge></TableCell>
-                                <TableCell className="text-right space-x-2">
-                                    <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}><Pencil className="h-4 w-4" /></Button>
-                                    <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDelete(item.id)}><Trash2 className="h-4 w-4" /></Button>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+              <CardContent>
+                <DataTable
+                    data={data}
+                    getRowId={(item) => item.id}
+                    emptyTitle="Belum ada mata pelajaran"
+                    emptyDescription="Tambahkan kode dan nama mata pelajaran."
+                    columns={[
+                        {
+                            key: "code",
+                            header: "Kode",
+                            card: "field",
+                            render: (item) => <span className="font-mono font-medium">{item.code}</span>,
+                        },
+                        {
+                            key: "name",
+                            header: "Mata Pelajaran",
+                            card: "title",
+                            render: (item) => item.name,
+                        },
+                        {
+                            key: "category",
+                            header: "Kategori",
+                            card: "field",
+                            render: (item) => <Badge variant="secondary">{item.category}</Badge>,
+                        },
+                    ]}
+                    actions={(item) => (
+                        <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}><Pencil className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDelete(item.id)}><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                    )}
+                />
             </CardContent>
 
              <Dialog open={isOpen} onOpenChange={setIsOpen}>
                 <DialogContent>
                     <DialogHeader><DialogTitle>{editData ? "Edit" : "Tambah"} Mata Pelajaran</DialogTitle></DialogHeader>
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        <div className="grid grid-cols-3 gap-4">
-                            <div className="col-span-1 grid gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="grid gap-2">
                                 <Label>Kode Mapel</Label>
                                 <Input value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} required placeholder="MTK" />
                             </div>
-                            <div className="col-span-2 grid gap-2">
+                            <div className="grid gap-2 sm:col-span-2">
                                 <Label>Nama Mapel</Label>
                                 <Input value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required placeholder="Matematika" />
                             </div>

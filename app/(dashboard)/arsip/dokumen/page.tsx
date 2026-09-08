@@ -3,17 +3,15 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { 
-    Plus, 
-    Search, 
-    Filter, 
+import {
+    Plus,
+    Search,
+    Filter,
     MoreHorizontal,
     FileText,
     Loader2,
     ArrowLeft,
     Download,
-    ChevronLeft,
-    ChevronRight,
     Trash,
     Pencil
 } from "lucide-react";
@@ -21,14 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+import { DataTable, TablePagination } from "@/components/data-table";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -256,139 +247,115 @@ export default function SchoolDocumentsPage() {
             </Card>
 
             {/* Document Archives Table */}
-            <Card className="border-slate-100 dark:border-zinc-800 shadow-sm overflow-hidden">
-                {loading ? (
-                    <div className="flex flex-col items-center justify-center py-20 gap-3">
-                        <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
-                        <p className="text-xs text-muted-foreground font-semibold">Memuat berkas dokumen...</p>
-                    </div>
-                ) : data.length === 0 ? (
-                    <div className="text-center py-20">
-                        <FileText className="h-12 w-12 text-slate-300 dark:text-zinc-700 mx-auto mb-3" />
-                        <h3 className="font-bold text-slate-700 dark:text-zinc-300">Belum Ada Dokumen Terarsip</h3>
-                        <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-                            Gunakan tombol di pojok kanan atas untuk membuat Transkrip Nilai, Daftar 1 Buku Induk, atau laporan digital lainnya.
-                        </p>
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader className="bg-slate-50 dark:bg-zinc-900/50">
-                                <TableRow>
-                                    <TableHead className="font-bold">Judul Dokumen</TableHead>
-                                    <TableHead className="font-bold">Tipe Berkas</TableHead>
-                                    <TableHead className="font-bold">Penerima/Siswa</TableHead>
-                                    <TableHead className="font-bold">Dibuat Oleh</TableHead>
-                                    <TableHead className="font-bold">Tanggal Dibuat</TableHead>
-                                    <TableHead className="w-16"></TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {data.map((item) => (
-                                    <TableRow 
-                                        key={item.id} 
-                                        className="hover:bg-muted/50 cursor-pointer" 
-                                        onClick={() => {
-                                        if (isViewableInBrowser(item.filePath)) {
-                                            window.open(normalizePublicPath(item.filePath), "_blank");
-                                        } else {
-                                            handleDownloadSingle(item.filePath, item.title);
-                                        }
-                                    }}
-                                    >
-                                        <TableCell className="font-semibold text-slate-800 dark:text-zinc-200">
-                                            {item.title}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline" className={`text-[10px] font-bold ${getDocTypeColor(item.documentType)}`}>
-                                                {getDocTypeLabel(item.documentType)}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-slate-600 dark:text-zinc-300 font-medium">
-                                            {item.recipient}
-                                        </TableCell>
-                                        <TableCell className="text-slate-600 dark:text-zinc-300 font-medium text-sm">
-                                            {item.createdByName || "-"}
-                                        </TableCell>
-                                        <TableCell className="text-slate-600 dark:text-zinc-350">
-                                            {formatDate(new Date(item.createdAt).toISOString())}
-                                        </TableCell>
-                                        <TableCell onClick={(e) => e.stopPropagation()}>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="rounded-xl">
-                                                        <MoreHorizontal className="h-4 w-4" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end" className="rounded-xl">
-                                                    <DropdownMenuItem onClick={() => {
-                                                        if (isViewableInBrowser(item.filePath)) {
-                                                            window.open(normalizePublicPath(item.filePath), "_blank");
-                                                        } else {
-                                                            handleDownloadSingle(item.filePath, item.title);
-                                                        }
-                                                    }}>
-                                                        <FileText className="h-4 w-4 mr-2" /> {isViewableInBrowser(item.filePath) ? "Lihat Berkas" : "Download Berkas"}
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => handleDownloadSingle(item.filePath, item.title)}>
-                                                        <Download className="h-4 w-4 mr-2" /> Download Berkas
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuSeparator />
-                                                    <DropdownMenuItem onClick={() => router.push(`/arsip/dokumen/edit?id=${item.id}`)}>
-                                                        <Pencil className="h-4 w-4 mr-2" /> Edit Metadata
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuSeparator />
-                                                    <DropdownMenuItem 
-                                                        className="text-rose-600 dark:text-rose-400 focus:text-rose-600 focus:bg-rose-50"
-                                                        onClick={() => setDeleteDialog({ open: true, id: item.id, title: item.title })}
-                                                    >
-                                                        <Trash className="h-4 w-4 mr-2" /> Hapus Arsip
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </div>
+            <DataTable
+                data={loading ? [] : data}
+                getRowId={(item) => item.id}
+                loading={loading}
+                onRowClick={(item) => {
+                    if (isViewableInBrowser(item.filePath)) {
+                        window.open(normalizePublicPath(item.filePath), "_blank");
+                    } else {
+                        handleDownloadSingle(item.filePath, item.title);
+                    }
+                }}
+                emptyTitle="Belum Ada Dokumen Terarsip"
+                emptyDescription="Gunakan tombol di pojok kanan atas untuk membuat Transkrip Nilai, Daftar 1 Buku Induk, atau laporan digital lainnya."
+                actions={(item) => (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="rounded-xl">
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="rounded-xl">
+                            <DropdownMenuItem onClick={() => {
+                                if (isViewableInBrowser(item.filePath)) {
+                                    window.open(normalizePublicPath(item.filePath), "_blank");
+                                } else {
+                                    handleDownloadSingle(item.filePath, item.title);
+                                }
+                            }}>
+                                <FileText className="h-4 w-4 mr-2" /> {isViewableInBrowser(item.filePath) ? "Lihat Berkas" : "Download Berkas"}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDownloadSingle(item.filePath, item.title)}>
+                                <Download className="h-4 w-4 mr-2" /> Download Berkas
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => router.push(`/arsip/dokumen/edit?id=${item.id}`)}>
+                                <Pencil className="h-4 w-4 mr-2" /> Edit Metadata
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                                className="text-rose-600 dark:text-rose-400 focus:text-rose-600 focus:bg-rose-50"
+                                onClick={() => setDeleteDialog({ open: true, id: item.id, title: item.title })}
+                            >
+                                <Trash className="h-4 w-4 mr-2" /> Hapus Arsip
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 )}
-            </Card>
-
-            {/* Document Count */}
-            {!loading && data.length > 0 && (
-                <div className="text-xs text-muted-foreground font-semibold">
-                    Menampilkan {data.length} dari {totalDocs} dokumen
-                </div>
-            )}
+                columns={[
+                    {
+                        key: "title",
+                        header: "Judul Dokumen",
+                        card: "title",
+                        render: (item) => (
+                            <span className="font-semibold text-slate-800 dark:text-zinc-200">
+                                {item.title}
+                            </span>
+                        ),
+                    },
+                    {
+                        key: "documentType",
+                        header: "Tipe Berkas",
+                        card: "field",
+                        render: (item) => (
+                            <Badge variant="outline" className={`text-[10px] font-bold ${getDocTypeColor(item.documentType)}`}>
+                                {getDocTypeLabel(item.documentType)}
+                            </Badge>
+                        ),
+                    },
+                    {
+                        key: "recipient",
+                        header: "Penerima/Siswa",
+                        card: "field",
+                        render: (item) => (
+                            <span className="text-slate-600 dark:text-zinc-300 font-medium">
+                                {item.recipient}
+                            </span>
+                        ),
+                    },
+                    {
+                        key: "createdByName",
+                        header: "Dibuat Oleh",
+                        card: "hidden",
+                        render: (item) => (
+                            <span className="text-slate-600 dark:text-zinc-300 font-medium text-sm">
+                                {item.createdByName || "-"}
+                            </span>
+                        ),
+                    },
+                    {
+                        key: "createdAt",
+                        header: "Tanggal Dibuat",
+                        card: "field",
+                        render: (item) => (
+                            <span className="text-slate-600 dark:text-zinc-350">
+                                {formatDate(new Date(item.createdAt).toISOString())}
+                            </span>
+                        ),
+                    },
+                ]}
+            />
 
             {/* Pagination Controls */}
-            {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
-                    <span className="text-xs text-muted-foreground font-semibold">
-                        Halaman {page} dari {totalPages}
-                    </span>
-                    <div className="flex items-center gap-1">
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            disabled={page === 1}
-                            onClick={() => setPage(p => p - 1)}
-                            className="rounded-xl"
-                        >
-                            <ChevronLeft className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            disabled={page === totalPages}
-                            onClick={() => setPage(p => p + 1)}
-                            className="rounded-xl"
-                        >
-                            <ChevronRight className="h-4 w-4" />
-                        </Button>
-                    </div>
-                </div>
+            {!loading && data.length > 0 && (
+                <TablePagination
+                    page={page}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                    label={`Menampilkan ${data.length} dari ${totalDocs} dokumen`}
+                />
             )}
 
             {/* Delete Confirmation Dialog */}

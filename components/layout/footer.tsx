@@ -1,191 +1,78 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
-import { Mail, Phone, MapPin, Facebook, Instagram, Youtube, ArrowRight } from "lucide-react";
+import { Mail, Phone, MapPin } from "lucide-react";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { getSchoolLogo } from "@/lib/school-logo";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
-import dynamic from "next/dynamic";
-
-const SparklesCore = dynamic(
-  () => import("@/components/ui/sparkles").then((mod) => mod.SparklesCore),
-  { ssr: false }
-);
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
   const { settings } = useSchoolSettings();
   const pathname = usePathname();
   const schoolLogo = getSchoolLogo(settings?.school_logo);
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
 
   if (pathname?.startsWith("/kiosk")) return null;
 
   return (
-    <footer className="bg-white dark:bg-zinc-950 text-zinc-600 dark:text-zinc-400 relative w-full block min-h-[400px] overflow-visible z-10">
-      {/* Background blobs */}
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-[100px] pointer-events-none" />
-      
-      {/* Sparkles Effect */}
-      <div className="absolute inset-0 w-full h-full pointer-events-none opacity-50">
-        {!isMobile && (
-          <SparklesCore
-            id="tsparticlesfullpage"
-            background="transparent"
-            minSize={0.6}
-            maxSize={1.4}
-            particleDensity={50}
-            className="w-full h-full"
-            particleColor="#3b82f6"
-          />
-        )}
-      </div>
-
-      <div className="container py-16 relative z-10">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12">
-          {/* Brand & Newsletter */}
-          <div className="lg:col-span-4 space-y-6">
+    <footer className="bg-[#065F46] text-white/90 w-full">
+      <div className="max-w-6xl mx-auto px-4 py-12 md:py-16">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-8">
+          <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <div className="relative h-12 w-12 rounded-xl bg-zinc-100 dark:bg-white/5 p-2 overflow-hidden shadow-lg shadow-zinc-200 dark:shadow-white/5">
-                <Image
-                  src={schoolLogo}
-                  alt="Logo Sekolah"
-                  fill
-                  className="object-contain p-1"
-                />
+              <div className="relative h-10 w-10 rounded-xl bg-white/10 p-1.5 overflow-hidden">
+                <Image src={schoolLogo} alt="Logo" fill className="object-contain p-0.5" />
               </div>
               <div>
-                <p className="font-bold text-xl text-zinc-900 dark:text-white">{settings?.school_name || "Sekolah"}</p>
-                <p className="text-sm text-zinc-500 dark:text-zinc-500">Website Sekolah Terpadu</p>
+                <p className="font-bold text-lg text-white">{settings?.school_name || "SDN 1 Kenanga"}</p>
+                <p className="text-xs text-white/60">Website Sekolah Terpadu</p>
               </div>
             </div>
-            <p className="text-zinc-600 dark:text-zinc-400 leading-relaxed">
-              Membangun generasi cerdas dan berkarakter mulia melalui pendidikan
-              berkualitas yang terintegrasi dengan teknologi modern.
+            <p className="text-sm text-white/70 leading-relaxed max-w-xs">
+              Membangun generasi cerdas dan berkarakter melalui pendidikan berkualitas.
             </p>
+          </div>
 
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-zinc-900 dark:text-white">Berlangganan Newsletter</p>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Email Anda"
-                  className="bg-zinc-100 dark:bg-white/5 border-zinc-200 dark:border-white/10 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus-visible:ring-primary/50"
-                />
-                <Button size="icon" className="bg-primary hover:bg-primary/90">
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </div>
+          <div className="space-y-4">
+            <h3 className="font-semibold text-white text-sm uppercase tracking-wider">Tautan Cepat</h3>
+            <div className="flex flex-col gap-2.5">
+              <Link href="/" className="text-sm text-white/70 hover:text-[#A7F3D0] transition-colors">Beranda</Link>
+              <Link href="/spmb" className="text-sm text-white/70 hover:text-[#A7F3D0] transition-colors">Pendaftaran Siswa Baru</Link>
+              <Link href="/layanan" className="text-sm text-white/70 hover:text-[#A7F3D0] transition-colors">Layanan</Link>
+              <Link href="/login" className="text-sm text-white/70 hover:text-[#A7F3D0] transition-colors">Masuk Dashboard</Link>
             </div>
           </div>
 
-          {/* Quick Links */}
-          <div className="lg:col-span-2 space-y-6">
-            <h3 className="font-semibold text-zinc-900 dark:text-white text-lg">Menu Utama</h3>
-            <ul className="space-y-3">
-              {[
-                { label: "SPMB", href: "/spmb" },
-                { label: "Daftar Sekarang", href: "/spmb/daftar" },
-                { label: "Cek Saldo", href: "/layanan/cek-saldo" },
-                { label: "Mutasi Masuk", href: "/layanan/mutasi-masuk" },
-              ].map((link) => (
-                <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    prefetch={false}
-                    className="text-zinc-600 dark:text-zinc-400 hover:text-primary transition-colors hover:translate-x-1 inline-block"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* SPMB Links */}
-          <div className="lg:col-span-2 space-y-6">
-            <h3 className="font-semibold text-zinc-900 dark:text-white text-lg">Pendaftaran</h3>
-            <ul className="space-y-3">
-              {[
-                { label: "Info SPMB", href: "/spmb" },
-                { label: "Daftar Sekarang", href: "/spmb/daftar" },
-                { label: "Cek Status", href: "/spmb/tracking" },
-                { label: "Persyaratan", href: "/spmb#syarat" },
-              ].map((link) => (
-                <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    prefetch={false}
-                    className="text-zinc-600 dark:text-zinc-400 hover:text-primary transition-colors hover:translate-x-1 inline-block"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Contact */}
-          <div className="lg:col-span-4 space-y-6">
-            <h3 className="font-semibold text-zinc-900 dark:text-white text-lg">Hubungi Kami</h3>
-            <ul className="space-y-4">
-              <li className="flex items-start gap-4 group">
-                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:text-white transition-colors mt-1">
-                  <MapPin className="h-4 w-4 text-primary group-hover:text-white transition-colors" />
+          <div className="space-y-4">
+            <h3 className="font-semibold text-white text-sm uppercase tracking-wider">Kontak</h3>
+            <div className="flex flex-col gap-3">
+              {settings?.school_address && (
+                <div className="flex items-start gap-2.5 text-sm text-white/70">
+                  <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-[#A7F3D0]" />
+                  <span>{settings.school_address}</span>
                 </div>
-                <span className="text-zinc-600 dark:text-zinc-400 text-sm leading-relaxed">
-                  {settings?.school_address || "Alamat Sekolah"}
-                </span>
-              </li>
-              <li className="flex items-start gap-4 group">
-                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:text-white transition-colors mt-1">
-                  <Phone className="h-4 w-4 text-primary group-hover:text-white transition-colors" />
+              )}
+              {settings?.school_phone && (
+                <div className="flex items-center gap-2.5 text-sm text-white/70">
+                  <Phone className="h-4 w-4 shrink-0 text-[#A7F3D0]" />
+                  <span>{settings.school_phone}</span>
                 </div>
-                <span className="text-zinc-600 dark:text-zinc-400 text-sm leading-relaxed mt-1.5">{settings?.school_phone || "-"}</span>
-              </li>
-              <li className="flex items-start gap-4 group">
-                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:text-white transition-colors mt-1">
-                  <Mail className="h-4 w-4 text-primary group-hover:text-white transition-colors" />
+              )}
+              {settings?.school_email && (
+                <div className="flex items-center gap-2.5 text-sm text-white/70">
+                  <Mail className="h-4 w-4 shrink-0 text-[#A7F3D0]" />
+                  <span>{settings.school_email}</span>
                 </div>
-                <span className="text-zinc-600 dark:text-zinc-400 text-sm break-all leading-relaxed mt-1.5">{settings?.school_email || "-"}</span>
-              </li>
-            </ul>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      <Separator className="bg-zinc-200 dark:bg-white/10" />
-
-      {/* Bottom Bar */}
-      <div className="container py-6">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-zinc-500 text-sm">
-            &copy; {currentYear} {settings?.school_name || "Sekolah"}. All rights reserved.
+        <div className="mt-10 pt-6 border-t border-white/10 text-center">
+          <p className="text-xs text-white/50">
+            &copy; {currentYear} {settings?.school_name || "SDN 1 Kenanga"}. Hak cipta dilindungi.
           </p>
-
-          <div className="flex gap-4">
-            {[Facebook, Instagram, Youtube].map((Icon, i) => (
-              <a
-                key={i}
-                href="#"
-                className="h-10 w-10 rounded-full bg-zinc-100 dark:bg-white/5 flex items-center justify-center hover:bg-primary hover:text-white transition-all hover:-translate-y-1 text-zinc-500 dark:text-zinc-400"
-              >
-                <Icon className="h-5 w-5" />
-              </a>
-            ))}
-          </div>
         </div>
       </div>
     </footer>

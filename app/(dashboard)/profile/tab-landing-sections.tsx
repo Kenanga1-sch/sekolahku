@@ -143,7 +143,7 @@ export default function TabLandingSections({ settings, setSettings }: TabLanding
               {/* Button */}
               <Card>
                 <CardHeader className="pb-2"><CardTitle className="text-sm">Tombol Aksi</CardTitle></CardHeader>
-                <CardContent className="grid grid-cols-2 gap-3">
+                <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <Label className="text-xs">Label</Label>
                     <Input value={formData.button?.label || ""} onChange={(e) => setFormData((p: any) => ({ ...p, button: { ...p.button, label: e.target.value } }))} placeholder="Baca Selengkapnya" />

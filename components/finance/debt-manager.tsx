@@ -16,14 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/data-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { showSuccess, showError } from "@/lib/toast";
 import { Loader2, Plus, DollarSign, Calendar, User, Building2, Wallet } from "lucide-react";
@@ -250,7 +243,7 @@ export function DebtManager({ receivables = [], payables = [], employees = [], o
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Nominal (Rp)</Label>
                                 <Input 
@@ -347,69 +340,92 @@ export function DebtManager({ receivables = [], payables = [], employees = [], o
             {/* LIST */}
             <Card>
                 <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Tanggal</TableHead>
-                                <TableHead>{activeTab === "receivables" ? "Pegawai" : "Pihak"}</TableHead>
-                                <TableHead>Keterangan</TableHead>
-                                <TableHead>Tenor</TableHead>
-                                <TableHead className="text-right">Total Hutang</TableHead>
-                                <TableHead className="text-right">Sudah Bayar</TableHead>
-                                <TableHead className="text-right">Sisa</TableHead>
-                                <TableHead className="text-right">Aksi</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {(activeTab === "receivables" ? receivables : payables).length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                                        Data tidak ditemukan.
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                (activeTab === "receivables" ? receivables : payables).map((loan) => (
-                                    <TableRow key={loan.id}>
-                                        <TableCell>{new Date(loan.createdAt).toLocaleDateString("id-ID")}</TableCell>
-                                            <TableCell className="font-medium">
-                                                {loan.borrowerType === "EMPLOYEE" ? (loan.employee?.name || loan.employee?.user?.name || "-") : loan.borrowerName}
-                                            </TableCell>
-                                        <TableCell>{loan.description || "-"}</TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline">{loan.tenorMonths} Bulan</Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right">{formatCurrency(loan.amountApproved || loan.amountRequested)}</TableCell>
-                                        <TableCell className="text-right text-emerald-600">{formatCurrency(loan.paidAmount)}</TableCell>
-                                        <TableCell className="text-right font-bold text-red-600">{formatCurrency(loan.remainingAmount)}</TableCell>
-                                        <TableCell className="text-right">
-                                            {loan.status === "PENDING" && activeTab === "receivables" && (
-                                                <Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700" onClick={() => {
-                                                    setSelectedLoan(loan);
-                                                    setApprovalOpen(true);
-                                                }}>
-                                                    Setujui
-                                                </Button>
-                                            )}
-                                            {loan.status === "PENDING" && activeTab === "payables" && (
-                                                <Badge className="bg-orange-100 text-orange-800 border-none">Menunggu</Badge>
-                                            )}
-                                            {loan.status === "APPROVED" && loan.remainingAmount > 0 && (
-                                                <Button size="sm" variant="outline" className="h-8 border-green-200 text-green-700 hover:bg-green-50" onClick={() => openPayDialog(loan)}>
-                                                    Bayar
-                                                </Button>
-                                            )}
-                                            {loan.remainingAmount <= 0 && loan.status === "APPROVED" && (
-                                                <Badge className="bg-green-100 text-green-800 border-none">LUNAS</Badge>
-                                            )}
-                                            {loan.status === "REJECTED" && (
-                                                 <Badge className="bg-red-100 text-red-800 border-none">DITOLAK</Badge>
-                                            )}
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
+                    <DataTable
+                        data={activeTab === "receivables" ? receivables : payables}
+                        getRowId={(loan) => loan.id}
+                        emptyTitle="Data tidak ditemukan"
+                        emptyDescription="Daftar piutang/hutang akan muncul di sini."
+                        columns={[
+                            {
+                                key: "createdAt",
+                                header: "Tanggal",
+                                card: "field",
+                                render: (loan) => new Date(loan.createdAt).toLocaleDateString("id-ID"),
+                            },
+                            {
+                                key: "borrower",
+                                header: activeTab === "receivables" ? "Pegawai" : "Pihak",
+                                card: "title",
+                                render: (loan) => (
+                                    <span className="font-medium">
+                                        {loan.borrowerType === "EMPLOYEE" ? (loan.employee?.name || loan.employee?.user?.name || "-") : loan.borrowerName}
+                                    </span>
+                                ),
+                            },
+                            {
+                                key: "description",
+                                header: "Keterangan",
+                                card: "field",
+                                render: (loan) => loan.description || "-",
+                            },
+                            {
+                                key: "tenorMonths",
+                                header: "Tenor",
+                                card: "field",
+                                render: (loan) => (
+                                    <Badge variant="outline">{loan.tenorMonths} Bulan</Badge>
+                                ),
+                            },
+                            {
+                                key: "amountApproved",
+                                header: "Total Hutang",
+                                card: "field",
+                                render: (loan) => formatCurrency(loan.amountApproved || loan.amountRequested),
+                            },
+                            {
+                                key: "paidAmount",
+                                header: "Sudah Bayar",
+                                card: "field",
+                                render: (loan) => (
+                                    <span className="text-emerald-600">{formatCurrency(loan.paidAmount)}</span>
+                                ),
+                            },
+                            {
+                                key: "remainingAmount",
+                                header: "Sisa",
+                                card: "field",
+                                render: (loan) => (
+                                    <span className="font-bold text-red-600">{formatCurrency(loan.remainingAmount)}</span>
+                                ),
+                            },
+                        ]}
+                        actions={(loan) => (
+                            <>
+                                {loan.status === "PENDING" && activeTab === "receivables" && (
+                                    <Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700" onClick={() => {
+                                        setSelectedLoan(loan);
+                                        setApprovalOpen(true);
+                                    }}>
+                                        Setujui
+                                    </Button>
+                                )}
+                                {loan.status === "PENDING" && activeTab === "payables" && (
+                                    <Badge className="bg-orange-100 text-orange-800 border-none">Menunggu</Badge>
+                                )}
+                                {loan.status === "APPROVED" && loan.remainingAmount > 0 && (
+                                    <Button size="sm" variant="outline" className="h-8 border-green-200 text-green-700 hover:bg-green-50" onClick={() => openPayDialog(loan)}>
+                                        Bayar
+                                    </Button>
+                                )}
+                                {loan.remainingAmount <= 0 && loan.status === "APPROVED" && (
+                                    <Badge className="bg-green-100 text-green-800 border-none">LUNAS</Badge>
+                                )}
+                                {loan.status === "REJECTED" && (
+                                     <Badge className="bg-red-100 text-red-800 border-none">DITOLAK</Badge>
+                                )}
+                            </>
+                        )}
+                    />
                 </CardContent>
             </Card>
         </div>

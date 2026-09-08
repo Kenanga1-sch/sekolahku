@@ -21,7 +21,6 @@ import {
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { goGet } from "@/lib/api-client";
-import HolidayManager from "@/components/presensi/holiday-manager";
 
 interface Stats {
   totalStudents: number;

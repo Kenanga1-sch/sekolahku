@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Edit2, Save, X, RefreshCw, Send, CheckCircle2, XCircle, Clock, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -253,86 +253,93 @@ export default function SetoranDetailPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Siswa</TableHead>
-                                <TableHead>Tipe</TableHead>
-                                <TableHead>Nominal</TableHead>
-                                <TableHead>Catatan</TableHead>
-                                {isRejected && <TableHead className="w-[100px]">Aksi</TableHead>}
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {setoran.transaksi?.map((tx) => (
-                                <TableRow key={tx.id}>
-                                    <TableCell className="font-medium">
+                    <DataTable
+                        data={setoran.transaksi || []}
+                        getRowId={(tx) => tx.id}
+                        columns={[
+                            {
+                                key: "siswa.nama",
+                                header: "Siswa",
+                                card: "title",
+                                render: (tx) => (
+                                    <span className="font-medium">
                                         {tx.siswa?.nama || tx.siswaId}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge variant={tx.tipe === "setor" ? "default" : "secondary"}>
-                                            {tx.tipe === "setor" ? "Setor" : "Tarik"}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                        {editingId === tx.id ? (
-                                            <Input
-                                                type="number"
-                                                value={editNominal}
-                                                onChange={(e) => setEditNominal(e.target.value)}
-                                                className="w-32"
-                                            />
-                                        ) : (
-                                            <span className="font-mono">{formatRupiah(tx.nominal)}</span>
-                                        )}
-                                    </TableCell>
-                                    <TableCell>
-                                        {editingId === tx.id ? (
-                                            <Input
-                                                value={editCatatan}
-                                                onChange={(e) => setEditCatatan(e.target.value)}
-                                                placeholder="Catatan..."
-                                            />
-                                        ) : (
-                                            tx.catatan || "-"
-                                        )}
-                                    </TableCell>
-                                    {isRejected && (
-                                        <TableCell>
-                                            {editingId === tx.id ? (
-                                                <div className="flex gap-1">
-                                                    <Button 
-                                                        size="icon" 
-                                                        variant="ghost"
-                                                        onClick={() => handleSaveEdit(tx.id)}
-                                                        disabled={isSubmitting}
-                                                    >
-                                                        <Save className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button 
-                                                        size="icon" 
-                                                        variant="ghost"
-                                                        onClick={handleCancelEdit}
-                                                        disabled={isSubmitting}
-                                                    >
-                                                        <X className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
-                                            ) : (
-                                                <Button 
-                                                    size="icon" 
-                                                    variant="ghost"
-                                                    onClick={() => handleStartEdit(tx)}
-                                                >
-                                                    <Edit2 className="h-4 w-4" />
-                                                </Button>
-                                            )}
-                                        </TableCell>
-                                    )}
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                                    </span>
+                                ),
+                            },
+                            {
+                                key: "tipe",
+                                header: "Tipe",
+                                card: "field",
+                                render: (tx) => (
+                                    <Badge variant={tx.tipe === "setor" ? "default" : "secondary"}>
+                                        {tx.tipe === "setor" ? "Setor" : "Tarik"}
+                                    </Badge>
+                                ),
+                            },
+                            {
+                                key: "nominal",
+                                header: "Nominal",
+                                card: "field",
+                                render: (tx) =>
+                                    editingId === tx.id ? (
+                                        <Input
+                                            type="number"
+                                            value={editNominal}
+                                            onChange={(e) => setEditNominal(e.target.value)}
+                                            className="w-32"
+                                        />
+                                    ) : (
+                                        <span className="font-mono">{formatRupiah(tx.nominal)}</span>
+                                    ),
+                            },
+                            {
+                                key: "catatan",
+                                header: "Catatan",
+                                card: "field",
+                                render: (tx) =>
+                                    editingId === tx.id ? (
+                                        <Input
+                                            value={editCatatan}
+                                            onChange={(e) => setEditCatatan(e.target.value)}
+                                            placeholder="Catatan..."
+                                        />
+                                    ) : (
+                                        tx.catatan || "-"
+                                    ),
+                            },
+                        ]}
+                        actions={isRejected ? (tx) =>
+                            editingId === tx.id ? (
+                                <div className="flex gap-1">
+                                    <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        onClick={() => handleSaveEdit(tx.id)}
+                                        disabled={isSubmitting}
+                                    >
+                                        <Save className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        onClick={handleCancelEdit}
+                                        disabled={isSubmitting}
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            ) : (
+                                <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    onClick={() => handleStartEdit(tx)}
+                                >
+                                    <Edit2 className="h-4 w-4" />
+                                </Button>
+                            ) : undefined
+                        }
+                    />
                 </CardContent>
                 
                 {/* Resubmit Footer */}

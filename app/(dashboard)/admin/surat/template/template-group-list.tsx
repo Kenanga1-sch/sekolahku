@@ -4,14 +4,7 @@ import { useEffect, useState } from "react";
 import { Plus, Search, MoreVertical, Edit, Trash2, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/data-table";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,7 +12,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
@@ -103,104 +95,84 @@ export function TemplateGroupList() {
         </div>
       </div>
 
-      <div className="rounded-md border bg-white dark:bg-zinc-900">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nama Grup</TableHead>
-              <TableHead>Jumlah Template</TableHead>
-              <TableHead>Terakhir Update</TableHead>
-              <TableHead className="text-right">Aksi</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              [1, 2].map((i) => (
-                <TableRow key={i}>
-                  <TableCell>
-                    <Skeleton className="h-4 w-48" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-24" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-32" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-8 w-8 ml-auto" />
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : filteredGroups.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={4}
-                  className="h-32 text-center text-muted-foreground"
-                >
-                  Belum ada grup template.
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredGroups.map((g) => (
-                <TableRow key={g.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-purple-100 dark:bg-purple-900/20 rounded text-purple-600">
-                        <Layers className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <span className="font-medium text-foreground block">
-                          {g.name}
-                        </span>
-                        {g.description && (
-                          <span className="text-xs text-muted-foreground">
-                            {g.description}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className="text-xs">
-                      {g.items?.length || 0} Template
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {format(new Date(g.updatedAt), "dd MMM yyyy HH:mm", {
-                      locale: id,
-                    })}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="icon" className="h-8 w-8 border-slate-200 bg-white shadow-sm hover:bg-slate-50 text-muted-foreground hover:text-foreground">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setEditingGroup(g);
-                            setIsDialogOpen(true);
-                          }}
-                        >
-                          <Edit className="mr-2 h-4 w-4" /> Edit Grup
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-red-600"
-                          onClick={() => handleDelete(g.id)}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" /> Hapus
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        data={filteredGroups}
+        getRowId={(g) => g.id}
+        loading={loading}
+        emptyTitle="Belum ada grup template"
+        emptyDescription="Kelompokkan template untuk membuat paket surat."
+        columns={[
+          {
+            key: "name",
+            header: "Nama Grup",
+            card: "title",
+            render: (g) => (
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-100 dark:bg-purple-900/20 rounded text-purple-600">
+                  <Layers className="h-4 w-4" />
+                </div>
+                <div>
+                  <span className="font-medium text-foreground block">
+                    {g.name}
+                  </span>
+                  {g.description && (
+                    <span className="text-xs text-muted-foreground">
+                      {g.description}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ),
+          },
+          {
+            key: "items",
+            header: "Jumlah Template",
+            card: "field",
+            render: (g) => (
+              <Badge variant="secondary" className="text-xs">
+                {g.items?.length || 0} Template
+              </Badge>
+            ),
+          },
+          {
+            key: "updatedAt",
+            header: "Terakhir Update",
+            card: "field",
+            render: (g) => (
+              <span className="text-sm text-muted-foreground">
+                {format(new Date(g.updatedAt), "dd MMM yyyy HH:mm", {
+                  locale: id,
+                })}
+              </span>
+            ),
+          },
+        ]}
+        actions={(g) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" className="h-8 w-8 border-slate-200 bg-white shadow-sm hover:bg-slate-50 text-muted-foreground hover:text-foreground">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => {
+                  setEditingGroup(g);
+                  setIsDialogOpen(true);
+                }}
+              >
+                <Edit className="mr-2 h-4 w-4" /> Edit Grup
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-red-600"
+                onClick={() => handleDelete(g.id)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Hapus
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      />
     </div>
   );
 }

@@ -197,16 +197,16 @@ export default function TabSekolah() {
 
       {/* Tabs Navigation */}
       <Tabs defaultValue="profil" className="w-full">
-        <TabsList className="bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl w-full flex flex-wrap overflow-x-auto no-scrollbar mb-4">
-          <TabsTrigger value="profil" className="rounded-lg text-xs font-semibold cursor-pointer flex-1 whitespace-nowrap px-2 min-h-[40px]">
+        <TabsList className="bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl w-full mb-4">
+          <TabsTrigger value="profil" className="rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap px-2 min-h-[40px]">
             <span className="hidden sm:inline">Profil Sekolah</span>
             <span className="sm:hidden">Profil</span>
           </TabsTrigger>
-          <TabsTrigger value="konten" className="rounded-lg text-xs font-semibold cursor-pointer flex-1 whitespace-nowrap px-2 min-h-[40px]">
+          <TabsTrigger value="konten" className="rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap px-2 min-h-[40px]">
             <span className="hidden sm:inline">Konten Publik & Visi Misi</span>
             <span className="sm:hidden">Konten</span>
           </TabsTrigger>
-          <TabsTrigger value="sistem" className="rounded-lg text-xs font-semibold cursor-pointer flex-1 whitespace-nowrap px-2 min-h-[40px]">
+          <TabsTrigger value="sistem" className="rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap px-2 min-h-[40px]">
             <span className="hidden sm:inline">Pengaturan Sistem</span>
             <span className="sm:hidden">Sistem</span>
           </TabsTrigger>

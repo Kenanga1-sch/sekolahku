@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DataTable, TablePagination } from "@/components/data-table";
 import {
     Select,
     SelectContent,
@@ -22,14 +23,6 @@ import {
     DialogTitle,
     DialogFooter,
 } from "@/components/ui/dialog";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -68,7 +61,6 @@ import { goGet, goPost, goPatch, goDelete } from "@/lib/api-client";
 import { showSuccess, showError } from "@/lib/toast";
 import type { User as UserType } from "@/types";
 import { useSortableData } from "@/hooks/use-sortable-data";
-import { SortableTableHead } from "@/components/ui/sortable-table-head";
 
 interface ClassOption {
     name: string;
@@ -206,7 +198,7 @@ export default function TabUsers() {
         setIsSaving(true);
         setGenResult(null);
         try {
-            let body: any = { type: "staff-auto" };
+            const body: any = { type: "staff-auto" };
 
             const result: any = await goPost("/api/users/generate", body);
             setGenResult(result.message || `Berhasil generate ${result.successCount || 0} akun`);
@@ -480,113 +472,95 @@ export default function TabUsers() {
             </div>
 
             {/* Table */}
-            <Card className="border-slate-200/80 dark:border-zinc-800/80">
-                <CardContent className="p-0 overflow-x-auto">
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="bg-muted/50">
-                                <SortableTableHead label="Nama" sortKey="name" sortConfig={sortConfig} onSort={requestSort} />
-                                <SortableTableHead label="Email" sortKey="email" sortConfig={sortConfig} onSort={requestSort} />
-                                <SortableTableHead label="Role" sortKey="role" sortConfig={sortConfig} onSort={requestSort} />
-                                <SortableTableHead label="Telepon" sortKey="phone" sortConfig={sortConfig} onSort={requestSort} />
-                                <SortableTableHead label="Bergabung" sortKey="created" sortConfig={sortConfig} onSort={requestSort} />
-                                <TableHead className="w-12"></TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {isLoading ? (
-                                Array.from({ length: 5 }).map((_, i) => (
-                                    <TableRow key={i}>
-                                        <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                                        <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                                        <TableCell><Skeleton className="h-6 w-16" /></TableCell>
-                                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                                        <TableCell><Skeleton className="h-8 w-8" /></TableCell>
-                                    </TableRow>
-                                ))
-                            ) : visibleUsers.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-8">
-                                        <Users className="h-12 w-12 mx-auto text-muted-foreground/50 mb-2" />
-                                        <p className="text-muted-foreground">Tidak ada pengguna ditemukan</p>
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                sortedUsers.map((user) => {
-                                    const roleInfo = getRoleInfo(user.role);
-                                    return (
-                                        <TableRow key={user.id}>
-                                            <TableCell className="font-medium">{user.name || "-"}</TableCell>
-                                            <TableCell className="text-muted-foreground">{user.email}</TableCell>
-                                            <TableCell>
-                                                <Badge className={roleInfo.color}>
-                                                    {roleInfo.label}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="text-muted-foreground">{user.phone || "-"}</TableCell>
-                                            <TableCell className="text-muted-foreground text-sm">
-                                                {formatCreatedDate(user.created)}
-                                            </TableCell>
-                                            <TableCell>
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="outline" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground bg-background/50">
-                                                            <MoreHorizontal className="h-4 w-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem onClick={() => handleEdit(user)}>
-                                                            <Pencil className="h-4 w-4 mr-2" />
-                                                            Edit
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem
-                                                            className="text-destructive"
-                                                            onClick={() => setDeleteId(user.id)}
-                                                        >
-                                                            <Trash2 className="h-4 w-4 mr-2" />
-                                                            Hapus
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                })
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-
-                {/* Pagination */}
-                {totalUsers > 0 && (
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t">
-                        <div className="text-sm text-muted-foreground">
-                            Halaman {page} dari {totalPages}
-                        </div>
-                        {totalPages > 1 && (
-                            <div className="flex gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    disabled={page <= 1}
-                                    onClick={() => setPage(p => p - 1)}
-                                >
-                                    Sebelumnya
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    disabled={page >= totalPages}
-                                    onClick={() => setPage(p => p + 1)}
-                                >
-                                    Selanjutnya
-                                </Button>
-                            </div>
-                        )}
-                    </div>
+            <DataTable
+                data={isLoading ? [] : sortedUsers}
+                getRowId={(user) => user.id}
+                loading={isLoading}
+                sortConfig={sortConfig}
+                onSort={requestSort}
+                emptyTitle="Tidak ada pengguna ditemukan"
+                emptyDescription="Coba ubah kata kunci pencarian atau filter."
+                columns={[
+                    {
+                        key: "name",
+                        header: "Nama",
+                        sortable: true,
+                        card: "title",
+                        render: (user) => <span className="font-medium">{user.name || "-"}</span>,
+                    },
+                    {
+                        key: "email",
+                        header: "Email",
+                        sortable: true,
+                        card: "field",
+                        render: (user) => (
+                            <span className="text-muted-foreground">{user.email}</span>
+                        ),
+                    },
+                    {
+                        key: "role",
+                        header: "Role",
+                        sortable: true,
+                        card: "field",
+                        render: (user) => {
+                            const roleInfo = getRoleInfo(user.role);
+                            return <Badge className={roleInfo.color}>{roleInfo.label}</Badge>;
+                        },
+                    },
+                    {
+                        key: "phone",
+                        header: "Telepon",
+                        sortable: true,
+                        card: "field",
+                        render: (user) => (
+                            <span className="text-muted-foreground">{user.phone || "-"}</span>
+                        ),
+                    },
+                    {
+                        key: "created",
+                        header: "Bergabung",
+                        sortable: true,
+                        card: "hidden",
+                        render: (user) => (
+                            <span className="text-muted-foreground text-sm">
+                                {formatCreatedDate(user.created)}
+                            </span>
+                        ),
+                    },
+                ]}
+                actions={(user) => (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground bg-background/50">
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleEdit(user)}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => setDeleteId(user.id)}
+                            >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Hapus
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 )}
-            </Card>
+            />
+
+            {/* Pagination */}
+            {!isLoading && totalUsers > 0 && (
+                <TablePagination
+                    page={page}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                    label={`${totalUsers} pengguna`}
+                />
+            )}
 
             {/* Create/Edit Dialog */}
             <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!open) resetForm(); else setIsDialogOpen(true); }}>

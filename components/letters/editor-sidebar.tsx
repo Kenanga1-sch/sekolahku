@@ -163,7 +163,7 @@ export function EditorSidebar({
                   {/* Paper Settings */}
                   <div className="space-y-4">
                       <Label className="text-xs uppercase text-muted-foreground font-bold">Pengaturan Kertas</Label>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <div className="space-y-1">
                               <span className="text-xs">Ukuran</span>
                               <Select value={paperSize} onValueChange={setPaperSize}>
@@ -289,9 +289,9 @@ export function EditorSidebar({
                             </SelectContent>
                           </Select>
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
-                          <div className="space-y-1">
-                              <span className="text-xs">Warna Teks</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                           <div className="space-y-1">
+                               <span className="text-xs">Warna Teks</span>
                               <input
                                 type="color"
                                 value={editor.getAttributes('textStyle').color || '#000000'}

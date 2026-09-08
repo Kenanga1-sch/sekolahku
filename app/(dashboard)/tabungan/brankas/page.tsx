@@ -172,7 +172,7 @@ export default function TabunganBrankasPage() {
                         </p>
                     </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                     <Button variant="outline" onClick={fetchData} disabled={isLoading}>
                         <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
                         Refresh Data

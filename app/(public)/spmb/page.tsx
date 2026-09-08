@@ -1,394 +1,229 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { motion, useReducedMotion } from "framer-motion";
 import {
-  ArrowRight,
-  Calendar,
+  CalendarDays,
   MapPin,
-  FileText,
-  Clock,
-  CheckCircle,
   Users,
+  FileText,
   Search,
-  HelpCircle,
+  CheckCircle2,
+  ArrowRight,
+  Clock,
 } from "lucide-react";
-import { BackgroundBeams } from "@/components/ui/background-beams";
-import { CardContainer, CardBody, CardItem } from "@/components/ui/3d-card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { goGet } from "@/lib/api-client";
 import { siteConfig } from "@/lib/config";
+import { Reveal } from "@/components/public/motion";
 
-// Timeline steps
-const timelineSteps = [
-  {
-    step: 1,
-    title: "Pendaftaran Online",
-    description: "Isi formulir pendaftaran dan upload dokumen yang diperlukan.",
-    icon: FileText,
-  },
-  {
-    step: 2,
-    title: "Verifikasi Berkas",
-    description: "Tim kami akan memverifikasi data dan dokumen Anda.",
-    icon: Search,
-  },
-  {
-    step: 3,
-    title: "Pengumuman Hasil",
-    description: "Cek status kelulusan melalui halaman Pengumuman Resmi.",
-    icon: CheckCircle,
-  },
-  {
-    step: 4,
-    title: "Daftar Ulang",
-    description: "Lakukan daftar ulang di sekolah dengan membawa dokumen asli.",
-    icon: Users,
-  },
+interface LandingData {
+  isOpen?: boolean;
+  period?: {
+    name?: string;
+    academic_year?: string;
+    start_date?: string;
+    end_date?: string;
+    quota?: number;
+    registered?: number;
+    committee_name?: string;
+  } | null;
+  settings?: {
+    school_name?: string;
+    school_address?: string;
+    max_distance_km?: number;
+  };
+}
+
+const steps = [
+  { icon: FileText, title: "Isi Formulir", desc: "Lengkapi data calon siswa dan orang tua secara daring." },
+  { icon: Search, title: "Verifikasi Berkas", desc: "Panitia memverifikasi data dan dokumen yang diunggah." },
+  { icon: CheckCircle2, title: "Pengumuman", desc: "Cek hasil seleksi melalui halaman lacak status." },
+  { icon: Users, title: "Daftar Ulang", desc: "Siswa yang diterima melakukan daftar ulang di sekolah." },
 ];
 
-// Requirements
 const requirements = [
   "Fotokopi Kartu Keluarga (KK)",
   "Fotokopi Akta Kelahiran",
-  "Pas Foto 3x4 (latar merah)",
+  "Pas Foto 3x4 latar merah",
   "Fotokopi KTP Orang Tua/Wali",
   "Surat Keterangan dari TK/RA (jika ada)",
+  "Bukti domisili (untuk Jalur Domisili)",
 ];
 
-export default function SPMBPage() {
-  const [data, setData] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+export default function SPMBLandingPage() {
+  const [data, setData] = useState<LandingData | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    goGet(`/api/public/spmb/landing`)
-      .then((json: any) => {
-        if (json.success) {
-          setData(json);
-        }
-        setIsLoading(false);
-      })
-      .catch(err => {
-        console.error("Failed to fetch SPMB landing data:", err);
-        setIsLoading(false);
-      });
+    goGet("/api/public/spmb/landing", { ttl: 60_000 })
+      .then((json: LandingData) => setData(json))
+      .catch(() => setData(null))
+      .finally(() => setLoading(false));
   }, []);
 
-  if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
-  }
-
+  const isOpen = data?.isOpen ?? false;
   const period = data?.period;
-  const settings = data?.settings;
-  const isOpen = data?.isOpen;
-  const currentAcademicYear =
-    period?.academicYear ||
-    period?.academic_year ||
-    settings?.currentAcademicYear ||
-    settings?.current_academic_year;
+  const schoolName = data?.settings?.school_name || siteConfig.school.name;
+  const maxDistance = data?.settings?.max_distance_km || 3;
 
-  // Fallback for school info
-  const schoolName = settings?.schoolName || settings?.school_name || siteConfig.school.name;
-  const schoolAddress = settings?.schoolAddress || settings?.school_address || siteConfig.school.address;
-  const maxDistance = settings?.maxDistanceKm || settings?.max_distance_km || 1;
-  const schoolLat = settings?.schoolLat || settings?.school_lat || -6.175392;
-  const schoolLng = settings?.schoolLng || settings?.school_lng || 106.827153;
+  const formatDate = (d?: string) =>
+    d ? new Date(d).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "-";
 
   return (
-    <div className="flex flex-col bg-background">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden border-b bg-gradient-to-b from-background via-primary/5 to-background py-20 sm:py-28">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border))_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border))_1px,transparent_1px)] bg-[size:5rem_5rem] opacity-30" />
-        <div className="container relative z-10 text-center">
-          <div className="max-w-4xl mx-auto space-y-6">
-            <div className="flex justify-center">
-                 <Badge className="border-primary/20 bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary hover:bg-primary/15">
-                  <Calendar className="h-3.5 w-3.5 mr-2" />
-                  {currentAcademicYear
-                    ? `Tahun Ajaran ${currentAcademicYear}`
-                    : isOpen
-                      ? "Pendaftaran Dibuka"
-                      : "Pendaftaran Belum Dibuka"}
-                </Badge>
-            </div>
-            
-            <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl md:text-6xl">
-              Penerimaan Siswa Baru
-            </h1>
-            <p className="mx-auto max-w-2xl text-lg leading-relaxed text-muted-foreground md:text-xl">
-              Bergabunglah bersama keluarga besar {schoolName}. Sistem Penerimaan Murid Baru (SPMB) Jalur Domisili dikelola transparan sesuai wilayah penerimaan yang ditetapkan.
-            </p>
-            
-            <div className="flex flex-wrap items-center justify-center gap-4 pt-8">
-              {isOpen ? (
+    <div className="flex flex-col bg-[#FFF8E7]">
+      <section className="relative min-h-[80dvh] flex items-center overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#A7F3D0]/30 via-[#FFF8E7] to-[#FFF8E7]" />
+        <div className="absolute bottom-0 left-0 w-[40vw] h-[40vw] max-w-[500px] max-h-[500px] rounded-full bg-[#A7F3D0]/20 blur-[80px] pointer-events-none" />
+
+        <div className="relative z-10 max-w-6xl mx-auto px-4 py-16 md:py-24 w-full">
+          <div className="max-w-2xl space-y-6">
+            <Reveal>
+              <Badge className="bg-[#065F46]/10 text-[#065F46] border-[#065F46]/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider">
+                {isOpen ? "Pendaftaran Dibuka" : "Pendaftaran Ditutup"}
+              </Badge>
+            </Reveal>
+
+            <Reveal delay={0.08}>
+              <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold tracking-tight text-[#1a2e1a] leading-[1.1]">
+                Penerimaan Siswa Baru
+              </h1>
+            </Reveal>
+
+            <Reveal delay={0.16}>
+              <p className="text-base md:text-lg text-[#4b6b4b] leading-relaxed max-w-[55ch]">
+                {period?.name || `SPMB ${siteConfig.academicYear.current}`} — Jalur Domisili untuk wilayah sekitar {schoolName}. {isOpen ? "Daftar sebelum kuota terisi." : "Pantau halaman ini untuk info periode berikutnya."}
+              </p>
+            </Reveal>
+
+            {isOpen && (
+              <Reveal delay={0.24}>
                 <Link href="/spmb/daftar">
-                  <Button size="lg" className="h-12 px-8 text-base font-semibold shadow-lg shadow-primary/20">
+                  <Button className="bg-[#065F46] text-white hover:bg-[#047857] rounded-full px-6 h-11 text-sm font-semibold active:scale-[0.97] transition-transform">
                     Daftar Sekarang
-                    <ArrowRight className="h-4 w-4 ml-2" />
+                    <ArrowRight className="h-4 w-4 ml-1.5" />
                   </Button>
                 </Link>
-              ) : (
-                <Button size="lg" variant="secondary" disabled className="h-12 px-8 text-base opacity-80">
-                  Pendaftaran Ditutup
-                </Button>
-              )}
-
-              <Link href="/spmb/tracking">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="h-12 px-8 text-base font-medium bg-background/80"
-                >
-                  <Search className="h-4 w-4 mr-2" />
-                  Cek Status
-                </Button>
-              </Link>
-              <Link href="/spmb/pengumuman">
-                 <Button
-                  size="lg"
-                  variant="secondary"
-                  className="h-12 px-8 text-base font-medium"
-                >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Pengumuman SPMB
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-        <BackgroundBeams className="opacity-10" />
-      </section>
-
-      {/* Status Banner */}
-      <section className="py-8 border-b bg-background/50 backdrop-blur-sm supports-[backdrop-filter]:bg-background/50">
-        <div className="container">
-          <div className="flex flex-wrap items-center justify-between gap-6">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-12 gap-y-6 w-full md:w-auto text-sm">
-              <div>
-                <p className="text-muted-foreground flex items-center gap-1.5 mb-1.5">
-                    <FileText className="h-3.5 w-3.5" /> Periode
-                </p>
-                <p className="font-semibold text-foreground">{period?.name || (isOpen ? "Pendaftaran umum" : "Belum ada periode aktif")}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground flex items-center gap-1.5 mb-1.5">
-                    <Calendar className="h-3.5 w-3.5" /> Tanggal
-                </p>
-                <p className="font-semibold text-foreground truncate">
-                  {period ? (
-                    <>{new Date(period.startDate).toLocaleDateString("id-ID", { day: 'numeric', month: 'short' })} - {new Date(period.endDate).toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' })}</>
-                  ) : isOpen ? "Menunggu jadwal resmi" : "-"}
-                </p>
-              </div>
-              <div>
-                <p className="text-muted-foreground flex items-center gap-1.5 mb-1.5">
-                    <Users className="h-3.5 w-3.5" /> Kuota
-                </p>
-                <p className="font-semibold text-foreground">{period?.quota ? `${period.quota} Siswa` : "-"}</p>
-              </div>
-               <div>
-                <p className="text-muted-foreground flex items-center gap-1.5 mb-1.5">
-                    <CheckCircle className="h-3.5 w-3.5" /> Pendaftar
-                </p>
-                <p className="font-semibold text-foreground">{period?.registered || 0} Calon Siswa</p>
-              </div>
-            </div>
-            <div className="ml-auto">
-                 <Badge
-                  variant={isOpen ? "default" : "secondary"}
-                  className={isOpen ? "bg-green-600 hover:bg-green-700 text-sm px-4 py-1.5" : "text-sm px-4 py-1.5"}
-                >
-                  {isOpen ? "Pendaftaran Dibuka" : "Pendaftaran Ditutup"}
-                </Badge>
-            </div>
+              </Reveal>
+            )}
           </div>
         </div>
       </section>
 
-      {/* Domisili Info */}
-      <section className="py-20 bg-muted/30">
-        <div className="container">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div className="space-y-6">
-              <Badge variant="outline" className="gap-1 border-primary/20 bg-primary/5 text-primary">
-                <MapPin className="h-3 w-3" />
-                Jalur Domisili
-              </Badge>
-              <h2 className="text-4xl font-bold tracking-tight">Prioritas Berdasarkan Usia dan Domisili</h2>
-              <p className="text-lg text-muted-foreground leading-relaxed">
-                Sesuai aturan SPMB, seleksi kelas 1 SD pada Jalur Domisili mengutamakan usia calon murid, lalu jarak tempat tinggal terdekat ke sekolah jika kuota terlampaui.
-                Pastikan alamat dan titik domisili terisi akurat saat mendaftar.
-              </p>
-              <Alert className="bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900">
-                <MapPin className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                <AlertDescription className="text-blue-800 dark:text-blue-300">
-                  <strong>Wilayah Penerimaan Domisili: {maxDistance} KM</strong>
-                  <br />
-                  Jarak digunakan untuk membantu pemetaan wilayah penerimaan dan menjadi prioritas setelah usia jika jumlah pendaftar melebihi kuota.
-                </AlertDescription>
-              </Alert>
-              <p className="text-sm text-muted-foreground">
-                * Pendaftar usia 7 tahun ke atas diprioritaskan. Usia paling rendah 6 tahun dapat mendaftar; usia 5 tahun 6 bulan hanya dapat dipertimbangkan dengan rekomendasi khusus sesuai ketentuan.
-              </p>
-            </div>
-            <Card className="overflow-hidden border-0 shadow-2xl rounded-2xl ring-1 ring-black/5">
-              <div className="bg-muted aspect-video relative flex items-center justify-center overflow-hidden">
-                <iframe 
-                    width="100%" 
-                    height="100%" 
-                    frameBorder="0" 
-                    scrolling="no" 
-                    marginHeight={0} 
-                    marginWidth={0} 
-                    src={`https://maps.google.com/maps?q=${schoolLat},${schoolLng}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
-                    className="w-full h-full border-0 filter grayscale-[0.2] hover:grayscale-0 transition-all duration-500"
-                    allowFullScreen
-                 />
-              </div>
-              <CardContent className="p-6 bg-card">
-                 <div className="flex items-start gap-4">
-                    <div className="p-2.5 bg-primary/10 rounded-full">
-                        <MapPin className="h-5 w-5 text-primary shrink-0" />
+      {isOpen && period && (
+        <section className="py-12 md:py-16 bg-white">
+          <div className="max-w-6xl mx-auto px-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+              {[
+                { label: "Kuota", value: period.quota ?? "-", icon: Users },
+                { label: "Sudah Mendaftar", value: period.registered ?? 0, icon: CheckCircle2 },
+                { label: "Dibuka", value: formatDate(period.start_date), icon: CalendarDays },
+                { label: "Ditutup", value: formatDate(period.end_date), icon: Clock },
+              ].map((item, i) => (
+                <Reveal key={item.label} delay={i * 0.06}>
+                  <div className="p-5 rounded-2xl bg-[#FFF8E7] border border-[#d1e7dd]">
+                    <div className="flex items-center gap-2 text-[#4b6b4b] mb-2">
+                      <item.icon className="h-4 w-4" />
+                      <span className="text-xs font-medium uppercase tracking-wider">{item.label}</span>
                     </div>
-                    <div>
-                        <p className="font-bold text-base">Lokasi Sekolah</p>
-                        <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
-                        {schoolAddress}
-                        </p>
-                    </div>
-                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
-      
-      {/* Timeline */}
-      <section className="py-24">
-        <div className="container">
-          <div className="text-center mb-16">
-            <Badge variant="outline" className="mb-4">
-              <Clock className="h-3 w-3 mr-1" />
-              Alur Pendaftaran
-            </Badge>
-            <h2 className="text-3xl md:text-4xl font-bold">Langkah Pendaftaran</h2>
-          </div>
-          <div className="grid md:grid-cols-4 gap-8">
-            {timelineSteps.map((item) => (
-              <Card key={item.step} className="text-center hover:shadow-xl transition-all duration-300 border-muted/60 hover:border-primary/20 relative group overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                <CardContent className="pt-10 pb-10 relative">
-                  <div className="h-16 w-16 mx-auto mb-6 rounded-2xl bg-primary/5 text-primary flex items-center justify-center font-bold text-2xl group-hover:scale-110 transition-transform duration-300">
-                    {item.step}
+                    <p className="text-xl font-bold text-[#065F46]">{item.value}</p>
                   </div>
-                  <item.icon className="absolute top-6 right-6 h-24 w-24 text-primary/5 -rotate-12 group-hover:rotate-0 transition-transform duration-500" />
-                  <h3 className="font-bold text-lg mb-3">{item.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {item.description}
-                  </p>
-                </CardContent>
-              </Card>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      <section className="py-16 md:py-20">
+        <div className="max-w-6xl mx-auto px-4">
+          <Reveal>
+            <h2 className="text-2xl md:text-3xl font-bold text-[#1a2e1a] mb-10">Alur Pendaftaran</h2>
+          </Reveal>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+            {steps.map((step, i) => (
+              <Reveal key={step.title} delay={i * 0.06}>
+                <div className="relative p-5 rounded-2xl bg-white border border-[#d1e7dd] h-full">
+                  <span className="absolute top-4 right-4 text-3xl font-bold text-[#A7F3D0]">{String(i + 1).padStart(2, "0")}</span>
+                  <div className="h-10 w-10 rounded-xl bg-[#065F46] text-white flex items-center justify-center mb-4">
+                    <step.icon className="h-5 w-5" />
+                  </div>
+                  <h3 className="font-semibold text-[#1a2e1a] text-sm">{step.title}</h3>
+                  <p className="text-xs text-[#4b6b4b] mt-1.5 leading-relaxed">{step.desc}</p>
+                </div>
+              </Reveal>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Requirements */}
-      <section className="py-24 bg-muted/30">
-        <div className="container">
-          <div className="grid md:grid-cols-2 gap-16 items-center">
-            <div>
-              <Badge variant="outline" className="mb-4">
-                <FileText className="h-3 w-3 mr-1" />
-                Persyaratan
-              </Badge>
-              <h2 className="text-3xl md:text-4xl font-bold mb-8">Dokumen yang Diperlukan</h2>
-              <ul className="space-y-4">
-                {requirements.map((req) => (
-                  <li key={req} className="flex items-center gap-4 p-4 rounded-xl bg-background border border-border/50 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="p-1 rounded-full bg-green-100 dark:bg-green-900/30">
-                        <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-500 flex-shrink-0" />
-                    </div>
-                    <span className="font-medium">{req}</span>
-                  </li>
-                ))}
-              </ul>
-              <Alert className="mt-8 border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900">
-                <HelpCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                <AlertDescription className="text-amber-800 dark:text-amber-300">
-                  Semua dokumen harus di-scan atau difoto dengan jelas dalam format <strong>JPG, PNG, atau PDF</strong>. Ukuran maksimal <strong>2MB per file</strong>.
-                </AlertDescription>
-              </Alert>
-            </div>
-            
-            <div className="flex justify-center">
-                <CardContainer className="inter-var">
-                    <CardBody className="bg-gray-50 relative group/card  dark:hover:shadow-2xl dark:hover:shadow-emerald-500/[0.1] dark:bg-black dark:border-white/[0.2] border-black/[0.1] w-auto sm:w-[30rem] h-auto rounded-xl p-6 border  ">
-                        <CardItem
-                            translateZ="50"
-                            className="text-xl font-bold text-neutral-600 dark:text-white"
-                        >
-                            Siap Mendaftar?
-                        </CardItem>
-                        <CardItem
-                            as="p"
-                            translateZ="60"
-                            className="text-neutral-500 text-sm max-w-sm mt-2 dark:text-neutral-300"
-                        >
-                            Pastikan Anda sudah membaca semua persyaratan dan ketentuan yang berlaku sebelum melanjutkan.
-                        </CardItem>
-                        <CardItem translateZ="100" className="w-full mt-4">
-                            <div className="p-4 rounded-lg bg-primary/5 border border-primary/10 mb-4">
-                                <p className="text-sm font-medium text-center">
-                                    {isOpen ? "Pendaftaran sedang dibuka!" : "Mohon maaf, pendaftaran sedang ditutup."}
-                                </p>
-                            </div>
-                        </CardItem>
-                        <div className="flex flex-col gap-4 mt-8">
-                            <CardItem
-                                translateZ={20}
-                                className={!isOpen ? "pointer-events-none w-full" : "w-full"}
-                            >
-                                <Link href="/spmb/daftar" className="w-full block">
-                                    <Button className="w-full gap-2 py-6 text-lg shadow-lg" size="lg" disabled={!isOpen}>
-                                        {isOpen ? "Mulai Pendaftaran" : "Pendaftaran Ditutup"}
-                                        <ArrowRight className="h-5 w-5" />
-                                    </Button>
-                                </Link>
-                            </CardItem>
-                             <CardItem
-                                translateZ={20}
-                                className="w-full"
-                            >
-                                <Link href="/spmb/tracking" className="w-full block">
-                                    <Button variant="outline" className="w-full py-6">
-                                        Sudah Daftar? Cek Status
-                                    </Button>
-                                </Link>
-                            </CardItem>
-                             <CardItem
-                                translateZ={20}
-                                className="w-full"
-                            >
-                                <Link href="/spmb/pengumuman" className="w-full block">
-                                    <Button variant="ghost" className="w-full py-6 text-muted-foreground hover:text-primary">
-                                        <CheckCircle className="h-4 w-4 mr-2" />
-                                        Cek Pengumuman Hasil
-                                    </Button>
-                                </Link>
-                            </CardItem>
-                        </div>
-                    </CardBody>
-                </CardContainer>
-            </div>
+      <section className="py-16 md:py-20 bg-white">
+        <div className="max-w-6xl mx-auto px-4">
+          <Reveal>
+            <h2 className="text-2xl md:text-3xl font-bold text-[#1a2e1a] mb-4">Syarat Dokumen</h2>
+          </Reveal>
+          <Reveal delay={0.08}>
+            <p className="text-[#4b6b4b] mb-10 max-w-[55ch]">Siapkan dokumen berikut sebelum mengisi formulir pendaftaran.</p>
+          </Reveal>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {requirements.map((req, i) => (
+              <Reveal key={req} delay={i * 0.05}>
+                <div className="flex items-start gap-3 p-4 rounded-2xl bg-[#FFF8E7] border border-[#d1e7dd]">
+                  <CheckCircle2 className="h-5 w-5 text-[#065F46] shrink-0 mt-0.5" />
+                  <span className="text-sm text-[#1a2e1a]">{req}</span>
+                </div>
+              </Reveal>
+            ))}
           </div>
+
+          <Reveal delay={0.2}>
+            <div className="mt-8 p-5 rounded-2xl bg-[#A7F3D0]/30 border border-[#065F46]/20 flex items-start gap-3">
+              <MapPin className="h-5 w-5 text-[#065F46] shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-[#065F46] text-sm">Jalur Domisili</p>
+                <p className="text-sm text-[#4b6b4b] mt-1 leading-relaxed">
+                  Calon siswa harus berdomisili dalam radius {maxDistance} km dari sekolah. Lokasi rumah diverifikasi melalui peta saat pendaftaran.
+                </p>
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      <section className="py-16 md:py-20">
+        <div className="max-w-6xl mx-auto px-4">
+          <Reveal>
+            <div className="rounded-3xl bg-[#065F46] p-8 md:p-12 text-center text-white">
+              <h2 className="text-2xl md:text-3xl font-bold mb-3">
+                {isOpen ? "Jangan Sampai Ketinggalan" : "Butuh Bantuan?"}
+              </h2>
+              <p className="text-white/80 mb-8 max-w-md mx-auto">
+                {isOpen
+                  ? `Kuota terbatas. Daftarkan putra-putri Anda sebelum ${formatDate(period?.end_date)}.`
+                  : `Hubungi panitia ${period?.committee_name || "PPDB"} di sekolah untuk informasi lebih lanjut.`}
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                {isOpen && (
+                  <Link href="/spmb/daftar">
+                    <Button className="bg-white text-[#065F46] hover:bg-[#A7F3D0] rounded-full px-6 h-11 text-sm font-semibold active:scale-[0.97] transition-transform">
+                      Daftar Sekarang
+                    </Button>
+                  </Link>
+                )}
+                <Link href="/spmb/tracking">
+                  <Button variant="outline" className="border-white/30 text-white hover:bg-white/10 rounded-full px-6 h-11 text-sm font-medium active:scale-[0.97] transition-transform">
+                    Lacak Status Pendaftaran
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </Reveal>
         </div>
       </section>
     </div>
   );
 }
-
-

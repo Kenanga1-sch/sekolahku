@@ -2,6 +2,67 @@
 @import "tw-animate-css";
 @plugin "tailwind-scrollbar";
 
+/* react-day-picker base style (v10) */
+@import "react-day-picker/style.css";
+
+.holiday-calendar {
+  --rdp-accent-color: var(--primary);
+  --rdp-accent-background-color: var(--accent);
+  --rdp-today-color: var(--primary);
+  width: 100%;
+  justify-content: center;
+}
+.holiday-calendar .rdp-months {
+  width: 100%;
+}
+.holiday-calendar .rdp-month {
+  width: 100%;
+}
+.holiday-calendar .rdp-nav {
+  justify-content: space-between;
+  width: 100%;
+}
+.holiday-calendar .rdp-weekday {
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: capitalize;
+  opacity: 0.7;
+}
+.holiday-calendar .rdp-day_button {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 1 / 1;
+  max-width: 44px;
+  max-height: 44px;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  transition: background-color 150ms ease, color 150ms ease,
+    border-color 150ms ease;
+}
+.holiday-calendar .rdp-day_button:hover:not(:disabled) {
+  background: var(--accent);
+}
+.holiday-calendar .rdp-selected .rdp-day_button {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
+.holiday-calendar .rdp-day_holiday .rdp-day_button {
+  background: color-mix(in srgb, var(--destructive) 12%, transparent);
+  color: var(--destructive);
+  font-weight: 600;
+  cursor: pointer;
+}
+.holiday-calendar .rdp-day_sunday .rdp-day_button {
+  background: color-mix(in srgb, var(--destructive) 12%, transparent);
+  color: var(--destructive);
+  font-weight: 600;
+  cursor: pointer;
+}
+.holiday-calendar .rdp-day_disabled .rdp-day_button:disabled {
+  opacity: 0.5;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -100,95 +161,91 @@
 :root {
   --radius: 0.75rem;
 
-  /* Modern Royal Blue Palette - Refined */
-  --background: oklch(0.99 0.01 240);
-  --foreground: oklch(0.13 0.02 240);
+  --background: #FFF8E7;
+  --foreground: #1a2e1a;
 
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.13 0.02 240);
+  --card: #ffffff;
+  --card-foreground: #1a2e1a;
 
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.13 0.02 240);
+  --popover: #ffffff;
+  --popover-foreground: #1a2e1a;
 
-  /* Vibrant Blue Primary */
-  --primary: oklch(0.48 0.24 265);
-  --primary-foreground: oklch(1 0 0);
+  --primary: #065F46;
+  --primary-foreground: #ffffff;
 
-  --secondary: oklch(0.97 0.01 240);
-  --secondary-foreground: oklch(0.35 0.1 265);
+  --secondary: #A7F3D0;
+  --secondary-foreground: #064E3B;
 
-  --muted: oklch(0.97 0.01 240);
-  --muted-foreground: oklch(0.55 0.04 240);
+  --muted: #f0fdf4;
+  --muted-foreground: #4b6b4b;
 
-  --accent: oklch(0.96 0.02 265);
-  --accent-foreground: oklch(0.35 0.1 265);
+  --accent: #A7F3D0;
+  --accent-foreground: #064E3B;
 
   --destructive: oklch(0.577 0.245 27.325);
 
-  --border: oklch(0.92 0.01 240);
-  --input: oklch(0.92 0.01 240);
-  --ring: oklch(0.48 0.24 265 / 0.4);
+  --border: #d1e7dd;
+  --input: #d1e7dd;
+  --ring: #065F46;
 
-  --chart-1: oklch(0.55 0.25 265);
-  --chart-2: oklch(0.65 0.2 180);
-  --chart-3: oklch(0.7 0.2 40);
-  --chart-4: oklch(0.8 0.15 80);
-  --chart-5: oklch(0.6 0.2 300);
+  --chart-1: #065F46;
+  --chart-2: #059669;
+  --chart-3: #A7F3D0;
+  --chart-4: #34d399;
+  --chart-5: #047857;
 
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.48 0.24 265);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: #FFF8E7;
+  --sidebar-foreground: #1a2e1a;
+  --sidebar-primary: #065F46;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #A7F3D0;
+  --sidebar-accent-foreground: #064E3B;
+  --sidebar-border: #d1e7dd;
+  --sidebar-ring: #065F46;
 }
 
 .dark {
-  /* Deeper, Richer Dark Mode */
-  --background: oklch(0.12 0.03 260); /* Deep Navy Background */
-  --foreground: oklch(0.98 0.01 240);
+  --background: #0c1f17;
+  --foreground: #ecfdf5;
 
-  --card: oklch(0.15 0.04 260); /* Slightly lighter Navy */
-  --card-foreground: oklch(0.98 0.01 240);
+  --card: #132e22;
+  --card-foreground: #ecfdf5;
 
-  --popover: oklch(0.14 0.04 260);
-  --popover-foreground: oklch(0.98 0.01 240);
+  --popover: #132e22;
+  --popover-foreground: #ecfdf5;
 
-  /* Lighter Blue for Dark Mode */
-  --primary: oklch(0.65 0.22 265);
-  --primary-foreground: oklch(0.1 0.03 260);
+  --primary: #34d399;
+  --primary-foreground: #064E3B;
 
-  --secondary: oklch(0.2 0.05 260);
-  --secondary-foreground: oklch(0.98 0 0);
+  --secondary: #064E3B;
+  --secondary-foreground: #ecfdf5;
 
-  --muted: oklch(0.18 0.04 260);
-  --muted-foreground: oklch(0.75 0.03 250);
+  --muted: #1a3d2d;
+  --muted-foreground: #a7c4b5;
 
-  --accent: oklch(0.22 0.06 260);
-  --accent-foreground: oklch(0.98 0 0);
+  --accent: #064E3B;
+  --accent-foreground: #ecfdf5;
 
   --destructive: oklch(0.6 0.2 25);
 
-  --border: oklch(0.25 0.04 260);
-  --input: oklch(0.25 0.04 260);
-  --ring: oklch(0.65 0.22 265 / 0.5);
+  --border: #1e4d3a;
+  --input: #1e4d3a;
+  --ring: #34d399;
 
-  --chart-1: oklch(0.65 0.22 265);
-  --chart-2: oklch(0.75 0.18 170);
-  --chart-3: oklch(0.8 0.15 50);
-  --chart-4: oklch(0.7 0.2 310);
-  --chart-5: oklch(0.65 0.2 20);
+  --chart-1: #34d399;
+  --chart-2: #6ee7b7;
+  --chart-3: #059669;
+  --chart-4: #A7F3D0;
+  --chart-5: #047857;
 
-  --sidebar: oklch(0.12 0.03 260);
-  --sidebar-foreground: oklch(0.98 0 0);
-  --sidebar-primary: oklch(0.65 0.22 265);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.18 0.04 260);
-  --sidebar-accent-foreground: oklch(0.98 0 0);
-  --sidebar-border: oklch(0.25 0.04 260);
-  --sidebar-ring: oklch(0.65 0.22 265);
+  --sidebar: #0c1f17;
+  --sidebar-foreground: #ecfdf5;
+  --sidebar-primary: #34d399;
+  --sidebar-primary-foreground: #064E3B;
+  --sidebar-accent: #064E3B;
+  --sidebar-accent-foreground: #ecfdf5;
+  --sidebar-border: #1e4d3a;
+  --sidebar-ring: #34d399;
 }
 
 @layer base {
@@ -369,6 +426,11 @@
   width: 4px;
   background-color: #adf;
   pointer-events: none;
+}
+
+/* Safe area untuk bilah navigasi bawah di iPhone (home indicator) */
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* Print Styles */

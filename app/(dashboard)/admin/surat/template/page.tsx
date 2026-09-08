@@ -17,14 +17,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/data-table";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,7 +25,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -188,80 +180,71 @@ export default function TemplateListPage() {
         </div>
       </div>
 
-      <div className="rounded-md border bg-white dark:bg-zinc-900">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nama Template</TableHead>
-              <TableHead>Kategori</TableHead>
-              <TableHead>Terakhir Update</TableHead>
-              <TableHead className="text-right">Aksi</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-               [1,2,3].map(i => (
-                 <TableRow key={i}>
-                   <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                   <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                   <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                   <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
-                 </TableRow>
-               ))
-            ) : templates.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="h-32 text-center text-muted-foreground">
-                  Belum ada template surat.
-                </TableCell>
-              </TableRow>
-            ) : (
-                templates.map((tpl) => (
-                  <TableRow key={tpl.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded text-blue-600">
-                            <FileText className="h-4 w-4" />
-                        </div>
-                        <span className="font-medium text-foreground">{tpl.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="text-xs">
-                        {tpl.category}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {format(new Date(tpl.updatedAt), "dd MMM yyyy HH:mm", { locale: id })}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="icon-sm" className="h-8 w-8 text-muted-foreground hover:text-foreground bg-white border-slate-200 shadow-sm">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => router.push(`/admin/surat/buat?templateId=${tpl.id}`)}>
-                             <Printer className="mr-2 h-4 w-4" /> Gunakan / Cetak
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => router.push(`/admin/surat/template/editor?id=${tpl.id}`)}>
-                             <Edit className="mr-2 h-4 w-4" /> Edit Layout
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleExport(tpl)}>
-                             <Download className="mr-2 h-4 w-4" /> Export JSON
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(tpl.id)}>
-                             <Trash2 className="mr-2 h-4 w-4" /> Hapus
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        data={templates}
+        getRowId={(tpl) => tpl.id}
+        loading={loading}
+        emptyTitle="Belum ada template surat"
+        emptyDescription="Template surat yang dibuat akan tampil di sini."
+        columns={[
+          {
+            key: "name",
+            header: "Nama Template",
+            card: "title",
+            render: (tpl) => (
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded text-blue-600">
+                    <FileText className="h-4 w-4" />
+                </div>
+                <span className="font-medium text-foreground">{tpl.name}</span>
+              </div>
+            ),
+          },
+          {
+            key: "category",
+            header: "Kategori",
+            card: "field",
+            render: (tpl) => (
+              <Badge variant="secondary" className="text-xs">
+                {tpl.category}
+              </Badge>
+            ),
+          },
+          {
+            key: "updatedAt",
+            header: "Terakhir Update",
+            card: "field",
+            render: (tpl) => (
+              <span className="text-sm text-muted-foreground">
+                {format(new Date(tpl.updatedAt), "dd MMM yyyy HH:mm", { locale: id })}
+              </span>
+            ),
+          },
+        ]}
+        actions={(tpl) => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon-sm" className="h-8 w-8 text-muted-foreground hover:text-foreground bg-white border-slate-200 shadow-sm">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => router.push(`/admin/surat/buat?templateId=${tpl.id}`)}>
+                 <Printer className="mr-2 h-4 w-4" /> Gunakan / Cetak
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push(`/admin/surat/template/editor?id=${tpl.id}`)}>
+                 <Edit className="mr-2 h-4 w-4" /> Edit Layout
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport(tpl)}>
+                 <Download className="mr-2 h-4 w-4" /> Export JSON
+              </DropdownMenuItem>
+              <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(tpl.id)}>
+                 <Trash2 className="mr-2 h-4 w-4" /> Hapus
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      />
       </TabsContent>
 
       <TabsContent value="grup">

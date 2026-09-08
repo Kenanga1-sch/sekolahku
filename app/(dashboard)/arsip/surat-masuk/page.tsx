@@ -2,14 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { 
-    Plus, 
-    Search, 
-    Filter, 
+import {
+    Plus,
+    Search,
+    Filter,
     Calendar,
     FileText,
     MoreHorizontal,
-    ArrowRight,
     ArrowLeft,
     Download,
     Loader2,
@@ -19,23 +18,14 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+import { DataTable, TablePagination } from "@/components/data-table";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import JSZip from "jszip";
 import { formatDate, normalizePublicPath, extractFilename } from "@/lib/utils";
@@ -285,133 +275,144 @@ export default function SuratMasukPage() {
             </div>
 
             {/* Data Table */}
-            <Card className="overflow-hidden">
-                <Table>
-                    <TableHeader className="bg-muted/50">
-                        <TableRow>
-                            <TableHead className="w-[40px]">
-                                <Checkbox 
-                                    checked={data.length > 0 && selectedIds.length === data.length}
-                                    onCheckedChange={toggleSelectAll}
-                                />
-                            </TableHead>
-                            <TableHead>No. Agenda</TableHead>
-                            <TableHead>Pengirim</TableHead>
-                            <TableHead className="w-[40%]">Perihal</TableHead>
-                            <TableHead>Tgl Terima</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead></TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {loading ? (
-                            <TableRow>
-                                <TableCell colSpan={7} className="text-center py-8">
-                                    Memuat data...
-                                </TableCell>
-                            </TableRow>
-                        ) : data.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
-                                    Belum ada surat masuk.
-                                </TableCell>
-                            </TableRow>
-                        ) : (
-                            data.map((item) => (
-                                <TableRow key={item.id} className="hover:bg-muted/50 cursor-pointer" onClick={() => window.location.href = `/arsip/surat-masuk/detail?id=${item.id}`}>
-                                    <TableCell onClick={(e) => e.stopPropagation()} className="w-[40px]">
-                                        <Checkbox 
-                                            checked={selectedIds.includes(item.id)}
-                                            onCheckedChange={() => toggleSelectOne(item.id)}
-                                        />
-                                    </TableCell>
-                                    <TableCell className="font-mono text-sm font-medium">
-                                        {item.agendaNumber}
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="font-semibold">{item.sender}</div>
-                                        <div className="text-xs text-muted-foreground">{item.originalNumber}</div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="line-clamp-2 text-sm">{item.subject}</div>
-                                        {item.classification && (
-                                            <Badge variant="outline" className="mt-1 text-[10px] h-5">
-                                                {item.classification.code} - {item.classification.name}
-                                            </Badge>
-                                        )}
-                                    </TableCell>
-                                    <TableCell className="text-sm">
-                                        {formatDate(item.receivedAt)}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge variant="secondary" className={getStatusColor(item.status)}>
-                                            {item.status}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="outline" size="icon-sm" className="h-8 w-8 text-muted-foreground hover:text-foreground bg-white border-slate-200 shadow-sm" onClick={(e) => e.stopPropagation()}>
-                                                    <MoreHorizontal className="h-4 w-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                <DropdownMenuItem asChild>
-                                                    <Link href={`/arsip/surat-masuk/detail?id=${item.id}`}>
-                                                        <FileText className="h-4 w-4 mr-2" />
-                                                        Detail & Disposisi
-                                                    </Link>
-                                                </DropdownMenuItem>
-                                                {(item.status === "Terdisposisi" || item.status === "Menunggu Disposisi") && (
-                                                    <DropdownMenuItem
-                                                        onClick={(e) => { e.stopPropagation(); handleStatusChange(item.id, "Selesai"); }}
-                                                        disabled={actingId === item.id}
-                                                    >
-                                                        <CheckCircle2 className="h-4 w-4 mr-2 text-green-600" />
-                                                        Tandai Selesai
-                                                    </DropdownMenuItem>
-                                                )}
-                                                {item.status !== "Arsip" && (
-                                                    <DropdownMenuItem
-                                                        onClick={(e) => { e.stopPropagation(); handleStatusChange(item.id, "Arsip"); }}
-                                                        disabled={actingId === item.id}
-                                                    >
-                                                        <Archive className="h-4 w-4 mr-2 text-slate-600" />
-                                                        Arsipkan
-                                                    </DropdownMenuItem>
-                                                )}
-                                                {item.status === "Arsip" && (
-                                                    <DropdownMenuItem
-                                                        onClick={(e) => { e.stopPropagation(); handleStatusChange(item.id, "Selesai"); }}
-                                                        disabled={actingId === item.id}
-                                                    >
-                                                        <ArchiveRestore className="h-4 w-4 mr-2 text-blue-600" />
-                                                        Buka dari Arsip
-                                                    </DropdownMenuItem>
-                                                )}
-                                                {item.filePath && (
-                                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDownloadSingle(item); }}>
-                                                        <Download className="h-4 w-4 mr-2" />
-                                                        Download File
-                                                    </DropdownMenuItem>
-                                                )}
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                        )}
-                    </TableBody>
-                </Table>
-            </Card>
+            <DataTable
+                data={loading ? [] : data}
+                getRowId={(item) => item.id}
+                loading={loading}
+                selectable
+                selectedIds={selectedIds}
+                onToggleSelect={toggleSelectOne}
+                onToggleSelectAll={toggleSelectAll}
+                onRowClick={(item) => window.location.href = `/arsip/surat-masuk/detail?id=${item.id}`}
+                emptyTitle="Belum ada surat masuk"
+                emptyDescription="Surat yang diterima akan tercatat di sini."
+                actions={(item) => (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="icon-sm" className="h-8 w-8 text-muted-foreground hover:text-foreground bg-white border-slate-200 shadow-sm" onClick={(e) => e.stopPropagation()}>
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                                <Link href={`/arsip/surat-masuk/detail?id=${item.id}`}>
+                                    <FileText className="h-4 w-4 mr-2" />
+                                    Detail & Disposisi
+                                </Link>
+                            </DropdownMenuItem>
+                            {(item.status === "Terdisposisi" || item.status === "Menunggu Disposisi") && (
+                                <DropdownMenuItem
+                                    onClick={() => handleStatusChange(item.id, "Selesai")}
+                                    disabled={actingId === item.id}
+                                >
+                                    <CheckCircle2 className="h-4 w-4 mr-2 text-green-600" />
+                                    Tandai Selesai
+                                </DropdownMenuItem>
+                            )}
+                            {item.status !== "Arsip" && (
+                                <DropdownMenuItem
+                                    onClick={() => handleStatusChange(item.id, "Arsip")}
+                                    disabled={actingId === item.id}
+                                >
+                                    <Archive className="h-4 w-4 mr-2 text-slate-600" />
+                                    Arsipkan
+                                </DropdownMenuItem>
+                            )}
+                            {item.status === "Arsip" && (
+                                <DropdownMenuItem
+                                    onClick={() => handleStatusChange(item.id, "Selesai")}
+                                    disabled={actingId === item.id}
+                                >
+                                    <ArchiveRestore className="h-4 w-4 mr-2 text-blue-600" />
+                                    Buka dari Arsip
+                                </DropdownMenuItem>
+                            )}
+                            {item.filePath && (
+                                <DropdownMenuItem onClick={() => handleDownloadSingle(item)}>
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Download File
+                                </DropdownMenuItem>
+                            )}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
+                columns={[
+                    {
+                        key: "agendaNumber",
+                        header: "No. Agenda",
+                        card: "field",
+                        render: (item) => (
+                            <span className="font-mono text-sm font-medium">
+                                {item.agendaNumber}
+                            </span>
+                        ),
+                    },
+                    {
+                        key: "sender",
+                        header: "Pengirim",
+                        card: "title",
+                        render: (item) => (
+                            <div>
+                                <div className="font-semibold">{item.sender}</div>
+                                <div className="text-xs text-muted-foreground">{item.originalNumber}</div>
+                            </div>
+                        ),
+                    },
+                    {
+                        key: "subject",
+                        header: "Perihal",
+                        width: "40%",
+                        card: "field",
+                        cardSpan: "full",
+                        render: (item) => (
+                            <div>
+                                <div className="line-clamp-2 text-sm">{item.subject}</div>
+                                {item.classification && (
+                                    <Badge variant="outline" className="mt-1 text-[10px] h-5">
+                                        {item.classification.code} - {item.classification.name}
+                                    </Badge>
+                                )}
+                            </div>
+                        ),
+                    },
+                    {
+                        key: "receivedAt",
+                        header: "Tgl Terima",
+                        card: "field",
+                        render: (item) => (
+                            <span className="text-sm">{formatDate(item.receivedAt)}</span>
+                        ),
+                    },
+                    {
+                        key: "status",
+                        header: "Status",
+                        card: "field",
+                        render: (item) => (
+                            <Badge variant="secondary" className={getStatusColor(item.status)}>
+                                {item.status}
+                            </Badge>
+                        ),
+                    },
+                ]}
+            />
+
+            {/* Pagination */}
+            {!loading && data.length > 0 && (
+                <TablePagination
+                    page={page}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                    label={`${data.length} surat`}
+                />
+            )}
 
             {/* Floating Batch Actions Bar */}
             {selectedIds.length > 0 && (
-                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-6 py-4 rounded-full shadow-2xl flex items-center gap-6 animate-in slide-in-from-bottom-4 duration-300">
+                <div className="fixed bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-6 py-4 rounded-2xl md:rounded-full shadow-2xl flex flex-wrap justify-center items-center gap-3 md:gap-6 animate-in slide-in-from-bottom-4 duration-300 max-w-[calc(100vw-2rem)]">
                     <span className="text-sm font-medium">
                         {selectedIds.length} surat terpilih
                     </span>
-                    <div className="h-4 w-[1px] bg-slate-700" />
+                    <div className="hidden md:block h-4 w-[1px] bg-slate-700" />
                     <div className="flex gap-2">
                         <Button 
                             size="sm" 

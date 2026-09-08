@@ -127,7 +127,7 @@ export function StudentFormDialog({ open, onOpenChange, studentId, onSuccess }: 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <Tabs defaultValue="identity">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3">
                     <TabsTrigger value="identity">Identitas</TabsTrigger>
                     <TabsTrigger value="academic">Akademik</TabsTrigger>
                     <TabsTrigger value="parents">Orang Tua</TabsTrigger>
