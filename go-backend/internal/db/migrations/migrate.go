@@ -177,6 +177,17 @@ func RunMigrations(db *sql.DB) error {
 			}
 		}
 
+		// Catat keberhasilan pada TRANSAKSI YANG SAMA dengan DDL-nya. Bila
+		// pencatatan ini dilakukan terpisah setelah commit, proses yang mati di
+		// antara keduanya akan meninggalkan migrasi yang sudah jalan tetapi
+		// belum tercatat — sehingga ia dijalankan ulang pada start berikutnya.
+		if !migrationFailed {
+			if _, err := tx.Exec("INSERT INTO _migrations (version) VALUES (?)", version); err != nil {
+				log.Printf("WARNING: could not record migration %s: %v", fName, err)
+				migrationFailed = true
+			}
+		}
+
 		if err := finishTx(tx, migrationFailed); err != nil {
 			return err
 		}
@@ -186,11 +197,6 @@ func RunMigrations(db *sql.DB) error {
 			continue
 		}
 
-		// Record success
-		_, err = db.Exec("INSERT INTO _migrations (version) VALUES (?)", version)
-		if err != nil {
-			return err
-		}
 		log.Printf("Migration %s applied successfully", fName)
 
 		// Sebagian migrasi butuh tahap lanjutan yang tidak bisa ditulis sebagai

@@ -198,10 +198,18 @@ func (h *InventoryHandler) ensureItemScope(c echo.Context, itemID string) error 
 	return nil
 }
 
-// ensureItemLocationScope dipakai saat barang BARU dibuat: belum ada itemID,
-// jadi lokasi yang diperiksa. Tanpa ini, CreateItem sebelumnya tidak punya cek
-// otorisasi sama sekali — peran apa pun yang login bisa menambah master ATK.
-func (h *InventoryHandler) ensureItemLocationScope(c echo.Context, location *string) error {
+// ensureItemLocationScope dipakai saat barang dibuat atau dipindah: belum ada
+// itemID yang bisa diperiksa, jadi tujuan penempatannya yang diperiksa. Tanpa
+// ini, CreateItem sebelumnya tidak punya cek otorisasi sama sekali — peran apa
+// pun yang login bisa menambah master ATK.
+//
+// roomID (inventory_items.room_id, sumber kebenaran sejak 000035) diperiksa
+// lebih dulu dan bersifat menentukan. Kalau tidak diisi, baru fallback ke
+// location yang berisi nama ruangan. Tanpa pemeriksaan roomID di sini, PIC bisa
+// mengirim room milik ruangan lain sambil mengisi location dengan nama
+// ruangannya sendiri: cek lolos, tetapi barang tercatat milik ruangan orang
+// lain.
+func (h *InventoryHandler) ensureItemLocationScope(c echo.Context, roomID, location *string) error {
 	scope, err := h.resolveScope(c)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
@@ -209,15 +217,21 @@ func (h *InventoryHandler) ensureItemLocationScope(c echo.Context, location *str
 	if scope.IsAdmin {
 		return nil
 	}
+	if roomID != nil && *roomID != "" {
+		if !scope.IsPICOf(*roomID) {
+			return scopeDeny(c)
+		}
+		return nil
+	}
 	if location == nil || *location == "" {
 		return scopeDeny(c) // stok umum => admin saja
 	}
-	var roomID string
+	var resolved string
 	if err := h.Repo.DB.QueryRow(
-		"SELECT id FROM inventory_rooms WHERE name = ? AND deleted_at IS NULL", *location).Scan(&roomID); err != nil {
+		"SELECT id FROM inventory_rooms WHERE name = ? AND deleted_at IS NULL", *location).Scan(&resolved); err != nil {
 		return scopeDeny(c) // lokasi tak dikenal => admin saja
 	}
-	if !scope.IsPICOf(roomID) {
+	if !scope.IsPICOf(resolved) {
 		return scopeDeny(c)
 	}
 	return nil

@@ -41,7 +41,9 @@ import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { goGet, goPost, goDelete } from "@/lib/api-client";
-import { uploadPhoto } from "@/lib/inventory";
+import { uploadPhoto, getAllRooms } from "@/lib/inventory";
+import { useAuthStore } from "@/lib/stores/auth-store";
+import type { InventoryRoom } from "@/types/inventory";
 
 // Manual debounce if hook helps avoid lookup
 function useDebouncedValue(value: string, delay: number) {
@@ -57,6 +59,7 @@ function useDebouncedValue(value: string, delay: number) {
 
 export default function StokPage() {
   const router = useRouter();
+  const { user } = useAuthStore();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -65,6 +68,7 @@ export default function StokPage() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [rooms, setRooms] = useState<InventoryRoom[]>([]);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -75,6 +79,7 @@ export default function StokPage() {
     minStock: 5,
     price: 0,
     location: "",
+    room: "",
     funding_source: "",
     fiscal_year: new Date().getFullYear(),
     photo_url: "",
@@ -101,6 +106,14 @@ export default function StokPage() {
     fetchItems();
   }, [debouncedSearch, categoryFilter]);
 
+  // Ruangan untuk dropdown lokasi. Tanpa ini barang habis pakai tidak punya
+  // cara mengisi room_id, sehingga scope PIC jatuh ke pencocokan nama lokasi.
+  useEffect(() => {
+    getAllRooms()
+      .then(setRooms)
+      .catch(() => setRooms([]));
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -125,6 +138,7 @@ export default function StokPage() {
         minStock: 5,
         price: 0,
         location: "",
+        room: "",
         funding_source: "",
         fiscal_year: new Date().getFullYear(),
         photo_url: "",
@@ -238,6 +252,29 @@ export default function StokPage() {
                     value={formData.price}
                     onChange={(e) => setFormData({...formData, price: parseInt(e.target.value) || 0})}
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ruangan">Ruangan</Label>
+                  <Select value={formData.room}
+                    onValueChange={(val) => setFormData({...formData, room: val})}
+                  >
+                    <SelectTrigger id="ruangan">
+                      <SelectValue placeholder="Pilih ruangan" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {rooms.filter(room => {
+                        const isAdmin = ["superadmin", "admin"].includes(user?.role || "");
+                        if (isAdmin) return true;
+                        return (room.picId || room.pic?.id) === user?.id;
+                      }).map((room) => (
+                        <SelectItem key={room.id} value={room.id}>{room.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Ruangan menentukan siapa yang boleh mengelola barang ini.
+                    Kosong = stok umum, hanya admin yang bisa mengubah.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lokasi-penyimpanan">Lokasi Penyimpanan</Label>

@@ -53,8 +53,8 @@ func (h *InventoryHandler) CreateItem(c echo.Context) error {
 	i.Unit = strings.TrimSpace(i.Unit)
 	i.Code = normalizeStringPtr(i.Code)
 	i.Location = normalizeStringPtr(i.Location)
-	// CreateItem sebelumnya tidak punya cek otorisasi apa pun.
-	if err := h.ensureItemLocationScope(c, i.Location); err != nil {
+	i.RoomID = normalizeStringPtr(i.RoomID)
+	if err := h.ensureItemLocationScope(c, i.RoomID, i.Location); err != nil {
 		return err
 	}
 	if i.Name == "" {
@@ -91,8 +91,12 @@ func (h *InventoryHandler) UpdateItem(c echo.Context) error {
 	i.Unit = strings.TrimSpace(i.Unit)
 	i.Code = normalizeStringPtr(i.Code)
 	i.Location = normalizeStringPtr(i.Location)
-	// CreateItem sebelumnya tidak punya cek otorisasi apa pun.
-	if err := h.ensureItemLocationScope(c, i.Location); err != nil {
+	i.RoomID = normalizeStringPtr(i.RoomID)
+	// Dua pemeriksaan, bukan satu: ensureItemScope di atas menjaga ruangan ASAL
+	// (PIC tidak boleh mengutak-atik barang ruangan lain), yang ini menjaga
+	// ruangan TUJUAN (PIC tidak boleh memindahkan barang miliknya ke ruangan
+	// yang bukan wewenjangnya).
+	if err := h.ensureItemLocationScope(c, i.RoomID, i.Location); err != nil {
 		return err
 	}
 	if i.Name == "" {

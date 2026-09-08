@@ -69,8 +69,9 @@ func AssetRoomID(db *sql.DB, assetID string) (string, error) {
 	return roomID.String, nil
 }
 
-// ItemRoomID mencari ruangan pemilik sebuah barang habis pakai (via location = nama ruangan atau room_id bila ada).
-// ponytail: inventory_items tidak punya room_id — pakai location; upgrade kolom room_id bila perlu presisi.
+// ItemRoomID mencari ruangan pemilik sebuah barang habis pakai.
+// Sumber utamanya inventory_items.room_id (migrasi 000035); location yang
+// berisi nama ruangan tetap didukung sebagai fallback untuk data lama.
 func ItemRoomID(db *sql.DB, itemID string) (string, error) {
 	var roomID sql.NullString
 	err := db.QueryRow("SELECT room_id FROM inventory_items WHERE id = ? AND deleted_at IS NULL", itemID).Scan(&roomID)

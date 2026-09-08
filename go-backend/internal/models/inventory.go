@@ -56,7 +56,12 @@ type InventoryItem struct {
 	MinStock     int        `json:"minStock"`
 	CurrentStock int        `json:"currentStock"`
 	Location     *string    `json:"location"`
-	Price        int        `json:"price"`
+	// RoomID adalah sumber kebenaran scope PIC barang habis pakai (migrasi
+	// 000035). Tanpa ini ItemRoomID jatuh ke pencocokan Location dengan nama
+	// ruangan, yang sunyi-sunyi gagal begitu nama ruangan diganti dan membuat
+	// barang terlindungi berubah jadi "stok umum" yang boleh diubah siapa saja.
+	RoomID   *string `json:"room"` // Match frontend expectation 'room'
+	Price    int     `json:"price"`
 	FundingSource *string   `json:"fundingSource"`
 	FiscalYear    *int      `json:"fiscalYear"`
 	PhotoUrl      *string   `json:"photoUrl"`

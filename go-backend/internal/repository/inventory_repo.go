@@ -492,12 +492,12 @@ type inventoryRowScanner interface {
 
 func scanInventoryItem(scanner inventoryRowScanner) (*models.InventoryItem, error) {
 	var i models.InventoryItem
-	var code, loc, fundingSource, photoUrl sql.NullString
+	var code, loc, roomID, fundingSource, photoUrl sql.NullString
 	var fiscalYear sql.NullInt64
 	var crAt, upAt sql.NullInt64
 	err := scanner.Scan(
 		&i.ID, &i.Name, &code, &i.Category, &i.Unit,
-		&i.MinStock, &i.CurrentStock, &loc, &i.Price, &fundingSource, &fiscalYear, &photoUrl, &crAt, &upAt,
+		&i.MinStock, &i.CurrentStock, &loc, &roomID, &i.Price, &fundingSource, &fiscalYear, &photoUrl, &crAt, &upAt,
 	)
 	if err != nil {
 		return nil, err
@@ -507,6 +507,9 @@ func scanInventoryItem(scanner inventoryRowScanner) (*models.InventoryItem, erro
 	}
 	if loc.Valid {
 		i.Location = &loc.String
+	}
+	if roomID.Valid {
+		i.RoomID = &roomID.String
 	}
 	if fundingSource.Valid {
 		i.FundingSource = &fundingSource.String
@@ -531,7 +534,7 @@ func scanInventoryItem(scanner inventoryRowScanner) (*models.InventoryItem, erro
 
 func (r *InventoryRepository) GetItems(page, limit int, search, category string) ([]models.InventoryItem, int, error) {
 	offset := (page - 1) * limit
-	query := "SELECT id, name, code, category, unit, min_stock, current_stock, location, price, funding_source, fiscal_year, photo_url, created_at, updated_at FROM inventory_items WHERE deleted_at IS NULL"
+	query := "SELECT id, name, code, category, unit, min_stock, current_stock, location, room_id, price, funding_source, fiscal_year, photo_url, created_at, updated_at FROM inventory_items WHERE deleted_at IS NULL"
 	var args []interface{}
 
 	if search != "" {
@@ -572,7 +575,7 @@ func (r *InventoryRepository) GetItems(page, limit int, search, category string)
 
 func (r *InventoryRepository) getItemOnlyByID(id string) (*models.InventoryItem, error) {
 	item, err := scanInventoryItem(r.DB.QueryRow(
-		"SELECT id, name, code, category, unit, min_stock, current_stock, location, price, funding_source, fiscal_year, photo_url, created_at, updated_at FROM inventory_items WHERE id = ? AND deleted_at IS NULL",
+		"SELECT id, name, code, category, unit, min_stock, current_stock, location, room_id, price, funding_source, fiscal_year, photo_url, created_at, updated_at FROM inventory_items WHERE id = ? AND deleted_at IS NULL",
 		id,
 	))
 	if err != nil {
@@ -599,8 +602,8 @@ func (r *InventoryRepository) GetItemByID(id string) (*models.InventoryItem, []m
 func (r *InventoryRepository) CreateItem(i models.InventoryItem) (*models.InventoryItem, error) {
 	id := cuid2.Generate()
 	now := time.Now().UnixMilli()
-	query := `INSERT INTO inventory_items (id, name, code, category, unit, min_stock, current_stock, location, price, funding_source, fiscal_year, photo_url, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	_, err := r.DB.Exec(query, id, i.Name, i.Code, i.Category, i.Unit, i.MinStock, i.CurrentStock, i.Location, i.Price, i.FundingSource, i.FiscalYear, i.PhotoUrl, now, now)
+	query := `INSERT INTO inventory_items (id, name, code, category, unit, min_stock, current_stock, location, room_id, price, funding_source, fiscal_year, photo_url, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	_, err := r.DB.Exec(query, id, i.Name, i.Code, i.Category, i.Unit, i.MinStock, i.CurrentStock, i.Location, i.RoomID, i.Price, i.FundingSource, i.FiscalYear, i.PhotoUrl, now, now)
 	if err != nil {
 		return nil, err
 	}
@@ -615,9 +618,9 @@ func (r *InventoryRepository) UpdateItem(id string, i models.InventoryItem) (*mo
 	now := time.Now().UnixMilli()
 	result, err := r.DB.Exec(`
 		UPDATE inventory_items
-		SET name = ?, code = ?, category = ?, unit = ?, min_stock = ?, current_stock = ?, location = ?, price = ?, funding_source = ?, fiscal_year = ?, photo_url = ?, updated_at = ?
+		SET name = ?, code = ?, category = ?, unit = ?, min_stock = ?, current_stock = ?, location = ?, room_id = ?, price = ?, funding_source = ?, fiscal_year = ?, photo_url = ?, updated_at = ?
 		WHERE id = ?
-	`, i.Name, i.Code, i.Category, i.Unit, i.MinStock, i.CurrentStock, i.Location, i.Price, i.FundingSource, i.FiscalYear, i.PhotoUrl, now, id)
+	`, i.Name, i.Code, i.Category, i.Unit, i.MinStock, i.CurrentStock, i.Location, i.RoomID, i.Price, i.FundingSource, i.FiscalYear, i.PhotoUrl, now, id)
 	if err != nil {
 		return nil, err
 	}
