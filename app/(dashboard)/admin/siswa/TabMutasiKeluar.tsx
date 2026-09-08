@@ -12,14 +12,7 @@ import {
   Search,
 } from "lucide-react";
 
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/data-table";
 import {
   Dialog,
   DialogContent,
@@ -205,63 +198,70 @@ export default function TabMutasiKeluar() {
         </div>
       </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="hidden sm:table-cell">Tanggal</TableHead>
-            <TableHead className="hidden sm:table-cell">NISN</TableHead>
-            <TableHead>Nama Siswa</TableHead>
-            <TableHead>Sekolah Tujuan</TableHead>
-            <TableHead className="hidden md:table-cell">Alasan</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Aksi</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {loadingRequestsOut ? (
-            <TableRow>
-              <TableCell colSpan={7} className="text-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin mx-auto" />
-              </TableCell>
-            </TableRow>
-          ) : errorRequestsOut ? (
-            <TableRow>
-              <TableCell colSpan={7} className="text-center py-8 text-destructive">
-                Gagal memuat mutasi keluar.
-              </TableCell>
-            </TableRow>
-          ) : filteredRequestsOut.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                Tidak ada data mutasi keluar yang sesuai filter.
-              </TableCell>
-            </TableRow>
-          ) : (
-            filteredRequestsOut.map((req) => (
-              <TableRow key={req.id}>
-                <TableCell className="hidden sm:table-cell">
-                  {req.createdAt ? format(new Date(req.createdAt), "dd/MM/yyyy") : "-"}
-                </TableCell>
-                <TableCell className="hidden sm:table-cell">{req.nisn || "-"}</TableCell>
-                <TableCell>
-                  <div className="font-semibold text-slate-800 dark:text-zinc-200">{req.studentName}</div>
-                  <div className="text-xs text-muted-foreground">{req.className}</div>
-                </TableCell>
-                <TableCell>{req.destinationSchool}</TableCell>
-                <TableCell className="hidden md:table-cell">
-                  {req.reason === "domisili" ? "Pindah Domisili" :
-                   req.reason === "tugas_orangtua" ? "Tugas Ortu" : (req.reason || "Lainnya")}
-                </TableCell>
-                <TableCell>
-                  <Badge variant={
-                    req.status === "completed" ? "default" :
-                    req.status === "processed" ? "secondary" : "outline"
-                  }>
-                    {req.status === "draft" ? "Draft/Baru" :
-                     req.status === "processed" ? "Diproses" : "Selesai"}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
+      <DataTable
+        data={loadingRequestsOut ? [] : filteredRequestsOut}
+        getRowId={(req) => req.id}
+        loading={loadingRequestsOut}
+        emptyTitle={errorRequestsOut ? "Gagal memuat mutasi keluar." : "Tidak ada data mutasi keluar yang sesuai filter."}
+        emptyDescription={errorRequestsOut ? "Terjadi kesalahan saat memuat data. Coba refresh." : "Data mutasi keluar akan muncul di sini."}
+        columns={[
+          {
+            key: "createdAt",
+            header: "Tanggal",
+            hideBelowSm: true,
+            card: "field",
+            render: (req) =>
+              req.createdAt ? format(new Date(req.createdAt), "dd/MM/yyyy") : "-",
+          },
+          {
+            key: "nisn",
+            header: "NISN",
+            hideBelowSm: true,
+            card: "field",
+            render: (req) => req.nisn || "-",
+          },
+          {
+            key: "studentName",
+            header: "Nama Siswa",
+            card: "title",
+            render: (req) => (
+              <div>
+                <div className="font-semibold text-slate-800 dark:text-zinc-200">{req.studentName}</div>
+                <div className="text-xs text-muted-foreground">{req.className}</div>
+              </div>
+            ),
+          },
+          {
+            key: "destinationSchool",
+            header: "Sekolah Tujuan",
+            card: "field",
+            render: (req) => req.destinationSchool,
+          },
+          {
+            key: "reason",
+            header: "Alasan",
+            hideBelowSm: true,
+            card: "hidden",
+            render: (req) =>
+              req.reason === "domisili" ? "Pindah Domisili" :
+               req.reason === "tugas_orangtua" ? "Tugas Ortu" : (req.reason || "Lainnya"),
+          },
+          {
+            key: "status",
+            header: "Status",
+            card: "field",
+            render: (req) => (
+              <Badge variant={
+                req.status === "completed" ? "default" :
+                req.status === "processed" ? "secondary" : "outline"
+              }>
+                {req.status === "draft" ? "Draft/Baru" :
+                 req.status === "processed" ? "Diproses" : "Selesai"}
+              </Badge>
+            ),
+          },
+        ]}
+        actions={(req) => (
                   <Dialog open={openRequestIdOut === req.id} onOpenChange={(open) => {
                     if (open) {
                       setOpenRequestIdOut(req.id);
@@ -310,7 +310,7 @@ export default function TabMutasiKeluar() {
                                 <Loader2 className="h-4 w-4 animate-spin" /> Memeriksa data...
                               </div>
                             ) : liabilityData ? (
-                              <div className="grid grid-cols-2 gap-4">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <Card className="p-4 border-l-4 border-l-blue-500">
                                   <div className="flex items-center gap-2 mb-2">
                                     <Building className="h-4 w-4 text-blue-500" />
@@ -375,12 +375,8 @@ export default function TabMutasiKeluar() {
                       )}
                     </DialogContent>
                   </Dialog>
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+        )}
+      />
     </Card>
   );
 }

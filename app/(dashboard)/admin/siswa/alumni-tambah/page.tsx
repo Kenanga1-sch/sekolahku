@@ -45,6 +45,8 @@ const alumniFormBaseSchema = z.object({
   status: z.string(),
   enrolledYear: z.string().optional(),
   finalClass: z.string().optional(),
+  bukuFisikNo: z.string().optional(),
+  registerNo: z.preprocess((val) => val === "" || val === undefined ? null : Number(val), z.number().int().nonnegative().nullable()),
   
   // Asal Masuk
   previousSchool: z.string().optional(),
@@ -274,7 +276,7 @@ export default function TambahAlumniPage() {
 
       <form ref={formRef} onKeyDown={handleFormKeyDown} onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <Tabs defaultValue="identitas" className="w-full space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3">
             <TabsTrigger value="identitas">Identitas Siswa</TabsTrigger>
             <TabsTrigger value="akademik">Status & Akademik</TabsTrigger>
             <TabsTrigger value="keluarga">Orang Tua & Wali</TabsTrigger>
@@ -446,6 +448,18 @@ export default function TambahAlumniPage() {
                     <div>
                       <Label htmlFor="finalClass">Kelas Saat Ini / Terakhir *</Label>
                       <Input id="finalClass" {...register("finalClass")} placeholder="Contoh: 6A" />
+                    </div>
+                  </div>
+
+                  {/* Index Buku Induk Fisik */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
+                    <div>
+                      <Label htmlFor="bukuFisikNo">Buku Induk Fisik No.</Label>
+                      <Input id="bukuFisikNo" {...register("bukuFisikNo")} placeholder="mis. VI (jilid buku fisik)" />
+                    </div>
+                    <div>
+                      <Label htmlFor="registerNo">Nomor Urut Register</Label>
+                      <Input id="registerNo" type="number" {...register("registerNo")} placeholder="mis. 1421" min={0} />
                     </div>
                   </div>
 

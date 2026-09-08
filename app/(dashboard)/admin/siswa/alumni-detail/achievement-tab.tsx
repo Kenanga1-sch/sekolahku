@@ -26,7 +26,7 @@ export function AchievementTab(props: AchievementTabProps) {
     <TabsContent value="achievements" className="mt-4 space-y-6">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.15 }} className="space-y-6">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <CardTitle className="text-base flex items-center gap-2"><Trophy className="h-5 w-5 text-amber-500" />Prestasi & Penghargaan</CardTitle>
             <Button size="sm" onClick={onAddAchievement}><Plus className="h-4 w-4 mr-1" />Tambah Prestasi</Button>
           </CardHeader>
@@ -58,7 +58,7 @@ export function AchievementTab(props: AchievementTabProps) {
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <CardTitle className="text-base flex items-center gap-2"><Activity className="h-5 w-5 text-emerald-500" />Kegiatan Ekstrakurikuler</CardTitle>
             <Button size="sm" onClick={onAddEkskul}><Plus className="h-4 w-4 mr-1" />Tambah Ekskul</Button>
           </CardHeader>

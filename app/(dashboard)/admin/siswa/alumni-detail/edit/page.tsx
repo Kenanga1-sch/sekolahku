@@ -41,12 +41,24 @@ const alumniFormBaseSchema = z.object({
   siblingKandung: z.preprocess((val) => val === "" || val === undefined ? 0 : Number(val), z.number().int().nonnegative().default(0)),
   siblingTiri: z.preprocess((val) => val === "" || val === undefined ? 0 : Number(val), z.number().int().nonnegative().default(0)),
   siblingAngkat: z.preprocess((val) => val === "" || val === undefined ? 0 : Number(val), z.number().int().nonnegative().default(0)),
+  siblingCount: z.preprocess((val) => val === "" || val === undefined ? null : Number(val), z.number().int().nonnegative().nullable()),
+  childOrder: z.preprocess((val) => val === "" || val === undefined ? null : Number(val), z.number().int().positive().nullable()),
   dailyLanguage: z.string().optional().default("Bahasa Indonesia"),
   livingWith: z.string().optional().default("Orangtua"),
+
+  // Perkembangan jasmani & kesehatan (kolom DB sudah ada, sebelumnya tanpa input)
+  address: z.string().optional(),
+  weight: z.preprocess((val) => val === "" || val === undefined ? null : Number(val), z.number().int().nonnegative().nullable()),
+  height: z.preprocess((val) => val === "" || val === undefined ? null : Number(val), z.number().int().nonnegative().nullable()),
+  bloodType: z.string().optional(),
+  medicalNotes: z.string().optional(),
+  specialNeeds: z.string().optional(),
   
   status: z.string(),
   enrolledYear: z.string().optional(),
   finalClass: z.string().optional(),
+  bukuFisikNo: z.string().optional(),
+  registerNo: z.preprocess((val) => val === "" || val === undefined ? null : Number(val), z.number().int().nonnegative().nullable()),
   
   // Asal Masuk
   previousSchool: z.string().optional(),
@@ -109,6 +121,12 @@ const alumniFormBaseSchema = z.object({
   guardianIncome: z.string().optional(),
   parentAddress: z.string().optional(),
   scholarshipInfo: z.string().optional(),
+
+  // Tahap 3: Penelusuran alumni & rata-rata akhir (kolom DB sudah ada, sebelumnya tanpa input)
+  finalGradeAvg: z.preprocess((val) => val === "" || val === undefined ? null : Number(val), z.number().min(0).max(100).nullable()),
+  currentOccupation: z.string().optional(),
+  currentInstitution: z.string().optional(),
+  lastEducationLevel: z.string().optional(),
 });
 
 const alumniFormSchema = alumniFormBaseSchema.refine((data) => {
@@ -208,29 +226,43 @@ export default function EditAlumniPage() {
           currentPhone: data.currentPhone || "",
           currentEmail: data.currentEmail || "",
           notes: data.notes || "",
-          fatherName: data.fatherName || "",
-          fatherNik: data.fatherNik || "",
-          fatherEducation: data.fatherEducation || "",
-          fatherJob: data.fatherJob || "",
-          motherName: data.motherName || "",
-          motherNik: data.motherNik || "",
-          motherEducation: data.motherEducation || "",
-          motherJob: data.motherJob || "",
-          guardianName: data.guardianName || "",
-          guardianNik: data.guardianNik || "",
-          guardianRelation: data.guardianRelation || "",
-          guardianEducation: data.guardianEducation || "",
-          guardianJob: data.guardianJob || "",
-          guardianPhone: data.guardianPhone || "",
-          ijazahNo: data.ijazahNo || "",
-          ijazahDate: data.ijazahDate ? data.ijazahDate.split("T")[0] : "",
-          skhunNo: data.skhunNo || "",
-          skhunDate: data.skhunDate ? data.skhunDate.split("T")[0] : "",
-          fatherIncome: data.fatherIncome || "",
-          motherIncome: data.motherIncome || "",
-          guardianIncome: data.guardianIncome || "",
-          parentAddress: data.parentAddress || "",
-          scholarshipInfo: data.scholarshipInfo || "",
+           fatherName: data.fatherName || "",
+           fatherNik: data.fatherNik || "",
+           fatherEducation: data.fatherEducation || "",
+           fatherJob: data.fatherJob || "",
+           motherName: data.motherName || "",
+           motherNik: data.motherNik || "",
+           motherEducation: data.motherEducation || "",
+           motherJob: data.motherJob || "",
+           guardianName: data.guardianName || "",
+           guardianNik: data.guardianNik || "",
+           guardianRelation: data.guardianRelation || "",
+           guardianEducation: data.guardianEducation || "",
+           guardianJob: data.guardianJob || "",
+           guardianPhone: data.guardianPhone || "",
+           ijazahNo: data.ijazahNo || "",
+           ijazahDate: data.ijazahDate ? data.ijazahDate.split("T")[0] : "",
+           skhunNo: data.skhunNo || "",
+           skhunDate: data.skhunDate ? data.skhunDate.split("T")[0] : "",
+           fatherIncome: data.fatherIncome || "",
+           motherIncome: data.motherIncome || "",
+           guardianIncome: data.guardianIncome || "",
+           parentAddress: data.parentAddress || "",
+           scholarshipInfo: data.scholarshipInfo || "",
+          bukuFisikNo: data.bukuFisikNo || "",
+          registerNo: data.registerNo ?? "",
+          siblingCount: data.siblingCount ?? "",
+          childOrder: data.childOrder ?? "",
+          address: data.address || "",
+          weight: data.weight ?? "",
+          height: data.height ?? "",
+          bloodType: data.bloodType || "",
+          medicalNotes: data.medicalNotes || "",
+          specialNeeds: data.specialNeeds || "",
+          finalGradeAvg: data.finalGradeAvg ?? "",
+          currentOccupation: data.currentOccupation || "",
+          currentInstitution: data.currentInstitution || "",
+          lastEducationLevel: data.lastEducationLevel || "",
         });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Gagal memuat data");
@@ -360,9 +392,9 @@ export default function EditAlumniPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <GraduationCap className="h-6 w-6 text-primary" />
-              Edit Data Buku Induk: {alumniName}
+            <h1 className="text-2xl font-bold flex items-center gap-2 min-w-0">
+              <GraduationCap className="h-6 w-6 text-primary shrink-0" />
+              <span className="truncate">Edit Data Buku Induk: {alumniName}</span>
             </h1>
             <p className="text-muted-foreground text-sm">
               Perbarui detail lengkap siswa di master Buku Induk
@@ -408,7 +440,7 @@ export default function EditAlumniPage() {
 
       <form ref={formRef} onKeyDown={handleFormKeyDown} onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <Tabs defaultValue="identitas" className="w-full space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3">
             <TabsTrigger value="identitas">Identitas Siswa</TabsTrigger>
             <TabsTrigger value="akademik">Status & Akademik</TabsTrigger>
             <TabsTrigger value="keluarga">Orang Tua & Wali</TabsTrigger>
@@ -545,7 +577,68 @@ export default function EditAlumniPage() {
                       <Label htmlFor="siblingAngkat">Jumlah Sdr Angkat</Label>
                       <Input id="siblingAngkat" type="number" {...register("siblingAngkat")} min={0} />
                     </div>
+                    <div>
+                      <Label htmlFor="siblingCount">Total Jumlah Saudara</Label>
+                      <Input id="siblingCount" type="number" {...register("siblingCount")} min={0} placeholder="Opsional" />
+                    </div>
+                    <div>
+                      <Label htmlFor="childOrder">Anak Ke-</Label>
+                      <Input id="childOrder" type="number" {...register("childOrder")} min={1} placeholder="Contoh: 2" />
+                    </div>
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* KESEHATAN & PERKEMBANGAN JASMANI */}
+              <Card className="border-slate-200 dark:border-zinc-800 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-base">Kesehatan &amp; Perkembangan Jasmani</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="weight">Berat Badan (kg)</Label>
+                      <Input id="weight" type="number" {...register("weight")} min={0} placeholder="Contoh: 28" />
+                    </div>
+                    <div>
+                      <Label htmlFor="height">Tinggi Badan (cm)</Label>
+                      <Input id="height" type="number" {...register("height")} min={0} placeholder="Contoh: 125" />
+                    </div>
+                    <div>
+                      <Label htmlFor="bloodType">Golongan Darah</Label>
+                      <Select value={watch("bloodType") || ""} onValueChange={(val) => setValue("bloodType", val, { shouldDirty: true })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Pilih golongan darah" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="A">A</SelectItem>
+                          <SelectItem value="B">B</SelectItem>
+                          <SelectItem value="AB">AB</SelectItem>
+                          <SelectItem value="O">O</SelectItem>
+                          <SelectItem value="Tidak tahu">Tidak tahu</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="medicalNotes">Riwayat Penyakit</Label>
+                      <Input id="medicalNotes" {...register("medicalNotes")} placeholder="Contoh: Asma, alergi debu" />
+                    </div>
+                    <div>
+                      <Label htmlFor="specialNeeds">Kebutuhan Khusus / Kelainan Jasmani</Label>
+                      <Input id="specialNeeds" {...register("specialNeeds")} placeholder="Contoh: Tidak ada / gangguan penglihatan" />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="address">Alamat Domisili (saat menjadi siswa)</Label>
+                    <Input id="address" {...register("address")} placeholder="Alamat lengkap siswa" />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Berat &amp; tinggi badan di atas adalah kondisi saat ini. Untuk riwayat per tahun/kelas,
+                    gunakan tab <strong>Kesehatan</strong> pada halaman detail — data itu yang mengisi tabel
+                    perkembangan jasmani pada cetakan Buku Induk.
+                  </p>
                 </CardContent>
               </Card>
           </TabsContent>
@@ -580,6 +673,18 @@ export default function EditAlumniPage() {
                     <div>
                       <Label htmlFor="finalClass">Kelas Saat Ini / Terakhir *</Label>
                       <Input id="finalClass" {...register("finalClass")} placeholder="Contoh: 6A" />
+                    </div>
+                  </div>
+
+                  {/* Index Buku Induk Fisik */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
+                    <div>
+                      <Label htmlFor="bukuFisikNo">Buku Induk Fisik No.</Label>
+                      <Input id="bukuFisikNo" {...register("bukuFisikNo")} placeholder="mis. VI (jilid buku fisik)" />
+                    </div>
+                    <div>
+                      <Label htmlFor="registerNo">Nomor Urut Register</Label>
+                      <Input id="registerNo" type="number" {...register("registerNo")} placeholder="mis. 1421" min={0} />
                     </div>
                   </div>
 
@@ -713,7 +818,7 @@ export default function EditAlumniPage() {
                         <Label htmlFor="skhunDate">Tgl. SKHUN</Label>
                         <Input id="skhunDate" type="date" {...register("skhunDate")} />
                       </div>
-                      <div>
+                       <div>
                         <Label htmlFor="fatherIncome">Penghasilan Ayah</Label>
                         <Input id="fatherIncome" {...register("fatherIncome")} placeholder="Rp/bulan" />
                       </div>
@@ -732,6 +837,29 @@ export default function EditAlumniPage() {
                       <div className="md:col-span-2">
                         <Label htmlFor="scholarshipInfo">Informasi Beasiswa</Label>
                         <Input id="scholarshipInfo" {...register("scholarshipInfo")} placeholder="Nama beasiswa, tahun, pemberi" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Penelusuran Alumni (data setelah lulus) */}
+                  <div className="border-t pt-4">
+                    <h3 className="text-sm font-semibold mb-3">Penelusuran Alumni</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="finalGradeAvg">Nilai Rata-rata Akhir</Label>
+                        <Input id="finalGradeAvg" type="number" step="0.01" {...register("finalGradeAvg")} min={0} max={100} placeholder="Contoh: 87.5" />
+                      </div>
+                      <div>
+                        <Label htmlFor="lastEducationLevel">Jenjang Pendidikan Terakhir</Label>
+                        <Input id="lastEducationLevel" {...register("lastEducationLevel")} placeholder="Contoh: SMP / SMA / S1" />
+                      </div>
+                      <div>
+                        <Label htmlFor="currentInstitution">Institusi Saat Ini</Label>
+                        <Input id="currentInstitution" {...register("currentInstitution")} placeholder="Nama sekolah / kampus / tempat kerja" />
+                      </div>
+                      <div>
+                        <Label htmlFor="currentOccupation">Pekerjaan Saat Ini</Label>
+                        <Input id="currentOccupation" {...register("currentOccupation")} placeholder="Diisi bila sudah bekerja" />
                       </div>
                     </div>
                   </div>

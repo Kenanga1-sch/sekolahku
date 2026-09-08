@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, Edit, Trash2, Printer, User, School, Phone, MapPin } from "lucide-react";
+import { ArrowLeft, Edit, Trash2, Printer, User, School, Phone, MapPin, BookMarked } from "lucide-react";
 import Link from "next/link";
 import type { AlumniDetail } from "./types-alumni";
 
@@ -39,11 +39,11 @@ export function ProfileHeader({ alumni, onDelete }: ProfileHeaderProps) {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link href={`/admin/siswa/alumni-detail/edit?id=${alumni.id}`}>
             <Button variant="outline" size="sm"><Edit className="h-4 w-4 mr-1" />Edit</Button>
           </Link>
-          <Button variant="outline" size="sm" onClick={() => window.open(`/admin/siswa/buku-induk/print?id=${alumni.id}&type=alumni`, "_blank")}>
+          <Button variant="outline" size="sm" className="text-xs sm:text-sm" onClick={() => window.open(`/admin/siswa/buku-induk/print?id=${alumni.id}&type=alumni`, "_blank")}>
             <Printer className="h-4 w-4 mr-1" />Cetak Buku Induk
           </Button>
           <Button variant="destructive" size="sm" onClick={onDelete}><Trash2 className="h-4 w-4 mr-1" />Hapus</Button>
@@ -74,6 +74,13 @@ export function ProfileHeader({ alumni, onDelete }: ProfileHeaderProps) {
                   {alumni.finalClass && <InfoItem icon={<School className="h-4 w-4 text-slate-400 shrink-0" />} label="Kelas Akhir">Kelas {alumni.finalClass}</InfoItem>}
                   {(alumni.currentPhone || alumni.currentEmail) && <InfoItem icon={<Phone className="h-4 w-4 text-slate-400 shrink-0" />} label="Kontak" truncate>{alumni.currentPhone || alumni.currentEmail}</InfoItem>}
                   {alumni.currentAddress && <InfoItem icon={<MapPin className="h-4 w-4 text-slate-400 shrink-0" />} label="Alamat" truncate>{alumni.currentAddress}</InfoItem>}
+                  {(alumni.bukuFisikNo || alumni.registerNo) && (
+                    <InfoItem icon={<BookMarked className="h-4 w-4 text-slate-400 shrink-0" />} label="Buku Induk Fisik">
+                      {alumni.bukuFisikNo ? `Buku ${alumni.bukuFisikNo}` : ""}
+                      {alumni.bukuFisikNo && alumni.registerNo ? " • " : ""}
+                      {alumni.registerNo ? `No. ${alumni.registerNo}` : ""}
+                    </InfoItem>
+                  )}
                 </div>
               </div>
             </div>

@@ -21,7 +21,7 @@ export function PickupTab({ pickups, alumniId, isGraduated, onRefresh }: PickupT
     <TabsContent value="pickups" className="mt-4">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.15 }}>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <CardTitle className="text-base">Riwayat Serah Terima Dokumen Fisik</CardTitle>
             {isGraduated && <PickupForm alumniId={alumniId} onPickupComplete={onRefresh} />}
           </CardHeader>

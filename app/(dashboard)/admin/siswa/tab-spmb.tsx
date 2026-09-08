@@ -9,9 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { DataTable, TablePagination } from "@/components/data-table";
 import {
   Select,
   SelectContent,
@@ -19,14 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,12 +36,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -71,10 +57,8 @@ import {
   Trash2,
   UserCheck,
   Loader2,
-  HelpCircle,
   Plus,
   Pencil,
-  CalendarDays,
   Power
 } from "lucide-react";
 import { exportToExcel, exportToPDF } from "@/lib/spmb-export";
@@ -85,7 +69,6 @@ import { SPMBPromoteDialog } from "@/components/spmb/spmb-promote-dialog";
 import { ProcessAcceptanceDialog } from "@/components/spmb/process-acceptance-dialog";
 import { calculateSPMBDomisiliPriority } from "@/lib/spmb-priority";
 import { useSortableData } from "@/hooks/use-sortable-data";
-import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { normalizePeriod, getAgePriorityLabel, getAgePriorityClass } from "./types-spmb";
 import type { Registrant, SPMBStats as Stats, Period, GlobalSettings, SPMBRegistrantsResponse, SPMBStatsResponse } from "./types-spmb";
 
@@ -682,11 +665,11 @@ export default function TabSPMB() {
               
               {/* Batch Action Bar */}
               {selectedIds.length > 0 && (
-                <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 mt-4 flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 mt-4 flex flex-wrap items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-200">
                   <span className="text-sm font-medium">
                     {selectedIds.length} pendaftar dipilih
                   </span>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       size="sm"
                       variant="outline"
@@ -731,230 +714,192 @@ export default function TabSPMB() {
             <CardContent className="p-0">
 
               {/* Table */}
-              <div className="overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead className="w-12">
-                        <Checkbox
-                          checked={registrants.length > 0 && selectedIds.length === registrants.length}
-                          onCheckedChange={toggleSelectAll}
-                        />
-                      </TableHead>
-                      <SortableTableHead label="No. Pendaftaran" sortKey="registrationNumber" sortConfig={sortConfig} onSort={requestSort} className="hidden sm:table-cell" />
-                      <SortableTableHead label="Nama Lengkap" sortKey="fullName" sortConfig={sortConfig} onSort={requestSort} />
-                      <TableHead className="hidden sm:table-cell">
-                        <div className="flex items-center gap-1">
-                            Prioritas Usia
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger>
-                                        <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <div className="not-italic text-xs max-w-[200px]">
-                                            <strong>Prioritas SPMB SD:</strong><br/>
-                                            Jalur Domisili mengikuti urutan usia, lalu jarak terdekat ke sekolah jika kuota terlampaui.<br/>
-                                            <br/>
-                                            Usia dihitung per 1 Juli tahun berjalan.
-                                        </div>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-                        </div>
-                      </TableHead>
-                      <SortableTableHead label="Usia" sortKey="birthDate" sortConfig={sortConfig} onSort={requestSort} className="hidden sm:table-cell" />
-                      <SortableTableHead label="Jarak" sortKey="distanceToSchool" sortConfig={sortConfig} onSort={requestSort} className="hidden md:table-cell" />
-                      <TableHead className="hidden lg:table-cell">Domisili</TableHead>
-                      <SortableTableHead label="Tanggal" sortKey="createdAt" sortConfig={sortConfig} onSort={requestSort} className="hidden md:table-cell" />
-                      <SortableTableHead label="Status" sortKey="status" sortConfig={sortConfig} onSort={requestSort} />
-                      <TableHead className="text-right">Aksi</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {isLoading ? (
-                      Array.from({ length: 5 }).map((_, i) => (
-                        <TableRow key={i}>
-                          <TableCell><Skeleton className="h-4 w-4" /></TableCell>
-                          <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-28" /></TableCell>
-                          <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                          <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
-                          <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-16" /></TableCell>
-                          <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-16" /></TableCell>
-                          <TableCell className="hidden lg:table-cell"><Skeleton className="h-6 w-16" /></TableCell>
-                          <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
-                          <TableCell><Skeleton className="h-6 w-20" /></TableCell>
-                          <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
-                        </TableRow>
-                      ))
-                    ) : registrants.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={10} className="text-center py-8">
-                          <Users className="h-12 w-12 mx-auto text-muted-foreground/50 mb-2" />
-                          <p className="text-muted-foreground">Tidak ada data ditemukan</p>
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      sortedRegistrants.map((r) => {
-                        const isInReceptionArea = (r.distanceToSchool || 0) <= maxDistance;
-                        return (
-                        <TableRow key={r.id} className={selectedIds.includes(r.id) ? "bg-primary/5" : ""}>
-                          <TableCell>
-                            <Checkbox
-                              checked={selectedIds.includes(r.id)}
-                              onCheckedChange={() => toggleSelect(r.id)}
-                            />
-                          </TableCell>
-                          <TableCell className="hidden sm:table-cell font-mono text-sm">
-                            {r.registrationNumber}
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <p className="font-semibold text-slate-800 dark:text-zinc-200">{r.fullName}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {r.gender === "L" ? "Laki-laki" : "Perempuan"}
-                              </p>
-                            </div>
-                          </TableCell>
-                          <TableCell className="hidden sm:table-cell">
-                            <Badge variant="outline" className={getAgePriorityClass(r.ageEligibility)}>
-                                {getAgePriorityLabel(r.ageEligibility)}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="hidden sm:table-cell">
-                            {(() => {
-                                if (!r.birthDate) return <span className="text-muted-foreground">-</span>;
-                                const dob = new Date(r.birthDate);
-                                const today = new Date();
-                                const referenceDate = new Date(today.getFullYear(), 6, 1); // July 1st
-                                const years = differenceInYears(referenceDate, dob);
-                                const months = differenceInMonths(referenceDate, dob) % 12;
-                                return (
-                                    <span className={years >= 7 ? "text-green-600 font-medium" : "text-amber-600"}>
-                                        {years} Thn {months} Bln
-                                    </span>
-                                );
-                            })()}
-                          </TableCell>
-                          <TableCell className="hidden md:table-cell">
-                            {r.distanceToSchool?.toFixed(2) || "0.00"} km
-                          </TableCell>
-                          <TableCell className="hidden lg:table-cell">
-                            <Badge
-                              className={isInReceptionArea ? "bg-green-100 text-green-700 hover:bg-green-100" : "bg-amber-100 text-amber-700 hover:bg-amber-100"}
-                            >
-                              {isInReceptionArea ? "Dalam Wilayah" : "Luar Wilayah"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
-                            {new Date(r.createdAt || "").toLocaleDateString("id-ID")}
-                          </TableCell>
-                          <TableCell><SPMBStatusBadge status={r.status} /></TableCell>
-                          <TableCell className="text-right">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="icon" className="h-8 w-8 border-slate-200 bg-white shadow-sm hover:bg-slate-50 text-muted-foreground hover:text-foreground" disabled={actionLoading === r.id}>
-                                  {actionLoading === r.id ? (
-                                    <RefreshCw className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  )}
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem asChild>
-                                  <Link href={`/admin/siswa/spmb-detail?id=${r.id}`}>
-                                    <Eye className="mr-2 h-4 w-4" />
-                                    Lihat Detail
-                                  </Link>
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                {r.status === "pending" && (
-                                  <DropdownMenuItem
-                                    className="text-blue-600"
-                                    onClick={() => handleUpdateStatus(r.id, "verified")}
-                                  >
-                                    <CheckCircle className="mr-2 h-4 w-4" />
-                                    Verifikasi
-                                  </DropdownMenuItem>
-                                )}
-                                {(r.status === "pending" || r.status === "verified") && (
-                                  <DropdownMenuItem
-                                    className="text-green-600"
-                                    onClick={() => handleUpdateStatus(r.id, "accepted")}
-                                  >
-                                    <UserCheck className="mr-2 h-4 w-4" />
-                                    Terima
-                                  </DropdownMenuItem>
-                                )}
-                                {r.status !== "rejected" && (
-                                  <DropdownMenuItem
-                                    className="text-red-600"
-                                    onClick={() => handleUpdateStatus(r.id, "rejected")}
-                                  >
-                                    <XCircle className="mr-2 h-4 w-4" />
-                                    Tolak
-                                  </DropdownMenuItem>
-                                )}
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  className="text-destructive"
-                                  onClick={() => setDeleteId(r.id)}
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Hapus
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                {r.status === "accepted" && (
-                                    <DropdownMenuItem 
-                                        className="text-indigo-600 font-medium"
-                                        onClick={() => {
-                                            setPromoteCandidate({ id: r.id, name: r.fullName });
-                                            setIsPromoteOpen(true);
-                                        }}
-                                    >
-                                        <UserCheck className="mr-2 h-4 w-4" />
-                                        Promosikan ke Siswa
-                                    </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                        );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+              <DataTable
+                data={isLoading ? [] : sortedRegistrants}
+                getRowId={(r) => r.id}
+                loading={isLoading}
+                sortConfig={sortConfig}
+                onSort={requestSort}
+                selectable
+                selectedIds={selectedIds}
+                onToggleSelect={toggleSelect}
+                onToggleSelectAll={toggleSelectAll}
+                emptyTitle="Tidak ada data ditemukan"
+                emptyDescription="Pendaftar SPMB akan muncul di sini."
+                columns={[
+                  {
+                    key: "registrationNumber",
+                    header: "No. Pendaftaran",
+                    sortable: true,
+                    card: "field",
+                    render: (r) => (
+                      <span className="font-mono text-sm">{r.registrationNumber}</span>
+                    ),
+                  },
+                  {
+                    key: "fullName",
+                    header: "Nama Lengkap",
+                    sortable: true,
+                    card: "title",
+                    render: (r) => (
+                      <div>
+                        <p className="font-semibold text-slate-800 dark:text-zinc-200">{r.fullName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {r.gender === "L" ? "Laki-laki" : "Perempuan"}
+                        </p>
+                      </div>
+                    ),
+                  },
+                  {
+                    key: "ageEligibility",
+                    header: "Prioritas Usia",
+                    card: "field",
+                    render: (r) => (
+                      <Badge variant="outline" className={getAgePriorityClass(r.ageEligibility)}>
+                        {getAgePriorityLabel(r.ageEligibility)}
+                      </Badge>
+                    ),
+                  },
+                  {
+                    key: "birthDate",
+                    header: "Usia",
+                    sortable: true,
+                    card: "field",
+                    render: (r) => {
+                      if (!r.birthDate) return <span className="text-muted-foreground">-</span>;
+                      const dob = new Date(r.birthDate);
+                      const today = new Date();
+                      const referenceDate = new Date(today.getFullYear(), 6, 1); // July 1st
+                      const years = differenceInYears(referenceDate, dob);
+                      const months = differenceInMonths(referenceDate, dob) % 12;
+                      return (
+                          <span className={years >= 7 ? "text-green-600 font-medium" : "text-amber-600"}>
+                              {years} Thn {months} Bln
+                          </span>
+                      );
+                    },
+                  },
+                  {
+                    key: "distanceToSchool",
+                    header: "Jarak",
+                    sortable: true,
+                    card: "field",
+                    render: (r) => <span>{r.distanceToSchool?.toFixed(2) || "0.00"} km</span>,
+                  },
+                  {
+                    key: "domisili",
+                    header: "Domisili",
+                    card: "field",
+                    render: (r) => {
+                      const isInReceptionArea = (r.distanceToSchool || 0) <= maxDistance;
+                      return (
+                        <Badge
+                          className={isInReceptionArea ? "bg-green-100 text-green-700 hover:bg-green-100" : "bg-amber-100 text-amber-700 hover:bg-amber-100"}
+                        >
+                          {isInReceptionArea ? "Dalam Wilayah" : "Luar Wilayah"}
+                        </Badge>
+                      );
+                    },
+                  },
+                  {
+                    key: "createdAt",
+                    header: "Tanggal",
+                    sortable: true,
+                    card: "hidden",
+                    render: (r) => (
+                      <span className="text-muted-foreground text-sm">
+                        {new Date(r.createdAt || "").toLocaleDateString("id-ID")}
+                      </span>
+                    ),
+                  },
+                  {
+                    key: "status",
+                    header: "Status",
+                    sortable: true,
+                    card: "field",
+                    render: (r) => <SPMBStatusBadge status={r.status} />,
+                  },
+                ]}
+                actions={(r) => (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="icon" className="h-8 w-8 border-slate-200 bg-white shadow-sm hover:bg-slate-50 text-muted-foreground hover:text-foreground" disabled={actionLoading === r.id}>
+                        {actionLoading === r.id ? (
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <MoreHorizontal className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem asChild>
+                        <Link href={`/admin/siswa/spmb-detail?id=${r.id}`}>
+                          <Eye className="mr-2 h-4 w-4" />
+                          Lihat Detail
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      {r.status === "pending" && (
+                        <DropdownMenuItem
+                          className="text-blue-600"
+                          onClick={() => handleUpdateStatus(r.id, "verified")}
+                        >
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                          Verifikasi
+                        </DropdownMenuItem>
+                      )}
+                      {(r.status === "pending" || r.status === "verified") && (
+                        <DropdownMenuItem
+                          className="text-green-600"
+                          onClick={() => handleUpdateStatus(r.id, "accepted")}
+                        >
+                          <UserCheck className="mr-2 h-4 w-4" />
+                          Terima
+                        </DropdownMenuItem>
+                      )}
+                      {r.status !== "rejected" && (
+                        <DropdownMenuItem
+                          className="text-red-600"
+                          onClick={() => handleUpdateStatus(r.id, "rejected")}
+                        >
+                          <XCircle className="mr-2 h-4 w-4" />
+                          Tolak
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onClick={() => setDeleteId(r.id)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Hapus
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      {r.status === "accepted" && (
+                          <DropdownMenuItem 
+                              className="text-indigo-600 font-medium"
+                              onClick={() => {
+                                  setPromoteCandidate({ id: r.id, name: r.fullName });
+                                  setIsPromoteOpen(true);
+                              }}
+                          >
+                              <UserCheck className="mr-2 h-4 w-4" />
+                              Promosikan ke Siswa
+                          </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              />
 
               {/* Pagination */}
-              {registrants.length > 0 && (
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800">
-                  <div className="text-sm text-muted-foreground">
-                    Halaman {page} dari {totalPages}
-                  </div>
-                  {totalPages > 1 && (
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={page <= 1}
-                        onClick={() => setPage(p => p - 1)}
-                      >
-                        Sebelumnya
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={page >= totalPages}
-                        onClick={() => setPage(p => p + 1)}
-                      >
-                        Selanjutnya
-                      </Button>
-                    </div>
-                  )}
-                </div>
+              {!isLoading && registrants.length > 0 && (
+                <TablePagination
+                  page={page}
+                  totalPages={totalPages}
+                  onPageChange={setPage}
+                  label={`${registrants.length} pendaftar`}
+                />
               )}
             </CardContent>
           </Card>
@@ -962,7 +907,7 @@ export default function TabSPMB() {
       ) : (
         /* Periods Management Tab */
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <CardTitle>Gelombang Pendaftaran</CardTitle>
               <CardDescription>Atur gelombang penerimaan, kuota, dan masa pendaftaran online</CardDescription>
@@ -973,100 +918,96 @@ export default function TabSPMB() {
             </Button>
           </CardHeader>
           <CardContent>
-            <div className="rounded-lg border overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead>Nama Gelombang</TableHead>
-                    <TableHead className="hidden sm:table-cell">Tahun Akademik</TableHead>
-                    <TableHead className="hidden sm:table-cell">Mulai</TableHead>
-                    <TableHead className="hidden sm:table-cell">Selesai</TableHead>
-                    <TableHead className="hidden sm:table-cell text-center">Kuota</TableHead>
-                    <TableHead className="hidden sm:table-cell text-center">Terdaftar</TableHead>
-                    <TableHead className="text-center">Status</TableHead>
-                    <TableHead className="hidden sm:table-cell text-center">Proses Seleksi</TableHead>
-                    <TableHead className="text-right">Aksi</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isPeriodLoading ? (
-                    Array.from({ length: 3 }).map((_, i) => (
-                      <TableRow key={i}>
-                        <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
-                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
-                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
-                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-12 mx-auto" /></TableCell>
-                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-4 w-12 mx-auto" /></TableCell>
-                        <TableCell className="text-center"><Skeleton className="h-6 w-16 mx-auto" /></TableCell>
-                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-8 w-28 mx-auto" /></TableCell>
-                        <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
-                      </TableRow>
-                    ))
-                  ) : periods.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8">
-                        <CalendarDays className="h-12 w-12 mx-auto text-muted-foreground/50 mb-2" />
-                        <p className="text-muted-foreground">Belum ada gelombang pendaftaran</p>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    periods.map((p) => (
-                      <TableRow key={p.id} className={p.isActive ? "bg-primary/5" : ""}>
-                        <TableCell className="font-semibold">{p.name}</TableCell>
-                        <TableCell className="hidden sm:table-cell">{p.academicYear}</TableCell>
-                        <TableCell className="hidden sm:table-cell">{p.startDate ? new Date(p.startDate).toLocaleDateString("id-ID") : "-"}</TableCell>
-                        <TableCell className="hidden sm:table-cell">{p.endDate ? new Date(p.endDate).toLocaleDateString("id-ID") : "-"}</TableCell>
-                        <TableCell className="hidden sm:table-cell text-center font-mono">{p.quota}</TableCell>
-                        <TableCell className="hidden sm:table-cell text-center font-mono">
-                          <Badge variant="secondary">{p.registered}</Badge>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge className={p.isActive ? "bg-green-100 text-green-700 hover:bg-green-100" : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 hover:bg-zinc-100"}>
-                            {p.isActive ? "Aktif" : "Tidak Aktif"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell text-center">
-                          <ProcessAcceptanceDialog 
-                            periodId={p.id} 
-                            periodName={p.name} 
-                            quota={p.quota} 
-                            onProcessComplete={() => {
-                              fetchPeriods();
-                              fetchData();
-                            }} 
-                          />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="outline" size="icon" className="h-8 w-8">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handlePeriodEdit(p)}>
-                                <Pencil className="mr-2 h-4 w-4" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleSetPeriodActiveStatus(p.id, p.isActive)}>
-                                <Power className="mr-2 h-4 w-4 text-amber-500" />
-                                {p.isActive ? "Nonaktifkan" : "Aktifkan"}
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-destructive" onClick={() => setDeletePeriodId(p.id)}>
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Hapus
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+            <DataTable
+              data={isPeriodLoading ? [] : periods}
+              getRowId={(p) => p.id}
+              loading={isPeriodLoading}
+              emptyTitle="Belum ada gelombang pendaftaran"
+              emptyDescription="Tambahkan gelombang untuk membuka pendaftaran online."
+              columns={[
+                {
+                  key: "name",
+                  header: "Nama Gelombang",
+                  card: "title",
+                  render: (p) => <span className="font-semibold">{p.name}</span>,
+                },
+                {
+                  key: "academicYear",
+                  header: "Tahun Akademik",
+                  card: "field",
+                  render: (p) => p.academicYear,
+                },
+                {
+                  key: "startDate",
+                  header: "Mulai",
+                  card: "field",
+                  render: (p) => (p.startDate ? new Date(p.startDate).toLocaleDateString("id-ID") : "-"),
+                },
+                {
+                  key: "endDate",
+                  header: "Selesai",
+                  card: "field",
+                  render: (p) => (p.endDate ? new Date(p.endDate).toLocaleDateString("id-ID") : "-"),
+                },
+                {
+                  key: "quota",
+                  header: "Kuota",
+                  card: "field",
+                  render: (p) => <span className="font-mono">{p.quota}</span>,
+                },
+                {
+                  key: "registered",
+                  header: "Terdaftar",
+                  card: "field",
+                  render: (p) => <Badge variant="secondary">{p.registered}</Badge>,
+                },
+                {
+                  key: "isActive",
+                  header: "Status",
+                  card: "field",
+                  render: (p) => (
+                    <Badge className={p.isActive ? "bg-green-100 text-green-700 hover:bg-green-100" : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 hover:bg-zinc-100"}>
+                      {p.isActive ? "Aktif" : "Tidak Aktif"}
+                    </Badge>
+                  ),
+                },
+              ]}
+              actions={(p) => (
+                <div className="flex items-center justify-end gap-1">
+                  <ProcessAcceptanceDialog
+                    periodId={p.id}
+                    periodName={p.name}
+                    quota={p.quota}
+                    onProcessComplete={() => {
+                      fetchPeriods();
+                      fetchData();
+                    }}
+                  />
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="icon" className="h-8 w-8">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handlePeriodEdit(p)}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleSetPeriodActiveStatus(p.id, p.isActive)}>
+                        <Power className="mr-2 h-4 w-4 text-amber-500" />
+                        {p.isActive ? "Nonaktifkan" : "Aktifkan"}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="text-destructive" onClick={() => setDeletePeriodId(p.id)}>
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Hapus
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              )}
+            />
           </CardContent>
         </Card>
       )}
@@ -1081,60 +1022,60 @@ export default function TabSPMB() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="period-name" className="text-right">Nama Gelombang</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="period-name" className="sm:text-right">Nama Gelombang</Label>
               <Input
                 id="period-name"
                 value={periodFormData.name}
                 onChange={(e) => setPeriodFormData({ ...periodFormData, name: e.target.value })}
                 placeholder="misal: Gelombang 1"
-                className="col-span-3"
+                className="sm:col-span-3"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="committee" className="text-right">Panitia PPDB</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="committee" className="sm:text-right">Panitia PPDB</Label>
               <Input
                 id="committee"
                 value={periodFormData.committeeName}
                 onChange={(e) => setPeriodFormData({ ...periodFormData, committeeName: e.target.value })}
                 placeholder="Nama Ketua Panitia"
-                className="col-span-3"
+                className="sm:col-span-3"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="start-date" className="text-right">Tanggal Mulai</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="start-date" className="sm:text-right">Tanggal Mulai</Label>
               <Input
                 id="start-date"
                 type="date"
                 value={periodFormData.startDate}
                 onChange={(e) => setPeriodFormData({ ...periodFormData, startDate: e.target.value })}
-                className="col-span-3"
+                className="sm:col-span-3"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="end-date" className="text-right">Tanggal Selesai</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="end-date" className="sm:text-right">Tanggal Selesai</Label>
               <Input
                 id="end-date"
                 type="date"
                 value={periodFormData.endDate}
                 onChange={(e) => setPeriodFormData({ ...periodFormData, endDate: e.target.value })}
-                className="col-span-3"
+                className="sm:col-span-3"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="quota" className="text-right">Kuota Siswa</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="quota" className="sm:text-right">Kuota Siswa</Label>
               <Input
                 id="quota"
                 type="number"
                 value={periodFormData.quota}
                 onChange={(e) => setPeriodFormData({ ...periodFormData, quota: e.target.value })}
                 placeholder="100"
-                className="col-span-3"
+                className="sm:col-span-3"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="is-active" className="text-right">Langsung Aktifkan</Label>
-              <div className="col-span-3 flex items-center">
+            <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
+              <Label htmlFor="is-active" className="sm:text-right">Langsung Aktifkan</Label>
+              <div className="sm:col-span-3 flex items-center">
                 <Switch
                   id="is-active"
                   checked={periodFormData.isActive}

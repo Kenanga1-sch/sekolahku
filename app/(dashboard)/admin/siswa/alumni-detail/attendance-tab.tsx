@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TabsContent } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable } from "@/components/data-table";
 import { Calendar, Plus, Edit, Trash2 } from "lucide-react";
 import type { AlumniAttendanceSummary } from "./types-alumni";
 
@@ -20,46 +20,66 @@ export function AttendanceTab({ attendances, onAdd, onEdit, onDelete }: Attendan
     <TabsContent value="attendance" className="mt-4">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.15 }}>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <CardTitle className="text-base flex items-center gap-2"><Calendar className="h-5 w-5 text-primary" />Rekapitulasi Kehadiran</CardTitle>
             <Button size="sm" onClick={onAdd}><Plus className="h-4 w-4 mr-1" />Tambah Rekap</Button>
           </CardHeader>
           <CardContent>
-            {attendances.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground"><Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" /><p>Belum ada rekap kehadiran disimpan</p></div>
-            ) : (
-              <div className="overflow-x-auto border rounded-lg">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Tahun Ajaran</TableHead><TableHead>Semester</TableHead>
-                      <TableHead className="text-center">Hadir (H)</TableHead><TableHead className="text-center">Sakit (S)</TableHead>
-                      <TableHead className="text-center">Izin (I)</TableHead><TableHead className="text-center">Alpha (A)</TableHead>
-                      <TableHead className="text-center font-bold">Total Hari</TableHead><TableHead className="text-right">Aksi</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {attendances.map(a => {
-                      const total = a.present + a.sick + a.permission + a.absent;
-                      return (
-                        <TableRow key={a.id}>
-                          <TableCell className="font-medium">{a.academicYear}</TableCell><TableCell>{a.semester}</TableCell>
-                          <TableCell className="text-center text-emerald-600 font-semibold">{a.present}</TableCell>
-                          <TableCell className="text-center text-blue-600">{a.sick}</TableCell>
-                          <TableCell className="text-center text-amber-600">{a.permission}</TableCell>
-                          <TableCell className="text-center text-rose-600">{a.absent}</TableCell>
-                          <TableCell className="text-center font-bold">{total}</TableCell>
-                          <TableCell className="text-right space-x-1 whitespace-nowrap">
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => onEdit(a)}><Edit className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => onDelete(a.id)}><Trash2 className="h-4 w-4" /></Button>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
+            <DataTable
+              data={attendances}
+              getRowId={(a) => a.id}
+              emptyTitle="Belum ada rekap kehadiran disimpan"
+              emptyDescription="Tambahkan rekap kehadiran pertama untuk alumni ini."
+              actions={(a) => (
+                <div className="space-x-1 whitespace-nowrap">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => onEdit(a)}><Edit className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => onDelete(a.id)}><Trash2 className="h-4 w-4" /></Button>
+                </div>
+              )}
+              columns={[
+                {
+                  key: "academicYear",
+                  header: "Tahun Ajaran",
+                  card: "title",
+                  render: (a) => (
+                    <div>
+                      <p className="font-medium">{a.academicYear}</p>
+                      <p className="text-xs text-muted-foreground">{a.semester}</p>
+                    </div>
+                  ),
+                },
+                {
+                  key: "present",
+                  header: "Hadir (H)",
+                  card: "field",
+                  render: (a) => <span className="text-emerald-600 font-semibold">{a.present}</span>,
+                },
+                {
+                  key: "sick",
+                  header: "Sakit (S)",
+                  card: "field",
+                  render: (a) => <span className="text-blue-600">{a.sick}</span>,
+                },
+                {
+                  key: "permission",
+                  header: "Izin (I)",
+                  card: "field",
+                  render: (a) => <span className="text-amber-600">{a.permission}</span>,
+                },
+                {
+                  key: "absent",
+                  header: "Alpha (A)",
+                  card: "field",
+                  render: (a) => <span className="text-rose-600">{a.absent}</span>,
+                },
+                {
+                  key: "total",
+                  header: "Total Hari",
+                  card: "field",
+                  render: (a) => <span className="font-bold">{a.present + a.sick + a.permission + a.absent}</span>,
+                },
+              ]}
+            />
           </CardContent>
         </Card>
       </motion.div>

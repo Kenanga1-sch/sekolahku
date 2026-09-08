@@ -45,9 +45,10 @@ function SiswaTabsContent() {
   return (
     <div className="space-y-6">
       {/* Tabs Navigation */}
-      <div className="flex overflow-x-auto whitespace-nowrap scrollbar-none bg-slate-100/60 dark:bg-zinc-900/40 p-1 rounded-xl gap-1.5 border border-slate-200/40 dark:border-zinc-800/40">
-        <button
-          onClick={() => setActiveTab("direktori")}
+      <div className="relative">
+        <div className="flex overflow-x-auto whitespace-nowrap scrollbar-none bg-slate-100/60 dark:bg-zinc-900/40 p-1 rounded-xl gap-1.5 border border-slate-200/40 dark:border-zinc-800/40">
+          <button
+            onClick={() => setActiveTab("direktori")}
           className={`shrink-0 py-1.5 sm:py-2 px-3 sm:px-4 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-1.5 cursor-pointer border ${
             activeTab === "direktori"
               ? "bg-white dark:bg-zinc-950 text-blue-600 dark:text-blue-400 shadow-sm border-slate-200/80 dark:border-zinc-800"
@@ -112,6 +113,9 @@ function SiswaTabsContent() {
           <BookOpen className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           Akademik
         </button>
+        </div>
+        {/* Scroll fade indicator (mobile) */}
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-slate-100 dark:from-zinc-900 to-transparent sm:hidden" aria-hidden="true" />
       </div>
       
       {/* Tab Contents — lazy loaded */}

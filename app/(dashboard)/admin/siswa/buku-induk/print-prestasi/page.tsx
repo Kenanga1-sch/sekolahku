@@ -1,5 +1,12 @@
 "use client";
 
+/**
+ * @deprecated Halaman cetak prestasi standalone ini saat ini TIDAK dirujuk oleh
+ * UI mana pun. Matriks "Prestasi Belajar" sudah menjadi bagian dari halaman
+ * cetak gabungan `/admin/siswa/buku-induk/print` (halaman landscape).
+ * File dipertahankan sebagai referensi layout; jangan hapus sebelum dipastikan
+ * tidak dipakai melalui tautan eksternal/dokumentasi.
+ */
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { goGet } from "@/lib/api-client";

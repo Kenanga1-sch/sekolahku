@@ -92,6 +92,9 @@ export interface AlumniDetail {
   droppedOutDate: string | null;
   droppedOutReason: string | null;
   healthRecords: AlumniHealthRecord[];
+  // Index buku induk fisik lama
+  bukuFisikNo: string | null;
+  registerNo: number | null;
 }
 
 export interface AlumniTranscript {

@@ -22,14 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/data-table";
 import {
   Upload,
   ArrowRight,
@@ -109,6 +102,9 @@ const PROFILE_FIELDS: TargetField[] = [
   { key: "medicalNotes", label: "Catatan Penyakit", required: false },
   { key: "specialNeeds", label: "Kelainan Jasmani", required: false },
   { key: "enrolledYear", label: "Tahun Masuk", required: false },
+  { key: "graduationYear", label: "Tahun Lulus", required: false },
+  { key: "bukuFisikNo", label: "Buku Induk Fisik No.", required: false, desc: "Nomor jilid buku induk fisik (mis. VI)" },
+  { key: "registerNo", label: "Nomor Urut Register", required: false, desc: "Nomor urut siswa di buku fisik (mis. 1421)" },
   { key: "status", label: "Status Siswa", required: false, desc: "active / graduated / transferred / dropped" },
 ];
 
@@ -149,6 +145,10 @@ export default function ImportWizardPage() {
   } | null>(null);
 
   const targetFields = importType === "profile" ? PROFILE_FIELDS : GRADE_FIELDS;
+  const previewTitleKey =
+    ["fullName", "nisn", "nis"].find((k) => mappings[k]) ||
+    targetFields.find((f) => mappings[f.key])?.key ||
+    "";
 
   // ==========================================
   // TAB 2: API BRIDGE STATE
@@ -341,6 +341,9 @@ export default function ImportWizardPage() {
       address: ["alamat", "alamattinggal", "alamat_tinggal", "address"],
       currentPhone: ["notelpon", "notelepon", "nohp", "no_hp", "telepon", "phone"],
       siblingKandung: ["saudarakandung", "sibling_kandung"],
+      graduationYear: ["tahunlulus", "tahun_lulus", "thnlulus", "thn_lulus", "lulus", "graduation_year"],
+      bukuFisikNo: ["bukuinduk", "buku_induk", "buku", "jilid", "buku_fisik", "bukufisik", "nomorbuku", "nomor_buku"],
+      registerNo: ["nomorurut", "nomor_urut", "no_urut", "nourut", "register", "register_no", "registerno"],
       fatherName: ["namaayah", "nama_ayah", "ayah", "father_name"],
       motherName: ["namaibu", "nama_ibu", "ibu", "mother_name"],
       academicYear: ["tahunajaran", "tahun_ajaran", "thnajaran", "thn_ajaran", "tahunakademik", "tahun_akademik", "academic_year", "tahunaer"],
@@ -476,6 +479,12 @@ export default function ImportWizardPage() {
             mappedRow[col] = null;
           }
         });
+        if (mappedRow.registerNo) {
+          const parsed = parseInt(mappedRow.registerNo, 10);
+          mappedRow.registerNo = isNaN(parsed) ? null : parsed;
+        } else {
+          mappedRow.registerNo = null;
+        }
       } else {
         if (!mappedRow.nisn && !mappedRow.nis && !mappedRow.fullName) {
           errorsList.push(`Baris ${idx + 1}: Identitas siswa (NISN, NIS, atau Nama) wajib ada.`);
@@ -858,42 +867,37 @@ export default function ImportWizardPage() {
                       </div>
                     )}
 
-                    <div className="border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden max-h-[300px] overflow-y-auto">
-                      <Table className="text-xs">
-                        <TableHeader className="bg-slate-50/50 dark:bg-zinc-950/20 sticky top-0 backdrop-blur-sm z-10">
-                          <TableRow>
-                            <TableHead className="w-12 text-center">No</TableHead>
-                            {targetFields
-                              .filter((f) => mappings[f.key])
-                              .map((field) => (
-                                <TableHead key={field.key} className="font-semibold">
-                                  {field.label}
-                                </TableHead>
-                              ))}
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {mappedPreview.slice(0, 15).map((row, idx) => (
-                            <TableRow key={idx}>
-                              <TableCell className="text-center font-medium text-muted-foreground">{idx + 1}</TableCell>
-                              {targetFields
-                                .filter((f) => mappings[f.key])
-                                .map((field) => {
-                                  const cellVal = row[field.key];
-                                  return (
-                                    <TableCell key={field.key}>
-                                      {cellVal === null || cellVal === undefined || cellVal === "" ? (
-                                        <span className="text-slate-300 dark:text-zinc-700 italic">-</span>
-                                      ) : (
-                                        String(cellVal)
-                                      )}
-                                    </TableCell>
-                                  );
-                                })}
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                    <div className="max-h-[300px] overflow-y-auto">
+                      <DataTable
+                        data={mappedPreview.slice(0, 15).map((row, i) => ({ ...row, __no: i + 1 }))}
+                        getRowId={(row, i) => `preview-${i}`}
+                        columns={[
+                          {
+                            key: "__no",
+                            header: "No",
+                            width: "60px",
+                            card: "hidden",
+                            render: (row) => (
+                              <span className="block text-center font-medium text-muted-foreground">{row.__no}</span>
+                            ),
+                          },
+                          ...targetFields
+                            .filter((f) => mappings[f.key])
+                            .map((field) => ({
+                              key: field.key,
+                              header: field.label,
+                              card: field.key === previewTitleKey ? ("title" as const) : field.key === "nisn" || field.key === "nis" || field.key === "score" || field.key === "subjectName" ? ("field" as const) : ("hidden" as const),
+                              render: (row: Record<string, string | number | null | undefined>) => {
+                                const cellVal = row[field.key];
+                                return cellVal === null || cellVal === undefined || cellVal === "" ? (
+                                  <span className="text-slate-300 dark:text-zinc-700 italic">-</span>
+                                ) : (
+                                  String(cellVal)
+                                );
+                              },
+                            })),
+                        ]}
+                      />
                     </div>
 
                     <div className="flex justify-between items-center border-t border-slate-100 dark:border-zinc-800 pt-4">

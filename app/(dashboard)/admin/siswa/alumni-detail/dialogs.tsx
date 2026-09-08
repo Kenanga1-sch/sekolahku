@@ -151,7 +151,7 @@ export function TranscriptDialog({ open, onOpenChange, mode, editing, submitting
       <DialogContent className="max-w-md">
         <DialogHeader><DialogTitle>{mode === "add" ? "Tambah Transkrip Nilai" : "Ubah Transkrip Nilai"}</DialogTitle></DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2"><Label htmlFor="academicYear">Tahun Ajaran *</Label><Input id="academicYear" name="academicYear" placeholder="Contoh: 2025/2026" defaultValue={editing?.academicYear || ""} required /></div>
             <div className="space-y-2"><Label htmlFor="semester">Semester *</Label>
               <Select name="semester" defaultValue={editing?.semester || "Ganjil"}>
@@ -161,7 +161,7 @@ export function TranscriptDialog({ open, onOpenChange, mode, editing, submitting
             </div>
           </div>
           <div className="space-y-2"><Label htmlFor="subjectName">Nama Mata Pelajaran *</Label><Input id="subjectName" name="subjectName" placeholder="Contoh: Matematika" defaultValue={editing?.subjectName || ""} required /></div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2"><Label htmlFor="subjectCode">Kode MP (Opsional)</Label><Input id="subjectCode" name="subjectCode" placeholder="Contoh: MTK10" defaultValue={editing?.subjectCode || ""} /></div>
             <div className="space-y-2"><Label htmlFor="score">Nilai Angka *</Label><Input id="score" name="score" type="number" step="0.01" min="0" max="100" placeholder="0 - 100" defaultValue={editing?.score ?? ""} required /></div>
           </div>
@@ -190,7 +190,7 @@ export function AttendanceDialog({ open, onOpenChange, mode, editing, submitting
       <DialogContent className="max-w-md">
         <DialogHeader><DialogTitle>{mode === "add" ? "Tambah Rekap Kehadiran" : "Ubah Rekap Kehadiran"}</DialogTitle></DialogHeader>
         <form onSubmit={onSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2"><Label htmlFor="attAcademicYear">Tahun Ajaran *</Label><Input id="attAcademicYear" name="academicYear" placeholder="Contoh: 2025/2026" defaultValue={editing?.academicYear || ""} required /></div>
             <div className="space-y-2"><Label htmlFor="attSemester">Semester *</Label>
               <Select name="semester" defaultValue={editing?.semester || "Ganjil"}>
@@ -199,7 +199,7 @@ export function AttendanceDialog({ open, onOpenChange, mode, editing, submitting
               </Select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2"><Label htmlFor="present">Hadir (Hari) *</Label><Input id="present" name="present" type="number" min="0" defaultValue={editing?.present ?? ""} required /></div>
             <div className="space-y-2"><Label htmlFor="sick">Sakit (Hari)</Label><Input id="sick" name="sick" type="number" min="0" defaultValue={editing?.sick ?? 0} /></div>
             <div className="space-y-2"><Label htmlFor="permission">Izin (Hari)</Label><Input id="permission" name="permission" type="number" min="0" defaultValue={editing?.permission ?? 0} /></div>
@@ -235,7 +235,7 @@ export function AchievementDialog({ open, onOpenChange, mode, editing, submittin
             </Select>
           </div>
           <div className="space-y-2"><Label htmlFor="title">Nama Prestasi / Penghargaan *</Label><Input id="title" name="title" placeholder="Contoh: Juara 1 Olimpiade Fisika" defaultValue={editing?.title || ""} required /></div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2"><Label htmlFor="level">Tingkat *</Label>
               <Select name="level" defaultValue={editing?.level || "school"}>
                 <SelectTrigger id="level"><SelectValue placeholder="Pilih Tingkat" /></SelectTrigger>
@@ -244,7 +244,7 @@ export function AchievementDialog({ open, onOpenChange, mode, editing, submittin
             </div>
             <div className="space-y-2"><Label htmlFor="year">Tahun Perolehan *</Label><Input id="year" name="year" placeholder="Contoh: 2025" defaultValue={editing?.year || ""} required /></div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2"><Label htmlFor="ranking">Peringkat / Juara Ke-</Label><Input id="ranking" name="ranking" placeholder="Contoh: Juara 1 / Harapan 2" defaultValue={editing?.ranking || ""} /></div>
             <div className="space-y-2"><Label htmlFor="organizer">Penyelenggara</Label><Input id="organizer" name="organizer" placeholder="Contoh: Dinas Pendidikan" defaultValue={editing?.organizer || ""} /></div>
           </div>
@@ -275,7 +275,7 @@ export function EkskulDialog({ open, onOpenChange, mode, editing, submitting, on
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2"><Label htmlFor="activityName">Nama Kegiatan / Ekskul *</Label><Input id="activityName" name="activityName" placeholder="Contoh: Pramuka / Paskibra" defaultValue={editing?.activityName || ""} required /></div>
           <div className="space-y-2"><Label htmlFor="role">Peran / Jabatan</Label><Input id="role" name="role" placeholder="Contoh: Ketua / Anggota Aktif" defaultValue={editing?.role || ""} /></div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2"><Label htmlFor="yearStart">Tahun Mulai</Label><Input id="yearStart" name="yearStart" placeholder="Contoh: 2023" defaultValue={editing?.yearStart || ""} /></div>
             <div className="space-y-2"><Label htmlFor="yearEnd">Tahun Selesai</Label><Input id="yearEnd" name="yearEnd" placeholder="Contoh: 2025" defaultValue={editing?.yearEnd || ""} /></div>
           </div>
@@ -309,7 +309,7 @@ export function HealthDialog({ open, onOpenChange, mode, editing, submitting, on
               <SelectContent>{["Kelas I","Kelas II","Kelas III","Kelas IV","Kelas V","Kelas VI"].map(k => <SelectItem key={k} value={k}>{k}</SelectItem>)}</SelectContent>
             </Select>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2"><Label htmlFor="healthWeight">Berat Badan (kg)</Label><Input id="healthWeight" name="weight" type="number" placeholder="Contoh: 25" defaultValue={editing?.weight ?? ""} /></div>
             <div className="space-y-2"><Label htmlFor="healthHeight">Tinggi Badan (cm)</Label><Input id="healthHeight" name="height" type="number" placeholder="Contoh: 120" defaultValue={editing?.height ?? ""} /></div>
           </div>

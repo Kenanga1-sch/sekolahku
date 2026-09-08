@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useSortableData } from "@/hooks/use-sortable-data";
-import { SortableTableHead } from "@/components/ui/sortable-table-head";
+import { DataTable } from "@/components/data-table";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -362,145 +362,123 @@ export default function TabDirektori() {
                     </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="bg-slate-50/70 dark:bg-zinc-900/50">
-                                <SortableTableHead label="Nama Lengkap" sortKey="fullName" sortConfig={sortConfig} onSort={requestSort} />
-                                <SortableTableHead label="NIS / NISN" sortKey="nisn" sortConfig={sortConfig} onSort={requestSort} className="hidden sm:table-cell" />
-                                <SortableTableHead label="Kelas" sortKey="className" sortConfig={sortConfig} onSort={requestSort} />
-                                <SortableTableHead label="Status" sortKey="status" sortConfig={sortConfig} onSort={requestSort} />
-                                <TableHead className="text-right pr-6">Aksi</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {isLoading ? (
-                                Array.from({ length: limit }).map((_, i) => (
-                                    <TableRow key={i} className="hover:bg-transparent">
-                                        <TableCell className="pl-6">
-                                            <div className="flex items-center gap-3">
-                                                <Skeleton className="h-10 w-10 rounded-full shrink-0" />
-                                                <div className="space-y-2">
-                                                    <Skeleton className="h-4 w-40 md:w-56" />
-                                                    <Skeleton className="h-3.5 w-16" />
-                                                </div>
+                    <DataTable
+                        data={isLoading ? [] : sortedStudents}
+                        getRowId={(student) => student.id}
+                        loading={isLoading}
+                        sortConfig={sortConfig}
+                        onSort={requestSort}
+                        emptyTitle="Tidak ada data siswa ditemukan"
+                        emptyDescription="Coba ubah kata kunci pencarian atau filter."
+                        columns={[
+                            {
+                                key: "fullName",
+                                header: "Nama Lengkap",
+                                sortable: true,
+                                card: "title",
+                                render: (student) => (
+                                    <div className="flex items-center gap-2.5">
+                                        <Avatar className="h-8 w-8 md:h-10 md:w-10 border border-slate-100 dark:border-zinc-800 shadow-sm shrink-0">
+                                            <AvatarImage src={student.photo || undefined} />
+                                            <AvatarFallback className="bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-semibold text-xs">
+                                                {student.fullName
+                                                    ?.split(" ")
+                                                    .map((n: string) => n[0])
+                                                    .slice(0, 2)
+                                                    .join("")
+                                                    .toUpperCase() || "S"}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                            <p className="font-semibold text-slate-800 dark:text-zinc-100">{student.fullName}</p>
+                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                {student.gender === "L" ? (
+                                                    <Badge className="h-4.5 px-1.5 text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200/50 dark:bg-sky-950/40 dark:text-sky-400 dark:border-sky-900/40 hover:bg-sky-50">
+                                                        Laki-laki
+                                                    </Badge>
+                                                ) : student.gender === "P" ? (
+                                                    <Badge className="h-4.5 px-1.5 text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200/50 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-900/40 hover:bg-rose-50">
+                                                        Perempuan
+                                                    </Badge>
+                                                ) : (
+                                                    <span className="text-xs text-muted-foreground font-medium">-</span>
+                                                )}
                                             </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="space-y-2">
-                                                <Skeleton className="h-3.5 w-24" />
-                                                <Skeleton className="h-3 w-16" />
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Skeleton className="h-6 w-20 rounded-full" />
-                                        </TableCell>
-                                        <TableCell>
-                                            <Skeleton className="h-6 w-16 rounded-full" />
-                                        </TableCell>
-                                        <TableCell className="text-right pr-6">
-                                            <Skeleton className="h-8 w-8 rounded-md ml-auto" />
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            ) : students.length === 0 ? (
-                                 <TableRow>
-                                    <TableCell colSpan={5} className="h-36 text-center text-muted-foreground">
-                                        <div className="flex flex-col items-center justify-center space-y-2">
-                                            <Users className="h-8 w-8 opacity-45 text-slate-400" />
-                                            <p className="font-medium text-sm">Tidak ada data siswa ditemukan.</p>
                                         </div>
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                sortedStudents.map((student) => (
-                                    <TableRow key={student.id} className="hover:bg-slate-50/40 dark:hover:bg-zinc-900/30 transition-colors">
-                                        <TableCell className="font-medium pl-6">
-                                            <div className="flex items-center gap-3">
-                                                <Avatar className="h-10 w-10 border border-slate-100 dark:border-zinc-800 shadow-sm shrink-0">
-                                                    <AvatarImage src={student.photo || undefined} />
-                                                    <AvatarFallback className="bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-semibold text-xs">
-                                                        {student.fullName
-                                                            ?.split(" ")
-                                                            .map((n) => n[0])
-                                                            .slice(0, 2)
-                                                            .join("")
-                                                            .toUpperCase() || "S"}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                                <div>
-                                                    <p className="font-semibold text-slate-800 dark:text-zinc-100">{student.fullName}</p>
-                                                    <div className="flex items-center gap-1.5 mt-0.5">
-                                                        {student.gender === "L" ? (
-                                                            <Badge className="h-4.5 px-1.5 text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200/50 dark:bg-sky-950/40 dark:text-sky-400 dark:border-sky-900/40 hover:bg-sky-50">
-                                                                Laki-laki
-                                                            </Badge>
-                                                        ) : student.gender === "P" ? (
-                                                            <Badge className="h-4.5 px-1.5 text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200/50 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-900/40 hover:bg-rose-50">
-                                                                Perempuan
-                                                            </Badge>
-                                                        ) : (
-                                                            <span className="text-xs text-muted-foreground font-medium">-</span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="hidden sm:table-cell">
-                                            <div className="flex flex-col">
-                                                <code className="text-xs font-mono font-semibold text-slate-700 dark:text-zinc-300">
-                                                    {student.nisn || '-'}
-                                                </code>
-                                                <span className="text-xs text-muted-foreground font-mono mt-0.5">{student.nis || '-'}</span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline" className="font-semibold bg-slate-50/50 dark:bg-zinc-900/50 border-slate-200 dark:border-zinc-800 text-xs px-2.5 py-0.5">
-                                                {student.className || 'Tanpa Kelas'}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge className={
-                                                student.status === 'active' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50' :
-                                                student.status === 'graduated' ? 'bg-blue-50 text-blue-700 border border-blue-200/60 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/50' :
-                                                student.status === 'transferred' ? 'bg-amber-50 text-amber-700 border border-amber-200/60 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/50' :
-                                                student.status === 'dropped' ? 'bg-rose-50 text-rose-700 border border-rose-200/60 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-900/50' :
-                                                'bg-slate-50 text-slate-700 border border-slate-200/60 hover:bg-slate-100 dark:bg-slate-900/40 dark:text-slate-400 dark:border-slate-800'
-                                            }>
-                                                {student.status === 'active' ? 'AKTIF' :
-                                                 student.status === 'graduated' ? 'LULUS' :
-                                                 student.status === 'transferred' ? 'MUTASI' :
-                                                 student.status === 'dropped' ? 'KELUAR' :
-                                                 student.status.toUpperCase()}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right pr-6">
-                                             <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-                                                        <span className="sr-only">Open menu</span>
-                                                        <MoreHorizontal className="h-4 w-4" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end" className="w-40">
-                                                    <DropdownMenuItem onClick={() => handleEdit(student.id)} className="cursor-pointer font-medium text-xs">
-                                                        <Pencil className="mr-2 h-3.5 w-3.5" /> Edit Detail
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem asChild className="cursor-pointer font-medium text-xs">
-                                                        <Link href="/admin/akademik?tab=kenaikan" className="flex items-center">
-                                                            Promosi / Kenaikan
-                                                        </Link>
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem className="text-red-600 cursor-pointer font-medium text-xs" onClick={() => handleDelete(student.id)}>
-                                                        <Trash2 className="mr-2 h-3.5 w-3.5" /> Hapus Permanen
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                             </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
+                                    </div>
+                                ),
+                            },
+                            {
+                                key: "nisn",
+                                header: "NIS / NISN",
+                                sortable: true,
+                                card: "field",
+                                render: (student) => (
+                                    <div className="flex flex-col">
+                                        <code className="text-xs font-mono font-semibold text-slate-700 dark:text-zinc-300">
+                                            {student.nisn || '-'}
+                                        </code>
+                                        <span className="text-xs text-muted-foreground font-mono mt-0.5">{student.nis || '-'}</span>
+                                    </div>
+                                ),
+                            },
+                            {
+                                key: "className",
+                                header: "Kelas",
+                                sortable: true,
+                                card: "field",
+                                render: (student) => (
+                                    <Badge variant="outline" className="font-semibold bg-slate-50/50 dark:bg-zinc-900/50 border-slate-200 dark:border-zinc-800 text-xs px-2.5 py-0.5">
+                                        {student.className || 'Tanpa Kelas'}
+                                    </Badge>
+                                ),
+                            },
+                            {
+                                key: "status",
+                                header: "Status",
+                                sortable: true,
+                                card: "field",
+                                render: (student) => (
+                                    <Badge className={
+                                        student.status === 'active' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50' :
+                                        student.status === 'graduated' ? 'bg-blue-50 text-blue-700 border border-blue-200/60 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/50' :
+                                        student.status === 'transferred' ? 'bg-amber-50 text-amber-700 border border-amber-200/60 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/50' :
+                                        student.status === 'dropped' ? 'bg-rose-50 text-rose-700 border border-rose-200/60 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-900/50' :
+                                        'bg-slate-50 text-slate-700 border border-slate-200/60 hover:bg-slate-100 dark:bg-slate-900/40 dark:text-slate-400 dark:border-slate-800'
+                                    }>
+                                        {student.status === 'active' ? 'AKTIF' :
+                                         student.status === 'graduated' ? 'LULUS' :
+                                         student.status === 'transferred' ? 'MUTASI' :
+                                         student.status === 'dropped' ? 'KELUAR' :
+                                         student.status.toUpperCase()}
+                                    </Badge>
+                                ),
+                            },
+                        ]}
+                        actions={(student) => (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                                        <span className="sr-only">Open menu</span>
+                                        <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-40">
+                                    <DropdownMenuItem onClick={() => handleEdit(student.id)} className="cursor-pointer font-medium text-xs">
+                                        <Pencil className="mr-2 h-3.5 w-3.5" /> Edit Detail
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem asChild className="cursor-pointer font-medium text-xs">
+                                        <Link href="/admin/akademik?tab=kenaikan" className="flex items-center">
+                                            Promosi / Kenaikan
+                                        </Link>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem className="text-red-600 cursor-pointer font-medium text-xs" onClick={() => handleDelete(student.id)}>
+                                        <Trash2 className="mr-2 h-3.5 w-3.5" /> Hapus Permanen
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        )}
+                    />
                 </CardContent>
             </Card>
             

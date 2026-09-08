@@ -62,6 +62,8 @@ interface AlumniSummary {
   specialNeeds: string | null;
   scholarshipInfo: string | null;
   status: string;
+  bukuFisikNo: string | null;
+  registerNo: number | null;
   graduationYear: string;
   graduationDate: string | null;
   finalClass: string | null;
@@ -173,6 +175,9 @@ export default function CetakBatchPage() {
               <R label="Alamat" val={val(a.address)} />
               <R label="Anak ke" val={val(a.childOrder)} />
               <R label="Saudara (K/T/A)" val={`${siblingTotal(a)} (K:${a.siblingKandung}, T:${a.siblingTiri}, A:${a.siblingAngkat})`} />
+              {(a.bukuFisikNo || a.registerNo) && (
+                <R label="Buku Induk Fisik" val={`${a.bukuFisikNo ? `Buku ${a.bukuFisikNo}` : ""}${a.bukuFisikNo && a.registerNo ? " • " : ""}${a.registerNo ? `No. ${a.registerNo}` : ""}`} />
+              )}
             </M>
 
             {/* Orang Tua */}

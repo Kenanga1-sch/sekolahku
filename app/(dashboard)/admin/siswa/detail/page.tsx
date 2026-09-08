@@ -13,6 +13,7 @@ import {
     CheckCircle2, 
     AlertCircle,
     BookOpen,
+    BookMarked,
     Wallet,
     History,
     PlusCircle
@@ -342,11 +343,27 @@ export default function StudentDetailPage() {
                         <FileText className="h-4 w-4 mr-2" />
                         Cetak Buku Induk
                     </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                        onClick={() => {
+                            const bi = student?.bukuIndukId;
+                            if (!bi) {
+                                showError("Data Buku Induk belum terbentuk untuk siswa ini. Buka tab Buku Induk lalu jalankan Sinkronisasi terlebih dahulu.");
+                                return;
+                            }
+                            window.open(`/admin/siswa/alumni-detail/edit?id=${bi}`, "_blank");
+                        }}
+                    >
+                        <BookMarked className="h-4 w-4 mr-2" />
+                        Isi Buku Induk
+                    </Button>
                 </div>
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid w-full grid-cols-4 max-w-2xl">
+                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 max-w-2xl">
                     <TabsTrigger value="profile">Profil</TabsTrigger>
                     <TabsTrigger value="savings">Tabungan</TabsTrigger>
                     <TabsTrigger value="library">Perpustakaan</TabsTrigger>

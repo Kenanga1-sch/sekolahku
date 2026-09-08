@@ -6,7 +6,6 @@ import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { toast } from "sonner";
 import {
-  Loader2,
   Check,
   X,
   RefreshCw,
@@ -15,14 +14,7 @@ import {
   Search,
 } from "lucide-react";
 
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/data-table";
 import {
   Dialog,
   DialogContent,
@@ -257,67 +249,68 @@ export default function TabMutasiMasuk() {
         </div>
       </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="hidden sm:table-cell">Tgl Masuk</TableHead>
-            <TableHead className="hidden sm:table-cell">No. Registrasi</TableHead>
-            <TableHead>Nama Siswa</TableHead>
-            <TableHead>Kelas Tujuan</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Aksi</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {loadingRequestsIn ? (
-            <TableRow>
-              <TableCell colSpan={6} className="text-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin mx-auto" />
-              </TableCell>
-            </TableRow>
-          ) : errorRequestsIn ? (
-            <TableRow>
-              <TableCell colSpan={6} className="text-center py-8 text-destructive">
-                Gagal memuat riwayat mutasi masuk.
-              </TableCell>
-            </TableRow>
-          ) : filteredRequestsIn.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                Tidak ada data mutasi masuk yang sesuai filter.
-              </TableCell>
-            </TableRow>
-          ) : (
-            filteredRequestsIn.map((req) => (
-              <TableRow key={req.id}>
-                <TableCell className="hidden sm:table-cell">
-                  {req.createdAt ? format(new Date(req.createdAt), "dd/MM/yyyy") : "-"}
-                </TableCell>
-                <TableCell className="hidden sm:table-cell">
-                  <span className="font-mono text-xs">{req.registrationNumber}</span>
-                </TableCell>
-                <TableCell>
-                  <div className="font-semibold text-slate-800 dark:text-zinc-200">{req.studentName}</div>
-                  <div className="text-xs text-muted-foreground">Asal: {req.originSchool}</div>
-                </TableCell>
-                <TableCell>Kelas {req.targetGrade}</TableCell>
-                <TableCell>
-                  <div className="flex flex-col gap-1 items-start">
-                    <Badge variant={
-                      req.statusApproval === "principal_approved" ? "default" :
-                      req.statusApproval === "rejected" ? "destructive" :
-                      req.statusApproval === "verified" ? "secondary" : "outline"
-                    }>
-                      {req.statusApproval === "principal_approved" ? "Disetujui" :
-                       req.statusApproval === "rejected" ? "Ditolak" :
-                       req.statusApproval === "verified" ? "Terverifikasi" : "Menunggu"}
-                    </Badge>
-                    {req.statusDelivery === "direct" && (
-                      <span className="text-[10px] text-muted-foreground font-mono">Input Langsung</span>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell className="text-right">
+      <DataTable
+        data={loadingRequestsIn ? [] : filteredRequestsIn}
+        getRowId={(req) => req.id}
+        loading={loadingRequestsIn}
+        emptyTitle={errorRequestsIn ? "Gagal memuat riwayat mutasi masuk." : "Tidak ada data mutasi masuk yang sesuai filter."}
+        emptyDescription={errorRequestsIn ? "Terjadi kesalahan saat memuat data. Coba refresh." : "Data pendaftaran mutasi masuk akan muncul di sini."}
+        columns={[
+          {
+            key: "createdAt",
+            header: "Tgl Masuk",
+            hideBelowSm: true,
+            card: "field",
+            render: (req) =>
+              req.createdAt ? format(new Date(req.createdAt), "dd/MM/yyyy") : "-",
+          },
+          {
+            key: "registrationNumber",
+            header: "No. Registrasi",
+            hideBelowSm: true,
+            card: "hidden",
+            render: (req) => <span className="font-mono text-xs">{req.registrationNumber}</span>,
+          },
+          {
+            key: "studentName",
+            header: "Nama Siswa",
+            card: "title",
+            render: (req) => (
+              <div>
+                <div className="font-semibold text-slate-800 dark:text-zinc-200">{req.studentName}</div>
+                <div className="text-xs text-muted-foreground">Asal: {req.originSchool}</div>
+              </div>
+            ),
+          },
+          {
+            key: "targetGrade",
+            header: "Kelas Tujuan",
+            card: "field",
+            render: (req) => `Kelas ${req.targetGrade}`,
+          },
+          {
+            key: "statusApproval",
+            header: "Status",
+            card: "field",
+            render: (req) => (
+              <div className="flex flex-col gap-1 items-start">
+                <Badge variant={
+                  req.statusApproval === "principal_approved" ? "default" :
+                  req.statusApproval === "rejected" ? "destructive" :
+                  req.statusApproval === "verified" ? "secondary" : "outline"
+                }>
+                  {req.statusApproval === "principal_approved" ? "Disetujui" :
+                   req.statusApproval === "rejected" ? "Ditolak" :
+                   req.statusApproval === "verified" ? "Terverifikasi" : "Menunggu"}
+                </Badge>
+                {req.statusDelivery === "direct" && (
+                  <span className="text-[10px] text-muted-foreground font-mono">Input Langsung</span>
+                )}
+              </div>
+            ),
+          },
+        ]}
+        actions={(req) => (
                   <Dialog open={openRequestIdIn === req.id} onOpenChange={(open) => {
                     if (open) {
                       setOpenRequestIdIn(req.id);
@@ -337,7 +330,7 @@ export default function TabMutasiMasuk() {
                         </DialogDescription>
                       </DialogHeader>
 
-                      <div className="grid grid-cols-2 gap-6 py-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 py-4">
                         <div className="space-y-4">
                           <h3 className="font-semibold border-b">Data Siswa</h3>
                           <div className="grid grid-cols-[100px_1fr] gap-2 text-sm">
@@ -459,12 +452,8 @@ export default function TabMutasiMasuk() {
                       </div>
                     </DialogContent>
                   </Dialog>
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+        )}
+      />
     </Card>
   );
 }

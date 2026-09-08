@@ -32,14 +32,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -47,7 +39,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
+import { DataTable, TablePagination } from "@/components/data-table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
@@ -60,7 +52,6 @@ import { goGet, goDelete } from "@/lib/api-client";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import { useSortableData } from "@/hooks/use-sortable-data";
-import { SortableTableHead } from "@/components/ui/sortable-table-head";
 
 interface Student {
   id: string;
@@ -358,176 +349,134 @@ export default function TabKartu() {
         </CardHeader>
         <CardContent className="p-0">
           {/* Table */}
-          <div className="overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="w-12">
-                    <Checkbox
-                      checked={
-                        students.length > 0 &&
-                        selectedStudents.length === students.length
-                      }
-                      onCheckedChange={handleSelectAll}
-                    />
-                  </TableHead>
-                  <SortableTableHead label="Siswa" sortKey="fullName" sortConfig={sortConfig} onSort={requestSort} />
-                  <SortableTableHead label="NISN" sortKey="nisn" sortConfig={sortConfig} onSort={requestSort} className="hidden sm:table-cell" />
-                  <SortableTableHead label="Kelas" sortKey="className" sortConfig={sortConfig} onSort={requestSort} />
-                  <SortableTableHead label="Status" sortKey="isActive" sortConfig={sortConfig} onSort={requestSort} />
-                  <TableHead className="text-right">Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-10">
-                      <RefreshCw className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        Memuat data...
+          <DataTable
+            data={loading ? [] : sortedData}
+            getRowId={(student) => student.id}
+            loading={loading}
+            sortConfig={sortConfig}
+            onSort={requestSort}
+            selectable
+            selectedIds={selectedStudents}
+            onToggleSelect={(id) => handleSelectStudent(id, !selectedStudents.includes(id))}
+            onToggleSelectAll={() =>
+              handleSelectAll(selectedStudents.length !== students.length)
+            }
+            emptyTitle="Belum ada data peserta didik"
+            emptyDescription="Data peserta didik akan muncul di sini."
+            columns={[
+              {
+                key: "fullName",
+                header: "Siswa",
+                sortable: true,
+                card: "title",
+                render: (student) => (
+                  <div className="flex items-center gap-2.5">
+                    <Avatar className="h-8 w-8 md:h-10 md:w-10 border border-slate-100 dark:border-zinc-800 shadow-sm shrink-0">
+                      <AvatarImage src={student.photo || undefined} />
+                      <AvatarFallback className="bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-semibold text-xs">
+                        {student.fullName
+                          .split(" ")
+                          .map((n) => n[0])
+                          .slice(0, 2)
+                          .join("")
+                          .toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-semibold text-slate-800 dark:text-zinc-200">{student.fullName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {student.gender === "L"
+                          ? "Laki-laki"
+                          : student.gender === "P"
+                          ? "Perempuan"
+                          : "-"}
                       </p>
-                    </TableCell>
-                  </TableRow>
-                ) : students.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-10">
-                      <Users className="h-10 w-10 mx-auto text-muted-foreground/30" />
-                      <p className="mt-2 text-muted-foreground">
-                        Belum ada data peserta didik
-                      </p>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  sortedData.map((student) => (
-                    <TableRow key={student.id}>
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedStudents.includes(student.id)}
-                          onCheckedChange={(checked) =>
-                            handleSelectStudent(student.id, checked as boolean)
-                          }
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-10 w-10 border border-slate-100 dark:border-zinc-800 shadow-sm shrink-0">
-                            <AvatarImage src={student.photo || undefined} />
-                            <AvatarFallback className="bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-semibold text-xs">
-                              {student.fullName
-                                .split(" ")
-                                .map((n) => n[0])
-                                .slice(0, 2)
-                                .join("")
-                                .toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="font-semibold text-slate-800 dark:text-zinc-200">{student.fullName}</p>
-                            <p className="text-xs text-muted-foreground hidden sm:block">
-                              {student.gender === "L"
-                                ? "Laki-laki"
-                                : student.gender === "P"
-                                ? "Perempuan"
-                                : "-"}
-                            </p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        <code className="text-xs bg-muted px-2 py-1 rounded">
-                          {student.nisn || "-"}
-                        </code>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{student.className || "-"}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        {student.isActive ? (
-                          <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                            Aktif
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary">Non-Aktif</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="icon" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground bg-background/50">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => showQrCode(student)}>
-                              <QrCode className="h-4 w-4 mr-2" />
-                              Lihat QR Code
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() =>
-                                router.push(`/admin/siswa/detail?id=${student.id}`)
-                              }
-                            >
-                              <Eye className="h-4 w-4 mr-2" />
-                              Detail
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() =>
-                                router.push(`/admin/siswa/detail/edit?id=${student.id}`)
-                              }
-                            >
-                              <Pencil className="h-4 w-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-red-600"
-                              onClick={() => handleDelete(student.id)}
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Hapus
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                    </div>
+                  </div>
+                ),
+              },
+              {
+                key: "nisn",
+                header: "NISN",
+                sortable: true,
+                card: "field",
+                render: (student) => (
+                  <code className="text-xs bg-muted px-2 py-1 rounded">
+                    {student.nisn || "-"}
+                  </code>
+                ),
+              },
+              {
+                key: "className",
+                header: "Kelas",
+                sortable: true,
+                card: "field",
+                render: (student) => <Badge variant="outline">{student.className || "-"}</Badge>,
+              },
+              {
+                key: "isActive",
+                header: "Status",
+                sortable: true,
+                card: "field",
+                render: (student) =>
+                  student.isActive ? (
+                    <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                      Aktif
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary">Non-Aktif</Badge>
+                  ),
+              },
+            ]}
+            actions={(student) => (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon" className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground bg-background/50">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => showQrCode(student)}>
+                    <QrCode className="h-4 w-4 mr-2" />
+                    Lihat QR Code
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      router.push(`/admin/siswa/detail?id=${student.id}`)
+                    }
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    Detail
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      router.push(`/admin/siswa/detail/edit?id=${student.id}`)
+                    }
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-red-600"
+                    onClick={() => handleDelete(student.id)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Hapus
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          />
 
           {/* Pagination */}
-          {pagination.total > 0 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800">
-              <div className="text-sm text-muted-foreground">
-                Menampilkan {pagination.total > 0 ? (page - 1) * pagination.limit + 1 : 0} -{" "}
-                {Math.min(page * pagination.limit, pagination.total)} dari{" "}
-                {pagination.total} siswa
-              </div>
-              
-              {pagination.totalPages > 1 && (
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                  >
-                    Sebelumnya
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      setPage((p) => Math.min(pagination.totalPages, p + 1))
-                    }
-                    disabled={page === pagination.totalPages}
-                  >
-                    Selanjutnya
-                  </Button>
-                </div>
-              )}
-            </div>
+          {!loading && pagination.total > 0 && (
+            <TablePagination
+              page={page}
+              totalPages={pagination.totalPages}
+              onPageChange={setPage}
+              label={`${pagination.total} siswa`}
+            />
           )}
         </CardContent>
       </Card>

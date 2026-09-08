@@ -18,14 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { DataTable } from "@/components/data-table";
 import {
   ArrowLeft,
   ArrowRight,
@@ -267,56 +260,46 @@ export default function KelulusanPage() {
               </div>
 
               {/* Table */}
-              {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-              ) : filteredStudents.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <GraduationCap className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>Tidak ada siswa kelas 6 yang ditemukan</p>
-                </div>
-              ) : (
-                <div className="border rounded-lg max-h-[400px] overflow-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12">
-                          <Checkbox
-                            checked={selectedStudents.length === filteredStudents.length}
-                            onCheckedChange={toggleAll}
-                          />
-                        </TableHead>
-                        <TableHead>Nama</TableHead>
-                        <TableHead>NISN</TableHead>
-                        <TableHead>NIS</TableHead>
-                        <TableHead>Kelas</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredStudents.map((student) => (
-                        <TableRow
-                          key={student.id}
-                          className={selectedStudents.includes(student.id) ? "bg-primary/5" : ""}
-                        >
-                          <TableCell>
-                            <Checkbox
-                              checked={selectedStudents.includes(student.id)}
-                              onCheckedChange={() => toggleStudent(student.id)}
-                            />
-                          </TableCell>
-                          <TableCell className="font-medium">{student.fullName}</TableCell>
-                          <TableCell>{student.nisn || "-"}</TableCell>
-                          <TableCell>{student.nis || "-"}</TableCell>
-                          <TableCell>
-                            <Badge variant="secondary">{student.className}</Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
+              <DataTable
+                data={loading ? [] : filteredStudents}
+                getRowId={(student) => student.id}
+                loading={loading}
+                selectable
+                selectedIds={selectedStudents}
+                onToggleSelect={toggleStudent}
+                onToggleSelectAll={toggleAll}
+                emptyTitle="Tidak ada siswa kelas 6 yang ditemukan"
+                columns={[
+                  {
+                    key: "fullName",
+                    header: "Nama",
+                    card: "title",
+                    render: (student) => (
+                      <span className="font-medium">{student.fullName}</span>
+                    ),
+                  },
+                  {
+                    key: "nisn",
+                    header: "NISN",
+                    card: "field",
+                    render: (student) => student.nisn || "-",
+                  },
+                  {
+                    key: "nis",
+                    header: "NIS",
+                    card: "field",
+                    render: (student) => student.nis || "-",
+                  },
+                  {
+                    key: "className",
+                    header: "Kelas",
+                    card: "field",
+                    render: (student) => (
+                      <Badge variant="secondary">{student.className}</Badge>
+                    ),
+                  },
+                ]}
+              />
             </CardContent>
           </Card>
 

@@ -1,15 +1,8 @@
 "use client";
 
-import { useState, useEffect, Fragment } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { DataTable } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -27,7 +20,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   GraduationCap,
   Search,
@@ -37,13 +37,13 @@ import {
   Edit,
   Trash2,
   Users,
-  FolderOpen,
   Clock,
   RefreshCcw,
   X,
   Filter,
   Printer,
   BookOpen,
+  BookMarked,
   Calendar,
   ChevronDown,
   ChevronUp,
@@ -52,7 +52,6 @@ import {
 import Link from "next/link";
 import { goGet, goDelete, goPost } from "@/lib/api-client";
 import { useSortableData } from "@/hooks/use-sortable-data";
-import { SortableTableHead } from "@/components/ui/sortable-table-head";
 
 interface Alumni {
   id: string;
@@ -65,6 +64,8 @@ interface Alumni {
   photo: string | null;
   nextSchool: string | null;
   status: string;
+  bukuFisikNo: string | null;
+  registerNo: number | null;
   createdAt: Date;
 }
 
@@ -125,6 +126,10 @@ export default function TabAlumni() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [syncing, setSyncing] = useState(false);
+  const [yearOptions, setYearOptions] = useState<string[]>([]);
+  const [quickIndexOpen, setQuickIndexOpen] = useState(false);
+  const [quickIndexSaving, setQuickIndexSaving] = useState(false);
+  const [quickIndexForm, setQuickIndexForm] = useState({ fullName: "", nisn: "", graduationYear: "", bukuFisikNo: "", registerNo: "" });
 
   const { sortedData: sortedAlumni, sortConfig, requestSort } = useSortableData(alumni);
 
@@ -172,9 +177,19 @@ export default function TabAlumni() {
     }
   };
 
+  const fetchYearOptions = async () => {
+    try {
+      const data: any = await goGet("/api/alumni/graduation-years");
+      setYearOptions(Array.isArray(data?.data) ? data.data : []);
+    } catch (error) {
+      console.error("Error fetching graduation years:", error);
+    }
+  };
+
   useEffect(() => {
     fetchAlumni();
     fetchStats();
+    fetchYearOptions();
   }, [pagination.page, pagination.limit, debouncedSearch, graduationYear, statusFilter]);
 
   const handleDelete = async (id: string) => {
@@ -193,9 +208,33 @@ export default function TabAlumni() {
     setExpandedRows((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  // ─── Batch print Buku Induk ───
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === sortedAlumni.length && sortedAlumni.length > 0) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(sortedAlumni.map((a) => a.id));
+    }
+  };
+
+  const handleBatchPrint = () => {
+    if (selectedIds.length === 0) {
+      alert("Pilih minimal satu data Buku Induk terlebih dahulu (centang checkbox).");
+      return;
+    }
+    const ids = selectedIds.join(",");
+    window.open(`/admin/siswa/buku-induk/print?ids=${encodeURIComponent(ids)}&type=alumni`, "_blank");
+  };
+
   const handleSync = async () => {
     if (!confirm("Apakah Anda yakin ingin menyinkronkan seluruh data siswa aktif ke Buku Induk? Data yang sudah ada tidak akan diduplikasi.")) return;
-    
+
     setSyncing(true);
     try {
       const res = await goPost("/api/students/sync-buku-induk", {});
@@ -210,11 +249,38 @@ export default function TabAlumni() {
     }
   };
 
-  const currentYear = new Date().getFullYear();
-  const yearOptions = Array.from({ length: 10 }, (_, i) => {
-    const year = currentYear - i;
-    return `${year - 1}/${year}`;
-  });
+  const handleQuickIndex = async () => {
+    if (quickIndexForm.fullName.trim().length < 3) {
+      alert("Nama lengkap minimal 3 karakter");
+      return;
+    }
+    setQuickIndexSaving(true);
+    try {
+      const payload: Record<string, unknown> = {
+        fullName: quickIndexForm.fullName.trim(),
+        status: "graduated",
+      };
+      if (quickIndexForm.graduationYear.trim()) payload.graduationYear = quickIndexForm.graduationYear.trim();
+      if (quickIndexForm.nisn.trim()) payload.nisn = quickIndexForm.nisn.trim();
+      if (quickIndexForm.bukuFisikNo.trim()) payload.bukuFisikNo = quickIndexForm.bukuFisikNo.trim();
+      if (quickIndexForm.registerNo.trim()) payload.registerNo = parseInt(quickIndexForm.registerNo, 10);
+
+      const res: any = await goPost("/api/alumni", payload);
+      if (res.error) throw new Error(res.error);
+      setQuickIndexOpen(false);
+      setQuickIndexForm({ fullName: "", nisn: "", graduationYear: "", bukuFisikNo: "", registerNo: "" });
+      fetchAlumni();
+      fetchStats();
+      fetchYearOptions();
+    } catch (error: any) {
+      alert(error.message || "Gagal menyimpan index arsip");
+    } finally {
+      setQuickIndexSaving(false);
+    }
+  };
+
+  // Tahun lulus diambil dari data (SELECT DISTINCT) supaya arsip
+  // puluhan tahun kebelakang tetap terjangkau, bukan jendela 10 tahun.
 
   // Calculate percentage values for stacked bar
   const totalStudents = stats ? (stats.activeCount + stats.graduatedCount + stats.transferredCount + stats.droppedCount) : 0;
@@ -238,15 +304,15 @@ export default function TabAlumni() {
         </div>
         
         {/* Action Buttons Container */}
-        <div className="flex flex-wrap items-center gap-2 mt-3 md:mt-0 w-full sm:w-auto">
-          <Button variant="outline" size="sm" onClick={() => { fetchAlumni(); fetchStats(); }} className="h-9 shadow-sm hover:bg-slate-50 flex-1 sm:flex-none">
+        <div className="grid grid-cols-2 gap-2 mt-3 md:mt-0 w-full sm:w-auto sm:flex sm:flex-wrap sm:items-center">
+          <Button variant="outline" size="sm" onClick={() => { fetchAlumni(); fetchStats(); }} className="h-9 shadow-sm hover:bg-slate-50 w-full sm:w-auto">
             <RefreshCcw className="h-4 w-4 mr-2 text-slate-500" />
             Refresh
           </Button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 shadow-sm flex-1 sm:flex-none">
+              <Button variant="outline" size="sm" className="h-9 shadow-sm w-full sm:w-auto">
                 <MoreHorizontal className="h-4 w-4 mr-2 text-slate-500" />
                 Opsi Lainnya
               </Button>
@@ -262,17 +328,26 @@ export default function TabAlumni() {
                 <RefreshCcw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
                 Sync Siswa Aktif
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setQuickIndexOpen(true)} className="flex items-center cursor-pointer text-blue-600 focus:text-blue-700">
+                <BookMarked className="h-4 w-4 mr-2" />
+                Index Cepat Arsip
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Link href="/admin/siswa/cetak-batch" target="_blank" className="w-full sm:w-auto flex-1 sm:flex-none">
-            <Button variant="outline" size="sm" className="h-9 w-full shadow-sm text-orange-600 hover:text-orange-700 hover:bg-orange-50 border-orange-200">
+          <div className="col-span-2 sm:col-span-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBatchPrint}
+              className={`h-9 w-full shadow-sm ${selectedIds.length > 0 ? "text-orange-700 border-orange-300 bg-orange-50 hover:bg-orange-100" : "text-orange-600 hover:text-orange-700 hover:bg-orange-50 border-orange-200"}`}
+            >
               <Printer className="h-4 w-4 mr-2" />
-              Cetak Batch
+              Cetak Batch{selectedIds.length > 0 ? ` (${selectedIds.length})` : ""}
             </Button>
-          </Link>
+          </div>
 
-          <Link href="/admin/siswa/alumni-tambah" className="w-full sm:w-auto flex-1 sm:flex-none">
+          <Link href="/admin/siswa/alumni-tambah" className="col-span-2 sm:col-span-1">
             <Button size="sm" className="h-9 w-full shadow-sm bg-blue-600 hover:bg-blue-700 text-white border-0 font-medium">
               <Plus className="h-4 w-4 mr-2" />
               Tambah Data
@@ -531,173 +606,184 @@ export default function TabAlumni() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader className="bg-zinc-50/50 dark:bg-zinc-900/30">
-              <TableRow>
-                <SortableTableHead label="Nama Lengkap" sortKey="fullName" sortConfig={sortConfig} onSort={requestSort} />
-                <SortableTableHead label="NISN / NIS" sortKey="nisn" sortConfig={sortConfig} onSort={requestSort} className="hidden sm:table-cell" />
-                <SortableTableHead label="Status" sortKey="status" sortConfig={sortConfig} onSort={requestSort} />
-                <SortableTableHead label="Tahun Lulus/Keluar" sortKey="graduationYear" sortConfig={sortConfig} onSort={requestSort} className="hidden sm:table-cell" />
-                <SortableTableHead label="Kelas Akhir" sortKey="finalClass" sortConfig={sortConfig} onSort={requestSort} className="hidden sm:table-cell" />
-                <SortableTableHead label="Sekolah Lanjutan" sortKey="nextSchool" sortConfig={sortConfig} onSort={requestSort} className="hidden md:table-cell" />
-                <TableHead className="text-right">Aksi</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-6 w-16" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
-                  </TableRow>
-                ))
-              ) : alumni.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12">
-                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                      <GraduationCap className="h-12 w-12 opacity-50" />
-                      <p className="font-semibold text-sm">Tidak ada data Buku Induk ditemukan</p>
-                      <p className="text-xs text-muted-foreground max-w-sm">Sesuaikan kata kunci pencarian Anda atau tambahkan data baru.</p>
-                      <Link href="/admin/siswa/alumni-tambah" className="mt-2">
-                        <Button variant="outline" size="sm">
-                          <Plus className="h-4 w-4 mr-1" />
-                          Tambah Data
-                        </Button>
-                      </Link>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                sortedAlumni.map((item) => {
+          <DataTable
+            data={loading ? [] : sortedAlumni}
+            getRowId={(item) => item.id}
+            loading={loading}
+            sortConfig={sortConfig}
+            onSort={requestSort}
+            emptyTitle="Tidak ada data Buku Induk ditemukan"
+            emptyDescription="Sesuaikan kata kunci pencarian Anda atau tambahkan data baru."
+            emptyAction={{
+              label: "Tambah Data",
+              href: "/admin/siswa/alumni-tambah",
+            }}
+            expandedRowIds={Object.keys(expandedRows)}
+            onToggleExpand={toggleRow}
+            selectable
+            selectedIds={selectedIds}
+            onToggleSelect={toggleSelect}
+            onToggleSelectAll={toggleSelectAll}
+            columns={[
+              {
+                key: "fullName",
+                header: "Nama Lengkap",
+                sortable: true,
+                card: "title",
+                render: (item) => {
                   const isExpanded = !!expandedRows[item.id];
+                  return (
+                    <div className="flex items-center gap-1 font-semibold text-slate-800 dark:text-zinc-200">
+                      {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                      {item.fullName}
+                    </div>
+                  );
+                },
+              },
+              {
+                key: "nisn",
+                header: "NISN / NIS",
+                sortable: true,
+                card: "field",
+                render: (item) => (
+                  <div className="text-xs font-mono">
+                    {item.nisn && <div>NISN: {item.nisn}</div>}
+                    {item.nis && <div className="text-muted-foreground">NIS: {item.nis}</div>}
+                  </div>
+                ),
+              },
+              {
+                key: "status",
+                header: "Status",
+                sortable: true,
+                card: "field",
+                render: (item) => {
                   const details = statusInfo[item.status] || statusInfo.graduated;
                   return (
-                    <Fragment key={item.id}>
-                      <TableRow
-                        key={item.id}
-                        className={`hover:bg-slate-50/50 dark:hover:bg-zinc-900/30 transition-colors cursor-pointer ${isExpanded ? "bg-slate-50/30 dark:bg-zinc-900/10" : ""}`}
-                        onClick={() => toggleRow(item.id)}
-                      >
-                        <TableCell className="font-semibold text-slate-800 dark:text-zinc-200">
-                          <div className="flex items-center gap-1">
-                            {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                            {item.fullName}
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                          <div className="text-xs font-mono">
-                            {item.nisn && <div>NISN: {item.nisn}</div>}
-                            {item.nis && <div className="text-muted-foreground">NIS: {item.nis}</div>}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={`font-semibold py-0.5 px-2.5 rounded-full border ${details.color}`}>
-                            {details.label}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                          {item.status === "active" ? (
-                            <span className="text-muted-foreground text-xs">-</span>
-                          ) : (
-                            <Badge variant="secondary" className="font-mono text-xs">{item.graduationYear || "-"}</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell font-medium">{item.finalClass || "-"}</TableCell>
-                        <TableCell className="hidden md:table-cell max-w-[150px] truncate">{item.nextSchool || "-"}</TableCell>
-                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-40">
-                              <DropdownMenuItem asChild>
-                                <Link href={`/admin/siswa/alumni-detail?id=${item.id}`}>
-                                  <Eye className="h-4 w-4 mr-2 text-muted-foreground" />
-                                  Lihat Profil
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem asChild>
-                                <Link href={`/admin/siswa/alumni-detail/edit?id=${item.id}`}>
-                                  <Edit className="h-4 w-4 mr-2 text-muted-foreground" />
-                                  Edit Data
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="text-destructive focus:bg-destructive/10"
-                                onClick={() => handleDelete(item.id)}
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Hapus
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                      
-                      {/* Expanded View */}
-                      <AnimatePresence>
-                        {isExpanded && (
-                          <TableRow className="bg-slate-50/20 dark:bg-zinc-900/5 hover:bg-slate-50/20 dark:hover:bg-zinc-900/5 border-t border-dashed">
-                            <TableCell colSpan={7} className="p-4 bg-slate-50/20 dark:bg-zinc-900/5">
-                              <motion.div
-                                initial={{ opacity: 0, height: 0 }}
-                                animate={{ opacity: 1, height: "auto" }}
-                                exit={{ opacity: 0, height: 0 }}
-                                transition={{ duration: 0.15 }}
-                                className="overflow-hidden"
-                              >
-                                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 text-sm text-muted-foreground py-1.5">
-                                  <div className="md:col-span-4 space-y-1">
-                                    <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/75">Profil Cepat</p>
-                                    <p className="text-xs text-foreground">Gender: <strong className="font-semibold">{item.gender === "L" ? "Laki-laki" : item.gender === "P" ? "Perempuan" : "-"}</strong></p>
-                                    <p className="text-xs text-foreground">Tahun Lulus/Keluar: <strong className="font-semibold">{item.graduationYear || "-"}</strong></p>
-                                  </div>
-                                  <div className="md:col-span-4 space-y-1">
-                                    <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/75">Detail Pendidikan</p>
-                                    <p className="text-xs text-foreground">Kelas Akhir: <strong className="font-semibold">{item.finalClass || "-"}</strong></p>
-                                    {item.status === "graduated" && (
-                                      <p className="text-xs text-foreground">Sekolah Lanjutan: <strong className="font-semibold">{item.nextSchool || "-"}</strong></p>
-                                    )}
-                                  </div>
-                                  <div className="md:col-span-4 flex flex-col sm:flex-row flex-wrap gap-2 items-start md:justify-end">
-                                    <Link href={`/admin/siswa/alumni-detail?id=${item.id}&tab=transcripts`} className="w-full sm:w-auto">
-                                      <Button variant="outline" size="sm" className="w-full sm:w-auto h-8 text-xs font-semibold flex items-center justify-center gap-1 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800">
-                                        <BookOpen className="h-3.5 w-3.5 text-primary" />
-                                        Transkrip Nilai
-                                      </Button>
-                                    </Link>
-                                    <Link href={`/admin/siswa/alumni-detail?id=${item.id}&tab=attendance`} className="w-full sm:w-auto">
-                                      <Button variant="outline" size="sm" className="w-full sm:w-auto h-8 text-xs font-semibold flex items-center justify-center gap-1 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800">
-                                        <Calendar className="h-3.5 w-3.5 text-emerald-500" />
-                                        Rekap Absensi
-                                      </Button>
-                                    </Link>
-                                    <Link href={`/admin/siswa/alumni-detail?id=${item.id}`} className="w-full sm:w-auto">
-                                      <Button size="sm" className="w-full sm:w-auto h-8 text-xs font-semibold flex items-center justify-center gap-1">
-                                        <Eye className="h-3.5 w-3.5" />
-                                        Lihat Detail
-                                      </Button>
-                                    </Link>
-                                  </div>
-                                </div>
-                              </motion.div>
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </AnimatePresence>
-                    </Fragment>
+                    <Badge variant="outline" className={`font-semibold py-0.5 px-2.5 rounded-full border ${details.color}`}>
+                      {details.label}
+                    </Badge>
                   );
-                })
-              )}
-            </TableBody>
-          </Table>
+                },
+              },
+              {
+                key: "graduationYear",
+                header: "Tahun Lulus/Keluar",
+                sortable: true,
+                card: "field",
+                render: (item) =>
+                  item.status === "active" ? (
+                    <span className="text-muted-foreground text-xs">-</span>
+                  ) : (
+                    <Badge variant="secondary" className="font-mono text-xs">{item.graduationYear || "-"}</Badge>
+                  ),
+              },
+              {
+                key: "finalClass",
+                header: "Kelas Akhir",
+                sortable: true,
+                card: "field",
+                render: (item) => <span className="font-medium">{item.finalClass || "-"}</span>,
+              },
+              {
+                key: "nextSchool",
+                header: "Sekolah Lanjutan",
+                sortable: true,
+                card: "hidden",
+                render: (item) => (
+                  <span className="max-w-[150px] truncate block">{item.nextSchool || "-"}</span>
+                ),
+              },
+              {
+                key: "bukuFisikNo",
+                header: "Buku Induk / No. Urut",
+                sortable: false,
+                card: "field",
+                cardSpan: "full",
+                render: (item) =>
+                  item.bukuFisikNo || item.registerNo ? (
+                    <span className="text-xs font-mono">
+                      {item.bukuFisikNo && <span>Buku {item.bukuFisikNo}</span>}
+                      {item.bukuFisikNo && item.registerNo && <span> • </span>}
+                      {item.registerNo && <span>No. {item.registerNo}</span>}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground text-xs">Belum terindeks</span>
+                  ),
+              },
+            ]}
+            actions={(item) => (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40">
+                  <DropdownMenuItem asChild>
+                    <Link href={`/admin/siswa/alumni-detail?id=${item.id}`}>
+                      <Eye className="h-4 w-4 mr-2 text-muted-foreground" />
+                      Lihat Profil
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href={`/admin/siswa/alumni-detail/edit?id=${item.id}`}>
+                      <Edit className="h-4 w-4 mr-2 text-muted-foreground" />
+                      Edit Data
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-destructive focus:bg-destructive/10"
+                    onClick={() => handleDelete(item.id)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Hapus
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            expandedContent={(item) => (
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 text-sm text-muted-foreground py-1.5">
+                <div className="md:col-span-4 space-y-1">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/75">Profil Cepat</p>
+                  <p className="text-xs text-foreground">Gender: <strong className="font-semibold">{item.gender === "L" ? "Laki-laki" : item.gender === "P" ? "Perempuan" : "-"}</strong></p>
+                  <p className="text-xs text-foreground">Tahun Lulus/Keluar: <strong className="font-semibold">{item.graduationYear || "-"}</strong></p>
+                </div>
+                <div className="md:col-span-4 space-y-1">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/75">Detail Pendidikan</p>
+                  <p className="text-xs text-foreground">Kelas Akhir: <strong className="font-semibold">{item.finalClass || "-"}</strong></p>
+                  {item.status === "graduated" && (
+                    <p className="text-xs text-foreground">Sekolah Lanjutan: <strong className="font-semibold">{item.nextSchool || "-"}</strong></p>
+                  )}
+                </div>
+                <div className="md:col-span-4 space-y-1">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/75">Lokasi Arsip Fisik</p>
+                  <p className="text-xs text-foreground">Buku Induk: <strong className="font-semibold">{item.bukuFisikNo ? `Buku ${item.bukuFisikNo}` : "-"}</strong></p>
+                  <p className="text-xs text-foreground">Nomor Urut: <strong className="font-semibold">{item.registerNo || "-"}</strong></p>
+                </div>
+                <div className="md:col-span-4 flex flex-col sm:flex-row flex-wrap gap-2 items-start md:justify-end">
+                  <Link href={`/admin/siswa/alumni-detail?id=${item.id}&tab=transcripts`} className="w-full sm:w-auto">
+                    <Button variant="outline" size="sm" className="w-full sm:w-auto h-8 text-xs font-semibold flex items-center justify-center gap-1 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800">
+                      <BookOpen className="h-3.5 w-3.5 text-primary" />
+                      Transkrip Nilai
+                    </Button>
+                  </Link>
+                  <Link href={`/admin/siswa/alumni-detail?id=${item.id}&tab=attendance`} className="w-full sm:w-auto">
+                    <Button variant="outline" size="sm" className="w-full sm:w-auto h-8 text-xs font-semibold flex items-center justify-center gap-1 bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800">
+                      <Calendar className="h-3.5 w-3.5 text-emerald-500" />
+                      Rekap Absensi
+                    </Button>
+                  </Link>
+                  <Link href={`/admin/siswa/alumni-detail?id=${item.id}`} className="w-full sm:w-auto">
+                    <Button size="sm" className="w-full sm:w-auto h-8 text-xs font-semibold flex items-center justify-center gap-1">
+                      <Eye className="h-3.5 w-3.5" />
+                      Lihat Detail
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            )}
+          />
         </CardContent>
       </Card>
 
@@ -735,6 +821,76 @@ export default function TabAlumni() {
           )}
         </div>
       )}
+
+      {/* Dialog: Index Cepat Arsip Fisik */}
+      <Dialog open={quickIndexOpen} onOpenChange={setQuickIndexOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BookMarked className="h-5 w-5 text-primary" />
+              Index Cepat Arsip Fisik
+            </DialogTitle>
+            <DialogDescription>
+              Catat penunjuk siswa lama ke buku induk fisik tanpa mengisi data lengkap. Cukup nama dan lokasi buku — data lain bisa dilengkapi nanti.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Nama Lengkap *</label>
+              <Input
+                value={quickIndexForm.fullName}
+                onChange={(e) => setQuickIndexForm((f) => ({ ...f, fullName: e.target.value }))}
+                placeholder="Nama sesuai buku induk fisik"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Tahun Lulus</label>
+                <Input
+                  value={quickIndexForm.graduationYear}
+                  onChange={(e) => setQuickIndexForm((f) => ({ ...f, graduationYear: e.target.value }))}
+                  placeholder="mis. 1995"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">NISN</label>
+                <Input
+                  value={quickIndexForm.nisn}
+                  onChange={(e) => setQuickIndexForm((f) => ({ ...f, nisn: e.target.value }))}
+                  placeholder="Opsional"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Buku Induk No.</label>
+                <Input
+                  value={quickIndexForm.bukuFisikNo}
+                  onChange={(e) => setQuickIndexForm((f) => ({ ...f, bukuFisikNo: e.target.value }))}
+                  placeholder="mis. VI"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Nomor Urut</label>
+                <Input
+                  type="number"
+                  value={quickIndexForm.registerNo}
+                  onChange={(e) => setQuickIndexForm((f) => ({ ...f, registerNo: e.target.value }))}
+                  placeholder="mis. 1421"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setQuickIndexOpen(false)} disabled={quickIndexSaving}>
+              Batal
+            </Button>
+            <Button onClick={handleQuickIndex} disabled={quickIndexSaving}>
+              {quickIndexSaving ? "Menyimpan..." : "Simpan Index"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

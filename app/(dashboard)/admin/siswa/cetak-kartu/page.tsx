@@ -26,13 +26,15 @@ export default function CetakKartuPage() {
       {/* Screen UI - Hidden when printing */}
       <div className="space-y-6 print:hidden">
         {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.back()}><ArrowLeft className="h-5 w-5" /></Button>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100">Cetak Kartu Peserta Didik</h1>
-            <p className="text-muted-foreground text-sm">{cards.length} data siswa siap dicetak</p>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => router.back()}><ArrowLeft className="h-5 w-5" /></Button>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100">Cetak Kartu Peserta Didik</h1>
+              <p className="text-muted-foreground text-sm">{cards.length} data siswa siap dicetak</p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
             <Button variant="outline" onClick={downloadAllCards} className="gap-2" disabled={downloading}>
               <FolderDown className="h-4 w-4" />{downloading ? "Mengunduh..." : "Unduh Semua (PNG)"}
             </Button>

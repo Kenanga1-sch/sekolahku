@@ -41,11 +41,11 @@ export function TranscriptTab(props: TranscriptTabProps) {
               <CardTitle className="text-base flex items-center gap-2"><BookOpen className="h-5 w-5 text-primary" />Transkrip Nilai (Spreadsheet Grid)</CardTitle>
               <p className="text-xs text-muted-foreground">Pilih Tahun & Semester, gunakan navigasi sel Excel-like (tombol arah / Enter), lalu Simpan Semua.</p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button variant="outline" size="sm" onClick={onOpenTemplates} className="h-9">Kelola Template</Button>
-              <Button variant="outline" size="sm" onClick={onOpenColumns} className="h-9">Kelola Kolom</Button>
-              <Button variant="outline" size="sm" onClick={onAddRow} className="h-9"><Plus className="h-4 w-4 mr-1" />Tambah Baris</Button>
-              <Button size="sm" className="h-9 bg-blue-600 hover:bg-blue-700 text-white border-0 font-medium shadow-sm" onClick={onSaveAll} disabled={savingTranscripts}>
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+              <Button variant="outline" size="sm" onClick={onOpenTemplates} className="h-9 w-full sm:w-auto">Kelola Template</Button>
+              <Button variant="outline" size="sm" onClick={onOpenColumns} className="h-9 w-full sm:w-auto">Kelola Kolom</Button>
+              <Button variant="outline" size="sm" onClick={onAddRow} className="h-9 w-full sm:w-auto"><Plus className="h-4 w-4 mr-1" />Tambah Baris</Button>
+              <Button size="sm" className="h-9 bg-blue-600 hover:bg-blue-700 text-white border-0 font-medium shadow-sm w-full sm:w-auto" onClick={onSaveAll} disabled={savingTranscripts}>
                 {savingTranscripts ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Menyimpan...</> : "Simpan Semua Nilai"}
               </Button>
             </div>

@@ -1,4 +1,4 @@
-﻿﻿﻿﻿"use client";
+﻿﻿"use client";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -66,15 +66,18 @@ export default function AlumniDetailPage() {
           className="w-full"
         >
           <Tabs value={ctx.activeTab} onValueChange={ctx.setActiveTab}>
-            <TabsList className="w-full flex flex-wrap h-auto gap-1 bg-muted p-1 rounded-lg justify-start md:grid md:grid-cols-7 md:h-10">
-              <TabsTrigger value="documents" className="flex-1 text-xs md:text-sm">Dokumen</TabsTrigger>
-              <TabsTrigger value="transcripts" className="flex-1 text-xs md:text-sm">Nilai</TabsTrigger>
-              <TabsTrigger value="attendance" className="flex-1 text-xs md:text-sm">Absensi</TabsTrigger>
-              <TabsTrigger value="achievements" className="flex-1 text-xs md:text-sm">Prestasi</TabsTrigger>
-              <TabsTrigger value="health" className="flex-1 text-xs md:text-sm">Kesehatan</TabsTrigger>
-              <TabsTrigger value="pickups" className="flex-1 text-xs md:text-sm">Pengambilan</TabsTrigger>
-              <TabsTrigger value="info" className="flex-1 text-xs md:text-sm">Info Profil</TabsTrigger>
-            </TabsList>
+            <div className="relative">
+              <TabsList className="w-full h-auto gap-1 bg-muted p-1 rounded-lg md:grid md:grid-cols-7 md:h-10">
+                <TabsTrigger value="documents" className="text-xs md:text-sm">Dokumen</TabsTrigger>
+                <TabsTrigger value="transcripts" className="text-xs md:text-sm">Nilai</TabsTrigger>
+                <TabsTrigger value="attendance" className="text-xs md:text-sm">Absensi</TabsTrigger>
+                <TabsTrigger value="achievements" className="text-xs md:text-sm">Prestasi</TabsTrigger>
+                <TabsTrigger value="health" className="text-xs md:text-sm">Kesehatan</TabsTrigger>
+                <TabsTrigger value="pickups" className="text-xs md:text-sm">Pengambilan</TabsTrigger>
+                <TabsTrigger value="info" className="text-xs md:text-sm">Info Profil</TabsTrigger>
+              </TabsList>
+              <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-muted to-transparent md:hidden" aria-hidden="true" />
+            </div>
 
             <AnimatePresence mode="wait">
               {/* TAB: DOKUMEN */}
@@ -82,7 +85,7 @@ export default function AlumniDetailPage() {
                 <TabsContent value="documents" className="mt-4">
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.15 }}>
                     <Card>
-                      <CardHeader className="flex flex-row items-center justify-between">
+                      <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <CardTitle className="text-base">Dokumen Arsip Digital</CardTitle>
                         <DocumentUpload alumniId={alumni.id} onUploadComplete={ctx.fetchAlumni} />
                       </CardHeader>
