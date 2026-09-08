@@ -28,10 +28,23 @@ describe("Auth Actions", () => {
       const result = await loginAction("test@example.com", "password123");
 
       expect(result).toEqual({ success: true });
-      expect(goPost).toHaveBeenCalledWith("/api/auth/login", {
-        email: "test@example.com",
-        password: "password123",
-      });
+      expect(goPost).toHaveBeenCalledWith(
+        "/api/auth/login",
+        { email: "test@example.com", password: "password123", remember_me: false },
+        { skipRetry: true }
+      );
+    });
+
+    it("should forward remember_me when asked to remember the session", async () => {
+      vi.mocked(goPost).mockResolvedValueOnce({ success: true });
+
+      await loginAction("test@example.com", "password123", true);
+
+      expect(goPost).toHaveBeenCalledWith(
+        "/api/auth/login",
+        { email: "test@example.com", password: "password123", remember_me: true },
+        { skipRetry: true }
+      );
     });
 
     it("should return error message when API returns error", async () => {
@@ -60,7 +73,11 @@ describe("Auth Actions", () => {
 
       await logoutAction();
 
-      expect(goPost).toHaveBeenCalledWith("/api/auth/logout", {});
+      expect(goPost).toHaveBeenCalledWith(
+        "/api/auth/logout",
+        {},
+        { skipRetry: true, headers: undefined }
+      );
       // In JS-DOM/Vitest environment, we can check document.cookie
       // Note: logoutAction in code clears session cookie
       expect(document.cookie).not.toContain("session=fake-token");
