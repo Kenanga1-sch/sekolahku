@@ -204,6 +204,11 @@ func createIndexes(db *sql.DB, logger echo.Logger) {
 		CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at);
 		CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON audit_logs(user_id);
 		CREATE INDEX IF NOT EXISTS idx_attendance_sessions_date ON attendance_sessions(date);
+		-- Nomor agenda surat tidak boleh kembar walau dua staf klik bersamaan
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_surat_masuk_agenda ON surat_masuk(agenda_number);
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_surat_keluar_agenda ON surat_keluar(agenda_number);
+		-- Nomor surat keluar lengkap (sudah mengandung bulan) juga unik
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_generated_letters_number ON generated_letters(letter_number);
 		CREATE INDEX IF NOT EXISTS idx_letter_templates_type ON letter_templates(type);
 		CREATE INDEX IF NOT EXISTS idx_gallery_category ON gallery(category);
 		CREATE INDEX IF NOT EXISTS idx_gallery_created ON gallery(created_at);
@@ -220,6 +225,26 @@ func createIndexes(db *sql.DB, logger echo.Logger) {
 	if err != nil {
 		logger.Warn("Failed to create database indexes:", err)
 	}
+
+	// Bersihkan duplikat lama sebelum UNIQUE index presensi dibuat (sekali saja, idempotent)
+	_, err = db.Exec(`
+		DELETE FROM attendance_records WHERE id NOT IN (
+			SELECT MIN(id) FROM attendance_records GROUP BY session_id, student_id
+		)
+	`)
+	if err != nil {
+		logger.Warn("Failed to clean duplicate attendance records:", err)
+	}
+	_, err = db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_attendance_records_session_student ON attendance_records(session_id, student_id)`)
+	if err != nil {
+		logger.Warn("Failed to create attendance unique index:", err)
+	}
+
+	// Skema inventaris dikelola oleh migrasi 000034_inventory_schema.up.sql.
+	// Sebelumnya tabel inventaris dibuat di sini dengan CREATE TABLE IF NOT EXISTS,
+	// yang berjalan SETELAH RunMigrations sehingga mustahil dimigrasikan dan
+	// tidak punya foreign key / soft delete / index. Jangan tambahkan DDL
+	// inventaris di sini lagi — buat file migrasi baru.
 }
 
 func initDefaultSettings(db *sql.DB, logger echo.Logger) {
@@ -291,6 +316,8 @@ func createAlumniTables(db *sql.DB, logger echo.Logger) {
 			current_occupation TEXT,
 			current_institution TEXT,
 			last_education_level TEXT,
+			buku_fisik_no TEXT,
+			register_no INTEGER,
 			status TEXT DEFAULT 'graduated',
 			notes TEXT,
 			created_at INTEGER,
@@ -779,6 +806,8 @@ func RepairDatabase(db *sql.DB, logger echo.Logger) {
 		{Table: "alumni", Name: "current_institution", SQLType: "TEXT"},
 		{Table: "alumni", Name: "last_education_level", SQLType: "TEXT"},
 		{Table: "alumni", Name: "final_grade_avg", SQLType: "REAL"},
+		{Table: "alumni", Name: "buku_fisik_no", SQLType: "TEXT"},
+		{Table: "alumni", Name: "register_no", SQLType: "INTEGER"},
 
 		// content management
 		{Table: "gallery", Name: "public_id", SQLType: "TEXT"},
