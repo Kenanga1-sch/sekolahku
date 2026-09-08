@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { QRCodeSVG } from "qrcode.react";
 import { goGet } from "@/lib/api-client";
+import { getItemBatches } from "@/lib/inventory";
 
 const FUNDING_SOURCES = [
   "BOSP Reguler",
@@ -88,6 +89,9 @@ export function LabelPrintClient() {
     marginLeft: 10,
     fontSize: 8,
   });
+  // Satu barang bisa punya beberapa batch, jadi entri tidak cukup diidentifikasi
+  // dengan id barang saja.
+  const keyOf = useCallback((item: AssetLabel) => item.batchId || item.id, []);
   const [overrideFunding, setOverrideFunding] = useState("");
   const [overrideYear, setOverrideYear] = useState(new Date().getFullYear().toString());
   const [showName, setShowName] = useState(true);
@@ -123,7 +127,38 @@ export function LabelPrintClient() {
           try {
             const raw: any = await goGet(`/api/inventory/items/${id}`);
             const res = unwrapRecord(raw);
-            if (res) {
+            if (!res) continue;
+
+            // Untuk barang habis pakai, cetak PER BATCH. Nomor diambil dari
+            // rentang batch, bukan dari stok berjalan — karena stok naik-turun,
+            // sedangkan nomor harus merujuk ke bungkus yang sama selamanya.
+            let batches: any[] = [];
+            try {
+              batches = await getItemBatches(id);
+            } catch {
+              batches = [];
+            }
+
+            if (batches.length > 0) {
+              for (const b of batches) {
+                result.push({
+                  id: res.id,
+                  name: res.name,
+                  code: res.code || "",
+                  unit: res.unit || "",
+                  fundingSource: b.fundingSource || res.fundingSource || "",
+                  fiscalYear: b.fiscalYear || res.fiscalYear || new Date().getFullYear(),
+                  quantity: b.quantity,
+                  batchId: b.id,
+                  batchCode: b.batchCode,
+                  startNo: b.startNo,
+                  total: b.quantity,
+                  type: "item",
+                });
+              }
+            } else {
+              // Barang belum punya batch (belum pernah dicatat penerimaan).
+              // Tetap bisa dicetak, nomornya bisa disunting di halaman ini.
               result.push({
                 id: res.id,
                 name: res.name,
@@ -131,9 +166,6 @@ export function LabelPrintClient() {
                 unit: res.unit || "",
                 fundingSource: res.fundingSource || "",
                 fiscalYear: res.fiscalYear || new Date().getFullYear(),
-                // Untuk barang habis pakai, banyaknya label mengikuti stok
-                // saat ini sampai penomoran berbasis batch siap (total bisa
-                // disunting di halaman ini).
                 quantity: res.currentStock || 1,
                 type: "item",
               });
@@ -145,7 +177,7 @@ export function LabelPrintClient() {
 
     setItems(result);
     const totals: Record<string, number> = {};
-    result.forEach((r) => (totals[r.id] = r.quantity));
+    result.forEach((r) => (totals[r.batchId || r.id] = r.quantity));
     setEditingTotals(totals);
     setLoading(false);
   }, [searchParams]);
@@ -205,7 +237,7 @@ export function LabelPrintClient() {
   };
 
   const buildUnits = (item: AssetLabel): number[] => {
-    const total = editingTotals[item.id] ?? item.quantity;
+    const total = editingTotals[keyOf(item)] ?? item.quantity;
     const start = item.startNo ?? 1;
     return Array.from({ length: Math.max(1, total) }, (_, i) => start + i);
   };
@@ -213,7 +245,7 @@ export function LabelPrintClient() {
   const handlePrint = () => window.print();
 
   const allUnits = items.flatMap((item) =>
-    buildUnits(item).map((u) => ({ item, unitNo: u, total: editingTotals[item.id] ?? item.quantity }))
+    buildUnits(item).map((u) => ({ item, unitNo: u, total: editingTotals[keyOf(item)] ?? item.quantity }))
   );
 
   if (loading) {
@@ -317,9 +349,9 @@ export function LabelPrintClient() {
           <>
             <div className="space-y-3">
               {items.map((item) => {
-                const total = editingTotals[item.id] ?? item.quantity;
+                const total = editingTotals[keyOf(item)] ?? item.quantity;
                 return (
-                  <Card key={item.id}>
+                  <Card key={keyOf(item)}>
                     <CardContent className="py-3 flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <p className="font-medium truncate">{item.name}</p>
@@ -339,7 +371,7 @@ export function LabelPrintClient() {
                             value={total}
                             onChange={(e) => setEditingTotals((prev) => ({
                               ...prev,
-                              [item.id]: Math.max(1, parseInt(e.target.value) || 1),
+                              [keyOf(item)]: Math.max(1, parseInt(e.target.value) || 1),
                             }))} />
                         </div>
                       </div>
@@ -363,7 +395,7 @@ export function LabelPrintClient() {
             const funding = overrideFunding || item.fundingSource || "Inventaris";
             const year = overrideYear || String(item.fiscalYear);
             return (
-              <div key={`${item.id}-${unitNo}`} className="label-cell">
+              <div key={`${keyOf(item)}-${unitNo}`} className="label-cell">
                 <div className="label-text">
                   {/* Nama barang jadi baris utama: yang dicari saat memeriksa
                       barang fisik adalah barang apa ini, bukan sumber dananya. */}

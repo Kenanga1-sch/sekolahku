@@ -253,3 +253,71 @@ export async function uploadPhoto(file: File): Promise<string> {
     }
     return res.url;
 }
+
+// ============ Pelacakan per Bungkus (Batch & Unit) ============
+
+export interface ItemBatch {
+    id: string;
+    itemId: string;
+    batchCode?: string;
+    year: number;
+    startNo: number;
+    endNo: number;
+    quantity: number;
+    fundingSource?: string | null;
+    fiscalYear?: number | null;
+    receivedAt?: number | null;
+    description?: string | null;
+    createdAt?: number | null;
+}
+
+export interface ItemUnit {
+    id: string;
+    itemId: string;
+    batchId?: string | null;
+    unitNo: number;
+    year: number;
+    status: "AVAILABLE" | "ISSUED";
+    issuedTo?: string | null;
+    issuedAt?: number | null;
+}
+
+/**
+ * Ambil daftar penerimaan (batch) suatu barang.
+ * Mencetak per batch membuat nomor tidak pernah berubah.
+ */
+export async function getItemBatches(itemId: string): Promise<ItemBatch[]> {
+    const res = await goGet<{ batches?: ItemBatch[]; data?: ItemBatch[] }>(
+        `/api/inventory/items/${itemId}/batches`
+    );
+    return res?.batches || res?.data || [];
+}
+
+/**
+ * Ambil nomor-nomor bungkus. Secara bawaan hanya yang masih tersedia.
+ */
+export async function getItemUnits(
+    itemId: string,
+    year: number,
+    onlyAvailable = true
+): Promise<ItemUnit[]> {
+    const res = await goGet<{ units?: ItemUnit[]; data?: ItemUnit[] }>(
+        `/api/inventory/items/${itemId}/units?year=${year}${onlyAvailable ? "" : "&all=true"}`
+    );
+    return res?.units || res?.data || [];
+}
+
+/**
+ * Kembalikan bungkus yang sudah dikeluarkan menjadi tersedia lagi.
+ */
+export async function returnItemUnits(
+    itemId: string,
+    numbers: number[],
+    date?: string
+): Promise<number> {
+    const res = await goPost<{ success: boolean; count: number }>(
+        `/api/inventory/items/${itemId}/units/return`,
+        { numbers, date }
+    );
+    return res?.count || 0;
+}

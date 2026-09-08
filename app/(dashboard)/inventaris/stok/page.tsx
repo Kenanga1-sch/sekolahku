@@ -9,7 +9,8 @@ import {
   Edit, 
   Trash2,
   AlertTriangle,
-  Printer
+  Printer,
+  ClipboardCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -495,6 +496,9 @@ export default function StokPage() {
                </DropdownMenuItem>
                <DropdownMenuItem onClick={() => window.open(`/inventaris/label?items=${item.id}`, '_blank')}>
                   <Printer className="mr-2 h-4 w-4" /> Cetak Label
+               </DropdownMenuItem>
+               <DropdownMenuItem onClick={() => router.push(`/inventaris/stok/opname?item=${item.id}`)}>
+                  <ClipboardCheck className="mr-2 h-4 w-4" /> Periksa (Pindai Label)
                </DropdownMenuItem>
                <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(item.id)}>
                   <Trash2 className="mr-2 h-4 w-4" /> Hapus
