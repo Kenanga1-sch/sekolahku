@@ -221,6 +221,8 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	auth.GET("/inventory/items/:id/units/:no", h.Inventory.GetItemUnitDetail)
 	auth.POST("/inventory/items/:id/units/issue", h.Inventory.IssueItemUnits)
 	auth.POST("/inventory/items/:id/units/return", h.Inventory.ReturnItemUnits)
+	// Pemeriksaan fisik: kirim nomor yang ditemukan, terima daftar yang hilang.
+	auth.POST("/inventory/items/:id/units/audit", h.Inventory.AuditItemUnits)
 	auth.GET("/inventory/items/:id/batches", h.Inventory.GetItemBatches)
 	auth.GET("/inventory/opname", h.Inventory.GetOpnames)
 	auth.POST("/inventory/opname", h.Inventory.CreateOpname)

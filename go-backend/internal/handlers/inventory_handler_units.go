@@ -208,3 +208,83 @@ func (h *InventoryHandler) IssueItemUnits(c echo.Context) error {
 		"count":   len(req.Numbers),
 	})
 }
+
+// auditUnitsRequest adalah hasil pemeriksaan fisik: nomor-nomor bungkus yang
+// ditemukan ada di tempat.
+type auditUnitsRequest struct {
+	Numbers []int  `json:"numbers"`
+	Year    int    `json:"year"`
+	Note    string `json:"note"`
+}
+
+// AuditItemUnits menerima daftar nomor yang DITEMUKAN saat pemeriksaan, lalu
+// mengembalikan nomor yang TIDAK ditemukan sebagai temuan.
+//
+// Pemeriksaan tidak mengubah stok: ia hanya melaporkan selisih antara nomor
+// yang seharusnya ada dengan yang benar-benar ditemukan. Penyesuaian stok
+// tetap menjadi keputusan petugas, dicatat lewat transaksi tersendiri.
+func (h *InventoryHandler) AuditItemUnits(c echo.Context) error {
+	itemID := c.Param("id")
+	if err := h.ensureItemScope(c, itemID); err != nil {
+		return err
+	}
+
+	var req auditUnitsRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Permintaan tidak valid"})
+	}
+	if req.Year <= 0 {
+		req.Year = time.Now().Year()
+	}
+
+	// Nomor yang seharusnya ada: semua unit tahun berjalan milik barang ini.
+	all, err := h.Repo.GetItemUnits(itemID, req.Year, false)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+	}
+
+	found := map[int]bool{}
+	for _, n := range req.Numbers {
+		found[n] = true
+	}
+
+	missing := []models.ItemUnit{}
+	for _, u := range all {
+		if !found[u.UnitNo] {
+			missing = append(missing, u)
+		}
+	}
+
+	// Nomor yang dipindai tetapi tidak dikenal — bisa salah bungkus, bisa
+	// bungkus dari tahun lain.
+	unknown := []int{}
+	known := map[int]bool{}
+	for _, u := range all {
+		known[u.UnitNo] = true
+	}
+	for _, n := range req.Numbers {
+		if !known[n] {
+			unknown = append(unknown, n)
+		}
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success":     true,
+		"year":        req.Year,
+		"total":       len(all),
+		"found":       len(req.Numbers),
+		"missing":     missing,
+		"missingNo":   unitNumbersOf(missing),
+		"unknownNo":   unknown,
+		"note":        req.Note,
+		"isComplete":  len(missing) == 0,
+	})
+}
+
+func unitNumbersOf(units []models.ItemUnit) []int {
+	out := make([]int, 0, len(units))
+	for _, u := range units {
+		out = append(out, u.UnitNo)
+	}
+	return out
+}
