@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import QRCode from "qrcode";
 import { goGet, goPost } from "@/lib/api-client";
-import { Loader2, Download, RefreshCw, CheckSquare, Square, Archive, FolderArchive, ArrowLeft } from "lucide-react";
+import { Loader2, Download, RefreshCw, CheckSquare, Square, Archive, FolderArchive, ArrowLeft, FileText } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -18,6 +18,13 @@ import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
+import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import {
+    downloadQrStickerPdf,
+    labelsPerSheet,
+    STICKER_PRESETS,
+    type StickerLayout,
+} from "@/lib/library/qr-pdf";
 
 interface QrBatch {
     id: string;
@@ -48,6 +55,14 @@ export default function QRGeneratorPage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [searchDate, setSearchDate] = useState("");
 
+    // Output PDF: pilihan kedua di samping ZIP/PNG yang sudah ada.
+    const [presetId, setPresetId] = useState(STICKER_PRESETS[0].id);
+    const [layout, setLayout] = useState<StickerLayout>(STICKER_PRESETS[0].layout);
+    const [showGuides, setShowGuides] = useState(true);
+    const [isMakingPdf, setIsMakingPdf] = useState(false);
+    const { settings } = useSchoolSettings();
+    const schoolName = settings?.school_name || "";
+
     // Fetch history
     const fetchHistory = async () => {
         setIsLoadingHistory(true);
@@ -57,8 +72,10 @@ export default function QRGeneratorPage() {
             if (searchDate) params.append("date", searchDate);
 
             const res: any = await goGet(`/api/library/qr-generator?${params.toString()}`);
+            // Backend mengirim daftar batch di field `data`, bukan `batches`.
+            // Salah baca field membuat riwayat selalu kosong tanpa error.
             if (res.success) {
-                setHistory(res.batches);
+                setHistory(res.data || []);
             }
         } catch (error) {
             console.error("Failed to fetch history", error);
@@ -176,11 +193,36 @@ export default function QRGeneratorPage() {
 
             const content = await zip.generateAsync({ type: "blob" });
             saveAs(content, `${filename}_${sizeMm}mm.zip`);
-            toast.success("File ZIP behasil diunduh");
+            toast.success("File ZIP berhasil diunduh");
         } catch (error) {
             console.error("ZIP Error:", error);
             toast.error("Gagal membuat file ZIP");
         }
+    };
+
+    // PDF Download Logic — output dokumen untuk lembar stiker A4.
+    const handleDownloadPdf = async (codesToDownload = generatedCodes, filename = "Label_QR_Buku") => {
+        if (codesToDownload.length === 0) return;
+        setIsMakingPdf(true);
+        try {
+            toast.info(`Menyusun PDF untuk ${codesToDownload.length} label...`);
+            await downloadQrStickerPdf(codesToDownload, layout, filename, {
+                schoolName,
+                showGuides,
+            });
+            toast.success("File PDF berhasil diunduh");
+        } catch (error) {
+            console.error("PDF Error:", error);
+            toast.error("Gagal membuat dokumen PDF");
+        } finally {
+            setIsMakingPdf(false);
+        }
+    };
+
+    const handlePresetChange = (presetId: string) => {
+        setPresetId(presetId);
+        const p = STICKER_PRESETS.find((p) => p.id === presetId);
+        if (p) setLayout(p.layout);
     };
 
     // Reprint Logic (from History)
@@ -192,6 +234,18 @@ export default function QRGeneratorPage() {
             codes.push(`${batch.prefix}-${dateCode}-${seq}`);
         }
         handleDownloadZip(codes, `QR_Batch_${batch.prefix}_${batch.date}_${batch.startSequence}-${batch.endSequence}`);
+    };
+
+    // Cetak ulang satu batch sebagai PDF — nomor diambil dari rentang yang
+    // tersimpan, jadi merujuk ke stiker yang sama seperti cetakan pertama.
+    const handleReprintBatchPdf = async (batch: QrBatch) => {
+        const codes: string[] = [];
+        const dateCode = batch.date.replace(/-/g, "");
+        for (let i = batch.startSequence; i <= batch.endSequence; i++) {
+            const seq = i.toString().padStart(4, "0");
+            codes.push(`${batch.prefix}-${dateCode}-${seq}`);
+        }
+        await handleDownloadPdf(codes, `Label_QR_${batch.prefix}_${batch.date}_${batch.startSequence}-${batch.endSequence}`);
     };
 
     // Selective Reprint
@@ -207,6 +261,13 @@ export default function QRGeneratorPage() {
         const codes = Array.from(selectedCodes).sort();
         handleDownloadZip(codes, `QR_Selected_${codes.length}_items`);
         setSelectedCodes(new Set()); // Clear selection
+    };
+
+    const handleReprintSelectedPdf = async () => {
+        if (selectedCodes.size === 0) return;
+        const codes = Array.from(selectedCodes).sort();
+        await handleDownloadPdf(codes, `Label_QR_Pilihan_${codes.length}`);
+        setSelectedCodes(new Set());
     };
 
     // Expand batch to show codes for selection
@@ -305,17 +366,89 @@ export default function QRGeneratorPage() {
                         </CardContent>
                     </Card>
 
+                    {/* Tata letak stiker — hanya untuk output PDF */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Ukuran Kertas Stiker (untuk PDF)</CardTitle>
+                            <CardDescription>
+                                Pilih ukuran yang sudah tersedia, atau atur sendiri.
+                                Kisi dipusatkan otomatis di kertas A4.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="grid gap-2">
+                                <Label>Preset</Label>
+                                <select
+                                    className="w-full border rounded px-2 py-2 text-sm bg-background"
+                                    value={presetId}
+                                    onChange={(e) => handlePresetChange(e.target.value)}
+                                >
+                                    {STICKER_PRESETS.map((p) => (
+                                        <option key={p.id} value={p.id}>{p.name}</option>
+                                    ))}
+                                    <option value="custom">Sesuaikan sendiri...</option>
+                                </select>
+                                <p className="text-xs text-muted-foreground">
+                                    {labelsPerSheet(layout)} label per lembar · kertas {layout.paperWidth}×{layout.paperHeight} mm
+                                </p>
+                            </div>
+
+                            {presetId === "custom" && (
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                    <div className="grid gap-1">
+                                        <Label className="text-xs">Lebar Label (mm)</Label>
+                                        <Input type="number" step="0.1" value={layout.labelWidth}
+                                            onChange={(e) => setLayout((p) => ({ ...p, labelWidth: parseFloat(e.target.value) || 1 }))} />
+                                    </div>
+                                    <div className="grid gap-1">
+                                        <Label className="text-xs">Tinggi Label (mm)</Label>
+                                        <Input type="number" step="0.1" value={layout.labelHeight}
+                                            onChange={(e) => setLayout((p) => ({ ...p, labelHeight: parseFloat(e.target.value) || 1 }))} />
+                                    </div>
+                                    <div className="grid gap-1">
+                                        <Label className="text-xs">Jarak X (mm)</Label>
+                                        <Input type="number" step="0.1" value={layout.gapX}
+                                            onChange={(e) => setLayout((p) => ({ ...p, gapX: parseFloat(e.target.value) || 0 }))} />
+                                    </div>
+                                    <div className="grid gap-1">
+                                        <Label className="text-xs">Jarak Y (mm)</Label>
+                                        <Input type="number" step="0.1" value={layout.gapY}
+                                            onChange={(e) => setLayout((p) => ({ ...p, gapY: parseFloat(e.target.value) || 0 }))} />
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="flex items-center gap-3">
+                                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                    <input type="checkbox" checked={showGuides}
+                                        onChange={(e) => setShowGuides(e.target.checked)} />
+                                    Garis panduan potong
+                                </label>
+                            </div>
+                        </CardContent>
+                    </Card>
+
                     {/* Preview Area & Main Download Button */}
                     {generatedCodes.length > 0 && (
                         <Card>
-                            <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                            <CardHeader className="pb-2 flex flex-row items-center justify-between flex-wrap gap-2">
                                 <CardTitle className="text-sm font-medium text-muted-foreground">
                                     Preview ({generatedCodes.length} items)
                                 </CardTitle>
-                                <Button onClick={() => handleDownloadZip(generatedCodes)} className="gap-2">
-                                    <FolderArchive className="h-4 w-4" />
-                                    Download ZIP ({sizeMm}mm)
-                                </Button>
+                                <div className="flex flex-wrap gap-2">
+                                    <Button
+                                        onClick={() => handleDownloadPdf(generatedCodes)}
+                                        disabled={isMakingPdf}
+                                        className="gap-2"
+                                    >
+                                        {isMakingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                                        Unduh PDF
+                                    </Button>
+                                    <Button variant="outline" onClick={() => handleDownloadZip(generatedCodes)} className="gap-2">
+                                        <FolderArchive className="h-4 w-4" />
+                                        Download ZIP ({sizeMm}mm)
+                                    </Button>
+                                </div>
                             </CardHeader>
                             <CardContent>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-4">
@@ -378,10 +511,16 @@ export default function QRGeneratorPage() {
                                          </div>
 
                                         {selectedCodes.size > 0 && (
-                                            <Button size="sm" onClick={handleReprintSelected}>
-                                                <Download className="mr-2 h-4 w-4" />
-                                                Download {selectedCodes.size} Selected
-                                            </Button>
+                                            <>
+                                                <Button size="sm" onClick={handleReprintSelected}>
+                                                    <Download className="mr-2 h-4 w-4" />
+                                                    Download {selectedCodes.size} Selected
+                                                </Button>
+                                                <Button size="sm" variant="secondary" onClick={handleReprintSelectedPdf} disabled={isMakingPdf}>
+                                                    <FileText className="mr-2 h-4 w-4" />
+                                                    PDF {selectedCodes.size}
+                                                </Button>
+                                            </>
                                         )}
                                         <Button variant="outline" size="sm" onClick={fetchHistory} disabled={isLoadingHistory}>
                                             <RefreshCw className={`h-4 w-4 ${isLoadingHistory ? 'animate-spin' : ''}`} />
@@ -415,10 +554,16 @@ export default function QRGeneratorPage() {
                                                         <span className="text-xs text-muted-foreground">
                                                             Dibuat: {format(new Date(batch.createdAt), "HH:mm")}
                                                         </span>
-                                                        <Button variant="secondary" size="sm" className="h-7 px-2 text-xs" onClick={() => handleReprintBatch(batch)}>
-                                                            <Archive className="mr-2 h-3 w-3" />
-                                                            Download Full Batch
-                                                        </Button>
+                                                        <div className="flex gap-2">
+                                                            <Button variant="secondary" size="sm" className="h-7 px-2 text-xs" onClick={() => handleReprintBatchPdf(batch)} disabled={isMakingPdf}>
+                                                                <FileText className="mr-2 h-3 w-3" />
+                                                                Cetak PDF
+                                                            </Button>
+                                                            <Button variant="secondary" size="sm" className="h-7 px-2 text-xs" onClick={() => handleReprintBatch(batch)}>
+                                                                <Archive className="mr-2 h-3 w-3" />
+                                                                Download Full Batch
+                                                            </Button>
+                                                        </div>
                                                     </div>
                                                     <div className="border-t pt-2">
                                                         <p className="text-xs text-muted-foreground mb-2">Pilih kode individual untuk download ulang:</p>
