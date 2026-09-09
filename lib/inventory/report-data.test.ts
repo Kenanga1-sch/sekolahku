@@ -5,6 +5,8 @@ import {
     conditionTotals,
     unclassifiedTotal,
     grandTotals,
+    filterRows,
+    renumber,
 } from "./report-data";
 import type { InventoryAsset } from "@/types/inventory";
 
@@ -101,5 +103,29 @@ describe("report-data", () => {
         const grouped = groupByRoom(rows);
         const count = grouped.reduce((s, g) => s + g.rows.length, 0);
         expect(count).toBe(rows.length);
+    });
+
+    it("menomori urut menyeluruh lintas ruangan, bukan ulang dari 1", () => {
+        const rows = toAssetRows([
+            asset({ id: "1", expand: { room: { id: "r1", name: "Kelas A" } } }),
+            asset({ id: "2", expand: { room: { id: "r1", name: "Kelas A" } } }),
+            asset({ id: "3", expand: { room: { id: "r2", name: "Kelas B" } } }),
+        ]);
+        const map = renumber(groupByRoom(rows));
+        expect(map.get("1")).toBe(1);
+        expect(map.get("2")).toBe(2);
+        // Dulu nomor dihitung per ruangan, jadi baris ini kembali ke 1.
+        expect(map.get("3")).toBe(3);
+    });
+
+    it("menyaring baris menurut nama, kode, kategori, atau ruangan", () => {
+        const rows = toAssetRows([
+            asset({ id: "1", name: "Meja Guru", code: "MEJ-01", category: "Mebel" }),
+            asset({ id: "2", name: "Kursi", code: "KUR-01", category: "Mebel" }),
+        ]);
+        expect(filterRows(rows, "meja").map((r) => r.id)).toEqual(["1"]);
+        expect(filterRows(rows, "KUR-01").map((r) => r.id)).toEqual(["2"]);
+        expect(filterRows(rows, "  ").map((r) => r.id)).toEqual(["1", "2"]);
+        expect(filterRows(rows, "zzz")).toEqual([]);
     });
 });

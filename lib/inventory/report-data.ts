@@ -131,3 +131,33 @@ export function grandTotals(rows: AssetRow[]) {
         value: rows.reduce((s, r) => s + r.value, 0),
     };
 }
+
+/**
+ * Saring baris menurut kata kunci (nama, kode, kategori, ruangan).
+ *
+ * Hanya dipakai di layar untuk mencari baris tertentu; hasil cetak tetap
+ * memuat seluruh data. Pencarian tidak peka huruf besar-kecil dan mengabaikan
+ * spasi di ujung.
+ */
+export function filterRows(rows: AssetRow[], query: string): AssetRow[] {
+    const q = query.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) =>
+        [r.name, r.code, r.category, r.roomName].some((f) => f.toLowerCase().includes(q))
+    );
+}
+
+/**
+ * Penomoran laporan: nomor urut menyeluruh lintas ruangan (1..N).
+ *
+ * Dulu nomor dihitung per kelompok ruangan, sehingga setiap ruangan selalu
+ * mulai dari 1 dan nomornya tidak pernah mencerminkan urutan sebenarnya.
+ */
+export function renumber(groups: RoomGroup[]): Map<string, number> {
+    const map = new Map<string, number>();
+    let n = 0;
+    for (const g of groups) {
+        for (const r of g.rows) map.set(r.id, ++n);
+    }
+    return map;
+}
