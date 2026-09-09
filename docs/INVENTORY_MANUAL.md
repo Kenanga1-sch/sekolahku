@@ -7,7 +7,9 @@ Dokumen ini menjelaskan cara menggunakan modul Inventaris untuk pengelolaan aset
 Staff Sarpras bertanggung jawab untuk mendata seluruh aset dan ruangan.
 
 ### Daftar Ruangan (Master Ruangan)
+
 Setiap aset harus terhubung dengan lokasi spesifik.
+
 1. Masuk ke menu **Inventaris** > **Ruangan**.
 2. Klik tombol **+ Ruangan Baru**.
 3. Isi form:
@@ -18,6 +20,7 @@ Setiap aset harus terhubung dengan lokasi spesifik.
 4. Klik **Simpan**.
 
 ### Kategori Barang
+
 1. Masuk ke menu **Inventaris** > **Kategori**.
 2. Buat kategori standar:
    - Elektronik (Komputer, Proyektor).
@@ -33,6 +36,7 @@ Setiap aset harus terhubung dengan lokasi spesifik.
 Aset Tetap adalah barang yang memiliki masa manfaat lebih dari 1 tahun (Meja, Kursi, Laptop).
 
 ### Registrasi Aset Baru
+
 1. Masuk ke menu **Inventaris** > **Aset**.
 2. Klik tombol **+ Aset Baru**.
 3. Isi form:
@@ -48,12 +52,15 @@ Aset Tetap adalah barang yang memiliki masa manfaat lebih dari 1 tahun (Meja, Ku
    - Tempelkan QR Code pada fisik barang.
 
 ### Mutasi Aset (Pindah Ruangan)
-1. Masuk ke menu **Inventaris** > **Mutasi**.
-2. Scan QR Code barang yang akan dipindahkan.
-3. Pilih **Ruangan Tujuan**.
-4. Masukkan **Alasan Pindah** (e.g., "Kelas 1A direnovasi").
-5. Klik **Proses Mutasi**.
-6. Aset otomatis berpindah lokasi di sistem.
+
+> Tidak ada halaman "Mutasi" tersendiri. Pindah ruangan dilakukan dengan
+> **menyunting aset** tersebut.
+
+1. Masuk ke menu **Inventaris** > **Aset**.
+2. Buka aset yang ingin dipindahkan, lalu klik **Sunting**.
+3. Ubah **Lokasi Ruangan** ke ruangan tujuan.
+4. **Simpan**. Perpindahan ini tercatat di **Jejak Audit**, sehingga riwayat
+   lokasi aset dapat ditelusuri kembali.
 
 ---
 
@@ -62,6 +69,7 @@ Aset Tetap adalah barang yang memiliki masa manfaat lebih dari 1 tahun (Meja, Ku
 Barang yang habis dipakai atau memiliki masa manfaat pendek.
 
 ### Stok Masuk (Pembelian)
+
 1. Masuk ke menu **Inventaris** > **Stok ATK**.
 2. Klik tombol **+ Barang Masuk**.
 3. Cari nama barang (e.g., "Kertas A4 70gr").
@@ -71,6 +79,7 @@ Barang yang habis dipakai atau memiliki masa manfaat pendek.
 7. Klik **Simpan**. Stok bertambah otomatis.
 
 ### Stok Keluar (Pemakaian)
+
 1. Guru/Staff mengajukan permintaan barang.
 2. Staff Sarpras membuka menu **Inventaris** > **Stok Keluar**.
 3. Pilih barang yang diminta.
@@ -99,15 +108,53 @@ Lakukan pemeriksaan fisik secara berkala (semester/tahunan).
 
 ---
 
-## 5. Pelaporan & Penghapusan Aset
+## 5. Pelaporan
 
-### Laporan Aset
-- **Daftar Inventaris Ruangan (DIR)**: Cetak daftar barang per ruangan untuk ditempel di dinding.
-- **Laporan Nilai Aset**: Total valuasi aset sekolah.
+Semua laporan ada di menu **Inventaris > Laporan**, terdiri dari empat tab.
+Tombol **Cetak / Simpan PDF** menghasilkan dokumen A4 portrait dengan kop sekolah,
+dan blok tanda tangan Kepala Sekolah + Pengurus Inventaris.
 
-### Penghapusan Aset (Write-off)
-Jika barang rusak berat atau hilang dan tidak bisa diperbaiki.
-1. Ajukan penghapusan melalui menu **Penghapusan**.
-2. Lampirkan foto kondisi barang.
-3. Kepala Sekolah menyetujui penghapusan.
-4. Aset dikeluarkan dari daftar aktif dan masuk ke **Arsip Aset Dihapus**.
+### Laporan Aset Tetap
+
+Daftar seluruh aset, **dikelompokkan per ruangan** dengan sub-total tiap ruangan
+dan jumlah keseluruhan. Kolom: No, Kode, Nama Barang, Kategori, Ruangan, Qty,
+kondisi (Baik / Rusak Ringan / Rusak Berat / Hilang), dan Nilai.
+
+Di atas daftar ada **Rekapitulasi Kondisi**. Bila kondisi suatu aset belum diisi
+sehingga jumlah kondisi tidak sama dengan total unit, laporan menambahkan baris
+**"Belum Diklasifikasi"** — jadi angkanya selalu tertutup dan tidak menyesatkan.
+
+Laporan memuat seluruh aset, bukan hanya halaman pertama.
+
+### Laporan Stok Habis Pakai
+
+Daftar barang habis pakai beserta stok berjalan, stok minimum, satuan, harga,
+dan nilai persediaan. Baris dengan stok di bawah minimum dicetak tebal.
+
+### DIR per Ruangan
+
+**Daftar Inventaris Ruangan** — satu ruangan dicetak pada halaman tersendiri,
+siap ditempel di dinding ruangan tersebut. Berisi kode, nama, kategori, jumlah,
+dan kondisi tiap barang, dengan jumlah total ruangan.
+
+### Berita Acara Pemeriksaan (Opname)
+
+Pilih sesi pemeriksaan yang pernah dilakukan, lalu cetak berita acaranya.
+Dokumen memuat jumlah menurut sistem, hasil hitung di lapangan (Baik / Rusak
+Ringan / Rusak Berat / Hilang), dan **Selisih**-nya. Selisih dicetak tebal bila
+tidak nol. Nama dan kode barang ikut tercetak.
+
+---
+
+## 6. Penghapusan Aset (Write-off)
+
+> **Belum tersedia sebagai halaman tersendiri.** Yang sudah ada saat ini:
+> kondisi aset dapat diubah menjadi **Rusak Berat** atau **Hilang** lewat
+> halaman Aset, dan perubahannya tercatat di **Jejak Audit**.
+>
+> Alur berikut masih merupakan rencana dan belum dapat dilakukan di aplikasi:
+>
+> 1. Ajukan penghapusan melalui menu **Penghapusan**.
+> 2. Lampirkan foto kondisi barang.
+> 3. Kepala Sekolah menyetujui penghapusan.
+> 4. Aset dikeluarkan dari daftar aktif dan masuk ke **Arsip Aset Dihapus**.
