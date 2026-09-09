@@ -46,7 +46,7 @@ export default function PublicLayoutClient({
 
   return (
     <div className="flex flex-col bg-[#FFF8E7] text-[#1a2e1a] w-full min-h-screen">
-      <header className="hidden md:flex items-center justify-between px-6 py-4 sticky top-0 z-50 bg-[#FFF8E7]/95 backdrop-blur-sm border-b border-[#d1e7dd]">
+      <header className="app-chrome hidden md:flex items-center justify-between px-6 py-4 sticky top-0 z-50 bg-[#FFF8E7]/95 backdrop-blur-sm border-b border-[#d1e7dd]">
         <Link href="/" className="flex items-center gap-2 font-bold text-lg text-[#065F46]">
           SDN 1 Kenanga
         </Link>
@@ -126,7 +126,7 @@ export default function PublicLayoutClient({
 
       <Footer />
 
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-[#d1e7dd] safe-area-pb">
+      <nav className="app-chrome md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-[#d1e7dd] safe-area-pb">
         <div className="flex items-center justify-around py-2">
           {navItems.map((item) => {
             const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));

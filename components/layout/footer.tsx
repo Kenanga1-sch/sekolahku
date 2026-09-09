@@ -16,7 +16,7 @@ export default function Footer() {
   if (pathname?.startsWith("/kiosk")) return null;
 
   return (
-    <footer className="bg-[#065F46] text-white/90 w-full">
+    <footer className="app-chrome bg-[#065F46] text-white/90 w-full">
       <div className="max-w-6xl mx-auto px-4 py-12 md:py-16">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-8">
           <div className="space-y-4">

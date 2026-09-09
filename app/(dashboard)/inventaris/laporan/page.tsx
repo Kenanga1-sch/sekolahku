@@ -1,558 +1,631 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-    TrendingDown,
-    AlertTriangle,
-    Package,
-    ArrowLeft,
-    Printer,
-    RefreshCw,
-} from "lucide-react";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { ArrowLeft, Printer, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
-import type { InventoryStats } from "@/types/inventory";
-import { showError } from "@/lib/toast";
-import {
-    PieChart,
-    Pie,
-    Cell,
-    Tooltip,
-    ResponsiveContainer,
-} from "recharts";
-import { formatCurrency } from "@/lib/utils";
+import { Label } from "@/components/ui/label";
+import { KopSurat } from "@/components/reports/kop-surat";
 import { goGet } from "@/lib/api-client";
+import { getAllAssets } from "@/lib/inventory";
+import {
+    conditionTotals,
+    grandTotals,
+    groupByRoom,
+    toAssetRows,
+    unclassifiedTotal,
+} from "@/lib/inventory/report-data";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
-import { siteConfig } from "@/lib/config";
+import { formatCurrency } from "@/lib/utils";
+import type { InventoryAsset, InventoryOpname, InventoryStats } from "@/types/inventory";
+
+const today = () =>
+    new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+
+function formatDate(d?: string | null) {
+    if (!d) return "-";
+    const dt = new Date(d);
+    if (Number.isNaN(dt.getTime())) return d;
+    return dt.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+}
 
 export default function LaporanPage() {
     const { settings } = useSchoolSettings();
     const [stats, setStats] = useState<InventoryStats | null>(null);
+    const [assets, setAssets] = useState<InventoryAsset[]>([]);
     const [atkItems, setAtkItems] = useState<any[]>([]);
+    const [opnames, setOpnames] = useState<InventoryOpname[]>([]);
     const [loading, setLoading] = useState(true);
+    const [selectedOpname, setSelectedOpname] = useState<string>("");
 
-    const schoolName = settings?.school_name || siteConfig.school.name;
-    const schoolAddress = settings?.school_address || siteConfig.school.address;
-    const schoolPhone = settings?.school_phone || siteConfig.school.phone;
-    const schoolNPSN = settings?.school_npsn || siteConfig.school.npsn;
-    const principalName = settings?.principal_name || "";
-    const principalNIP = settings?.principal_nip || "";
-
-    async function loadStats() {
+    async function loadData() {
         setLoading(true);
         try {
-            const res: any = await goGet("/api/inventory/stats");
-            setStats(res.data || res);
+            const resStats: any = await goGet("/api/inventory/stats");
+            setStats(resStats?.data || resStats);
 
-            const resAtk: any = await goGet("/api/inventory/items?limit=1000");
-            setAtkItems(resAtk.items || resAtk.data || []);
+            // Ambil seluruh halaman: backend memotong limit ke 200, sehingga
+            // laporan yang hanya mengambil halaman pertama akan terpotong
+            // tanpa tanda apa pun.
+            const all = await getAllAssets();
+            setAssets(Array.isArray(all) ? all : []);
+
+            const resAtk: any = await goGet("/api/inventory/items?limit=200");
+            setAtkItems(resAtk?.items || resAtk?.data || []);
+
+            const resOp: any = await goGet("/api/inventory/opname?page=1&limit=50");
+            const list: InventoryOpname[] = resOp?.items || [];
+            setOpnames(list);
+            setSelectedOpname((prev) => prev || (list[0]?.id ?? ""));
         } catch (error) {
-            console.error("Failed to load inventory stats:", error);
-            showError("Gagal memuat data laporan");
+            console.error("Gagal memuat data laporan:", error);
         } finally {
             setLoading(false);
         }
     }
 
     useEffect(() => {
-        loadStats();
+        loadData();
     }, []);
 
-    const handlePrint = () => {
-        window.print();
-    };
+    const rows = useMemo(() => toAssetRows(assets), [assets]);
+    const groups = useMemo(() => groupByRoom(rows), [rows]);
+    const totals = useMemo(() => grandTotals(rows), [rows]);
+    const conditions = useMemo(() => conditionTotals(rows), [rows]);
+    const unclassified = useMemo(() => unclassifiedTotal(rows), [rows]);
+    const conditionSum = conditions.reduce((s, c) => s + c.count, 0);
 
-    const conditionData = stats
-        ? [
-              { name: "Baik", value: stats.itemsGood, color: "#10B981" },
-              { name: "Rusak", value: stats.itemsDamaged, color: "#EF4444" },
-              { name: "Hilang", value: stats.itemsLost, color: "#6B7280" },
-          ]
-        : [];
+    const totalAtkValue = atkItems.reduce((s, i) => s + (i.currentStock || 0) * (i.price || 0), 0);
+    const selected = opnames.find((o) => o.id === selectedOpname) || opnames[0];
 
-    const totalAtkValue = atkItems.reduce(
-        (sum, item) => sum + item.currentStock * item.price,
-        0
+    // Baris opname hanya menyimpan asset_id (kolom inventory_opname_items tidak
+    // punya kolom nama), jadi nama barang digabung dari daftar aset agar berita
+    // acara tidak mencetak "-". Kode ikut ditampilkan bila tersedia.
+    const assetNameById = useMemo(() => {
+        const m = new Map<string, { name: string; code: string }>();
+        for (const a of assets) m.set(a.id, { name: a.name || "-", code: a.code || "-" });
+        return m;
+    }, [assets]);
+
+    const Kop = ({ title, subtitle }: { title: string; subtitle?: string }) => (
+        <KopSurat
+            schoolName={settings?.school_name}
+            schoolAddress={settings?.school_address}
+            schoolPhone={settings?.school_phone}
+            schoolNpsn={settings?.school_npsn}
+            schoolLogo={settings?.school_logo}
+            title={title}
+            subtitle={subtitle}
+        />
     );
 
-    const today = new Date().toLocaleDateString("id-ID", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-    });
+    const TandaTangan = () => (
+        <div className="hidden print:block" style={{ marginTop: "18px" }}>
+            <div className="grid grid-cols-2 gap-16 text-center">
+                <div>
+                    <p style={{ fontSize: "10px" }}>Mengetahui,</p>
+                    <p style={{ fontSize: "10px", fontWeight: 600 }}>Kepala Sekolah</p>
+                    <div style={{ marginTop: "44px", borderTop: "1px solid #000" }} />
+                    <p style={{ fontSize: "9px", marginTop: "2px" }}>
+                        {settings?.principal_name || "________________"}
+                    </p>
+                    <p style={{ fontSize: "9px" }}>NIP. {settings?.principal_nip || "__________"}</p>
+                </div>
+                <div>
+                    <p style={{ fontSize: "10px" }}>{today()}</p>
+                    <p style={{ fontSize: "10px", fontWeight: 600 }}>Pengurus Inventaris</p>
+                    <div style={{ marginTop: "44px", borderTop: "1px solid #000" }} />
+                    <p style={{ fontSize: "9px", marginTop: "2px" }}>________________</p>
+                    <p style={{ fontSize: "9px" }}>NIP. __________</p>
+                </div>
+            </div>
+        </div>
+    );
 
     return (
         <>
-        <style>{`
-            @media print {
-                @page {
-                    size: A4 portrait;
-                    margin: 10mm;
-                }
-                body {
-                    -webkit-print-color-adjust: exact !important;
-                    print-color-adjust: exact !important;
-                }
-                .no-print,
-                header, aside,
-                .print\\:hidden {
-                    display: none !important;
-                }
-                .print-only {
-                    display: block !important;
-                }
-                .print-page {
-                    background: white !important;
-                }
-                .print-card {
-                    border: 1px solid #000 !important;
-                    box-shadow: none !important;
-                    page-break-inside: avoid !important;
-                    break-inside: avoid !important;
-                }
-                .print-table-wrap {
-                    overflow: visible !important;
-                    border: 1px solid #000 !important;
-                }
-                .print-table {
-                    width: 100% !important;
-                    border-collapse: collapse !important;
-                    font-size: 9px !important;
-                }
-                .print-table th,
-                .print-table td {
-                    border: 0.5px solid #000 !important;
-                    padding: 3px 5px !important;
-                    text-align: left !important;
-                    vertical-align: middle !important;
-                }
-                .print-table th {
-                    background-color: #f0f0f0 !important;
-                    font-weight: 700 !important;
-                    text-align: center !important;
-                }
-                .print-table td {
-                    text-align: center !important;
-                }
-                .print-table td:nth-child(2),
-                .print-table td:nth-child(3) {
-                    text-align: left !important;
-                }
-                .print-thead {
-                    display: table-header-group !important;
-                }
-                .print-tr-break {
-                    page-break-inside: avoid !important;
-                    break-inside: avoid !important;
-                }
-                .print-summary-grid {
-                    display: grid !important;
-                    grid-template-columns: repeat(3, 1fr) !important;
-                    gap: 4px !important;
-                    margin-bottom: 8px !important;
-                }
-                .print-summary-item {
-                    border: 1px solid #000 !important;
-                    padding: 6px !important;
-                    text-align: center !important;
-                    page-break-inside: avoid !important;
-                }
-                .print-summary-label {
-                    font-size: 8px !important;
-                    color: #555 !important;
-                }
-                .print-summary-value {
-                    font-size: 14px !important;
-                    font-weight: 700 !important;
-                }
-                .print-kop {
-                    border-bottom: 2px solid #000 !important;
-                    padding-bottom: 6px !important;
-                    margin-bottom: 4px !important;
-                }
-                .print-signature {
-                    margin-top: 16px !important;
-                    page-break-inside: avoid !important;
-                }
-                .print-signature-grid {
-                    display: grid !important;
-                    grid-template-columns: 1fr 1fr !important;
-                    gap: 40px !important;
-                    margin-top: 24px !important;
-                }
-                .print-signature-item {
-                    text-align: center !important;
-                }
-                .print-signature-line {
-                    margin-top: 40px !important;
-                    border-top: 1px solid #000 !important;
-                    display: block !important;
-                }
-                .print-chart-container {
-                    height: 160px !important;
-                }
-                .print-chart-legend {
-                    display: flex !important;
-                    justify-content: center !important;
-                    gap: 12px !important;
-                    margin-top: 4px !important;
-                    font-size: 9px !important;
-                }
-            }
-        `}</style>
+            <style>{`
+                @media print {
+                    @page { size: A4 portrait; margin: 12mm 10mm; }
+                    body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 
-        <div className="space-y-6">
-            {/* ======== SCREEN HEADER ======== */}
-            <div className="flex items-center gap-4 no-print">
-                <Link href="/inventaris">
-                    <Button variant="outline" size="icon" className="h-8 w-8 border-slate-200 bg-white shadow-sm hover:bg-slate-50" aria-label="Kembali"><ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                    .report-table { width: 100% !important; border-collapse: collapse !important; font-size: 9px !important; table-layout: fixed !important; }
+                    .report-table th, .report-table td { border: 0.5px solid #000 !important; padding: 3px 4px !important; }
+                    .report-table th { background: #f0f0f0 !important; font-weight: 700 !important; text-align: center !important; }
+                    .report-table td.num { text-align: right !important; white-space: nowrap !important; }
+                    .report-table td.mid { text-align: center !important; }
+                    .report-table td.left { text-align: left !important; word-break: break-word !important; }
+                    .report-thead { display: table-header-group !important; }
+                    .report-row { page-break-inside: avoid !important; break-inside: avoid !important; }
+
+                    /* Tabel ke-luar-kertas: min-w-max pada komponen tabel membuat
+                       lebarnya mengikuti konten terlebar. Saat cetak, lebar itu
+                       meluber melewati pinggir kertas. */
+                    .report-table { min-width: 0 !important; }
+                    .report-table th, .report-table td { white-space: normal !important; word-break: break-word !important; }
+
+                    .room-block { page-break-inside: avoid !important; break-inside: avoid !important; margin-bottom: 8px !important; }
+                    .room-head { font-weight: 700 !important; font-size: 10px !important; margin: 6px 0 2px !important; }
+
+                    .summary-grid { display: grid !important; grid-template-columns: repeat(4, 1fr) !important; gap: 4px !important; margin-bottom: 8px !important; }
+                    .summary-item { border: 1px solid #000 !important; padding: 5px !important; text-align: center !important; page-break-inside: avoid !important; }
+                    .summary-value { font-size: 13px !important; font-weight: 700 !important; }
+                    .summary-label { font-size: 8px !important; color: #555 !important; }
+
+                    .page-break { break-before: page !important; page-break-before: always !important; }
+                }
+            `}</style>
+
+            <div className="space-y-6">
+                {/* Header layar */}
+                <div className="flex items-center gap-4 print:hidden">
+                    <Link href="/inventaris">
+                        <Button variant="outline" size="icon" aria-label="Kembali">
+                            <ArrowLeft className="h-4 w-4" />
+                        </Button>
+                    </Link>
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight">Laporan Inventaris</h1>
+                        <p className="text-muted-foreground">
+                            Aset tetap, stok habis pakai, DIR, dan berita acara pemeriksaan.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="flex justify-end gap-2 print:hidden">
+                    <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
+                        <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                        Refresh
                     </Button>
-                </Link>
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Laporan Inventaris</h1>
-                    <p className="text-muted-foreground">
-                        Ringkasan statistik, kondisi aset, dan stok ATK.
-                    </p>
+                    <Button size="sm" onClick={() => window.print()}>
+                        <Printer className="mr-2 h-4 w-4" />
+                        Cetak / Simpan PDF
+                    </Button>
                 </div>
-            </div>
 
-            {/* ======== SCREEN ACTIONS ======== */}
-            <div className="flex justify-end gap-2 no-print">
-                <Button variant="outline" size="sm" onClick={loadStats} disabled={loading}>
-                    <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-                    Refresh
-                </Button>
-                <Button variant="outline" size="sm" onClick={handlePrint}>
-                    <Printer className="h-4 w-4 mr-2" />
-                    Cetak / Simpan PDF
-                </Button>
-            </div>
+                {loading ? (
+                    <Card className="print:hidden">
+                        <CardContent className="py-10 text-center text-muted-foreground">
+                            Memuat data laporan...
+                        </CardContent>
+                    </Card>
+                ) : null}
 
-            {/* ======== PRINT KOP HEADER ======== */}
-            <div className="hidden print-only print-kop">
-                <div style={{ textAlign: "center", marginBottom: "2px" }}>
-                    <h1 style={{ margin: 0, fontSize: "16px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                        {schoolName}
-                    </h1>
-                    <p style={{ margin: "1px 0", fontSize: "10px" }}>{schoolAddress}</p>
-                    <p style={{ margin: "1px 0", fontSize: "10px" }}>NPSN: {schoolNPSN} | Telp: {schoolPhone}</p>
-                </div>
-                <hr style={{ border: "none", borderTop: "2px solid #000", marginTop: "4px" }} />
-            </div>
+                <Tabs defaultValue="aset" className="space-y-6">
+                    <TabsList className="print:hidden">
+                        <TabsTrigger value="aset">Laporan Aset Tetap</TabsTrigger>
+                        <TabsTrigger value="atk">Stok Habis Pakai</TabsTrigger>
+                        <TabsTrigger value="dir">DIR per Ruangan</TabsTrigger>
+                        <TabsTrigger value="ba">Berita Acara Pemeriksaan</TabsTrigger>
+                    </TabsList>
 
-            {/* ======== TABS ======== */}
-            <Tabs defaultValue="aset" className="space-y-6">
-                <TabsList className="no-print">
-                    <TabsTrigger value="aset">Laporan Aset Tetap</TabsTrigger>
-                    <TabsTrigger value="atk">Laporan Stok ATK</TabsTrigger>
-                </TabsList>
+                    {/* ================= ASET TETAP ================= */}
+                    <TabsContent value="aset" className="space-y-4">
+                        <Kop title="LAPORAN ASET TETAP" subtitle={`Posisi per ${today()}`} />
 
-                {/* ==================== TAB ASET TETAP ==================== */}
-                <TabsContent value="aset" className="space-y-6">
-
-                    {/* Print Title */}
-                    <div className="hidden print-only" style={{ textAlign: "center", marginBottom: "4px" }}>
-                        <h2 style={{ margin: 0, fontSize: "13px", fontWeight: 700, textDecoration: "underline" }}>
-                            LAPORAN ASET TETAP
-                        </h2>
-                        <p style={{ margin: "1px 0", fontSize: "10px" }}>Posisi per {today}</p>
-                    </div>
-
-                    {/* Summary Grid — Screen */}
-                    <div className="grid gap-4 md:grid-cols-3 no-print">
-                        <Card>
-                            <CardHeader><CardTitle className="text-sm font-medium">Total Aset</CardTitle></CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">{stats?.totalAssets || 0}</div>
-                                <p className="text-xs text-muted-foreground">Unit barang terdaftar</p>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardHeader><CardTitle className="text-sm font-medium">Total Item Fisik</CardTitle></CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">{stats?.totalItems || 0}</div>
-                                <p className="text-xs text-muted-foreground">Jumlah keseluruhan unit</p>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardHeader><CardTitle className="text-sm font-medium">Estimasi Nilai</CardTitle></CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">{formatCurrency(stats?.totalValue || 0)}</div>
-                                <p className="text-xs text-muted-foreground">Total nilai aset</p>
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    {/* Summary Grid — Print */}
-                    <div className="hidden print-only print-summary-grid">
-                        <div className="print-summary-item">
-                            <div className="print-summary-value">{stats?.totalAssets || 0}</div>
-                            <div className="print-summary-label">Total Aset (Unit)</div>
+                        <div className="hidden print:block summary-grid">
+                            <div className="summary-item">
+                                <div className="summary-value">{assets.length}</div>
+                                <div className="summary-label">Jenis Aset</div>
+                            </div>
+                            <div className="summary-item">
+                                <div className="summary-value">{totals.quantity}</div>
+                                <div className="summary-label">Total Unit</div>
+                            </div>
+                            <div className="summary-item">
+                                <div className="summary-value">{formatCurrency(totals.value)}</div>
+                                <div className="summary-label">Nilai Aset</div>
+                            </div>
+                            <div className="summary-item">
+                                <div className="summary-value">{groups.length}</div>
+                                <div className="summary-label">Ruangan</div>
+                            </div>
                         </div>
-                        <div className="print-summary-item">
-                            <div className="print-summary-value">{stats?.totalItems || 0}</div>
-                            <div className="print-summary-label">Total Item Fisik</div>
-                        </div>
-                        <div className="print-summary-item">
-                            <div className="print-summary-value">{formatCurrency(stats?.totalValue || 0)}</div>
-                            <div className="print-summary-label">Estimasi Nilai (Rp)</div>
-                        </div>
-                    </div>
 
-                    {/* Chart + Attention — Screen */}
-                    <div className="grid gap-4 md:grid-cols-2 no-print">
-                        <Card className="print:break-inside-avoid">
-                            <CardHeader>
-                                <CardTitle>Distribusi Kondisi</CardTitle>
-                                <CardDescription>Persentase kondisi fisik aset</CardDescription>
-                            </CardHeader>
-                            <CardContent className="h-[280px]">
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie
-                                            data={conditionData}
-                                            cx="50%"
-                                            cy="50%"
-                                            innerRadius={60}
-                                            outerRadius={80}
-                                            paddingAngle={5}
-                                            dataKey="value"
-                                        >
-                                            {conditionData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={entry.color} />
-                                            ))}
-                                        </Pie>
-                                        <Tooltip />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                                <div className="flex justify-center gap-6 mt-4">
-                                    {conditionData.map((item) => (
-                                        <div key={item.name} className="flex items-center gap-2">
-                                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                                            <span className="text-sm text-muted-foreground">
-                                                {item.name} ({item.value})
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </CardContent>
-                        </Card>
+                        {/* Bila ringkasan server berbeda dari hasil hitung daftar,
+                            tampilkan di layar supaya ketidakkonsistenan tidak
+                            luput — misalnya aset aktif yang tak ikut terdaftar. */}
+                        {stats && stats.totalAssets !== rows.length ? (
+                            <p className="print:hidden text-xs text-amber-700">
+                                Catatan: server melaporkan {stats.totalAssets} aset, sedangkan daftar
+                                memuat {rows.length}. Periksa data yang belum lengkap.
+                            </p>
+                        ) : null}
 
-                        <Card className="print:break-inside-avoid">
-                            <CardHeader>
-                                <CardTitle>Perlu Perhatian</CardTitle>
-                                <CardDescription>Aset yang memerlukan tindakan lanjut</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="space-y-4">
-                                    {stats?.itemsDamaged ? (
-                                        <div className="flex items-center gap-4 p-4 border border-red-200 rounded-lg bg-red-50 dark:bg-red-950/20">
-                                            <div className="p-2 bg-red-100 dark:bg-red-900/50 rounded-full">
-                                                <TrendingDown className="h-4 w-4 text-red-600" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <p className="font-medium text-red-900 dark:text-red-200">{stats.itemsDamaged} Item Rusak</p>
-                                                <p className="text-sm text-red-700 dark:text-red-300">Perlu perbaikan atau penghapusan aset</p>
-                                            </div>
-                                        </div>
-                                    ) : null}
-
-                                    {stats?.itemsLost ? (
-                                        <div className="flex items-center gap-4 p-4 border border-gray-200 rounded-lg bg-gray-50 dark:bg-gray-950/20">
-                                            <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full">
-                                                <AlertTriangle className="h-4 w-4 text-gray-600" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <p className="font-medium text-gray-900 dark:text-gray-200">{stats.itemsLost} Item Hilang</p>
-                                                <p className="text-sm text-gray-600 dark:text-gray-400">Perlu investigasi atau pelaporan</p>
-                                            </div>
-                                        </div>
-                                    ) : null}
-
-                                    {!stats?.itemsDamaged && !stats?.itemsLost && (
-                                        <div className="flex flex-col items-center justify-center p-8 text-center text-muted-foreground">
-                                            <Package className="h-8 w-8 text-green-500 mb-2 opacity-50" />
-                                            <p>Semua aset dalam kondisi baik.</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    {/* Print: Condition Table (simpler than chart) */}
-                    <div className="hidden print-only print-card" style={{ padding: "8px", marginBottom: "4px" }}>
-                        <div style={{ fontWeight: 700, fontSize: "10px", marginBottom: "4px" }}>DISTRIBUSI KONDISI ASET</div>
-                        <div className="print-table-wrap">
-                            <table className="print-table">
-                                <thead className="print-thead">
+                        {/* Ringkasan kondisi — dengan baris total agar angka tertutup */}
+                        <div className="hidden print:block room-block">
+                            <div className="room-head">REKAPITULASI KONDISI</div>
+                            <table className="report-table">
+                                <thead className="report-thead">
                                     <tr>
-                                        <th>No</th>
-                                        <th>Kondisi</th>
-                                        <th>Jumlah</th>
-                                        <th>Keterangan</th>
+                                        <th style={{ width: "40%" }}>Kondisi</th>
+                                        <th style={{ width: "20%" }}>Jumlah</th>
+                                        <th style={{ width: "40%" }}>Keterangan</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {conditionData.map((item, i) => (
-                                        <tr key={item.name} className="print-tr-break">
-                                            <td>{i + 1}</td>
-                                            <td style={{ textAlign: "left" }}>{item.name}</td>
-                                            <td>{item.value}</td>
-                                            <td style={{ textAlign: "left" }}>
-                                                {item.name === "Baik" ? "Aset siap digunakan" :
-                                                 item.name === "Rusak" ? "Perlu perbaikan / penghapusan" :
-                                                 "Perlu investigasi lebih lanjut"}
+                                    {conditions.map((c) => (
+                                        <tr key={c.name} className="report-row">
+                                            <td className="left">{c.name}</td>
+                                            <td className="mid">{c.count}</td>
+                                            <td className="left">
+                                                {c.name === "Baik"
+                                                    ? "Siap digunakan"
+                                                    : c.name === "Hilang"
+                                                      ? "Perlu investigasi"
+                                                      : "Perlu perbaikan"}
                                             </td>
                                         </tr>
                                     ))}
+                                    {unclassified > 0 ? (
+                                        <tr className="report-row">
+                                            <td className="left">Belum Diklasifikasi</td>
+                                            <td className="mid">{unclassified}</td>
+                                            <td className="left">Kondisi belum diisi</td>
+                                        </tr>
+                                    ) : null}
+                                    <tr style={{ fontWeight: 700 }}>
+                                        <td className="left">Jumlah</td>
+                                        <td className="mid">{conditionSum + unclassified}</td>
+                                        <td className="left">Total unit tercatat: {totals.quantity}</td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
-                    </div>
 
-                    {/* Signature Block — Print */}
-                    <div className="hidden print-only print-signature">
-                        <div className="print-signature-grid">
-                            <div className="print-signature-item">
-                                <p style={{ fontSize: "10px" }}>Mengetahui,</p>
-                                <p style={{ fontSize: "10px", fontWeight: 600 }}>Kepala Sekolah</p>
-                                <span className="print-signature-line" />
-                                <p style={{ fontSize: "9px", marginTop: "2px" }}>{principalName || "________________"}</p>
-                                <p style={{ fontSize: "9px" }}>NIP. {principalNIP || "__________"}</p>
+                        {/* Daftar aset — inti laporan */}
+                        <div className="rounded-lg border overflow-hidden">
+                            <table className="report-table">
+                                <thead className="report-thead">
+                                    <tr>
+                                        <th style={{ width: "4%" }}>No</th>
+                                        <th style={{ width: "10%" }}>Kode</th>
+                                        <th style={{ width: "21%" }}>Nama Barang</th>
+                                        <th style={{ width: "11%" }}>Kategori</th>
+                                        <th style={{ width: "12%" }}>Ruangan</th>
+                                        <th style={{ width: "5%" }}>Qty</th>
+                                        <th style={{ width: "5%" }}>Baik</th>
+                                        <th style={{ width: "4%" }}>RR</th>
+                                        <th style={{ width: "4%" }}>RB</th>
+                                        <th style={{ width: "4%" }}>Hlg</th>
+                                        {/* Nilai butuh ruang lebih: "Rp 25.000.000"
+                                            tidak muat di kolom 11% dan pecah dua baris. */}
+                                        <th style={{ width: "20%" }}>Nilai (Rp)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {groups.map((g) => (
+                                        // Fragment shorthand tidak bisa diberi key,
+                                        // jadi dipakai <Fragment> eksplisit.
+                                        <Fragment key={g.roomName}>
+                                            <tr className="report-row">
+                                                <td colSpan={11} className="left" style={{ fontWeight: 700, background: "#f7f7f7" }}>
+                                                    {g.roomName} — {g.rows.length} jenis, {g.totalQuantity} unit
+                                                </td>
+                                            </tr>
+                                            {g.rows.map((r, i) => (
+                                                <tr key={r.id} className="report-row">
+                                                    <td className="mid">{i + 1}</td>
+                                                    <td className="left">{r.code}</td>
+                                                    <td className="left">{r.name}</td>
+                                                    <td className="left">{r.category}</td>
+                                                    <td className="left">{r.roomName}</td>
+                                                    <td className="mid">{r.quantity}</td>
+                                                    <td className="mid">{r.good}</td>
+                                                    <td className="mid">{r.lightDamaged}</td>
+                                                    <td className="mid">{r.heavyDamaged}</td>
+                                                    <td className="mid">{r.lost}</td>
+                                                    <td className="num">{formatCurrency(r.value)}</td>
+                                                </tr>
+                                            ))}
+                                            <tr className="report-row">
+                                                <td colSpan={5} className="left" style={{ fontStyle: "italic" }}>
+                                                    Sub-total {g.roomName}
+                                                </td>
+                                                <td className="mid" style={{ fontWeight: 700 }}>
+                                                    {g.totalQuantity}
+                                                </td>
+                                                <td colSpan={4} />
+                                                <td className="num" style={{ fontWeight: 700 }}>
+                                                    {formatCurrency(g.totalValue)}
+                                                </td>
+                                            </tr>
+                                        </Fragment>
+                                    ))}
+                                    <tr style={{ fontWeight: 700 }}>
+                                        <td colSpan={5} className="left">
+                                            JUMLAH KESELURUHAN
+                                        </td>
+                                        <td className="mid">{totals.quantity}</td>
+                                        <td className="mid">{conditions[0]?.count ?? 0}</td>
+                                        <td className="mid">{conditions[1]?.count ?? 0}</td>
+                                        <td className="mid">{conditions[2]?.count ?? 0}</td>
+                                        <td className="mid">{conditions[3]?.count ?? 0}</td>
+                                        <td className="num">{formatCurrency(totals.value)}</td>
+                                    </tr>
+                                    {rows.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={11} className="mid" style={{ padding: "14px" }}>
+                                                Belum ada aset tercatat.
+                                            </td>
+                                        </tr>
+                                    ) : null}
+                                </tbody>
+                            </table>
+                        </div>
+                        <p className="hidden print:block" style={{ fontSize: "8px", color: "#555" }}>
+                            RR = Rusak Ringan, RB = Rusak Berat, Hlg = Hilang
+                        </p>
+
+                        <TandaTangan />
+                    </TabsContent>
+
+                    {/* ================= STOK HABIS PAKAI ================= */}
+                    <TabsContent value="atk" className="space-y-4">
+                        <Kop title="LAPORAN STOK BARANG HABIS PAKAI" subtitle={`Posisi per ${today()}`} />
+
+                        <div className="hidden print:block summary-grid" style={{ gridTemplateColumns: "repeat(2, 1fr) !important" }}>
+                            <div className="summary-item">
+                                <div className="summary-value">{atkItems.length}</div>
+                                <div className="summary-label">Jenis Barang</div>
                             </div>
-                            <div className="print-signature-item">
-                                <p style={{ fontSize: "10px" }}>{today}</p>
-                                <p style={{ fontSize: "10px", fontWeight: 600 }}>Pengurus Inventaris</p>
-                                <span className="print-signature-line" />
-                                <p style={{ fontSize: "9px", marginTop: "2px" }}>________________</p>
-                                <p style={{ fontSize: "9px" }}>NIP. __________</p>
+                            <div className="summary-item">
+                                <div className="summary-value">{formatCurrency(totalAtkValue)}</div>
+                                <div className="summary-label">Nilai Persediaan</div>
                             </div>
                         </div>
-                    </div>
 
-                </TabsContent>
-
-                {/* ==================== TAB STOK ATK ==================== */}
-                <TabsContent value="atk" className="space-y-6">
-
-                    {/* Print Title */}
-                    <div className="hidden print-only" style={{ textAlign: "center", marginBottom: "4px" }}>
-                        <h2 style={{ margin: 0, fontSize: "13px", fontWeight: 700, textDecoration: "underline" }}>
-                            LAPORAN STOK BARANG HABIS PAKAI (ATK)
-                        </h2>
-                        <p style={{ margin: "1px 0", fontSize: "10px" }}>Posisi per {today}</p>
-                    </div>
-
-                    {/* Summary — Screen */}
-                    <Card className="no-print">
-                        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border">
-                            <div>
-                                <p className="text-xs text-muted-foreground">Total Item</p>
-                                <p className="text-xl font-bold">{atkItems.length}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs text-muted-foreground">Total Nilai Persediaan</p>
-                                <p className="text-xl font-bold text-emerald-600">{formatCurrency(totalAtkValue)}</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Summary — Print */}
-                    <div className="hidden print-only print-summary-grid" style={{ gridTemplateColumns: "repeat(2, 1fr) !important" }}>
-                        <div className="print-summary-item">
-                            <div className="print-summary-value">{atkItems.length}</div>
-                            <div className="print-summary-label">Total Item ATK</div>
+                        <div className="rounded-lg border overflow-hidden">
+                            <table className="report-table">
+                                <thead className="report-thead">
+                                    <tr>
+                                        <th style={{ width: "4%" }}>No</th>
+                                        <th style={{ width: "11%" }}>Kode</th>
+                                        <th style={{ width: "26%" }}>Nama Barang</th>
+                                        <th style={{ width: "13%" }}>Kategori</th>
+                                        <th style={{ width: "6%" }}>Stok</th>
+                                        <th style={{ width: "6%" }}>Min</th>
+                                        <th style={{ width: "8%" }}>Satuan</th>
+                                        <th style={{ width: "13%" }}>Harga</th>
+                                        <th style={{ width: "13%" }}>Nilai</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {atkItems.map((item, i) => {
+                                        const low = (item.currentStock || 0) <= (item.minStock || 0);
+                                        return (
+                                            <tr key={item.id} className="report-row">
+                                                <td className="mid">{i + 1}</td>
+                                                <td className="left">{item.code || "-"}</td>
+                                                <td className="left">{item.name}</td>
+                                                <td className="left">{item.category || "-"}</td>
+                                                <td className="mid" style={low ? { fontWeight: 700 } : undefined}>
+                                                    {item.currentStock}
+                                                </td>
+                                                <td className="mid">{item.minStock ?? 0}</td>
+                                                <td className="mid">{item.unit || "-"}</td>
+                                                <td className="num">{formatCurrency(item.price || 0)}</td>
+                                                <td className="num">{formatCurrency((item.currentStock || 0) * (item.price || 0))}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                    <tr style={{ fontWeight: 700 }}>
+                                        <td colSpan={7} className="left">
+                                            JUMLAH
+                                        </td>
+                                        <td />
+                                        <td className="num">{formatCurrency(totalAtkValue)}</td>
+                                    </tr>
+                                    {atkItems.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={9} className="mid" style={{ padding: "14px" }}>
+                                                Belum ada barang habis pakai.
+                                            </td>
+                                        </tr>
+                                    ) : null}
+                                </tbody>
+                            </table>
                         </div>
-                        <div className="print-summary-item">
-                            <div className="print-summary-value" style={{ color: "#059669" }}>{formatCurrency(totalAtkValue)}</div>
-                            <div className="print-summary-label">Total Nilai Persediaan (Rp)</div>
-                        </div>
-                    </div>
 
-                    {/* Table */}
-                    <div className="print-table-wrap rounded-lg border overflow-hidden">
-                        <Table className="print-table">
-                            <TableHeader className="print-thead">
-                                <TableRow>
-                                    <TableHead style={{ width: "4%", textAlign: "center" }}>No</TableHead>
-                                    <TableHead style={{ width: "12%" }}>Kode</TableHead>
-                                    <TableHead style={{ width: "28%" }}>Nama Barang</TableHead>
-                                    <TableHead style={{ width: "14%" }}>Kategori</TableHead>
-                                    <TableHead style={{ width: "8%", textAlign: "center" }}>Stok</TableHead>
-                                    <TableHead style={{ width: "8%", textAlign: "center" }}>Satuan</TableHead>
-                                    <TableHead style={{ width: "13%", textAlign: "right" }}>Harga (Rp)</TableHead>
-                                    <TableHead style={{ width: "13%", textAlign: "right" }}>Total Nilai (Rp)</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {atkItems.map((item, index) => (
-                                    <TableRow key={item.id} className="print-tr-break">
-                                        <TableCell style={{ textAlign: "center" }}>{index + 1}</TableCell>
-                                        <TableCell style={{ fontFamily: "monospace", fontSize: "8px" }}>{item.code || "-"}</TableCell>
-                                        <TableCell style={{ textAlign: "left" }}>{item.name}</TableCell>
-                                        <TableCell style={{ textAlign: "left" }}>{item.category || "-"}</TableCell>
-                                        <TableCell style={{
-                                            textAlign: "center",
-                                            fontWeight: item.currentStock <= (item.minStock || 0) ? 700 : 400,
-                                            color: item.currentStock <= (item.minStock || 0) ? "#dc2626" : "inherit",
-                                        }}>
-                                            {item.currentStock}
-                                        </TableCell>
-                                        <TableCell style={{ textAlign: "center" }}>{item.unit || "-"}</TableCell>
-                                        <TableCell style={{ textAlign: "right" }}>{formatCurrency(item.price)}</TableCell>
-                                        <TableCell style={{ textAlign: "right", fontWeight: 600 }}>{formatCurrency(item.currentStock * item.price)}</TableCell>
-                                    </TableRow>
-                                ))}
-                                {atkItems.length === 0 && (
-                                    <TableRow>
-                                        <TableCell colSpan={8} style={{ textAlign: "center", padding: "16px" }}>
-                                            Tidak ada data barang habis pakai.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
+                        <TandaTangan />
+                    </TabsContent>
 
-                    {/* Signature Block — Print */}
-                    <div className="hidden print-only print-signature">
-                        <div className="print-signature-grid">
-                            <div className="print-signature-item">
-                                <p style={{ fontSize: "10px" }}>Mengetahui,</p>
-                                <p style={{ fontSize: "10px", fontWeight: 600 }}>Kepala Sekolah</p>
-                                <span className="print-signature-line" />
-                                <p style={{ fontSize: "9px", marginTop: "2px" }}>{principalName || "________________"}</p>
-                                <p style={{ fontSize: "9px" }}>NIP. {principalNIP || "__________"}</p>
+                    {/* ================= DIR PER RUANGAN ================= */}
+                    <TabsContent value="dir" className="space-y-4">
+                        <Kop title="DAFTAR INVENTARIS RUANGAN (DIR)" subtitle={`Posisi per ${today()}`} />
+
+                        {groups.map((g, gi) => (
+                            <div key={g.roomName} className={gi > 0 ? "page-break" : undefined}>
+                                {/* Satu ruangan satu halaman, siap ditempel di dinding */}
+                                <div className="hidden print:block room-head" style={{ textAlign: "center", fontSize: "11px" }}>
+                                    RUANGAN: {g.roomName.toUpperCase()}
+                                </div>
+                                {gi > 0 ? (
+                                    <div className="hidden print:block" style={{ textAlign: "center", fontSize: "11px", fontWeight: 700 }}>
+                                        DAFTAR INVENTARIS RUANGAN
+                                    </div>
+                                ) : null}
+                                <div className="rounded-lg border overflow-hidden" style={{ marginBottom: "8px" }}>
+                                    <table className="report-table">
+                                        <thead className="report-thead">
+                                            <tr>
+                                                <th style={{ width: "5%" }}>No</th>
+                                                <th style={{ width: "15%" }}>Kode</th>
+                                                <th style={{ width: "35%" }}>Nama Barang</th>
+                                                <th style={{ width: "15%" }}>Kategori</th>
+                                                <th style={{ width: "10%" }}>Jumlah</th>
+                                                <th style={{ width: "20%" }}>Kondisi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {g.rows.map((r, i) => (
+                                                <tr key={r.id} className="report-row">
+                                                    <td className="mid">{i + 1}</td>
+                                                    <td className="left">{r.code}</td>
+                                                    <td className="left">{r.name}</td>
+                                                    <td className="left">{r.category}</td>
+                                                    <td className="mid">
+                                                        {r.quantity} {r.category ? "" : ""}
+                                                    </td>
+                                                    <td className="left">
+                                                        {[
+                                                            r.good ? `Baik ${r.good}` : "",
+                                                            r.lightDamaged ? `RR ${r.lightDamaged}` : "",
+                                                            r.heavyDamaged ? `RB ${r.heavyDamaged}` : "",
+                                                            r.lost ? `Hilang ${r.lost}` : "",
+                                                        ]
+                                                            .filter(Boolean)
+                                                            .join(", ") || "-"}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            <tr style={{ fontWeight: 700 }}>
+                                                <td colSpan={4} className="left">
+                                                    Jumlah
+                                                </td>
+                                                <td className="mid">{g.totalQuantity}</td>
+                                                <td className="left" />
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <TandaTangan />
                             </div>
-                            <div className="print-signature-item">
-                                <p style={{ fontSize: "10px" }}>{today}</p>
-                                <p style={{ fontSize: "10px", fontWeight: 600 }}>Pengurus Inventaris</p>
-                                <span className="print-signature-line" />
-                                <p style={{ fontSize: "9px", marginTop: "2px" }}>________________</p>
-                                <p style={{ fontSize: "9px" }}>NIP. __________</p>
-                            </div>
+                        ))}
+
+                        {groups.length === 0 ? (
+                            <Card className="print:hidden">
+                                <CardContent className="py-8 text-center text-muted-foreground">
+                                    Belum ada aset untuk disusun per ruangan.
+                                </CardContent>
+                            </Card>
+                        ) : null}
+                    </TabsContent>
+
+                    {/* ================= BERITA ACARA PEMERIKSAAN ================= */}
+                    <TabsContent value="ba" className="space-y-4">
+                        <Kop title="BERITA ACARA PEMERIKSAAN BARANG (OPNAME)" subtitle={selected ? formatDate(selected.date) : undefined} />
+
+                        <div className="print:hidden">
+                            <Card>
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-sm">Pilih Sesi Pemeriksaan</CardTitle>
+                                    <CardDescription className="text-xs">
+                                        Berita acara disusun dari sesi opname yang tersimpan.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    {opnames.length === 0 ? (
+                                        <p className="text-sm text-muted-foreground">
+                                            Belum ada sesi pemeriksaan tersimpan.
+                                        </p>
+                                    ) : (
+                                        <div className="grid gap-2">
+                                            <Label className="text-xs">Sesi</Label>
+                                            <select
+                                                className="w-full border rounded px-2 py-2 text-sm bg-background"
+                                                value={selected?.id ?? ""}
+                                                onChange={(e) => setSelectedOpname(e.target.value)}
+                                            >
+                                                {opnames.map((o) => (
+                                                    <option key={o.id} value={o.id}>
+                                                        {formatDate(o.date)} — {o.expand?.room?.name || "Semua ruangan"} ({o.status})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
                         </div>
-                    </div>
-                </TabsContent>
-            </Tabs>
-        </div>
+
+                        {selected ? (
+                            <>
+                                <div className="hidden print:block" style={{ fontSize: "10px", marginBottom: "4px" }}>
+                                    <p>
+                                        Pada hari ini <b>{formatDate(selected.date)}</b> telah dilakukan
+                                        pemeriksaan barang di <b>{selected.expand?.room?.name || "seluruh ruangan"}</b>{" "}
+                                        dengan hasil sebagai berikut:
+                                    </p>
+                                </div>
+
+                                <div className="rounded-lg border overflow-hidden">
+                                    <table className="report-table">
+                                        <thead className="report-thead">
+                                            <tr>
+                                                <th style={{ width: "4%" }}>No</th>
+                                                <th style={{ width: "26%" }}>Nama Barang</th>
+                                                <th style={{ width: "10%" }}>Sistem</th>
+                                                <th style={{ width: "10%" }}>Baik</th>
+                                                <th style={{ width: "10%" }}>RR</th>
+                                                <th style={{ width: "10%" }}>RB</th>
+                                                <th style={{ width: "10%" }}>Hilang</th>
+                                                <th style={{ width: "10%" }}>Selisih</th>
+                                                <th style={{ width: "10%" }}>Ket.</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {selected.items.map((it, i) => {
+                                                const counted =
+                                                    (it.qtyGood || 0) +
+                                                    (it.qtyLightDamage || 0) +
+                                                    (it.qtyHeavyDamage || 0) +
+                                                    (it.qtyLost || 0);
+                                                const diff = counted - (it.systemQty || 0);
+                                                return (
+                                                    <tr key={it.assetId || i} className="report-row">
+                                                        <td className="mid">{i + 1}</td>
+                                                        <td className="left">
+                                                            {assetNameById.get(it.assetId)?.name || it.assetName || "-"}
+                                                            <span style={{ color: "#666" }}>
+                                                                {assetNameById.get(it.assetId)?.code
+                                                                    ? ` (${assetNameById.get(it.assetId)?.code})`
+                                                                    : ""}
+                                                            </span>
+                                                        </td>
+                                                        <td className="mid">{it.systemQty}</td>
+                                                        <td className="mid">{it.qtyGood}</td>
+                                                        <td className="mid">{it.qtyLightDamage}</td>
+                                                        <td className="mid">{it.qtyHeavyDamage}</td>
+                                                        <td className="mid">{it.qtyLost}</td>
+                                                        <td className="mid" style={diff !== 0 ? { fontWeight: 700 } : undefined}>
+                                                            {diff > 0 ? `+${diff}` : diff}
+                                                        </td>
+                                                        <td className="left">{it.notes || "-"}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                            {selected.items.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={9} className="mid" style={{ padding: "14px" }}>
+                                                        Tidak ada baris pemeriksaan pada sesi ini.
+                                                    </td>
+                                                </tr>
+                                            ) : null}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {selected.note ? (
+                                    <p className="hidden print:block" style={{ fontSize: "10px" }}>
+                                        Catatan: {selected.note}
+                                    </p>
+                                ) : null}
+
+                                <TandaTangan />
+                            </>
+                        ) : (
+                            <Card className="print:hidden">
+                                <CardContent className="py-8 text-center text-muted-foreground">
+                                    Pilih sesi pemeriksaan terlebih dahulu.
+                                </CardContent>
+                            </Card>
+                        )}
+                    </TabsContent>
+                </Tabs>
+            </div>
         </>
     );
 }

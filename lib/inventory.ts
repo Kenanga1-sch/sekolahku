@@ -111,6 +111,40 @@ export async function deleteAsset(id: string): Promise<boolean> {
 
 // ============ Opname ============
 
+/**
+ * Ambil SEMUA aset untuk laporan, dengan menelusuri halaman.
+ *
+ * Backend memotong `limit` menjadi paling banyak 200 (inventoryPaging), jadi
+ * meminta ?limit=1000 tidak pernah bekerja — ia sunyi-sunyi dipotong.
+ * Laporan yang hanya mengambil halaman pertama akan kehilangan sisanya tanpa
+ * tanda apa pun. Fungsi ini membaca totalItems dan mengulang sampai semua
+ * halaman terkumpul.
+ *
+ * Batas halaman diminta 200 (batas atas backend) agar jumlah permintaan
+ * sesedikit mungkin.
+ */
+export async function getAllAssets(
+    filter: AssetFilter = {},
+    maxPages = 200,
+): Promise<InventoryAsset[]> {
+    const all: InventoryAsset[] = [];
+    let page = 1;
+    while (page <= maxPages) {
+        const res = await getAssets(page, 200, filter);
+        const items = res?.items ?? [];
+        all.push(...items);
+        const totalItems = res?.totalItems ?? items.length;
+        const totalPages = res?.totalPages ?? 1;
+        // Hentikan juga bila server mengembalikan halaman kosong, supaya
+        // hitungan total yang keliru tidak membuat pengulangan tak berujung.
+        if (items.length === 0) break;
+        if (all.length >= totalItems) break;
+        if (page >= totalPages) break;
+        page += 1;
+    }
+    return all;
+}
+
 export async function getOpnameSessions(
     page = 1,
     perPage = 20,

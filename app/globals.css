@@ -459,19 +459,45 @@
     background: white !important;
   }
 
-  /* Hide app chrome that should never print */
+  /* Sembunyikan kerangka aplikasi yang tak pernah perlu tercetak.
+     Dulu selektornya memakai elemen telanjang (header, nav, aside, footer).
+     Itu terlalu luas: kop surat Buku Induk memang berupa elemen <header>
+     (kop-header.tsx), sehingga ikut hilang saat cetak. Kini tiap kerangka
+     ditandai sendiri dengan .app-chrome (lihat layout-client, footer,
+     public-layout) dan yang lama sudah memakai print:hidden. */
   .no-print,
-  #app-version,
-  header,
-  nav,
-  aside,
-  footer {
+  .app-chrome,
+  .print-hidden,
+  #app-version {
     display: none !important;
   }
 
+  /* Dulu @page di sini memaksa "A4 landscape" untuk SEMUA halaman. Akibatnya
+     laporan inventaris yang minta portrait tercetak miring, dan setiap modul
+     harus menuliskan ulang @page-nya sendiri untuk melawan paksaan ini.
+     Kini tidak ada paksaan arah; tiap modul menentukan sendiri
+     (inventaris portrait, perpustakaan & buku-induk landscape). */
   @page {
-    size: A4 landscape;
+    size: A4;
     margin: 5mm;
+  }
+
+  /* Tabel yang memakai komponen Table membawa min-w-max dan whitespace-nowrap
+     supaya bisa digulir di layar. Saat cetak, keduanya membuat tabel melebar
+     melewati pinggir kertas dan kolom terpotong. Aturan ini hanya berlaku
+     saat cetak, jadi tampilan layar tidak berubah. */
+  .print-table,
+  .print-table th,
+  .print-table td {
+    min-width: 0 !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+  }
+  .print-table {
+    table-layout: fixed !important;
+  }
+  .print-table-container {
+    overflow: visible !important;
   }
 
   /* Force background colors on print */

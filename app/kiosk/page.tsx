@@ -522,7 +522,7 @@ export default function KioskPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex flex-col">
             {/* Header */}
-            <header className="p-3 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-b border-white/5">
+            <header className="app-chrome p-3 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-b border-white/5">
                 <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-xl bg-blue-500 flex items-center justify-center">
                         <BookOpen className="h-6 w-6 text-white" />
