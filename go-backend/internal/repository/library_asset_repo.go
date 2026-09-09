@@ -219,9 +219,39 @@ func (r *LibraryRepository) BindAsset(qrCode, location string, catalog models.Ca
 	return tx.Commit()
 }
 
-// GenerateQRBatch generates a batch of QR codes for library assets
+// ensureQRCodeTable membuat tabel penahan kode QR bila belum ada.
+// Migrasi 000038 yang menjadi jalur utama; ini hanya jaga-jaga untuk
+// pemasangan yang melewatkan migrasi, sejalan dengan ensureQRBatchTable.
+func (r *LibraryRepository) ensureQRCodeTable() error {
+	_, err := r.DB.Exec(`
+		CREATE TABLE IF NOT EXISTS library_qr_codes (
+			code TEXT PRIMARY KEY,
+			batch_id TEXT NOT NULL,
+			created_at INTEGER
+		)
+	`)
+	return err
+}
+
+const qrSequenceRetryLimit = 100
+
+// GenerateQRBatch generates a batch of QR codes for library assets.
+//
+// Nomor awal dulu dihitung dengan MAX(end_sequence)+1 lalu disisipkan di LUAR
+// transaksi. Dua permintaan yang berbarengan membaca MAX yang sama dan
+// mendapat rentang yang sama — terbukti menghasilkan nomor kembar pada 20
+// permintaan bersamaan.
+//
+// Kini seluruhnya berjalan dalam satu transaksi, dan setiap kode dicadangkan
+// di library_qr_codes yang `code`-nya primary key. Bila rentang bentrok,
+// SQLite menolak penyisipan, transaksi digulung balik, lalu dicoba lagi
+// dengan nomor awal berikutnya. Karena itu kode kembar mustahil terjadi:
+// bukan "kecil kemungkinannya", melainkan ditolak basis data.
 func (r *LibraryRepository) GenerateQRBatch(prefix string, count int) ([]string, *models.QRBatchItem, error) {
 	if err := r.ensureQRBatchTable(); err != nil {
+		return nil, nil, err
+	}
+	if err := r.ensureQRCodeTable(); err != nil {
 		return nil, nil, err
 	}
 	prefix = strings.ToUpper(strings.TrimSpace(prefix))
@@ -237,13 +267,38 @@ func (r *LibraryRepository) GenerateQRBatch(prefix string, count int) ([]string,
 
 	date := TodayJakarta()
 	dateCode := NowJakarta().Format("20060102")
+
+	for attempt := 0; attempt < qrSequenceRetryLimit; attempt++ {
+		codes, batch, retry, err := r.tryGenerateQRBatch(prefix, dateCode, date, count)
+		if err != nil {
+			return nil, nil, err
+		}
+		if !retry {
+			return codes, batch, nil
+		}
+	}
+	return nil, nil, errors.New("tidak dapat menemukan nomor QR yang belum terpakai")
+}
+
+// tryGenerateQRBatch menjalankan satu percobaan. Mengembalikan retry=true bila
+// rentang nomor bentrok dan harus dicoba lagi dengan nomor awal berikutnya.
+func (r *LibraryRepository) tryGenerateQRBatch(prefix, dateCode, date string, count int) ([]string, *models.QRBatchItem, bool, error) {
+	// Satu koneksi dipakai seluruhnya oleh transaksi ini (SetMaxOpenConns(1)
+	// di produksi), jadi setiap query harus lewat tx — query di luar tx akan
+	// menunggu transaksi ini selesai, yang menunggu query itu: deadlock.
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return nil, nil, false, err
+	}
+	defer tx.Rollback()
+
 	startSequence := 1
-	if err := r.DB.QueryRow(`
+	if err := tx.QueryRow(`
 		SELECT COALESCE(MAX(end_sequence), 0) + 1
 		FROM library_qr_batches
 		WHERE prefix = ? AND date = ?
 	`, prefix, date).Scan(&startSequence); err != nil {
-		return nil, nil, err
+		return nil, nil, false, err
 	}
 	endSequence := startSequence + count - 1
 
@@ -254,12 +309,25 @@ func (r *LibraryRepository) GenerateQRBatch(prefix string, count int) ([]string,
 
 	id := cuid2.Generate()
 	now := UnixMilli()
-	_, err := r.DB.Exec(`
+
+	// Cadangkan kode dulu. Bentrok di sini berarti rentangnya sudah dipakai.
+	for _, code := range codes {
+		if _, err := tx.Exec(`
+			INSERT INTO library_qr_codes (code, batch_id, created_at) VALUES (?, ?, ?)
+		`, code, id, now); err != nil {
+			return nil, nil, true, nil
+		}
+	}
+
+	if _, err := tx.Exec(`
 		INSERT INTO library_qr_batches (id, date, prefix, start_sequence, end_sequence, batch_size, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, id, date, prefix, startSequence, endSequence, count, now)
-	if err != nil {
-		return nil, nil, err
+	`, id, date, prefix, startSequence, endSequence, count, now); err != nil {
+		return nil, nil, false, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, nil, false, err
 	}
 
 	batch := &models.QRBatchItem{
@@ -271,7 +339,7 @@ func (r *LibraryRepository) GenerateQRBatch(prefix string, count int) ([]string,
 		BatchSize:     count,
 		CreatedAt:     time.Now(),
 	}
-	return codes, batch, nil
+	return codes, batch, false, nil
 }
 
 // GetQRBatches returns a paginated list of QR code batch records
