@@ -19,10 +19,13 @@ import {
     Download,
     Calendar,
     ArrowLeft,
+    Printer,
 } from "lucide-react";
 import Link from "next/link";
 import { showSuccess, showError } from "@/lib/toast";
 import { goGet } from "@/lib/api-client";
+import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import { KopSurat } from "@/components/reports/kop-surat";
 import type { TabunganStats, TabunganTransaksiWithRelations, TabunganKelas } from "@/types/tabungan";
 
 function formatRupiah(amount: number): string {
@@ -44,9 +47,12 @@ function getDateRange(period: PeriodType): { start: string; end: string } {
         case "today":
             start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             break;
-        case "week":
-            start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        case "week": {
+            // Awal minggu = Senin (getDay(): Minggu=0 .. Sabtu=6).
+            const day = (now.getDay() + 6) % 7;
+            start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day);
             break;
+        }
         case "month":
             start = new Date(now.getFullYear(), now.getMonth(), 1);
             break;
@@ -61,6 +67,7 @@ function getDateRange(period: PeriodType): { start: string; end: string } {
 }
 
 export default function TabunganLaporanPage() {
+    const { settings } = useSchoolSettings();
     const [stats, setStats] = useState<TabunganStats | null>(null);
     const [transactions, setTransactions] = useState<TabunganTransaksiWithRelations[]>([]);
     const [kelasList, setKelasList] = useState<TabunganKelas[]>([]);
@@ -136,8 +143,9 @@ export default function TabunganLaporanPage() {
     };
 
     const handleExport = () => {
-        // Simple CSV export
         const headers = ["Tanggal", "Siswa", "Kelas", "Tipe", "Nominal", "Status"];
+        // Nilai di-quote dan escape: nama berisi koma/kutip tidak boleh
+        // merusak kolom (dulu join(",") polos).
         const rows = transactions.map((t) => [
             new Date(t.createdAt || "").toLocaleDateString("id-ID"),
             t.siswa?.nama || "-",
@@ -146,9 +154,10 @@ export default function TabunganLaporanPage() {
             t.nominal.toString(),
             t.status,
         ]);
-
-        const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-        const blob = new Blob([csv], { type: "text/csv" });
+        const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+        // BOM supaya Excel membaca UTF-8 dengan benar.
+        const csv = "\uFEFF" + [headers.map(esc).join(","), ...rows.map((r) => r.map(esc).join(","))].join("\n");
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -166,21 +175,63 @@ export default function TabunganLaporanPage() {
         year: "Tahun Ini",
     };
 
+    const range = getDateRange(period);
+    const periodeTeks = `${range.start.slice(0, 10)} s.d. ${range.end.slice(0, 10)}`;
+
     // Peringatan bila data periode tidak dimuat seluruhnya: ringkasan di bawah
     // menjumlah dari baris yang ada, jadi pengguna perlu tahu angkanya bisa
     // kurang dari kenyataan.
     const peringatanTerpotong =
         terpotong ? (
-            <p className="text-xs text-amber-700">
+            <p className="text-xs text-amber-700 print:hidden">
                 Perhatian: data tidak termuat seluruhnya ({transactions.length} dari {totalTransaksi}{" "}
                 transaksi). Angka ringkasan di halaman ini mungkin kurang dari sebenarnya — persempit periode.
             </p>
         ) : null;
 
+    const tandaTanggal = new Date().toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+    });
+
     return (
         <div className="space-y-6">
+            {/* Gaya tabel: berlaku di LAYAR maupun CETAK (pola yang sama dengan
+                inventaris & perpustakaan — dulu halaman ini sama sekali tak punya
+                tabel). */}
+            <style>{`
+                .tb-laporan { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12px; }
+                .tb-laporan th, .tb-laporan td { border: 1px solid #e2e8f0; padding: 6px 8px; overflow-wrap: break-word; }
+                .tb-laporan th { background: #f8fafc; font-weight: 700; text-align: center; }
+                .tb-laporan td.num { text-align: right; white-space: nowrap; }
+                .tb-laporan td.mid { text-align: center; }
+                .tb-laporan tr.total-row td { font-weight: 700; background: #f8fafc; }
+                .tb-laporan tbody tr:hover { background: #f8fafc; }
+                @media print {
+                    .tb-laporan { font-size: 9px !important; }
+                    .tb-laporan th, .tb-laporan td { border: 0.5px solid #000 !important; padding: 3px 4px !important; }
+                    .tb-laporan th { background: #f0f0f0 !important; }
+                    .tb-laporan tbody tr:hover { background: transparent !important; }
+                    .tb-laporan thead { display: table-header-group; }
+                    .tb-laporan tr { page-break-inside: avoid; }
+                }
+                @page { size: A4 portrait; margin: 12mm 10mm; }
+            `}</style>
+
+            {/* Kop surat hanya saat cetak (pola KopSurat: hidden print:block) */}
+            <KopSurat
+                schoolName={settings?.school_name}
+                schoolAddress={settings?.school_address}
+                schoolPhone={settings?.school_phone}
+                schoolNpsn={settings?.school_npsn}
+                schoolLogo={settings?.school_logo}
+                title="LAPORAN TABUNGAN SISWA"
+                subtitle={`Periode: ${periodeTeks}`}
+            />
+
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 print:hidden">
                 <div className="flex items-center gap-4">
                     <Link href="/tabungan">
                         <Button variant="outline" size="icon" className="h-8 w-8 border-slate-200 bg-white shadow-sm hover:bg-slate-50">
@@ -211,13 +262,17 @@ export default function TabunganLaporanPage() {
                         <Download className="h-4 w-4 mr-2" />
                         Export CSV
                     </Button>
+                    <Button variant="outline" onClick={() => window.print()} disabled={transactions.length === 0}>
+                        <Printer className="h-4 w-4 mr-2" />
+                        Cetak / PDF
+                    </Button>
                 </div>
             </div>
 
             {peringatanTerpotong}
 
-            {/* Overall Stats */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Overall Stats — layar saja; versi cetak memakai tabel di bawah */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 print:hidden">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                         <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -290,7 +345,7 @@ export default function TabunganLaporanPage() {
             </div>
 
             {/* Period Stats */}
-            <Card>
+            <Card className="print:hidden">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <Calendar className="h-5 w-5" />
@@ -345,7 +400,7 @@ export default function TabunganLaporanPage() {
             </Card>
 
             {/* Net Change */}
-            <Card>
+            <Card className="print:hidden">
                 <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                         <div>
@@ -379,6 +434,95 @@ export default function TabunganLaporanPage() {
                     </div>
                 </CardContent>
             </Card>
+
+            {/* ── Versi cetak: ringkasan kotak + tabel rincian + tanda tangan ──
+                Layar memakai kartu; kertas memakai blok ini (grid bergaris
+                supaya terbaca di hitam-putih). */}
+            <div className="hidden print:block space-y-3">
+                <div
+                    className="grid gap-4"
+                    style={{ gridTemplateColumns: "repeat(4, 1fr)" }}
+                >
+                    <div style={{ border: "1px solid #000", padding: 5, textAlign: "center" }}>
+                        <div style={{ fontSize: 13, fontWeight: 700 }}>{formatRupiah(stats?.totalSaldo || 0)}</div>
+                        <div style={{ fontSize: 8, color: "#555" }}>TOTAL SALDO</div>
+                    </div>
+                    <div style={{ border: "1px solid #000", padding: 5, textAlign: "center" }}>
+                        <div style={{ fontSize: 13, fontWeight: 700 }}>{stats?.totalSiswa || 0}</div>
+                        <div style={{ fontSize: 8, color: "#555" }}>TOTAL SISWA</div>
+                    </div>
+                    <div style={{ border: "1px solid #000", padding: 5, textAlign: "center" }}>
+                        <div style={{ fontSize: 13, fontWeight: 700 }}>{formatRupiah(periodStats.totalSetor)}</div>
+                        <div style={{ fontSize: 8, color: "#555" }}>TOTAL SETORAN</div>
+                    </div>
+                    <div style={{ border: "1px solid #000", padding: 5, textAlign: "center" }}>
+                        <div style={{ fontSize: 13, fontWeight: 700 }}>{formatRupiah(periodStats.totalTarik)}</div>
+                        <div style={{ fontSize: 8, color: "#555" }}>TOTAL PENARIKAN</div>
+                    </div>
+                </div>
+
+                <table className="tb-laporan">
+                    <thead>
+                        <tr>
+                            <th style={{ width: "5%" }}>No</th>
+                            <th style={{ width: "12%" }}>Tanggal</th>
+                            <th style={{ width: "25%" }}>Siswa</th>
+                            <th style={{ width: "13%" }}>Kelas</th>
+                            <th style={{ width: "10%" }}>Tipe</th>
+                            <th style={{ width: "15%" }}>Nominal</th>
+                            <th style={{ width: "10%" }}>Status</th>
+                            <th style={{ width: "10%" }}>Petugas</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {transactions.map((t, i) => (
+                            <tr key={t.id || i}>
+                                <td className="mid">{i + 1}</td>
+                                <td className="mid">
+                                    {t.createdAt ? new Date(t.createdAt).toLocaleDateString("id-ID") : "-"}
+                                </td>
+                                <td>{t.siswa?.nama || "-"}</td>
+                                <td className="mid">{t.siswa?.kelas?.nama || "-"}</td>
+                                <td className="mid">{t.tipe === "setor" ? "Setor" : "Tarik"}</td>
+                                <td className="num">{formatRupiah(t.nominal)}</td>
+                                <td className="mid">{t.status}</td>
+                                <td className="mid">{t.user?.name || "-"}</td>
+                            </tr>
+                        ))}
+                        {transactions.length === 0 && (
+                            <tr>
+                                <td colSpan={8} className="mid" style={{ padding: 12 }}>
+                                    Tidak ada transaksi pada periode ini
+                                </td>
+                            </tr>
+                        )}
+                        <tr className="total-row">
+                            <td colSpan={5}>JUMLAH</td>
+                            <td className="num">
+                                {formatRupiah(periodStats.totalSetor + periodStats.totalTarik)}
+                            </td>
+                            <td colSpan={2}>{periodStats.jumlahTransaksi} transaksi</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, textAlign: "center" }}>
+                    <div>
+                        <p style={{ fontSize: 11 }}>Mengetahui,</p>
+                        <p style={{ fontSize: 11, fontWeight: 700 }}>Kepala Sekolah</p>
+                        <div style={{ marginTop: 44, borderTop: "1px solid #000" }} />
+                        <p style={{ fontSize: 9 }}>{settings?.principal_name || "________________"}</p>
+                        <p style={{ fontSize: 9 }}>NIP. {settings?.principal_nip || "__________"}</p>
+                    </div>
+                    <div>
+                        <p style={{ fontSize: 11 }}>{tandaTanggal}</p>
+                        <p style={{ fontSize: 11, fontWeight: 700 }}>Bendahara Sekolah</p>
+                        <div style={{ marginTop: 44, borderTop: "1px solid #000" }} />
+                        <p style={{ fontSize: 9 }}>________________</p>
+                        <p style={{ fontSize: 9 }}>NIP. __________</p>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }
