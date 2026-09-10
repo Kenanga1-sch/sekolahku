@@ -1,9 +1,15 @@
-import { Document, Page, Text, View, StyleSheet, Font, Image } from "@react-pdf/renderer";
+import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
+import { KopSuratPDF, type KopSuratPDFProps } from "@/components/reports/kop-surat-pdf";
+import { terbilangRupiah } from "@/lib/terbilang";
 
-// Keep fonts simple for now, using built-in Helvetica/Times or register one if needed.
-// For monospace numbers, we can use Courier, but let's stick to standard fonts first for reliability.
+export interface YearEndReportPDFProps extends KopSuratPDFProps {
+    /** Kota penanda tangan, mis. "Kenanga". Kosong -> hanya tanggal. */
+    cityName?: string | null;
+    /** Nama bendahara untuk blok tanda tangan. */
+    treasurerName?: string | null;
+}
 
 const styles = StyleSheet.create({
     page: {
@@ -11,31 +17,6 @@ const styles = StyleSheet.create({
         fontSize: 10,
         fontFamily: "Helvetica",
         flexDirection: "column",
-    },
-    header: {
-        marginBottom: 20,
-        textAlign: "center",
-    },
-    schoolName: {
-        fontSize: 16,
-        fontWeight: "bold",
-        marginBottom: 4,
-        textTransform: "uppercase",
-    },
-    schoolAddress: {
-        fontSize: 10,
-        color: "#555",
-        marginBottom: 8,
-    },
-    reportTitle: {
-        fontSize: 14,
-        fontWeight: "bold",
-        marginTop: 10,
-        marginBottom: 20,
-        textAlign: "center",
-        textTransform: "uppercase",
-        borderBottom: "1pt solid #000",
-        paddingBottom: 10,
     },
     section: {
         marginBottom: 15,
@@ -171,30 +152,34 @@ const formatRupiah = (amount: number) => {
     }).format(amount);
 };
 
-const formatDate = (dateStr: string) => {
-    return format(new Date(dateStr), "d MMMM yyyy", { locale: id });
-};
-
-const formatMonth = (monthKey: string) => {
-    const [year, month] = monthKey.split("-");
-    const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+const formatMonth = (monthKey: string, year?: number) => {
+    // Backend mengirim kunci "01".."12" (bulan kalender WIB).
+    let month = parseInt(monthKey, 10);
+    let y = year || new Date().getFullYear();
+    if (monthKey.includes("-")) {
+        const [yy, mm] = monthKey.split("-");
+        y = parseInt(yy, 10);
+        month = parseInt(mm, 10);
+    }
+    const date = new Date(y, month - 1, 1);
     return format(date, "MMMM yyyy", { locale: id });
 };
 
-export const YearEndReportPDF = ({ report }: { report: ReportData }) => {
+export const YearEndReportPDF = ({ report, schoolInfo }: { report: ReportData; schoolInfo?: YearEndReportPDFProps }) => {
     const monthlyEntries = Object.entries(report.tabungan.monthlySummary).sort();
+    // Terbilang dihitung di sini dari netBalance — satu sumber di lib/terbilang,
+    // bukan salinan kata per kata di dokumen.
+    const terbilangNet = terbilangRupiah(report.settlement.netBalance);
 
     return (
         <Document>
             <Page size="A4" style={styles.page}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <Text style={styles.schoolName}>SMK Al-Ihya Selajambe</Text>
-                    <Text style={styles.schoolAddress}>
-                        Jalan Raya Selajambe No. 17, Selajambe, Kuningan, Jawa Barat 45566
-                    </Text>
-                    <Text style={styles.reportTitle}>Laporan Akhir Tahun Tabungan & Keuangan</Text>
-                </View>
+                {/* Kop surat: identitas sekolah dari pengaturan, bukan hardcode.
+                    Sebelumnya menulis nama & alamat sekolah lain di dokumen resmi. */}
+                <KopSuratPDF
+                    title="Laporan Akhir Tahun Tabungan & Keuangan"
+                    {...(schoolInfo || {})}
+                />
 
                 {/* Student Info */}
                 <View style={[styles.section, { border: "1pt solid #ddd", padding: 10, borderRadius: 4 }]}>
@@ -237,7 +222,7 @@ export const YearEndReportPDF = ({ report }: { report: ReportData }) => {
                     {/* Transactions */}
                     {monthlyEntries.map(([month, data], index) => (
                         <View key={month} style={[styles.row, index % 2 === 0 ? styles.rowOdd : styles.rowEven]}>
-                            <Text style={[styles.cell, styles.col1]}>{formatMonth(month)}</Text>
+                            <Text style={[styles.cell, styles.col1]}>{formatMonth(month, report.period.year)}</Text>
                             <Text style={[styles.cellRight, styles.col2, { color: data.setor > 0 ? "green" : "black" }]}>
                                 {data.setor > 0 ? formatRupiah(data.setor) : "-"}
                             </Text>
@@ -316,7 +301,7 @@ export const YearEndReportPDF = ({ report }: { report: ReportData }) => {
                         </View>
                         <View style={{ marginTop: 10, borderTop: "1pt dashed #ccc", paddingTop: 5 }}>
                             <Text style={{ fontSize: 9, fontStyle: "italic", textAlign: "center", color: "#666" }}>
-                                Terbilang: {report.settlement.terbilang}
+                                Terbilang: {terbilangNet}
                             </Text>
                         </View>
                     </View>
@@ -332,10 +317,11 @@ export const YearEndReportPDF = ({ report }: { report: ReportData }) => {
                     </View>
 
                     <View style={styles.signatureBlock}>
-                        <Text>Kuningan, {formatDate(new Date().toISOString())}</Text>
+                        {/* Kota mengikuti identitas sekolah (pengaturan), bukan hardcode. */}
+                        <Text>{schoolInfo?.cityName || format(new Date(), "d MMMM yyyy", { locale: id })}</Text>
                         <Text>Bendahara Sekolah</Text>
                         <View style={styles.signatureLine} />
-                        <Text style={{ fontWeight: "bold" }}>Admin Tabungan</Text>
+                        <Text style={{ fontWeight: "bold" }}>{schoolInfo?.treasurerName || "________________"}</Text>
                     </View>
                 </View>
 

@@ -227,12 +227,66 @@ type FinalReportTransaction struct {
 	Tanggal string `json:"tanggal,omitempty"`
 }
 
+// FinalReportMonth agregasi satu bulan dalam ringkasan bulanan laporan akhir tahun.
+// Kunci map adalah "01".."12" sesuai bulan kalender WIB.
+type FinalReportMonth struct {
+	Setor int `json:"setor"`
+	Tarik int `json:"tarik"`
+	Saldo int `json:"saldo"`
+}
+
+// FinalReportHutangRincian satu baris kewajiban siswa pada laporan akhir tahun.
+type FinalReportHutangRincian struct {
+	Keterangan string `json:"keterangan"`
+	Jumlah     int    `json:"jumlah"`
+}
+
+// FinalReportHutang rekap hutang aktif pada laporan akhir tahun.
+type FinalReportHutang struct {
+	TotalHutangAktif int                       `json:"totalHutangAktif"`
+	Rincian          []FinalReportHutangRincian `json:"rincian"`
+}
+
+// Status pencairan akhir tahun.
+const (
+	SettlementSiapCair    = "SIAP_CAIR"
+	SettlementKurangBayar = "KURANG_BAYAR"
+)
+
+// FinalReportSettlement kesimpulan pencairan: saldo dikurangi kewajiban.
+type FinalReportSettlement struct {
+	NetBalance int    `json:"netBalance"`
+	Status     string `json:"status"`
+	// Terbilang diisi oleh klien (lihat lib/terbilang.ts) supaya backend
+	// tidak perlu menyimpan daftar kata Bahasa Indonesia.
+	Terbilang string `json:"terbilang"`
+}
+
+// FinalReportPeriod rentang tahun kalender WIB yang dilaporkan.
+type FinalReportPeriod struct {
+	Year      int    `json:"year"`
+	StartDate string `json:"startDate"`
+	EndDate   string `json:"endDate"`
+}
+
+// FinalReport adalah laporan keuangan akhir tahun satu siswa.
+//
+// Bentuk ini mengikuti halaman depan (app/(dashboard)/tabungan/laporan/akhir-tahun)
+// dan PDF-nya — sebelumnya backend hanya mengirim siswa/transactions/total, tetapi
+// depan membaca period.monthlySummary/hutang/settlement yang tidak pernah dikirim,
+// sehingga halaman selamanya kosong.
 type FinalReport struct {
-	Siswa        FinalReportSiswa        `json:"siswa"`
-	Transactions []FinalReportTransaction `json:"transactions"`
-	TotalSetor   int                     `json:"totalSetor"`
-	TotalTarik   int                     `json:"totalTarik"`
-	SaldoAkhir   int                     `json:"saldoAkhir"`
+	Siswa          FinalReportSiswa         `json:"siswa"`
+	Period         FinalReportPeriod        `json:"period"`
+	Transactions   []FinalReportTransaction `json:"transactions"`
+	MonthlySummary map[string]FinalReportMonth `json:"monthlySummary"`
+	OpeningBalance int                      `json:"openingBalance"`
+	TotalSetor     int                      `json:"totalSetor"`
+	TotalTarik     int                      `json:"totalTarik"`
+	SaldoAkhir     int                      `json:"saldoAkhir"`
+	Hutang         FinalReportHutang        `json:"hutang"`
+	Settlement     FinalReportSettlement    `json:"settlement"`
+	GeneratedAt    string                   `json:"generatedAt"`
 }
 
 type StatementItem struct {

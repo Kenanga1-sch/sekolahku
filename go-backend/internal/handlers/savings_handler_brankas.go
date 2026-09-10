@@ -106,6 +106,9 @@ func (h *SavingsHandler) GetFinalReport(c echo.Context) error {
 	if studentID == "" {
 		studentID = c.QueryParam("studentId")
 	}
+	if studentID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Siswa wajib dipilih"})
+	}
 	year := c.QueryParam("year")
 	if year == "" {
 		year = strconv.Itoa(time.Now().Year())
@@ -114,7 +117,15 @@ func (h *SavingsHandler) GetFinalReport(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
-	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": report})
+	// Dulu handler mengirim kunci "data" sementara halaman membaca "report" —
+	// laporan tidak pernah tampil sejak awal. Keduanya kini dikirim:
+	// "report" untuk halaman yang sudah menunggu bentuk lengkap, "data"
+	// untuk pemanggil umum.
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"report":  report,
+		"data":    report,
+	})
 }
 
 func (h *SavingsHandler) GetStatement(c echo.Context) error {

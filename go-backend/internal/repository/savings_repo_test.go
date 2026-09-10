@@ -86,6 +86,28 @@ func setupSavingsTestDB(t *testing.T) *sql.DB {
 			catatan TEXT,
 			created_at INTEGER
 		);
+		CREATE TABLE tabungan_hutang (
+			id TEXT PRIMARY KEY,
+			siswa_id TEXT NOT NULL,
+			nama_barang TEXT,
+			kategori TEXT,
+			nominal INTEGER NOT NULL DEFAULT 0,
+			jumlah INTEGER NOT NULL DEFAULT 1,
+			terbayar INTEGER NOT NULL DEFAULT 0,
+			dicatat_oleh TEXT,
+			status TEXT DEFAULT 'aktif',
+			created_at INTEGER,
+			updated_at INTEGER
+		);
+		CREATE TABLE tabungan_hutang_pembayaran (
+			id TEXT PRIMARY KEY,
+			hutang_id TEXT NOT NULL,
+			nominal INTEGER NOT NULL,
+			metode TEXT,
+			transaksi_id TEXT,
+			dicatat_oleh TEXT,
+			created_at INTEGER
+		);
 	`)
 	if err != nil {
 		t.Fatalf("Failed to create tables: %v", err)

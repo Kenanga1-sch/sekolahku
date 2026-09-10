@@ -13,6 +13,8 @@ import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import { YearEndReportPDF } from "@/components/reports/YearEndReportPDF";
 import { goGet } from "@/lib/api-client";
+import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import { terbilangRupiah } from "@/lib/terbilang";
 
 // Dynamically import PDFViewer to avoid SSR issues
 const PDFViewer = dynamic(
@@ -93,6 +95,7 @@ interface Report {
 
 export default function LaporanAkhirTahunPage() {
     const currentYear = new Date().getFullYear();
+    const { settings } = useSchoolSettings();
     const [openCombobox, setOpenCombobox] = useState(false);
     const [selectedSiswaId, setSelectedSiswaId] = useState("");
     const [selectedYear, setSelectedYear] = useState(currentYear);
@@ -102,15 +105,28 @@ export default function LaporanAkhirTahunPage() {
     const [isFetchingSiswa, setIsFetchingSiswa] = useState(true);
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
+    // Identitas sekolah untuk PDF: sebelumnya komponen PDF menuliskan nama,
+    // alamat, dan kota sekolah lain secara hardcode.
+    const schoolInfo = {
+        schoolName: settings?.school_name,
+        schoolAddress: settings?.school_address,
+        schoolNpsn: settings?.school_npsn,
+        schoolPhone: settings?.school_phone,
+        schoolLogo: settings?.school_logo,
+    };
+
     // Generate year options (current year + 5 years back)
     const yearOptions = Array.from({ length: 6 }, (_, i) => currentYear - i);
 
     useEffect(() => {
         const fetchSiswa = async () => {
             try {
-                const data: any = await goGet("/api/tabungan/siswa");
-                if (data.items) {
-                    setSiswaList(data.items);
+                // perPage eksplisit: default handler cuma 20, sehingga siswa
+                // ke-21 ke bawah tidak pernah muncul di combobox.
+                const data: any = await goGet("/api/tabungan/siswa?perPage=1000");
+                const items = (data as any).items || (data as any).data || [];
+                if (Array.isArray(items)) {
+                    setSiswaList(items);
                 }
             } catch (error) {
                 console.error("Failed to fetch siswa:", error);
@@ -250,7 +266,7 @@ export default function LaporanAkhirTahunPage() {
                                 </DialogHeader>
                                 <div className="flex-1 w-full bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
                                     <PDFViewer width="100%" height="100%" showToolbar={true}>
-                                        <YearEndReportPDF report={report} />
+                                        <YearEndReportPDF report={report} schoolInfo={schoolInfo} />
                                     </PDFViewer>
                                 </div>
                             </DialogContent>
@@ -332,7 +348,7 @@ export default function LaporanAkhirTahunPage() {
                                     ) : (
                                         monthlyEntries.map(([month, data]) => (
                                             <TableRow key={month}>
-                                                <TableCell>{formatMonth(month)}</TableCell>
+                                                <TableCell>{formatMonth(month, report.period.year)}</TableCell>
                                                 <TableCell className="text-right font-mono text-green-600">
                                                     {data.setor > 0 ? formatRupiah(data.setor) : "-"}
                                                 </TableCell>
@@ -450,7 +466,9 @@ export default function LaporanAkhirTahunPage() {
 
                             <div className="p-4 bg-muted rounded-lg text-center">
                                 <p className="text-sm text-muted-foreground mb-1">Terbilang:</p>
-                                <p className="font-medium italic">{report.settlement.terbilang}</p>
+                                {/* Dihitung dari netBalance (lib/terbilang) — backend
+                                    tidak menyimpan daftar kata. */}
+                                <p className="font-medium italic">{terbilangRupiah(report.settlement.netBalance)}</p>
                             </div>
                         </CardContent>
                     </Card>
@@ -498,10 +516,17 @@ function formatDate(dateStr: string) {
     });
 }
 
-function formatMonth(monthKey: string) {
-    // monthKey format: "YYYY-MM"
-    const [year, month] = monthKey.split("-");
-    const date = new Date(parseInt(year), parseInt(month) - 1, 1);
+function formatMonth(monthKey: string, year?: number) {
+    // Backend mengirim kunci "01".."12" (bulan kalender WIB). Tahun diambil
+    // dari parameter bila kunci hanya bulan.
+    let month = parseInt(monthKey, 10);
+    let y = year || new Date().getFullYear();
+    if (monthKey.includes("-")) {
+        const [yy, mm] = monthKey.split("-");
+        y = parseInt(yy, 10);
+        month = parseInt(mm, 10);
+    }
+    const date = new Date(y, month - 1, 1);
     return date.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
 }
 

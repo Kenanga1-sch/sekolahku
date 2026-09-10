@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/sekolahku/go-backend/internal/models"
@@ -328,7 +329,14 @@ func (r *SavingsRepository) GetStudentFinancialClearance(studentID string) (int,
 	return balance, 0, nil
 }
 
-// GetFinalReport returns end-of-year financial report for a student
+// GetFinalReport returns end-of-year financial report for a student.
+//
+// Catatan sejarah: parameter `year` diterima lalu diabaikan — keenam pilihan
+// tahun di halaman menghasilkan angka identik, dan dokumen pencairan akhir
+// tahun dihitung dari seluruh riwayat siswa. Kini year memfilter benar
+// (batas tahun kalender WIB), dan agregasi lengkap (saldo awal, ringkasan
+// bulanan, hutang, settlement) ikut dibangun supaya halaman dan PDF yang
+// sudah lama menunggu data ini benar-benar terisi.
 func (r *SavingsRepository) GetFinalReport(studentID string, year string) (*models.FinalReport, error) {
 	var nisn, nama, kelas sql.NullString
 	var saldo int
@@ -351,26 +359,44 @@ func (r *SavingsRepository) GetFinalReport(studentID string, year string) (*mode
 		return nil, err
 	}
 
+	// Rentang tahun kalender menurut jam WIB — bukan UTC, supaya transaksi
+	// 1 Januari pagi tidak jatuh ke tahun sebelumnya.
+	yearNo := 0
+	if _, err := fmt.Sscanf(year, "%d", &yearNo); err != nil || yearNo < 1970 || yearNo > 9999 {
+		yearNo = CurrentYearJakarta()
+	}
+	yearStart := time.Date(yearNo, 1, 1, 0, 0, 0, 0, jakartaLoc).UnixMilli()
+	yearEnd := time.Date(yearNo+1, 1, 1, 0, 0, 0, 0, jakartaLoc).UnixMilli()
+
+	// Saldo awal = saldo sekarang dikurangi mutasi tahun ini (berjalan mundur),
+	// karena saldo_terakhir adalah satu-satunya sumber kebenaran saldo.
+	openingBalance := saldo
+
 	rows, err := r.DB.Query(`
 		SELECT t.tipe, t.nominal, t.catatan, t.created_at
 		FROM tabungan_transaksi t
 		WHERE t.siswa_id = ? AND t.status = 'verified'
+			AND t.created_at >= ? AND t.created_at < ?
 		ORDER BY t.created_at ASC
-	`, realStudentID)
+	`, realStudentID, yearStart, yearEnd)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var transactions []models.FinalReportTransaction
+	transactions := make([]models.FinalReportTransaction, 0)
+	monthly := make(map[string]models.FinalReportMonth)
 	totalSetor := 0
 	totalTarik := 0
+	running := 0
 	for rows.Next() {
 		var tipe string
 		var nominal int
 		var cat sql.NullString
 		var crAt sql.NullInt64
-		rows.Scan(&tipe, &nominal, &cat, &crAt)
+		if err := rows.Scan(&tipe, &nominal, &cat, &crAt); err != nil {
+			return nil, err
+		}
 		item := models.FinalReportTransaction{
 			Tipe:    tipe,
 			Nominal: nominal,
@@ -379,17 +405,68 @@ func (r *SavingsRepository) GetFinalReport(studentID string, year string) (*mode
 			item.Catatan = cat.String
 		}
 		if crAt.Valid {
-			item.Tanggal = ToTime(crAt).Format("2006-01-02")
+			wib := ToTime(crAt).In(jakartaLoc)
+			item.Tanggal = wib.Format("2006-01-02")
+			key := wib.Format("01")
+			sum := monthly[key]
+			if tipe == "setor" {
+				sum.Setor += nominal
+				running += nominal
+				totalSetor += nominal
+			} else {
+				sum.Tarik += nominal
+				running -= nominal
+				totalTarik += nominal
+			}
+			sum.Saldo = running
+			monthly[key] = sum
 		}
 		transactions = append(transactions, item)
-		if tipe == "setor" {
-			totalSetor += nominal
-		} else {
-			totalTarik += nominal
-		}
 	}
 	if transactions == nil {
 		transactions = []models.FinalReportTransaction{}
+	}
+
+	openingBalance = saldo - (totalSetor - totalTarik)
+
+	// Hutang aktif: sisa (nominal×jumlah − terbayar) per baris berstatus aktif/cicilan.
+	hutangRows, err := r.DB.Query(`
+		SELECT h.nama_barang, h.nominal * h.jumlah - h.terbayar
+		FROM tabungan_hutang h
+		WHERE h.siswa_id = ? AND h.status IN ('aktif', 'cicilan')
+		ORDER BY h.created_at ASC
+	`, realStudentID)
+	if err != nil {
+		return nil, err
+	}
+	defer hutangRows.Close()
+
+	rincian := make([]models.FinalReportHutangRincian, 0)
+	totalHutang := 0
+	for hutangRows.Next() {
+		var keterangan sql.NullString
+		var sisa int
+		if err := hutangRows.Scan(&keterangan, &sisa); err != nil {
+			return nil, err
+		}
+		if sisa <= 0 {
+			continue
+		}
+		nama := keterangan.String
+		if nama == "" {
+			nama = "Kewajiban"
+		}
+		rincian = append(rincian, models.FinalReportHutangRincian{
+			Keterangan: nama,
+			Jumlah:     sisa,
+		})
+		totalHutang += sisa
+	}
+
+	netBalance := saldo - totalHutang
+	status := models.SettlementSiapCair
+	if netBalance < 0 {
+		status = models.SettlementKurangBayar
 	}
 
 	return &models.FinalReport{
@@ -399,10 +476,28 @@ func (r *SavingsRepository) GetFinalReport(studentID string, year string) (*mode
 			Kelas: kelas.String,
 			Saldo: saldo,
 		},
-		Transactions: transactions,
-		TotalSetor:   totalSetor,
-		TotalTarik:   totalTarik,
-		SaldoAkhir:   saldo,
+		Period: models.FinalReportPeriod{
+			Year:      yearNo,
+			StartDate: time.Date(yearNo, 1, 1, 0, 0, 0, 0, jakartaLoc).Format("2006-01-02"),
+			EndDate:   time.Date(yearNo, 12, 31, 0, 0, 0, 0, jakartaLoc).Format("2006-01-02"),
+		},
+		Transactions:   transactions,
+		MonthlySummary: monthly,
+		OpeningBalance: openingBalance,
+		TotalSetor:     totalSetor,
+		TotalTarik:     totalTarik,
+		SaldoAkhir:     saldo,
+		Hutang: models.FinalReportHutang{
+			TotalHutangAktif: totalHutang,
+			Rincian:          rincian,
+		},
+		Settlement: models.FinalReportSettlement{
+			NetBalance: netBalance,
+			Status:     status,
+			// Terbilang diisi klien dari netBalance (lib/terbilang.ts).
+			Terbilang: "",
+		},
+		GeneratedAt: NowJakarta().Format(time.RFC3339),
 	}, nil
 }
 
