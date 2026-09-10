@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/nrednav/cuid2"
 	"github.com/sekolahku/go-backend/internal/models"
@@ -188,43 +189,188 @@ func (r *SavingsRepository) GetTransactions(siswaId, status, guruId, search, tip
 	return results, total, nil
 }
 
-// GetStatement returns a list of statement records for rekening koran
-func (r *SavingsRepository) GetStatement(siswaID string) ([]models.StatementItem, error) {
+// GetStatement menyusun rekening koran lengkap satu siswa dalam rentang tanggal.
+//
+// Dulu fungsi ini hanya mengembalikan array datar transaksi (tanpa saldo
+// berjalan, tanpa identitas, tanpa periode, tanpa hash) dan mengabaikan
+// tanggal — sedangkan halaman membaca objek penuh, sehingga laporan koran
+// yang dijanjikan tidak pernah bisa dirender.
+//
+// Saldo berjalan dihitung dari saldo sekarang (tabungan_siswa.saldo_terakhir
+// adalah satu-satunya sumber kebenaran) dikurangi seluruh mutasi 'verified'
+// SETELAH periode; lalu maju kronologis lewat mutasi dalam periode.
+func (r *SavingsRepository) GetStatement(siswaID, startDate, endDate string) (*models.Statement, error) {
+	// Identitas siswa + saldo kini.
+	var studentID, nama, nisn, kelas string
+	var saldo int
+	err := r.DB.QueryRow(`
+		SELECT st.id, st.full_name, COALESCE(st.nisn, ''), COALESCE(st.class_name, ''), ts.saldo_terakhir
+		FROM tabungan_siswa ts
+		JOIN students st ON ts.student_id = st.id
+		WHERE ts.student_id = ? OR ts.id = ?
+	`, siswaID, siswaID).Scan(&studentID, &nama, &nisn, &kelas, &saldo)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	startMs := JakartaMidnight(startDate)
+	// Batas akhir: akhir hari endDate (23:59:59.999 WIB) supaya transaksi
+	// hari terakhir ikut; kosong -> sekarang.
+	var endMs int64
+	if endDate != "" {
+		if t, perr := time.ParseInLocation("2006-01-02", endDate, jakartaLoc); perr == nil {
+			endMs = t.Add(24*time.Hour - time.Millisecond).UnixMilli()
+		}
+	} else {
+		endMs = UnixMilli()
+	}
+	if endMs <= startMs {
+		endMs = UnixMilli()
+	}
+
+	// Mutasi dalam periode (kronologis ASC).
 	rows, err := r.DB.Query(`
-		SELECT t.id, t.tipe, t.nominal, t.status, t.catatan, t.created_at, st.full_name as s_nama
+		SELECT t.id, t.tipe, t.nominal, t.catatan, t.created_at
 		FROM tabungan_transaksi t
-		JOIN students st ON t.siswa_id = st.id
-		WHERE t.siswa_id = ?
-		ORDER BY t.created_at DESC
-	`, siswaID)
+		WHERE t.siswa_id = ? AND t.status = 'verified'
+			AND t.created_at >= ? AND t.created_at <= ?
+		ORDER BY t.created_at ASC
+	`, studentID, startMs, endMs)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var results []models.StatementItem
+	mutations := make([]models.StatementMutation, 0)
+	totalDebit := 0  // keluar (tarik)
+	totalCredit := 0 // masuk (setor)
 	for rows.Next() {
-		var tipe, status string
+		var id, tipe string
 		var nominal int
-		var cat, sName sql.NullString
+		var cat sql.NullString
 		var crAt sql.NullInt64
-		var id string
-		rows.Scan(&id, &tipe, &nominal, &status, &cat, &crAt, &sName)
-		item := models.StatementItem{
-			ID: id, Tipe: tipe, Nominal: nominal, Status: status,
+		if err := rows.Scan(&id, &tipe, &nominal, &cat, &crAt); err != nil {
+			return nil, err
 		}
-		if cat.Valid { item.Catatan = cat.String }
-		if crAt.Valid { item.Tanggal = ToTime(crAt).Format("2006-01-02") }
-		if sName.Valid { item.NamaSiswa = sName.String }
-		results = append(results, item)
+		m := models.StatementMutation{
+			RefID:    id,
+			Date:     ToTime(crAt).In(jakartaLoc).Format("2006-01-02 15:04"),
+			Category: tipe,
+		}
+		if cat.Valid && cat.String != "" {
+			m.Description = cat.String
+		} else if tipe == "setor" {
+			m.Description = "Setoran tabungan"
+		} else {
+			m.Description = "Penarikan tabungan"
+		}
+		if tipe == "setor" {
+			m.Credit = nominal
+			totalCredit += nominal
+		} else {
+			m.Debit = nominal
+			totalDebit += nominal
+		}
+		mutations = append(mutations, m)
 	}
-	if results == nil {
-		results = []models.StatementItem{}
+
+	// Mutasi SETELAH periode (untuk menutup saldo akhir periode dari saldo kini).
+	var sesudahNet int
+	if err := r.DB.QueryRow(`
+		SELECT COALESCE(SUM(CASE WHEN t.tipe = 'setor' THEN t.nominal ELSE -t.nominal END), 0)
+		FROM tabungan_transaksi t
+		WHERE t.siswa_id = ? AND t.status = 'verified' AND t.created_at > ?
+	`, studentID, endMs).Scan(&sesudahNet); err != nil {
+		return nil, err
 	}
-	return results, nil
+
+	// Saldo akhir periode dan saldo awal (berjalan mundur dari saldo kini).
+	closing := saldo - sesudahNet
+	opening := closing - (totalCredit - totalDebit)
+
+	// Isi saldo berjalan (berjalan maju).
+	running := opening
+	for i := range mutations {
+		running += mutations[i].Credit - mutations[i].Debit
+		mutations[i].Balance = running
+	}
+
+	// Hash verifikasi: disimpan supaya bisa diperiksa ulang publik nanti.
+	hash := cuid2.Generate()
+	_, err = r.DB.Exec(`
+		INSERT INTO savings_statement_hashes
+			(id, student_id, period_start, period_end, opening_balance, total_debit, total_credit, closing_balance, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, hash, studentID, startDate, endDate, opening, totalDebit, totalCredit, closing, UnixMilli())
+	if err != nil {
+		return nil, err
+	}
+
+	return &models.Statement{
+		Student: models.StatementStudent{
+			ID:    studentID,
+			Nama:  nama,
+			NISN:  nisn,
+			Kelas: kelas,
+		},
+		Period: models.StatementPeriod{
+			Start: startDate,
+			End:   endDate,
+		},
+		OpeningBalance: opening,
+		Mutations:      mutations,
+		Summary: models.StatementSummary{
+			TotalCredit:    totalCredit,
+			TotalDebit:     totalDebit,
+			ClosingBalance: closing,
+		},
+		VerificationHash: hash,
+		GeneratedAt:     NowJakarta().Format(time.RFC3339),
+	}, nil
 }
 
-// VerifyStatement checks if a statement hash is still valid
-func (r *SavingsRepository) VerifyStatement(hash string) error {
-	return r.DB.QueryRow("SELECT id FROM tabungan_transaksi WHERE id = ? LIMIT 1", hash).Scan(new(string))
+// GetStatementByHash mengambil pernyataan tersimpan menurut hash verifikasi.
+// Mengembalikan payload ringkas yang ditampilkan halaman verifikasi publik.
+func (r *SavingsRepository) GetStatementByHash(hash string) (*models.StatementVerification, error) {
+	var studentID, periodStart, periodEnd string
+	var opening, debit, credit, closing int
+	err := r.DB.QueryRow(`
+		SELECT student_id, period_start, period_end, opening_balance, total_debit, total_credit, closing_balance
+		FROM savings_statement_hashes WHERE id = ?
+	`, hash).Scan(&studentID, &periodStart, &periodEnd, &opening, &debit, &credit, &closing)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	var nama, nisn, kelas string
+	if err := r.DB.QueryRow(`
+		SELECT st.full_name, COALESCE(st.nisn, ''), COALESCE(st.class_name, '')
+		FROM students st WHERE st.id = ?
+	`, studentID).Scan(&nama, &nisn, &kelas); err != nil {
+		return nil, err
+	}
+
+	return &models.StatementVerification{
+		Valid:   true,
+		Hash:    hash,
+		Student: models.StatementStudent{ID: studentID, Nama: nama, NISN: nisn, Kelas: kelas},
+		Period:  models.StatementPeriod{Start: periodStart, End: periodEnd},
+		Summary: models.StatementSummary{TotalCredit: credit, TotalDebit: debit, ClosingBalance: closing},
+	}, nil
+}
+
+// VerifyStatement mengambil pernyataan menurut hash.
+//
+// Dulu verifikasinya membandingkan hash dengan ID transaksi
+// (WHERE id = ?) — hash tak pernah dibuat dan bisa ditebak; yang
+// dikembalikan pun cuma {success:true} tanpa isi. Kini pernyataan
+// tersimpan saat dibuat dan payload-nya bisa ditampilkan ulang.
+func (r *SavingsRepository) VerifyStatement(hash string) (*models.StatementVerification, error) {
+	return r.GetStatementByHash(hash)
 }

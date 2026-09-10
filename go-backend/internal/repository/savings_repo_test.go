@@ -108,6 +108,17 @@ func setupSavingsTestDB(t *testing.T) *sql.DB {
 			dicatat_oleh TEXT,
 			created_at INTEGER
 		);
+		CREATE TABLE savings_statement_hashes (
+			id TEXT PRIMARY KEY,
+			student_id TEXT NOT NULL,
+			period_start TEXT NOT NULL,
+			period_end TEXT NOT NULL,
+			opening_balance INTEGER NOT NULL DEFAULT 0,
+			total_debit INTEGER NOT NULL DEFAULT 0,
+			total_credit INTEGER NOT NULL DEFAULT 0,
+			closing_balance INTEGER NOT NULL DEFAULT 0,
+			created_at INTEGER NOT NULL
+		);
 	`)
 	if err != nil {
 		t.Fatalf("Failed to create tables: %v", err)

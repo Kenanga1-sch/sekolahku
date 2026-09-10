@@ -8,7 +8,7 @@ import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 interface VerificationData {
     success: boolean;
     valid: boolean;
-    message: string;
+    message?: string;
     data?: {
         student: {
             nama: string;
@@ -19,8 +19,14 @@ interface VerificationData {
             start: string;
             end: string;
         };
-        closingBalance: number;
-    };
+        // Bentuk backend (models.StatementVerification): ringkasan ada di
+        // summary.closingBalance. closingBalance datar dipertahankan sebagai
+        // fallback bila backend lama masih dipakai.
+        summary?: {
+            closingBalance: number;
+        };
+        closingBalance?: number;
+    } | null;
 }
 
 const formatRupiah = (num: number) => {
@@ -50,11 +56,9 @@ export default function VerifyStatementPage() {
 
         const verify = async () => {
             try {
-                // Get verification params from URL query
-                const queryString = searchParams.toString();
-                
-                // Construct URL. hash is already in searchParams but we can be explicit
-                const res = await fetch(`/api/tabungan/rekening-koran/verify/detail?${queryString}`);
+                // Rute publik: halaman verifikasi diakses tanpa login (QR
+                // discan orang tua), jadi tidak boleh memakai rute auth.
+                const res = await fetch(`/api/public/savings/statement/verify?hash=${encodeURIComponent(hash)}`);
                 const data = await res.json();
                 setResult(data);
             } catch (error) {
@@ -114,7 +118,7 @@ export default function VerifyStatementPage() {
                                     <div className="bg-emerald-50 rounded-lg p-4 text-center">
                                         <p className="text-xs text-emerald-600 uppercase">Saldo Akhir Terverifikasi</p>
                                         <p className="text-2xl font-bold text-emerald-700">
-                                            {formatRupiah(result.data.closingBalance)}
+                                            {formatRupiah(result.data.summary?.closingBalance ?? result.data.closingBalance ?? 0)}
                                         </p>
                                     </div>
                                 </div>

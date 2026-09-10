@@ -143,8 +143,11 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	publicGroup.GET("/faqs", h.FAQ.GetPublicFAQs)
 	publicGroup.GET("/spmb/landing", h.SPMB.GetLandingData)
 	publicGroup.POST("/spmb/register", h.SPMB.Register)
-	publicGroup.GET("/spmb/registrants", h.SPMB.GetPublicRegistrants)
-	publicGroup.GET("/spmb/registrants/:number", h.SPMB.GetRegistrant)
+publicGroup.GET("/spmb/registrants", h.SPMB.GetPublicRegistrants)
+publicGroup.GET("/spmb/registrants/:number", h.SPMB.GetRegistrant)
+// Verifikasi rekening koran: halamannya publik (QR discan tanpa login),
+// jadi rute ini harus di luar auth. Rute lama di auth tetap untuk konsistensi.
+publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	publicGroup.POST("/contact", h.Contact.SubmitMessage)
 	publicGroup.POST("/mutasi/request", h.Mutasi.CreateMutasiRequest, publicFormLimit)
 	publicGroup.GET("/mutasi/status/:regNum", h.Mutasi.GetPublicMutasiStatus, publicFormLimit)

@@ -133,19 +133,34 @@ func (h *SavingsHandler) GetStatement(c echo.Context) error {
 	if siswaID == "" {
 		siswaID = c.QueryParam("studentId")
 	}
-	list, err := h.Repo.GetStatement(siswaID)
+	if siswaID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Siswa wajib dipilih"})
+	}
+	// Rentang tanggal kini benar-benar dipakai; dulu dikirim depan lalu
+	// diabaikan — seluruh riwayat muncul di "rekening koran Januari".
+	st, err := h.Repo.GetStatement(siswaID, c.QueryParam("startDate"), c.QueryParam("endDate"))
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
-	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": list})
+	if st == nil {
+		return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Siswa tidak ditemukan"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": st})
 }
 
 func (h *SavingsHandler) VerifyStatement(c echo.Context) error {
 	hash := c.QueryParam("hash")
-	if err := h.Repo.VerifyStatement(hash); err != nil {
-		return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Invalid hash"})
+	if hash == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "valid": false, "error": "Hash wajib diisi"})
 	}
-	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
+	res, err := h.Repo.VerifyStatement(hash)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "valid": false, "error": "Terjadi kesalahan internal"})
+	}
+	if res == nil {
+		return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "valid": false, "error": "Pernyataan tidak ditemukan"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": res})
 }
 
 // ============ Treasurer ============

@@ -299,6 +299,63 @@ type StatementItem struct {
 	NamaSiswa string `json:"namaSiswa,omitempty"`
 }
 
+// StatementMutation satu baris mutasi rekening koran.
+// Konvensi bank: debit = keluar (tarik), kredit = masuk (setor).
+type StatementMutation struct {
+	Date        string `json:"date"`
+	RefID       string `json:"refId"`
+	Description string `json:"description"`
+	Debit       int    `json:"debit"`
+	Credit      int    `json:"credit"`
+	Balance     int    `json:"balance"`
+	Category    string `json:"category"`
+}
+
+// StatementStudent identitas siswa pada rekening koran.
+type StatementStudent struct {
+	ID    string `json:"id"`
+	Nama  string `json:"nama"`
+	NISN  string `json:"nisn"`
+	Kelas string `json:"kelas"`
+}
+
+// StatementPeriod rentang pernyataan.
+type StatementPeriod struct {
+	Start string `json:"start"`
+	End   string `json:"end"`
+}
+
+// StatementSummary ringkasan pernyataan.
+type StatementSummary struct {
+	TotalCredit   int `json:"totalCredit"`
+	TotalDebit    int `json:"totalDebit"`
+	ClosingBalance int `json:"closingBalance"`
+}
+
+// Statement rekening koran lengkap satu siswa.
+//
+// Sebelumnya GetStatement mengembalikan array datar StatementItem, sedangkan
+// halaman membaca objek (student/period/mutations/summary/verificationHash)
+// — laporan yang dijanjikan tidak pernah bisa dirender.
+type Statement struct {
+	Student          StatementStudent     `json:"student"`
+	Period           StatementPeriod      `json:"period"`
+	OpeningBalance   int                  `json:"openingBalance"`
+	Mutations        []StatementMutation  `json:"mutations"`
+	Summary          StatementSummary     `json:"summary"`
+	VerificationHash string               `json:"verificationHash"`
+	GeneratedAt      string               `json:"generatedAt"`
+}
+
+// StatementVerification payload publik untuk memeriksa pernyataan menurut hash.
+type StatementVerification struct {
+	Valid   bool             `json:"valid"`
+	Hash    string           `json:"hash"`
+	Student StatementStudent `json:"student"`
+	Period  StatementPeriod  `json:"period"`
+	Summary StatementSummary `json:"summary"`
+}
+
 type UpdateHutangRequest struct {
 	NamaBarang string `json:"namaBarang"`
 	Nominal    int    `json:"nominal"`

@@ -132,12 +132,21 @@ export default function RekeningKoranPage() {
                 endDate,
             });
             const data: any = await goGet(`/api/tabungan/rekening-koran?${params}`);
-            
+
             if (data.success) {
-                setStatement(data.data);
-                toast.success("Rekening koran berhasil digenerate");
+                const st = data.data;
+                // Guard bentuk: dulu array datar membuat guard `&&` lolos lalu
+                // .student.id melempar TypeError begitu respons sukses.
+                if (!st || typeof st !== "object" || !st.student || !Array.isArray(st.mutations)) {
+                    toast.error("Bentuk data rekening koran tidak dikenal");
+                    setStatement(null);
+                } else {
+                    setStatement(st);
+                    toast.success("Rekening koran berhasil digenerate");
+                }
             } else {
                 toast.error(data.error || "Gagal generate rekening koran");
+                setStatement(null);
             }
         } catch {
             toast.error("Terjadi kesalahan");
@@ -152,13 +161,10 @@ export default function RekeningKoranPage() {
 
     const getVerificationUrl = () => {
         if (!statement) return "";
-        const params = new URLSearchParams({
-            s: statement.student.id,
-            sd: statement.period.start,
-            ed: statement.period.end,
-            cb: statement.summary.closingBalance.toString(),
-        });
-        return `${typeof window !== "undefined" ? window.location.origin : ""}/api/tabungan/rekening-koran/verify/detail?hash=${statement.verificationHash}?${params}`;
+        // Dua tanda tanya di URL lama membuat parameter terakhir tak pernah
+        // terbaca. Hash kini benar-benar ada (dibuat backend saat generate)
+        // dan cukup sendiri untuk memverifikasi.
+        return `${typeof window !== "undefined" ? window.location.origin : ""}/tabungan/rekening-koran/verify/detail?hash=${encodeURIComponent(statement.verificationHash)}`;
     };
 
     return (
