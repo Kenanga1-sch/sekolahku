@@ -83,14 +83,29 @@ func (r *SavingsRepository) CreateTransaksi(req models.CreateTransaksiRequest) e
 	return tx.Commit()
 }
 
-// GetTransactions retrieves transactions with optional filters
-func (r *SavingsRepository) GetTransactions(siswaId, status, guruId, search, tipe string, startDate, endDate int64, limit int) ([]models.TabunganTransaksi, error) {
-	if limit < 1 || limit > 200 {
-		limit = 100
+// GetTransactions retrieves transactions with optional filters.
+//
+// totalItems adalah jumlah baris yang cocok dengan filter SEBELUM dipotong LIMIT,
+// sehingga pemanggil bisa tahu bila hasilnya hanya sebagian. Dulu fungsi ini hanya
+// mengembalikan array mentah: halaman laporan meminta perPage=10000 tapi limit
+// dipotong ke 100, dan totalItems yang dikirim handler hanyalah len(list) —
+// laporan pun menulis angka yang tampak lengkap padahal tidak.
+//
+// fetchAll=true menaikkan batas ke savingsReportMaxRows untuk jalur laporan
+// (halaman butuh seluruh baris dalam periode untuk menjumlahkan).
+func (r *SavingsRepository) GetTransactions(siswaId, status, guruId, search, tipe string, startDate, endDate int64, limit int, fetchAll bool) ([]models.TabunganTransaksi, int, error) {
+	// Batas atas untuk jalur laporan. Dituliskan eksplisit supaya permintaan
+	// "ambil semua" tidak bisa dipakai untuk menguras memori.
+	const savingsReportMaxRows = 5000
+	const savingsPageLimit = 100
+
+	if fetchAll {
+		limit = savingsReportMaxRows
+	} else if limit < 1 || limit > savingsPageLimit {
+		limit = savingsPageLimit
 	}
-	query := `
-		SELECT t.id, t.siswa_id, t.user_id, t.setoran_id, t.tipe, t.nominal, t.status, t.catatan, t.created_at,
-		       st.full_name as s_nama, st.class_name as k_nama, u.name as u_name
+
+	where := `
 		FROM tabungan_transaksi t
 		JOIN students st ON t.siswa_id = st.id
 		LEFT JOIN users u ON t.user_id = u.id
@@ -98,40 +113,51 @@ func (r *SavingsRepository) GetTransactions(siswaId, status, guruId, search, tip
 	`
 	var args []interface{}
 	if siswaId != "" {
-		query += " AND t.siswa_id = ?"
+		where += " AND t.siswa_id = ?"
 		args = append(args, siswaId)
 	}
 	if status != "" {
-		query += " AND t.status = ?"
+		where += " AND t.status = ?"
 		args = append(args, status)
 	}
 	if guruId != "" {
-		query += " AND t.user_id = ?"
+		where += " AND t.user_id = ?"
 		args = append(args, guruId)
 	}
 	if search != "" {
-		query += " AND (st.full_name LIKE ? OR st.nisn LIKE ?)"
+		where += " AND (st.full_name LIKE ? OR st.nisn LIKE ?)"
 		pattern := "%" + search + "%"
 		args = append(args, pattern, pattern)
 	}
 	if tipe != "" {
-		query += " AND t.tipe = ?"
+		where += " AND t.tipe = ?"
 		args = append(args, tipe)
 	}
 	if startDate > 0 {
-		query += " AND t.created_at >= ?"
+		where += " AND t.created_at >= ?"
 		args = append(args, startDate)
 	}
 	if endDate > 0 {
-		query += " AND t.created_at <= ?"
+		where += " AND t.created_at <= ?"
 		args = append(args, endDate)
 	}
-	query += " ORDER BY t.created_at DESC LIMIT ?"
-	args = append(args, limit)
 
-	rows, err := r.DB.Query(query, args...)
+	// Total dihitung dengan WHERE yang sama persis supaya total dan isi
+	// tidak pernah melenceng.
+	var total int
+	if err := r.DB.QueryRow("SELECT COUNT(*)"+where, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	query := `
+		SELECT t.id, t.siswa_id, t.user_id, t.setoran_id, t.tipe, t.nominal, t.status, t.catatan, t.created_at,
+		       st.full_name as s_nama, st.class_name as k_nama, u.name as u_name
+	` + where + `
+		ORDER BY t.created_at DESC LIMIT ?
+	`
+	rows, err := r.DB.Query(query, append(args, limit)...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -143,7 +169,7 @@ func (r *SavingsRepository) GetTransactions(siswaId, status, guruId, search, tip
 		var sName, kName, uName sql.NullString
 		err := rows.Scan(&t.ID, &sId, &uId, &setId, &t.Tipe, &t.Nominal, &t.Status, &cat, &crAt, &sName, &kName, &uName)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		if sId.Valid { t.SiswaID = sId.String }
 		if uId.Valid { t.UserID = uId.String }
@@ -159,7 +185,7 @@ func (r *SavingsRepository) GetTransactions(siswaId, status, guruId, search, tip
 	if results == nil {
 		results = []models.TabunganTransaksi{}
 	}
-	return results, nil
+	return results, total, nil
 }
 
 // GetStatement returns a list of statement records for rekening koran

@@ -66,22 +66,30 @@ export default function TabunganLaporanPage() {
     const [kelasList, setKelasList] = useState<TabunganKelas[]>([]);
     const [period, setPeriod] = useState<PeriodType>("month");
     const [isLoading, setIsLoading] = useState(true);
+    // Menandai data yang tampil tidak mencakup seluruh periode (dipotong batas server).
+    const [terpotong, setTerpotong] = useState(false);
+    const [totalTransaksi, setTotalTransaksi] = useState(0);
 
     useEffect(() => {
         const fetchData = async () => {
             setIsLoading(true);
+            setTerpotong(false);
             try {
                 const { start, end } = getDateRange(period);
-                
+
                 const statsPromise = goGet("/api/tabungan/stats");
-                
+
+                // fetchAll=1: jalur laporan di backend, mengambil seluruh baris
+                // dalam periode (berbatas). Dulu memakai perPage=10000 yang
+                // diam-diam dipotong ke 100 — ringkasan pun menjumlah dari
+                // sebagian data saja.
                 const transParams = new URLSearchParams({
                     startDate: start,
                     endDate: end,
-                    perPage: "10000", // Fetch all for report
+                    fetchAll: "1",
                 });
                 const transPromise = goGet(`/api/tabungan/transaksi?${transParams.toString()}`);
-                
+
                 const kelasPromise = goGet("/api/tabungan/kelas");
 
                 const [statsData, transRes, kelasRes] = await Promise.all([
@@ -94,8 +102,16 @@ export default function TabunganLaporanPage() {
                 if (transRes.error) throw new Error(transRes.error);
                 if (kelasRes.error) throw new Error(kelasRes.error);
 
+                const items: TabunganTransaksiWithRelations[] =
+                    (transRes as any).items || (transRes as any).data || [];
+                const total: number =
+                    typeof (transRes as any).totalItems === "number"
+                        ? (transRes as any).totalItems
+                        : items.length;
                 setStats(((statsData as any).data || statsData) as any);
-                setTransactions((transRes as any).items || (transRes as any).data || []);
+                setTransactions(items);
+                setTotalTransaksi(total);
+                setTerpotong(items.length < total);
                 setKelasList(Array.isArray(kelasRes) ? (kelasRes as any) : (kelasRes as any).items || (kelasRes as any).data || []);
             } catch (error) {
                 console.error("Failed to fetch report data:", error);
@@ -150,6 +166,17 @@ export default function TabunganLaporanPage() {
         year: "Tahun Ini",
     };
 
+    // Peringatan bila data periode tidak dimuat seluruhnya: ringkasan di bawah
+    // menjumlah dari baris yang ada, jadi pengguna perlu tahu angkanya bisa
+    // kurang dari kenyataan.
+    const peringatanTerpotong =
+        terpotong ? (
+            <p className="text-xs text-amber-700">
+                Perhatian: data tidak termuat seluruhnya ({transactions.length} dari {totalTransaksi}{" "}
+                transaksi). Angka ringkasan di halaman ini mungkin kurang dari sebenarnya — persempit periode.
+            </p>
+        ) : null;
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -186,6 +213,8 @@ export default function TabunganLaporanPage() {
                     </Button>
                 </div>
             </div>
+
+            {peringatanTerpotong}
 
             {/* Overall Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

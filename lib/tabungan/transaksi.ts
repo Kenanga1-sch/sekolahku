@@ -20,10 +20,13 @@ export async function getTransaksi(
 
     const response: any = await goGet(`/api/savings/transactions?${params.toString()}`);
     if (response.success) {
+        // totalPages/totalItems berada di tingkat atas respons (savings_handler_transaksi.go),
+        // bukan di dalam `pagination` — membaca response.pagination.selalu
+        // menghasilkan totalPages=1/total=0 sejak lama.
         return {
             items: response.data || [],
-            totalPages: response.pagination?.totalPages || 1,
-            totalItems: response.pagination?.total || 0
+            totalPages: response.totalPages || 1,
+            totalItems: response.totalItems ?? 0
         };
     }
     return { items: [], totalPages: 0, totalItems: 0 };
