@@ -208,6 +208,34 @@ type InventoryReport struct {
 	ByCategory map[string]int `json:"byCategory"`
 }
 
+// LoanReportResult membungkus daftar laporan peminjaman BERSAMA jumlah total
+// yang sebenarnya, bukan sekadar banyak baris yang dikembalikan.
+//
+// Alasannya: laporan dulu dibatasi 1000 baris dan hanya mengembalikan array.
+// Frontend lalu menulis "Total Transaksi: 1000" seolah itu seluruh data,
+// padahal sisanya terpotong tanpa tanda apa pun. Dengan totalItems, klien
+// bisa menelusuri halaman atau setidaknya memperingatkan pemakai.
+type LoanReportResult struct {
+	Items      []LoanReportItem `json:"items"`
+	TotalItems int              `json:"totalItems"`
+}
+
+// VisitReportResult padanan LoanReportResult untuk laporan kunjungan.
+type VisitReportResult struct {
+	Items      []VisitReportItem `json:"items"`
+	TotalItems int               `json:"totalItems"`
+}
+
+// OverdueReportResult membungkus daftar keterlambatan.
+//
+// Dulu GetOverdueReport meminta 1000 baris ke GetLoans, tetapi GetLoans
+// memotong perPage ke 100 — jadi laporan keterlambatan maksimal 100 baris
+// tanpa peringatan. Kini diambil berhalaman dan totalnya ikut dikembalikan.
+type OverdueReportResult struct {
+	Items      []LoanDetail `json:"items"`
+	TotalItems int          `json:"totalItems"`
+}
+
 type QRBatchItem struct {
 	ID            string    `json:"id"`
 	Date          string    `json:"date"`

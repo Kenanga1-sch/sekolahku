@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sekolahku/go-backend/internal/models"
 )
 
 // ============ Loans ============
@@ -123,15 +124,32 @@ func (h *LibraryHandler) GetReports(c echo.Context) error {
 		data interface{}
 		err  error
 	)
+	// totalItems ikut dikembalikan agar klien tahu bila data terpotong.
+	// Bentuk lamanya (array mentah) tidak bisa menyampaikan itu, sehingga
+	// ringkasan menulis "Total: 1000" seolah itu seluruh data.
+	totalItems := -1
+
 	switch reportType {
 	case "loan", "loans", "":
 		limit, _ := strconv.Atoi(c.QueryParam("limit"))
-		data, err = h.Repo.GetLoanReport(c.QueryParam("startDate"), c.QueryParam("endDate"), limit)
+		var res *models.LoanReportResult
+		res, err = h.Repo.GetLoanReport(c.QueryParam("startDate"), c.QueryParam("endDate"), limit)
+		if res != nil {
+			data, totalItems = res.Items, res.TotalItems
+		}
 	case "visit", "visits":
 		limit, _ := strconv.Atoi(c.QueryParam("limit"))
-		data, err = h.Repo.GetVisitReport(c.QueryParam("startDate"), c.QueryParam("endDate"), limit)
+		var res *models.VisitReportResult
+		res, err = h.Repo.GetVisitReport(c.QueryParam("startDate"), c.QueryParam("endDate"), limit)
+		if res != nil {
+			data, totalItems = res.Items, res.TotalItems
+		}
 	case "overdue":
-		data, err = h.Repo.GetOverdueReport()
+		var res *models.OverdueReportResult
+		res, err = h.Repo.GetOverdueReport()
+		if res != nil {
+			data, totalItems = res.Items, res.TotalItems
+		}
 	case "inventory":
 		data, err = h.Repo.GetInventoryReport()
 	default:
@@ -139,6 +157,17 @@ func (h *LibraryHandler) GetReports(c echo.Context) error {
 	}
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+	}
+
+	// Respons dibungkus seragam. `data` tetap disertakan agar pemanggil lama
+	// yang membaca array tidak langsung rusak.
+	if totalItems >= 0 {
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"success":    true,
+			"items":      data,
+			"data":       data,
+			"totalItems": totalItems,
+		})
 	}
 	return c.JSON(http.StatusOK, data)
 }

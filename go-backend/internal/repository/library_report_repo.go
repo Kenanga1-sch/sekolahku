@@ -8,22 +8,36 @@ import (
 	"github.com/sekolahku/go-backend/internal/models"
 )
 
-func (r *LibraryRepository) GetLoanReport(startDate, endDate string, limit int) ([]models.LoanReportItem, error) {
-	startMs, endMs := reportDateRangeMillis(startDate, endDate)
-	if limit < 1 || limit > 5000 {
-		limit = 1000
-	}
-	rows, err := r.DB.Query(`
-		SELECT
-			l.id, COALESCE(st.full_name, mst.name, m.id), COALESCE(st.class_name, ''), c.title,
-			l.borrow_date, l.due_date, l.return_date, l.is_returned, l.fine_amount
+// loanReportWhere adalah klausa WHERE yang sama untuk hitungan maupun daftar,
+// supaya total dan isi tidak pernah melenceng.
+const loanReportWhere = `
 		FROM library_loans l
 		JOIN library_members m ON l.member_id = m.id
 		LEFT JOIN students st ON m.student_id = st.id
 		LEFT JOIN users mst ON m.user_id = mst.id
 		JOIN library_assets a ON l.item_id = a.id
 		JOIN library_catalog c ON a.catalog_id = c.id
-		WHERE l.borrow_date BETWEEN ? AND ?
+		WHERE l.borrow_date BETWEEN ? AND ?`
+
+func (r *LibraryRepository) GetLoanReport(startDate, endDate string, limit int) (*models.LoanReportResult, error) {
+	startMs, endMs := reportDateRangeMillis(startDate, endDate)
+	if limit < 1 || limit > 5000 {
+		limit = 1000
+	}
+
+	// Hitung total dulu. Tanpa ini klien tidak bisa tahu apakah `limit`
+	// memotong data — dan ringkasan akan menulis angka yang tampak lengkap
+	// padahal tidak.
+	var total int
+	if err := r.DB.QueryRow("SELECT COUNT(*) "+loanReportWhere, startMs, endMs).Scan(&total); err != nil {
+		return nil, err
+	}
+
+	rows, err := r.DB.Query(`
+		SELECT
+			l.id, COALESCE(st.full_name, mst.name, m.id), COALESCE(st.class_name, ''), c.title,
+			l.borrow_date, l.due_date, l.return_date, l.is_returned, l.fine_amount
+	`+loanReportWhere+`
 		ORDER BY l.borrow_date DESC
 		LIMIT ?
 	`, startMs, endMs, limit)
@@ -57,14 +71,27 @@ func (r *LibraryRepository) GetLoanReport(startDate, endDate string, limit int) 
 		}
 		results = append(results, item)
 	}
-	return results, nil
+	return &models.LoanReportResult{Items: results, TotalItems: total}, nil
 }
 
-func (r *LibraryRepository) GetVisitReport(startDate, endDate string, limit int) ([]models.VisitReportItem, error) {
+const visitReportWhere = `
+		FROM library_visits v
+		LEFT JOIN library_members m ON v.member_id = m.id
+		LEFT JOIN students st ON m.student_id = st.id
+		LEFT JOIN users u3 ON m.user_id = u3.id
+		WHERE v.date BETWEEN ? AND ?`
+
+func (r *LibraryRepository) GetVisitReport(startDate, endDate string, limit int) (*models.VisitReportResult, error) {
 	startDate, endDate = reportDateRangeText(startDate, endDate)
 	if limit < 1 || limit > 5000 {
 		limit = 1000
 	}
+
+	var total int
+	if err := r.DB.QueryRow("SELECT COUNT(*) "+visitReportWhere, startDate, endDate).Scan(&total); err != nil {
+		return nil, err
+	}
+
 	rows, err := r.DB.Query(`
 		SELECT
 			v.id,
@@ -73,11 +100,7 @@ func (r *LibraryRepository) GetVisitReport(startDate, endDate string, limit int)
 			v.date,
 			v.timestamp,
 			v.created_at
-		FROM library_visits v
-		LEFT JOIN library_members m ON v.member_id = m.id
-		LEFT JOIN students st ON m.student_id = st.id
-		LEFT JOIN users u3 ON m.user_id = u3.id
-		WHERE v.date BETWEEN ? AND ?
+	`+visitReportWhere+`
 		ORDER BY v.date DESC, v.timestamp DESC, v.created_at DESC
 		LIMIT ?
 	`, startDate, endDate, limit)
@@ -106,12 +129,48 @@ func (r *LibraryRepository) GetVisitReport(startDate, endDate string, limit int)
 			Timestamp:   ToTime(visitTime),
 		})
 	}
-	return results, nil
+	return &models.VisitReportResult{Items: results, TotalItems: total}, nil
 }
 
-func (r *LibraryRepository) GetOverdueReport() ([]models.LoanDetail, error) {
-	loans, _, err := r.GetLoans("overdue", 1, 1000)
-	return loans, err
+// overduePageSize adalah ukuran halaman saat menelusuri pinjaman terlambat.
+// GetLoans memotong perPage ke 100, jadi inilah yang dipakai — bukan lebih.
+const overduePageSize = 100
+
+// overdueMaxPages membatasi penelusuran agar permintaan tak pernah berujung
+// bila total dari GetLoans keliru.
+const overdueMaxPages = 200
+
+// GetOverdueReport mengambil SELURUH pinjaman yang terlambat, dengan
+// menelusuri halaman.
+//
+// Dulu fungsi ini memanggil GetLoans("overdue", 1, 1000) dan langsung
+// mengembalikan hasilnya — tetapi GetLoans memotong perPage menjadi 100
+// (library_loan_repo.go), jadi laporan keterlambatan maksimal 100 baris.
+// Ringkasan di UI tetap menulis angka itu seolah lengkap.
+//
+// Kini halaman ditelusuri sampai habis, dan totalnya ikut dikembalikan agar
+// klien bisa memastikan tidak ada yang terpotong.
+func (r *LibraryRepository) GetOverdueReport() (*models.OverdueReportResult, error) {
+	all := make([]models.LoanDetail, 0)
+	total := 0
+
+	for page := 1; page <= overdueMaxPages; page++ {
+		loans, totalItems, err := r.GetLoans("overdue", page, overduePageSize)
+		if err != nil {
+			return nil, err
+		}
+		total = totalItems
+		all = append(all, loans...)
+
+		// Berhenti bila halaman kosong, sudah terkumpul semua, atau halaman ini
+		// tidak penuh — supaya hitungan total yang keliru tidak menyebabkan
+		// pengulangan tak berujung.
+		if len(loans) == 0 || len(all) >= totalItems || len(loans) < overduePageSize {
+			break
+		}
+	}
+
+	return &models.OverdueReportResult{Items: all, TotalItems: total}, nil
 }
 
 func (r *LibraryRepository) GetInventoryReport() (*models.InventoryReport, error) {
