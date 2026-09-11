@@ -86,7 +86,7 @@ export default function CetakSuratUmumPage() {
               {settings?.school_name || "UPTD SDN 1 KENANGA"}
             </div>
             <div className="text-sm mt-1">
-              {settings?.school_address || "Jl. Raya Kenanga No. 1, Kec. Sindang, Kab. Indramayu"}
+              {settings?.school_address || "Jl. Perindustrian Blok Dukuh, Desa Kenanga, Kec. Sindang, Kab. Indramayu 45226"}
               <br />
               Email: {settings?.school_email || "sdn1kenanga@gmail.com"} | Telp: {settings?.school_phone || "-"}
             </div>

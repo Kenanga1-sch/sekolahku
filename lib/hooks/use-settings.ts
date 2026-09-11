@@ -3,20 +3,21 @@
 import useSWR from "swr";
 import { goGet } from "@/lib/api-client";
 
-// Default settings values
+// Default settings values — harus konsisten dengan data di tabel
+// school_settings produksi (dashboard: Pengaturan Sekolah).
 const defaultSettings = {
     id: null,
     school_name: "UPTD SDN 1 Kenanga",
-    school_npsn: "20211091",
-    school_address: "Jl. Pendidikan No. 1, Kenanga, Sungai Penuh, Jambi",
-    school_phone: "(0748) 123456",
-    school_email: "sdn1kenanga@gmail.com",
-    school_website: "",
-    school_lat: -2.072254,
-    school_lng: 101.395614,
-    max_distance_km: 3,
+    school_npsn: "20216609",
+    school_address: "Jl. Perindustrian Blok Dukuh, Desa Kenanga, Kec. Sindang, Kab. Indramayu, Jawa Barat 45226",
+    school_phone: "",
+    school_email: "uptdsdn1kenangasindang@gmail.com",
+    school_website: "sdn1kenanga.sch.id",
+    school_lat: -6.363876,
+    school_lng: 108.313036,
+    max_distance_km: 2,
     spmb_is_open: true,
-    current_academic_year: "2025/2026",
+    current_academic_year: "2026/2027",
     principal_name: "",
     principal_nip: "",
     supervisor_name: "",

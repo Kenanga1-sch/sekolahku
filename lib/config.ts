@@ -7,18 +7,18 @@ export const siteConfig = {
     school: {
         name: process.env.NEXT_PUBLIC_SCHOOL_NAME || "UPTD SDN 1 Kenanga",
         shortName: process.env.NEXT_PUBLIC_SCHOOL_SHORT || "SDN 1 Kenanga",
-        npsn: process.env.NEXT_PUBLIC_SCHOOL_NPSN || "20211091",
-        address: process.env.NEXT_PUBLIC_SCHOOL_ADDRESS || "Jl. Pendidikan No. 1, Kenanga, Sungai Penuh, Jambi",
-        phone: process.env.NEXT_PUBLIC_SCHOOL_PHONE || "(0748) 123456",
-        email: process.env.NEXT_PUBLIC_SCHOOL_EMAIL || "sdn1kenanga@gmail.com",
+        npsn: process.env.NEXT_PUBLIC_SCHOOL_NPSN || "20216609",
+        address: process.env.NEXT_PUBLIC_SCHOOL_ADDRESS || "Jl. Perindustrian Blok Dukuh, Desa Kenanga, Kec. Sindang, Kab. Indramayu, Jawa Barat 45226",
+        phone: process.env.NEXT_PUBLIC_SCHOOL_PHONE || "",
+        email: process.env.NEXT_PUBLIC_SCHOOL_EMAIL || "uptdsdn1kenangasindang@gmail.com",
         website: process.env.NEXT_PUBLIC_SCHOOL_WEBSITE || "https://sdn1kenanga.sch.id",
     },
     
-    // Location (for SPMB domisili)
+    // Location (for SPMB domisili) — koordinat Desa Kenanga, Kec. Sindang, Kab. Indramayu
     location: {
-        lat: parseFloat(process.env.NEXT_PUBLIC_DEFAULT_LAT || "-2.072254"),
-        lng: parseFloat(process.env.NEXT_PUBLIC_DEFAULT_LNG || "101.395614"),
-        maxDistanceKm: 3,
+        lat: parseFloat(process.env.NEXT_PUBLIC_DEFAULT_LAT || "-6.363876"),
+        lng: parseFloat(process.env.NEXT_PUBLIC_DEFAULT_LNG || "108.313036"),
+        maxDistanceKm: 2,
     },
     
     // Current Academic Year from ENV

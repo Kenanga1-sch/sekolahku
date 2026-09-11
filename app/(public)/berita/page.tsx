@@ -77,7 +77,7 @@ export default function BeritaPage() {
             Berita &amp; Pengumuman
           </h1>
           <p className="mt-3 text-[#4b6b4b]">
-            Informasi terbaru dari UPTD SDN 1 Kenanga Sungai Penuh.
+            Informasi terbaru dari UPTD SDN 1 Kenanga Sindang, Indramayu.
           </p>
         </header>
 

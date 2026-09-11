@@ -1,7 +1,7 @@
 {
-  "name": "SD Negeri 1 - Website Sekolah Terpadu",
-  "short_name": "SD Negeri 1",
-  "description": "Portal utama SD Negeri 1 untuk informasi sekolah dan pendaftaran siswa baru",
+  "name": "UPTD SDN 1 Kenanga — Website Sekolah Terpadu",
+  "short_name": "SDN 1 Kenanga",
+  "description": "Portal resmi UPTD SDN 1 Kenanga, Kec. Sindang, Kab. Indramayu: informasi sekolah, pendaftaran siswa baru (SPMB), dan layanan digital siswa.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

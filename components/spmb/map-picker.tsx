@@ -122,8 +122,12 @@ export default function MapPicker({
   initialHomeLng,
   onLocationChange,
 }: MapPickerProps) {
-  const safeSchoolLat = typeof schoolLat === "number" && Number.isFinite(schoolLat) ? schoolLat : -2.072254;
-  const safeSchoolLng = typeof schoolLng === "number" && Number.isFinite(schoolLng) ? schoolLng : 101.395614;
+  // Fallback koordinat sekolah: Desa Kenanga, Kec. Sindang, Kab. Indramayu
+  // (sama dengan school_settings di produksi). Hanya dipakai bila data dari
+  // backend gagal dimuat — koordinat yang salah membuat radius domisili SPMB
+  // mengarah ke lokasi yang keliru.
+  const safeSchoolLat = typeof schoolLat === "number" && Number.isFinite(schoolLat) ? schoolLat : -6.363876;
+  const safeSchoolLng = typeof schoolLng === "number" && Number.isFinite(schoolLng) ? schoolLng : 108.313036;
   const hasInitialHomePosition = typeof initialHomeLat === "number" && Number.isFinite(initialHomeLat) && typeof initialHomeLng === "number" && Number.isFinite(initialHomeLng);
   const safeInitialHomeLat = hasInitialHomePosition ? Number(initialHomeLat) : safeSchoolLat;
   const safeInitialHomeLng = hasInitialHomePosition ? Number(initialHomeLng) : safeSchoolLng;

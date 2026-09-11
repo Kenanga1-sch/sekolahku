@@ -10,6 +10,25 @@ import "./globals.css";
 
 const SITE_URL = "https://sdn1kenanga.sch.id";
 
+// Data identitas sekolah — harus konsisten dengan tabel school_settings
+// di database produksi (dashboard: Pengaturan Sekolah) dan Google Business
+// Profile. Konsistensi NAP+koordinat inilah yang menaikkan Local SEO.
+const SCHOOL = {
+  name: "UPTD SDN 1 Kenanga",
+  npsn: "20216609",
+  streetAddress: "Jl. Perindustrian Blok Dukuh, Desa Kenanga",
+  village: "Kenanga",
+  district: "Sindang",
+  regency: "Indramayu",
+  province: "Jawa Barat",
+  postalCode: "45226",
+  lat: -6.363876,
+  lng: 108.313036,
+  // Nomor telepon sekolah — belum tersedia. Begitu ada, isi string ini
+  // (contoh: "0234-xxxxxx") dan telepon otomatis masuk ke JSON-LD.
+  phone: "",
+};
+
 // Structured data untuk rich result Google: knowledge panel sekolah,
 // skor Local SEO (nama+alamat+koordinat konsisten dengan Google Business
 // Profile), dan sitelinks search box.
@@ -17,35 +36,35 @@ const organizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "EducationalOrganization",
   "@id": `${SITE_URL}/#school`,
-  name: "UPTD SDN 1 Kenanga",
-  alternateName: ["SDN 1 Kenanga", "SD Negeri 1 Kenanga Sungai Penuh"],
+  name: SCHOOL.name,
+  alternateName: ["SDN 1 Kenanga", "SD Negeri 1 Kenanga Sindang"],
   url: SITE_URL,
   logo: `${SITE_URL}/logo.png`,
   image: `${SITE_URL}/logo.png`,
   description:
-    "UPTD SDN 1 Kenanga, sekolah dasar negeri di Sungai Penuh, Jambi. Melayani pendaftaran siswa baru (SPMB), tabungan siswa, mutasi, dan layanan pendidikan lainnya.",
+    "UPTD SDN 1 Kenanga, sekolah dasar negeri di Desa Kenanga, Kecamatan Sindang, Kabupaten Indramayu, Jawa Barat. Melayani pendaftaran siswa baru (SPMB), tabungan siswa, mutasi, dan layanan pendidikan lainnya.",
   identifier: {
     "@type": "PropertyValue",
     name: "NPSN",
-    value: "20211091",
+    value: SCHOOL.npsn,
   },
   address: {
     "@type": "PostalAddress",
-    streetAddress: "Jl. Pendidikan No. 1, Kenanga",
-    addressLocality: "Sungai Penuh",
-    addressRegion: "Jambi",
-    postalCode: "37111",
+    streetAddress: SCHOOL.streetAddress,
+    addressLocality: `Kecamatan ${SCHOOL.district}`,
+    addressRegion: `Kabupaten ${SCHOOL.regency}, ${SCHOOL.province}`,
+    postalCode: SCHOOL.postalCode,
     addressCountry: "ID",
   },
   geo: {
     "@type": "GeoCoordinates",
-    latitude: -2.072254,
-    longitude: 101.395614,
+    latitude: SCHOOL.lat,
+    longitude: SCHOOL.lng,
   },
-  telephone: "(0748) 123456",
+  ...(SCHOOL.phone ? { telephone: SCHOOL.phone } : {}),
   areaServed: {
     "@type": "AdministrativeArea",
-    name: "Kota Sungai Penuh, Jambi",
+    name: `Kecamatan ${SCHOOL.district}, Kabupaten ${SCHOOL.regency}`,
   },
 };
 
@@ -62,24 +81,26 @@ const websiteJsonLd = {
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "SDN 1 Kenanga — SD Negeri Sungai Penuh, SPMB & Layanan Siswa",
-    template: "%s | SDN 1 Kenanga Sungai Penuh",
+    default: "SDN 1 Kenanga — SD Negeri Sindang Indramayu, SPMB & Layanan Siswa",
+    template: "%s | SDN 1 Kenanga Sindang Indramayu",
   },
   description:
-    "UPTD SDN 1 Kenanga Sungai Penuh, Jambi (NPSN 20211091). Pendaftaran siswa baru SPMB jalur domisili, cek saldo tabungan siswa, layanan mutasi, data guru & staf, serta informasi sekolah terkini.",
+    "UPTD SDN 1 Kenanga, Kec. Sindang, Kab. Indramayu, Jawa Barat (NPSN 20216609). Pendaftaran siswa baru SPMB jalur domisili, cek saldo tabungan siswa, layanan mutasi, data guru & staf, serta informasi sekolah terkini.",
   keywords: [
     "SDN 1 Kenanga",
     "UPTD SDN 1 Kenanga",
-    "SD Negeri Sungai Penuh",
-    "pendaftaran SD Sungai Penuh",
+    "SD Negeri Sindang",
+    "pendaftaran SD Indramayu",
     "SPMB SDN 1 Kenanga",
-    "PPDB SD Sungai Penuh",
-    "sekolah dasar Sungai Penuh",
+    "PPDB SD Indramayu",
+    "PPDB SDN Sindang",
+    "sekolah dasar Indramayu",
+    "SD di Sindang",
     "SPMB",
-    "NPSN 20211091",
+    "NPSN 20216609",
   ],
-  authors: [{ name: "UPTD SDN 1 Kenanga" }],
-  creator: "UPTD SDN 1 Kenanga",
+  authors: [{ name: SCHOOL.name }],
+  creator: SCHOOL.name,
   manifest: "/manifest.json",
   alternates: {
     canonical: "/",
@@ -88,24 +109,24 @@ export const metadata: Metadata = {
     type: "website",
     locale: "id_ID",
     url: SITE_URL,
-    siteName: "UPTD SDN 1 Kenanga",
-    title: "SDN 1 Kenanga — SD Negeri Sungai Penuh, SPMB & Layanan Siswa",
+    siteName: SCHOOL.name,
+    title: "SDN 1 Kenanga — SD Negeri Sindang Indramayu, SPMB & Layanan Siswa",
     description:
-      "UPTD SDN 1 Kenanga Sungai Penuh, Jambi. Pendaftaran siswa baru (SPMB) jalur domisili, layanan tabungan & mutasi siswa, dan informasi sekolah.",
+      "UPTD SDN 1 Kenanga, Sindang, Indramayu. Pendaftaran siswa baru (SPMB) jalur domisili, layanan tabungan & mutasi siswa, dan informasi sekolah.",
     images: [
       {
         url: "/logo.png",
         width: 512,
         height: 512,
-        alt: "Logo UPTD SDN 1 Kenanga",
+        alt: `Logo ${SCHOOL.name}`,
       },
     ],
   },
   twitter: {
     card: "summary",
-    title: "SDN 1 Kenanga — SD Negeri Sungai Penuh",
+    title: "SDN 1 Kenanga — SD Negeri Sindang Indramayu",
     description:
-      "Pendaftaran siswa baru (SPMB), layanan tabungan & mutasi siswa, dan informasi sekolah UPTD SDN 1 Kenanga Sungai Penuh.",
+      "Pendaftaran siswa baru (SPMB), layanan tabungan & mutasi siswa, dan informasi sekolah UPTD SDN 1 Kenanga Sindang, Indramayu.",
     images: ["/logo.png"],
   },
   robots: {
