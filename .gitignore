@@ -103,3 +103,7 @@ go-backend/test_db.js
 # agent tooling (third-party, not part of the app)
 agent/
 .agents/
+
+# Binary build
+sekolahku_linux
+go-backend/sekolahku_linux
