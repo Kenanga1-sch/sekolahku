@@ -6,10 +6,17 @@ services:
     container_name: sekolahku-app
     restart: unless-stopped
     ports:
-      - "3000:8181"
+      - "8181:8181"
     environment:
       PORT: 8181
       TZ: Asia/Jakarta
+      ENV: production
+      # WAJIB diisi di .env di server — tanpa ini backend menolak start.
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET wajib diisi di .env}
+      # Produksi lewat HTTPS (Cloudflare Tunnel) → cookie Secure.
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      # Asal request yang diizinkan (CORS + CSRF).
+      EXTRA_ALLOWED_ORIGINS: ${EXTRA_ALLOWED_ORIGINS:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       TELEGRAM_API_URL: ${TELEGRAM_API_URL:-http://telegram-bot-api:8081}
     volumes:
