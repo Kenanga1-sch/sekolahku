@@ -24,38 +24,56 @@ export function MediaEmbed({
 
   useEffect(() => {
     if (!url) return;
-    
+
+    // Parse dulu lalu validasi HOST sebenarnya. Pemeriksaan sebelumnya memakai
+    // url.includes('instagram.com/p/'), sehingga "https://evil.tld/?x=instagram.com/p/"
+    // lolos dan iframe diarahkan ke situs penyerang.
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      setMediaType('image');
+      return;
+    }
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+      setMediaType('image');
+      return;
+    }
+    const host = parsed.hostname.toLowerCase();
+    const oneOf = (suffixes: string[]) =>
+      suffixes.some((s) => host === s || host.endsWith(`.${s}`));
+
     // Check YouTube
-    if (url.includes('youtube.com/watch') || url.includes('youtu.be/') || url.includes('youtube.com/embed/')) {
+    if (oneOf(['youtube.com', 'youtu.be', 'm.youtube.com', 'www.youtube.com'])) {
       setMediaType('youtube');
       setIsLoading(true);
-      
+
       // Extract video ID
       let videoId = '';
-      if (url.includes('youtu.be/')) {
-        videoId = url.split('youtu.be/')[1]?.split('?')[0];
-      } else if (url.includes('youtube.com/watch')) {
-        const urlParams = new URL(url).searchParams;
-        videoId = urlParams.get('v') || '';
-      } else if (url.includes('youtube.com/embed/')) {
-        videoId = url.split('youtube.com/embed/')[1]?.split('?')[0];
+      if (host === 'youtu.be') {
+        videoId = parsed.pathname.slice(1).split('?')[0];
+      } else if (parsed.pathname.startsWith('/watch')) {
+        videoId = parsed.searchParams.get('v') || '';
+      } else if (parsed.pathname.startsWith('/embed/')) {
+        videoId = parsed.pathname.split('/embed/')[1]?.split('?')[0] || '';
       }
-      
-      if (videoId) {
-        setEmbedUrl(`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0`);
+
+      // Batasi id ke karakter aman agar tidak bisa menyisipkan path.
+      if (videoId && /^[A-Za-z0-9_-]{6,20}$/.test(videoId)) {
+        setEmbedUrl(`https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&mute=0`);
+      } else {
+        setMediaType('image');
       }
-    } 
+    }
     // Check Instagram
-    else if (url.includes('instagram.com/p/') || url.includes('instagram.com/reel/')) {
+    else if (oneOf(['instagram.com', 'www.instagram.com']) && (/^\/p\//.test(parsed.pathname) || /^\/reel\//.test(parsed.pathname))) {
       setMediaType('instagram');
       setIsLoading(true);
-      
-      // Extract post ID to format clean embed url
-      // e.g. https://www.instagram.com/p/ABCDEFG/
-      let cleanUrl = url.split('?')[0];
-      if (!cleanUrl.endsWith('/')) cleanUrl += '/';
-      setEmbedUrl(`${cleanUrl}embed`);
-    } 
+
+      // Host sudah terverifikasi, jadi aman menyusun ulang embed URL-nya.
+      const cleanPath = parsed.pathname.endsWith('/') ? parsed.pathname : `${parsed.pathname}/`;
+      setEmbedUrl(`https://www.instagram.com${cleanPath}embed`);
+    }
     // Default Image
     else {
       setMediaType('image');
@@ -119,6 +137,7 @@ export function MediaEmbed({
             className="absolute top-0 left-0 w-full h-full"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
             allowFullScreen
+            sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
           />
         )}
       </div>
@@ -145,6 +164,7 @@ export function MediaEmbed({
             src={embedUrl}
             className="absolute top-0 left-0 w-full h-full border-0"
             scrolling="no"
+            sandbox="allow-scripts allow-same-origin allow-popups"
             allowTransparency={true}
           />
         )}

@@ -36,6 +36,7 @@ import {
 import { FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { goGet, goPost, goPatch } from "@/lib/api-client";
+import { sanitizeHTML } from "@/lib/security";
 
 function handlePaste(view: any, event: ClipboardEvent, _slice: any) {
   if (!event.clipboardData) return false;
@@ -318,7 +319,7 @@ export default function TemplateEditorPage() {
              <div className="flex-1 overflow-auto bg-zinc-100 dark:bg-zinc-900/50 p-8 flex justify-center rounded-b-lg">
                 <div 
                    className="bg-white text-black shadow-lg p-[20mm] origin-top scale-[0.6] md:scale-90"
-                   dangerouslySetInnerHTML={{ __html: editor.getHTML() }}
+                   dangerouslySetInnerHTML={{ __html: sanitizeHTML(editor.getHTML() ?? "") }}
                    style={{
                        width: paperSize === 'F4' ? '215mm' : paperSize === 'LEGAL' ? '216mm' : '210mm',
                        minHeight: paperSize === 'F4' ? '330mm' : paperSize === 'LEGAL' ? '356mm' : '297mm',

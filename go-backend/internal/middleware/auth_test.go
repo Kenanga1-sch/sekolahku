@@ -30,8 +30,11 @@ func TestSecurityHeaders(t *testing.T) {
 	if rec.Header().Get("X-Frame-Options") != "DENY" {
 		t.Errorf("expected X-Frame-Options: DENY, got %s", rec.Header().Get("X-Frame-Options"))
 	}
-	if rec.Header().Get("X-XSS-Protection") != "1; mode=block" {
-		t.Errorf("expected X-XSS-Protection header, got %s", rec.Header().Get("X-XSS-Protection"))
+	// X-XSS-Protection sengaja "0": auditor filter usang di browser modern
+	// telah membuktikan bisa dieksploitasi; mematikannya adalah rekomendasi
+	// OWASP (mitigasi XSS andalkan CSP + escaping).
+	if rec.Header().Get("X-XSS-Protection") != "0" {
+		t.Errorf("expected X-XSS-Protection: 0, got %s", rec.Header().Get("X-XSS-Protection"))
 	}
 	if rec.Header().Get("Referrer-Policy") != "strict-origin-when-cross-origin" {
 		t.Errorf("expected Referrer-Policy header, got %s", rec.Header().Get("Referrer-Policy"))

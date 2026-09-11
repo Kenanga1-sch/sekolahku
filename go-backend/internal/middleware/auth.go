@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
 	"os"
@@ -8,9 +9,22 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
+	"github.com/sekolahku/go-backend/internal/repository"
 )
 
 var jwtSecret []byte
+
+// userLookup dipakai untuk memverifikasi bahwa user pemilik token masih aktif.
+// Diisi lewat InitJWTUserLookup pada saat startup; bila kosong, pemeriksaan
+// status user dilewati (misalnya pada tes unit).
+var userLookup *repository.UserRepository
+
+// InitJWTUserLookup mengaktifkan pemeriksaan status user pada setiap request
+// terautentikasi. Tanpa ini, JWT yang sudah diterbitkan tetap berlaku sampai
+// kedaluwarsa meski akunnya sudah dinonaktifkan.
+func InitJWTUserLookup(repo *repository.UserRepository) {
+	userLookup = repo
+}
 
 const (
 	RoleSuperadmin = "superadmin"
@@ -47,11 +61,23 @@ func RoleMiddleware(allowedRoles ...string) echo.MiddlewareFunc {
 }
 
 func SecurityHeaders(next echo.HandlerFunc) echo.HandlerFunc {
+	isProd := os.Getenv("ENV") == "production"
+
 	return func(c echo.Context) error {
-		c.Response().Header().Set("X-Content-Type-Options", "nosniff")
-		c.Response().Header().Set("X-Frame-Options", "DENY")
-		c.Response().Header().Set("X-XSS-Protection", "1; mode=block")
-		c.Response().Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		h := c.Response().Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("X-Frame-Options", "DENY")
+		// X-XSS-Protection sudah dihapus dari browser modern; nilai "1" justru
+		// dapat membuka celah pada konten yang disaring agresif. Standar baru
+		// adalah mematikannya dan mengandalkan CSP.
+		h.Set("X-XSS-Protection", "0")
+		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		h.Set("Permissions-Policy", "camera=(self), microphone=(), geolocation=(self), payment=()")
+
+		// HSTS hanya masuk akal saat trafik benar-benar lewat HTTPS.
+		if isProd {
+			h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
 		return next(c)
 	}
 }
@@ -128,6 +154,22 @@ func JWTMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		c.Set("userId", claims["sub"])
 		c.Set("user_email", claims["email"])
 		c.Set("user_role", claims["role"])
+
+		// Pastikan akun pemilik token masih aktif. JWT berlaku 7 hari, jadi
+		// tanpa pemeriksaan ini user yang dinonaktifkan tetap bisa memakai
+		// token lamanya selama berminggu-minggu.
+		if userLookup != nil {
+			if id, ok := claims["sub"].(string); ok && id != "" {
+				user, err := userLookup.GetUserByID(id)
+				if err != nil && err != sql.ErrNoRows {
+					c.Logger().Errorf("AUTH ERROR: gagal memeriksa status user %s: %v", id, err)
+				}
+				// ErrNoRows → user sudah dihapus: tolak akses.
+				if err == sql.ErrNoRows || user == nil || !user.IsActive {
+					return c.JSON(http.StatusForbidden, map[string]string{"error": "Akun tidak aktif atau sudah dihapus"})
+				}
+			}
+		}
 
 		return next(c)
 	}

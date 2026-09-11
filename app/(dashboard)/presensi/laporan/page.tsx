@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { goGet } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { siteConfig } from "@/lib/config";
+import { escapeHTML } from "@/lib/security";
 import {
   Dialog,
   DialogContent,
@@ -234,13 +235,15 @@ export default function LaporanPresensiPage() {
       if (!printWindow) return;
       
       const headers = ['Tanggal', 'Kelas', 'Siswa', 'NIS/NISN', 'Status', 'Waktu', 'Metode'];
+      // Data siswa (nama, kelas) di-escape: nilai ini dapat diisi lewat impor
+      // data master, sehingga tidak boleh disisipkan mentah ke HTML.
       const rows = data?.records.map(r => [
-        r.date,
-        `Kelas ${r.className}`,
-        r.studentName,
-        r.nis || r.nisn || '-',
-        STATUS_LABELS[r.status],
-        r.checkInTime || '-',
+        escapeHTML(r.date),
+        `Kelas ${escapeHTML(r.className)}`,
+        escapeHTML(r.studentName),
+        escapeHTML(r.nis || r.nisn || '-'),
+        escapeHTML(STATUS_LABELS[r.status]),
+        escapeHTML(r.checkInTime || '-'),
         r.recordMethod === 'qr_scan' ? 'QR' : 'Manual'
       ]) || [];
       
@@ -262,9 +265,9 @@ export default function LaporanPresensiPage() {
         <body>
           <h2>LAPORAN PRESENSI HARIAN</h2>
           <div class="meta">
-            ${siteConfig.school.name}<br>
+            ${escapeHTML(siteConfig.school.name)}<br>
             Periode: ${format(new Date(startDate), "d MMM yyyy", { locale: localeId })} - ${format(new Date(endDate), "d MMM yyyy", { locale: localeId })}<br>
-            Kelas: ${className === "all" ? "Semua Kelas" : `Kelas ${className}`}
+            Kelas: ${className === "all" ? "Semua Kelas" : `Kelas ${escapeHTML(className)}`}
           </div>
           <table>
             <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>

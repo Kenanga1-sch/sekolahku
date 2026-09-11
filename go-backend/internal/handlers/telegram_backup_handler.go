@@ -103,28 +103,83 @@ func (h *TelegramBackupHandler) RestoreBackup(c echo.Context) error {
 	}
 	defer r.Close()
 
-	// Extract
+	// Ekstrak dengan pengamanan zip-slip: semua entri dipaksa mendarat di
+	// dalam direktori aplikasi.
+	if err := extractZipSecurely(tempPath, restoreBaseDir()); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal memulihkan backup: " + err.Error()})
+	}
+
+	// Schedule restart
+	go func() {
+		time.Sleep(2 * time.Second)
+		os.Exit(0)
+	}()
+
+	return c.JSON(http.StatusOK, map[string]string{"message": "Backup berhasil dipulihkan. Server akan restart dalam beberapa detik."})
+}
+
+// restoreBaseDir adalah direktori akar aplikasi — satu-satunya tempat entri
+// backup boleh ditulis. Backup dibuat oleh createBackupZip() dengan path
+// relatif terhadap working directory (filepath.ToSlash(path)), sehingga
+// pemulihan harus mengembalikannya ke akar yang sama.
+func restoreBaseDir() string {
+	if wd, err := os.Getwd(); err == nil {
+		return filepath.Clean(wd)
+	}
+	return "."
+}
+
+// extractZipSecurely mengekstrak zip ke dalam destDir dengan pengamanan
+// zip-slip. Semua entri yang mencoba keluar dari destDir (path absolut,
+// awalan "../", symlink) dilewati. File dibuat dengan mode aman (bukan mode
+// dari dalam zip) agar tidak ada file world-writable.
+func extractZipSecurely(zipPath, destDir string) error {
+	base := filepath.Clean(destDir)
+
+	r, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
 	for _, f := range r.File {
-		// Prevent zip slip vulnerability
-		cleanedPath := filepath.Clean(f.Name)
-		if strings.HasPrefix(cleanedPath, "..") {
+		// Tolak entri symlink: symlink bisa diarahkan keluar dari destDir lalu
+		// dipakai untuk menimpa file di luar (variasi zip-slip).
+		if f.FileInfo().Mode()&os.ModeSymlink != 0 {
 			continue
 		}
 
-		destPath := cleanedPath
+		// Paksa nama entri jadi relatif, lalu gabungkan ke base. Tanpa
+		// filepath.Join ke base, path absolut seperti "/etc/passwd" (yang tidak
+		// berawalan "..") akan lolos dan ditulis di luar destDir.
+		cleaned := filepath.Clean(filepath.Join("/", filepath.FromSlash(f.Name)))
+		destPath := filepath.Join(base, cleaned)
 
-		// Ensure directories exist
+		// Verifikasi hasil akhir masih berada di dalam base.
+		// Menambahkan separator mencegah lolosnya sibling seperti
+		// "/app-backup" ketika base adalah "/app".
+		if destPath != base && !strings.HasPrefix(destPath, base+string(os.PathSeparator)) {
+			continue
+		}
+
 		if f.FileInfo().IsDir() {
-			os.MkdirAll(destPath, os.ModePerm)
+			// Mode direktori aman (tidak memakai os.ModePerm).
+			_ = os.MkdirAll(destPath, 0o755)
 			continue
 		}
 
-		if err := os.MkdirAll(filepath.Dir(destPath), os.ModePerm); err != nil {
+		if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
 			continue
 		}
 
-		// Write file
-		outFile, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+		// Mode file aman: 0644 untuk file biasa, 0755 bila executable.
+		// Tidak memakai f.Mode() mentah yang bisa 0777.
+		mode := os.FileMode(0o644)
+		if f.Mode().Perm()&0o111 != 0 {
+			mode = 0o755
+		}
+
+		outFile, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)
 		if err != nil {
 			continue
 		}
@@ -135,19 +190,13 @@ func (h *TelegramBackupHandler) RestoreBackup(c echo.Context) error {
 			continue
 		}
 
-		io.Copy(outFile, rc)
+		_, _ = io.Copy(outFile, rc)
 
 		outFile.Close()
 		rc.Close()
 	}
 
-	// Schedule restart
-	go func() {
-		time.Sleep(2 * time.Second)
-		os.Exit(0)
-	}()
-
-	return c.JSON(http.StatusOK, map[string]string{"message": "Backup berhasil dipulihkan. Server akan restart dalam beberapa detik."})
+	return nil
 }
 
 // SendBackupToTelegram is a helper function to send the backup to Telegram

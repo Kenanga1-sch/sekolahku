@@ -62,7 +62,9 @@ Kredensial admin dapat dikonfigurasi via environment variable:
 
 - `ADMIN_EMAIL` (default: `admin@sekolah.sch.id`)
 - `ADMIN_USERNAME` (default: `admin`)
-- `ADMIN_PASSWORD` (default: `admin123`)
+- `ADMIN_PASSWORD` — **wajib diset di produksi.** Bila kosong, sistem membuat
+  password acak yang kuat dan mencetaknya **sekali** ke log saat admin pertama
+  dibuat. Tidak ada lagi password default yang bisa ditebak.
 
 Role bendahara ditunjuk melalui menu Admin.
 

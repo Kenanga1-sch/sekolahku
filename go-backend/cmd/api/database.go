@@ -1,7 +1,9 @@
 package main
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -512,8 +514,22 @@ func SeedDefaultAdmin(db *sql.DB, logger echo.Logger) {
 	}
 
 	adminEmail := getEnvOrDefault("ADMIN_EMAIL", "admin@sekolah.sch.id")
-	adminPassword := getEnvOrDefault("ADMIN_PASSWORD", "admin123")
 	adminUsername := getEnvOrDefault("ADMIN_USERNAME", "admin")
+
+	// Jangan pernah memakai password default yang bisa ditebak. Bila
+	// ADMIN_PASSWORD tidak diset, hasilkan password acak yang kuat dan
+	// cetak sekali ke log — admin harus menyalinnya saat login pertama.
+	adminPassword := os.Getenv("ADMIN_PASSWORD")
+	usingGeneratedPassword := false
+	if adminPassword == "" {
+		generated, err := generateRandomPassword()
+		if err != nil {
+			logger.Warnf("Failed to generate admin password: %v", err)
+			return
+		}
+		adminPassword = generated
+		usingGeneratedPassword = true
+	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(adminPassword), bcrypt.DefaultCost)
 	if err != nil {
@@ -530,7 +546,26 @@ func SeedDefaultAdmin(db *sql.DB, logger echo.Logger) {
 		logger.Warnf("Failed to seed admin user: %v", err)
 		return
 	}
-	logger.Infof("Default admin user created (%s / %s) — wajib ganti password setelah login pertama.", adminEmail, adminPassword)
+	if usingGeneratedPassword {
+		logger.Warnf("==============================================================")
+		logger.Warnf("Admin default dibuat: %s", adminEmail)
+		logger.Warnf("Password sekali pakai: %s", adminPassword)
+		logger.Warnf("SIMPAN password ini — tidak akan ditampilkan lagi.")
+		logger.Warnf("Set ADMIN_PASSWORD untuk menentukannya sendiri.")
+		logger.Warnf("==============================================================")
+	} else {
+		logger.Infof("Default admin user created (%s) — wajib ganti password setelah login pertama.", adminEmail)
+	}
+}
+
+// generateRandomPassword menghasilkan password acak yang aman secara
+// kriptografis (base64 url-safe, 24 byte ≈ 32 karakter).
+func generateRandomPassword() (string, error) {
+	b := make([]byte, 24)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
 // SeedDefaultKlasifikasi creates default letter classification codes if the table is empty.

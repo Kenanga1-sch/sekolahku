@@ -330,6 +330,18 @@ func (h *EOfficeHandler) UploadDocx(c echo.Context) error {
 	}
 	defer src.Close()
 
+	// Validasi ekstensi + magic bytes + ukuran. Sebelumnya file diterima apa
+	// adanya, sehingga berkas berbahaya (.html/.svg berekstensi .docx) dapat
+	// tersimpan di direktori yang disajikan publik.
+	const maxDocxBytes = 15 * 1024 * 1024
+	if _, err := validateUploadedFile(file, uploadValidationOpts{
+		AllowedExtensions: []string{".docx"},
+		MaxBytes:          maxDocxBytes,
+		AllowZip:          true,
+	}); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+
 	outDir := filepath.Join("public", "uploads", "eoffice", "docx")
 	if err := os.MkdirAll(outDir, 0755); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})

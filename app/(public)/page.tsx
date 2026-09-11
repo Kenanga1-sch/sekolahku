@@ -8,7 +8,8 @@ import {
   GraduationCap,
   Users,
   BookOpen,
-  Briefcase,
+  Wallet,
+  ArrowRightLeft,
   ArrowRight,
   MapPin,
   Calendar,
@@ -90,9 +91,9 @@ export default function PublicHomepage() {
   const news = (data?.news ?? []).slice(0, 4);
 
   return (
-    <div className="flex flex-col bg-[#FFF8E7]">
+    <div className="flex flex-col bg-public-bg">
       <section className="relative min-h-[90dvh] md:min-h-[85dvh] flex items-center overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#A7F3D0]/30 via-[#FFF8E7] to-[#FFF8E7]" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#A7F3D0]/30 via-public-bg to-public-bg" />
         <div className="absolute top-0 right-0 w-[50vw] h-[50vw] max-w-[600px] max-h-[600px] rounded-full bg-[#A7F3D0]/20 blur-[80px] pointer-events-none" />
 
         <div className="relative z-10 max-w-6xl mx-auto px-4 py-20 md:py-24 w-full">
@@ -144,7 +145,7 @@ export default function PublicHomepage() {
               { label: "Program", value: "SPMB", icon: BookOpen },
             ].map((stat, i) => (
               <Reveal key={stat.label} delay={i * 0.06}>
-                <div className="flex flex-col items-center text-center p-6 rounded-2xl bg-[#FFF8E7] border border-[#d1e7dd]">
+                <div className="flex flex-col items-center text-center p-6 rounded-2xl bg-public-bg border border-public-border shadow-sm">
                   <div className="h-10 w-10 rounded-xl bg-[#065F46] text-white flex items-center justify-center mb-3">
                     <stat.icon className="h-5 w-5" />
                   </div>
@@ -168,15 +169,11 @@ export default function PublicHomepage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {[
-              { title: "Cek Saldo Tabungan", desc: "Periksa saldo tabungan siswa secara mandiri.", href: "/layanan/cek-saldo", icon: Briefcase },
-              { title: "Mutasi Masuk", desc: "Formulir permohonan pindah masuk sekolah.", href: "/layanan/mutasi-masuk", icon: ArrowRight },
-              { title: "Mutasi Keluar", desc: "Formulir permohonan pindah keluar sekolah.", href: "/layanan/mutasi-keluar", icon: ArrowRight },
-              { title: "Lacak Status SPMB", desc: "Cek status pendaftaran siswa baru.", href: "/spmb/tracking", icon: GraduationCap },
-              { title: "Verifikasi Berkas", desc: "Verifikasi dokumen pendaftaran SPMB.", href: "/spmb/verify", icon: BookOpen },
-              { title: "Kiosk Kelas", desc: "Scan presensi dan tabungan dari HP guru.", href: "/kiosk-kelas", icon: Users },
+              { title: "Tabungan", desc: "Cek saldo tabungan dan rekening koran siswa.", href: "/layanan/tabungan", icon: Wallet },
+              { title: "Mutasi", desc: "Permohonan pindah masuk/keluar dan cek status permohonan.", href: "/layanan/mutasi", icon: ArrowRightLeft },
             ].map((item, i) => (
               <Reveal key={item.title} delay={i * 0.05}>
-                <Link href={item.href} className="group flex items-start gap-4 p-5 rounded-2xl bg-white border border-[#d1e7dd] hover:border-[#065F46]/30 hover:shadow-md transition-all active:scale-[0.98]">
+                <Link href={item.href} className="group flex items-start gap-4 p-5 rounded-2xl bg-white border border-public-border shadow-sm hover:border-[#065F46]/30 hover:shadow-md transition-all active:scale-[0.98]">
                   <div className="h-10 w-10 shrink-0 rounded-xl bg-[#A7F3D0] text-[#065F46] flex items-center justify-center group-hover:bg-[#065F46] group-hover:text-white transition-colors">
                     <item.icon className="h-5 w-5" />
                   </div>
@@ -256,7 +253,7 @@ export default function PublicHomepage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
               {news.map((item, i) => (
                 <Reveal key={item.id} delay={i * 0.06}>
-                  <div className="group flex flex-col h-full rounded-2xl border border-[#d1e7dd] bg-[#FFF8E7] overflow-hidden hover:shadow-md transition-shadow">
+                  <div className="group flex flex-col h-full rounded-2xl border border-public-border bg-public-bg shadow-sm overflow-hidden hover:shadow-md transition-shadow">
                     {item.thumbnail ? (
                       <div className="relative aspect-[16/10] overflow-hidden">
                         <Image src={item.thumbnail} alt={item.title} fill sizes="(max-width: 768px) 100vw, 25vw" className="object-cover group-hover:scale-[1.03] transition-transform duration-300" />
@@ -316,7 +313,7 @@ export default function PublicHomepage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 md:gap-6">
               {staff.map((person, i) => (
                 <Reveal key={person.id} delay={i * 0.05}>
-                  <div className="flex flex-col items-center text-center p-4 rounded-2xl bg-[#FFF8E7] border border-[#d1e7dd]">
+                  <div className="flex flex-col items-center text-center p-4 rounded-2xl bg-public-bg border border-public-border shadow-sm">
                     <div className="h-16 w-16 md:h-20 md:w-20 rounded-full overflow-hidden bg-[#A7F3D0] mb-3">
                       {person.photoUrl ? (
                         <Image src={person.photoUrl} alt={person.name} width={80} height={80} className="h-full w-full object-cover" />

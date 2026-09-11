@@ -49,6 +49,51 @@ export function sanitizeText(dirty: string): string {
     return DOMPurify.sanitize(dirty, { ALLOWED_TAGS: [] });
 }
 
+/**
+ * Escape text untuk disisipkan ke dalam string HTML (bukan lewat React).
+ *
+ * WAJIB dipakai sebelum menggabungkan data apa pun ke dalam template literal
+ * HTML yang akan ditulis dengan `document.write()` atau `innerHTML`. Tanpa
+ * ini, data dari pengguna (mis. nama siswa, asal sekolah pada pendaftaran
+ * SPMB) dapat menyisipkan tag/script berbahaya — DOM XSS.
+ *
+ * Catatan: React meng-escape otomatis bila memakai children JSX (`{value}`),
+ * sehingga helper ini hanya perlu untuk pembentukan HTML manual.
+ */
+export function escapeHTML(value: unknown): string {
+    if (value === null || value === undefined) return "";
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+/**
+ * Memastikan URL aman dipakai di atribut href/src.
+ * Hanya mengizinkan http, https, mailto, tel, dan path relatif.
+ * Mengembalikan "#" bila skema tidak dikenal — mencegah `javascript:`.
+ */
+export function sanitizeUrl(value: unknown): string {
+    if (value === null || value === undefined) return "#";
+    const raw = String(value).trim();
+    if (raw === "") return "#";
+
+    // Path relatif (diawali "/" atau "./" atau "../") diizinkan.
+    if (/^[./]/.test(raw) && !/^[./]{2,}\s*:/.test(raw)) return raw;
+
+    try {
+        const url = new URL(raw);
+        const allowed = new Set(["http:", "https:", "mailto:", "tel:"]);
+        if (allowed.has(url.protocol)) return url.toString();
+    } catch {
+        // Bukan URL absolut yang valid — mungkin path relatif tanpa awalan.
+        if (!/^[a-z][a-z0-9+.-]*:/i.test(raw)) return raw;
+    }
+    return "#";
+}
+
 // ==========================================
 // PocketBase Filter Injection Prevention
 // ==========================================

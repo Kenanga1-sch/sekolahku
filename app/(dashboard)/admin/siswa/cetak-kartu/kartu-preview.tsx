@@ -242,7 +242,7 @@ function NISNCardBack({ student, schoolName, schoolAddress, forPrint }: NISNBack
         </div>
         <div className="flex flex-col items-center gap-0.5 text-[#231f20]">
           <span className="text-[4px] text-slate-500 font-bold leading-none">Link Resmi NISN :</span>
-          <a href="https://nisn.data.kemdikbud.go.id" target="_blank" rel="noreferrer" className="text-[5.5px] text-[#1b75bb] font-bold underline leading-none mb-1">https://nisn.data.kemdikbud.go.id</a>
+          <a href="https://nisn.data.kemdikbud.go.id" target="_blank" rel="noopener noreferrer" className="text-[5.5px] text-[#1b75bb] font-bold underline leading-none mb-1">https://nisn.data.kemdikbud.go.id</a>
           <span className="text-[3.5px] text-slate-400 font-medium leading-none">didukung oleh :</span>
           <span className="text-[4.5px] text-slate-600 font-bold leading-none">www.mastiokdr.com</span>
         </div>

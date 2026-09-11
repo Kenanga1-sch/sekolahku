@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"golang.org/x/crypto/bcrypt"
 	_ "modernc.org/sqlite"
+	"os"
 )
 
 func main() {
@@ -22,7 +23,12 @@ func main() {
 		return
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(hash), []byte("admin123"))
+	candidate := os.Getenv("ADMIN_PASSWORD")
+	if candidate == "" {
+		fmt.Println("Set ADMIN_PASSWORD terlebih dahulu.")
+		return
+	}
+	err = bcrypt.CompareHashAndPassword([]byte(hash), []byte(candidate))
 	if err != nil {
 		fmt.Println("bcrypt compare:", err)
 	} else {

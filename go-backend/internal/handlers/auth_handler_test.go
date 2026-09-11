@@ -142,6 +142,74 @@ func TestAuthHandlerLoginUnknownUser(t *testing.T) {
 	}
 }
 
+// TestAuthHandlerLoginInactiveUser memastikan user yang sudah dinonaktifkan
+// (is_active = 0) tidak bisa login meski passwordnya benar.
+func TestAuthHandlerLoginInactiveUser(t *testing.T) {
+	os.Setenv("JWT_SECRET", "test-secret-key")
+	defer os.Unsetenv("JWT_SECRET")
+
+	db := setupAuthTestDB(t)
+	defer db.Close()
+
+	// Nonaktifkan user yang sudah di-seed.
+	if _, err := db.Exec(`UPDATE users SET is_active = 0 WHERE email = ?`, "admin@sekolah.sch.id"); err != nil {
+		t.Fatalf("gagal menonaktifkan user: %v", err)
+	}
+
+	handler := NewAuthHandler(repository.NewUserRepository(db), repository.NewAuditLogRepository(db))
+	e := echo.New()
+	body := `{"email":"admin@sekolah.sch.id","password":"password123"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	if err := handler.Login(ctx); err != nil {
+		t.Fatalf("Login returned error: %v", err)
+	}
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("expected 403 for inactive user, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// Pastikan tidak ada token yang dikeluarkan.
+	var resp map[string]interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err == nil {
+		if tok, ok := resp["token"]; ok && tok != "" && tok != nil {
+			t.Errorf("user nonaktif tetap menerima token: %v", tok)
+		}
+	}
+}
+
+// TestAuthHandlerLoginActiveUserStillWorks memastikan user aktif tetap bisa
+// login (pengecekan is_active tidak merusak alur normal).
+func TestAuthHandlerLoginActiveUserStillWorks(t *testing.T) {
+	os.Setenv("JWT_SECRET", "test-secret-key")
+	defer os.Unsetenv("JWT_SECRET")
+
+	db := setupAuthTestDB(t)
+	defer db.Close()
+
+	// Eksplisit: is_active = 1.
+	if _, err := db.Exec(`UPDATE users SET is_active = 1 WHERE email = ?`, "admin@sekolah.sch.id"); err != nil {
+		t.Fatalf("gagal mengaktifkan user: %v", err)
+	}
+
+	handler := NewAuthHandler(repository.NewUserRepository(db), repository.NewAuditLogRepository(db))
+	e := echo.New()
+	body := `{"email":"admin@sekolah.sch.id","password":"password123"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	if err := handler.Login(ctx); err != nil {
+		t.Fatalf("Login returned error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200 for active user, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestAuthHandlerLoginInvalidPayload(t *testing.T) {
 	db := setupAuthTestDB(t)
 	defer db.Close()

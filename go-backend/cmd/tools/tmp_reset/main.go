@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"os"
 
 	"golang.org/x/crypto/bcrypt"
 	_ "modernc.org/sqlite"
@@ -16,7 +17,13 @@ func main() {
 	}
 	defer db.Close()
 
-	hash, err := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
+	newPassword := os.Getenv("ADMIN_PASSWORD")
+	if newPassword == "" {
+		fmt.Println("Set ADMIN_PASSWORD terlebih dahulu.")
+		return
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 	if err != nil {
 		fmt.Println("hash err:", err)
 		return
@@ -28,5 +35,5 @@ func main() {
 		return
 	}
 	n, _ := res.RowsAffected()
-	fmt.Printf("Updated %d admin row(s). Password reset to admin123, must_change_password=1\n", n)
+	fmt.Printf("Updated %d admin row(s). Password direset, must_change_password=1\n", n)
 }

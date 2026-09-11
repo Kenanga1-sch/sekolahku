@@ -40,6 +40,12 @@ func (h *DocumentHandler) Create(c echo.Context) error {
 	if req.Recipient == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Penerima wajib diisi"})
 	}
+	// FilePath berasal dari klien dan dipakai untuk menghapus file di disk.
+	// Tanpa validasi ini, nilai seperti "../../data/sekolahku.db" dapat
+	// menghapus file sembarang saat dokumen dihapus.
+	if !isSafeStoredUploadPath(req.FilePath) {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Path file tidak valid"})
+	}
 
 	uid := currentUserID(c)
 	now := time.Now().UnixMilli()
@@ -185,9 +191,9 @@ func (h *DocumentHandler) Delete(c echo.Context) error {
 	}
 
 	// Clean up physical file
-	if existing.FilePath != "" {
-		diskPath := filepath.Join("public", existing.FilePath)
-		if err := os.Remove(diskPath); err != nil && !os.IsNotExist(err) {
+	if existing.FilePath != "" && isSafeStoredUploadPath(existing.FilePath) {
+		diskPath := filepath.Clean(filepath.Join("public", existing.FilePath))
+		if err := safeRemoveUploadFile(diskPath, uploadsRootDir()); err != nil && !os.IsNotExist(err) {
 			log.Printf("[WARN] document_handler.Delete: failed to remove file %s: %v", diskPath, err)
 		}
 	}

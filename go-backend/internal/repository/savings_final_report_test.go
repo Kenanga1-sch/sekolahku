@@ -13,7 +13,7 @@ func TestGetFinalReport_YearMemisahkanData(t *testing.T) {
 	seedSavingsFlow(t, db, 0)
 
 	// Batas tahun WIB: 2026-01-01 00:00 WIB = 2025-12-31 17:00 UTC.
-	y2026 := int64(1_768_447_200_000) // 2026-01-01T00:00:00+07:00
+	y2026 := int64(1_767_200_400_000) // 2026-01-01T00:00:00+07:00
 	y2025 := y2026 - 365*24*3_600_000
 
 	// 2025: setor 3x1000
@@ -79,7 +79,7 @@ func TestGetFinalReport_MonthlySummaryWIB(t *testing.T) {
 	seedSavingsFlow(t, db, 0)
 
 	// Januari dan Februari 2026 WIB.
-	jan := int64(1_768_447_200_000)      // 2026-01-01 00:00 WIB
+	jan := int64(1_767_200_400_000)       // 2026-01-01 00:00 WIB
 	feb := jan + 31*24*3_600_000         // 2026-02-01 00:00 WIB
 
 	if _, err := db.Exec(`INSERT INTO tabungan_transaksi

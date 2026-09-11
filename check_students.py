@@ -1,13 +1,23 @@
 #!/usr/bin/env python3
 import urllib.request
+import urllib.error
 import json
+import os
+import sys
 import http.cookiejar
 
 cj = http.cookiejar.CookieJar()
 opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
-BASE = "http://localhost:3000"
+BASE = os.environ.get("APP_BASE_URL", "http://localhost:3000")
 
-data = json.dumps({"email": "admin@sekolah.sch.id", "password": "admin123"}).encode("utf-8")
+# Kredensial diambil dari environment — JANGAN pernah hard-code di sini.
+EMAIL = os.environ.get("ADMIN_EMAIL")
+PASSWORD = os.environ.get("ADMIN_PASSWORD")
+if not EMAIL or not PASSWORD:
+    print("Set ADMIN_EMAIL dan ADMIN_PASSWORD terlebih dahulu.", file=sys.stderr)
+    raise SystemExit(1)
+
+data = json.dumps({"email": EMAIL, "password": PASSWORD}).encode("utf-8")
 req = urllib.request.Request(BASE + "/api/auth/login", data=data, headers={"Content-Type": "application/json"})
 try:
     opener.open(req, timeout=10)

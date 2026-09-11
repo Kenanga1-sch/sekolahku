@@ -9,6 +9,7 @@ import (
 
 	"github.com/nrednav/cuid2"
 	"github.com/sekolahku/go-backend/internal/models"
+	"github.com/sekolahku/go-backend/internal/util"
 )
 
 type AnnouncementRepository struct {
@@ -182,7 +183,9 @@ func (r *AnnouncementRepository) CreateAnnouncement(req models.CreateAnnouncemen
 		INSERT INTO announcements (id, title, slug, content, excerpt, category, thumbnail, is_published, is_featured, published_at, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	_, err := r.DB.Exec(query, id, req.Title, req.Slug, req.Content, req.Excerpt, req.Category, req.Thumbnail, req.IsPublished, req.IsFeatured, pAt, now, now)
+	// Konten rich-text disanitasi saat disimpan agar aman bagi setiap
+	// pemakai berikutnya (halaman publik, PDF, mobile).
+	_, err := r.DB.Exec(query, id, req.Title, req.Slug, util.SanitizeRichTextPtr(req.Content), util.SanitizePlainTextPtr(req.Excerpt), req.Category, req.Thumbnail, req.IsPublished, req.IsFeatured, pAt, now, now)
 	if err != nil {
 		return "", err
 	}
@@ -211,7 +214,7 @@ func (r *AnnouncementRepository) UpdateAnnouncement(id string, req models.Create
 		SET title=?, slug=?, content=?, excerpt=?, category=?, thumbnail=?, is_published=?, is_featured=?, published_at=?, updated_at=?
 		WHERE id=?
 	`
-	res, err := r.DB.Exec(query, req.Title, req.Slug, req.Content, req.Excerpt, req.Category, req.Thumbnail, req.IsPublished, req.IsFeatured, pAt, now, id)
+	res, err := r.DB.Exec(query, req.Title, req.Slug, util.SanitizeRichTextPtr(req.Content), util.SanitizePlainTextPtr(req.Excerpt), req.Category, req.Thumbnail, req.IsPublished, req.IsFeatured, pAt, now, id)
 	if err != nil {
 		return err
 	}

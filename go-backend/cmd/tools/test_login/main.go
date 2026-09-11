@@ -6,11 +6,15 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 )
 
 func main() {
 	url := "http://localhost:8181/api/auth/login"
-	payload := map[string]string{"email": "admin@sekolah.sch.id", "password": "admin123"}
+	payload := map[string]string{
+		"email":    os.Getenv("ADMIN_EMAIL"),
+		"password": os.Getenv("ADMIN_PASSWORD"),
+	}
 	jsonData, _ := json.Marshal(payload)
 
 	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))

@@ -358,8 +358,9 @@ export default function TabMutasiMasuk() {
                             <span className="text-muted-foreground">WhatsApp:</span>
                             {req.whatsappNumber && req.whatsappNumber !== "-" ? (
                               <a
-                                href={`https://wa.me/${req.whatsappNumber}`}
+                                href={`https://wa.me/${encodeURIComponent(req.whatsappNumber)}`}
                                 target="_blank"
+                                rel="noopener noreferrer"
                                 className="text-green-600 hover:underline flex items-center"
                               >
                                 {req.whatsappNumber} <MessageCircle className="h-3 w-3 ml-1" />

@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
+import { escapeHTML } from "@/lib/security";
 
 interface PrintRegistrationProps {
     registrant: any; // Using any to support both legacy and new structures during migration, or specifically updated structure
@@ -39,19 +40,26 @@ export function PrintRegistrationCard({ registrant, schoolName = "SD Negeri 1", 
 
         // Handle both camelCase (Drizzle) and snake_case (Legacy PB)
         const r = registrant;
-        const regNum = r.registrationNumber || r.registration_number;
-        const fullName = r.fullName || r.student_name || r.full_name;
-        const nik = r.nik || r.student_nik;
-        const birthPlace = r.birthPlace || r.birth_place;
-        const birthDate = r.birthDate || r.birth_date;
-        const previousSchool = r.previousSchool || r.previous_school;
-        const parentName = r.parentName || r.parent_name;
-        const parentPhone = r.parentPhone || r.parent_phone;
-        const parentEmail = r.parentEmail || r.parent_email;
-        const address = r.homeAddress || r.address || r.home_address;
-        const distance = r.distanceToSchool || r.distance_to_school;
+        // Semua nilai di-escape di sini: data pendaftar berasal dari form
+        // PUBLIK (siapa pun bisa mendaftar), sehingga tidak boleh disisipkan
+        // mentah ke HTML — jika tidak, pendaftar anonim bisa menyisipkan
+        // script yang dieksekusi di origin ini saat admin mencetak kartu.
+        const e = escapeHTML;
+        const regNum = e(r.registrationNumber || r.registration_number);
+        const fullName = e(r.fullName || r.student_name || r.full_name);
+        const nik = e(r.nik || r.student_nik);
+        const birthPlace = e(r.birthPlace || r.birth_place);
+        const birthDate = e(r.birthDate || r.birth_date);
+        const previousSchool = e(r.previousSchool || r.previous_school);
+        const parentName = e(r.parentName || r.parent_name);
+        const parentPhone = e(r.parentPhone || r.parent_phone);
+        const parentEmail = e(r.parentEmail || r.parent_email);
+        const address = e(r.homeAddress || r.address || r.home_address);
+        // distanceToSchool bertipe number dari backend (models/spmb.go:58),
+        // jadi tidak perlu di-escape — hanya format angka.
+        const distance = r.distanceToSchool ?? r.distance_to_school;
         const inZone = r.isInZone || r.is_in_zone || r.is_within_zone;
-        const created = r.createdAt || r.created;
+        const created = e(r.createdAt || r.created);
 
         printWindow.document.write(`
       <!DOCTYPE html>
@@ -121,7 +129,7 @@ export function PrintRegistrationCard({ registrant, schoolName = "SD Negeri 1", 
               font-size: 12px;
               font-weight: 600;
               color: white;
-              background: ${getStatusColor(r.status)};
+              background: ${escapeHTML(getStatusColor(r.status))};
             }
             .info-grid {
               display: grid;
@@ -178,11 +186,11 @@ export function PrintRegistrationCard({ registrant, schoolName = "SD Negeri 1", 
           <div class="card">
             <div class="header">
               <div class="logo">🎓</div>
-              <div class="school-name">${schoolName}</div>
-              ${schoolAddress ? `<div class="school-address">${schoolAddress}</div>` : ""}
+              <div class="school-name">${escapeHTML(schoolName)}</div>
+              ${schoolAddress ? `<div class="school-address">${escapeHTML(schoolAddress)}</div>` : ""}
               <div class="title">Kartu Bukti Pendaftaran</div>
               <div class="reg-number">${regNum}</div>
-              <div><span class="status">${getStatusLabel(r.status)}</span></div>
+              <div><span class="status">${escapeHTML(getStatusLabel(r.status))}</span></div>
             </div>
             
             <div class="info-grid">

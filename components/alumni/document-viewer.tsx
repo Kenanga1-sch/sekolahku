@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { sanitizeUrl } from "@/lib/security";
 import { Badge } from "@/components/ui/badge";
 import {
   Download,
@@ -53,6 +54,9 @@ export function DocumentViewer({ document, open, onClose }: DocumentViewerProps)
   const [zoom, setZoom] = useState(1);
   const isImage = document.mimeType?.startsWith("image/");
   const isPdf = document.mimeType === "application/pdf";
+  // filePath berasal dari backend; validasi skema mencegah javascript:/data:
+  // dipakai di src maupun window.open.
+  const safeUrl = sanitizeUrl(document.filePath);
   
   const status = statusConfig[document.verificationStatus as keyof typeof statusConfig] || statusConfig.pending;
   const StatusIcon = status.icon;
@@ -122,7 +126,7 @@ export function DocumentViewer({ document, open, onClose }: DocumentViewerProps)
                 className="origin-center"
               >
                 <img
-                  src={document.filePath}
+                  src={safeUrl}
                   alt={document.fileName}
                   className="max-w-full max-h-[55vh] object-contain rounded shadow-lg"
                 />
@@ -130,7 +134,7 @@ export function DocumentViewer({ document, open, onClose }: DocumentViewerProps)
             </div>
           ) : isPdf ? (
             <iframe
-              src={document.filePath}
+              src={safeUrl}
               className="w-full h-[55vh] border-0"
               title={document.fileName}
             />
@@ -173,7 +177,7 @@ export function DocumentViewer({ document, open, onClose }: DocumentViewerProps)
             <Button
               variant="outline"
               size="sm"
-              onClick={() => window.open(document.filePath, "_blank")}
+              onClick={() => window.open(safeUrl, "_blank", "noopener,noreferrer")}
             >
               <ExternalLink className="h-4 w-4 mr-1" />
               Buka di Tab Baru

@@ -89,13 +89,12 @@ func (h *UploadHandler) GeneralUpload(c echo.Context) error {
 
 	ext, ok := allowedMimeTypes[contentType]
 	if !ok {
-		// Also check the declared content type as fallback
-		ext, ok = allowedMimeTypes[file.Header.Get("Content-Type")]
-		if !ok {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": fmt.Sprintf("Invalid file type: %s", contentType),
-			})
-		}
+		// Hanya boleh percaya pada hasil deteksi magic bytes. Fallback ke
+		// header Content-Type dari klien dihapus: header itu bisa dipalsukan,
+		// sehingga file HTML berbahaya berlabel "image/png" bisa lolos.
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": fmt.Sprintf("Invalid file type: %s", contentType),
+		})
 	}
 
 	// Create destination

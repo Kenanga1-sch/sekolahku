@@ -195,6 +195,10 @@ func main() {
 		Holiday:        repository.NewSchoolHolidayRepository(db),
 	}
 
+	// Aktifkan pemeriksaan status user pada setiap request terautentikasi,
+	// sehingga token milik akun yang sudah dinonaktifkan segera ditolak.
+	authMiddleware.InitJWTUserLookup(repos.User)
+
 	// Auto sync students on startup
 	log.Println("[Startup] Running initial synchronization of active students...")
 	if filled, err := repository.BackfillStudentQRCodes(db); err != nil {

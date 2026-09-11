@@ -54,6 +54,13 @@ func (h *AuthHandler) Login(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Username/email atau password salah."})
 	}
 
+	// User yang sudah dinonaktifkan tidak boleh mendapat sesi baru.
+	// Tanpa pengecekan ini, staf/guru yang sudah di-offboarding tetap bisa
+	// login selama akunnya ada.
+	if !user.IsActive {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "Akun Anda tidak aktif. Silakan hubungi administrator."})
+	}
+
 	// Generate JWT
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {

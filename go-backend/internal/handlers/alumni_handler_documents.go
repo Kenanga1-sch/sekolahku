@@ -112,7 +112,7 @@ func (h *AlumniHandler) DeleteDocument(c echo.Context) error {
 		return shared.InternalError(c)
 	}
 	if diskPath, _ := resolveStoredFilePath(doc.FilePath); diskPath != "" {
-		os.Remove(diskPath)
+		_ = safeRemoveUploadFile(diskPath, uploadsRootDir())
 	}
 	return shared.SuccessResponse(c, nil)
 }

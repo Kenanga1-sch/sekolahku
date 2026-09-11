@@ -12,6 +12,8 @@ import {
   CheckCircle2,
   ArrowRight,
   Clock,
+  UserPlus,
+  FileSearch,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +55,27 @@ const requirements = [
   "Bukti domisili (untuk Jalur Domisili)",
 ];
 
+const services = [
+  {
+    title: "Pendaftaran Siswa Baru",
+    desc: "Daftarkan calon siswa baru secara online.",
+    href: "/spmb/daftar",
+    icon: UserPlus,
+  },
+  {
+    title: "Lacak Status SPMB",
+    desc: "Pantau status pendaftaran siswa baru dengan nomor registrasi.",
+    href: "/spmb/tracking",
+    icon: Search,
+  },
+  {
+    title: "Verifikasi Berkas SPMB",
+    desc: "Verifikasi dan unduh bukti pendaftaran SPMB.",
+    href: "/spmb/verify",
+    icon: FileSearch,
+  },
+];
+
 export default function SPMBLandingPage() {
   const [data, setData] = useState<LandingData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,9 +96,9 @@ export default function SPMBLandingPage() {
     d ? new Date(d).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "-";
 
   return (
-    <div className="flex flex-col bg-[#FFF8E7]">
+    <div className="flex flex-col bg-public-bg">
       <section className="relative min-h-[80dvh] flex items-center overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#A7F3D0]/30 via-[#FFF8E7] to-[#FFF8E7]" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#A7F3D0]/30 via-public-bg to-public-bg" />
         <div className="absolute bottom-0 left-0 w-[40vw] h-[40vw] max-w-[500px] max-h-[500px] rounded-full bg-[#A7F3D0]/20 blur-[80px] pointer-events-none" />
 
         <div className="relative z-10 max-w-6xl mx-auto px-4 py-16 md:py-24 w-full">
@@ -123,7 +146,7 @@ export default function SPMBLandingPage() {
                 { label: "Ditutup", value: formatDate(period.end_date), icon: Clock },
               ].map((item, i) => (
                 <Reveal key={item.label} delay={i * 0.06}>
-                  <div className="p-5 rounded-2xl bg-[#FFF8E7] border border-[#d1e7dd]">
+                  <div className="p-5 rounded-2xl bg-public-bg border border-public-border shadow-sm">
                     <div className="flex items-center gap-2 text-[#4b6b4b] mb-2">
                       <item.icon className="h-4 w-4" />
                       <span className="text-xs font-medium uppercase tracking-wider">{item.label}</span>
@@ -146,7 +169,7 @@ export default function SPMBLandingPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
             {steps.map((step, i) => (
               <Reveal key={step.title} delay={i * 0.06}>
-                <div className="relative p-5 rounded-2xl bg-white border border-[#d1e7dd] h-full">
+                <div className="relative p-5 rounded-2xl bg-white border border-public-border shadow-sm h-full">
                   <span className="absolute top-4 right-4 text-3xl font-bold text-[#A7F3D0]">{String(i + 1).padStart(2, "0")}</span>
                   <div className="h-10 w-10 rounded-xl bg-[#065F46] text-white flex items-center justify-center mb-4">
                     <step.icon className="h-5 w-5" />
@@ -163,16 +186,46 @@ export default function SPMBLandingPage() {
       <section className="py-16 md:py-20 bg-white">
         <div className="max-w-6xl mx-auto px-4">
           <Reveal>
+            <h2 className="text-2xl md:text-3xl font-bold text-[#1a2e1a] mb-4">Layanan SPMB</h2>
+          </Reveal>
+          <Reveal delay={0.08}>
+            <p className="text-[#4b6b4b] mb-10 max-w-[55ch]">Semua keperluan penerimaan siswa baru dalam satu tempat.</p>
+          </Reveal>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            {services.map((service, i) => (
+              <Reveal key={service.title} delay={i * 0.05}>
+                <Link
+                  href={service.href}
+                  className="group flex items-start gap-4 p-5 rounded-2xl bg-public-bg border border-public-border shadow-sm hover:border-[#065F46]/30 hover:shadow-md transition-all active:scale-[0.98] h-full"
+                >
+                  <div className="h-11 w-11 shrink-0 rounded-xl bg-[#A7F3D0] text-[#065F46] flex items-center justify-center group-hover:bg-[#065F46] group-hover:text-white transition-colors">
+                    <service.icon className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-[#1a2e1a] text-sm">{service.title}</h3>
+                    <p className="text-xs text-[#4b6b4b] mt-1 leading-relaxed">{service.desc}</p>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-[#4b6b4b] shrink-0 mt-1 group-hover:translate-x-1 group-hover:text-[#065F46] transition-all" />
+                </Link>
+              </Reveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="py-16 md:py-20">
+        <div className="max-w-6xl mx-auto px-4">
+          <Reveal>
             <h2 className="text-2xl md:text-3xl font-bold text-[#1a2e1a] mb-4">Syarat Dokumen</h2>
           </Reveal>
           <Reveal delay={0.08}>
             <p className="text-[#4b6b4b] mb-10 max-w-[55ch]">Siapkan dokumen berikut sebelum mengisi formulir pendaftaran.</p>
           </Reveal>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {requirements.map((req, i) => (
               <Reveal key={req} delay={i * 0.05}>
-                <div className="flex items-start gap-3 p-4 rounded-2xl bg-[#FFF8E7] border border-[#d1e7dd]">
+                <div className="flex items-start gap-3 p-4 rounded-2xl bg-public-bg border border-public-border shadow-sm">
                   <CheckCircle2 className="h-5 w-5 text-[#065F46] shrink-0 mt-0.5" />
                   <span className="text-sm text-[#1a2e1a]">{req}</span>
                 </div>

@@ -26,14 +26,15 @@ export async function loginAction(
     const data = await goPost("/api/auth/login", { email, password, remember_me: rememberMe }, { skipRetry: true });
 
     if (data && (data as any).success) {
-      const publicInfo = (data as any).public_info;
-      if (publicInfo && typeof window !== "undefined") {
-        localStorage.setItem("sekolahku_user", JSON.stringify(publicInfo));
-      }
-      return { 
-        success: true, 
+      // Info publik sesi (id, nama, role) disimpan backend di cookie
+      // user_info saat login. localStorage sengaja tidak dipakai lagi —
+      // nilainya bisa dimodifikasi klien dan sempat dipakai sebagai sumber
+      // sesi utama, sehingga cukup diubah lewat DevTools untuk memalsukan
+      // role di UI.
+      return {
+        success: true,
         user: (data as any).user,
-        publicInfo: publicInfo
+        publicInfo: (data as any).public_info,
       };
     }
 
@@ -68,17 +69,9 @@ export async function logoutAction() {
 export async function getSessionAction() {
   if (typeof document === "undefined") return null;
 
-  if (typeof localStorage !== "undefined") {
-    const stored = localStorage.getItem("sekolahku_user");
-    if (stored) {
-      try {
-        const data = JSON.parse(stored);
-        return { user: data };
-      } catch {}
-    }
-  }
-
-  // Fallback: baca cookie user_info (non-sensitive, dikirim backend saat login).
+  // Sumber sesi hanyalah cookie user_info yang ditulis backend saat login
+  // (HttpOnly session = kebenaran sebenarnya, diverifikasi ulang di setiap
+  // request API). localStorage tidak lagi dipercaya sebagai sumber sesi.
   const infoCookie = readCookie("user_info");
   if (!infoCookie) return null;
 

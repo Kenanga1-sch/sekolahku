@@ -85,6 +85,11 @@ test_login.json
 tmp_test.tsx
 go-backend/query_main.go
 
+# credential files — jangan pernah di-commit
+login.json
+*_credentials.json
+credentials.json
+
 # scratch files and local dbs
 check_db.go
 check_schema.go

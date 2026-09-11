@@ -13,11 +13,94 @@ import {
     sanitizeEmail,
     sanitizePhone,
     sanitizeNIK,
+    escapeHTML,
+    sanitizeUrl,
     isValidEmail,
     isValidPhone,
     isValidNIK,
     checkRateLimit,
 } from "./security";
+
+describe("escapeHTML", () => {
+    it("should escape script tags", () => {
+        expect(escapeHTML('<script>alert(1)</script>')).toBe(
+            "&lt;script&gt;alert(1)&lt;/script&gt;"
+        );
+    });
+
+    it("should escape img onerror payload", () => {
+        const out = escapeHTML('<img src=x onerror=alert(1)>');
+        // Yang penting: tidak ada lagi tag yang bisa diparse browser.
+        expect(out).not.toContain("<img");
+        expect(out).toContain("&lt;img");
+        // Teks "onerror=" boleh tersisa sebagai teks biasa — tidak dieksekusi
+        // karena "<" sudah di-escape.
+        expect(out).toBe("&lt;img src=x onerror=alert(1)&gt;");
+    });
+
+    it("should escape quotes for attribute contexts", () => {
+        expect(escapeHTML(`" onmouseover="alert(1)`)).toBe(
+            "&quot; onmouseover=&quot;alert(1)"
+        );
+        expect(escapeHTML("it's")).toBe("it&#39;s");
+    });
+
+    it("should escape ampersands before other entities", () => {
+        // & harus di-escape duluan agar &lt; tidak jadi &amp;lt; dobel.
+        expect(escapeHTML("&lt;")).toBe("&amp;lt;");
+    });
+
+    it("should handle null and undefined", () => {
+        expect(escapeHTML(null)).toBe("");
+        expect(escapeHTML(undefined)).toBe("");
+    });
+
+    it("should coerce non-string values", () => {
+        expect(escapeHTML(123)).toBe("123");
+        expect(escapeHTML(0)).toBe("0");
+    });
+
+    it("should neutralise XSS from student name injected into print template", () => {
+        // Skenario nyata: nama siswa berisi payload, dicetak ke jendela baru.
+        const studentName = '<img src=x onerror="fetch(\'//evil.tld\')">';
+        const html = `<td>${escapeHTML(studentName)}</td>`;
+        expect(html).not.toContain("<img");
+        expect(html).toContain("&lt;img");
+    });
+});
+
+describe("sanitizeUrl", () => {
+    it("should allow http and https", () => {
+        expect(sanitizeUrl("https://example.com/x")).toBe("https://example.com/x");
+        // URL.toString() menormalisasi host tanpa path jadi ada trailing slash.
+        expect(sanitizeUrl("http://example.com")).toBe("http://example.com/");
+    });
+
+    it("should block javascript: scheme", () => {
+        expect(sanitizeUrl("javascript:alert(1)")).toBe("#");
+        expect(sanitizeUrl("JaVaScRiPt:alert(1)")).toBe("#");
+    });
+
+    it("should block data: scheme", () => {
+        expect(sanitizeUrl("data:text/html,<script>alert(1)</script>")).toBe("#");
+    });
+
+    it("should allow relative paths", () => {
+        expect(sanitizeUrl("/uploads/a.pdf")).toBe("/uploads/a.pdf");
+        expect(sanitizeUrl("./file.pdf")).toBe("./file.pdf");
+    });
+
+    it("should allow mailto and tel", () => {
+        expect(sanitizeUrl("mailto:a@b.com")).toBe("mailto:a@b.com");
+        expect(sanitizeUrl("tel:+62123")).toBe("tel:+62123");
+    });
+
+    it("should return # for empty or invalid", () => {
+        expect(sanitizeUrl("")).toBe("#");
+        expect(sanitizeUrl(null)).toBe("#");
+        expect(sanitizeUrl(undefined)).toBe("#");
+    });
+});
 
 describe("XSS Prevention", () => {
     describe("sanitizeHTML", () => {
