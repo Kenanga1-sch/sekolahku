@@ -253,7 +253,7 @@ export default function PublicHomepage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
               {news.map((item, i) => (
                 <Reveal key={item.id} delay={i * 0.06}>
-                  <div className="group flex flex-col h-full rounded-2xl border border-public-border bg-public-bg shadow-sm overflow-hidden hover:shadow-md transition-shadow">
+                  <Link href={`/berita/detail?slug=${encodeURIComponent(item.slug)}`} className="group flex flex-col h-full rounded-2xl border border-public-border bg-public-bg shadow-sm overflow-hidden hover:shadow-md transition-shadow">
                     {item.thumbnail ? (
                       <div className="relative aspect-[16/10] overflow-hidden">
                         <Image src={item.thumbnail} alt={item.title} fill sizes="(max-width: 768px) 100vw, 25vw" className="object-cover group-hover:scale-[1.03] transition-transform duration-300" />
@@ -270,10 +270,16 @@ export default function PublicHomepage() {
                       <h3 className="text-sm font-semibold text-[#1a2e1a] leading-snug line-clamp-2">{item.title}</h3>
                       {item.excerpt && <p className="text-xs text-[#4b6b4b] line-clamp-2 leading-relaxed">{item.excerpt}</p>}
                     </div>
-                  </div>
+                  </Link>
                 </Reveal>
               ))}
             </div>
+            <Reveal className="mt-8">
+              <Link href="/berita" className="inline-flex items-center gap-2 text-sm font-semibold text-[#065F46] hover:underline">
+                Lihat semua berita
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Reveal>
           </div>
         </section>
       )}

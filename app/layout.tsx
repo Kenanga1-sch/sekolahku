@@ -8,33 +8,115 @@ import { SkipToContent } from "@/components/accessibility";
 import { ZXingConfig } from "@/components/zxing-config";
 import "./globals.css";
 
+const SITE_URL = "https://sdn1kenanga.sch.id";
+
+// Structured data untuk rich result Google: knowledge panel sekolah,
+// skor Local SEO (nama+alamat+koordinat konsisten dengan Google Business
+// Profile), dan sitelinks search box.
+const organizationJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "EducationalOrganization",
+  "@id": `${SITE_URL}/#school`,
+  name: "UPTD SDN 1 Kenanga",
+  alternateName: ["SDN 1 Kenanga", "SD Negeri 1 Kenanga Sungai Penuh"],
+  url: SITE_URL,
+  logo: `${SITE_URL}/logo.png`,
+  image: `${SITE_URL}/logo.png`,
+  description:
+    "UPTD SDN 1 Kenanga, sekolah dasar negeri di Sungai Penuh, Jambi. Melayani pendaftaran siswa baru (SPMB), tabungan siswa, mutasi, dan layanan pendidikan lainnya.",
+  identifier: {
+    "@type": "PropertyValue",
+    name: "NPSN",
+    value: "20211091",
+  },
+  address: {
+    "@type": "PostalAddress",
+    streetAddress: "Jl. Pendidikan No. 1, Kenanga",
+    addressLocality: "Sungai Penuh",
+    addressRegion: "Jambi",
+    postalCode: "37111",
+    addressCountry: "ID",
+  },
+  geo: {
+    "@type": "GeoCoordinates",
+    latitude: -2.072254,
+    longitude: 101.395614,
+  },
+  telephone: "(0748) 123456",
+  areaServed: {
+    "@type": "AdministrativeArea",
+    name: "Kota Sungai Penuh, Jambi",
+  },
+};
+
+const websiteJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "@id": `${SITE_URL}/#website`,
+  url: SITE_URL,
+  name: "SDN 1 Kenanga",
+  publisher: { "@id": `${SITE_URL}/#school` },
+  inLanguage: "id-ID",
+};
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
-    default: "SDN 1 Kenanga",
-    template: "%s | SDN 1 Kenanga",
+    default: "SDN 1 Kenanga — SD Negeri Sungai Penuh, SPMB & Layanan Siswa",
+    template: "%s | SDN 1 Kenanga Sungai Penuh",
   },
   description:
-    "Portal utama UPTD SDN 1 Kenanga untuk informasi sekolah, pendaftaran siswa baru (SPMB) Jalur Domisili, dan layanan digital terintegrasi.",
+    "UPTD SDN 1 Kenanga Sungai Penuh, Jambi (NPSN 20211091). Pendaftaran siswa baru SPMB jalur domisili, cek saldo tabungan siswa, layanan mutasi, data guru & staf, serta informasi sekolah terkini.",
   keywords: [
+    "SDN 1 Kenanga",
     "UPTD SDN 1 Kenanga",
-    "sekolah dasar",
-    "pendaftaran siswa baru",
+    "SD Negeri Sungai Penuh",
+    "pendaftaran SD Sungai Penuh",
+    "SPMB SDN 1 Kenanga",
+    "PPDB SD Sungai Penuh",
+    "sekolah dasar Sungai Penuh",
     "SPMB",
-    "domisili",
-    "pendidikan",
-    "Indonesia",
+    "NPSN 20211091",
   ],
   authors: [{ name: "UPTD SDN 1 Kenanga" }],
-  creator: "Website Sekolah Terpadu",
+  creator: "UPTD SDN 1 Kenanga",
   manifest: "/manifest.json",
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
     type: "website",
     locale: "id_ID",
+    url: SITE_URL,
     siteName: "UPTD SDN 1 Kenanga",
-    title: "UPTD SDN 1 Kenanga - Website Sekolah Terpadu",
+    title: "SDN 1 Kenanga — SD Negeri Sungai Penuh, SPMB & Layanan Siswa",
     description:
-      "Portal utama UPTD SDN 1 Kenanga untuk informasi sekolah, pendaftaran siswa baru (SPMB), dan layanan digital terintegrasi.",
+      "UPTD SDN 1 Kenanga Sungai Penuh, Jambi. Pendaftaran siswa baru (SPMB) jalur domisili, layanan tabungan & mutasi siswa, dan informasi sekolah.",
+    images: [
+      {
+        url: "/logo.png",
+        width: 512,
+        height: 512,
+        alt: "Logo UPTD SDN 1 Kenanga",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary",
+    title: "SDN 1 Kenanga — SD Negeri Sungai Penuh",
+    description:
+      "Pendaftaran siswa baru (SPMB), layanan tabungan & mutasi siswa, dan informasi sekolah UPTD SDN 1 Kenanga Sungai Penuh.",
+    images: ["/logo.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
   },
 };
 
@@ -63,6 +145,14 @@ export default function RootLayout({
           dan frame hanya boleh dari diri sendiri.
         */}
         <meta httpEquiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+        />
       </head>
       <body className="font-sans antialiased" suppressHydrationWarning>
         <div id="app-version" className="fixed bottom-1.5 right-2 z-[9999] text-[11px] font-mono text-black/20 pointer-events-none select-none print:hidden" aria-hidden="true">v1.1.015</div>

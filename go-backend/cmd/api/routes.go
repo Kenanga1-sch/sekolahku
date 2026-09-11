@@ -134,6 +134,11 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 		CacheControl: "public, max-age=300",
 	}))
 
+	// Sitemap berita dinamis (melengkapi /sitemap.xml statis dari frontend).
+	// Tanpa auth: sitemap memang untuk crawler.
+	sitemapHandler := handlers.NewSitemapHandler(repos.Announcement)
+	server.GET("/sitemap-news.xml", sitemapHandler.News)
+
 	publicGroup.GET("/homepage", h.Public.GetHomepageData)
 	publicGroup.GET("/staff", h.Public.GetPublicStaff)
 	publicGroup.GET("/gallery", h.Public.GetPublicGallery)

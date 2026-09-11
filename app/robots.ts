@@ -9,6 +9,10 @@ export default function robots(): MetadataRoute.Robots {
       allow: '/',
       disallow: ['/admin/', '/login', '/api/'],
     },
-    sitemap: 'https://sdn1kenanga.sch.id/sitemap.xml',
+    sitemap: [
+      'https://sdn1kenanga.sch.id/sitemap.xml',
+      // Sitemap berita dinamis, digenerate backend dari database.
+      'https://sdn1kenanga.sch.id/sitemap-news.xml',
+    ],
   }
 }

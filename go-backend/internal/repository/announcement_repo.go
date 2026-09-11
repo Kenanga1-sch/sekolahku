@@ -236,3 +236,42 @@ func (r *AnnouncementRepository) DeleteAnnouncement(id string) error {
 	}
 	return nil
 }
+
+// PublishedSlug adalah entri berita terpublikasi untuk sitemap.
+type PublishedSlug struct {
+	Slug        string
+	UpdatedAt   int64
+	PublishedAt int64
+}
+
+// GetPublishedSlugs mengambil slug berita terpublikasi untuk sitemap.xml.
+// Dibatasi maxItems agar sitemap tidak membengkak tanpa batas.
+func (r *AnnouncementRepository) GetPublishedSlugs(maxItems int) ([]PublishedSlug, error) {
+	if maxItems <= 0 {
+		maxItems = 1000
+	}
+	rows, err := r.DB.Query(`
+		SELECT slug, updated_at, COALESCE(published_at, created_at)
+		FROM announcements
+		WHERE is_published = 1
+		ORDER BY COALESCE(published_at, created_at) DESC
+		LIMIT ?
+	`, maxItems)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []PublishedSlug
+	for rows.Next() {
+		var s PublishedSlug
+		var updated, published sql.NullInt64
+		if err := rows.Scan(&s.Slug, &updated, &published); err != nil {
+			return nil, err
+		}
+		s.UpdatedAt = updated.Int64
+		s.PublishedAt = published.Int64
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}

@@ -42,14 +42,17 @@ SSH "cd $DEPLOY_DIR && podman build -t sekolahku-app:latest -f Dockerfile . 2>&1
 echo "=========================================="
 echo " [4/5] Ganti container lama -> baru..."
 echo "=========================================="
-# Hentikan & hapus container lama (nama "sekolahku", host-network port 3000)
-SSH "podman rm -f sekolahku 2>/dev/null || true"
+# Hentikan systemd user service dulu agar tidak otomatis me-restart
+# container lama di tengah penggantian (race --restart unless-stopped).
+SSH "systemctl --user stop sekolahku-app.service 2>/dev/null || true"
 
 # Container baru: bridge network. Host port 3000 = yang dituju Cloudflare
 # Tunnel (jangan diubah tanpa update konfigurasi tunnel di dasbor Cloudflare).
 # TRUST_PROXY=true karena HTTPS dihentikan di Cloudflare edge — tanpa ini
 # middleware HTTPSRedirect mengirim 301 ke https://localhost yang salah.
+# --replace otomatis membuang container lama yang memakai nama sama.
 SSH "cd $DEPLOY_DIR && podman run -d \
+  --replace \
   --name sekolahku-app \
   --restart unless-stopped \
   -p 3000:8181 \
@@ -61,6 +64,9 @@ SSH "cd $DEPLOY_DIR && podman run -d \
   -v $DEPLOY_DIR/public/uploads:/app/public/uploads \
   -v $DEPLOY_DIR/uploads:/app/uploads \
   localhost/sekolahku-app:latest"
+
+# Nyalakan kembali service agar systemd tetap mengelola container baru.
+SSH "systemctl --user start sekolahku-app.service 2>/dev/null || true"
 
 echo "=========================================="
 echo " [5/5] Health check..."

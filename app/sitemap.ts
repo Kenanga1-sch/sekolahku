@@ -78,5 +78,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'monthly',
       priority: 0.6,
     },
+    {
+      // Daftar berita; item detail dilayani /sitemap-news.xml dinamis
+      // (lihat go-backend/internal/handlers/sitemap_handler.go).
+      url: `${baseUrl}/berita`,
+      lastModified: new Date(),
+      changeFrequency: 'daily',
+      priority: 0.8,
+    },
   ]
 }

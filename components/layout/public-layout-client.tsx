@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Settings, LogOut, User, LayoutDashboard, Home, GraduationCap, Briefcase, Users } from "lucide-react";
+import { Settings, LogOut, User, LayoutDashboard, Home, GraduationCap, Briefcase, Users, Newspaper } from "lucide-react";
 import { logoutAction } from "@/actions/auth";
 import { useState, useEffect } from "react";
 
@@ -22,6 +22,7 @@ const navItems = [
   { id: "home", label: "Beranda", href: "/", icon: Home },
   { id: "spmb", label: "SPMB", href: "/spmb", icon: GraduationCap },
   { id: "layanan", label: "Layanan", href: "/layanan", icon: Briefcase },
+  { id: "berita", label: "Berita", href: "/berita", icon: Newspaper },
   { id: "guru", label: "Guru & Staf", href: "/guru-staf", icon: Users },
 ];
 
