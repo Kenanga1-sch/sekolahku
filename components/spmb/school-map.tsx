@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from "react-leaflet";
 import L from "leaflet";
-import { Card } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
 
 // Import Leaflet CSS
 import "leaflet/dist/leaflet.css";
@@ -27,6 +25,20 @@ interface SchoolMapProps {
   showZoneRadius?: boolean;
 }
 
+// Auto-fit view agar lingkaran radius selalu terlihat utuh berapapun km-nya
+function FitBounds({ center, radiusM }: { center: [number, number]; radiusM: number }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const circle = L.circle(center, { radius: radiusM });
+    const bounds = circle.getBounds().pad(0.15);
+    map.fitBounds(bounds, { animate: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [center[0], center[1], radiusM, map]);
+
+  return null;
+}
+
 export default function SchoolMap({
   lat,
   lng,
@@ -43,19 +55,20 @@ export default function SchoolMap({
   if (!mounted) {
     return (
       <div className="h-full w-full flex items-center justify-center bg-muted">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#065F46] border-t-transparent" />
       </div>
     );
   }
 
   const schoolPosition: [number, number] = [lat, lng];
+  const radiusM = maxDistanceKm * 1000;
 
   return (
     <MapContainer
       center={schoolPosition}
       zoom={13}
-      className="h-full w-full"
-      scrollWheelZoom={true} // Enable scroll zoom for smoother experience
+      className="h-full w-full z-0"
+      scrollWheelZoom={true}
       dragging={true}
       touchZoom={true}
       doubleClickZoom={true}
@@ -65,16 +78,19 @@ export default function SchoolMap({
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
 
+      <FitBounds center={schoolPosition} radiusM={showZoneRadius ? radiusM : 0} />
+
       {/* Zone Circle */}
       {showZoneRadius && (
         <Circle
           center={schoolPosition}
-          radius={maxDistanceKm * 1000} // Convert km to meters
+          radius={radiusM}
           pathOptions={{
-            color: "#3b82f6",
-            fillColor: "#3b82f6",
-            fillOpacity: 0.1,
-            dashArray: "5, 5",
+            color: "#065F46",
+            fillColor: "#065F46",
+            fillOpacity: 0.08,
+            dashArray: "6, 8",
+            weight: 2,
           }}
         />
       )}
@@ -86,7 +102,7 @@ export default function SchoolMap({
             <strong>{schoolName}</strong>
             {showZoneRadius && (
               <p className="text-xs text-muted-foreground mt-1">
-                Wilayah penerimaan: {maxDistanceKm} km
+                Radius penerimaan: {maxDistanceKm} km dari titik ini
               </p>
             )}
           </div>

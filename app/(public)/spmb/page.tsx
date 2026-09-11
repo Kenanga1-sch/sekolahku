@@ -14,12 +14,14 @@ import {
   Clock,
   UserPlus,
   FileSearch,
+  Navigation,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { goGet } from "@/lib/api-client";
 import { siteConfig } from "@/lib/config";
 import { Reveal } from "@/components/public/motion";
+import SchoolMapWrapper from "@/components/spmb/school-map-wrapper";
 
 interface LandingData {
   isOpen?: boolean;
@@ -35,6 +37,8 @@ interface LandingData {
   settings?: {
     school_name?: string;
     school_address?: string;
+    school_lat?: number;
+    school_lng?: number;
     max_distance_km?: number;
   };
 }
@@ -90,7 +94,10 @@ export default function SPMBLandingPage() {
   const isOpen = data?.isOpen ?? false;
   const period = data?.period;
   const schoolName = data?.settings?.school_name || siteConfig.school.name;
-  const maxDistance = data?.settings?.max_distance_km || 3;
+  const schoolAddress = data?.settings?.school_address || siteConfig.school.address;
+  const schoolLat = data?.settings?.school_lat ?? siteConfig.location.lat;
+  const schoolLng = data?.settings?.school_lng ?? siteConfig.location.lng;
+  const maxDistance = data?.settings?.max_distance_km || siteConfig.location.maxDistanceKm;
 
   const formatDate = (d?: string) =>
     d ? new Date(d).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "-";
@@ -244,6 +251,71 @@ export default function SPMBLandingPage() {
               </div>
             </div>
           </Reveal>
+        </div>
+      </section>
+
+      <section className="py-16 md:py-20 bg-white">
+        <div className="max-w-6xl mx-auto px-4">
+          <Reveal>
+            <h2 className="text-2xl md:text-3xl font-bold text-[#1a2e1a] mb-4">Wilayah Penerimaan</h2>
+          </Reveal>
+          <Reveal delay={0.08}>
+            <p className="text-[#4b6b4b] mb-10 max-w-[55ch]">
+              Peta berikut menampilkan zona penerimaan siswa baru Jalur Domisili berdasarkan jarak dari sekolah.
+            </p>
+          </Reveal>
+
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-stretch">
+            <Reveal delay={0.1} className="lg:col-span-3">
+              <div className="h-[320px] md:h-[400px] rounded-2xl overflow-hidden border border-public-border shadow-sm">
+                <SchoolMapWrapper
+                  lat={schoolLat}
+                  lng={schoolLng}
+                  maxDistanceKm={maxDistance}
+                  schoolName={schoolName}
+                />
+              </div>
+            </Reveal>
+
+            <Reveal delay={0.18} className="lg:col-span-2">
+              <div className="flex flex-col gap-4 h-full">
+                <div className="p-5 rounded-2xl bg-public-bg border border-public-border shadow-sm flex-1">
+                  <div className="flex items-center gap-2 mb-3">
+                    <MapPin className="h-4 w-4 text-[#065F46]" />
+                    <span className="text-xs font-medium uppercase tracking-wider text-[#4b6b4b]">Lokasi Sekolah</span>
+                  </div>
+                  <h3 className="font-semibold text-[#1a2e1a]">{schoolName}</h3>
+                  <p className="text-sm text-[#4b6b4b] mt-1.5 leading-relaxed">{schoolAddress}</p>
+
+                  <div className="mt-4 flex items-center gap-2">
+                    <Badge className="bg-[#065F46]/10 text-[#065F46] border-[#065F46]/20 px-3 py-1 text-xs font-semibold">
+                      Radius {maxDistance} km
+                    </Badge>
+                    <Badge variant="outline" className="border-[#065F46]/20 text-[#4b6b4b] px-3 py-1 text-xs">
+                      Jalur Domisili
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="p-5 rounded-2xl bg-[#A7F3D0]/30 border border-[#065F46]/20">
+                  <p className="text-sm text-[#1a2e1a] leading-relaxed">
+                    Calon siswa Jalur Domisili harus berdomisili dalam radius{" "}
+                    <strong className="text-[#065F46]">{maxDistance} km</strong> dari sekolah (area lingkaran putus-putus
+                    pada peta). Lokasi rumah ditandai pada peta saat mengisi formulir pendaftaran.
+                  </p>
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${schoolLat},${schoolLng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#065F46] hover:underline"
+                  >
+                    <Navigation className="h-4 w-4" />
+                    Lihat di Google Maps
+                  </a>
+                </div>
+              </div>
+            </Reveal>
+          </div>
         </div>
       </section>
 
