@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { Users, GraduationCap } from "lucide-react";
+import { Users, Quote } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { goGet } from "@/lib/api-client";
+import { normalizePublicPath } from "@/lib/utils";
 import { Reveal } from "@/components/public/motion";
 
 interface StaffItem {
@@ -57,12 +58,15 @@ export default function GuruStafPage() {
           </Reveal>
 
           {loading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 md:gap-6">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="p-4 rounded-2xl bg-white border border-public-border shadow-sm animate-pulse">
-                  <div className="h-20 w-20 rounded-full bg-[#A7F3D0]/40 mx-auto mb-3" />
-                  <div className="h-4 w-3/4 bg-[#A7F3D0]/40 rounded mx-auto" />
-                  <div className="h-3 w-1/2 bg-[#A7F3D0]/30 rounded mx-auto mt-2" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="rounded-2xl bg-white border border-public-border shadow-sm overflow-hidden animate-pulse">
+                  <div className="aspect-[4/5] bg-[#A7F3D0]/40" />
+                  <div className="p-5 space-y-3">
+                    <div className="h-4 w-3/4 bg-[#A7F3D0]/40 rounded mx-auto" />
+                    <div className="h-3 w-1/2 bg-[#A7F3D0]/30 rounded mx-auto" />
+                    <div className="h-10 w-full bg-[#A7F3D0]/20 rounded" />
+                  </div>
                 </div>
               ))}
             </div>
@@ -72,31 +76,48 @@ export default function GuruStafPage() {
               <p className="text-[#4b6b4b]">Data guru dan staf akan segera tersedia.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 md:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
               {sorted.map((person, i) => (
                 <Reveal key={person.id} delay={Math.min(i * 0.04, 0.4)}>
-                  <div className="flex flex-col items-center text-center p-5 rounded-2xl bg-white border border-public-border shadow-sm hover:border-[#065F46]/20 hover:shadow-md transition-all h-full">
-                    <div className="h-20 w-20 rounded-full overflow-hidden bg-[#A7F3D0]/50 mb-4 ring-2 ring-[#A7F3D0] ring-offset-2 ring-offset-white">
+                  <div className="group flex flex-col rounded-2xl bg-white border border-public-border shadow-sm hover:border-[#065F46]/20 hover:shadow-md transition-all h-full overflow-hidden">
+                    {/* Foto 4:5 full-width — elemen dominan kartu */}
+                    <div className="relative aspect-[4/5] w-full overflow-hidden bg-[#A7F3D0]/50">
                       {person.photoUrl ? (
-                        <Image src={person.photoUrl} alt={person.name} width={80} height={80} className="h-full w-full object-cover" />
+                        <Image
+                          src={normalizePublicPath(person.photoUrl)}
+                          alt={`Foto ${person.name}`}
+                          fill
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                          className="object-cover group-hover:scale-[1.03] transition-transform duration-300"
+                        />
                       ) : (
-                        <div className="h-full w-full flex items-center justify-center text-[#065F46]/50">
-                          <Users className="h-8 w-8" />
+                        <div className="absolute inset-0 flex items-center justify-center text-[#065F46]/40">
+                          <Users className="h-16 w-16" />
                         </div>
                       )}
                     </div>
-                    <h2 className="text-sm font-semibold text-[#1a2e1a] leading-snug">
-                      {person.name}
-                      {person.degree && <span className="text-[#4b6b4b] font-normal">, {person.degree}</span>}
-                    </h2>
-                    {person.position && (
-                      <p className="text-xs text-[#4b6b4b] mt-1">{person.position}</p>
-                    )}
-                    {person.category && (
-                      <Badge className="mt-2 bg-[#A7F3D0]/50 text-[#065F46] border-0 text-[10px] font-medium">
-                        {categoryLabel(person.category)}
-                      </Badge>
-                    )}
+                    <div className="flex flex-1 flex-col items-center text-center p-5 gap-1.5">
+                      {person.category && (
+                        <Badge className="bg-[#A7F3D0]/50 text-[#065F46] border-0 text-[10px] font-medium order-first">
+                          {categoryLabel(person.category)}
+                        </Badge>
+                      )}
+                      <h2 className="text-base font-semibold text-[#1a2e1a] leading-snug">
+                        {person.name}
+                        {person.degree && <span className="text-[#4b6b4b] font-normal">, {person.degree}</span>}
+                      </h2>
+                      {person.position && (
+                        <p className="text-xs text-[#4b6b4b]">{person.position}</p>
+                      )}
+                      {person.quote && (
+                        <blockquote className="mt-3 flex flex-col items-center gap-1.5 pt-3 border-t border-public-border/60 w-full">
+                          <Quote className="h-3.5 w-3.5 text-[#065F46]/40 shrink-0" />
+                          <p className="italic text-[13px] leading-relaxed text-[#4b6b4b] line-clamp-4">
+                            {person.quote}
+                          </p>
+                        </blockquote>
+                      )}
+                    </div>
                   </div>
                 </Reveal>
               ))}

@@ -316,21 +316,23 @@ export default function PublicHomepage() {
               <p className="text-[#4b6b4b] mb-10 max-w-[55ch]">Tim pendidik berdedikasi yang membimbing siswa setiap hari.</p>
             </Reveal>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 md:gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
               {staff.map((person, i) => (
                 <Reveal key={person.id} delay={i * 0.05}>
-                  <div className="flex flex-col items-center text-center p-4 rounded-2xl bg-public-bg border border-public-border shadow-sm">
-                    <div className="h-16 w-16 md:h-20 md:w-20 rounded-full overflow-hidden bg-[#A7F3D0] mb-3">
+                  <div className="group flex flex-col rounded-2xl bg-public-bg border border-public-border shadow-sm overflow-hidden hover:border-[#065F46]/20 hover:shadow-md transition-all h-full">
+                    <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#A7F3D0]">
                       {person.photoUrl ? (
-                        <Image src={person.photoUrl} alt={person.name} width={80} height={80} className="h-full w-full object-cover" />
+                        <Image src={person.photoUrl} alt={person.name} fill sizes="(max-width: 768px) 50vw, 25vw" className="object-cover group-hover:scale-[1.03] transition-transform duration-300" />
                       ) : (
-                        <div className="h-full w-full flex items-center justify-center text-[#065F46]">
-                          <Users className="h-8 w-8" />
+                        <div className="absolute inset-0 flex items-center justify-center text-[#065F46]">
+                          <Users className="h-10 w-10" />
                         </div>
                       )}
                     </div>
-                    <h3 className="text-sm font-semibold text-[#1a2e1a] line-clamp-1">{person.name}</h3>
-                    {person.position && <p className="text-xs text-[#4b6b4b] mt-0.5 line-clamp-1">{person.position}</p>}
+                    <div className="flex flex-1 flex-col p-3.5 text-center">
+                      <h3 className="text-sm font-semibold text-[#1a2e1a] line-clamp-1">{person.name}</h3>
+                      {person.position && <p className="text-xs text-[#4b6b4b] mt-0.5 line-clamp-1">{person.position}</p>}
+                    </div>
                   </div>
                 </Reveal>
               ))}
