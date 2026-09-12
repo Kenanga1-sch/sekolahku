@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Settings, LogOut, User, LayoutDashboard, Home, GraduationCap, Briefcase, Users, Newspaper } from "lucide-react";
+import { Settings, LogOut, User, LogIn, LayoutDashboard, Home, GraduationCap, Briefcase, Users, Newspaper } from "lucide-react";
 import { logoutAction } from "@/actions/auth";
 import { useState, useEffect } from "react";
 
@@ -150,6 +150,18 @@ export default function PublicLayoutClient({
           })}
         </div>
       </nav>
+
+      {/* Tombol Masuk mengambang ala FAB chat — hanya mobile, hanya untuk pengunjung yang belum login.
+          Mengambang di atas bottom-nav (bottom-20) agar tak menutupi navigasi. */}
+      {mounted && !isAuthenticated && (
+        <Link
+          href="/login"
+          aria-label="Masuk ke dashboard"
+          className="fixed right-4 bottom-20 z-50 md:hidden flex h-14 w-14 items-center justify-center rounded-full bg-[#065F46] text-white shadow-lg shadow-[#065F46]/40 ring-4 ring-white/60 backdrop-blur-sm active:scale-90 transition-transform"
+        >
+          <LogIn className="h-6 w-6" />
+        </Link>
+      )}
     </div>
   );
 }

@@ -398,7 +398,7 @@ export default function ProfilePage() {
                                 {profile.fullName || profile.name || "User"}
                                 <Sparkles className="h-4.5 w-4.5 text-amber-500 fill-amber-500 animate-pulse" />
                             </h2>
-                            <Badge className="w-fit self-center sm:self-auto capitalize bg-violet-100 hover:bg-violet-150 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400 dark:hover:bg-violet-950/60 font-semibold border-violet-200/50">
+                            <Badge className="w-fit self-center sm:self-auto capitalize bg-violet-100 hover:bg-violet-200 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400 dark:hover:bg-violet-950/60 font-semibold border-violet-200/50">
                                 {user.role || "User"}
                             </Badge>
                         </div>
@@ -417,7 +417,7 @@ export default function ProfilePage() {
 
             <Tabs defaultValue="personal" onValueChange={setActiveTab} className="w-full">
                 <div className="relative mb-6">
-                    <TabsList className="w-full justify-start gap-1.5 bg-slate-150/80 dark:bg-zinc-900/80 border border-slate-200/40 dark:border-zinc-800/40 p-1.5 rounded-xl h-auto">
+                    <TabsList className="w-full justify-start gap-1.5 bg-slate-100/80 dark:bg-zinc-900/80 border border-slate-200/40 dark:border-zinc-800/40 p-1.5 rounded-xl h-auto">
                         <TabsTrigger value="personal" className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all cursor-pointer whitespace-nowrap text-xs">
                             <User className="h-4 w-4" />
                             Profil Saya
@@ -451,7 +451,7 @@ export default function ProfilePage() {
                             </>
                         )}
                     </TabsList>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-slate-150 to-transparent dark:from-zinc-900 sm:hidden" aria-hidden="true" />
+                    <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-slate-100 to-transparent dark:from-zinc-900 sm:hidden" aria-hidden="true" />
                 </div>
 
                 {/* Personal Tab */}
@@ -663,7 +663,7 @@ export default function ProfilePage() {
                                         />
                                     </div>
 
-                                    <Separator className="my-2 border-slate-100 dark:border-zinc-850" />
+                                    <Separator className="my-2 border-slate-100 dark:border-zinc-800" />
 
                                     <div className="grid sm:grid-cols-2 gap-4">
                                         <div className="space-y-2">
