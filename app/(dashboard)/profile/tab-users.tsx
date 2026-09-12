@@ -90,6 +90,7 @@ export default function TabUsers() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [deleteId, setDeleteId] = useState<string | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [page, setPage] = useState(1);
@@ -112,6 +113,7 @@ export default function TabUsers() {
     const [selectedClass, setSelectedClass] = useState("");
     const [availableClasses, setAvailableClasses] = useState<ClassOption[]>([]);
     const [genResult, setGenResult] = useState<string | null>(null);
+    const [genAccounts, setGenAccounts] = useState<{ name: string; email: string; password: string }[]>([]);
 
     const [formData, setFormData] = useState({
         name: "",
@@ -197,11 +199,13 @@ export default function TabUsers() {
     const handleGenerate = async () => {
         setIsSaving(true);
         setGenResult(null);
+        setGenAccounts([]);
         try {
             const body: any = { type: "staff-auto" };
 
             const result: any = await goPost("/api/users/generate", body);
-            setGenResult(result.message || `Berhasil generate ${result.successCount || 0} akun`);
+            setGenResult(result.message || `Berhasil generate ${result.count || 0} akun`);
+            setGenAccounts(result.accounts || []);
             showSuccess(result.message || "Berhasil generate akun");
             fetchUsers();
         } catch (error: any) {
@@ -213,16 +217,22 @@ export default function TabUsers() {
 
     const handleGenerateStudent = async () => {
         setIsSaving(true);
+        setGenResult(null);
         try {
             const result: any = await goPost("/api/users/generate", { type: "student", className: selectedClass });
+            setGenResult(result.message || "Berhasil generate akun");
             showSuccess(result.message || "Berhasil generate akun");
-            setIsGenerateOpen(false);
             fetchUsers();
         } catch (error: any) {
             showError(error.message || "Gagal generate akun");
         } finally {
             setIsSaving(false);
         }
+    };
+
+    const copyAllAccounts = () => {
+        const text = genAccounts.map((a) => `${a.email} — ${a.password}`).join("\n");
+        copyToClipboard(text);
     };
 
     const handleSubmit = async () => {
@@ -305,14 +315,28 @@ export default function TabUsers() {
 
     const handleDelete = async () => {
         if (!deleteId) return;
+        setIsDeleting(true);
         try {
-            await goDelete(`/api/users/${deleteId}`);
+            const res: any = await goDelete(`/api/users/${deleteId}`);
             setDeleteId(null);
-            showSuccess("Pengguna berhasil dihapus");
+            showSuccess(res?.message || "Pengguna berhasil dihapus");
             fetchUsers();
         } catch (error: any) {
             console.error("Failed to delete user:", error);
             showError(error.message || "Gagal menghapus pengguna");
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    const handleToggleActive = async (user: UserType, isActive: boolean) => {
+        try {
+            await goPatch(`/api/users/${user.id}/status`, { isActive });
+            showSuccess(isActive ? "Akun berhasil diaktifkan kembali" : "Akun berhasil dinonaktifkan");
+            fetchUsers();
+        } catch (error: any) {
+            console.error("Failed to update user status:", error);
+            showError(error.message || "Gagal mengubah status akun");
         }
     };
 
@@ -369,7 +393,7 @@ export default function TabUsers() {
                         <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
                         Refresh
                     </Button>
-                    <Button size="sm" className="w-full sm:w-auto" variant="secondary" onClick={() => setIsGenerateOpen(true)}>
+                    <Button size="sm" className="w-full sm:w-auto" variant="secondary" onClick={() => { setGenResult(null); setGenAccounts([]); setIsGenerateOpen(true); }}>
                         <UserPlus className="h-4 w-4 mr-2" />
                         Generate Akun
                     </Button>
@@ -508,6 +532,16 @@ export default function TabUsers() {
                         },
                     },
                     {
+                        key: "isActive",
+                        header: "Status",
+                        card: "field",
+                        render: (user) => (
+                            user.isActive === false
+                                ? <Badge variant="outline" className="border-zinc-300 text-zinc-500">Nonaktif</Badge>
+                                : <Badge className="bg-green-100 text-green-700">Aktif</Badge>
+                        ),
+                    },
+                    {
                         key: "phone",
                         header: "Telepon",
                         sortable: true,
@@ -540,13 +574,31 @@ export default function TabUsers() {
                                 <Pencil className="h-4 w-4 mr-2" />
                                 Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                                className="text-destructive"
-                                onClick={() => setDeleteId(user.id)}
-                            >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Hapus
-                            </DropdownMenuItem>
+                            {user.isActive === false ? (
+                                <DropdownMenuItem
+                                    className="text-green-600"
+                                    onClick={() => handleToggleActive(user, true)}
+                                >
+                                    <ShieldCheck className="h-4 w-4 mr-2" />
+                                    Aktifkan
+                                </DropdownMenuItem>
+                            ) : (
+                                <>
+                                    <DropdownMenuItem
+                                        onClick={() => handleToggleActive(user, false)}
+                                    >
+                                        <UserCog className="h-4 w-4 mr-2" />
+                                        Nonaktifkan
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        className="text-destructive"
+                                        onClick={() => setDeleteId(user.id)}
+                                    >
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Hapus
+                                    </DropdownMenuItem>
+                                </>
+                            )}
                         </DropdownMenuContent>
                     </DropdownMenu>
                 )}
@@ -778,7 +830,7 @@ export default function TabUsers() {
                                         Generate akun dari data siswa per kelas.
                                         <br />
                                         <span className="inline-flex items-center gap-1 mt-1 font-medium text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 rounded text-xs">
-                                            Username = NISN, Password = NISN
+                                            Username = NISN, Password = NISN, wajib ganti saat login pertama
                                         </span>
                                     </p>
                                 </div>
@@ -815,6 +867,31 @@ export default function TabUsers() {
                                         <p className="text-sm font-medium text-green-700 dark:text-green-400">{genResult}</p>
                                     </div>
                                 )}
+                                {genAccounts.length > 0 && (
+                                    <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg overflow-hidden">
+                                        <div className="flex items-start justify-between gap-3 p-3">
+                                            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                                                Password sementara — hanya ditampilkan sekali, catat sekarang.
+                                            </p>
+                                            <Button size="sm" variant="outline" className="shrink-0 h-7 text-xs gap-1" onClick={copyAllAccounts}>
+                                                <Copy className="h-3 w-3" />
+                                                {copied ? <Check className="h-3 w-3" /> : null}
+                                                Salin semua
+                                            </Button>
+                                        </div>
+                                        <div className="max-h-52 overflow-y-auto border-t border-amber-200 dark:border-amber-800">
+                                            {genAccounts.map((a) => (
+                                                <div key={a.email} className="flex items-center justify-between gap-3 px-3 py-2 text-xs border-b border-amber-100 dark:border-amber-900/40 last:border-b-0">
+                                                    <div className="min-w-0">
+                                                        <p className="font-medium text-amber-900 dark:text-amber-200 truncate">{a.name}</p>
+                                                        <p className="text-amber-700 dark:text-amber-400 truncate">{a.email}</p>
+                                                    </div>
+                                                    <span className="font-mono font-semibold select-all text-amber-900 dark:text-amber-200 shrink-0">{a.password}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                                 <Button 
                                     onClick={handleGenerate} 
                                     disabled={isSaving}
@@ -841,8 +918,17 @@ export default function TabUsers() {
                                         </SelectContent>
                                     </Select>
                                 </div>
+                                {genResult && (
+                                    <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 p-3 rounded-lg">
+                                        <p className="text-sm font-medium text-green-700 dark:text-green-400">{genResult}</p>
+                                    </div>
+                                )}
+                                <p className="text-xs text-muted-foreground">
+                                    Siswa wajib mengganti password saat login pertama. Sampaikan password awal
+                                    (NISN) secara langsung, bukan lewat grup.
+                                </p>
                                 <DialogFooter>
-                                    <Button variant="outline" onClick={() => setIsGenerateOpen(false)}>Batal</Button>
+                                    <Button variant="outline" onClick={() => setIsGenerateOpen(false)}>Tutup</Button>
                                     <Button onClick={handleGenerateStudent} disabled={isSaving || !selectedClass}>
                                         {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                         Generate Akun
@@ -860,13 +946,17 @@ export default function TabUsers() {
                     <AlertDialogHeader>
                         <AlertDialogTitle>Hapus Pengguna?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Akun pengguna akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.
+                            Akun yang belum punya riwayat data akan dihapus permanen. Jika akun masih
+                            memiliki data terkait (catatan audit, transaksi tabungan, dan sejenisnya),
+                            akun akan dinonaktifkan saja agar riwayat sekolah tetap utuh — Anda bisa
+                            mengaktifkannya kembali kapan pun.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Batal</AlertDialogCancel>
                         <AlertDialogAction
                             onClick={handleDelete}
+                            disabled={isDeleting}
                             className="bg-destructive text-destructive-foreground"
                         >
                             Hapus

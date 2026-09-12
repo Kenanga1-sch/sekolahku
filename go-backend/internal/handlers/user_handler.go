@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -246,6 +247,10 @@ func (h *UserHandler) UpdateUser(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
 
+// DeleteUser menghapus akun permanen bila tidak ada data lain yang merujuk
+// padanya. Bila masih ada rujukan (riwayat audit, transaksi tabungan, dst),
+// akun dinonaktifkan saja: PRAGMA foreign_keys = ON akan menolak DELETE, dan
+// menghapus paksa berarti ikut memusnahkan catatan sekolah.
 func (h *UserHandler) DeleteUser(c echo.Context) error {
 	id := c.Param("id")
 	currentUserID, _ := c.Get("user_id").(string)
@@ -253,7 +258,43 @@ func (h *UserHandler) DeleteUser(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Tidak bisa menghapus akun sendiri"})
 	}
 
-	if err := h.UserRepo.DeleteUser(id); err != nil {
+	target, err := h.UserRepo.GetUserByID(id)
+	if err != nil || target == nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Pengguna tidak ditemukan"})
+	}
+
+	refs, err := h.UserRepo.CountUserReferences(id)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+	}
+
+	action := "delete"
+	message := "Akun berhasil dihapus permanen"
+	deactivated := false
+
+	if len(refs) > 0 {
+		if err := h.UserRepo.SetUserActive(id, false); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "Pengguna tidak ditemukan"})
+			}
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+		}
+		labels := make([]string, 0, len(refs))
+		for label := range refs {
+			labels = append(labels, label)
+		}
+		sort.Strings(labels)
+		targetName := "pengguna"
+		if target.Name != nil && *target.Name != "" {
+			targetName = *target.Name
+		}
+		action = "deactivate"
+		deactivated = true
+		message = fmt.Sprintf(
+			"Akun %s dinonaktifkan karena masih memiliki data terkait (%s). Riwayat tidak dihapus — gunakan Aktifkan untuk memulihkannya.",
+			targetName, strings.Join(labels, ", "),
+		)
+	} else if err := h.UserRepo.DeleteUser(id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Pengguna tidak ditemukan"})
 		}
@@ -262,9 +303,49 @@ func (h *UserHandler) DeleteUser(c echo.Context) error {
 
 	ip := c.RealIP()
 	ua := c.Request().UserAgent()
-	details := fmt.Sprintf("Deleted user ID: %s", id)
+	details := fmt.Sprintf("%s user ID: %s", action, id)
 	h.AuditRepo.CreateLog(models.AuditLog{
-		Action: "delete", Resource: "user",
+		Action: action, Resource: "user",
+		UserID: &currentUserID, Details: &details, IPAddress: &ip, UserAgent: &ua,
+	})
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success":     true,
+		"deleted":     !deactivated,
+		"deactivated": deactivated,
+		"message":     message,
+		"references":  refs,
+	})
+}
+
+// UpdateUserStatus mengaktifkan kembali akun yang dinonaktifkan, atau
+// mematikannya. Terpisah dari UpdateUser karena endpoint itu sengaja
+// mempertahankan nilai is_active yang lama.
+func (h *UserHandler) UpdateUserStatus(c echo.Context) error {
+	id := c.Param("id")
+	currentUserID, _ := c.Get("user_id").(string)
+
+	var req struct {
+		IsActive *bool `json:"isActive"`
+	}
+	if err := c.Bind(&req); err != nil || req.IsActive == nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Field isActive wajib diisi"})
+	}
+	if currentUserID != "" && currentUserID == id && !*req.IsActive {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Tidak bisa menonaktifkan akun sendiri"})
+	}
+
+	if err := h.UserRepo.SetUserActive(id, *req.IsActive); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "Pengguna tidak ditemukan"})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+	}
+
+	ip := c.RealIP()
+	ua := c.Request().UserAgent()
+	details := fmt.Sprintf("Set user ID %s isActive=%v", id, *req.IsActive)
+	h.AuditRepo.CreateLog(models.AuditLog{
+		Action: "update", Resource: "user",
 		UserID: &currentUserID, Details: &details, IPAddress: &ip, UserAgent: &ua,
 	})
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
@@ -281,6 +362,14 @@ func (h *UserHandler) GenerateAccounts(c echo.Context) error {
 	}
 
 	count := 0
+	type generatedAccount struct {
+		Name     string `json:"name"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	var accounts []generatedAccount
+	skipped := 0
+
 	if req.Type == "student" {
 		students, err := h.StudentRepo.SimpleSearch("", req.ClassName)
 		if err != nil {
@@ -300,10 +389,15 @@ func (h *UserHandler) GenerateAccounts(c echo.Context) error {
 				Name: &s.FullName, Email: *s.NISN + "@sekolahku.id",
 				Username: s.NISN, PasswordHash: &pwHash,
 				Role: "siswa", IsActive: true,
+				// NISN bukan rahasia; tanpa paksa ganti, siapa pun yang
+				// mengetahui NISN seorang siswa bisa masuk ke akunnya.
+				MustChangePassword: true,
 			}
 			_, err = h.UserRepo.CreateUser(u)
 			if err == nil {
 				count++
+			} else {
+				skipped++
 			}
 		}
 	} else if req.Type == "staff-auto" {
@@ -312,6 +406,17 @@ func (h *UserHandler) GenerateAccounts(c echo.Context) error {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 		}
 		for _, e := range employees {
+			// users.email ber-UNIQUE; GTK tanpa email akan gagal insert
+			// secara senyap dan membuat jumlah akun yang dilaporkan menyesatkan.
+			if e.Email == "" {
+				skipped++
+				continue
+			}
+			existing, _ := h.UserRepo.GetUserByEmail(e.Email)
+			if existing != nil {
+				skipped++
+				continue
+			}
 			pw := generateRandomPassword()
 			hash, _ := bcrypt.GenerateFromPassword([]byte(pw), 10)
 			pwHash := string(hash)
@@ -327,13 +432,24 @@ func (h *UserHandler) GenerateAccounts(c echo.Context) error {
 			userId, err := h.UserRepo.CreateUser(u)
 			if err == nil {
 				h.UserRepo.LinkEmployeeToUser(e.ID, userId)
+				accounts = append(accounts, generatedAccount{Name: e.Name, Email: e.Email, Password: pw})
 				count++
+			} else {
+				skipped++
 			}
 		}
 	}
 
+	message := fmt.Sprintf("Berhasil generate %d akun", count)
+	if skipped > 0 {
+		message += fmt.Sprintf(", %d dilewati", skipped)
+	}
+
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"success": true,
-		"message": fmt.Sprintf("Berhasil generate %d akun", count),
+		"success":  true,
+		"message":  message,
+		"count":    count,
+		"skipped":  skipped,
+		"accounts": accounts,
 	})
 }

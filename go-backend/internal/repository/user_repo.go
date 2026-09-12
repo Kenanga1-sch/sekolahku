@@ -293,6 +293,72 @@ func (r *UserRepository) DeleteUser(id string) error {
 	return err
 }
 
+// userReference menandai kolom yang menyimpan rujukan ke users.id.
+// Selama PRAGMA foreign_keys = ON, masih adanya baris di tabel-tabel ini
+// membuat "DELETE FROM users" gagal dengan FOREIGN KEY constraint failed.
+type userReference struct {
+	Table  string
+	Column string
+	Label  string
+}
+
+var userReferences = []userReference{
+	{"audit_logs", "user_id", "catatan audit"},
+	{"notifications", "user_id", "notifikasi"},
+	{"admin_notifications", "user_id", "notifikasi admin"},
+	{"disposisi", "from_user_id", "disposisi surat (pengirim)"},
+	{"disposisi", "to_user_id", "disposisi surat (penerima)"},
+	{"school_documents", "created_by", "dokumen sekolah"},
+	{"employee_details", "user_id", "data GTK"},
+	{"surat_keluar", "created_by", "surat keluar"},
+	{"tabungan_brankas_transaksi", "user_id", "transaksi brankas"},
+	{"tabungan_setoran", "guru_id", "setoran tabungan (guru)"},
+	{"tabungan_setoran", "bendahara_id", "setoran tabungan (bendahara)"},
+	{"tabungan_transaksi", "user_id", "transaksi tabungan"},
+	{"announcements", "author_id", "pengumuman"},
+	{"finance_transactions", "created_by", "transaksi keuangan"},
+}
+
+// CountUserReferences memetakan label rujukan yang masih punya data untuk
+// seorang pengguna. Hasil kosong berarti akun aman dihapus permanen.
+// library_members sengaja tidak dihitung: foreign key-nya ON DELETE CASCADE.
+func (r *UserRepository) CountUserReferences(id string) (map[string]int, error) {
+	found := make(map[string]int)
+	for _, ref := range userReferences {
+		var n int
+		// Nama tabel/kolom diambil dari konstanta di atas, bukan dari input pengguna.
+		err := r.DB.QueryRow("SELECT COUNT(*) FROM "+ref.Table+" WHERE "+ref.Column+" = ?", id).Scan(&n)
+		if err != nil {
+			// Tabel/kolom tidak ada di versi skema ini — lewati.
+			continue
+		}
+		if n > 0 {
+			found[ref.Label] = n
+		}
+	}
+	return found, nil
+}
+
+// SetUserActive menyalakan atau mematikan akun tanpa menghapus datanya.
+// Dipakai jalur soft delete karena UpdateUser sengaja mempertahankan
+// nilai is_active lama.
+func (r *UserRepository) SetUserActive(id string, active bool) error {
+	isActiveInt := 0
+	if active {
+		isActiveInt = 1
+	}
+	now := time.Now().UnixMilli()
+	res, err := r.DB.Exec("UPDATE users SET is_active = ?, updated_at = ? WHERE id = ?", isActiveInt, now, id)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err == nil && rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return err
+}
+
 func (r *UserRepository) UpdatePassword(id string, newHash string) error {
 	now := time.Now().UnixMilli()
 	res, err := r.DB.Exec("UPDATE users SET password_hash = ?, must_change_password = 0, updated_at = ? WHERE id = ?", newHash, now, id)

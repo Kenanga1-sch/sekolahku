@@ -447,6 +447,7 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	adminGroup.POST("/users", h.User.CreateUser)
 	adminGroup.PATCH("/users/:id", h.User.UpdateUser)
 	adminGroup.DELETE("/users/:id", h.User.DeleteUser)
+	adminGroup.PATCH("/users/:id/status", h.User.UpdateUserStatus)
 	adminGroup.POST("/users/generate", h.User.GenerateAccounts)
 
 	// Audit Logs

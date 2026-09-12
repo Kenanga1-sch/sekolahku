@@ -24,12 +24,21 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       setVerified(true);
       return;
     }
+    if (pathname.startsWith("/profil/ganti-password")) {
+      globalVerified = true;
+      setVerified(true);
+      return;
+    }
     if (checkingRef.current) return;
     checkingRef.current = true;
 
     const verifySession = async () => {
       try {
-        await goGet("/api/profile", { skipRetry: true });
+        const profile: any = await goGet("/api/profile", { skipRetry: true });
+        if (profile?.mustChangePassword) {
+          router.replace("/profil/ganti-password");
+          return;
+        }
         globalVerified = true;
         setVerified(true);
       } catch {

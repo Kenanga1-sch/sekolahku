@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { SchoolSettingsProvider } from "@/lib/contexts/school-settings-context";
@@ -76,6 +76,15 @@ const websiteJsonLd = {
   name: "SDN 1 Kenanga",
   publisher: { "@id": `${SITE_URL}/#school` },
   inLanguage: "id-ID",
+};
+
+// Viewport eksplisit: tanpa ini, Chrome mobile bisa memakai lebar desktop
+// (980px) dan men-shrink seluruh halaman — layout responsive Tailwind
+// (sm:/md:/lg:) tidak akan pernah aktif di ponsel.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
 };
 
 export const metadata: Metadata = {
@@ -176,7 +185,7 @@ export default function RootLayout({
         />
       </head>
       <body className="font-sans antialiased" suppressHydrationWarning>
-        <div id="app-version" className="fixed bottom-1.5 right-2 z-[9999] text-[11px] font-mono text-black/20 pointer-events-none select-none print:hidden" aria-hidden="true">v1.1.015</div>
+        <div id="app-version" className="fixed bottom-1.5 right-2 z-[9999] text-[11px] font-mono text-black/20 pointer-events-none select-none print:hidden" aria-hidden="true">v1.1.016</div>
         <noscript>
           <div className="p-4 text-center bg-red-100 text-red-700">
              JavaScript diperlukan untuk menjalankan aplikasi ini dengan baik. Mohon aktifkan JavaScript di browser Anda.

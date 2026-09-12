@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, ShieldCheck, Lock, ArrowRight, AlertCircle, CheckCircle2, XCircle } from "lucide-react";
-import { goPost } from "@/lib/api-client";
+import { goPatch } from "@/lib/api-client";
 import { showSuccess, showError } from "@/lib/toast";
 import { evaluatePasswordStrength, validatePasswordStrength } from "@/lib/password-strength";
 import { cn } from "@/lib/utils";
@@ -67,9 +67,10 @@ export default function GantiPasswordPage() {
 
         setIsLoading(true);
         try {
-            await goPost("/api/profile", {
-                currentPassword: oldPassword,
-                newPassword: newPassword,
+            await goPatch("/api/profile", {
+                oldPassword: oldPassword,
+                password: newPassword,
+                passwordConfirm: confirmPassword,
             });
             
             setSuccess(true);

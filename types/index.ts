@@ -31,6 +31,8 @@ export interface User extends BaseRecord {
   role: UserRole;
   avatar?: string;
   verified?: boolean;
+  isActive?: boolean;
+  mustChangePassword?: boolean;
 }
 
 export interface Profile extends BaseRecord {
