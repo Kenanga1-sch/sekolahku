@@ -316,6 +316,25 @@ func (h *StudentHandler) GetStudentsForPrint(c echo.Context) error {
 }
 
 func (h *StudentHandler) GetClasses(c echo.Context) error {
+	// Guru hanya melihat kelas yang ia wali-kan; siswa/admin/superadmin
+	// melihat semua kelas. Dipakai dropdown Presensi & lain-lain.
+	role, _ := c.Get("user_role").(string)
+	if role == "guru" {
+		userID, _ := c.Get("user_id").(string)
+		var className string
+		err := h.DB.QueryRow(
+			`SELECT name FROM student_classes WHERE wali_user_id = ? AND is_active = 1`, userID,
+		).Scan(&className)
+		if err != nil || className == "" {
+			// Guru tanpa penunjukan wali kelas: tidak ada kelas yang boleh dilihat
+			return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": []map[string]string{}})
+		}
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"success": true,
+			"data":    []map[string]string{{"id": className, "name": className}},
+		})
+	}
+
 	classes, err := h.Repo.GetClasses()
 	if err != nil {
 		log.Printf("GetClasses ERROR: %v", err)

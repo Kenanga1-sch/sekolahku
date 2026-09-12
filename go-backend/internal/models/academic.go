@@ -21,6 +21,10 @@ type AcademicClass struct {
 	TeacherName  *string `json:"teacherName"`
 	Capacity     int     `json:"capacity"`
 	IsActive     bool    `json:"isActive"`
+	// Wali kelas sebagai relasi ke users.id — source of truth scoping
+	// Presensi & Tabungan (guru hanya melihat kelasnya sendiri).
+	WaliUserID   *string `json:"waliUserId"`
+	WaliUserName *string `json:"waliUserName"`
 }
 
 type Subject struct {

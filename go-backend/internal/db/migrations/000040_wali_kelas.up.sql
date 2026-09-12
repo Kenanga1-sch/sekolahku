@@ -1,0 +1,11 @@
+-- Wali kelas: relasi formal antara user guru dan kelas yang ia
+-- tanggung jawabi. Dipakai untuk scoping data di modul Presensi dan
+-- Tabungan (guru hanya melihat kelasnya sendiri).
+--
+-- Kolom teacher_name (teks) tetap dipertahankan untuk tampilan, tapi
+-- wali_user_id menjadi source of truth scoping karena bisa direlasikan
+-- ke user yang sedang login.
+--
+-- Catatan SQLite: FOREIGN KEY tidak bisa ditambahkan lewat
+-- ALTER TABLE ADD COLUMN; integritas dijaga di level aplikasi.
+ALTER TABLE student_classes ADD COLUMN wali_user_id TEXT;

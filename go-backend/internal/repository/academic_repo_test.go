@@ -34,7 +34,8 @@ func setupAcademicTestDB(t *testing.T) *sql.DB {
 			capacity INTEGER,
 			is_active INTEGER DEFAULT 1,
 			created_at INTEGER,
-			updated_at INTEGER
+			updated_at INTEGER,
+			wali_user_id TEXT
 		);
 		CREATE TABLE school_settings (
 			id TEXT PRIMARY KEY,

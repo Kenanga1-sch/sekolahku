@@ -69,6 +69,12 @@ func (r *UserRepository) GetUserByEmail(email string) (*models.User, error) {
 }
 
 func (r *UserRepository) GetUsers(page, limit int, search string) ([]models.User, int, error) {
+	return r.GetUsersByRole(page, limit, search, "")
+}
+
+// GetUsersByRole memfilter daftar user berdasarkan role (opsional).
+// Dipakai dropdown Wali Kelas yang hanya perlu menampilkan guru.
+func (r *UserRepository) GetUsersByRole(page, limit int, search, role string) ([]models.User, int, error) {
 	offset := (page - 1) * limit
 	whereClause := "1=1"
 	var args []interface{}
@@ -77,6 +83,10 @@ func (r *UserRepository) GetUsers(page, limit int, search string) ([]models.User
 		whereClause += " AND (name LIKE ? OR email LIKE ? OR username LIKE ?)"
 		pattern := "%" + search + "%"
 		args = append(args, pattern, pattern, pattern)
+	}
+	if role != "" {
+		whereClause += " AND role = ?"
+		args = append(args, role)
 	}
 
 	// 1. Data Query

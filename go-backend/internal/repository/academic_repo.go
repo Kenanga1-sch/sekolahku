@@ -68,23 +68,36 @@ func (r *AcademicRepository) GetClasses() ([]models.AcademicClass, error) {
 }
 
 func (r *AcademicRepository) getClassesByYear(academicYear string) ([]models.AcademicClass, error) {
-	query := `SELECT id, name, grade, academic_year, teacher_name, capacity, is_active FROM student_classes WHERE academic_year = ? ORDER BY grade ASC, name ASC`
+	// ORDER BY harus qualified: setelah JOIN users, kolom "name" menjadi ambigu.
+	query := `SELECT k.id, k.name, k.grade, k.academic_year, k.teacher_name, k.capacity, k.is_active,
+	                 k.wali_user_id, u.name
+	          FROM student_classes k
+	          LEFT JOIN users u ON u.id = k.wali_user_id
+	          WHERE k.academic_year = ? ORDER BY k.grade ASC, k.name ASC`
 	rows, err := r.DB.Query(query, academicYear)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var classes []models.AcademicClass
+	classes := []models.AcademicClass{}
 	for rows.Next() {
 		var c models.AcademicClass
-		var teacherName sql.NullString
-		err := rows.Scan(&c.ID, &c.Name, &c.Grade, &c.AcademicYear, &teacherName, &c.Capacity, &c.IsActive)
+		var teacherName, waliUserID, waliUserName sql.NullString
+		err := rows.Scan(&c.ID, &c.Name, &c.Grade, &c.AcademicYear, &teacherName, &c.Capacity, &c.IsActive, &waliUserID, &waliUserName)
 		if err != nil {
 			return nil, err
 		}
 		if teacherName.Valid {
 			c.TeacherName = &teacherName.String
+		}
+		if waliUserID.Valid {
+			s := waliUserID.String
+			c.WaliUserID = &s
+		}
+		if waliUserName.Valid {
+			s := waliUserName.String
+			c.WaliUserName = &s
 		}
 		classes = append(classes, c)
 	}
@@ -116,9 +129,9 @@ func (r *AcademicRepository) CreateClass(c models.AcademicClass) error {
 		cap, _, _ := r.GetSuggestedCapacity(c.Grade, c.Name, c.AcademicYear)
 		c.Capacity = cap
 	}
-	query := `INSERT INTO student_classes (id, name, grade, academic_year, teacher_name, capacity, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	query := `INSERT INTO student_classes (id, name, grade, academic_year, teacher_name, capacity, is_active, wali_user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	now := time.Now().Unix()
-	_, err := r.DB.Exec(query, c.ID, c.Name, c.Grade, c.AcademicYear, c.TeacherName, c.Capacity, 1, now, now)
+	_, err := r.DB.Exec(query, c.ID, c.Name, c.Grade, c.AcademicYear, c.TeacherName, c.Capacity, 1, c.WaliUserID, now, now)
 	return err
 }
 
@@ -137,8 +150,8 @@ func (r *AcademicRepository) UpdateClass(id string, c models.AcademicClass) erro
 	}
 	defer tx.Rollback()
 
-	query := `UPDATE student_classes SET name = ?, grade = ?, teacher_name = ?, capacity = ?, updated_at = ? WHERE id = ?`
-	if _, err := tx.Exec(query, c.Name, c.Grade, c.TeacherName, c.Capacity, now, id); err != nil {
+	query := `UPDATE student_classes SET name = ?, grade = ?, teacher_name = ?, capacity = ?, wali_user_id = ?, updated_at = ? WHERE id = ?`
+	if _, err := tx.Exec(query, c.Name, c.Grade, c.TeacherName, c.Capacity, c.WaliUserID, now, id); err != nil {
 		return err
 	}
 
@@ -167,6 +180,17 @@ func (r *AcademicRepository) DeleteClass(id string) error {
 	query := `DELETE FROM student_classes WHERE id = ?`
 	_, err := r.DB.Exec(query, id)
 	return err
+}
+
+// GetWaliClass mengembalikan id + nama kelas yang diwali oleh seorang user.
+// sql.ErrNoRows berarti user bukan wali kelas manapun (mis. admin atau
+// guru yang belum ditunjuk).
+func (r *AcademicRepository) GetWaliClass(userID string) (classID, className string, err error) {
+	err = r.DB.QueryRow(
+		`SELECT id, name FROM student_classes WHERE wali_user_id = ? AND is_active = 1`,
+		userID,
+	).Scan(&classID, &className)
+	return classID, className, err
 }
 
 // --- ACADEMIC YEARS CRUD ---

@@ -68,7 +68,7 @@ func (h *UserHandler) GetUsers(c echo.Context) error {
 		limit = l
 	}
 
-	users, total, err := h.UserRepo.GetUsers(page, limit, search)
+	users, total, err := h.UserRepo.GetUsersByRole(page, limit, search, c.QueryParam("role"))
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}

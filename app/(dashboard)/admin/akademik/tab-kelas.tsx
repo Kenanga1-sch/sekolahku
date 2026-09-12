@@ -30,6 +30,8 @@ interface AcademicClass {
     name: string;
     grade: number;
     teacherName: string | null;
+    waliUserId?: string | null;
+    waliUserName?: string | null;
     capacity: number;
     academicYear: string;
 }
@@ -55,22 +57,25 @@ export default function TabKelas() {
         name: "",
         grade: "1",
         capacity: 28,
-        teacherName: ""
+        waliUserId: "__none__"
     });
 
     const fetchData = async () => {
         setIsLoading(true);
         try {
-            const [dataClasses, resYear, teachersRes]: [any, any, any] = await Promise.all([
+            // Guru wali kelas harus dipilih dari users (punya akun login),
+            // bukan dari direktori GTK — scoping Presensi/Tabungan
+            // melengkapinya lewat wali_user_id → users.id.
+            const [dataClasses, resYear, usersRes]: [any, any, any] = await Promise.all([
                 goGet("/api/academic/classes"),
                 goGet("/api/academic/active-year"),
-                goGet("/api/master/employees?limit=100")
+                goGet("/api/users?role=guru&limit=100")
             ]);
 
             setClasses(Array.isArray(dataClasses) ? dataClasses : []);
-            setTeachers((teachersRes?.data || []).map((t: any) => ({
+            setTeachers((usersRes?.items || []).map((t: any) => ({
                 id: t.id,
-                fullName: t.fullName || t.name || "-"
+                fullName: t.name || t.fullName || t.email || "-"
             })));
 
             if (resYear.success && resYear.data) {
@@ -109,7 +114,7 @@ export default function TabKelas() {
                 name: item.name,
                 grade: item.grade.toString(),
                 capacity: item.capacity,
-                teacherName: item.teacherName || "__none__"
+                waliUserId: item.waliUserId || "__none__"
             });
         } else {
             setEditingItem(null);
@@ -118,7 +123,7 @@ export default function TabKelas() {
                 name: "",
                 grade: "1",
                 capacity: 28,
-                teacherName: "__none__"
+                waliUserId: "__none__"
             });
             fetchSuggestedCapacity("1", "");
         }
@@ -148,7 +153,7 @@ export default function TabKelas() {
                 grade: parseInt(formData.grade, 10),
                 capacity: formData.capacity,
                 academicYear: academicYear,
-                teacherName: formData.teacherName === "__none__" ? null : formData.teacherName
+                waliUserId: formData.waliUserId === "__none__" ? null : formData.waliUserId
             };
 
             if (editingItem) {
@@ -156,7 +161,7 @@ export default function TabKelas() {
             } else {
                 await goPost("/api/academic/classes", payload);
             }
-            
+
             showSuccess(editingItem ? "Kelas diperbarui" : "Kelas ditambahkan");
             setIsDialogOpen(false);
             fetchData();
@@ -212,10 +217,17 @@ export default function TabKelas() {
                                 render: (c) => <span className="font-bold">{c.name}</span>,
                             },
                             {
-                                key: "teacherName",
+                                key: "wali",
                                 header: "Wali Kelas",
                                 card: "field",
-                                render: (c) => c.teacherName || "-",
+                                render: (c) => c.waliUserName ? (
+                                    <span className="inline-flex items-center gap-1.5">
+                                        {c.waliUserName}
+                                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">Wali</span>
+                                    </span>
+                                ) : (
+                                    <span className="text-muted-foreground">-</span>
+                                ),
                             },
                             {
                                 key: "capacity",
@@ -280,9 +292,9 @@ export default function TabKelas() {
                         </div>
                         <div className="space-y-2">
                             <Label>Wali Kelas</Label>
-                            <Select 
-                                value={formData.teacherName} 
-                                onValueChange={(val) => setFormData({...formData, teacherName: val})}
+                            <Select
+                                value={formData.waliUserId}
+                                onValueChange={(val) => setFormData({...formData, waliUserId: val})}
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder="Pilih Wali Kelas" />
@@ -290,12 +302,15 @@ export default function TabKelas() {
                                 <SelectContent>
                                     <SelectItem value="__none__">Tidak ada</SelectItem>
                                     {teachers.map((t) => (
-                                        <SelectItem key={t.id} value={t.fullName}>
+                                        <SelectItem key={t.id} value={t.id}>
                                             {t.fullName}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
+                            <p className="text-xs text-muted-foreground">
+                                Guru yang ditunjuk hanya melihat data kelas ini di modul Presensi dan Tabungan.
+                            </p>
                         </div>
                         <div className="space-y-2">
                             <Label>Kapasitas Siswa (Maksimal)</Label>

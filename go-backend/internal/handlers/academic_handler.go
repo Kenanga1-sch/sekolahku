@@ -51,6 +51,7 @@ func (h *AcademicHandler) GetHomepageData(c echo.Context) error {
 func (h *AcademicHandler) GetClasses(c echo.Context) error {
 	classes, err := h.Repo.GetClasses()
 	if err != nil {
+		c.Logger().Error("GetClasses:", err)
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, classes)

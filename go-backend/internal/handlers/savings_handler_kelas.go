@@ -18,14 +18,23 @@ type savingsKelasItem struct {
 	WaliKelas *string `json:"waliKelas"`
 }
 
-// GetClassesWithReps lists classes from student_classes (source of truth)
+// GetClassesWithReps lists classes from student_classes (source of truth).
+// Guru hanya menerima kelas yang ia wali-kan.
 func (h *SavingsHandler) GetClassesWithReps(c echo.Context) error {
-	rows, err := h.Repo.DB.Query(`
+	query := `
 		SELECT k.id, k.name, NULL
 		FROM student_classes k
 		WHERE k.is_active = 1
-		ORDER BY k.name ASC
-	`)
+	`
+	var args []interface{}
+	if role, _ := c.Get("user_role").(string); role == "guru" {
+		userID, _ := c.Get("user_id").(string)
+		query += ` AND k.wali_user_id = ?`
+		args = append(args, userID)
+	}
+	query += ` ORDER BY k.name ASC`
+
+	rows, err := h.Repo.DB.Query(query, args...)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}

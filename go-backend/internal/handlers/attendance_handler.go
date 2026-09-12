@@ -28,9 +28,32 @@ func (h *AttendanceHandler) GetStats(c echo.Context) error {
 	return c.JSON(http.StatusOK, stats)
 }
 
+// forcedWaliClass memaksa className ke kelas yang di-wali user guru.
+// Mengembalikan className hasil paksaan dan true jika pemaksaan terjadi.
+// Guru tanpa wali kelas → ("", true) supaya handler mengembalikan kosong.
+func (h *AttendanceHandler) forcedWaliClass(c echo.Context) (string, bool) {
+	role, _ := c.Get("user_role").(string)
+	if role != "guru" {
+		return "", false
+	}
+	userID, _ := c.Get("user_id").(string)
+	var className string
+	err := h.Repo.DB.QueryRow(
+		`SELECT name FROM student_classes WHERE wali_user_id = ? AND is_active = 1`, userID,
+	).Scan(&className)
+	if err != nil {
+		return "", true
+	}
+	return className, true
+}
+
 func (h *AttendanceHandler) GetDailyClass(c echo.Context) error {
 	date := c.QueryParam("date")
 	className := c.QueryParam("class")
+
+	if forced, isGuru := h.forcedWaliClass(c); isGuru {
+		className = forced
+	}
 
 	result, err := h.Repo.GetDailyClass(date, className)
 	if err != nil {
@@ -133,6 +156,10 @@ func (h *AttendanceHandler) GetReport(c echo.Context) error {
 	startDate := c.QueryParam("startDate")
 	endDate := c.QueryParam("endDate")
 	className := c.QueryParam("class")
+
+	if forced, isGuru := h.forcedWaliClass(c); isGuru {
+		className = forced
+	}
 
 	if startDate == "" || endDate == "" {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Tanggal harus diisi"})

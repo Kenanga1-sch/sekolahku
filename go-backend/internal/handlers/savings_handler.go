@@ -46,6 +46,24 @@ func (h *SavingsHandler) GetSiswa(c echo.Context) error {
 		classId = c.QueryParam("kelasId")
 	}
 
+	// Guru dipaksa hanya melihat siswa kelas yang ia wali-kan;
+	// parameter classId dari frontend diabaikan demi konsistensi
+	// dengan scoping di /api/classes dan presensi.
+	if role, _ := c.Get("user_role").(string); role == "guru" {
+		userID, _ := c.Get("user_id").(string)
+		var forced, forcedName string
+		err := h.Repo.DB.QueryRow(
+			`SELECT id, name FROM student_classes WHERE wali_user_id = ? AND is_active = 1`, userID,
+		).Scan(&forced, &forcedName)
+		if err != nil {
+			// Guru tanpa wali kelas: kosongkan filter supaya tidak
+			// justru menampilkan semua siswa.
+			classId = "__no_wali__"
+		} else {
+			classId = forced
+		}
+	}
+
 	list, total, err := h.Repo.GetSiswa(page, limit, search, classId)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
