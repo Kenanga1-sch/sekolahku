@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { Loader2 } from "lucide-react";
+import { MapErrorBoundary } from "./map-error-boundary";
 
 const SchoolMap = dynamic(() => import("./school-map"), {
   ssr: false,
@@ -22,5 +23,9 @@ interface SchoolMapWrapperProps {
 }
 
 export default function SchoolMapWrapper(props: SchoolMapWrapperProps) {
-  return <SchoolMap {...props} />;
+  return (
+    <MapErrorBoundary>
+      <SchoolMap {...props} />
+    </MapErrorBoundary>
+  );
 }

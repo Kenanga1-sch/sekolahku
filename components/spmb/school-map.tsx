@@ -25,14 +25,21 @@ interface SchoolMapProps {
   showZoneRadius?: boolean;
 }
 
-// Auto-fit view agar lingkaran radius selalu terlihat utuh berapapun km-nya
+// Auto-fit view agar lingkaran radius selalu terlihat utuh berapapun km-nya.
+// Catatan: jangan pakai L.circle(...).getBounds() — circle yang belum
+// menempel ke peta tidak punya _map dan akan melempar
+// "Cannot read properties of undefined (reading 'layerPointToLatLng')".
+// L.latLng().toBounds() murni kalkulasi geodesik, aman tanpa map instance.
 function FitBounds({ center, radiusM }: { center: [number, number]; radiusM: number }) {
   const map = useMap();
 
   useEffect(() => {
-    const circle = L.circle(center, { radius: radiusM });
-    const bounds = circle.getBounds().pad(0.15);
-    map.fitBounds(bounds, { animate: false });
+    if (radiusM > 0) {
+      // toBounds() butuh diameter (lebar sisi kotak), bukan radius
+      map.fitBounds(L.latLng(center).toBounds(radiusM * 2).pad(0.15), { animate: false });
+    } else {
+      map.setView(center, 15, { animate: false });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [center[0], center[1], radiusM, map]);
 
