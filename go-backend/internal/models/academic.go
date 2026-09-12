@@ -40,7 +40,6 @@ type Subject struct {
 type PromotionRequest struct {
 	StudentIds    []string `json:"studentIds"`
 	TargetClassId *string  `json:"targetClassId"`
-	ActionType    string   `json:"actionType"` // "promotion" or "graduation"
 }
 
 type PromotionResponse struct {

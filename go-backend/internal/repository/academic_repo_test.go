@@ -168,7 +168,6 @@ func TestAcademicRepository_PromotionAndGraduation(t *testing.T) {
 	count, err := repo.ProcessPromotion(models.PromotionRequest{
 		StudentIds:    []string{"student-1"},
 		TargetClassId: &targetID,
-		ActionType:    "promotion",
 	})
 	if err != nil {
 		t.Fatalf("promotion returned error: %v", err)
@@ -185,25 +184,13 @@ func TestAcademicRepository_PromotionAndGraduation(t *testing.T) {
 		t.Fatalf("expected promoted class 2A, got %s", className)
 	}
 
-	count, err = repo.ProcessPromotion(models.PromotionRequest{
+	// Graduation branch removed — kelulusan asli ditangani
+	// /api/alumni/graduate (alumni record + transkrip + riwayat).
+	if _, err := repo.ProcessPromotion(models.PromotionRequest{
 		StudentIds: []string{"student-1"},
-		ActionType: "graduation",
 		TargetClassId: nil,
-	})
-	if err != nil {
-		t.Fatalf("graduation returned error: %v", err)
-	}
-	if count != 1 {
-		t.Fatalf("expected one graduated student, got %d", count)
-	}
-
-	var status string
-	var isActive int
-	if err := db.QueryRow(`SELECT status, is_active FROM students WHERE id = ?`, "student-1").Scan(&status, &isActive); err != nil {
-		t.Fatal(err)
-	}
-	if status != "graduated" || isActive != 0 {
-		t.Fatalf("expected graduated inactive student, got status=%s active=%d", status, isActive)
+	}); err == nil {
+		t.Fatal("expected error when target class missing")
 	}
 }
 

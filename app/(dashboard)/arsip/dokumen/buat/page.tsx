@@ -60,7 +60,6 @@ export default function CreateSchoolDocumentPage() {
     const [schoolSettings, setSchoolSettings] = useState<any>(null);
     const [templateVars, setTemplateVars] = useState<string[]>([]);
     const [manualInputs, setManualInputs] = useState<Record<string, string>>({});
-    const [studentGrades, setStudentGrades] = useState<any[]>([]);
     
     const [loading, setLoading] = useState<boolean>(false);
     const [submitting, setSubmitting] = useState<boolean>(false);
@@ -128,25 +127,6 @@ export default function CreateSchoolDocumentPage() {
         };
         loadVariables();
     }, [selectedTemplate]);
-
-    // When student changes, fetch grades if docType is transkrip
-    useEffect(() => {
-        if (!selectedStudent || docType !== "transkrip") {
-            setStudentGrades([]);
-            return;
-        }
-        const loadGrades = async () => {
-            try {
-                const res = await goGet(`/api/master/students/${selectedStudent.id}/grades`);
-                if (res.success) {
-                    setStudentGrades(res.data || []);
-                }
-            } catch (err) {
-                console.error(err);
-            }
-        };
-        loadGrades();
-    }, [selectedStudent, docType]);
 
     // Autofill document title
     useEffect(() => {
@@ -222,41 +202,6 @@ export default function CreateSchoolDocumentPage() {
             baseData.siswa_alamat = selectedStudent.address || "";
             baseData.siswa_nama_wali = selectedStudent.parentName || "";
             baseData.siswa_no_hp_wali = selectedStudent.parentPhone || "";
-        }
-
-        // Merge Student Grades
-        if (studentGrades.length > 0) {
-            let totalScore = 0;
-            let totalCount = 0;
-            const semesterTotals: Record<number, { sum: number; count: number }> = {};
-
-            studentGrades.forEach((g: any) => {
-                const varSubjectName = g.subject.toLowerCase()
-                    .replace(/[^a-z0-9]/g, "_")
-                    .replace(/_+/g, "_")
-                    .replace(/^_+|_+$/g, "");
-                
-                baseData[`nilai_${varSubjectName}_sem_${g.semester}`] = g.avgScore;
-                baseData[`nilai_${varSubjectName}_semester_${g.semester}`] = g.avgScore;
-
-                totalScore += g.avgScore;
-                totalCount++;
-                if (!semesterTotals[g.semester]) {
-                    semesterTotals[g.semester] = { sum: 0, count: 0 };
-                }
-                semesterTotals[g.semester].sum += g.avgScore;
-                semesterTotals[g.semester].count++;
-            });
-
-            if (totalCount > 0) {
-                baseData[`nilai_rata_rata`] = (totalScore / totalCount).toFixed(2);
-            }
-            Object.keys(semesterTotals).forEach(sem => {
-                const s = Number(sem);
-                const data = semesterTotals[s];
-                baseData[`nilai_rata_rata_sem_${s}`] = (data.sum / data.count).toFixed(2);
-                baseData[`nilai_rata_rata_semester_${s}`] = (data.sum / data.count).toFixed(2);
-            });
         }
 
         // Merge Manual Inputs
@@ -599,12 +544,6 @@ export default function CreateSchoolDocumentPage() {
                                     <span className="text-muted-foreground">Penerima/Sasaran:</span>
                                     <span className="font-bold text-slate-800 dark:text-zinc-200">{docType === "daftar_1" ? "Sekolah / Umum" : (selectedStudent?.fullName || "Umum")}</span>
                                 </div>
-                                {docType === "transkrip" && (
-                                    <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Total Mata Pelajaran:</span>
-                                        <span className="font-bold text-slate-800 dark:text-zinc-200">{studentGrades.length}</span>
-                                    </div>
-                                )}
                             </div>
 
                             <div className="space-y-2 pt-2">

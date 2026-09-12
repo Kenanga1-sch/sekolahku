@@ -26,10 +26,10 @@ export function AkademikTabsContent() {
   return (
     <div className="space-y-6">
       {/* Tabs Navigation */}
-      <div className="flex border-b border-muted">
+      <div className="flex border-b border-muted overflow-x-auto scrollbar-none">
         <button
           onClick={() => setActiveTab("kelas")}
-          className={`pb-3 px-4 text-sm font-medium border-b-2 transition-colors -mb-[2px] flex items-center gap-2 ${
+          className={`pb-3 px-4 text-sm font-medium border-b-2 transition-colors -mb-[2px] flex items-center gap-2 shrink-0 ${
             activeTab === "kelas"
               ? "border-primary text-primary"
               : "border-transparent text-muted-foreground hover:text-foreground"
@@ -40,7 +40,7 @@ export function AkademikTabsContent() {
         </button>
         <button
           onClick={() => setActiveTab("kenaikan")}
-          className={`pb-3 px-4 text-sm font-medium border-b-2 transition-colors -mb-[2px] flex items-center gap-2 ${
+          className={`pb-3 px-4 text-sm font-medium border-b-2 transition-colors -mb-[2px] flex items-center gap-2 shrink-0 ${
             activeTab === "kenaikan"
               ? "border-primary text-primary"
               : "border-transparent text-muted-foreground hover:text-foreground"
@@ -51,7 +51,7 @@ export function AkademikTabsContent() {
         </button>
         <button
           onClick={() => setActiveTab("referensi")}
-          className={`pb-3 px-4 text-sm font-medium border-b-2 transition-colors -mb-[2px] flex items-center gap-2 ${
+          className={`pb-3 px-4 text-sm font-medium border-b-2 transition-colors -mb-[2px] flex items-center gap-2 shrink-0 ${
             activeTab === "referensi"
               ? "border-primary text-primary"
               : "border-transparent text-muted-foreground hover:text-foreground"
@@ -74,7 +74,7 @@ export function AkademikTabsContent() {
 
 export default function AkademikPage() {
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-1">
         <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-zinc-50 flex items-center gap-3">

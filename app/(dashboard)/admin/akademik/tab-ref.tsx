@@ -9,6 +9,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -42,6 +52,7 @@ function AcademicYearsTab() {
     const [isOpen, setIsOpen] = useState(false);
     const [editData, setEditData] = useState<any>(null); // If null = create
     const [isLoading, setIsLoading] = useState(false);
+    const [deletingYear, setDeletingYear] = useState<any>(null);
 
     // Form State
     const [formData, setFormData] = useState({ name: "", semester: "Ganjil", startDate: "", endDate: "", isActive: false });
@@ -95,10 +106,10 @@ function AcademicYearsTab() {
         setIsOpen(true);
     };
 
-     const handleDelete = async (id: string) => {
-        if(!confirm("Hapus tahun ajaran ini?")) return;
+     const handleDelete = async (item: any) => {
+        setDeletingYear(null);
         try {
-            await goDelete(`/api/academic/years/${id}`);
+            await goDelete(`/api/academic/years/${item.id}`);
             showSuccess("Terhapus");
             fetchData();
         } catch (e) {
@@ -158,12 +169,32 @@ function AcademicYearsTab() {
                     ]}
                     actions={(item) => (
                         <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}><Pencil className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDelete(item.id)}><Trash2 className="h-4 w-4" /></Button>
-                        </div>
-                    )}
-                />
-            </CardContent>
+                             <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}><Pencil className="h-4 w-4" /></Button>
+                             <Button variant="ghost" size="icon" className="text-red-500" onClick={() => setDeletingYear(item)}><Trash2 className="h-4 w-4" /></Button>
+                         </div>
+                     )}
+                 />
+             </CardContent>
+
+            <AlertDialog open={!!deletingYear} onOpenChange={(open) => !open && setDeletingYear(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Hapus tahun ajaran {deletingYear?.name}?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Tahun ajaran yang sedang aktif tidak dapat dihapus. Kelas pada tahun ajaran lain tidak terpengaruh.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-destructive text-white hover:bg-destructive/90"
+                            onClick={() => deletingYear && handleDelete(deletingYear)}
+                        >
+                            Hapus
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
                 <DialogContent>
@@ -213,6 +244,7 @@ function SubjectsTab() {
      const [isOpen, setIsOpen] = useState(false);
     const [editData, setEditData] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [deletingSubject, setDeletingSubject] = useState<any>(null);
     const [formData, setFormData] = useState({ code: "", name: "", category: "UMUM", description: "" });
 
     const fetchData = useCallback(async () => {
@@ -257,10 +289,10 @@ function SubjectsTab() {
         setIsOpen(true);
     };
 
-    const handleDelete = async (id: string) => {
-        if(!confirm("Hapus mata pelajaran ini?")) return;
+    const handleDelete = async (item: any) => {
+        setDeletingSubject(null);
         try {
-            await goDelete(`/api/academic/subjects/${id}`);
+            await goDelete(`/api/academic/subjects/${item.id}`);
             showSuccess("Terhapus");
             fetchData();
         } catch (e) {
@@ -306,11 +338,31 @@ function SubjectsTab() {
                     actions={(item) => (
                         <div className="flex justify-end gap-2">
                             <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}><Pencil className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDelete(item.id)}><Trash2 className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" className="text-red-500" onClick={() => setDeletingSubject(item)}><Trash2 className="h-4 w-4" /></Button>
                         </div>
                     )}
                 />
             </CardContent>
+
+            <AlertDialog open={!!deletingSubject} onOpenChange={(open) => !open && setDeletingSubject(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Hapus mata pelajaran {deletingSubject?.name}?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Data mata pelajaran yang sudah dihapus tidak dapat dikembalikan.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-destructive text-white hover:bg-destructive/90"
+                            onClick={() => deletingSubject && handleDelete(deletingSubject)}
+                        >
+                            Hapus
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
              <Dialog open={isOpen} onOpenChange={setIsOpen}>
                 <DialogContent>

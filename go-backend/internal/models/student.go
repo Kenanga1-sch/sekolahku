@@ -35,12 +35,6 @@ type Student struct {
 	UpdatedAt    *time.Time `json:"updatedAt"`
 }
 
-type StudentSubjectGrade struct {
-	Subject  string  `json:"subject"`
-	Semester int     `json:"semester"`
-	AvgScore float64 `json:"avgScore"`
-}
-
 type StudentByClass struct {
 	ClassName *string `json:"className"`
 	Count     int     `json:"count"`

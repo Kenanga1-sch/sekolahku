@@ -21,7 +21,6 @@ type Repositories struct {
 	Savings        *repository.SavingsRepository
 	Library        *repository.LibraryRepository
 	EOffice        *repository.EOfficeRepository
-	AcademicAdv    *repository.AcademicAdvRepository
 	Attendance     *repository.AttendanceRepository
 	Loan           *repository.LoanRepository
 	Setting        *repository.SettingRepository
@@ -53,7 +52,6 @@ type AllHandlers struct {
 	Savings        *handlers.SavingsHandler
 	Library        *handlers.LibraryHandler
 	EOffice        *handlers.EOfficeHandler
-	AcademicAdv    *handlers.AcademicAdvHandler
 	Attendance     *handlers.AttendanceHandler
 	Loan           *handlers.LoanHandler
 	Setting        *handlers.SettingHandler
@@ -283,7 +281,6 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	adminGroup.POST("/master/students/print", h.Student.GetStudentsForPrint)
 	adminGroup.POST("/master/students/bulk", h.Student.BulkCreateStudents)
 	adminGroup.GET("/master/students/:id", h.Student.GetStudentByID)
-	adminGroup.GET("/master/students/:id/grades", h.Student.GetStudentGrades)
 	adminGroup.POST("/master/students", h.Student.CreateStudent)
 	adminGroup.PUT("/master/students/:id", h.Student.UpdateStudent)
 	adminGroup.DELETE("/master/students/:id", h.Student.DeleteStudent)
@@ -529,9 +526,6 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	adminGroup.DELETE("/arsip/dokumen/:id", h.Document.Delete)
 	adminGroup.GET("/arsip/daftar-1", h.EOffice.GetDaftar1Stats)
 
-	// Academic Advanced
-	adminGroup.POST("/academic/adv/scan", h.AcademicAdv.RecordQRScan)
-	adminGroup.POST("/academic/adv/bulk-grades", h.AcademicAdv.BulkGrades)
 
 	// Kiosk (dibuka dari HP guru yang sudah login; ikut role guru+)
 	guruGroup.POST("/kiosk/attendance", h.Attendance.KioskRecordAttendance)

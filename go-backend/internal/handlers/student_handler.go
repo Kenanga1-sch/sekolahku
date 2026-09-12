@@ -357,16 +357,6 @@ func (h *StudentHandler) SimpleSearch(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": students})
 }
 
-func (h *StudentHandler) GetStudentGrades(c echo.Context) error {
-	studentID := c.Param("id")
-	grades, err := h.Repo.GetStudentGrades(studentID)
-	if err != nil {
-		log.Printf("GetStudentGrades ERROR: %v", err)
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
-	}
-	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": grades})
-}
-
 // SyncBukuInduk synchronizes all students to the Buku Induk table
 func (h *StudentHandler) SyncBukuInduk(c echo.Context) error {
 	count, err := h.Repo.SyncAllToBukuInduk()

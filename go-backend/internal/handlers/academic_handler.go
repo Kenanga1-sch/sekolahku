@@ -35,19 +35,6 @@ func (h *AcademicHandler) GetActiveAcademicYear(c echo.Context) error {
 		"data":    activeYear,
 	})
 }
-
-func (h *AcademicHandler) GetHomepageData(c echo.Context) error {
-	year, _ := h.Repo.GetActiveAcademicYear()
-
-	// Just return basic info for now, can be expanded
-	return c.JSON(http.StatusOK, map[string]interface{}{
-		"success":    true,
-		"activeYear": year,
-		"stats": map[string]int{
-			"studentCount": 120, // Mock or fetch from student repo
-		},
-	})
-}
 func (h *AcademicHandler) GetClasses(c echo.Context) error {
 	classes, err := h.Repo.GetClasses()
 	if err != nil {

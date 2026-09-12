@@ -944,31 +944,6 @@ func (r *StudentRepository) SimpleSearch(query, className string) ([]models.Stud
 	return students, nil
 }
 
-func (r *StudentRepository) GetStudentGrades(studentID string) ([]models.StudentSubjectGrade, error) {
-	rows, err := r.DB.Query(`
-		SELECT COALESCE(tp.subject, 'Umum') AS subject, tp.semester, AVG(CAST(g.score AS REAL)) AS avg_score
-		FROM student_grades g
-		JOIN teacher_tp tp ON g.tp_id = tp.id
-		WHERE g.student_id = ? AND g.score IS NOT NULL
-		GROUP BY tp.subject, tp.semester
-		ORDER BY tp.semester, tp.subject
-	`, studentID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var grades []models.StudentSubjectGrade
-	for rows.Next() {
-		var g models.StudentSubjectGrade
-		if err := rows.Scan(&g.Subject, &g.Semester, &g.AvgScore); err == nil {
-			g.AvgScore = math.Round(g.AvgScore*100) / 100
-			grades = append(grades, g)
-		}
-	}
-	return grades, nil
-}
-
 // SyncAllToBukuInduk synchronizes all existing students to the alumni (Buku Induk) table.
 func (r *StudentRepository) SyncAllToBukuInduk() (int, error) {
 	rows, err := r.DB.Query("SELECT id FROM students")

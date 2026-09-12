@@ -21,6 +21,16 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Plus, Pencil, Trash2, Info } from "lucide-react";
 import { showSuccess, showError } from "@/lib/toast";
 import { goGet, goPost, goPut, goDelete } from "@/lib/api-client";
@@ -51,6 +61,7 @@ export default function TabKelas() {
     const [editingItem, setEditingItem] = useState<AcademicClass | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [inheritedFrom, setInheritedFrom] = useState<string>("");
+    const [deletingItem, setDeletingItem] = useState<AcademicClass | null>(null);
 
     // Form
     const [formData, setFormData] = useState({
@@ -172,10 +183,10 @@ export default function TabKelas() {
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("Hapus kelas ini?")) return;
+    const handleDelete = async (item: AcademicClass) => {
+        setDeletingItem(null);
         try {
-            await goDelete(`/api/academic/classes/${id}`);
+            await goDelete(`/api/academic/classes/${item.id}`);
             showSuccess("Kelas dihapus");
             fetchData();
         } catch (e) {
@@ -248,7 +259,7 @@ export default function TabKelas() {
                                 <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(c)}>
                                     <Pencil className="h-4 w-4" />
                                 </Button>
-                                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(c.id)}>
+                                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setDeletingItem(c)}>
                                     <Trash2 className="h-4 w-4" />
                                 </Button>
                             </div>
@@ -348,6 +359,26 @@ export default function TabKelas() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <AlertDialog open={!!deletingItem} onOpenChange={(open) => !open && setDeletingItem(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Hapus kelas {deletingItem?.name}?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Kelas hanya bisa dihapus jika tidak ada siswa aktif di dalamnya. Riwayat kelas siswa tidak akan terhapus.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-destructive text-white hover:bg-destructive/90"
+                            onClick={() => deletingItem && handleDelete(deletingItem)}
+                        >
+                            Hapus
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

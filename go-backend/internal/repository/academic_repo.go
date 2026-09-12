@@ -368,26 +368,8 @@ func (r *AcademicRepository) DeleteSubject(id string) error {
 }
 
 func (r *AcademicRepository) ProcessPromotion(req models.PromotionRequest) (int, error) {
-	if req.ActionType == "promotion" && (req.TargetClassId == nil || *req.TargetClassId == "") {
+	if req.TargetClassId == nil || *req.TargetClassId == "" {
 		return 0, fmt.Errorf("kelas tujuan wajib dipilih")
-	}
-	if req.ActionType == "graduation" {
-		// Graduation: transaksi penuh — gagal di tengah = semua dibatalkan
-		tx, err := r.DB.Begin()
-		if err != nil {
-			return 0, err
-		}
-		defer tx.Rollback()
-
-		now := time.Now().Unix()
-		count := 0
-		for _, studentId := range req.StudentIds {
-			if _, err := tx.Exec(`UPDATE students SET status='graduated', is_active=0, updated_at=? WHERE id=?`, now, studentId); err != nil {
-				return 0, err
-			}
-			count++
-		}
-		return count, tx.Commit()
 	}
 
 	tx, err := r.DB.Begin()
