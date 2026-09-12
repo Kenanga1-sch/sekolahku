@@ -1,8 +1,11 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sekolahku/go-backend/internal/models"
@@ -174,4 +177,66 @@ func (h *SavingsHandler) CheckPublicBalance(c echo.Context) error {
 			"lastUpdate": s.UpdatedAt,
 		},
 	})
+}
+
+// statementMonthRange mengubah "YYYY-MM" jadi rentang [awal, akhir] bulan.
+// Bulan kosong berarti bulan berjalan (waktu Jakarta).
+func statementMonthRange(month string) (string, string, error) {
+	month = strings.TrimSpace(month)
+	if month == "" {
+		loc, err := time.LoadLocation("Asia/Jakarta")
+		if err != nil {
+			loc = time.UTC
+		}
+		month = time.Now().In(loc).Format("2006-01")
+	}
+	t, err := time.Parse("2006-01", month)
+	if err != nil {
+		return "", "", errors.New("format bulan tidak valid (YYYY-MM)")
+	}
+	start := t.Format("2006-01-02")
+	end := time.Date(t.Year(), t.Month()+1, 0, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
+	return start, end, nil
+}
+
+// GetPublicStatement menyediakan rekening koran untuk orang tua/siswa tanpa
+// login. Identitas diverifikasi lewat NISN/NIS/QR + tanggal lahir — persis
+// pola CheckPublicBalance — lalu mutasi disusun ulang oleh GetStatement.
+// Dulu layanan ini hanya tautan menu yang menunj rute tak bernama (404).
+func (h *SavingsHandler) GetPublicStatement(c echo.Context) error {
+	var req struct {
+		Identifier string `json:"identifier"`
+		BirthDate  string `json:"birthDate"`
+		Month      string `json:"month"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
+	}
+	identifier := strings.TrimSpace(req.Identifier)
+	birthDate := strings.TrimSpace(req.BirthDate)
+	if identifier == "" || birthDate == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "NISN dan tanggal lahir wajib diisi"})
+	}
+	if _, err := time.Parse("2006-01-02", birthDate); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Format tanggal lahir tidak valid"})
+	}
+	startDate, endDate, err := statementMonthRange(req.Month)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+	s, err := h.Repo.GetPublicBalance(identifier, birthDate)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+	}
+	if s == nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Data siswa tidak ditemukan atau data tidak cocok"})
+	}
+	st, err := h.Repo.GetStatement(s.ID, startDate, endDate)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+	}
+	if st == nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Data siswa tidak ditemukan atau data tidak cocok"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": st})
 }

@@ -127,7 +127,9 @@ func TestGetDailyClass_GuruForced(t *testing.T) {
 	h := NewAttendanceHandler(repository.NewAttendanceRepository(db))
 	e := echo.New()
 
-	req := httptest.NewRequest(http.MethodGet, "/?class=Kelas+2", nil)
+	// Tanggal kerja deterministik — tanpa param date, GetDailyClass memakai
+	// today() dan mengembalikan holiday tiap Minggu sehingga test flaky.
+	req := httptest.NewRequest(http.MethodGet, "/?date=2026-09-15&class=Kelas+2", nil)
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 	c.Set("user_id", "g1")

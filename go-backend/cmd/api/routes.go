@@ -157,6 +157,7 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	publicGroup.POST("/mutasi-keluar/validate", h.Mutasi.ValidatePublicMutasiOut, publicFormLimit)
 	publicGroup.POST("/mutasi-keluar/request", h.Mutasi.CreatePublicMutasiOutRequest, publicFormLimit)
 	publicGroup.POST("/tabungan/check-balance", h.Savings.CheckPublicBalance, publicFormLimit)
+	publicGroup.POST("/tabungan/statement", h.Savings.GetPublicStatement, publicFormLimit)
 	publicGroup.GET("/spmb/reference-date", h.SPMB.GetReferenceDate)
 	// Label inventaris: halaman detail yang dibuka lewat QR pada stiker fisik.
 	// Sengaja publik — QR harus bisa discan siapa pun. Handler membatasi

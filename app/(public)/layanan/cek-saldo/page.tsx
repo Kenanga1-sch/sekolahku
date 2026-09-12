@@ -85,7 +85,7 @@ export default function CekSaldoPage() {
     
     setLoading(true);
     try {
-      const data = await goPost<{ data: BalanceData }>("/api/tabungan/check-balance", { identifier, birthDate });
+      const data = await goPost<{ data: BalanceData }>("/api/public/tabungan/check-balance", { identifier, birthDate });
       setResult(data.data);
       toast.success("Data ditemukan");
     } catch (error: any) {

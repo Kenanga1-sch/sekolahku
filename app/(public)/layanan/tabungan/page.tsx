@@ -17,8 +17,8 @@ const services = [
   },
   {
     title: "Rekening Koran Tabungan",
-    desc: "Lihat riwayat transaksi tabungan siswa.",
-    href: "/tabungan/rekening-koran/verify",
+    desc: "Lihat dan cetak riwayat transaksi tabungan siswa per bulan.",
+    href: "/layanan/rekening-koran",
     icon: BookOpen,
   },
 ];
