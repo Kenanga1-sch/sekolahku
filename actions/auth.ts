@@ -83,6 +83,7 @@ export async function getSessionAction() {
         role: data.role,
         email: data.email,
         name: data.name,
+        image: data.image || undefined,
       },
     };
   } catch {

@@ -29,7 +29,7 @@ export interface User extends BaseRecord {
   email: string;
   phone?: string;
   role: UserRole;
-  avatar?: string;
+  image?: string;
   verified?: boolean;
   isActive?: boolean;
   mustChangePassword?: boolean;

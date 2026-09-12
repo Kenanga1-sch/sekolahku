@@ -300,7 +300,7 @@ export default function DashboardLayoutClient({
   const displayInitials = mounted && !authLoading && user?.name ? user.name.substring(0, 2).toUpperCase() : "A";
   const userImage = mounted && !authLoading && user?.image
     ? (user.image.startsWith("http") || user.image.startsWith("/") ? user.image : `/uploads/${user.image}`)
-    : `https://api.dicebear.com/7.x/avataaars/svg?seed=${displayName}`;
+    : undefined;
   
   const { settings } = useSchoolSettings();
   const schoolName = settings?.school_name || "Sekolahku";
@@ -319,7 +319,7 @@ export default function DashboardLayoutClient({
           "print:hidden hidden md:flex fixed top-1/2 -translate-y-1/2 z-[60] h-12 w-5 rounded-r-md border border-l-0 border-neutral-200 dark:border-neutral-700 shadow-sm items-center justify-center transition-all cursor-pointer group",
           "bg-white dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700",
           sidebarVisible
-            ? "left-[280px] xl:left-[300px]"
+            ? "left-64"
             : "left-0"
         )}
         aria-label={sidebarVisible ? "Sembunyikan navigasi" : "Tampilkan navigasi"}
@@ -327,16 +327,19 @@ export default function DashboardLayoutClient({
         <PanelLeftClose className={cn("h-3.5 w-3.5 transition-transform", !sidebarVisible && "rotate-180")} />
       </button>
 
-      <div className={cn("print:hidden flex-shrink-0 transition-all duration-300 ease-in-out overflow-hidden h-0 md:h-full", sidebarVisible ? "max-w-[300px]" : "max-w-0")}>
+      <div className={cn("print:hidden flex-shrink-0 transition-all duration-300 ease-in-out overflow-hidden h-0 md:h-full", sidebarVisible ? "max-w-64" : "max-w-0")}>
       <Sidebar open={open} setOpen={handleSetOpen} animate={false}>
         <SidebarBody className="justify-between gap-10">
           <div className="flex flex-col flex-1 overflow-hidden">
             {/* Logo */}
             <div className="flex flex-col">
                 <Link href="#" className="font-normal flex space-x-2 items-center text-sm text-black py-1 relative z-20">
-                    <div className="h-6 w-6 relative flex-shrink-0 rounded-full bg-black dark:bg-white flex items-center justify-center overflow-hidden">
+                    <div className={cn(
+                        "h-6 w-6 relative flex-shrink-0 rounded-full flex items-center justify-center overflow-hidden",
+                        !schoolLogo && "bg-black dark:bg-white"
+                    )}>
                         {schoolLogo ? (
-                           <Image src={schoolLogo} alt="Logo" width={24} height={24} className="h-full w-full object-cover" />
+                           <Image src={schoolLogo} alt="Logo" width={24} height={24} className="h-full w-full object-contain" />
                         ) : (
                            <span className="text-white dark:text-black font-bold text-xs">{schoolInitial}</span>
                         )}

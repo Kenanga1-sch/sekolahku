@@ -98,12 +98,18 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	if user.Name != nil {
 		userName = *user.Name
 	}
+	// Foto profil untuk tampilan avatar (path relatif pendek, aman untuk cookie)
+	userImage := ""
+	if user.Image != nil {
+		userImage = *user.Image
+	}
 	// Set a public user info cookie for frontend display (Non-HttpOnly)
 	// This contains non-sensitive info only.
 	userInfo := map[string]string{
-		"id":   user.ID,
-		"name": userName,
-		"role": user.Role,
+		"id":    user.ID,
+		"name":  userName,
+		"role":  user.Role,
+		"image": userImage,
 	}
 	userInfoJSON, err := json.Marshal(userInfo)
 	if err != nil {
