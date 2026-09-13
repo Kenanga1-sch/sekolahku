@@ -5,6 +5,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/sekolahku/go-backend/internal/handlers"
 	authMiddleware "github.com/sekolahku/go-backend/internal/middleware"
+	"github.com/sekolahku/go-backend/internal/push"
 	"github.com/sekolahku/go-backend/internal/repository"
 	"net/http"
 	"time"
@@ -39,6 +40,7 @@ type Repositories struct {
 	Integration    *repository.IntegrationRepository
 	Document       *repository.DocumentRepository
 	Holiday        *repository.SchoolHolidayRepository
+	Push           *repository.PushRepository
 }
 
 // AllHandlers holds all HTTP handler instances.
@@ -71,6 +73,10 @@ type AllHandlers struct {
 	Integration    *handlers.IntegrationHandler
 	Document       *handlers.DocumentHandler
 	Sync           *handlers.SyncHandler
+	Push           *handlers.PushHandler
+	// PushSvc dipakai handler lain (absen, tabungan, pengumuman) untuk
+	// mengirim push ke orang tua.
+	PushSvc *push.Service
 }
 
 // registerRoutes registers all API routes on the Echo server.
@@ -155,6 +161,8 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	// pengaduan boleh anonim, plus cek status via kode tiket.
 	publicGroup.POST("/contact", h.Contact.SubmitMessage, publicFormLimit)
 	publicGroup.GET("/contact/status/:ticket", h.Contact.GetPublicStatus, publicFormLimit)
+	// Public key Web Push (aman dibagikan) untuk pushManager.subscribe.
+	publicGroup.GET("/push/vapid-key", h.Push.GetVAPIDKey)
 	publicGroup.POST("/mutasi/request", h.Mutasi.CreateMutasiRequest, publicFormLimit)
 	publicGroup.GET("/mutasi/status/:regNum", h.Mutasi.GetPublicMutasiStatus, publicFormLimit)
 	publicGroup.POST("/mutasi-keluar/validate", h.Mutasi.ValidatePublicMutasiOut, publicFormLimit)
@@ -633,6 +641,14 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	notifs.POST("/read-all", h.Notification.MarkAllAsRead)
 	// Pengumuman sistem ke seluruh pengguna dashboard (khusus admin).
 	adminGroup.POST("/notifications/broadcast", h.Notification.BroadcastNotification)
+
+	// Web Push (PWA)
+	pushGroup := server.Group("/api/push")
+	pushGroup.Use(authMiddleware.JWTMiddleware)
+	pushGroup.GET("/status", h.Push.Status)
+	pushGroup.POST("/subscribe", h.Push.Subscribe)
+	pushGroup.DELETE("/subscribe", h.Push.Unsubscribe)
+	adminGroup.POST("/push/test", h.Push.TestSend)
 
 	// Profile
 	profile := server.Group("/api/profile")

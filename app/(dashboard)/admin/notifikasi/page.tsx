@@ -14,6 +14,7 @@ import { AlertCircle, AlertTriangle, CheckCircle2, Info, Loader2 } from "lucide-
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { goGet, goPost, goPatch } from "@/lib/api-client";
+import { PushToggle } from "@/components/push-toggle";
 
 
 interface AdminNotification {
@@ -116,6 +117,8 @@ export default function NotificationsPage() {
           Tandai Semua Dibaca
         </Button>
       </div>
+
+      <PushToggle showTest />
 
       <Card>
         <CardHeader>

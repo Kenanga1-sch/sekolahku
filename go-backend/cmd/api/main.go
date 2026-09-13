@@ -15,6 +15,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	gommonLog "github.com/labstack/gommon/log"
 	authMiddleware "github.com/sekolahku/go-backend/internal/middleware"
+	"github.com/sekolahku/go-backend/internal/push"
 	"github.com/sekolahku/go-backend/internal/repository"
 	"github.com/sekolahku/go-backend/internal/scheduler"
 
@@ -192,6 +193,7 @@ func main() {
 		Integration:    repository.NewIntegrationRepository(db),
 		Document:       repository.NewDocumentRepository(db),
 		Holiday:        repository.NewSchoolHolidayRepository(db),
+		Push:           repository.NewPushRepository(db),
 	}
 
 	// Aktifkan pemeriksaan status user pada setiap request terautentikasi,
@@ -219,6 +221,20 @@ func main() {
 		log.Printf("[Startup] Warning: Buku Induk initial sync failed: %v", err)
 	} else {
 		log.Printf("[Startup] Buku Induk initial sync completed, %d students synchronized.", syncCount)
+	}
+
+	// Web Push (PWA): VAPID keys dari .env. Bila belum diisi, fitur push
+	// otomatis nonaktif tanpa mengganggu fitur lain.
+	pushSvc := push.NewService(
+		repos.Push,
+		os.Getenv("VAPID_PUBLIC_KEY"),
+		os.Getenv("VAPID_PRIVATE_KEY"),
+		os.Getenv("VAPID_SUBJECT"),
+	)
+	if pushSvc.Enabled() {
+		log.Println("[Startup] Web Push aktif (VAPID keys ditemukan).")
+	} else {
+		log.Println("[Startup] Web Push nonaktif — VAPID_PUBLIC_KEY/PRIVATE_KEY belum diisi.")
 	}
 
 	// Handlers
@@ -251,6 +267,8 @@ func main() {
 		Upload:         handlers.NewUploadHandler(),
 		Integration:    handlers.NewIntegrationHandler(repos.Integration),
 		Document:       handlers.NewDocumentHandler(repos.Document),
+		Push:           handlers.NewPushHandler(pushSvc),
+		PushSvc:        pushSvc,
 	}
 
 	// Register routes
