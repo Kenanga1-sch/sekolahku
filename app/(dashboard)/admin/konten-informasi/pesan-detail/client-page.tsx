@@ -103,15 +103,26 @@ export default function PesanDetailClientPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const fetchAll = useCallback(async () => {
-    if (!id) return;
+    if (!id) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const res = await getContactMessageAction(id);
       if (res.success) {
-        const payload = res.data as DetailPayload;
-        setMsg(payload.message);
-        setReplies(payload.replies || []);
-        setAttachments(payload.attachments || []);
+        const raw = res.data as any;
+        // handleAction menumpuk objek respons Go ({ success: true, data: { message, replies, attachments } })
+        // di dalam res.data. Unwrap secara defensif (dukung res.data maupun res.data.data).
+        const payload: DetailPayload = raw?.data ?? raw;
+        if (payload?.message) {
+          setMsg(payload.message);
+          setReplies(payload.replies || []);
+          setAttachments(payload.attachments || []);
+        } else {
+          setMsg(null);
+          toast.error("Format data pesan tidak sesuai");
+        }
       } else {
         toast.error(res.error || "Gagal memuat pesan");
       }
