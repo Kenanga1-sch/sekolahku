@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sekolahku-v10';
+const CACHE_NAME = 'sekolahku-v11';
 const OFFLINE_URL = '/offline';
 
 const PRECACHE_ASSETS = [

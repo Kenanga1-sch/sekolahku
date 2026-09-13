@@ -10,6 +10,7 @@ import {
   BookOpen,
   Wallet,
   ArrowRightLeft,
+  MessageSquareHeart,
   ArrowRight,
   MapPin,
   Calendar,
@@ -171,6 +172,7 @@ export default function PublicHomepage() {
             {[
               { title: "Tabungan", desc: "Cek saldo tabungan dan rekening koran siswa.", href: "/layanan/tabungan", icon: Wallet },
               { title: "Mutasi", desc: "Permohonan pindah masuk/keluar dan cek status permohonan.", href: "/layanan/mutasi", icon: ArrowRightLeft },
+              { title: "Kritik & Pengaduan", desc: "Sampaikan masukan atau laporkan perundungan, bisa anonim.", href: "/layanan/kritik-saran-pengaduan", icon: MessageSquareHeart },
             ].map((item, i) => (
               <Reveal key={item.title} delay={i * 0.05}>
                 <Link href={item.href} className="group flex items-start gap-4 p-5 rounded-2xl bg-white border border-public-border shadow-sm hover:border-[#065F46]/30 hover:shadow-md transition-all active:scale-[0.98]">

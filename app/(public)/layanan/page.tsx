@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   Wallet,
   ArrowRightLeft,
+  MessageSquareHeart,
   ArrowRight,
 } from "lucide-react";
 import { Reveal } from "@/components/public/motion";
@@ -20,6 +21,12 @@ const categories = [
     desc: "Permohonan pindah masuk, pindah keluar, dan cek status permohonan.",
     href: "/layanan/mutasi",
     icon: ArrowRightLeft,
+  },
+  {
+    title: "Kritik, Saran & Pengaduan",
+    desc: "Sampaikan masukan atau laporkan perundungan. Bisa anonim.",
+    href: "/layanan/kritik-saran-pengaduan",
+    icon: MessageSquareHeart,
   },
 ];
 

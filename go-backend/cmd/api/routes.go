@@ -151,7 +151,10 @@ publicGroup.GET("/spmb/registrants/:number", h.SPMB.GetRegistrant)
 // Verifikasi rekening koran: halamannya publik (QR discan tanpa login),
 // jadi rute ini harus di luar auth. Rute lama di auth tetap untuk konsistensi.
 publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
-	publicGroup.POST("/contact", h.Contact.SubmitMessage)
+	// Kritik/saran/pengaduan: kini layanan masukan publik (rate-limit),
+	// pengaduan boleh anonim, plus cek status via kode tiket.
+	publicGroup.POST("/contact", h.Contact.SubmitMessage, publicFormLimit)
+	publicGroup.GET("/contact/status/:ticket", h.Contact.GetPublicStatus, publicFormLimit)
 	publicGroup.POST("/mutasi/request", h.Mutasi.CreateMutasiRequest, publicFormLimit)
 	publicGroup.GET("/mutasi/status/:regNum", h.Mutasi.GetPublicMutasiStatus, publicFormLimit)
 	publicGroup.POST("/mutasi-keluar/validate", h.Mutasi.ValidatePublicMutasiOut, publicFormLimit)
@@ -311,6 +314,7 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	adminGroup.PUT("/faqs/:id", h.FAQ.UpdateFAQ)
 	adminGroup.DELETE("/faqs/:id", h.FAQ.DeleteFAQ)
 	adminGroup.GET("/contact-messages", h.Contact.ListMessages)
+	adminGroup.PATCH("/contact-messages/:id/status", h.Contact.UpdateStatus)
 	adminGroup.PUT("/contact-messages/:id/read", h.Contact.MarkAsRead)
 	adminGroup.DELETE("/contact-messages/:id", h.Contact.DeleteMessage)
 

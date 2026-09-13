@@ -1,17 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
-import { getContactMessagesAction, markMessageAsReadAction, deleteMessageAction } from "@/actions/contact";
+import { getContactMessagesAction, markMessageAsReadAction, deleteMessageAction, updateMessageStatusAction } from "@/actions/contact";
 
 interface ContactMessage {
   id: string;
   name: string;
   email: string;
+  phone?: string;
   subject?: string;
   message: string;
+  category?: string;
+  status?: string;
+  ticket?: string;
   isRead: boolean;
   createdAt?: string;
+  updatedAt?: string;
 }
 
 interface ContactMessagePayload {
@@ -43,13 +48,14 @@ export function useMessages() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [category, setCategory] = useState("");
   const [pagination, setPagination] = useState<ContactMessagePayload>({ total: 0, page: 1, perPage: 20, totalPages: 1 });
 
-  const fetchMessages = async (silent = false) => {
+  const fetchMessages = useCallback(async (cat: string, silent = false) => {
     if (!silent) setLoading(true);
     setError("");
     try {
-      const res = await getContactMessagesAction();
+      const res = await getContactMessagesAction(cat || undefined);
       if (res.success) {
         const payload = normalizeMessages(res.data);
         setMessages(payload.items || []);
@@ -65,13 +71,22 @@ export function useMessages() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
-  const refresh = () => { setRefreshing(true); fetchMessages(true); };
+  const refresh = useCallback(() => {
+    setRefreshing(true);
+    fetchMessages(category, true);
+  }, [category, fetchMessages]);
 
-  useEffect(() => { fetchMessages(); }, []);
+  useEffect(() => { fetchMessages(""); }, [fetchMessages]);
 
-  const handleMarkAsRead = async (msgId: string) => {
+  // Ganti filter kategori lalu muat ulang.
+  const changeCategory = useCallback((cat: string) => {
+    setCategory(cat);
+    fetchMessages(cat);
+  }, [fetchMessages]);
+
+  const handleMarkAsRead = useCallback(async (msgId: string) => {
     const res = await markMessageAsReadAction(msgId);
     if (res.success) {
       setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, isRead: true } : m)));
@@ -79,9 +94,19 @@ export function useMessages() {
     } else {
       toast.error(res.error || "Gagal memperbarui status pesan");
     }
-  };
+  }, []);
 
-  const handleDelete = async (msgId: string) => {
+  const handleUpdateStatus = useCallback(async (msgId: string, status: string) => {
+    const res = await updateMessageStatusAction(msgId, status);
+    if (res.success) {
+      setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, status, isRead: true } : m)));
+      toast.success("Status laporan diperbarui");
+    } else {
+      toast.error(res.error || "Gagal memperbarui status");
+    }
+  }, []);
+
+  const handleDelete = useCallback(async (msgId: string) => {
     const res = await deleteMessageAction(msgId);
     if (res.success) {
       setMessages((prev) => prev.filter((m) => m.id !== msgId));
@@ -90,7 +115,7 @@ export function useMessages() {
     } else {
       toast.error(res.error || "Gagal menghapus pesan");
     }
-  };
+  }, []);
 
-  return { messages, loading, refreshing, error, pagination, fetchMessages, refresh, handleMarkAsRead, handleDelete };
+  return { messages, loading, refreshing, error, pagination, category, changeCategory, refresh, handleMarkAsRead, handleUpdateStatus, handleDelete };
 }
