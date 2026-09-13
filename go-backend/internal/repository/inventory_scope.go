@@ -69,6 +69,21 @@ func AssetRoomID(db *sql.DB, assetID string) (string, error) {
 	return roomID.String, nil
 }
 
+// AssetRoomPIC mengambil PIC (penanggung jawab) ruangan tempat aset berada.
+// Kosong bila ruangan tanpa PIC.
+func AssetRoomPIC(db *sql.DB, assetID string) (string, error) {
+	var pic sql.NullString
+	err := db.QueryRow(`
+		SELECT r.pic_id FROM inventory_assets a
+		JOIN inventory_rooms r ON a.room_id = r.id
+		WHERE a.id = ?
+	`, assetID).Scan(&pic)
+	if err != nil {
+		return "", err
+	}
+	return pic.String, nil
+}
+
 // ItemRoomID mencari ruangan pemilik sebuah barang habis pakai.
 // Sumber utamanya inventory_items.room_id (migrasi 000035); location yang
 // berisi nama ruangan tetap didukung sebagai fallback untuk data lama.

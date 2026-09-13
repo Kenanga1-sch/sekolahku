@@ -13,11 +13,12 @@ import (
 )
 
 type InventoryHandler struct {
-	Repo *repository.InventoryRepository
+	Repo          *repository.InventoryRepository
+	Notifications *repository.NotificationRepository
 }
 
-func NewInventoryHandler(repo *repository.InventoryRepository) *InventoryHandler {
-	return &InventoryHandler{Repo: repo}
+func NewInventoryHandler(repo *repository.InventoryRepository, notifications *repository.NotificationRepository) *InventoryHandler {
+	return &InventoryHandler{Repo: repo, Notifications: notifications}
 }
 
 // ============ Payload Types ============

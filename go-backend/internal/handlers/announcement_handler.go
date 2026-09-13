@@ -15,11 +15,12 @@ import (
 )
 
 type AnnouncementHandler struct {
-	Repo *repository.AnnouncementRepository
+	Repo          *repository.AnnouncementRepository
+	Notifications *repository.NotificationRepository
 }
 
-func NewAnnouncementHandler(repo *repository.AnnouncementRepository) *AnnouncementHandler {
-	return &AnnouncementHandler{Repo: repo}
+func NewAnnouncementHandler(repo *repository.AnnouncementRepository, notifications *repository.NotificationRepository) *AnnouncementHandler {
+	return &AnnouncementHandler{Repo: repo, Notifications: notifications}
 }
 
 func (h *AnnouncementHandler) GetAnnouncements(c echo.Context) error {
@@ -90,6 +91,18 @@ func (h *AnnouncementHandler) CreateAnnouncement(c echo.Context) error {
 
 	middleware.CacheInvalidate("/api/public/news")
 	middleware.CacheInvalidate("/api/public/homepage")
+
+	// Pengumuman yang langsung dipublikasikan diberitakan ke semua
+	// pengguna dashboard (broadcast — memang untuk semua orang).
+	if req.IsPublished && h.Notifications != nil {
+		_ = h.Notifications.BroadcastNotification(models.Notification{
+			Type:      "info",
+			Category:  "pengumuman",
+			Title:     "Pengumuman baru: " + req.Title,
+			Message:   "Pengumuman baru telah dipublikasikan.",
+			TargetURL: StrPtr("/admin/konten-informasi"),
+		})
+	}
 
 	return c.JSON(http.StatusCreated, map[string]interface{}{
 		"success": true,

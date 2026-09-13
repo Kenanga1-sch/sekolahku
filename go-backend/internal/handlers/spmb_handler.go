@@ -22,11 +22,12 @@ import (
 )
 
 type SPMBHandler struct {
-	Repo *repository.SPMBRepository
+	Repo         *repository.SPMBRepository
+	Notifications *repository.NotificationRepository
 }
 
-func NewSPMBHandler(repo *repository.SPMBRepository) *SPMBHandler {
-	return &SPMBHandler{Repo: repo}
+func NewSPMBHandler(repo *repository.SPMBRepository, notifications *repository.NotificationRepository) *SPMBHandler {
+	return &SPMBHandler{Repo: repo, Notifications: notifications}
 }
 
 // normalizeSPMBRegistrantPayload normalizes raw JSON fields into the SPMBRegistrant model.
@@ -292,6 +293,17 @@ func (h *SPMBHandler) Register(c echo.Context) error {
 	middleware.CacheInvalidate("/api/public/spmb/landing")
 	middleware.CacheInvalidate("/api/public/spmb/registrants")
 
+	// Beri tahu admin ada pendaftar baru.
+	if h.Notifications != nil {
+		_ = h.Notifications.NotifyRoles(models.Notification{
+			Type:      "success",
+			Category:  "spmb",
+			Title:     "Pendaftar SPMB baru",
+			Message:   m.FullName + " (" + regNum + ") telah mendaftar dan menunggu verifikasi.",
+			TargetURL: StrPtr("/admin/siswa/spmb"),
+		}, "admin", "superadmin")
+	}
+
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
 		"data": map[string]interface{}{
@@ -383,10 +395,9 @@ func (h *SPMBHandler) UploadDocuments(c echo.Context) error {
 
 		ext, ok := allowed[ct]
 		if !ok {
-			ext, ok = allowed[fh.Header.Get("Content-Type")]
-		}
-		if !ok {
-			src.Close()
+			// Jangan fallback ke header Content-Type klien: header itu bisa
+			// dipalsukan, sehingga HTML berlabel image/png bisa lolos dan
+			// tersimpan di direktori yang disajikan publik.
 			uploadErrors = append(uploadErrors, fh.Filename+": format file tidak didukung (hanya PDF/JPG/PNG)")
 			continue
 		}

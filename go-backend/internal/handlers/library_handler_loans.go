@@ -51,6 +51,17 @@ func (h *LibraryHandler) BorrowBook(c echo.Context) error {
 		c.Logger().Error("Failed to borrow library asset:", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
+
+	// Notifikasi admin perpustakaan: transaksi peminjaman baru.
+	if h.Notifications != nil {
+		_ = h.Notifications.NotifyRoles(models.Notification{
+			Type:      "info",
+			Category:  "perpustakaan",
+			Title:     "Peminjaman buku baru",
+			Message:   "Buku dipinjam dengan jatuh tempo " + strconv.Itoa(req.LoanDays) + " hari.",
+			TargetURL: StrPtr("/perpustakaan/sirkulasi"),
+		}, "admin", "superadmin")
+	}
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
 		"data":    loan,

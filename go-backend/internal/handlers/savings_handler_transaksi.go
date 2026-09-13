@@ -113,6 +113,17 @@ func (h *SavingsHandler) KioskDeposit(c echo.Context) error {
 	if err := h.Repo.CreateTransaksi(txReq); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal mencatat setoran: " + err.Error()})
 	}
+
+	// Setoran kiosk menunggu verifikasi bendahara — beri tahu.
+	if h.Notifications != nil {
+		_ = h.Notifications.NotifyRoles(models.Notification{
+			Type:      "info",
+			Category:  "finance",
+			Title:     "Setoran kiosk menunggu verifikasi",
+			Message:   s.Nama + " — Rp" + strconv.FormatInt(int64(req.Nominal), 10) + " menunggu diverifikasi bendahara.",
+			TargetURL: StrPtr("/tabungan/verifikasi"),
+		}, "bendahara", "admin", "superadmin")
+	}
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success":        true,
 		"message":        "Setoran berhasil dicatat dan menunggu verifikasi bendahara",
@@ -131,6 +142,22 @@ func (h *SavingsHandler) CreateSetoran(c echo.Context) error {
 	if err := h.Repo.CreateSetoran(req); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
+
+	// Setoran baru diajukan guru — bendahara perlu memverifikasi.
+	if h.Notifications != nil {
+		guruName := ""
+		_ = h.Repo.DB.QueryRow("SELECT name FROM users WHERE id = ?", req.GuruID).Scan(&guruName)
+		if guruName == "" {
+			guruName = "Guru"
+		}
+		_ = h.Notifications.NotifyRoles(models.Notification{
+			Type:      "info",
+			Category:  "finance",
+			Title:     "Setoran baru menunggu verifikasi",
+			Message:   guruName + " mengajukan setoran untuk diverifikasi.",
+			TargetURL: StrPtr("/tabungan/verifikasi"),
+		}, "bendahara", "admin", "superadmin")
+	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "message": "Setoran berhasil diajukan"})
 }
 
@@ -141,6 +168,28 @@ func (h *SavingsHandler) VerifySetoran(c echo.Context) error {
 	}
 	if err := h.Repo.VerifySetoran(req); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+
+	// Kabari guru penyetor: hasil verifikasi setorannya.
+	if h.Notifications != nil {
+		guruID := ""
+		_ = h.Repo.DB.QueryRow("SELECT guru_id FROM tabungan_setoran WHERE id = ?", req.SetoranID).Scan(&guruID)
+		if guruID != "" {
+			label := "diverifikasi"
+			nType := "success"
+			if req.Status == "rejected" {
+				label = "ditolak"
+				nType = "warning"
+			}
+			_ = h.Notifications.CreateNotification(models.Notification{
+				UserID:    &guruID,
+				Type:      nType,
+				Category:  "finance",
+				Title:     "Setoran " + label,
+				Message:   "Setoran Anda telah " + label + " oleh bendahara.",
+				TargetURL: StrPtr("/tabungan/setoran"),
+			})
+		}
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "message": "Setoran telah diproses"})
 }

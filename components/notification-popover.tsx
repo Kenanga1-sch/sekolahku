@@ -39,23 +39,6 @@ export function NotificationPopover({ className }: { className?: string }) {
     setMounted(true);
   }, []);
 
-  // ... (fetchStats and fetchNotifications remain same)
-
-  // ... (useEffect hooks remain same)
-
-  // ... (handlers remain same)
-
-  // ... (helpers remain same)
-  
-  // Note: I need to preserve the function body or use replace carefully. 
-  // I'll just change the signature and the Button usage.
-  // Actually, replace_file_content needs exact target.
-  // I will replace the start of function and the Button trigger.
-  
-  // Wait, I can't split the replacement easily if lines are far apart without multi_replace.
-  // Let's use multi_replace.
-
-
   const fetchStats = async () => {
     try {
       const data = await goGet<{ unreadCount: number }>("/api/notifications/stats");

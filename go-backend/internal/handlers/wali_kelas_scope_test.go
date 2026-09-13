@@ -152,7 +152,7 @@ func TestGetDailyClass_GuruForced(t *testing.T) {
 func TestGetSiswa_GuruScoped(t *testing.T) {
 	db := setupWaliKelasTestDB(t)
 	defer db.Close()
-	h := NewSavingsHandler(repository.NewSavingsRepository(db))
+	h := NewSavingsHandler(repository.NewSavingsRepository(db), repository.NewNotificationRepository(db))
 	e := echo.New()
 
 	req := httptest.NewRequest(http.MethodGet, "/?", nil)
@@ -177,7 +177,7 @@ func TestGetSiswa_GuruScoped(t *testing.T) {
 func TestGetSiswa_GuruTanpaWaliKosong(t *testing.T) {
 	db := setupWaliKelasTestDB(t)
 	defer db.Close()
-	h := NewSavingsHandler(repository.NewSavingsRepository(db))
+	h := NewSavingsHandler(repository.NewSavingsRepository(db), repository.NewNotificationRepository(db))
 	e := echo.New()
 
 	req := httptest.NewRequest(http.MethodGet, "/?", nil)
@@ -199,7 +199,7 @@ func TestGetSiswa_GuruTanpaWaliKosong(t *testing.T) {
 func TestGetClassesWithReps_GuruScoped(t *testing.T) {
 	db := setupWaliKelasTestDB(t)
 	defer db.Close()
-	h := NewSavingsHandler(repository.NewSavingsRepository(db))
+	h := NewSavingsHandler(repository.NewSavingsRepository(db), repository.NewNotificationRepository(db))
 	e := echo.New()
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)

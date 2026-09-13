@@ -31,6 +31,10 @@ var allowedMimeTypes = map[string]string{
 }
 
 func generateSafeFilename(ext string) string {
+	// ext datang dengan titik (".png"); fungsi ini menambahkan titik
+	// sendiri, jadi titik ganda harus dinetralkan (dulu ".png" menjadi
+	// "file..png" — valid tapi janggal).
+	ext = strings.TrimPrefix(ext, ".")
 	b := make([]byte, 12)
 	rand.Read(b)
 	return fmt.Sprintf("%d-%s.%s", time.Now().UnixMilli(), hex.EncodeToString(b), ext)
@@ -134,115 +138,6 @@ func (h *UploadHandler) GeneralUpload(c echo.Context) error {
 }
 
 // SPMBUpload handles POST /api/spmb/upload - multi-file upload for SPMB documents
-func (h *UploadHandler) SPMBUpload(c echo.Context) error {
-	registrantId := c.QueryParam("id")
-	if registrantId == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ID pendaftar diperlukan"})
-	}
-
-	form, err := c.MultipartForm()
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid form data"})
-	}
-
-	files := form.File["documents"]
-	types := form.Value["types"]
-
-	if len(files) == 0 {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Tidak ada file yang diunggah"})
-	}
-
-	spmbAllowed := map[string]string{
-		"application/pdf": "pdf",
-		"image/jpeg":      "jpg",
-		"image/png":       "png",
-	}
-
-	type DocumentFile struct {
-		Path         string `json:"path"`
-		Type         string `json:"type"`
-		OriginalName string `json:"originalName"`
-	}
-
-	var savedFiles []DocumentFile
-	var uploadErrors []string
-
-	uploadDir := filepath.Join("public", "uploads", "spmb", registrantId)
-	if err := os.MkdirAll(uploadDir, 0755); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Cannot create directory"})
-	}
-
-	for i, fh := range files {
-		if fh.Size > 2*1024*1024 {
-			uploadErrors = append(uploadErrors, fmt.Sprintf("File %s melebihi ukuran maksimal 2MB", fh.Filename))
-			continue
-		}
-
-		src, err := fh.Open()
-		if err != nil {
-			uploadErrors = append(uploadErrors, fmt.Sprintf("File %s: gagal membuka", fh.Filename))
-			continue
-		}
-
-		buf := make([]byte, 512)
-		n, _ := src.Read(buf)
-		ct := http.DetectContentType(buf[:n])
-		src.Seek(0, io.SeekStart)
-
-		ext, ok := spmbAllowed[ct]
-		if !ok {
-			ext, ok = spmbAllowed[fh.Header.Get("Content-Type")]
-		}
-		if !ok {
-			uploadErrors = append(uploadErrors, fmt.Sprintf("Format file %s tidak didukung", fh.Filename))
-			src.Close()
-			continue
-		}
-
-		filename := generateSafeFilename(ext)
-		dstPath := filepath.Join(uploadDir, filename)
-
-		dst, err := os.Create(dstPath)
-		if err != nil {
-			uploadErrors = append(uploadErrors, fmt.Sprintf("File %s: gagal menyimpan", fh.Filename))
-			src.Close()
-			continue
-		}
-
-		io.Copy(dst, src)
-		src.Close()
-		dst.Close()
-
-		docType := "other"
-		if i < len(types) {
-			docType = types[i]
-		}
-
-		savedFiles = append(savedFiles, DocumentFile{
-			Path:         fmt.Sprintf("/uploads/spmb/%s/%s", registrantId, filename),
-			Type:         docType,
-			OriginalName: fh.Filename,
-		})
-	}
-
-	if len(savedFiles) == 0 && len(uploadErrors) > 0 {
-		return c.JSON(http.StatusBadRequest, map[string]interface{}{
-			"success": false,
-			"error":   strings.Join(uploadErrors, ", "),
-		})
-	}
-
-	return c.JSON(http.StatusOK, map[string]interface{}{
-		"success": true,
-		"data": map[string]interface{}{
-			"id":              registrantId,
-			"documents_count": len(savedFiles),
-			"new_files":       savedFiles,
-			"uploaded_at":     time.Now().Format(time.RFC3339),
-		},
-	})
-}
-
 // LibraryCoverUpload handles POST /api/library/catalog/cover
 func (h *UploadHandler) LibraryCoverUpload(c echo.Context) error {
 	file, err := c.FormFile("file")

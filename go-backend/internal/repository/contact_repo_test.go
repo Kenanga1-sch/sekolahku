@@ -29,6 +29,18 @@ func setupContactTestDB(t *testing.T) *sql.DB {
 			created_at INTEGER,
 			updated_at INTEGER
 		);
+		CREATE TABLE contact_attachments (
+			id TEXT PRIMARY KEY,
+			message_id TEXT NOT NULL,
+			kind TEXT NOT NULL DEFAULT 'evidence',
+			file_kind TEXT NOT NULL DEFAULT 'image',
+			file_path TEXT NOT NULL,
+			original_name TEXT,
+			file_size INTEGER NOT NULL DEFAULT 0,
+			mime_type TEXT,
+			uploaded_by TEXT,
+			created_at INTEGER NOT NULL DEFAULT 0
+		);
 	`)
 	if err != nil {
 		t.Fatalf("create: %v", err)

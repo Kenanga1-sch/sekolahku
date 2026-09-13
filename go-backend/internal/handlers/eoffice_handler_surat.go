@@ -76,6 +76,17 @@ func (h *EOfficeHandler) CreateSuratMasuk(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
+
+	// Surat masuk baru menunggu disposisi — kabari admin.
+	if h.Notifications != nil {
+		_ = h.Notifications.NotifyRoles(models.Notification{
+			Type:      "info",
+			Category:  "eoffice",
+			Title:     "Surat masuk baru",
+			Message:   "Dari " + s.Sender + ": " + s.Subject,
+			TargetURL: StrPtr("/arsip/surat-masuk"),
+		}, "admin", "superadmin")
+	}
 	return c.JSON(http.StatusCreated, map[string]interface{}{"id": id, "success": true})
 }
 
@@ -134,6 +145,18 @@ func (h *EOfficeHandler) CreateSuratKeluar(c echo.Context) error {
 	id, mailNumber, err := h.Repo.CreateSuratKeluar(s)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+
+	// Surat keluar baru menunggu verifikasi — kabari admin (pembuat sudah
+	// tahu karena dia yang membuat).
+	if h.Notifications != nil {
+		_ = h.Notifications.NotifyRoles(models.Notification{
+			Type:      "info",
+			Category:  "eoffice",
+			Title:     "Surat keluar menunggu verifikasi",
+			Message:   s.Subject + " (" + mailNumber + ") menunggu diverifikasi.",
+			TargetURL: StrPtr("/arsip/surat-keluar"),
+		}, "admin", "superadmin")
 	}
 	return c.JSON(http.StatusCreated, map[string]interface{}{"id": id, "mailNumber": mailNumber, "success": true})
 }
@@ -290,6 +313,20 @@ func (h *EOfficeHandler) VerifySuratKeluar(c echo.Context) error {
 		}
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
+
+	// Kabari pembuat surat: suratnya telah diverifikasi.
+	if h.Notifications != nil {
+		if s, serr := h.Repo.GetSuratKeluarByID(id); serr == nil && s != nil && s.CreatedBy != nil && *s.CreatedBy != "" && *s.CreatedBy != uid {
+			_ = h.Notifications.CreateNotification(models.Notification{
+				UserID:    s.CreatedBy,
+				Type:      "success",
+				Category:  "eoffice",
+				Title:     "Surat keluar terverifikasi",
+				Message:   "Surat \"" + s.Subject + "\" telah diverifikasi dan siap dikirim.",
+				TargetURL: StrPtr("/arsip/surat-keluar"),
+			})
+		}
+	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "message": "Surat berhasil diverifikasi"})
 }
 
@@ -312,6 +349,20 @@ func (h *EOfficeHandler) SetSuratKeluarRevision(c echo.Context) error {
 			return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Surat tidak ditemukan atau sudah diverifikasi"})
 		}
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+
+	// Kabari pembuat surat: suratnya dikembalikan untuk revisi.
+	if h.Notifications != nil {
+		if s, serr := h.Repo.GetSuratKeluarByID(id); serr == nil && s != nil && s.CreatedBy != nil && *s.CreatedBy != "" {
+			_ = h.Notifications.CreateNotification(models.Notification{
+				UserID:    s.CreatedBy,
+				Type:      "warning",
+				Category:  "eoffice",
+				Title:     "Surat keluar perlu revisi",
+				Message:   "Surat \"" + s.Subject + "\" dikembalikan: " + req.RevisionNote,
+				TargetURL: StrPtr("/arsip/surat-keluar"),
+			})
+		}
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "message": "Surat dikembalikan untuk revisi"})
 }

@@ -3,7 +3,7 @@
  * Optimized with goFetch and handleAction.
  */
 
-import { goGet, goPut, goDelete, goPatch, CacheTTL } from "@/lib/api-client";
+import { goGet, goPut, goDelete, goPatch, goPost, CacheTTL } from "@/lib/api-client";
 import { handleAction } from "@/lib/action-utils";
 
 export async function getContactMessagesAction(category?: string) {
@@ -16,6 +16,14 @@ export async function updateMessageStatusAction(id: string, status: string) {
     goPatch(`/api/contact-messages/${id}/status`, { status }),
     "Status pesan diperbarui"
   );
+}
+
+export async function getContactAttachmentsAction(id: string) {
+  return handleAction(goGet(`/api/contact-messages/${id}/attachments`));
+}
+
+export async function addResolutionAttachmentAction(id: string, formData: FormData) {
+  return handleAction(goPost(`/api/contact-messages/${id}/attachments`, formData));
 }
 
 export async function markMessageAsReadAction(id: string) {

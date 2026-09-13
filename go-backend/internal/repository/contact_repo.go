@@ -112,7 +112,55 @@ func (r *ContactRepository) GetStatusByTicket(ticket string) (*models.ContactSta
 	}
 	v.CreatedAt = time.UnixMilli(ca)
 	v.UpdatedAt = time.UnixMilli(ua)
+	if err := r.DB.QueryRow(
+		`SELECT COUNT(*) FROM contact_attachments WHERE message_id = (SELECT id FROM contact_messages WHERE ticket = ?) AND kind = 'resolution'`,
+		ticket,
+	).Scan(&v.ResolutionCount); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
 	return &v, nil
+}
+
+// AddAttachment mencatat lampiran yang sudah tersimpan di disk.
+func (r *ContactRepository) AddAttachment(a models.ContactAttachment) (string, error) {
+	if a.ID == "" {
+		a.ID = cuid2.Generate()
+	}
+	if a.CreatedAt.IsZero() {
+		a.CreatedAt = time.Now()
+	}
+	_, err := r.DB.Exec(`
+		INSERT INTO contact_attachments (id, message_id, kind, file_kind, file_path, original_name, file_size, mime_type, uploaded_by, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, a.ID, a.MessageID, a.Kind, a.FileKind, a.FilePath, a.OriginalName, a.FileSize, a.MimeType, a.UploadedBy, a.CreatedAt.UnixMilli())
+	return a.ID, err
+}
+
+// GetAttachments daftar lampiran satu pesan.
+func (r *ContactRepository) GetAttachments(messageID string) ([]models.ContactAttachment, error) {
+	rows, err := r.DB.Query(`
+		SELECT id, message_id, kind, file_kind, file_path, COALESCE(original_name,''), file_size, COALESCE(mime_type,''), uploaded_by, created_at
+		FROM contact_attachments WHERE message_id = ? ORDER BY created_at ASC
+	`, messageID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var list []models.ContactAttachment
+	for rows.Next() {
+		var a models.ContactAttachment
+		var ca int64
+		var uploaded sql.NullString
+		if err := rows.Scan(&a.ID, &a.MessageID, &a.Kind, &a.FileKind, &a.FilePath, &a.OriginalName, &a.FileSize, &a.MimeType, &uploaded, &ca); err != nil {
+			return nil, err
+		}
+		if uploaded.Valid {
+			a.UploadedBy = &uploaded.String
+		}
+		a.CreatedAt = time.UnixMilli(ca)
+		list = append(list, a)
+	}
+	return list, nil
 }
 
 // UpdateStatus menandai penindaklanjutan admin; mengubah status otomatis

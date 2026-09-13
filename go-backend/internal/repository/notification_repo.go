@@ -88,3 +88,53 @@ func (r *NotificationRepository) BroadcastNotification(n models.Notification) er
 	n.UserID = nil // NULL user_id means broadcast to all
 	return r.CreateNotification(n)
 }
+
+// NotifyRoles mengirim notifikasi individual (bukan broadcast) ke semua
+// user yang memegang salah satu role. Fan-out per user menjaga pengaduan
+// sensitif tetap terkalung ke penerima yang tepat — broadcast akan bocor
+// ke guru/staff yang bukan sasaran.
+// ID dikumpulkan dulu sebelum insert agar tidak menahan cursor saat
+// menulis (aman untuk pool koneksi kecil).
+func (r *NotificationRepository) NotifyRoles(n models.Notification, roles ...string) error {
+	if len(roles) == 0 {
+		return nil
+	}
+	placeholders := ""
+	args := make([]interface{}, 0, len(roles))
+	for i, role := range roles {
+		if i > 0 {
+			placeholders += ","
+		}
+		placeholders += "?"
+		args = append(args, role)
+	}
+	rows, err := r.DB.Query(`SELECT id FROM users WHERE role IN (`+placeholders+`)`, args...)
+	if err != nil {
+		return err
+	}
+	ids := make([]string, 0, 8)
+	for rows.Next() {
+		var uid string
+		if err := rows.Scan(&uid); err != nil {
+			rows.Close()
+			return err
+		}
+		ids = append(ids, uid)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	now := time.Now().UnixMilli()
+	for _, uid := range ids {
+		nn := n
+		nn.UserID = &uid
+		nn.ID = cuid2.Generate()
+		nn.CreatedAt = now
+		if err := r.CreateNotification(nn); err != nil {
+			return err
+		}
+	}
+	return nil
+}

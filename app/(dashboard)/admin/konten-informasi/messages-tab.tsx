@@ -3,12 +3,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/data-table";
-import { Mail, MailOpen, Check, Trash2, RefreshCw, ChevronDown } from "lucide-react";
+import { Mail, MailOpen, Check, Trash2, RefreshCw, ChevronDown, Paperclip, Upload, FileVideo, Loader2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { useMessages } from "./use-messages";
 
@@ -41,11 +41,35 @@ const FILTERS = [
   { id: "lainnya", label: "Lainnya" },
 ];
 
-export function MessagesTab({ messages, loading, refreshing, error, pagination, category, changeCategory, refresh, handleMarkAsRead, handleUpdateStatus, handleDelete }: MessagesHook) {
+export function MessagesTab({ messages, loading, refreshing, error, pagination, category, changeCategory, refresh, handleMarkAsRead, handleUpdateStatus, handleDelete, expandedIds, toggleExpand, attachments, uploadingId, handleUploadResolution, formatBytes }: MessagesHook) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [uploadTargetId, setUploadTargetId] = useState<string | null>(null);
+
+  const openFilePicker = (msgId: string) => {
+    setUploadTargetId(msgId);
+    fileInputRef.current?.click();
+  };
+
+  const onFilePicked = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const target = uploadTargetId;
+    e.target.value = "";
+    setUploadTargetId(null);
+    if (file && target) handleUploadResolution(target, file);
+  };
 
   return (
     <div className="space-y-6">
+      {/* File picker tersembunyi untuk bukti tindak lanjut */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime,.mov"
+        className="hidden"
+        onChange={onFilePicked}
+      />
+
       <div className="flex flex-wrap justify-between items-center gap-3">
         <h2 className="text-xl font-semibold">Pesan Masuk</h2>
         <Button variant="outline" size="sm" onClick={refresh} disabled={refreshing || loading}>
@@ -88,6 +112,8 @@ export function MessagesTab({ messages, loading, refreshing, error, pagination, 
             loading={loading}
             emptyTitle="Belum ada pesan masuk"
             emptyDescription="Kritik, saran, dan pengaduan dari layanan publik akan tampil di sini."
+            onToggleExpand={toggleExpand}
+            expandedRowIds={expandedIds}
             columns={[
               {
                 key: "isRead",
@@ -145,8 +171,94 @@ export function MessagesTab({ messages, loading, refreshing, error, pagination, 
                 ),
               },
             ]}
+            expandedContent={(msg) => (
+              <div className="w-full space-y-4 p-1">
+                <div className="rounded-lg border bg-muted/30 dark:bg-zinc-800/50 p-4 space-y-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase text-muted-foreground mb-1">Isi Pesan</p>
+                    <p className="text-sm whitespace-pre-wrap break-words">{msg.message}</p>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm pt-2 border-t">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Nama</p>
+                      <p className="font-medium">{msg.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Kontak</p>
+                      <p className="font-medium break-words">{msg.phone || msg.email || "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Kode Tiket</p>
+                      <p className="font-mono font-medium">{msg.ticket || "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Diterima</p>
+                      <p className="font-medium">{msg.createdAt ? format(new Date(msg.createdAt), "dd MMM yyyy HH:mm", { locale: idLocale }) : "-"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-semibold uppercase text-muted-foreground">Lampiran</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openFilePicker(msg.id)}
+                      disabled={uploadingId === msg.id}
+                    >
+                      {uploadingId === msg.id ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Upload className="mr-2 h-3 w-3" />}
+                      Unggah Bukti Tindak Lanjut
+                    </Button>
+                  </div>
+                  {(attachments[msg.id]?.length ?? 0) === 0 ? (
+                    <p className="text-xs text-muted-foreground px-1">Belum ada lampiran. Bukti tindak lanjut (foto/video) tampil sebagai jumlah di halaman cek status pelapor.</p>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {attachments[msg.id]?.map((att) => (
+                        <a
+                          key={att.id}
+                          href={att.filePath}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group flex items-center gap-2 rounded-lg border p-2 hover:bg-muted transition-colors"
+                        >
+                          {att.fileKind === "video" ? (
+                            <FileVideo className="h-8 w-8 shrink-0 text-purple-500" />
+                          ) : (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={att.filePath}
+                              alt={att.originalName}
+                              className="h-8 w-8 shrink-0 rounded object-cover"
+                              loading="lazy"
+                            />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs font-medium">{att.originalName}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {att.kind === "resolution" ? "Bukti tindak lanjut" : "Bukti pelapor"} · {formatBytes(att.fileSize)}
+                            </p>
+                          </div>
+                          <Paperclip className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             actions={(msg) => (
               <div className="flex items-center justify-end gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 px-2 text-xs"
+                  onClick={() => toggleExpand(msg.id)}
+                  title="Buka detail pesan"
+                >
+                  Detail <ChevronDown className="ml-1 h-3 w-3" />
+                </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" title="Ubah status tindak lanjut">

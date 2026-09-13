@@ -12,11 +12,12 @@ import (
 )
 
 type LibraryHandler struct {
-	Repo *repository.LibraryRepository
+	Repo          *repository.LibraryRepository
+	Notifications *repository.NotificationRepository
 }
 
-func NewLibraryHandler(repo *repository.LibraryRepository) *LibraryHandler {
-	return &LibraryHandler{Repo: repo}
+func NewLibraryHandler(repo *repository.LibraryRepository, notifications *repository.NotificationRepository) *LibraryHandler {
+	return &LibraryHandler{Repo: repo, Notifications: notifications}
 }
 
 // ============ Stats ============

@@ -28,11 +28,29 @@ type SubmitContactRequest struct {
 
 // ContactStatusView bentuk publik untuk cek status tiket: sengaja tanpa
 // isi pesan dan data pribadi supaya kode tiket yang bocor tidak membuka
-// isi laporan pelapor.
+// isi laporan pelapor. ResolutionCount memberi sinyal "sudah ditindaklanjuti
+// dengan bukti" tanpa membuka isi buktinya.
 type ContactStatusView struct {
-	Category  string    `json:"category"`
-	Status    string    `json:"status"`
-	Ticket    string    `json:"ticket"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	Category        string    `json:"category"`
+	Status          string    `json:"status"`
+	Ticket          string    `json:"ticket"`
+	CreatedAt       time.Time `json:"createdAt"`
+	UpdatedAt       time.Time `json:"updatedAt"`
+	ResolutionCount int       `json:"resolutionCount"`
+}
+
+// ContactAttachment lampiran pesan masuk.
+// Kind: "evidence" (dari pelapor) atau "resolution" (bukti tindak lanjut admin).
+// FileKind: "image" atau "video".
+type ContactAttachment struct {
+	ID           string    `json:"id"`
+	MessageID    string    `json:"messageId"`
+	Kind         string    `json:"kind"`
+	FileKind     string    `json:"fileKind"`
+	FilePath     string    `json:"filePath"`
+	OriginalName string    `json:"originalName"`
+	FileSize     int64     `json:"fileSize"`
+	MimeType     string    `json:"mimeType"`
+	UploadedBy   *string   `json:"uploadedBy,omitempty"`
+	CreatedAt    time.Time `json:"createdAt"`
 }

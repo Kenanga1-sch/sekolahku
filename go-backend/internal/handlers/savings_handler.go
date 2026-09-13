@@ -13,11 +13,12 @@ import (
 )
 
 type SavingsHandler struct {
-	Repo *repository.SavingsRepository
+	Repo          *repository.SavingsRepository
+	Notifications *repository.NotificationRepository
 }
 
-func NewSavingsHandler(repo *repository.SavingsRepository) *SavingsHandler {
-	return &SavingsHandler{Repo: repo}
+func NewSavingsHandler(repo *repository.SavingsRepository, notifications *repository.NotificationRepository) *SavingsHandler {
+	return &SavingsHandler{Repo: repo, Notifications: notifications}
 }
 
 // ============ Siswa (Student Savings) ============

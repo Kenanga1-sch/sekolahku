@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sekolahku/go-backend/internal/models"
@@ -60,21 +61,21 @@ func (h *NotificationHandler) MarkAllAsRead(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
 
-func (h *NotificationHandler) CreateNotification(c echo.Context) error {
-	var n models.Notification
-	if err := c.Bind(&n); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
-	}
-	if err := h.Repo.CreateNotification(n); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
-	}
-	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true})
-}
-
+// BroadcastNotification mengirim pengumuman sistem ke seluruh pengguna
+// dashboard. Hanya superadmin/admin yang boleh memakai rute ini.
 func (h *NotificationHandler) BroadcastNotification(c echo.Context) error {
 	var n models.Notification
 	if err := c.Bind(&n); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
+	}
+	if strings.TrimSpace(n.Title) == "" || strings.TrimSpace(n.Message) == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Judul dan pesan wajib diisi"})
+	}
+	if n.Type == "" {
+		n.Type = "info"
+	}
+	if n.Category == "" {
+		n.Category = "system"
 	}
 	if err := h.Repo.BroadcastNotification(n); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})

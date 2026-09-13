@@ -314,6 +314,8 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	adminGroup.PUT("/faqs/:id", h.FAQ.UpdateFAQ)
 	adminGroup.DELETE("/faqs/:id", h.FAQ.DeleteFAQ)
 	adminGroup.GET("/contact-messages", h.Contact.ListMessages)
+	adminGroup.GET("/contact-messages/:id/attachments", h.Contact.GetAttachments)
+	adminGroup.POST("/contact-messages/:id/attachments", h.Contact.AddResolutionAttachment)
 	adminGroup.PATCH("/contact-messages/:id/status", h.Contact.UpdateStatus)
 	adminGroup.PUT("/contact-messages/:id/read", h.Contact.MarkAsRead)
 	adminGroup.DELETE("/contact-messages/:id", h.Contact.DeleteMessage)
@@ -627,6 +629,8 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	notifs.GET("/stats", h.Notification.GetStats)
 	notifs.PATCH("/:id/read", h.Notification.MarkAsRead)
 	notifs.POST("/read-all", h.Notification.MarkAllAsRead)
+	// Pengumuman sistem ke seluruh pengguna dashboard (khusus admin).
+	adminGroup.POST("/notifications/broadcast", h.Notification.BroadcastNotification)
 
 	// Profile
 	profile := server.Group("/api/profile")
@@ -637,5 +641,7 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 
 	// Upload
 	auth.POST("/upload", h.Upload.GeneralUpload)
-	server.POST("/api/spmb/upload", h.SPMB.UploadDocuments)
+	// Upload dokumen SPMB dipanggil pendaftar publik — selain possession
+	// check di handler, rute ini kini ikut rate limit anti-spam.
+	server.POST("/api/spmb/upload", h.SPMB.UploadDocuments, publicFormLimit)
 }

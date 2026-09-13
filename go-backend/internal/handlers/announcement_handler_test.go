@@ -59,7 +59,7 @@ func TestAnnouncementUpdateMergesPartialPayload(t *testing.T) {
 	db := setupAnnouncementHandlerTestDB(t)
 	defer db.Close()
 
-	handler := NewAnnouncementHandler(repository.NewAnnouncementRepository(db))
+	handler := NewAnnouncementHandler(repository.NewAnnouncementRepository(db), repository.NewNotificationRepository(db))
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodPatch, "/api/announcements/ann-1", strings.NewReader(`{"is_published":true}`))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)

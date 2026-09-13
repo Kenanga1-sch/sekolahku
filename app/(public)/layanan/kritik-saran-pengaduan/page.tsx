@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
 import { goPost, goGet } from "@/lib/api-client";
-import { Loader2, Send, Ticket, Search, ShieldCheck, Copy, Check, HeartHandshake } from "lucide-react";
+import { Loader2, Send, Ticket, Search, ShieldCheck, Copy, Check, HeartHandshake, Paperclip, X, FileVideo, FileImage } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,11 @@ const CATEGORY_HINTS: Record<CategoryId, string> = {
   lainnya: "Tuliskan pesan Anda untuk sekolah.",
 };
 
+const MAX_FILES = 3;
+const MAX_IMAGE = 5 * 1024 * 1024;
+const MAX_VIDEO = 15 * 1024 * 1024;
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4", "video/webm", "video/quicktime"];
+
 const schema = z.object({
   name: z.string().max(100, "Nama maksimal 100 karakter").optional(),
   email: z.string().email("Format email tidak valid").optional().or(z.literal("")),
@@ -41,12 +46,19 @@ const schema = z.object({
 
 type SchemaType = z.infer<typeof schema>;
 
+interface PickedFile {
+  file: File;
+  preview: string;
+  isVideo: boolean;
+}
+
 interface StatusView {
   category: string;
   status: string;
   ticket: string;
   createdAt: string;
   updatedAt: string;
+  resolutionCount?: number;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -66,6 +78,8 @@ export default function KritikSaranPengaduanPage() {
   const [loading, setLoading] = useState(false);
   const [ticket, setTicket] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [files, setFiles] = useState<PickedFile[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [statusTicket, setStatusTicket] = useState("");
   const [statusLoading, setStatusLoading] = useState(false);
@@ -76,19 +90,71 @@ export default function KritikSaranPengaduanPage() {
     resolver: zodResolver(schema),
   });
 
+  const clearFiles = () => {
+    files.forEach((f) => URL.revokeObjectURL(f.preview));
+    setFiles([]);
+  };
+
+  const pickFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files || []);
+    e.target.value = "";
+    for (const file of picked) {
+      if (files.length >= MAX_FILES) {
+        toast.error(`Maksimal ${MAX_FILES} lampiran`);
+        break;
+      }
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        toast.error(`${file.name}: tipe tidak diizinkan (gambar JPG/PNG/WebP/GIF atau video MP4/WebM)`);
+        continue;
+      }
+      const isVideo = file.type.startsWith("video/");
+      const max = isVideo ? MAX_VIDEO : MAX_IMAGE;
+      if (file.size > max) {
+        toast.error(`${file.name}: melebihi ${isVideo ? "15MB" : "5MB"}`);
+        continue;
+      }
+      setFiles((prev) => [...prev, { file, preview: URL.createObjectURL(file), isVideo }]);
+    }
+  };
+
+  const removeFile = (idx: number) => {
+    setFiles((prev) => {
+      URL.revokeObjectURL(prev[idx].preview);
+      return prev.filter((_, i) => i !== idx);
+    });
+  };
+
   const onSubmit = async (data: SchemaType) => {
     if (loading) return;
     setLoading(true);
     try {
-      const res = await goPost<{ data: { ticket: string } }>("/api/public/contact", {
-        name: data.name || "",
-        email: data.email || "",
-        phone: data.phone || "",
-        subject: CATEGORIES.find((c) => c.id === category)?.label || "",
-        message: data.message,
-        category,
-      });
+      let res: { data: { ticket: string } };
+      if (files.length > 0) {
+        // Bukti lampiran dikirim satu request yang sama dengan pesan —
+        // server menyimpan file hanya jika pesan valid (atomic).
+        const fd = new FormData();
+        fd.append("payload", JSON.stringify({
+          name: data.name || "",
+          email: data.email || "",
+          phone: data.phone || "",
+          subject: CATEGORIES.find((c) => c.id === category)?.label || "",
+          message: data.message,
+          category,
+        }));
+        files.forEach((f) => fd.append("files", f.file));
+        res = await goPost("/api/public/contact", fd);
+      } else {
+        res = await goPost("/api/public/contact", {
+          name: data.name || "",
+          email: data.email || "",
+          phone: data.phone || "",
+          subject: CATEGORIES.find((c) => c.id === category)?.label || "",
+          message: data.message,
+          category,
+        });
+      }
       setTicket(res.data?.ticket || null);
+      clearFiles();
       reset();
       toast.success("Pesan terkirim. Simpan kode tiket Anda.");
     } catch (error: any) {
@@ -259,6 +325,60 @@ export default function KritikSaranPengaduanPage() {
                     />
                     {errors.message && <p className="text-xs text-red-500">{errors.message.message}</p>}
                   </div>
+
+                  {/* Bukti lampiran: gambar/video, max 3, tervalidasi klien+server */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium flex items-center gap-1.5">
+                        <Paperclip className="h-3.5 w-3.5" /> Bukti (opsional)
+                      </label>
+                      <span className="text-xs text-muted-foreground">{files.length}/{MAX_FILES} · gambar ≤5MB, video ≤15MB</span>
+                    </div>
+                    {files.length > 0 && (
+                      <div className="grid grid-cols-3 gap-2">
+                        {files.map((f, idx) => (
+                          <div key={idx} className="relative group aspect-square rounded-lg border overflow-hidden bg-muted">
+                            {f.isVideo ? (
+                              <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
+                                <FileVideo className="h-8 w-8" />
+                                <span className="text-[10px] mt-1 px-1 truncate max-w-full">{f.file.name}</span>
+                              </div>
+                            ) : (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={f.preview} alt={f.file.name} className="absolute inset-0 h-full w-full object-cover" />
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => removeFile(idx)}
+                              className="absolute top-1 right-1 h-6 w-6 rounded-full bg-black/70 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                              aria-label={`Hapus ${f.file.name}`}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {files.length < MAX_FILES && (
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full rounded-lg border border-dashed py-3 text-sm text-muted-foreground hover:bg-muted transition-colors flex items-center justify-center gap-2"
+                      >
+                        <FileImage className="h-4 w-4" />
+                        Tambah foto/video bukti
+                      </button>
+                    )}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept={ALLOWED_TYPES.join(",")}
+                      multiple
+                      className="hidden"
+                      onChange={pickFiles}
+                    />
+                  </div>
+
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                     Kirim Pesan
@@ -322,6 +442,11 @@ export default function KritikSaranPengaduanPage() {
                       <p className="font-medium">{formatDate(statusResult.createdAt)}</p>
                     </div>
                   </div>
+                  {(statusResult.resolutionCount ?? 0) > 0 && (
+                    <div className="rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900/40 px-3 py-2 text-sm text-green-700 dark:text-green-300">
+                      Sekolah telah mengunggah {statusResult.resolutionCount} bukti tindak lanjut untuk laporan ini.
+                    </div>
+                  )}
                   <p className="text-xs text-muted-foreground">
                     Terakhir diperbarui {formatDate(statusResult.updatedAt)}
                   </p>

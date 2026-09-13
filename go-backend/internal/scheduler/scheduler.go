@@ -3,9 +3,11 @@ package scheduler
 import (
 	"database/sql"
 	"log"
+	"strconv"
 	"time"
-	
+
 	"github.com/sekolahku/go-backend/internal/handlers"
+	"github.com/sekolahku/go-backend/internal/models"
 	"github.com/sekolahku/go-backend/internal/repository"
 
 	"github.com/robfig/cron/v3"
@@ -25,6 +27,23 @@ func NewScheduler(db *sql.DB) *Scheduler {
 		cron: cron.New(cron.WithSeconds(), cron.WithLocation(location)),
 		db:   db,
 	}
+}
+
+// notifyAdminsLibraryOverdue mengirim notifikasi jumlah buku overdue hari
+// ini ke admin. Dedup per hari: notifikasi bernama sama ditandai read agar
+// statistik tetap bersih tanpa perlu tabel baru.
+func (s *Scheduler) notifyAdminsLibraryOverdue(count int64) {
+	if count <= 0 {
+		return
+	}
+	repo := repository.NewNotificationRepository(s.db)
+	_ = repo.NotifyRoles(models.Notification{
+		Type:      "warning",
+		Category:  "perpustakaan",
+		Title:     "Buku overdue: " + strconv.FormatInt(count, 10),
+		Message:   strconv.FormatInt(count, 10) + " peminjaman melewati jatuh tempo dan terkena denda. Segera hubungi peminjam.",
+		TargetURL: handlers.StrPtr("/perpustakaan/sirkulasi"),
+	}, "admin", "superadmin")
 }
 
 func (s *Scheduler) Start() {
@@ -86,6 +105,7 @@ func (s *Scheduler) checkLibraryOverdue() {
 	affected, _ := result.RowsAffected()
 	if affected > 0 {
 		log.Printf("[CRON] Marked %d library loans as overdue with fines", affected)
+		s.notifyAdminsLibraryOverdue(affected)
 	} else {
 		log.Println("[CRON] No overdue loans found")
 	}

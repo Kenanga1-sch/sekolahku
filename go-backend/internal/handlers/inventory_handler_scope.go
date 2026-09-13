@@ -6,6 +6,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/sekolahku/go-backend/internal/middleware"
+	"github.com/sekolahku/go-backend/internal/models"
 	"github.com/sekolahku/go-backend/internal/repository"
 )
 
@@ -75,6 +76,20 @@ func (h *InventoryHandler) CreateBorrowRequest(c echo.Context) error {
 	id, err := h.Repo.CreateBorrowRequest(req.AssetID, roomID, userID, strings.TrimSpace(req.Reason), req.Quantity)
 	if err != nil {
 		return inventoryError(c, err)
+	}
+
+	// Kabari PIC ruangan bahwa ada pengajuan peminjaman menunggu.
+	if h.Notifications != nil {
+		if picID, aerr := repository.AssetRoomPIC(h.Repo.DB, req.AssetID); aerr == nil && picID != "" {
+			_ = h.Notifications.CreateNotification(models.Notification{
+				UserID:    &picID,
+				Type:      "info",
+				Category:  "inventaris",
+				Title:     "Pengajuan peminjaman aset",
+				Message:   "Seseorang mengajukan peminjaman aset dari ruangan Anda, menunggu persetujuan.",
+				TargetURL: StrPtr("/inventaris/peminjaman"),
+			})
+		}
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{

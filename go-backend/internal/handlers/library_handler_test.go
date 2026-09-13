@@ -64,7 +64,7 @@ func TestLibraryGetBooksPagination(t *testing.T) {
 	db := setupLibraryHandlerTestDB(t)
 	defer db.Close()
 
-	handler := NewLibraryHandler(repository.NewLibraryRepository(db))
+	handler := NewLibraryHandler(repository.NewLibraryRepository(db), repository.NewNotificationRepository(db))
 	e := echo.New()
 
 	req := httptest.NewRequest(http.MethodGet, "/api/library/books?page=1&perPage=2", nil)
@@ -102,7 +102,7 @@ func TestLibraryGetBooksFilterByStatus(t *testing.T) {
 	db := setupLibraryHandlerTestDB(t)
 	defer db.Close()
 
-	handler := NewLibraryHandler(repository.NewLibraryRepository(db))
+	handler := NewLibraryHandler(repository.NewLibraryRepository(db), repository.NewNotificationRepository(db))
 	e := echo.New()
 
 	req := httptest.NewRequest(http.MethodGet, "/api/library/books?status=borrowed", nil)

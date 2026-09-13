@@ -21,16 +21,18 @@ var (
 )
 
 type MutasiHandler struct {
-	Repo        *repository.MutasiRepository
-	LibraryRepo *repository.LibraryRepository
-	SavingsRepo *repository.SavingsRepository
+	Repo          *repository.MutasiRepository
+	LibraryRepo   *repository.LibraryRepository
+	SavingsRepo   *repository.SavingsRepository
+	Notifications *repository.NotificationRepository
 }
 
-func NewMutasiHandler(repo *repository.MutasiRepository, lib *repository.LibraryRepository, sav *repository.SavingsRepository) *MutasiHandler {
+func NewMutasiHandler(repo *repository.MutasiRepository, lib *repository.LibraryRepository, sav *repository.SavingsRepository, notifications *repository.NotificationRepository) *MutasiHandler {
 	return &MutasiHandler{
-		Repo:        repo,
-		LibraryRepo: lib,
-		SavingsRepo: sav,
+		Repo:          repo,
+		LibraryRepo:   lib,
+		SavingsRepo:   sav,
+		Notifications: notifications,
 	}
 }
 
@@ -99,6 +101,17 @@ func (h *MutasiHandler) CreateMutasiRequest(c echo.Context) error {
 	if err != nil {
 		log.Printf("ERROR CreateMutasiRequest: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal menyimpan permohonan"})
+	}
+
+	// Notifikasi admin: permohonan mutasi masuk baru.
+	if h.Notifications != nil {
+		_ = h.Notifications.NotifyRoles(models.Notification{
+			Type:      "info",
+			Category:  "mutasi",
+			Title:     "Permohonan mutasi masuk baru",
+			Message:   m.StudentName + " (NISN " + m.NISN + ") dari " + m.OriginSchool + ".",
+			TargetURL: StrPtr("/admin/siswa/mutasi"),
+		}, "admin", "superadmin")
 	}
 
 	return c.JSON(http.StatusCreated, map[string]interface{}{
@@ -288,6 +301,17 @@ func (h *MutasiHandler) CreatePublicMutasiOutRequest(c echo.Context) error {
 	err := h.Repo.CreateMutasiOutRequest(m)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+	}
+
+	// Notifikasi admin: permohonan mutasi keluar baru.
+	if h.Notifications != nil {
+		_ = h.Notifications.NotifyRoles(models.Notification{
+			Type:      "info",
+			Category:  "mutasi",
+			Title:     "Permohonan mutasi keluar baru",
+			Message:   "Siswa menuju " + strings.TrimSpace(m.DestinationSchool) + " menunggu penyelesaian surat.",
+			TargetURL: StrPtr("/admin/siswa/mutasi"),
+		}, "admin", "superadmin")
 	}
 
 	return c.JSON(http.StatusCreated, map[string]interface{}{

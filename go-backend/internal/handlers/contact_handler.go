@@ -2,7 +2,11 @@ package handlers
 
 import (
 	"database/sql"
+	"encoding/json"
+	"fmt"
+	"mime/multipart"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -12,11 +16,12 @@ import (
 )
 
 type ContactHandler struct {
-	Repo *repository.ContactRepository
+	Repo         *repository.ContactRepository
+	Notifications *repository.NotificationRepository
 }
 
-func NewContactHandler(repo *repository.ContactRepository) *ContactHandler {
-	return &ContactHandler{Repo: repo}
+func NewContactHandler(repo *repository.ContactRepository, notifications *repository.NotificationRepository) *ContactHandler {
+	return &ContactHandler{Repo: repo, Notifications: notifications}
 }
 
 var contactCategories = map[string]bool{
@@ -35,13 +40,40 @@ var contactStatuses = map[string]bool{
 // SubmitMessage menerima kritik/saran/pengaduan dari warga publik.
 // Nama, email, dan HP opsional (pengaduan boleh anonim); pesan wajib.
 // Respons menyertakan kode tiket untuk mengecek status laporan.
+//
+// Menerima DUA bentuk permintaan:
+//   - JSON murni (tanpa lampiran) — kompatibel dengan klien lama.
+//   - multipart/form-data: field "payload" berisi JSON string + field
+//     "files" berisi 0..3 lampiran bukti.
+//
+// Lampiran bersifat atomic: file hanya tersimpan di disk BILA pesan valid
+// dan insert DB berhasil — tidak ada file yatim dari endpoint ini, dan
+// tidak ada endpoint upload publik terpisah yang bisa di-spam.
 func (h *ContactHandler) SubmitMessage(c echo.Context) error {
 	var req models.SubmitContactRequest
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]interface{}{
-			"success": false,
-			"error":   "Format data tidak valid",
-		})
+	var files []*multipart.FileHeader
+
+	contentType := c.Request().Header.Get("Content-Type")
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		form, err := c.MultipartForm()
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Format data tidak valid"})
+		}
+		payload := c.FormValue("payload")
+		if payload == "" {
+			return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Payload wajib diisi"})
+		}
+		if err := json.Unmarshal([]byte(payload), &req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Payload tidak valid"})
+		}
+		files = form.File["files"]
+	} else {
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+				"success": false,
+				"error":   "Format data tidak valid",
+			})
+		}
 	}
 
 	req.Message = strings.TrimSpace(req.Message)
@@ -67,6 +99,28 @@ func (h *ContactHandler) SubmitMessage(c echo.Context) error {
 			"error":   "Kategori tidak dikenal",
 		})
 	}
+	if len(files) > contactAttachmentMaxCount {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   fmt.Sprintf("Maksimal %d lampiran", contactAttachmentMaxCount),
+		})
+	}
+
+	// Validasi seluruh lampiran SEBELUM menyimpan apa pun.
+	type validatedAttachment struct {
+		fh       *multipart.FileHeader
+		fileKind string
+		mimeType string
+		ext      string
+	}
+	validated := make([]validatedAttachment, 0, len(files))
+	for _, fh := range files {
+		fileKind, mimeType, ext, err := validateContactAttachment(fh)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": err.Error()})
+		}
+		validated = append(validated, validatedAttachment{fh: fh, fileKind: fileKind, mimeType: mimeType, ext: ext})
+	}
 
 	id, ticket, err := h.Repo.CreateMessage(req)
 	if err != nil {
@@ -74,6 +128,48 @@ func (h *ContactHandler) SubmitMessage(c echo.Context) error {
 			"success": false,
 			"error":   "Gagal mengirim pesan: " + err.Error(),
 		})
+	}
+
+	// Pesan tersimpan — sekarang simpan lampiran. Gagal simpan satu file
+	// tidak membatalkan pesan; lampiran lain tetap dicoba.
+	attachmentCount := 0
+	for _, va := range validated {
+		filePath, size, err := saveContactAttachment(va.fh, va.ext)
+		if err != nil {
+			c.Logger().Error("gagal menyimpan lampiran:", err)
+			continue
+		}
+		originalName := filepath.Base(va.fh.Filename)
+		if _, err := h.Repo.AddAttachment(models.ContactAttachment{
+			MessageID:    id,
+			Kind:         "evidence",
+			FileKind:     va.fileKind,
+			FilePath:     filePath,
+			OriginalName: originalName,
+			FileSize:     size,
+			MimeType:     va.mimeType,
+		}); err != nil {
+			c.Logger().Error("gagal mencatat lampiran:", err)
+			continue
+		}
+		attachmentCount++
+	}
+
+	// Notifikasi ke admin/superadmin saja — pengaduan sensitif (mis.
+	// perundungan) tidak boleh bocor ke guru/staff lain via broadcast.
+	if h.Notifications != nil {
+		categoryLabel := req.Category
+		preview := req.Message
+		if len(preview) > 80 {
+			preview = preview[:80] + "…"
+		}
+		_ = h.Notifications.NotifyRoles(models.Notification{
+			Type:     "info",
+			Category: "kontak",
+			Title:    "Pesan masuk baru: " + categoryLabel,
+			Message:  preview,
+			TargetURL: StrPtr("/admin/konten-informasi"),
+		}, "admin", "superadmin")
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
@@ -84,6 +180,68 @@ func (h *ContactHandler) SubmitMessage(c echo.Context) error {
 		},
 	})
 }
+
+// GetAttachments mengembalikan lampiran satu pesan (admin).
+func (h *ContactHandler) GetAttachments(c echo.Context) error {
+	list, err := h.Repo.GetAttachments(c.Param("id"))
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": list})
+}
+
+// AddResolutionAttachment menerima bukti tindak lanjut dari admin
+// (gambar/video) untuk satu pesan. Validasi sama ketatnya dengan bukti
+// pelapor; rute ini hanya untuk admin terautentikasi.
+func (h *ContactHandler) AddResolutionAttachment(c echo.Context) error {
+	messageID := c.Param("id")
+
+	fh, err := c.FormFile("file")
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "File wajib diisi"})
+	}
+	existing, err := h.Repo.GetAttachments(messageID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+	if len(existing) >= contactAttachmentMaxCount*2 {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Batas lampiran tercapai"})
+	}
+
+	fileKind, mimeType, ext, err := validateContactAttachment(fh)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": err.Error()})
+	}
+	filePath, size, err := saveContactAttachment(fh, ext)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal menyimpan file"})
+	}
+	userID, _ := c.Get("user_id").(string)
+	attID, err := h.Repo.AddAttachment(models.ContactAttachment{
+		MessageID:    messageID,
+		Kind:         "resolution",
+		FileKind:     fileKind,
+		FilePath:     filePath,
+		OriginalName: filepath.Base(fh.Filename),
+		FileSize:     size,
+		MimeType:     mimeType,
+		UploadedBy:   &userID,
+	})
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal mencatat lampiran"})
+	}
+	// Bukti tindak lanjut menandai pesan diproses.
+	_ = h.Repo.UpdateStatus(messageID, "diproses")
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data":    map[string]string{"id": attID, "filePath": filePath},
+	})
+}
+
+// StrPtr helper sederhana untuk pointer string (diekspor karena dipakai
+// lintas paket, mis. scheduler).
+func StrPtr(s string) *string { return &s }
 
 // GetPublicStatus memeriksa progres laporan menurut kode tiket.
 // Hanya menampilkan kategori, status, dan tanggal — bukan isi pesan —
