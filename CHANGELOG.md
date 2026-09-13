@@ -12,6 +12,7 @@
 - `scripts/gen-sw-precache.cjs` (terpasang via npm `postbuild`): precache **seluruh** chunk `/_next/*` (bukan 5 aset lagi) dengan `CACHE_NAME` berbasis hash isi — cache lama otomatis terganti tiap rilis.
 - **UpdateBanner**: dorong notifikasi refresh ketika service worker baru siap.
 - Badge versi → `v1.1.026`.
+- **Koreksi**: `gen-sw-precache` kini benar-benar menulis `CACHE_NAME` hash (regex netral-kutip), mengecualikan `/sw.js` dari precache, dan service worker menambah listener `notificationaction` agar tombol "Ajukan Izin" benar-benar berfungsi (`PushAction` kini membawa `url`).
 
 ### 🔧 Build & Deploy
 

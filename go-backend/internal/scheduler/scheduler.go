@@ -196,7 +196,7 @@ func (s *Scheduler) warnParentsOfAlpha() {
 					Tag:   "alpha-" + r.StudentID + "-" + today,
 					Icon:  "/icon-192.png",
 					Actions: []models.PushAction{
-						{Action: "create-leave", Title: "Ajukan Izin", Icon: "calendar-plus"},
+						{Action: "create-leave", Title: "Ajukan Izin", Icon: "calendar-plus", URL: target},
 					},
 				})
 			}

@@ -33,6 +33,7 @@ type PushAction struct {
 	Action string `json:"action"`
 	Title  string `json:"title"`
 	Icon   string `json:"icon,omitempty"`
+	URL    string `json:"url,omitempty"`
 }
 
 // PushPayload isi notifikasi yang dikirim ke service worker.

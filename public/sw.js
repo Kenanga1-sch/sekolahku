@@ -119,8 +119,25 @@ self.addEventListener("message", (event) => {
 
 // ===== Web Push =====
 // Notifikasi dari server (absen, tabungan, pengumuman, dst). Payload JSON
-// { title, body, url, tag }. Wajib menampilkan notifikasi agar browser
-// tidak menonaktifkan push (aturan userVisibleOnly).
+// { title, body, url, tag, icon, image, actions:[{action,title,icon,url}] }.
+// Wajib menampilkan notifikasi agar browser tidak menonaktifkan push
+// (aturan userVisibleOnly).
+function openInWindow(url) {
+  return clients
+    .matchAll({ type: "window", includeUncontrolled: true })
+    .then((windowClients) => {
+      for (const client of windowClients) {
+        if ("focus" in client) {
+          client.navigate(url);
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(url);
+      }
+    });
+}
+
 self.addEventListener("push", (event) => {
   let data = {};
   try {
@@ -131,13 +148,20 @@ self.addEventListener("push", (event) => {
       body: event.data ? event.data.text() : "",
     };
   }
+  const baseUrl = data.url || "/";
+  const actionUrls = {};
+  if (Array.isArray(data.actions)) {
+    for (const a of data.actions) {
+      if (a && a.action) actionUrls[a.action] = a.url || baseUrl;
+    }
+  }
   const title = data.title || "SDN 1 Kenanga";
   const options = {
     body: data.body || "",
     icon: data.icon || "/icon-192.png",
     badge: "/icon-192.png",
     tag: data.tag || undefined,
-    data: { url: data.url || "/" },
+    data: { url: baseUrl, actionUrls },
     vibrate: [100, 50, 100],
     // actions & image bersifat opsional; browser lama mengabaikannya.
     actions: (data.actions || []).map((a) => ({
@@ -150,25 +174,18 @@ self.addEventListener("push", (event) => {
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
-// Klik notifikasi membuka/fokus ke halaman terkait. Jika ada tombol aksi
-// (event.action), tetap buka data.url (aksi "create-leave" → form izin).
+// Klik badan notifikasi: buka/fokus halaman tujuan utama (data.url).
 self.addEventListener("notificationclick", (event) => {
+  const nd = event.notification.data || {};
   event.notification.close();
-  const targetUrl =
-    (event.notification.data && event.notification.data.url) || "/";
-  event.waitUntil(
-    clients
-      .matchAll({ type: "window", includeUncontrolled: true })
-      .then((windowClients) => {
-        for (const client of windowClients) {
-          if ("focus" in client) {
-            client.navigate(targetUrl);
-            return client.focus();
-          }
-        }
-        if (clients.openWindow) {
-          return clients.openWindow(targetUrl);
-        }
-      }),
-  );
+  event.waitUntil(openInWindow(nd.url || "/"));
+});
+
+// Klik TOMBOL AKSI (mis. "Ajukan Izin"): browser mengirim notificationaction,
+// bukan notificationclick. Rute ke URL khusus aksi, fallback ke url notifikasi.
+self.addEventListener("notificationaction", (event) => {
+  const nd = event.notification.data || {};
+  const target = (nd.actionUrls || {})[event.action] || nd.url || "/";
+  event.notification.close();
+  event.waitUntil(openInWindow(target));
 });

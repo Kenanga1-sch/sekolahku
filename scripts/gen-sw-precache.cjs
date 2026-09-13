@@ -50,6 +50,9 @@ function collectAssets() {
           walk(full);
         }
       } else if (PRECACHE_EXT.test(name.name)) {
+        // Jangan precache service worker itu sendiri: menyimpan /sw.js di
+        // Cache API dapat menunda deteksi update dari browser.
+        if (name.name === "sw.js") continue;
         const rel = path.relative(OUT_DIR, full).replace(/\\/g, "/");
         if (name.name === "index.html") {
           const normalized =
@@ -84,10 +87,10 @@ function writeSW(assets) {
   const hash = "v" + contentHash(assets);
   let sw = fs.readFileSync(SW_PATH, "utf8");
 
-  // Ganti CACHE_NAME.
+  // Ganti CACHE_NAME (netral kutip: template memakai " dan script lama memakai ').
   sw = sw.replace(
-    /const CACHE_NAME = '[^']*';/,
-    `const CACHE_NAME = 'sekolahku-${hash}';`,
+    /const CACHE_NAME = ["'][^"']*["'];/,
+    `const CACHE_NAME = "sekolahku-${hash}";`,
   );
 
   // Inject manifest di PEMOCHA (sebelum const PRECACHE_ASSETS) supaya nilainya
