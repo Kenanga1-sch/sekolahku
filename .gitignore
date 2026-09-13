@@ -70,8 +70,10 @@ eslint-report.json
 current_schema.sql
 TODO*.md
 
-# local backups and databases
+# local backups and databases (artefak DB/upload PII — jangan pernah di-commit)
+backups/
 backups/db/
+backups/files/
 
 # local binaries and migration helpers
 *.exe
@@ -110,3 +112,11 @@ go-backend/sekolahku_linux
 
 # File uji upload lokal (go test chdir t.TempDir + fallback cwd)
 /public/uploads
+go-backend/internal/handlers/public/
+go-backend/internal/handlers/uploads/
+go-backend/internal/repository/public/
+# Upload runtime terlanjur ter-track — cegah penambahan PII baru.
+# (Yang sudah ter-commit butuh `git rm --cached` terpisah; lihat CHANGELOG.)
+/public/uploads_from_server/
+/go-backend/public/uploads/
+/go-backend/uploads/

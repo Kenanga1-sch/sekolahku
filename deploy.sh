@@ -9,7 +9,7 @@
 set -euo pipefail
 
 SERVER="kenanga@100.97.52.50"
-SERVER_PASS="${DEPLOY_PASS:-20216609}"
+SERVER_PASS="${DEPLOY_PASS:?DEPLOY_PASS wajib diisi (export DEPLOY_PASS=...)}"
 DEPLOY_DIR="/home/kenanga/sekolahku-deploy"
 
 SSH() { sshpass -p "$SERVER_PASS" ssh -o StrictHostKeyChecking=no "$SERVER" "$@"; }
