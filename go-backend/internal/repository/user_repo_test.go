@@ -104,3 +104,38 @@ func TestUserRepository_GetUserByID(t *testing.T) {
 		if user != nil { t.Error("Should be nil") }
 	})
 }
+
+// Regresi: akun orang tua punya email NULL (login pakai nomor HP).
+// Sebelumnya scan NULL ke string meledak -> login 500.
+func TestUserRepository_EmailNullLoginViaUsername(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+	repo := NewUserRepository(db)
+
+	_, err := db.Exec(`INSERT INTO users (id, name, email, username, role, password_hash, phone, is_active) VALUES (?, ?, NULL, ?, ?, ?, ?, 1)`,
+		"parent-1", "Bapak Ani", "081234567890", "orangtua", "hash", "081234567890")
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	user, err := repo.GetUserByEmail("081234567890")
+	if err != nil {
+		t.Fatalf("login pakai username dengan email NULL tidak boleh error: %v", err)
+	}
+	if user == nil || user.ID != "parent-1" || user.Role != "orangtua" {
+		t.Fatalf("user ortu harus ditemukan: %+v", user)
+	}
+	if user.Email != "" {
+		t.Fatalf("email NULL harus jadi string kosong, dapat %q", user.Email)
+	}
+
+	byID, err := repo.GetUserByID("parent-1")
+	if err != nil || byID == nil || byID.ID != "parent-1" {
+		t.Fatalf("GetUserByID dengan email NULL: %+v %v", byID, err)
+	}
+
+	list, total, err := repo.GetUsersByRole(1, 10, "", "orangtua")
+	if err != nil || total != 1 || len(list) != 1 {
+		t.Fatalf("GetUsersByRole email NULL: total=%d len=%d err=%v", total, len(list), err)
+	}
+}

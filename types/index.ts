@@ -21,7 +21,8 @@ export type UserRole =
   | "user"
   | "guru"
   | "siswa"
-  | "calon_siswa";
+  | "calon_siswa"
+  | "orangtua";
 
 export interface User extends BaseRecord {
   username?: string;

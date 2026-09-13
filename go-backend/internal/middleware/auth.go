@@ -33,6 +33,7 @@ const (
 	RoleGuru       = "guru"
 	RoleBendahara  = "bendahara"
 	RoleUser       = "user"
+	RoleOrangtua   = "orangtua"
 )
 
 func InitJWTMiddleware() {

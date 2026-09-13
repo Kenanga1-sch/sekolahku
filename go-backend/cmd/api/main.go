@@ -194,6 +194,7 @@ func main() {
 		Document:       repository.NewDocumentRepository(db),
 		Holiday:        repository.NewSchoolHolidayRepository(db),
 		Push:           repository.NewPushRepository(db),
+		Parent:         repository.NewParentRepository(db),
 	}
 
 	// Aktifkan pemeriksaan status user pada setiap request terautentikasi,
@@ -268,6 +269,7 @@ func main() {
 		Integration:    handlers.NewIntegrationHandler(repos.Integration),
 		Document:       handlers.NewDocumentHandler(repos.Document),
 		Push:           handlers.NewPushHandler(pushSvc),
+		Parent:         handlers.NewParentHandler(repos.Parent, repos.User, repos.Attendance, repos.Notification, pushSvc),
 		PushSvc:        pushSvc,
 	}
 

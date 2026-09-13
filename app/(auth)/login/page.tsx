@@ -190,6 +190,8 @@ export default function LoginPage() {
         
         if (userRole === "staff") {
             window.location.href = "/inventaris";
+        } else if (userRole === "orangtua") {
+            window.location.href = "/parent";
         } else {
             window.location.href = "/overview";
         }
@@ -375,9 +377,9 @@ export default function LoginPage() {
         className="text-center text-sm text-muted-foreground bg-stone-50/80 dark:bg-zinc-900/50 p-4 rounded-xl border border-dashed border-stone-200 dark:border-zinc-800"
         suppressHydrationWarning={true}
       >
-        <div className="font-medium text-stone-700 dark:text-stone-300">Belum punya akun?</div>
+        <div className="font-medium text-stone-700 dark:text-stone-300">Orang tua siswa?</div>
         <div className="text-xs mt-1 text-stone-500 dark:text-stone-500">
-          Hubungi Administrator Sekolah untuk pembuatan akun akses sistem.
+          <a href="/daftar-ortu" className="underline font-medium text-primary">Daftar akun orang tua</a> untuk memantau kehadiran, tabungan, dan pengumuman anak.
         </div>
       </div>
 

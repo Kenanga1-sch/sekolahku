@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ParentLinkCard } from "@/components/parent-link-card";
 import { showSuccess, showError } from "@/lib/toast";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
@@ -363,12 +364,17 @@ export default function StudentDetailPage() {
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 max-w-2xl">
+                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 max-w-2xl">
                     <TabsTrigger value="profile">Profil</TabsTrigger>
                     <TabsTrigger value="savings">Tabungan</TabsTrigger>
                     <TabsTrigger value="library">Perpustakaan</TabsTrigger>
                     <TabsTrigger value="documents">Dokumen</TabsTrigger>
+                    <TabsTrigger value="parents">Orang Tua</TabsTrigger>
                 </TabsList>
+
+                <TabsContent value="parents" className="pt-4 space-y-6">
+                    <ParentLinkCard studentId={studentId} />
+                </TabsContent>
 
                 <TabsContent value="profile" className="pt-4 space-y-6">
                     {/* 1. DATA PRIBADI */}

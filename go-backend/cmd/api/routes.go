@@ -41,6 +41,7 @@ type Repositories struct {
 	Document       *repository.DocumentRepository
 	Holiday        *repository.SchoolHolidayRepository
 	Push           *repository.PushRepository
+	Parent         *repository.ParentRepository
 }
 
 // AllHandlers holds all HTTP handler instances.
@@ -74,6 +75,7 @@ type AllHandlers struct {
 	Document       *handlers.DocumentHandler
 	Sync           *handlers.SyncHandler
 	Push           *handlers.PushHandler
+	Parent         *handlers.ParentHandler
 	// PushSvc dipakai handler lain (absen, tabungan, pengumuman) untuk
 	// mengirim push ke orang tua.
 	PushSvc *push.Service
@@ -163,6 +165,9 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	publicGroup.GET("/contact/status/:ticket", h.Contact.GetPublicStatus, publicFormLimit)
 	// Public key Web Push (aman dibagikan) untuk pushManager.subscribe.
 	publicGroup.GET("/push/vapid-key", h.Push.GetVAPIDKey)
+	// Pendaftaran akun orang tua (verifikasi data siswa + rate limit).
+	publicGroup.POST("/parent/verify", h.Parent.VerifyStudent, publicFormLimit)
+	publicGroup.POST("/parent/register", h.Parent.Register, publicFormLimit)
 	publicGroup.POST("/mutasi/request", h.Mutasi.CreateMutasiRequest, publicFormLimit)
 	publicGroup.GET("/mutasi/status/:regNum", h.Mutasi.GetPublicMutasiStatus, publicFormLimit)
 	publicGroup.POST("/mutasi-keluar/validate", h.Mutasi.ValidatePublicMutasiOut, publicFormLimit)
@@ -649,6 +654,21 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	pushGroup.POST("/subscribe", h.Push.Subscribe)
 	pushGroup.DELETE("/subscribe", h.Push.Unsubscribe)
 	adminGroup.POST("/push/test", h.Push.TestSend)
+
+	// Portal Orang Tua (role: orangtua)
+	parentGroup := server.Group("/api/parent")
+	parentGroup.Use(authMiddleware.JWTMiddleware, authMiddleware.RoleMiddleware(authMiddleware.RoleOrangtua))
+	parentGroup.GET("/children", h.Parent.GetChildren)
+	parentGroup.GET("/leave-requests", h.Parent.GetMyLeaves)
+	parentGroup.POST("/leave-requests", h.Parent.CreateLeave)
+
+	// Pengajuan izin/sakit: guru/admin meninjau
+	guruGroup.GET("/leave-requests", h.Parent.ListLeaves)
+	guruGroup.POST("/leave-requests/:id/review", h.Parent.ReviewLeave)
+	// Tautan ortu <-> siswa (admin)
+	adminGroup.GET("/master/students/:id/parents", h.Parent.GetStudentParents)
+	adminGroup.POST("/master/students/:id/parents", h.Parent.LinkParent)
+	adminGroup.DELETE("/master/students/:id/parents/:userId", h.Parent.UnlinkParent)
 
 	// Profile
 	profile := server.Group("/api/profile")

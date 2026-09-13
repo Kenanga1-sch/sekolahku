@@ -21,7 +21,7 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 
 func (r *UserRepository) GetUserByEmail(email string) (*models.User, error) {
 	query := `
-		SELECT id, name, email, email_verified, image, username, password_hash, role, full_name, phone, is_active, must_change_password, created_at, updated_at
+		SELECT id, name, COALESCE(email,''), email_verified, image, username, password_hash, role, full_name, phone, is_active, must_change_password, created_at, updated_at
 		FROM users
 		WHERE email = ? OR username = ? LIMIT 1
 	`
@@ -91,7 +91,7 @@ func (r *UserRepository) GetUsersByRole(page, limit int, search, role string) ([
 
 	// 1. Data Query
 	query := fmt.Sprintf(`
-		SELECT id, name, email, role, phone, username, is_active, created_at
+		SELECT id, name, COALESCE(email,''), role, phone, username, is_active, created_at
 		FROM users
 		WHERE %s
 		ORDER BY created_at DESC
@@ -151,7 +151,7 @@ func (r *UserRepository) GetUsersByRole(page, limit int, search, role string) ([
 
 func (r *UserRepository) GetUserByID(id string) (*models.User, error) {
 	query := `
-		SELECT id, name, email, role, phone, username, full_name, password_hash, is_active, must_change_password, created_at, updated_at, image
+		SELECT id, name, COALESCE(email,''), role, phone, username, full_name, password_hash, is_active, must_change_password, created_at, updated_at, image
 		FROM users WHERE id = ?
 	`
 	var u models.User
@@ -211,7 +211,7 @@ func (r *UserRepository) CreateUser(u models.User) (string, error) {
 
 	query := `
 		INSERT INTO users (id, name, full_name, email, username, password_hash, role, phone, is_active, must_change_password, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?)
 	`
 	_, err := r.DB.Exec(query, u.ID, u.Name, u.FullName, u.Email, u.Username, u.PasswordHash, u.Role, u.Phone, isActiveInt, mustChangeInt, now, now)
 	if err != nil {

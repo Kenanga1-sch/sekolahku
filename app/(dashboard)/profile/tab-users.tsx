@@ -82,6 +82,7 @@ const roles = [
     { value: "staff", label: "Staff", color: "bg-cyan-100 text-cyan-700" },
     { value: "user", label: "User", color: "bg-zinc-100 text-zinc-700" },
     { value: "siswa", label: "Siswa", color: "bg-green-100 text-green-700" },
+    { value: "orangtua", label: "Orang Tua", color: "bg-rose-100 text-rose-700" },
 ];
 
 export default function TabUsers() {

@@ -42,6 +42,7 @@ var allowedUserRoles = map[string]bool{
 	"guru":        true,
 	"siswa":       true,
 	"calon_siswa": true,
+	"orangtua":    true,
 }
 
 func normalizeUserRole(role string) (string, bool) {
