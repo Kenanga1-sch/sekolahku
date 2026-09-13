@@ -124,7 +124,7 @@ func TestGetClasses_AdminUnscoped(t *testing.T) {
 func TestGetDailyClass_GuruForced(t *testing.T) {
 	db := setupWaliKelasTestDB(t)
 	defer db.Close()
-	h := NewAttendanceHandler(repository.NewAttendanceRepository(db))
+	h := NewAttendanceHandler(repository.NewAttendanceRepository(db), nil)
 	e := echo.New()
 
 	// Tanggal kerja deterministik — tanpa param date, GetDailyClass memakai
@@ -152,7 +152,7 @@ func TestGetDailyClass_GuruForced(t *testing.T) {
 func TestGetSiswa_GuruScoped(t *testing.T) {
 	db := setupWaliKelasTestDB(t)
 	defer db.Close()
-	h := NewSavingsHandler(repository.NewSavingsRepository(db), repository.NewNotificationRepository(db))
+	h := NewSavingsHandler(repository.NewSavingsRepository(db), repository.NewNotificationRepository(db), nil)
 	e := echo.New()
 
 	req := httptest.NewRequest(http.MethodGet, "/?", nil)
@@ -177,7 +177,7 @@ func TestGetSiswa_GuruScoped(t *testing.T) {
 func TestGetSiswa_GuruTanpaWaliKosong(t *testing.T) {
 	db := setupWaliKelasTestDB(t)
 	defer db.Close()
-	h := NewSavingsHandler(repository.NewSavingsRepository(db), repository.NewNotificationRepository(db))
+	h := NewSavingsHandler(repository.NewSavingsRepository(db), repository.NewNotificationRepository(db), nil)
 	e := echo.New()
 
 	req := httptest.NewRequest(http.MethodGet, "/?", nil)
@@ -199,7 +199,7 @@ func TestGetSiswa_GuruTanpaWaliKosong(t *testing.T) {
 func TestGetClassesWithReps_GuruScoped(t *testing.T) {
 	db := setupWaliKelasTestDB(t)
 	defer db.Close()
-	h := NewSavingsHandler(repository.NewSavingsRepository(db), repository.NewNotificationRepository(db))
+	h := NewSavingsHandler(repository.NewSavingsRepository(db), repository.NewNotificationRepository(db), nil)
 	e := echo.New()
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)

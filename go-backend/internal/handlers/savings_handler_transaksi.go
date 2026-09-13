@@ -7,6 +7,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/sekolahku/go-backend/internal/models"
+	"github.com/sekolahku/go-backend/internal/repository"
 	"github.com/sekolahku/go-backend/internal/shared"
 )
 
@@ -114,6 +115,18 @@ func (h *SavingsHandler) KioskDeposit(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal mencatat setoran: " + err.Error()})
 	}
 
+	// Setoran kiosk = kas tunai langsung; saldo anak berubah. Kabari orang tua.
+	if h.ParentNotify != nil {
+		studentName, className, _ := h.ParentNotify.Parents.GetStudentBrief(s.ID)
+		h.ParentNotify.NotifyParentsOfStudent(
+			s.ID, "tabungan", "finance",
+			"Setoran kiosk " + studentName,
+			studentName + " (" + className + ") menyetorkan Rp" +
+				strconv.FormatInt(int64(req.Nominal), 10) + " melalui kiosk sekolah.",
+			"/parent", "kiosk-deposit-"+s.ID+"-"+repository.TodayJakarta(),
+		)
+	}
+
 	// Setoran kiosk menunggu verifikasi bendahara — beri tahu.
 	if h.Notifications != nil {
 		_ = h.Notifications.NotifyRoles(models.Notification{
@@ -167,7 +180,7 @@ func (h *SavingsHandler) VerifySetoran(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
 	}
 	if err := h.Repo.VerifySetoran(req); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
 	}
 
 	// Kabari guru penyetor: hasil verifikasi setorannya.
@@ -191,7 +204,64 @@ func (h *SavingsHandler) VerifySetoran(c echo.Context) error {
 			})
 		}
 	}
+
+	// Saat verifikasi sukses, saldo tabungan siswa berubah — kabari ortu.
+	if req.Status == "verified" && h.ParentNotify != nil {
+		h.notifySavingsParents(req.SetoranID)
+	}
+
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "message": "Setoran telah diproses"})
+}
+
+// notifySavingsParents mengabari orang tua per siswa yang saldonya
+// berubah lewat verifikasi setoran (tipe setor/tarik).
+func (h *SavingsHandler) notifySavingsParents(setoranID string) {
+	rows, err := h.Repo.DB.Query(`
+		SELECT t.siswa_id, SUM(CASE WHEN t.tipe = 'setor' THEN t.nominal ELSE -t.nominal END)
+		FROM tabungan_transaksi t
+		WHERE t.setoran_id = ?
+		GROUP BY t.siswa_id
+	`, setoranID)
+	if err != nil {
+		return
+	}
+	type change struct {
+		SiswaID string
+		Net     int
+	}
+	changes := make([]change, 0, 8)
+	for rows.Next() {
+		var ch change
+		if err := rows.Scan(&ch.SiswaID, &ch.Net); err == nil {
+			changes = append(changes, ch)
+		}
+	}
+	rows.Close()
+
+	for _, ch := range changes {
+		studentName, _, _ := h.ParentNotify.Parents.GetStudentBrief(ch.SiswaID)
+		if studentName == "" {
+			continue
+		}
+		action := "disetorkan"
+		if ch.Net < 0 {
+			action = "ditarik"
+		}
+		title := "Tabungan " + studentName
+		body := "Tabungan " + studentName + " " + action + " sebesar Rp" +
+			strconv.FormatInt(int64(abs(ch.Net)), 10) + " dan telah diverifikasi."
+		h.ParentNotify.NotifyParentsOfStudent(
+			ch.SiswaID, "tabungan", "finance", title, body,
+			"/parent", "savings-"+ch.SiswaID,
+		)
+	}
+}
+
+func abs(n int) int {
+	if n < 0 {
+		return -n
+	}
+	return n
 }
 
 func (h *SavingsHandler) GetSetoranList(c echo.Context) error {

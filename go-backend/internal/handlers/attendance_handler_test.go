@@ -68,7 +68,7 @@ func TestAttendanceGetDailyClass(t *testing.T) {
 	db := setupAttendanceTestDB(t)
 	defer db.Close()
 
-	handler := NewAttendanceHandler(repository.NewAttendanceRepository(db))
+	handler := NewAttendanceHandler(repository.NewAttendanceRepository(db), nil)
 	e := echo.New()
 
 	req := httptest.NewRequest(http.MethodGet, "/api/attendance/daily?date=2026-06-01&class=1A", nil)
@@ -87,7 +87,7 @@ func TestAttendanceGetDailyClassHoliday(t *testing.T) {
 	db := setupAttendanceTestDB(t)
 	defer db.Close()
 
-	handler := NewAttendanceHandler(repository.NewAttendanceRepository(db))
+	handler := NewAttendanceHandler(repository.NewAttendanceRepository(db), nil)
 	e := echo.New()
 
 	req := httptest.NewRequest(http.MethodGet, "/api/attendance/daily?date=2026-08-17&class=1A", nil)

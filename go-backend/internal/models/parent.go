@@ -73,3 +73,11 @@ type CreateLeaveRequest struct {
 	EndDate   string `json:"endDate"`
 	Reason    string `json:"reason"`
 }
+
+// ParentAttendanceRecord riwayat presensi anak untuk portal orang tua.
+type ParentAttendanceRecord struct {
+	Date         string `json:"date"`
+	Status       string `json:"status"`
+	CheckInTime  *int64 `json:"checkInTime"`
+	RecordMethod string `json:"recordMethod"`
+}

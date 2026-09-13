@@ -374,3 +374,21 @@ func (r *SavingsRepository) GetStatementByHash(hash string) (*models.StatementVe
 func (r *SavingsRepository) VerifyStatement(hash string) (*models.StatementVerification, error) {
 	return r.GetStatementByHash(hash)
 }
+
+// GetDailyChange menghitung net perubahan saldo siswa pada tanggal (WIB),
+// hanya untuk transaksi yang sudah diverifikasi (status='collected').
+// + untuk setor, - untuk tarik. created_at disimpan dalam Unix millisecond.
+func (r *SavingsRepository) GetDailyChange(studentID, date string) int64 {
+	start := JakartaMidnight(date)
+	end := start + 24*60*60*1000
+	var net sql.NullInt64
+	_ = r.DB.QueryRow(`
+		SELECT SUM(CASE WHEN tipe = 'setor' THEN nominal ELSE -nominal END)
+		FROM tabungan_transaksi
+		WHERE siswa_id = ? AND status = 'collected' AND created_at >= ? AND created_at < ?
+	`, studentID, start, end).Scan(&net)
+	if net.Valid {
+		return net.Int64
+	}
+	return 0
+}

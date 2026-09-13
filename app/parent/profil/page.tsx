@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PushToggle } from "@/components/push-toggle";
+import { NotifPreferences } from "@/components/notif-preferences";
 import { goGet, goPatch } from "@/lib/api-client";
 
 interface Profile {
@@ -71,6 +72,8 @@ export default function ParentProfilPage() {
       </div>
 
       <PushToggle />
+
+      <NotifPreferences />
 
       <Card>
         <CardHeader>

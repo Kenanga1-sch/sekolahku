@@ -661,6 +661,9 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	parentGroup.GET("/children", h.Parent.GetChildren)
 	parentGroup.GET("/leave-requests", h.Parent.GetMyLeaves)
 	parentGroup.POST("/leave-requests", h.Parent.CreateLeave)
+	parentGroup.GET("/attendance", h.Parent.GetChildAttendance)
+	parentGroup.GET("/notification-preferences", h.Parent.GetPreferences)
+	parentGroup.PUT("/notification-preferences", h.Parent.UpdatePreferences)
 
 	// Pengajuan izin/sakit: guru/admin meninjau
 	guruGroup.GET("/leave-requests", h.Parent.ListLeaves)

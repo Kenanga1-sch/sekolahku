@@ -28,11 +28,19 @@ type PushUnsubscribeRequest struct {
 	Endpoint string `json:"endpoint"`
 }
 
+// PushAction tombol aksi pada notifikasi push (opsional).
+type PushAction struct {
+	Action string `json:"action"`
+	Title  string `json:"title"`
+	Icon   string `json:"icon,omitempty"`
+}
+
 // PushPayload isi notifikasi yang dikirim ke service worker.
 type PushPayload struct {
-	Title string `json:"title"`
-	Body  string `json:"body"`
-	URL   string `json:"url,omitempty"`
-	Tag   string `json:"tag,omitempty"`
-	Icon  string `json:"icon,omitempty"`
+	Title   string        `json:"title"`
+	Body    string        `json:"body"`
+	URL     string        `json:"url,omitempty"`
+	Tag     string        `json:"tag,omitempty"`
+	Icon    string        `json:"icon,omitempty"`
+	Actions []PushAction  `json:"actions,omitempty"`
 }

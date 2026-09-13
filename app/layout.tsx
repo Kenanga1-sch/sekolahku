@@ -6,6 +6,7 @@ import { SWRProvider } from "@/components/providers/swr-provider";
 import { Toaster } from "@/components/ui/toaster";
 import { SkipToContent } from "@/components/accessibility";
 import { ZXingConfig } from "@/components/zxing-config";
+import { UpdateBanner } from "@/components/update-banner";
 import "./globals.css";
 
 const SITE_URL = "https://sdn1kenanga.sch.id";
@@ -185,7 +186,7 @@ export default function RootLayout({
         />
       </head>
       <body className="font-sans antialiased" suppressHydrationWarning>
-        <div id="app-version" className="fixed bottom-1.5 right-2 z-[9999] text-[11px] font-mono text-black/20 pointer-events-none select-none print:hidden" aria-hidden="true">v1.1.025</div>
+        <div id="app-version" className="fixed bottom-1.5 right-2 z-[9999] text-[11px] font-mono text-black/20 pointer-events-none select-none print:hidden" aria-hidden="true">v1.1.026</div>
         <noscript>
           <div className="p-4 text-center bg-red-100 text-red-700">
              JavaScript diperlukan untuk menjalankan aplikasi ini dengan baik. Mohon aktifkan JavaScript di browser Anda.
@@ -193,14 +194,15 @@ export default function RootLayout({
         </noscript>
         <ZXingConfig />
         <SkipToContent />
-        <ThemeProvider>
-          <SWRProvider>
-            <AuthProvider>
-              <SchoolSettingsProvider>{children}</SchoolSettingsProvider>
-            </AuthProvider>
-          </SWRProvider>
-          <Toaster />
-        </ThemeProvider>
+          <ThemeProvider>
+            <SWRProvider>
+              <AuthProvider>
+                <SchoolSettingsProvider>{children}</SchoolSettingsProvider>
+              </AuthProvider>
+            </SWRProvider>
+            <Toaster />
+          </ThemeProvider>
+          <UpdateBanner />
         <script
           dangerouslySetInnerHTML={{
             __html: `

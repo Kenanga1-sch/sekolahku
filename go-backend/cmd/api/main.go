@@ -15,6 +15,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	gommonLog "github.com/labstack/gommon/log"
 	authMiddleware "github.com/sekolahku/go-backend/internal/middleware"
+	"github.com/sekolahku/go-backend/internal/notify"
 	"github.com/sekolahku/go-backend/internal/push"
 	"github.com/sekolahku/go-backend/internal/repository"
 	"github.com/sekolahku/go-backend/internal/scheduler"
@@ -159,11 +160,6 @@ func main() {
 
 	repository.SetHolidayDB(db)
 
-	// Background scheduler
-	cronScheduler := scheduler.NewScheduler(db)
-	cronScheduler.Start()
-	defer cronScheduler.Stop()
-
 	// Repositories
 	repos := &Repositories{
 		User:           repository.NewUserRepository(db),
@@ -238,6 +234,18 @@ func main() {
 		log.Println("[Startup] Web Push nonaktif — VAPID_PUBLIC_KEY/PRIVATE_KEY belum diisi.")
 	}
 
+	// Notifikasi orang tua (in-app + web push) menghormati preferensi kategori.
+	prefsRepo := repository.NewPreferenceRepository(db)
+	parentNotify := notify.NewParentNotifier(
+		repos.Parent, repos.Notification, prefsRepo, pushSvc,
+	)
+
+	// Background scheduler (perlu pushSvc supaya notifikasi otomatis ke ortu
+	// (alpha warning + daily digest) juga dapat muncul via Web Push).
+	cronScheduler := scheduler.NewScheduler(db, pushSvc)
+	cronScheduler.Start()
+	defer cronScheduler.Stop()
+
 	// Handlers
 	h := &AllHandlers{
 		Sync:           handlers.NewSyncHandler(repos.Sync),
@@ -247,16 +255,16 @@ func main() {
 		SPMB:           handlers.NewSPMBHandler(repos.SPMB, repos.Notification),
 		Student:        handlers.NewStudentHandler(repos.Student, db),
 		Employee:       handlers.NewEmployeeHandler(repos.Employee),
-		Savings:        handlers.NewSavingsHandler(repos.Savings, repos.Notification),
+		Savings:         handlers.NewSavingsHandler(repos.Savings, repos.Notification, parentNotify),
 		Library:        handlers.NewLibraryHandler(repos.Library, repos.Notification),
 		EOffice:        handlers.NewEOfficeHandler(repos.EOffice, repos.Notification),
-		Attendance:     handlers.NewAttendanceHandler(repos.Attendance),
+		Attendance:     handlers.NewAttendanceHandler(repos.Attendance, parentNotify),
 		Loan:           handlers.NewLoanHandler(repos.Loan),
 		Setting:        handlers.NewSettingHandler(repos.Setting, repos.AuditLog),
 		Alumni:         handlers.NewAlumniHandler(repos.Alumni),
 		Mutasi:         handlers.NewMutasiHandler(repos.Mutasi, repos.Library, repos.Savings, repos.Notification),
 		Gallery:        handlers.NewGalleryHandler(repos.Gallery),
-		Announcement:   handlers.NewAnnouncementHandler(repos.Announcement, repos.Notification),
+		Announcement:   handlers.NewAnnouncementHandler(repos.Announcement, repos.Notification, parentNotify),
 		AuditLog:       handlers.NewAuditLogHandler(repos.AuditLog),
 		Notification:   handlers.NewNotificationHandler(repos.Notification),
 		TelegramBackup: handlers.NewTelegramBackupHandler(repos.TelegramBackup),
@@ -269,7 +277,7 @@ func main() {
 		Integration:    handlers.NewIntegrationHandler(repos.Integration),
 		Document:       handlers.NewDocumentHandler(repos.Document),
 		Push:           handlers.NewPushHandler(pushSvc),
-		Parent:         handlers.NewParentHandler(repos.Parent, repos.User, repos.Attendance, repos.Notification, pushSvc),
+		Parent:         handlers.NewParentHandler(repos.Parent, repos.User, repos.Attendance, repos.Notification, pushSvc, prefsRepo),
 		PushSvc:        pushSvc,
 	}
 

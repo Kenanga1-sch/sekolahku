@@ -21,10 +21,11 @@ type ParentHandler struct {
 	Attendance    *repository.AttendanceRepository
 	Notifications *repository.NotificationRepository
 	Push          *push.Service
+	Prefs         *repository.PreferenceRepository
 }
 
-func NewParentHandler(repo *repository.ParentRepository, users *repository.UserRepository, attendance *repository.AttendanceRepository, notifications *repository.NotificationRepository, pushSvc *push.Service) *ParentHandler {
-	return &ParentHandler{Repo: repo, Users: users, Attendance: attendance, Notifications: notifications, Push: pushSvc}
+func NewParentHandler(repo *repository.ParentRepository, users *repository.UserRepository, attendance *repository.AttendanceRepository, notifications *repository.NotificationRepository, pushSvc *push.Service, prefs *repository.PreferenceRepository) *ParentHandler {
+	return &ParentHandler{Repo: repo, Users: users, Attendance: attendance, Notifications: notifications, Push: pushSvc, Prefs: prefs}
 }
 
 var parentDateRegex = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
@@ -191,6 +192,53 @@ func (h *ParentHandler) GetMyLeaves(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": list})
 }
 
+// ============ Preferensi notifikasi ============
+
+// validNotifCategories daftar kategori yang dikenal sistem preferensi.
+var validNotifCategories = map[string]bool{
+	repository.NotifCategoryAbsensi:    true,
+	repository.NotifCategoryTabungan:  true,
+	repository.NotifCategoryPengumuman: true,
+	repository.NotifCategoryPR:        true,
+	repository.NotifCategoryUmum:      true,
+}
+
+// GetPreferences preferensi notifikasi user; kategori tanpa baris = aktif.
+func (h *ParentHandler) GetPreferences(c echo.Context) error {
+	if h.Prefs == nil {
+		return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": map[string]bool{}})
+	}
+	userID, _ := c.Get("user_id").(string)
+	prefs, err := h.Prefs.GetPreferences(userID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": prefs})
+}
+
+// UpdatePreferences menyimpan preferensi kategori notifikasi user.
+func (h *ParentHandler) UpdatePreferences(c echo.Context) error {
+	if h.Prefs == nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Preferensi tidak tersedia"})
+	}
+	userID, _ := c.Get("user_id").(string)
+	var req struct {
+		Category string `json:"category"`
+		Enabled  bool   `json:"enabled"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Data tidak valid"})
+	}
+	req.Category = strings.ToLower(strings.TrimSpace(req.Category))
+	if !validNotifCategories[req.Category] {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Kategori tidak dikenal"})
+	}
+	if err := h.Prefs.SetPreference(userID, req.Category, req.Enabled); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal menyimpan preferensi"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
+}
+
 // ============ Admin / Guru ============
 
 // ListLeaves daftar pengajuan untuk ditinjau guru/admin.
@@ -295,6 +343,60 @@ func (h *ParentHandler) GetStudentParents(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": parents})
+}
+
+// ============ Presensi anak (portal ortu) ============
+
+// GetChildAttendance rekap presensi + riwayat terbaru milik anak ortu yang login.
+// Query studentId opsional; tanpa itu pakai anak pertama ( UX kartu anak).
+func (h *ParentHandler) GetChildAttendance(c echo.Context) error {
+	userID, _ := c.Get("user_id").(string)
+	studentID := strings.TrimSpace(c.QueryParam("studentId"))
+
+	if studentID != "" {
+		ok, err := h.Repo.IsParentOf(userID, studentID)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+		}
+		if !ok {
+			return c.JSON(http.StatusForbidden, map[string]interface{}{"success": false, "error": "Siswa bukan anak Anda"})
+		}
+	} else {
+		children, err := h.Repo.GetChildrenByUser(userID)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+		}
+		if len(children) == 0 {
+			return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Belum ada anak yang tertaut"})
+		}
+		studentID = children[0].StudentID
+	}
+
+	// Ringkasan per tahun ajaran + riwayat terbaru + rekap mingguan (7 hari WIB).
+	if h.Attendance != nil {
+		summary, err := h.Attendance.GetStudentAttendanceSummary(studentID)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+		}
+		recent, err := h.Repo.GetRecentAttendance(studentID, 30)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+		}
+		weekly, err := h.Repo.GetWeeklyAttendance(studentID)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+		}
+		return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": map[string]interface{}{
+			"summary": summary,
+			"recent":  recent,
+			"weekly":  weekly,
+		}})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": map[string]interface{}{
+		"summary": []map[string]interface{}{},
+		"recent":  []map[string]interface{}{},
+		"weekly":  []map[string]interface{}{},
+	}})
 }
 
 // LinkParent menautkan akun (menurut nomor HP / user id) ke siswa.

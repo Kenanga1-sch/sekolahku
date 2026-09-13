@@ -3,13 +3,14 @@
 import React, { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, CalendarPlus, Bell, User, LogOut } from "lucide-react";
+import { Home, CalendarPlus, CalendarCheck, Bell, User, LogOut } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { href: "/parent", label: "Beranda", icon: Home },
+  { href: "/parent/presensi", label: "Presensi", icon: CalendarCheck },
   { href: "/parent/izin", label: "Izin/Sakit", icon: CalendarPlus },
   { href: "/parent/notifikasi", label: "Notifikasi", icon: Bell },
   { href: "/parent/profil", label: "Profil", icon: User },
@@ -51,7 +52,7 @@ export default function ParentLayoutClient({ children }: { children: React.React
 
       {/* Navigasi bawah khusus mobile */}
       <nav className="fixed bottom-0 inset-x-0 z-30 border-t bg-background/95 backdrop-blur sm:hidden">
-        <div className="mx-auto max-w-2xl grid grid-cols-4">
+        <div className="mx-auto max-w-2xl grid grid-cols-5">
           {NAV.map((item) => {
             const active = pathname === item.href;
             const Icon = item.icon;

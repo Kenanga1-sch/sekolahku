@@ -8,16 +8,21 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/sekolahku/go-backend/internal/models"
+	"github.com/sekolahku/go-backend/internal/notify"
 	"github.com/sekolahku/go-backend/internal/repository"
 )
 
 type AttendanceHandler struct {
 	Repo    *repository.AttendanceRepository
 	Holiday *repository.SchoolHolidayRepository
+	// ParentNotify mengaburi orang tua saat anak tercatat hadir
+	// (scan QR maupun absen manual oleh guru). Kosong = notifikasi ortu
+	// nonaktif (mis. di test).
+	ParentNotify *notify.ParentNotifier
 }
 
-func NewAttendanceHandler(repo *repository.AttendanceRepository) *AttendanceHandler {
-	return &AttendanceHandler{Repo: repo}
+func NewAttendanceHandler(repo *repository.AttendanceRepository, parentNotify *notify.ParentNotifier) *AttendanceHandler {
+	return &AttendanceHandler{Repo: repo, ParentNotify: parentNotify}
 }
 
 func (h *AttendanceHandler) GetStats(c echo.Context) error {
@@ -73,7 +78,40 @@ func (h *AttendanceHandler) RecordManual(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": err.Error()})
 	}
 
+	h.notifyParentsOfAttendance(req.StudentID, req.Status, "manual")
+
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
+}
+
+// notifyParentsOfAttendance mengabari orang tua siswa bahwa presensi
+// anaknya baru saja tercatat. status: hadir/sakit/izin/alpha.
+func (h *AttendanceHandler) notifyParentsOfAttendance(studentID, status, method string) {
+	if h.ParentNotify == nil || h.ParentNotify.Parents == nil {
+		return
+	}
+
+	studentName, className, err := h.ParentNotify.Parents.GetStudentBrief(studentID)
+	if err != nil || studentName == "" {
+		return
+	}
+
+	labels := map[string]string{
+		"hadir": "telah hadir di sekolah",
+		"sakit": "tercatat sakit",
+		"izin":  "tercatat izin",
+		"alpha": "tercatat tanpa keterangan (alpha)",
+	}
+	label, ok := labels[strings.ToLower(strings.TrimSpace(status))]
+	if !ok {
+		label = "tercatat " + status
+	}
+
+	title := "Presensi " + studentName
+	body := studentName + " (" + className + ") " + label + " pada hari ini."
+	h.ParentNotify.NotifyParentsOfStudent(
+		studentID, "absensi", "attendance", title, body,
+		"/parent/presensi", "attendance-"+studentID+"-"+repository.TodayJakarta(),
+	)
 }
 
 func (h *AttendanceHandler) ScanQR(c echo.Context) error {
@@ -103,10 +141,25 @@ func (h *AttendanceHandler) ScanQR(c echo.Context) error {
 		})
 	}
 
+	h.notifyParentsOfAttendance(scanResultStudentID(res), req.Status, "qr_scan")
+
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
 		"student": res.Student,
 	})
+}
+
+// scanResultStudentID mengekstrak ID siswa dari payload Student ScanResult.
+func scanResultStudentID(res *models.ScanResult) string {
+	if res == nil {
+		return ""
+	}
+	m, ok := res.Student.(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	id, _ := m["id"].(string)
+	return id
 }
 
 func (h *AttendanceHandler) KioskRecordAttendance(c echo.Context) error {
@@ -144,6 +197,9 @@ func (h *AttendanceHandler) KioskRecordAttendance(c echo.Context) error {
 			"error":              "Gagal merekam presensi",
 		})
 	}
+
+	// QR kiosk default status "hadir" (normalizeAttendanceStatus).
+	h.notifyParentsOfAttendance(scanResultStudentID(res), "", "qr_scan")
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success":            true,

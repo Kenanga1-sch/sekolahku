@@ -9,16 +9,20 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/sekolahku/go-backend/internal/models"
+	"github.com/sekolahku/go-backend/internal/notify"
 	"github.com/sekolahku/go-backend/internal/repository"
 )
 
 type SavingsHandler struct {
 	Repo          *repository.SavingsRepository
 	Notifications *repository.NotificationRepository
+	// ParentNotify mengabari orang tua saat saldo tabungan anak berubah
+	// (transaksi diverifikasi bendahara). Kosong = nonaktif (mis. di test).
+	ParentNotify *notify.ParentNotifier
 }
 
-func NewSavingsHandler(repo *repository.SavingsRepository, notifications *repository.NotificationRepository) *SavingsHandler {
-	return &SavingsHandler{Repo: repo, Notifications: notifications}
+func NewSavingsHandler(repo *repository.SavingsRepository, notifications *repository.NotificationRepository, parentNotify *notify.ParentNotifier) *SavingsHandler {
+	return &SavingsHandler{Repo: repo, Notifications: notifications, ParentNotify: parentNotify}
 }
 
 // ============ Siswa (Student Savings) ============

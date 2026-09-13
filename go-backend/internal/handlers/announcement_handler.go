@@ -11,16 +11,20 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/sekolahku/go-backend/internal/middleware"
 	"github.com/sekolahku/go-backend/internal/models"
+	"github.com/sekolahku/go-backend/internal/notify"
 	"github.com/sekolahku/go-backend/internal/repository"
 )
 
 type AnnouncementHandler struct {
 	Repo          *repository.AnnouncementRepository
 	Notifications *repository.NotificationRepository
+	// ParentNotify broadcast pengumuman sekolah ke semua akun orang tua.
+	// Kosong = nonaktif (mis. di test).
+	ParentNotify *notify.ParentNotifier
 }
 
-func NewAnnouncementHandler(repo *repository.AnnouncementRepository, notifications *repository.NotificationRepository) *AnnouncementHandler {
-	return &AnnouncementHandler{Repo: repo, Notifications: notifications}
+func NewAnnouncementHandler(repo *repository.AnnouncementRepository, notifications *repository.NotificationRepository, parentNotify *notify.ParentNotifier) *AnnouncementHandler {
+	return &AnnouncementHandler{Repo: repo, Notifications: notifications, ParentNotify: parentNotify}
 }
 
 func (h *AnnouncementHandler) GetAnnouncements(c echo.Context) error {
@@ -102,6 +106,17 @@ func (h *AnnouncementHandler) CreateAnnouncement(c echo.Context) error {
 			Message:   "Pengumuman baru telah dipublikasikan.",
 			TargetURL: StrPtr("/admin/konten-informasi"),
 		})
+	}
+
+	// Broadcast pengumuman terbit ke semua orang tua (in-app + push),
+	// menghormati preferensi kategori "pengumuman".
+	if req.IsPublished && h.ParentNotify != nil {
+		h.ParentNotify.NotifyAllParents(
+			"pengumuman", "info",
+			"Pengumuman sekolah: "+req.Title,
+			"Pengumuman baru telah dipublikasikan. Buka portal untuk membaca.",
+			"/parent/notifikasi", "announcement-"+id,
+		)
 	}
 
 	return c.JSON(http.StatusCreated, map[string]interface{}{

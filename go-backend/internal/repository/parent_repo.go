@@ -80,9 +80,95 @@ func (r *ParentRepository) GetChildrenByUser(userID string) ([]models.ParentChil
 	return list, nil
 }
 
-// ListParentsOfStudent daftar akun ortu yang tertaut ke siswa (admin).
-func (r *ParentRepository) ListParentsOfStudent(studentID string) ([]models.ParentAccount, error) {
+// GetRecentAttendance riwayat presensi terbaru siswa (urut tanggal desc).
+func (r *ParentRepository) GetRecentAttendance(studentID string, limit int) ([]models.ParentAttendanceRecord, error) {
+	if limit < 1 {
+		limit = 30
+	}
 	rows, err := r.DB.Query(`
+		SELECT asess.date, ar.status, ar.check_in_time, ar.record_method
+		FROM attendance_records ar
+		JOIN attendance_sessions asess ON ar.session_id = asess.id
+		WHERE ar.student_id = ?
+		ORDER BY asess.date DESC
+		LIMIT ?
+	`, studentID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	list := make([]models.ParentAttendanceRecord, 0, limit)
+	for rows.Next() {
+		var rec models.ParentAttendanceRecord
+		var checkIn sql.NullInt64
+		if err := rows.Scan(&rec.Date, &rec.Status, &checkIn, &rec.RecordMethod); err != nil {
+			return nil, err
+		}
+		if checkIn.Valid {
+			rec.CheckInTime = &checkIn.Int64
+		}
+		list = append(list, rec)
+	}
+	return list, nil
+}
+
+// GetDailyAttendanceStatus status kehadiran siswa pada tanggal tertentu.
+// Mengembalikan "" bila belum tercatat (belum ada sesi kelas atau belum absen).
+func (r *ParentRepository) GetDailyAttendanceStatus(studentID, date string) string {
+	var status sql.NullString
+	_ = r.DB.QueryRow(`
+		SELECT ar.status
+		FROM attendance_records ar
+		JOIN attendance_sessions asess ON ar.session_id = asess.id
+		WHERE ar.student_id = ? AND asess.date = ?
+		ORDER BY ar.created_at DESC
+		LIMIT 1
+	`, studentID, date).Scan(&status)
+	if !status.Valid {
+		return ""
+	}
+	return status.String
+}
+
+// GetWeeklyAttendance rangkuman kehadiran 7 hari terakhir (WIB) untuk siswa.
+// Tanggal hari ini dikembalikan pertama.
+func (r *ParentRepository) GetWeeklyAttendance(studentID string) ([]models.ParentAttendanceRecord, error) {
+	today := TodayJakarta()
+	start := ""
+	if t, err := time.Parse("2006-01-02", today); err == nil {
+		start = t.AddDate(0, 0, -6).Format("2006-01-02")
+	}
+
+	rows, err := r.DB.Query(`
+		SELECT asess.date, ar.status, ar.check_in_time, ar.record_method
+		FROM attendance_records ar
+		JOIN attendance_sessions asess ON ar.session_id = asess.id
+		WHERE ar.student_id = ? AND asess.date BETWEEN ? AND ?
+		ORDER BY asess.date DESC
+	`, studentID, start, today)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	list := make([]models.ParentAttendanceRecord, 0, 7)
+	for rows.Next() {
+		var rec models.ParentAttendanceRecord
+		var checkIn sql.NullInt64
+		if err := rows.Scan(&rec.Date, &rec.Status, &checkIn, &rec.RecordMethod); err != nil {
+			return nil, err
+		}
+		if checkIn.Valid {
+			rec.CheckInTime = &checkIn.Int64
+		}
+		list = append(list, rec)
+	}
+	return list, nil
+}
+
+// ListParentsOfStudent daftar akun ortu yang tertaut ke siswa (admin).
+func (r *ParentRepository) ListParentsOfStudent(studentID string) ([]models.ParentAccount, error) {	rows, err := r.DB.Query(`
 		SELECT u.id, COALESCE(u.name,''), COALESCE(u.phone,''), ps.relation
 		FROM parent_students ps
 		JOIN users u ON ps.user_id = u.id
