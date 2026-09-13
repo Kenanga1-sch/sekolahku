@@ -107,3 +107,6 @@ agent/
 # Binary build
 sekolahku_linux
 go-backend/sekolahku_linux
+
+# File uji upload lokal (go test chdir t.TempDir + fallback cwd)
+/public/uploads

@@ -10,12 +10,14 @@ import (
 	"strings"
 )
 
-// Batas lampiran pesan masuk. Angka sengaja ketat: endpoint ini publik
-// (tanpa login), jadi setiap byte adalah permukaan serangan disk-fill.
+// Batas lampiran pesan masuk. Video bukti dari kamera HP mudah melewati
+// 15MB, jadi batas dibuat longgar; rate-limit publicFormLimit + BodyLimit
+// global 60MB tetap menjadi rem utama (3 file terbesar yang muat dalam
+// satu request). Endpoint ini publik — angka tetap dibatasi sadar.
 const (
 	contactAttachmentMaxCount = 3
-	contactImageMaxBytes      = int64(5 << 20)  // 5 MB
-	contactVideoMaxBytes      = int64(15 << 20) // 15 MB
+	contactImageMaxBytes      = int64(25 << 20) // 25 MB
+	contactVideoMaxBytes      = int64(50 << 20) // 50 MB
 )
 
 // contactImageExt ekstensi gambar yang diterima, dipetakan dari MIME hasil

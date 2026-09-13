@@ -35,6 +35,11 @@ func setupContactHandlerDB(t *testing.T) (*repository.ContactRepository, *reposi
 			file_path TEXT NOT NULL, original_name TEXT, file_size INTEGER NOT NULL DEFAULT 0,
 			mime_type TEXT, uploaded_by TEXT, created_at INTEGER NOT NULL DEFAULT 0
 		);
+		CREATE TABLE contact_replies (
+			id TEXT PRIMARY KEY, message_id TEXT NOT NULL,
+			body TEXT NOT NULL, author_id TEXT, author_name TEXT,
+			created_at INTEGER NOT NULL DEFAULT 0
+		);
 		CREATE TABLE users (id TEXT PRIMARY KEY, role TEXT);
 		INSERT INTO users (id, role) VALUES ('adm1','admin'), ('adm2','superadmin'), ('g1','guru');
 		CREATE TABLE admin_notifications (
@@ -151,16 +156,16 @@ func TestValidateContactAttachment_VideoDanBatas(t *testing.T) {
 		t.Fatalf("ekstensi salah: %s", ext)
 	}
 
-	// Gambar > 5MB ditolak.
-	big := &multipart.FileHeader{Filename: "besar.jpg", Size: 6 << 20}
+	// Gambar > 25MB ditolak.
+	big := &multipart.FileHeader{Filename: "besar.jpg", Size: 26 << 20}
 	if _, _, _, err := validateContactAttachment(big); err == nil {
-		t.Fatal("gambar 6MB harus ditolak")
+		t.Fatal("gambar 26MB harus ditolak")
 	}
 
-	// Video > 15MB ditolak.
-	bigVideo := &multipart.FileHeader{Filename: "besar.mp4", Size: 16 << 20}
+	// Video > 50MB ditolak.
+	bigVideo := &multipart.FileHeader{Filename: "besar.mp4", Size: 51 << 20}
 	if _, _, _, err := validateContactAttachment(bigVideo); err == nil {
-		t.Fatal("video 16MB harus ditolak")
+		t.Fatal("video 51MB harus ditolak")
 	}
 
 	// Ekstensi berbahaya langsung ditolak.

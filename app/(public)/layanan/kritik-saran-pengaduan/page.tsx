@@ -33,8 +33,8 @@ const CATEGORY_HINTS: Record<CategoryId, string> = {
 };
 
 const MAX_FILES = 3;
-const MAX_IMAGE = 5 * 1024 * 1024;
-const MAX_VIDEO = 15 * 1024 * 1024;
+const MAX_IMAGE = 25 * 1024 * 1024;
+const MAX_VIDEO = 50 * 1024 * 1024;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4", "video/webm", "video/quicktime"];
 
 const schema = z.object({
@@ -52,6 +52,12 @@ interface PickedFile {
   isVideo: boolean;
 }
 
+interface StatusReply {
+  body: string;
+  by: string;
+  createdAt: string;
+}
+
 interface StatusView {
   category: string;
   status: string;
@@ -59,6 +65,7 @@ interface StatusView {
   createdAt: string;
   updatedAt: string;
   resolutionCount?: number;
+  replies?: StatusReply[];
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -110,7 +117,7 @@ export default function KritikSaranPengaduanPage() {
       const isVideo = file.type.startsWith("video/");
       const max = isVideo ? MAX_VIDEO : MAX_IMAGE;
       if (file.size > max) {
-        toast.error(`${file.name}: melebihi ${isVideo ? "15MB" : "5MB"}`);
+        toast.error(`${file.name}: melebihi ${isVideo ? "50MB" : "25MB"}`);
         continue;
       }
       setFiles((prev) => [...prev, { file, preview: URL.createObjectURL(file), isVideo }]);
@@ -332,7 +339,7 @@ export default function KritikSaranPengaduanPage() {
                       <label className="text-sm font-medium flex items-center gap-1.5">
                         <Paperclip className="h-3.5 w-3.5" /> Bukti (opsional)
                       </label>
-                      <span className="text-xs text-muted-foreground">{files.length}/{MAX_FILES} · gambar ≤5MB, video ≤15MB</span>
+                      <span className="text-xs text-muted-foreground">{files.length}/{MAX_FILES} · gambar ≤25MB, video ≤50MB</span>
                     </div>
                     {files.length > 0 && (
                       <div className="grid grid-cols-3 gap-2">
@@ -445,6 +452,20 @@ export default function KritikSaranPengaduanPage() {
                   {(statusResult.resolutionCount ?? 0) > 0 && (
                     <div className="rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900/40 px-3 py-2 text-sm text-green-700 dark:text-green-300">
                       Sekolah telah mengunggah {statusResult.resolutionCount} bukti tindak lanjut untuk laporan ini.
+                    </div>
+                  )}
+                  {(statusResult.replies?.length ?? 0) > 0 && (
+                    <div className="space-y-2 pt-1">
+                      <p className="text-xs font-semibold uppercase text-muted-foreground">Balasan dari sekolah</p>
+                      {statusResult.replies!.map((rep, i) => (
+                        <div key={i} className="rounded-lg border bg-muted/40 dark:bg-zinc-800/50 p-3">
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className="text-xs font-semibold">{rep.by}</span>
+                            <span className="text-[10px] text-muted-foreground">{formatDate(rep.createdAt)}</span>
+                          </div>
+                          <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">{rep.body}</p>
+                        </div>
+                      ))}
                     </div>
                   )}
                   <p className="text-xs text-muted-foreground">

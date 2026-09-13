@@ -31,14 +31,33 @@ type SubmitContactRequest struct {
 // isi laporan pelapor. ResolutionCount memberi sinyal "sudah ditindaklanjuti
 // dengan bukti" tanpa membuka isi buktinya.
 type ContactStatusView struct {
-	Category        string    `json:"category"`
-	Status          string    `json:"status"`
-	Ticket          string    `json:"ticket"`
-	CreatedAt       time.Time `json:"createdAt"`
-	UpdatedAt       time.Time `json:"updatedAt"`
-	ResolutionCount int       `json:"resolutionCount"`
+	Category        string                  `json:"category"`
+	Status          string                  `json:"status"`
+	Ticket          string                  `json:"ticket"`
+	CreatedAt       time.Time               `json:"createdAt"`
+	UpdatedAt       time.Time               `json:"updatedAt"`
+	ResolutionCount int                     `json:"resolutionCount"`
+	Replies         []ContactStatusReplyView `json:"replies"`
 }
 
+// ContactReply balasan tindak lanjut dari admin; dibaca pelapor lewat
+// halaman cek status tiket. AuthorName untuk audit internal — tampilan
+// publik memakai label "Tim Sekolah", bukan nama asli.
+type ContactReply struct {
+	ID         string    `json:"id"`
+	MessageID  string    `json:"messageId"`
+	Body       string    `json:"body"`
+	AuthorID   *string   `json:"authorId,omitempty"`
+	AuthorName string    `json:"authorName"`
+	CreatedAt  time.Time `json:"createdAt"`
+}
+
+// ContactStatusReplyView balasan bentuk publik (lihat ContactStatusView).
+type ContactStatusReplyView struct {
+	Body      string    `json:"body"`
+	By        string    `json:"by"`
+	CreatedAt time.Time `json:"createdAt"`
+}
 // ContactAttachment lampiran pesan masuk.
 // Kind: "evidence" (dari pelapor) atau "resolution" (bukti tindak lanjut admin).
 // FileKind: "image" atau "video".

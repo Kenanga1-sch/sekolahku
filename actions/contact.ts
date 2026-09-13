@@ -18,6 +18,17 @@ export async function updateMessageStatusAction(id: string, status: string) {
   );
 }
 
+export async function getContactMessageAction(id: string) {
+  return handleAction(goGet(`/api/contact-messages/${id}`));
+}
+
+export async function addContactReplyAction(id: string, body: string) {
+  return handleAction(
+    goPost(`/api/contact-messages/${id}/replies`, { body }),
+    "Balasan terkirim"
+  );
+}
+
 export async function getContactAttachmentsAction(id: string) {
   return handleAction(goGet(`/api/contact-messages/${id}/attachments`));
 }

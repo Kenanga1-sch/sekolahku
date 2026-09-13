@@ -168,7 +168,7 @@ func (h *ContactHandler) SubmitMessage(c echo.Context) error {
 			Category: "kontak",
 			Title:    "Pesan masuk baru: " + categoryLabel,
 			Message:  preview,
-			TargetURL: StrPtr("/admin/konten-informasi"),
+			TargetURL: StrPtr("/admin/konten-informasi/pesan-detail?id=" + id),
 		}, "admin", "superadmin")
 	}
 
@@ -181,7 +181,75 @@ func (h *ContactHandler) SubmitMessage(c echo.Context) error {
 	})
 }
 
-// GetAttachments mengembalikan lampiran satu pesan (admin).
+// GetMessage mengambil satu pesan lengkap untuk halaman detail admin.
+// Membuka detail otomatis menandai pesan sudah dibaca.
+func (h *ContactHandler) GetMessage(c echo.Context) error {
+	id := c.Param("id")
+	msg, err := h.Repo.GetMessageByID(id)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+	if msg == nil {
+		return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Pesan tidak ditemukan"})
+	}
+	if !msg.IsRead {
+		_ = h.Repo.MarkAsRead(id)
+		msg.IsRead = true
+	}
+	replies, err := h.Repo.GetReplies(id)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+	attachments, err := h.Repo.GetAttachments(id)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data": map[string]interface{}{
+			"message":     msg,
+			"replies":     replies,
+			"attachments": attachments,
+		},
+	})
+}
+
+// CreateReply mencatat balasan tindak lanjut admin yang bisa dibaca
+// pelapor lewat halaman cek status tiket ("Tim Sekolah").
+func (h *ContactHandler) CreateReply(c echo.Context) error {
+	messageID := c.Param("id")
+	var req struct {
+		Body string `json:"body"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Format data tidak valid"})
+	}
+	req.Body = strings.TrimSpace(req.Body)
+	if len(req.Body) < 2 {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Isi balasan minimal 2 karakter"})
+	}
+	if len(req.Body) > 2000 {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Isi balasan maksimal 2000 karakter"})
+	}
+	msg, err := h.Repo.GetMessageByID(messageID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+	if msg == nil {
+		return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Pesan tidak ditemukan"})
+	}
+
+	userID, _ := c.Get("user_id").(string)
+	userName, _ := c.Get("user_name").(string)
+	if _, err := h.Repo.AddReply(messageID, req.Body, userID, userName); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal menyimpan balasan"})
+	}
+	// Menjawab pelapor = pesan sedang diproses.
+	if msg.Status == "baru" {
+		_ = h.Repo.UpdateStatus(messageID, "diproses")
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
+}
 func (h *ContactHandler) GetAttachments(c echo.Context) error {
 	list, err := h.Repo.GetAttachments(c.Param("id"))
 	if err != nil {

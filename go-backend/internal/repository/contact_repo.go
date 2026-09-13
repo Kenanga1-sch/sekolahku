@@ -97,6 +97,7 @@ func (r *ContactRepository) GetMessages(page, perPage int, category string) ([]m
 }
 
 // GetStatusByTicket mengambil ringkasan tiket untuk halaman cek status publik.
+// Balasan disertakan sebagai "Tim Sekolah" — nama asli admin tidak diekspos.
 func (r *ContactRepository) GetStatusByTicket(ticket string) (*models.ContactStatusView, error) {
 	var v models.ContactStatusView
 	var ca, ua int64
@@ -118,7 +119,92 @@ func (r *ContactRepository) GetStatusByTicket(ticket string) (*models.ContactSta
 	).Scan(&v.ResolutionCount); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
+
+	// Balasan tindak lanjut (publik: "Tim Sekolah").
+	rows, err := r.DB.Query(`
+		SELECT body, created_at FROM contact_replies
+		WHERE message_id = (SELECT id FROM contact_messages WHERE ticket = ?)
+		ORDER BY created_at ASC
+	`, ticket)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	v.Replies = make([]models.ContactStatusReplyView, 0)
+	for rows.Next() {
+		var rep models.ContactStatusReplyView
+		var rca int64
+		if err := rows.Scan(&rep.Body, &rca); err != nil {
+			return nil, err
+		}
+		rep.By = "Tim Sekolah"
+		rep.CreatedAt = time.UnixMilli(rca)
+		v.Replies = append(v.Replies, rep)
+	}
 	return &v, nil
+}
+
+// GetMessageByID mengambil satu pesan lengkap (untuk halaman detail admin).
+// Tidak menyertakan lampiran — ambil lewat GetAttachments.
+func (r *ContactRepository) GetMessageByID(id string) (*models.ContactMessage, error) {
+	var m models.ContactMessage
+	var ca, ua int64
+	var isRead int
+	err := r.DB.QueryRow(`
+		SELECT id, COALESCE(name,''), COALESCE(email,''), COALESCE(phone,''), COALESCE(subject,''), message,
+			COALESCE(category,'lainnya'), COALESCE(status,'baru'), COALESCE(ticket,''), is_read, created_at, COALESCE(updated_at, created_at)
+		FROM contact_messages WHERE id = ?
+	`, id).Scan(&m.ID, &m.Name, &m.Email, &m.Phone, &m.Subject, &m.Message, &m.Category, &m.Status, &m.Ticket, &isRead, &ca, &ua)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	m.IsRead = isRead == 1
+	m.CreatedAt = time.UnixMilli(ca)
+	m.UpdatedAt = time.UnixMilli(ua)
+	return &m, nil
+}
+
+// AddReply mencatat balasan tindak lanjut dari admin.
+func (r *ContactRepository) AddReply(messageID, body, authorID, authorName string) (string, error) {
+	id := cuid2.Generate()
+	_, err := r.DB.Exec(`
+		INSERT INTO contact_replies (id, message_id, body, author_id, author_name, created_at)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`, id, messageID, body, authorID, authorName, time.Now().UnixMilli())
+	return id, err
+}
+
+// GetReplies daftar balasan satu pesan (internal admin — nama asli tampil).
+func (r *ContactRepository) GetReplies(messageID string) ([]models.ContactReply, error) {
+	rows, err := r.DB.Query(`
+		SELECT id, message_id, body, COALESCE(author_id,''), COALESCE(author_name,''), created_at
+		FROM contact_replies WHERE message_id = ? ORDER BY created_at ASC
+	`, messageID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var list []models.ContactReply
+	for rows.Next() {
+		var rep models.ContactReply
+		var authorID string
+		var ca int64
+		if err := rows.Scan(&rep.ID, &rep.MessageID, &rep.Body, &authorID, &rep.AuthorName, &ca); err != nil {
+			return nil, err
+		}
+		if authorID != "" {
+			rep.AuthorID = &authorID
+		}
+		rep.CreatedAt = time.UnixMilli(ca)
+		list = append(list, rep)
+	}
+	if list == nil {
+		list = []models.ContactReply{}
+	}
+	return list, nil
 }
 
 // AddAttachment mencatat lampiran yang sudah tersimpan di disk.
