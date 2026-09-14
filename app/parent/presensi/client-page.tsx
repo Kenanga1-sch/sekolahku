@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { ChartBar, CalendarCheck, Loader2 } from "lucide-react";
 
@@ -69,6 +70,7 @@ const METHOD_LABEL: Record<string, string> = {
 };
 
 export default function PresensiClientPage() {
+  const searchParams = useSearchParams();
   const [children, setChildren] = useState<Child[]>([]);
   const [studentId, setStudentId] = useState("");
   const [summary, setSummary] = useState<Summary[]>([]);
@@ -83,7 +85,8 @@ export default function PresensiClientPage() {
         if (res.success) {
           const list = (res.data as Child[]) || [];
           setChildren(list);
-          if (list[0]?.studentId) setStudentId(list[0].studentId);
+          const preselect = searchParams.get("anak");
+          setStudentId(preselect || list[0]?.studentId || "");
         }
       } catch {
         toast.error("Gagal memuat data anak");
@@ -91,6 +94,7 @@ export default function PresensiClientPage() {
         setLoading(false);
       }
     })();
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, []);
 
   useEffect(() => {

@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { createLeaveAction, getChildrenAction, getMyLeavesAction } from "@/actions/parent";
+import { createLeaveAction, getChildrenAction, getMyLeavesAction, cancelLeaveAction } from "@/actions/parent";
 
 interface Child {
   studentId: string;
@@ -38,12 +38,14 @@ const STATUS_STYLE: Record<string, string> = {
   pending: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
   approved: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
   rejected: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+  cancelled: "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300",
 };
 
 const STATUS_LABEL: Record<string, string> = {
   pending: "Menunggu",
   approved: "Disetujui",
   rejected: "Ditolak",
+  cancelled: "Dibatalkan",
 };
 
 const formatDate = (d: string) => {
@@ -82,7 +84,7 @@ export default function IzinClientPage() {
     }
   };
 
-  useEffect(() => { fetchAll(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  useEffect(() => { fetchAll();   }, []);
 
   const canSubmit = useMemo(
     () => studentId && startDate && endDate && reason.trim().length >= 5 && !submitting,
@@ -213,6 +215,25 @@ export default function IzinClientPage() {
                 </p>
                 <p className="text-sm">{l.reason}</p>
                 {l.reviewNote && <p className="text-xs text-muted-foreground italic">Catatan sekolah: {l.reviewNote}</p>}
+                {l.status === "pending" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-1 h-7 text-xs text-destructive hover:text-destructive"
+                    onClick={async () => {
+                      if (!confirm("Batalkan pengajuan ini?")) return;
+                      const res = await cancelLeaveAction(l.id);
+                      if (res.success) {
+                        toast.success("Pengajuan dibatalkan");
+                        setLeaves((prev) => prev.map((x) => x.id === l.id ? { ...x, status: "cancelled" } : x));
+                      } else {
+                        toast.error(res.error || "Gagal membatalkan");
+                      }
+                    }}
+                  >
+                    Batalkan
+                  </Button>
+                )}
               </div>
             ))
           )}

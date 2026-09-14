@@ -228,7 +228,6 @@ export function NotificationPopover({ className }: { className?: string }) {
             className="w-full justify-between h-auto py-2 text-xs"
             asChild
           >
-            {/* Ideally link to a full notification center page, but for now just a link */}
             <Link href="/admin/notifikasi" onClick={() => setIsOpen(false)}>
               Lihat Semua
               <Check className="h-3 w-3" />

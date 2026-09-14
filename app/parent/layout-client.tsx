@@ -1,16 +1,18 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, CalendarPlus, CalendarCheck, Bell, User, LogOut } from "lucide-react";
+import { Home, CalendarPlus, CalendarCheck, Wallet, Bell, User, LogOut } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { cn } from "@/lib/utils";
+import { goGet } from "@/lib/api-client";
 
 const NAV = [
   { href: "/parent", label: "Beranda", icon: Home },
   { href: "/parent/presensi", label: "Presensi", icon: CalendarCheck },
+  { href: "/parent/tabungan", label: "Tabungan", icon: Wallet },
   { href: "/parent/izin", label: "Izin/Sakit", icon: CalendarPlus },
   { href: "/parent/notifikasi", label: "Notifikasi", icon: Bell },
   { href: "/parent/profil", label: "Profil", icon: User },
@@ -20,13 +22,28 @@ export default function ParentLayoutClient({ children }: { children: React.React
   const { user, logout, isLoading } = useAuthStore();
   const pathname = usePathname();
   const router = useRouter();
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  // Portal ini khusus orang tua — role lain dialihkan ke dashboard staf.
   useEffect(() => {
     if (!isLoading && user && user.role && user.role !== "orangtua") {
       router.replace("/overview");
     }
   }, [user, isLoading, router]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchUnread = async () => {
+      try {
+        const data = await goGet<{ unreadCount: number }>("/api/notifications/stats");
+        if (!cancelled) setUnreadCount(data.unreadCount);
+      } catch {
+        if (!cancelled) setUnreadCount(0);
+      }
+    };
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 30000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, []);
 
   return (
     <div className="min-h-[100dvh] bg-muted/30 flex flex-col">
@@ -37,6 +54,17 @@ export default function ParentLayoutClient({ children }: { children: React.React
           </Link>
           <div className="flex items-center gap-1">
             <ThemeToggle />
+            <Link
+              href="/parent/notifikasi"
+              className="relative inline-flex items-center justify-center h-9 w-9 rounded-md text-muted-foreground hover:bg-muted"
+            >
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </Link>
             <button
               onClick={logout}
               className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted"
@@ -52,7 +80,7 @@ export default function ParentLayoutClient({ children }: { children: React.React
 
       {/* Navigasi bawah khusus mobile */}
       <nav className="fixed bottom-0 inset-x-0 z-30 border-t bg-background/95 backdrop-blur sm:hidden">
-        <div className="mx-auto max-w-2xl grid grid-cols-5">
+        <div className="mx-auto max-w-2xl grid grid-cols-6">
           {NAV.map((item) => {
             const active = pathname === item.href;
             const Icon = item.icon;

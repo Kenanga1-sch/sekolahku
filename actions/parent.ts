@@ -2,7 +2,7 @@
  * Portal Orang Tua & pengajuan izin/sakit.
  */
 
-import { goGet, goPost, goDelete } from "@/lib/api-client";
+import { goGet, goPost, goDelete, goPatch } from "@/lib/api-client";
 import { handleAction } from "@/lib/action-utils";
 
 // ===== Publik (pendaftaran akun) =====
@@ -69,4 +69,14 @@ export async function linkParentAction(studentId: string, phone: string, relatio
 
 export async function unlinkParentAction(studentId: string, userId: string) {
   return handleAction(goDelete(`/api/master/students/${studentId}/parents/${userId}`), "Tautan dilepas");
+}
+
+// ===== Tabungan anak (portal ortu) =====
+export async function getChildSavingsAction(studentId: string) {
+  return handleAction(goGet(`/api/parent/savings/${encodeURIComponent(studentId)}`));
+}
+
+// ===== Batalkan izin =====
+export async function cancelLeaveAction(leaveId: string) {
+  return handleAction(goDelete(`/api/parent/leave-requests/${encodeURIComponent(leaveId)}`), "Pengajuan dibatalkan");
 }

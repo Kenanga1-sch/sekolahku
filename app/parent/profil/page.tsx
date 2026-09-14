@@ -24,6 +24,7 @@ export default function ParentProfilPage() {
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
 
   useEffect(() => {
@@ -45,13 +46,23 @@ export default function ParentProfilPage() {
     setSaving(true);
     try {
       const payload: Record<string, string> = { name, phone };
-      if (newPassword) payload.password = newPassword;
+      if (newPassword) {
+        if (!oldPassword) {
+          toast.error("Password lama wajib diisi untuk mengubah password");
+          setSaving(false);
+          return;
+        }
+        payload.oldPassword = oldPassword;
+        payload.password = newPassword;
+        payload.passwordConfirm = newPassword;
+      }
       const res = await goPatch<{ success?: boolean }>("/api/profile", payload);
       if (res?.success === false) {
         toast.error("Gagal menyimpan profil");
       } else {
         toast.success("Profil tersimpan");
         setNewPassword("");
+        setOldPassword("");
       }
     } catch (err: any) {
       toast.error(err?.message || "Gagal menyimpan profil");
@@ -90,6 +101,15 @@ export default function ParentProfilPage() {
           <div className="space-y-1.5">
             <Label>Nomor HP (username)</Label>
             <Input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="tel" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Password Lama</Label>
+            <Input
+              type="password"
+              value={oldPassword}
+              onChange={(e) => setOldPassword(e.target.value)}
+              placeholder="Wajib diisi bila mengubah password"
+            />
           </div>
           <div className="space-y-1.5">
             <Label>Password Baru (opsional)</Label>

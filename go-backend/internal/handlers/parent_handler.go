@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"net/http"
 	"regexp"
 	"strings"
@@ -172,7 +173,7 @@ func (h *ParentHandler) CreateLeave(c echo.Context) error {
 		fullName, className, _ := h.Repo.GetStudentBrief(req.StudentID)
 		_ = h.Notifications.NotifyRoles(models.Notification{
 			Type:      "info",
-			Category:  "presensi",
+			Category:  "absensi",
 			Title:     "Pengajuan " + req.Type + " baru",
 			Message:   fullName + " (" + className + ") mengajukan " + req.Type + " pada " + req.StartDate + ".",
 			TargetURL: StrPtr("/presensi/pengajuan"),
@@ -190,6 +191,26 @@ func (h *ParentHandler) GetMyLeaves(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": list})
+}
+
+// CancelLeave membatalkan pengajuan izin/sakit milik orang tua (hanya jika status pending).
+func (h *ParentHandler) CancelLeave(c echo.Context) error {
+	userID, _ := c.Get("user_id").(string)
+	id := c.Param("id")
+	lr, err := h.Repo.GetLeaveByID(id)
+	if err != nil || lr == nil {
+		return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Pengajuan tidak ditemukan"})
+	}
+	if lr.ParentUserID != userID {
+		return c.JSON(http.StatusForbidden, map[string]interface{}{"success": false, "error": "Bukan pengajuan Anda"})
+	}
+	if lr.Status != "pending" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Hanya pengajuan berstatus menunggu yang dapat dibatalkan"})
+	}
+	if err := h.Repo.UpdateLeaveStatus(id, "cancelled", userID, "Dibatalkan oleh orang tua"); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal membatalkan pengajuan"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
 
 // ============ Preferensi notifikasi ============
@@ -304,7 +325,7 @@ func (h *ParentHandler) ReviewLeave(c echo.Context) error {
 		}
 	}
 
-	// Kabari orang tua + kirim push.
+	// Kabari orang tua + kirim push (hormati preferensi kategori absensi).
 	if h.Notifications != nil {
 		label := "disetujui"
 		nType := "success"
@@ -312,25 +333,100 @@ func (h *ParentHandler) ReviewLeave(c echo.Context) error {
 			label = "ditolak"
 			nType = "warning"
 		}
-		_ = h.Notifications.CreateNotification(models.Notification{
-			UserID:    &lr.ParentUserID,
-			Type:      nType,
-			Category:  "presensi",
-			Title:     "Pengajuan " + lr.Type + " " + label,
-			Message:   "Pengajuan " + lr.Type + " untuk " + lr.StudentName + " (" + lr.StartDate + ") telah " + label + ".",
-			TargetURL: StrPtr("/parent"),
-		})
-		if h.Push != nil {
-			h.Push.SendToUser(lr.ParentUserID, models.PushPayload{
-				Title: "Pengajuan " + lr.Type + " " + label,
-				Body:  "Untuk " + lr.StudentName + " (" + lr.StartDate + ").",
-				URL:   "/parent/izin",
-				Tag:   "leave-" + lr.ID,
+		// Cek preferensi ortu sebelum kirim.
+		sendNotif := true
+		if h.Prefs != nil {
+			sendNotif = len(h.Prefs.FilterEnabled([]string{lr.ParentUserID}, "absensi")) > 0
+		}
+		if sendNotif {
+			_ = h.Notifications.CreateNotification(models.Notification{
+				UserID:    &lr.ParentUserID,
+				Type:      nType,
+				Category:  "absensi",
+				Title:     "Pengajuan " + lr.Type + " " + label,
+				Message:   "Pengajuan " + lr.Type + " untuk " + lr.StudentName + " (" + lr.StartDate + ") telah " + label + ".",
+				TargetURL: StrPtr("/parent"),
 			})
+			if h.Push != nil {
+				h.Push.SendToUser(lr.ParentUserID, models.PushPayload{
+					Title: "Pengajuan " + lr.Type + " " + label,
+					Body:  "Untuk " + lr.StudentName + " (" + lr.StartDate + ").",
+					URL:   "/parent/izin",
+					Tag:   "leave-" + lr.ID,
+				})
+			}
 		}
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
+}
+
+// ============ Tabungan anak (portal ortu) ============
+
+// GetChildSavings mengembalikan saldo + riwayat transaksi tabungan anak.
+func (h *ParentHandler) GetChildSavings(c echo.Context) error {
+	userID, _ := c.Get("user_id").(string)
+	studentID := strings.TrimSpace(c.Param("studentId"))
+	if studentID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "studentId wajib diisi"})
+	}
+	ok, err := h.Repo.IsParentOf(userID, studentID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+	if !ok {
+		return c.JSON(http.StatusForbidden, map[string]interface{}{"success": false, "error": "Siswa bukan anak Anda"})
+	}
+
+	// Ambil saldo.
+	var balance int
+	_ = h.Repo.DB.QueryRow(`SELECT COALESCE(saldo_terakhir, 0) FROM tabungan_siswa WHERE student_id = ?`, studentID).Scan(&balance)
+
+	// Ambil 20 transaksi terakhir.
+	rows, err := h.Repo.DB.Query(`
+		SELECT t.id, t.tipe, t.nominal, t.status, t.catatan, t.created_at
+		FROM tabungan_transaksi t
+		WHERE t.siswa_id = ? AND t.status = 'verified'
+		ORDER BY t.created_at DESC
+		LIMIT 20
+	`, studentID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+	defer rows.Close()
+
+	type txItem struct {
+		ID        string `json:"id"`
+		Tipe      string `json:"tipe"`
+		Nominal   int    `json:"nominal"`
+		Status    string `json:"status"`
+		Catatan   string `json:"catatan"`
+		CreatedAt int64  `json:"createdAt"`
+	}
+	txList := make([]txItem, 0)
+	for rows.Next() {
+		var t txItem
+		var cat sql.NullString
+		var crAt sql.NullInt64
+		if err := rows.Scan(&t.ID, &t.Tipe, &t.Nominal, &t.Status, &cat, &crAt); err != nil {
+			continue
+		}
+		if cat.Valid {
+			t.Catatan = cat.String
+		}
+		if crAt.Valid {
+			t.CreatedAt = crAt.Int64
+		}
+		txList = append(txList, t)
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data": map[string]interface{}{
+			"balance":      balance,
+			"transactions": txList,
+		},
+	})
 }
 
 // ============ Tautan anak (admin) ============
