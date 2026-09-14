@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { SkipToContent } from "@/components/accessibility";
 import { ZXingConfig } from "@/components/zxing-config";
 import { UpdateBanner } from "@/components/update-banner";
+import { PwaBannerClient } from "@/components/pwa-banner-client";
 import "./globals.css";
 
 const SITE_URL = "https://sdn1kenanga.sch.id";
@@ -203,6 +204,7 @@ export default function RootLayout({
             <Toaster />
           </ThemeProvider>
           <UpdateBanner />
+          <PwaBannerClient />
         <script
           dangerouslySetInnerHTML={{
             __html: `
