@@ -36,18 +36,22 @@ export function usePwaInstall() {
       window.matchMedia("(display-mode: standalone)").matches ||
       (window.navigator as any).standalone === true;
     setIsInstalled(standalone);
+    if (standalone) console.log("[PWA] Already installed (standalone mode)");
 
     // iOS tidak mengirim beforeinstallprompt.
     const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
       (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
     setIsIOS(ios);
+    if (ios) console.log("[PWA] iOS detected — manual install only");
 
     const handler = (e: BeforeInstallPromptEvent) => {
       e.preventDefault();
       setDeferredPrompt(e);
+      console.log("[PWA] beforeinstallprompt fired — install available");
     };
 
     window.addEventListener("beforeinstallprompt", handler);
+    console.log("[PWA] Listening for beforeinstallprompt...");
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 

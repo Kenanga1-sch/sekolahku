@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Home, CalendarPlus, CalendarCheck, Wallet, Bell, User, LogOut } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { PwaInstallButton } from "@/components/pwa-install-button";
 import { cn } from "@/lib/utils";
 import { goGet } from "@/lib/api-client";
 
@@ -53,6 +54,7 @@ export default function ParentLayoutClient({ children }: { children: React.React
             Portal Orang Tua
           </Link>
           <div className="flex items-center gap-1">
+            <PwaInstallButton />
             <ThemeToggle />
             <Link
               href="/parent/notifikasi"

@@ -46,6 +46,7 @@ import { Sidebar, SidebarBody, SidebarLink, useSidebar } from "@/components/ui/s
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { Button } from "@/components/ui/button";
+import { PwaInstallButton } from "@/components/pwa-install-button";
 import dynamic from "next/dynamic";
 const NotificationPopover = dynamic(
   () => import("@/components/notification-popover").then((mod) => mod.NotificationPopover),
@@ -452,6 +453,11 @@ export default function DashboardLayoutClient({
 
             {/* Right: Actions */}
             <div className="flex items-center gap-1 sm:gap-3 md:gap-4 ml-auto">
+             {/* Install PWA */}
+             <div className="hidden sm:flex items-center justify-center min-w-[44px] min-h-[44px]">
+                <PwaInstallButton />
+             </div>
+
              {/* Theme Toggle */}
              <div className="flex items-center justify-center min-w-[44px] min-h-[44px]">
                 <ThemeToggle />

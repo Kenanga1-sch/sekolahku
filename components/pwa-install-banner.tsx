@@ -29,8 +29,8 @@ export function PwaInstallBanner() {
     const raw = localStorage.getItem(DISMISSED_KEY);
     if (raw) {
       const ts = Number(raw);
-      // Tampilkan lagi setelah 7 hari.
-      if (Date.now() - ts < 7 * 24 * 60 * 60 * 1000) {
+      // Tampilkan lagi setelah 1 hari.
+      if (Date.now() - ts < 24 * 60 * 60 * 1000) {
         return;
       }
     }
@@ -38,10 +38,20 @@ export function PwaInstallBanner() {
   }, []);
 
   // Jangan tampilkan jika: belum mounted, sudah ter-install, atau sudah ditutup.
-  if (!mounted || isInstalled || dismissed) return null;
+  if (!mounted || isInstalled || dismissed) {
+    if (typeof window !== "undefined") {
+      if (isInstalled) console.log("[PWA-Banner] Hidden: already installed");
+      if (dismissed) console.log("[PWA-Banner] Hidden: dismissed in localStorage");
+      if (!mounted) console.log("[PWA-Banner] Hidden: not mounted yet");
+    }
+    return null;
+  }
 
   // Tidak tampilkan jika bukan Android installable dan bukan iOS.
-  if (!canInstall && !isIOS) return null;
+  if (!canInstall && !isIOS) {
+    console.log("[PWA-Banner] Hidden: no beforeinstallprompt, not iOS");
+    return null;
+  }
 
   const handleInstall = async () => {
     if (canInstall) {
