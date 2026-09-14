@@ -39,6 +39,8 @@ import { goGet, goPatch, goPost } from "@/lib/api-client";
 import { compressImage } from "@/lib/utils";
 import { toast } from "sonner";
 import { PwaInstallButton } from "@/components/pwa-install-button";
+import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import { siteConfig } from "@/lib/config";
 import TabSekolah from "./tab-sekolah";
 import TabUsers from "./tab-users";
 import TabSystemLogs from "./tab-system-logs";
@@ -47,6 +49,7 @@ import TabBackup from "./tab-backup";
 export default function ProfilePage() {
     const router = useRouter();
     const { user, isAuthenticated, isLoading: authLoading, refreshSession } = useAuthStore();
+    const { settings } = useSchoolSettings();
     const [isProfileLoading, setIsProfileLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -629,7 +632,7 @@ export default function ProfilePage() {
                                         Aplikasi
                                     </CardTitle>
                                     <CardDescription className="text-xs">
-                                        Pasang SDN 1 Kenanga sebagai aplikasi di perangkat Anda.
+                                        Pasang {settings?.school_name || siteConfig.school.shortName} sebagai aplikasi di perangkat Anda.
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent>

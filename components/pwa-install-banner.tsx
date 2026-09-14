@@ -5,6 +5,8 @@ import { X, Download, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { usePwaInstall } from "@/lib/hooks/use-pwa-install";
+import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import { siteConfig } from "@/lib/config";
 
 const DISMISSED_KEY = "pwa-install-dismissed";
 
@@ -18,6 +20,7 @@ const DISMISSED_KEY = "pwa-install-dismissed";
  */
 export function PwaInstallBanner() {
   const { canInstall, isInstalled, isIOS, promptInstall } = usePwaInstall();
+  const { settings } = useSchoolSettings();
   const [dismissed, setDismissed] = useState(true); // default hidden
   const [mounted, setMounted] = useState(false);
 
@@ -89,7 +92,7 @@ export function PwaInstallBanner() {
         </div>
 
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold">Pasang SDN 1 Kenanga</p>
+          <p className="text-sm font-semibold">Pasang {settings?.school_name || siteConfig.school.shortName}</p>
           {canInstall ? (
             <p className="text-xs text-muted-foreground mt-0.5">
               Akses cepat dari layar utama. Ketuk &quot;Pasang&quot; untuk menginstal aplikasi.

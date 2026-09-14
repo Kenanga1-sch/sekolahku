@@ -697,6 +697,8 @@ func RepairDatabase(db *sql.DB, logger echo.Logger) {
 		{Table: "school_settings", Name: "school_history_achievements", SQLType: "TEXT"},
 		{Table: "school_settings", Name: "school_curriculum", SQLType: "TEXT"},
 		{Table: "school_settings", Name: "school_extracurriculars", SQLType: "TEXT"},
+		{Table: "school_settings", Name: "governance_name", SQLType: "TEXT"},
+		{Table: "school_settings", Name: "department_name", SQLType: "TEXT"},
 		{Table: "school_settings", Name: "landing_tagline", SQLType: "TEXT"},
 		{Table: "school_settings", Name: "landing_description", SQLType: "TEXT"},
 		{Table: "school_settings", Name: "landing_texts", SQLType: "TEXT"},

@@ -29,6 +29,8 @@ interface HomepageData {
     school_address?: string;
     current_academic_year?: string;
     spmb_is_open?: boolean;
+    landing_tagline?: string;
+    landing_description?: string;
   };
   news?: Array<{
     id: string;
@@ -113,7 +115,7 @@ export default function PublicHomepage() {
 
             <Reveal delay={0.16}>
               <p className="text-lg md:text-xl text-[#4b6b4b] leading-relaxed max-w-[55ch]">
-                Membangun generasi cerdas dan berkarakter melalui pendidikan berkualitas yang terintegrasi teknologi.
+                {data?.settings?.landing_description || "Membangun generasi cerdas dan berkarakter melalui pendidikan berkualitas yang terintegrasi teknologi."}
               </p>
             </Reveal>
 

@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
+import { siteConfig } from "@/lib/config";
 
 export const metadata: Metadata = {
   title: "Layanan Tabungan Siswa — Cek Saldo & Rekening Koran",
   description:
-    "Layanan tabungan siswa SDN 1 Kenanga Sindang, Indramayu: cek saldo tabungan kelas dan cetak rekening koran siswa.",
+    `Layanan tabungan siswa ${siteConfig.school.shortName} Sindang, Indramayu: cek saldo tabungan kelas dan cetak rekening koran siswa.`,
   alternates: { canonical: "/layanan/tabungan" },
   openGraph: {
     title: "Layanan Tabungan Siswa — Cek Saldo & Rekening Koran",
     description:
-      "Cek saldo tabungan kelas dan cetak rekening koran siswa SDN 1 Kenanga Sindang, Indramayu.",
+      `Cek saldo tabungan kelas dan cetak rekening koran siswa ${siteConfig.school.shortName} Sindang, Indramayu.`,
     url: "/layanan/tabungan",
   },
 };

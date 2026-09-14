@@ -32,6 +32,8 @@ type SchoolSettings struct {
 	SchoolHistoryAchievements *string    `json:"school_history_achievements"`
 	SchoolCurriculum          *string    `json:"school_curriculum"`
 	SchoolExtracurriculars    *string    `json:"school_extracurriculars"`
+	GovernanceName            *string    `json:"governance_name"`
+	DepartmentName            *string    `json:"department_name"`
 	LandingTagline            *string    `json:"landing_tagline"`
 	LandingDescription        *string    `json:"landing_description"`
 	LandingTexts              *string    `json:"landing_texts"`

@@ -36,6 +36,7 @@ func (r *SettingRepository) GetSettings() (*models.SchoolSettings, error) {
 		       school_vision, school_mission, school_indicators,
 		       school_history_timeline, school_history_achievements,
 		       school_curriculum, school_extracurriculars,
+		       governance_name, department_name,
 		       landing_tagline, landing_description, landing_texts, landing_sections,
 		       created_at, updated_at
 		FROM school_settings 
@@ -45,7 +46,7 @@ func (r *SettingRepository) GetSettings() (*models.SchoolSettings, error) {
 	var npsn, addr, phone, email, web, logo, pName, pNip, stamp, sName, sNip, treasurerId sql.NullString
 	var vision, mission, indicators sql.NullString
 	var historyTimeline, historyAchievements sql.NullString
-	var curriculum, extras sql.NullString
+	var curriculum, extras, govName, deptName sql.NullString
 	var landingTagline, landingDesc, landingTexts, landingSections sql.NullString
 	var lat, lng, dist sql.NullFloat64
 	var crAt, upAt sql.NullInt64
@@ -58,6 +59,7 @@ func (r *SettingRepository) GetSettings() (*models.SchoolSettings, error) {
 		&s.IsMaintenance, &s.LastLetterNumber, &s.LetterNumberFormat, &treasurerId,
 		&vision, &mission, &indicators, &historyTimeline, &historyAchievements,
 		&curriculum, &extras,
+		&govName, &deptName,
 		&landingTagline, &landingDesc, &landingTexts, &landingSections,
 		&crAt, &upAt,
 	)
@@ -140,6 +142,12 @@ func (r *SettingRepository) GetSettings() (*models.SchoolSettings, error) {
 	}
 	if extras.Valid {
 		s.SchoolExtracurriculars = &extras.String
+	}
+	if govName.Valid {
+		s.GovernanceName = &govName.String
+	}
+	if deptName.Valid {
+		s.DepartmentName = &deptName.String
 	}
 	if landingTagline.Valid {
 		s.LandingTagline = &landingTagline.String
@@ -246,6 +254,12 @@ func mergeSchoolSettingsPatch(next *models.SchoolSettings, existing *models.Scho
 	if next.SchoolExtracurriculars == nil {
 		next.SchoolExtracurriculars = existing.SchoolExtracurriculars
 	}
+	if next.GovernanceName == nil {
+		next.GovernanceName = existing.GovernanceName
+	}
+	if next.DepartmentName == nil {
+		next.DepartmentName = existing.DepartmentName
+	}
 	if next.LandingTagline == nil {
 		next.LandingTagline = existing.LandingTagline
 	}
@@ -285,9 +299,10 @@ func (r *SettingRepository) UpdateSettings(s models.SchoolSettings) (*models.Sch
 				school_vision, school_mission, school_indicators,
 				school_history_timeline, school_history_achievements,
 				school_curriculum, school_extracurriculars,
+				governance_name, department_name,
 				landing_tagline, landing_description, landing_texts, landing_sections,
 				created_at, updated_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`, s.ID, s.SchoolName, s.SchoolNPSN, s.SchoolAddress, s.SchoolPhone, s.SchoolEmail,
 			s.SchoolWebsite, s.SchoolLogo, s.SchoolLat, s.SchoolLng, s.MaxDistanceKM,
 			s.SPMBIsOpen, s.CurrentAcademicYear, s.PrincipalName, s.PrincipalNIP, s.SchoolStamp,
@@ -296,6 +311,7 @@ func (r *SettingRepository) UpdateSettings(s models.SchoolSettings) (*models.Sch
 			s.SchoolVision, s.SchoolMission, s.SchoolIndicators,
 			s.SchoolHistoryTimeline, s.SchoolHistoryAchievements,
 			s.SchoolCurriculum, s.SchoolExtracurriculars,
+			s.GovernanceName, s.DepartmentName,
 			s.LandingTagline, s.LandingDescription, s.LandingTexts, s.LandingSections,
 			now, now)
 	} else {
@@ -322,6 +338,7 @@ func (r *SettingRepository) UpdateSettings(s models.SchoolSettings) (*models.Sch
 				school_vision=?, school_mission=?, school_indicators=?,
 				school_history_timeline=?, school_history_achievements=?,
 				school_curriculum=?, school_extracurriculars=?,
+				governance_name=?, department_name=?,
 				landing_tagline=?, landing_description=?, landing_texts=?, landing_sections=?,
 				updated_at=?
 			WHERE id=?
@@ -333,6 +350,7 @@ func (r *SettingRepository) UpdateSettings(s models.SchoolSettings) (*models.Sch
 			s.SchoolVision, s.SchoolMission, s.SchoolIndicators,
 			s.SchoolHistoryTimeline, s.SchoolHistoryAchievements,
 			s.SchoolCurriculum, s.SchoolExtracurriculars,
+			s.GovernanceName, s.DepartmentName,
 			s.LandingTagline, s.LandingDescription, s.LandingTexts, s.LandingSections,
 			now, existingID)
 	}

@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
+import { siteConfig } from "@/lib/config";
 
 export const metadata: Metadata = {
   title: "Lacak Status Pendaftaran Siswa — SPMB",
   description:
-    "Cek status pendaftaran siswa baru (SPMB) SDN 1 Kenanga Sindang, Indramayu: menunggu verifikasi, terverifikasi, diterima, atau ditolak.",
+    `Cek status pendaftaran siswa baru (SPMB) ${siteConfig.school.shortName} Sindang, Indramayu: menunggu verifikasi, terverifikasi, diterima, atau ditolak.`,
   alternates: { canonical: "/spmb/tracking" },
   openGraph: {
     title: "Lacak Status Pendaftaran Siswa — SPMB",
     description:
-      "Cek status pendaftaran siswa baru (SPMB) SDN 1 Kenanga Sindang, Indramayu dengan nomor registrasi.",
+      `Cek status pendaftaran siswa baru (SPMB) ${siteConfig.school.shortName} Sindang, Indramayu dengan nomor registrasi.`,
     url: "/spmb/tracking",
   },
 };

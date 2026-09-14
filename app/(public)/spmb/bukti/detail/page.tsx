@@ -14,6 +14,7 @@ import Image from "next/image";
 import { QRCodeSVG } from "qrcode.react";
 import { DownloadPdfButton } from "@/components/spmb/download-pdf-button";
 import { getSchoolLogo } from "@/lib/school-logo";
+import { siteConfig } from "@/lib/config";
 
 type DocumentItem = {
   path: string;
@@ -101,10 +102,10 @@ function ProofContent() {
   const photoUrl = photoDoc?.path ? absoluteUrl(photoDoc.path) : "";
   const verificationUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/spmb/verify/detail?id=${registrant.registrationNumber}`;
   const committeeName = activePeriod?.committeeName || activePeriod?.committee_name || "Panitia SPMB";
-  const schoolName = settings?.school_name || "UPTD SDN 1 KENANGA";
-  const schoolNPSN = settings?.school_npsn || "20216609";
-  const schoolAddress = settings?.school_address || "Jl. Perindustrian Blok Dukuh Desa Kenanga Kec. Sindang Kab. Indramayu 45226";
-  const schoolEmail = settings?.school_email || "uptdsdn1kenangasindang@gmail.com";
+  const schoolName = settings?.school_name || siteConfig.school.name;
+  const schoolNPSN = settings?.school_npsn || siteConfig.school.npsn;
+  const schoolAddress = settings?.school_address || siteConfig.school.address;
+  const schoolEmail = settings?.school_email || siteConfig.school.email;
   const schoolLogo = getSchoolLogo(settings?.school_logo);
   const fullAddress = registrant.address || [
     registrant.addressStreet,
@@ -147,10 +148,10 @@ function ProofContent() {
 
                     <div className="text-center text-black mx-auto w-[80%]">
                         <h3 className="font-bold text-[14pt] leading-tight tracking-wide" style={{ fontFamily: '"Times New Roman", Times, serif' }}>
-                            PEMERINTAH KABUPATEN INDRAMAYU
+                            {settings?.governance_name || "PEMERINTAH KABUPATEN INDRAMAYU"}
                         </h3>
                         <h3 className="font-bold text-[14pt] leading-tight tracking-wide mb-1" style={{ fontFamily: '"Times New Roman", Times, serif' }}>
-                            DINAS PENDIDIKAN DAN KEBUDAYAAN
+                            {settings?.department_name || "DINAS PENDIDIKAN DAN KEBUDAYAAN"}
                         </h3>
                         <h1 className="font-bold text-[18pt] leading-tight my-1 text-blue-700 uppercase" style={{ fontFamily: '"Bookman Old Style", "URW Bookman L", serif' }}>
                             {schoolName}
@@ -182,7 +183,7 @@ function ProofContent() {
                      <div className="mb-8 px-4">
                         <div className="bg-blue-50 border border-blue-200 p-6 rounded-lg text-justify leading-relaxed text-slate-950">
                             <p className="mb-4">
-                                Berdasarkan hasil seleksi administrasi dan akademik Penerimaan Peserta Didik Baru (PPDB) Tahun Pelajaran {new Date().getFullYear()}/{new Date().getFullYear() + 1}, Kepala Sekolah UPTD SDN 1 Kenanga dengan ini memutuskan bahwa:
+                                Berdasarkan hasil seleksi administrasi dan akademik Penerimaan Peserta Didik Baru (PPDB) Tahun Pelajaran {new Date().getFullYear()}/{new Date().getFullYear() + 1}, Kepala Sekolah {schoolName} dengan ini memutuskan bahwa:
                             </p>
                         </div>
                      </div>
@@ -290,7 +291,7 @@ function ProofContent() {
                              Dinyatakan: <span className="text-xl uppercase border-b-2 border-green-600 text-green-700">DITERIMA / LULUS SELEKSI</span>
                         </p>
                         <p className="mt-2 text-sm italic text-slate-700">
-                            Sebagai Peserta Didik Baru Kelas 1 di UPTD SDN 1 Kenanga.
+                             Sebagai Peserta Didik Baru Kelas 1 di {schoolName}.
                         </p>
                     </div>
                 )}
@@ -310,7 +311,7 @@ function ProofContent() {
                          Printed: {format(new Date(), "dd/MM/yyyy HH:mm")}
                     </div>
                     <div className="text-center w-64">
-                        <p className="mb-2 text-[11pt]">Indramayu, {format(createdAt, "dd MMMM yyyy", { locale: idLocale })}</p>
+                     <p className="mb-2 text-[11pt]">{settings?.school_city || "Indramayu"}, {format(createdAt, "dd MMMM yyyy", { locale: idLocale })}</p>
                         <p className="text-[10pt] font-semibold text-slate-700">Panitia SPMB,</p>
                         <div className="h-20"></div> 
                         <div className="border-b border-black w-48 mx-auto mb-1"></div>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { goGet } from "@/lib/api-client";
 import { useSchoolSettings } from "@/lib/hooks/use-settings";
+import { siteConfig } from "@/lib/config";
 import { formatDate } from "@/lib/utils";
 import { sanitizeHTML } from "@/lib/security";
 import Image from "next/image";
@@ -83,12 +84,12 @@ export default function CetakSuratUmumPage() {
               {s?.departmentName || "DINAS PENDIDIKAN DAN KEBUDAYAAN"}
             </div>
             <div className="text-xl font-bold uppercase tracking-wider mt-1">
-              {settings?.school_name || "UPTD SDN 1 KENANGA"}
+              {settings?.school_name || siteConfig.school.name}
             </div>
             <div className="text-sm mt-1">
-              {settings?.school_address || "Jl. Perindustrian Blok Dukuh, Desa Kenanga, Kec. Sindang, Kab. Indramayu 45226"}
+              {settings?.school_address || siteConfig.school.address}
               <br />
-              Email: {settings?.school_email || "sdn1kenanga@gmail.com"} | Telp: {settings?.school_phone || "-"}
+              Email: {settings?.school_email || siteConfig.school.email} | Telp: {settings?.school_phone || "-"}
             </div>
           </div>
           <div className="w-[80px] h-[80px] relative">

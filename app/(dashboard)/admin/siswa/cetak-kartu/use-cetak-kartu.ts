@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import { siteConfig } from "@/lib/config";
 import { getSchoolLogo } from "@/lib/school-logo";
 import { goPost } from "@/lib/api-client";
 import { showError } from "@/lib/toast";
@@ -111,7 +112,7 @@ export function useCetakKartu() {
 
   const handlePrint = () => window.print();
 
-  const schoolName = settings?.school_name || "UPTD SDN 1 KENANGA";
+  const schoolName = settings?.school_name || siteConfig.school.name;
   const schoolAddress = settings?.school_address || "Jl. Pendidikan No. 1";
   const schoolLogo = getSchoolLogo(settings?.school_logo);
 

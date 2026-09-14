@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { goGet } from "@/lib/api-client";
 import { normalizePublicPath } from "@/lib/utils";
 import { Reveal } from "@/components/public/motion";
+import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import { siteConfig } from "@/lib/config";
 
 interface NewsItem {
   id: string;
@@ -33,6 +35,9 @@ function formatDate(iso?: string | null): string {
 }
 
 export default function BeritaPage() {
+  const { settings } = useSchoolSettings();
+  const schoolName = settings?.school_name || siteConfig.school.name;
+  const schoolAddress = settings?.school_address || siteConfig.school.address;
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -77,7 +82,7 @@ export default function BeritaPage() {
             Berita &amp; Pengumuman
           </h1>
           <p className="mt-3 text-[#4b6b4b]">
-            Informasi terbaru dari UPTD SDN 1 Kenanga Sindang, Indramayu.
+            Informasi terbaru dari {schoolName} {schoolAddress ? schoolAddress.split(",").slice(-2).join(",").trim() : ""}.
           </p>
         </header>
 

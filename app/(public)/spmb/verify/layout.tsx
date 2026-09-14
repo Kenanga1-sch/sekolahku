@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
+import { siteConfig } from "@/lib/config";
 
 export const metadata: Metadata = {
   title: "Verifikasi Berkas SPMB",
   description:
-    "Verifikasi kelengkapan berkas pendaftaran siswa baru (SPMB) UPTD SDN 1 Kenanga Sindang, Indramayu.",
+    `Verifikasi kelengkapan berkas pendaftaran siswa baru (SPMB) ${siteConfig.school.name} Sindang, Indramayu.`,
   alternates: { canonical: "/spmb/verify" },
   openGraph: {
     title: "Verifikasi Berkas SPMB",
     description:
-      "Verifikasi kelengkapan berkas pendaftaran siswa baru SDN 1 Kenanga.",
+      `Verifikasi kelengkapan berkas pendaftaran siswa baru ${siteConfig.school.shortName}.`,
     url: "/spmb/verify",
   },
 };

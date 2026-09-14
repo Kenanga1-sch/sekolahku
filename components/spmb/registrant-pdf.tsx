@@ -2,6 +2,7 @@
 import { Document, Page, Text, View, StyleSheet, Image, Font } from '@react-pdf/renderer';
 import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
+import { siteConfig } from '@/lib/config';
 
 // Create styles
 const styles = StyleSheet.create({
@@ -281,11 +282,14 @@ type RegistrantData = {
 export const RegistrantDocument = ({ data }: { data: RegistrantData }) => {
   const birthDate = data.birthDate ? new Date(data.birthDate) : new Date();
   const createdAt = data.createdAt ? new Date(data.createdAt) : new Date();
-  const schoolName = data.schoolName || "UPTD SDN 1 KENANGA";
-  const schoolNPSN = data.schoolNPSN || "20216609";
-  const schoolAddress = data.schoolAddress || "Jl. Perindustrian Blok Dukuh Desa Kenanga Kec. Sindang Kab. Indramayu 45226";
-  const schoolEmail = data.schoolEmail || "uptdsdn1kenangasindang@gmail.com";
+  const schoolName = data.schoolName || siteConfig.school.name;
+  const schoolNPSN = data.schoolNPSN || siteConfig.school.npsn;
+  const schoolAddress = data.schoolAddress || siteConfig.school.address;
+  const schoolEmail = data.schoolEmail || siteConfig.school.email;
   const committeeName = data.committeeName || "Panitia SPMB";
+
+  const governanceName = (data as any).governance_name || "PEMERINTAH KABUPATEN INDRAMAYU";
+  const departmentName = (data as any).department_name || "DINAS PENDIDIKAN DAN KEBUDAYAAN";
 
   return (
     <Document>
@@ -297,8 +301,8 @@ export const RegistrantDocument = ({ data }: { data: RegistrantData }) => {
                 {data.logoUrl && <Image src={data.logoUrl} style={styles.logoImg} />}
             </View>
             <View style={styles.headerTextCenter}>
-                <Text style={styles.h1_pemda}>PEMERINTAH KABUPATEN INDRAMAYU</Text>
-                <Text style={styles.h2_dinas}>DINAS PENDIDIKAN DAN KEBUDAYAAN</Text>
+                <Text style={styles.h1_pemda}>{governanceName}</Text>
+                <Text style={styles.h2_dinas}>{departmentName}</Text>
                 <Text style={styles.h3_school}>{schoolName}</Text>
                 <Text style={styles.p_npsn}>NPSN : {schoolNPSN}</Text>
                 <Text style={styles.p_addr}>Alamat : {schoolAddress}</Text>

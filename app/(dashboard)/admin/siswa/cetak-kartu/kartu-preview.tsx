@@ -108,7 +108,7 @@ function StudentCardFront({ student, schoolName, schoolAddress, schoolLogo, show
 interface CardBackProps { student: StudentCard; schoolName: string; schoolAddress: string; forPrint?: boolean; }
 
 function StudentCardBack({ student, schoolName, schoolAddress, forPrint }: CardBackProps) {
-  const rules = ["Kartu ini adalah identitas resmi peserta didik UPTD SDN 1 Kenanga.", "Wajib dibawa saat berada di lingkungan sekolah.", "Jika hilang segera melapor ke pihak sekolah.", "Tidak boleh dipindahtangankan."];
+    const rules = [`Kartu ini adalah identitas resmi peserta didik ${schoolName}.`, "Wajib dibawa saat berada di lingkungan sekolah.", "Jika hilang segera melapor ke pihak sekolah.", "Tidak boleh dipindahtangankan."];
   return (
     <div className="student-card relative overflow-hidden bg-white flex-shrink-0 text-slate-800" style={{ width: forPrint ? "85.6mm" : "380px", height: forPrint ? "54mm" : "240px", borderRadius: forPrint ? "2mm" : "10px", border: "1px solid #e2e8f0" }}>
       <div className="relative px-3 py-2 flex items-center justify-center overflow-hidden" style={{ height: "28px", background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)" }}>

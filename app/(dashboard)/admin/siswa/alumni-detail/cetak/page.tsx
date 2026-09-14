@@ -7,6 +7,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { goGet } from "@/lib/api-client";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import { siteConfig } from "@/lib/config";
 import { getSchoolLogo } from "@/lib/school-logo";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
@@ -235,7 +236,7 @@ export default function CetakBukuIndukPage() {
     }
   }, [loading, alumni]);
 
-  const schoolName = settings?.school_name || "UPTD SDN 1 KENANGA";
+  const schoolName = settings?.school_name || siteConfig.school.name;
   const schoolAddress = settings?.school_address || "Jl. Pendidikan No. 1";
   const schoolLogo = getSchoolLogo(settings?.school_logo);
 

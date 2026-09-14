@@ -30,6 +30,7 @@ import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { useSchoolSettings } from "@/lib/hooks/use-settings";
 import { generateDocument, createDocumentBlob, mergeDocxFiles } from "@/lib/docx";
+import { getCurrentAcademicYear } from "@/lib/config";
 import { goGet, goPost } from "@/lib/api-client";
 import { LETTER_TYPES } from "@/lib/constants/letter-types";
 
@@ -269,7 +270,7 @@ function LetterGeneratorContent() {
       kepala_sekolah_nip: schoolSettings?.principal_nip || "19680324 199203 1 005",
       tanggal_hari_ini: format(new Date(), "d MMMM yyyy", { locale: id }),
       tanggal_surat: format(new Date(), "d MMMM yyyy", { locale: id }),
-      tahun_ajaran: schoolSettings?.current_academic_year || "2025/2026",
+      tahun_ajaran: schoolSettings?.current_academic_year || getCurrentAcademicYear(),
       ...manualInputs,
     };
 

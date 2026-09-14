@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { goGet, goPost } from "@/lib/api-client";
 import { showSuccess, showError } from "@/lib/toast";
+import { getCurrentAcademicYear } from "@/lib/config";
 
 // Subcomponents relocated to profile
 import TabProfil from "./tab-profil";
@@ -39,7 +40,7 @@ export default function TabSekolah() {
     school_lng: 106.816666,
     max_distance_km: 3,
     spmb_is_open: true,
-    current_academic_year: "2025/2026",
+    current_academic_year: getCurrentAcademicYear(),
     principal_name: "",
     principal_nip: "",
     school_stamp: "",
@@ -86,7 +87,7 @@ export default function TabSekolah() {
           school_lng: record.school_lng ?? 106.816666,
           max_distance_km: record.max_distance_km ?? 3,
           spmb_is_open: record.spmb_is_open ?? true,
-          current_academic_year: record.current_academic_year || "2025/2026",
+          current_academic_year: record.current_academic_year || getCurrentAcademicYear(),
           principal_name: record.principal_name || "",
           principal_nip: record.principal_nip || "",
           school_stamp: record.school_stamp || "",

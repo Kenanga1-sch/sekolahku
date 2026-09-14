@@ -9,6 +9,8 @@ import { Separator } from "@/components/ui/separator";
 import { ShieldCheck, ShieldAlert, Loader2, CheckCircle2, XCircle, Calendar, User, FileText, School } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import Link from "next/link";
+import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import { siteConfig, getCurrentAcademicYear } from "@/lib/config";
 
 interface VerificationData {
   id: string;
@@ -25,6 +27,8 @@ interface VerificationData {
 export default function VerificationPage() {
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
+  const { settings } = useSchoolSettings();
+  const schoolName = settings?.school_name || siteConfig.school.name;
   
   const [isLoading, setIsLoading] = useState(true);
   const [data, setData] = useState<VerificationData | null>(null);
@@ -46,7 +50,7 @@ export default function VerificationPage() {
               createdAt: result.createdAt,
               verifiedAt: result.createdAt, // Mocking
               periodName: "PPDB Utama",
-              academicYear: "2024/2025"
+              academicYear: getCurrentAcademicYear()
           });
         } else {
           setError(result.error || "Dokumen tidak valid");
@@ -113,7 +117,7 @@ export default function VerificationPage() {
       <div className="mb-8 text-center">
          <div className="flex items-center justify-center gap-3 mb-2">
              <School className="h-8 w-8 text-blue-700" />
-             <h1 className="text-2xl font-bold tracking-tight text-blue-900 dark:text-blue-100">UPTD SDN 1 KENANGA</h1>
+              <h1 className="text-2xl font-bold tracking-tight text-blue-900 dark:text-blue-100">{schoolName.toUpperCase()}</h1>
          </div>
          <p className="text-sm text-muted-foreground">Sistem Verifikasi Dokumen Digital</p>
       </div>
@@ -205,7 +209,7 @@ export default function VerificationPage() {
       </Card>
       
       <div className="mt-8 text-center space-y-2">
-         <p className="text-xs text-slate-400">© {new Date().getFullYear()} UPTD SDN 1 Kenanga. All rights reserved.</p>
+         <p className="text-xs text-slate-400">© {new Date().getFullYear()} {schoolName}. All rights reserved.</p>
          <div className="flex justify-center gap-4 text-xs text-slate-400">
             <Link href="#" className="hover:text-slate-600">Privacy Policy</Link>
             <Link href="#" className="hover:text-slate-600">Contact Support</Link>

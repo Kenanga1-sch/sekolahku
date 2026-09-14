@@ -17,6 +17,8 @@ import {
 import { Settings, LogOut, User, LogIn, LayoutDashboard, Home, GraduationCap, Briefcase, Users, Newspaper } from "lucide-react";
 import { logoutAction } from "@/actions/auth";
 import { useState, useEffect } from "react";
+import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import { siteConfig } from "@/lib/config";
 
 const navItems = [
   { id: "home", label: "Beranda", href: "/", icon: Home },
@@ -32,6 +34,7 @@ export default function PublicLayoutClient({
   children: React.ReactNode;
 }) {
   const { user, isAuthenticated, logout: storeLogout } = useAuthStore();
+  const { settings } = useSchoolSettings();
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
 
@@ -49,7 +52,7 @@ export default function PublicLayoutClient({
     <div className="flex flex-col bg-public-bg text-[#1a2e1a] w-full min-h-screen">
       <header className="app-chrome hidden md:flex items-center justify-between px-6 py-4 sticky top-0 z-50 bg-public-bg/95 backdrop-blur-sm border-b border-public-border">
         <Link href="/" className="flex items-center gap-2 font-bold text-lg text-[#065F46]">
-          SDN 1 Kenanga
+          {settings?.school_name || siteConfig.school.shortName}
         </Link>
         <nav className="flex items-center gap-1">
           {navItems.map((item) => {

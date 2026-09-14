@@ -4,12 +4,15 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { formatDate } from "@/lib/utils";
 import { goGet } from "@/lib/api-client";
+import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import { siteConfig } from "@/lib/config";
 
 export default function PrintLaporanPage() {
     const searchParams = useSearchParams();
     const type = searchParams.get("type") || "surat-masuk";
     const month = parseInt(searchParams.get("month") || "0");
     const year = parseInt(searchParams.get("year") || new Date().getFullYear().toString());
+    const { settings } = useSchoolSettings();
     
     // Explicitly define Type instead of relying on inference
     const [data, setData] = useState<any[]>([]);
@@ -59,7 +62,7 @@ export default function PrintLaporanPage() {
             <div className="text-center mb-6">
                 <h1 className="font-bold text-xl uppercase">Buku Agenda {type === "surat-masuk" ? "Surat Masuk" : "Surat Keluar"}</h1>
                 <p className="text-sm">Bulan: {monthName} {year}</p>
-                <p className="text-sm">SDN 1 Kenanga</p>
+                <p className="text-sm">{settings?.school_name || siteConfig.school.shortName}</p>
             </div>
 
             <table className="w-full border-collapse border border-black">

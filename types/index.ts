@@ -72,6 +72,8 @@ export interface SchoolSettings extends BaseRecord {
   school_history_achievements?: string;
   school_curriculum?: string;
   school_extracurriculars?: string;
+  governance_name?: string;
+  department_name?: string;
   landing_tagline?: string;
   landing_description?: string;
   landing_texts?: string;

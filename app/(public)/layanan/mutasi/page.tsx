@@ -8,29 +8,33 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { Reveal } from "@/components/public/motion";
-
-const services = [
-  {
-    title: "Mutasi Masuk",
-    desc: "Ajukan permohonan pindah sekolah ke SDN 1 Kenanga.",
-    href: "/layanan/mutasi-masuk",
-    icon: ArrowRightLeft,
-  },
-  {
-    title: "Mutasi Keluar",
-    desc: "Ajukan permohonan pindah dari SDN 1 Kenanga ke sekolah lain.",
-    href: "/layanan/mutasi-keluar",
-    icon: ChevronRight,
-  },
-  {
-    title: "Cek Status Permohonan",
-    desc: "Pantau status permohonan mutasi dengan nomor registrasi.",
-    href: "/layanan/mutasi-masuk/status",
-    icon: Search,
-  },
-];
+import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import { siteConfig } from "@/lib/config";
 
 export default function LayananMutasiPage() {
+  const { settings } = useSchoolSettings();
+  const schoolName = settings?.school_name || siteConfig.school.shortName;
+
+  const services = [
+    {
+      title: "Mutasi Masuk",
+      desc: `Ajukan permohonan pindah sekolah ke ${schoolName}.`,
+      href: "/layanan/mutasi-masuk",
+      icon: ArrowRightLeft,
+    },
+    {
+      title: "Mutasi Keluar",
+      desc: `Ajukan permohonan pindah dari ${schoolName} ke sekolah lain.`,
+      href: "/layanan/mutasi-keluar",
+      icon: ChevronRight,
+    },
+    {
+      title: "Cek Status Permohonan",
+      desc: "Pantau status permohonan mutasi dengan nomor registrasi.",
+      href: "/layanan/mutasi-masuk/status",
+      icon: Search,
+    },
+  ];
   return (
     <div className="flex flex-col bg-public-bg min-h-[70dvh]">
       <section className="py-12 md:py-20">

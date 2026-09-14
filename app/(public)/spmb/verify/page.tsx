@@ -16,10 +16,14 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
+import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import { siteConfig } from "@/lib/config";
 
 function VerifyContent() {
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
+  const { settings } = useSchoolSettings();
+  const schoolName = settings?.school_name || siteConfig.school.shortName;
   const [registrant, setRegistrant] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -121,7 +125,7 @@ function VerifyContent() {
                 <div className="flex items-center gap-3 p-4 bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-100 dark:border-yellow-900/20 rounded-xl">
                    <AlertTriangle className="h-5 w-5 text-yellow-600 shrink-0" />
                    <p className="text-xs text-yellow-800 dark:text-yellow-600 leading-relaxed font-medium">
-                      Informasi ini dihasilkan secara otomatis oleh sistem SPMB Online UPTD SDN 1 Kenanga. 
+                      Informasi ini dihasilkan secara otomatis oleh sistem SPMB Online {schoolName}. 
                       Pastikan data pada lembar fisik sesuai dengan informasi digital di atas.
                    </p>
                 </div>
@@ -137,7 +141,7 @@ function VerifyContent() {
           
           <div className="bg-zinc-50 dark:bg-zinc-800/80 p-4 text-center">
              <p className="text-[10px] text-muted-foreground font-medium flex items-center justify-center gap-1.5 uppercase tracking-[0.1em]">
-                <FileText className="h-3 w-3" /> Digital Verification System • SDN 1 Kenanga
+                <FileText className="h-3 w-3" /> Digital Verification System • {schoolName}
              </p>
           </div>
        </Card>

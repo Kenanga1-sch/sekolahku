@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { Download, CheckCircle, Smartphone, Monitor, ArrowDownToLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import { siteConfig } from "@/lib/config";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -25,6 +27,8 @@ interface PwaInstallButtonProps {
 }
 
 export function PwaInstallButton({ className, iconOnly = false }: PwaInstallButtonProps) {
+  const { settings } = useSchoolSettings();
+  const schoolName = settings?.school_name || siteConfig.school.shortName;
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
@@ -91,7 +95,7 @@ export function PwaInstallButton({ className, iconOnly = false }: PwaInstallButt
         >
           <Icon className="h-5 w-5 text-primary" />
         </Button>
-        {showDialog && <InstallInstructionsDialog onClose={() => setShowDialog(false)} isIOS={isIOS} />}
+      {showDialog && <InstallInstructionsDialog onClose={() => setShowDialog(false)} isIOS={isIOS} schoolName={schoolName} />}
       </>
     );
   }
@@ -111,7 +115,7 @@ export function PwaInstallButton({ className, iconOnly = false }: PwaInstallButt
  * Dialog instruksi manual — ditampilkan untuk iOS atau ketika
  * beforeinstallprompt tidak tersedia (browser tanpa prompt support).
  */
-function InstallInstructionsDialog({ onClose, isIOS }: { onClose: () => void; isIOS?: boolean }) {
+function InstallInstructionsDialog({ onClose, isIOS, schoolName }: { onClose: () => void; isIOS?: boolean; schoolName?: string }) {
   const steps = isIOS
     ? [
         { icon: <Smartphone className="h-5 w-5" />, text: 'Ketuk tombol **Bagikan** (kotak dengan panah ke atas) di Safari.' },
@@ -131,7 +135,7 @@ function InstallInstructionsDialog({ onClose, isIOS }: { onClose: () => void; is
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold">Pasang SDN 1 Kenanga</h3>
+          <h3 className="font-semibold">Pasang {schoolName || siteConfig.school.shortName}</h3>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-lg leading-none">&times;</button>
         </div>
         <div className="space-y-3">

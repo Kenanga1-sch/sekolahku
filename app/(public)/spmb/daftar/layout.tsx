@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
+import { siteConfig } from "@/lib/config";
 
 export const metadata: Metadata = {
   title: "Formulir Pendaftaran Online — SPMB",
   description:
-    "Isi formulir pendaftaran siswa baru (SPMB) SDN 1 Kenanga Sindang, Indramayu: data calon siswa, orang tua, domisili, dan unggah dokumen. Selesai dalam 10 menit.",
+    `Isi formulir pendaftaran siswa baru (SPMB) ${siteConfig.school.shortName} Sindang, Indramayu: data calon siswa, orang tua, domisili, dan unggah dokumen. Selesai dalam 10 menit.`,
   alternates: { canonical: "/spmb/daftar" },
   openGraph: {
     title: "Formulir Pendaftaran Online — SPMB",
     description:
-      "Formulir pendaftaran siswa baru SDN 1 Kenanga Sindang, Indramayu: data calon siswa, orang tua, domisili, unggah dokumen.",
+      `Formulir pendaftaran siswa baru ${siteConfig.school.shortName} Sindang, Indramayu: data calon siswa, orang tua, domisili, unggah dokumen.`,
     url: "/spmb/daftar",
   },
 };
