@@ -32,11 +32,13 @@ import {
     Settings,
     Users,
     Database,
+    Download,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { goGet, goPatch, goPost } from "@/lib/api-client";
 import { compressImage } from "@/lib/utils";
 import { toast } from "sonner";
+import { PwaInstallButton } from "@/components/pwa-install-button";
 import TabSekolah from "./tab-sekolah";
 import TabUsers from "./tab-users";
 import TabSystemLogs from "./tab-system-logs";
@@ -617,10 +619,26 @@ export default function ProfilePage() {
                                 </CardContent>
                             </Card>
                         </div>
+
+                        {/* PWA Install Section */}
+                        <div className="w-full">
+                            <Card className="border-slate-200/80 dark:border-zinc-800/80 shadow-xs bg-white dark:bg-zinc-950">
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2 text-lg font-bold">
+                                        <Download className="h-5 w-5 text-violet-500" />
+                                        Aplikasi
+                                    </CardTitle>
+                                    <CardDescription className="text-xs">
+                                        Pasang SDN 1 Kenanga sebagai aplikasi di perangkat Anda.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <PwaInstallButton />
+                                </CardContent>
+                            </Card>
+                        </div>
                     </div>
                 </TabsContent>
-
-                {/* Security Tab */}
                 <TabsContent value="security" className="space-y-6">
                     <div className="flex flex-col gap-6">
                         <div className="w-full">

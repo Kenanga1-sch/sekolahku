@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Bell, BellOff, BellRing, Loader2, Smartphone, Send } from "lucide-react";
+import { Bell, BellOff, BellRing, Loader2, Smartphone, Send, Download } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PwaInstallButton } from "@/components/pwa-install-button";
 import {
   disablePush,
   enablePush,
@@ -95,6 +96,15 @@ export function PushToggle({ showTest = false }: PushToggleProps) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Install PWA */}
+        <div className="flex items-center justify-between rounded-lg border p-3">
+          <div className="flex items-center gap-2">
+            <Download className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Aplikasi</span>
+          </div>
+          <PwaInstallButton />
+        </div>
+
         {loading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Memeriksa status…
