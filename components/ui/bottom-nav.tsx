@@ -51,12 +51,14 @@ const allItems: BottomNavItem[] = [
     label: "Tabungan",
     icon: Wallet,
     matchPaths: ["/tabungan"],
+    roles: ["admin", "superadmin", "guru", "staff"],
   },
   {
     href: "/inventaris",
     label: "Inventaris",
     icon: Package,
     matchPaths: ["/inventaris"],
+    roles: ["admin", "superadmin", "guru", "staff"],
   },
   {
     href: "/presensi",
@@ -64,6 +66,20 @@ const allItems: BottomNavItem[] = [
     icon: ClipboardList,
     matchPaths: ["/presensi"],
     roles: ["admin", "superadmin", "guru"],
+  },
+  {
+    href: "/presensi/saya",
+    label: "Presensi",
+    icon: ClipboardList,
+    matchPaths: ["/presensi/saya"],
+    roles: ["siswa"],
+  },
+  {
+    href: "/tabungan/saya",
+    label: "Tabungan",
+    icon: Wallet,
+    matchPaths: ["/tabungan/saya"],
+    roles: ["siswa"],
   },
   {
     href: "/profile",

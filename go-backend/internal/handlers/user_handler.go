@@ -386,10 +386,12 @@ func (h *UserHandler) GenerateAccounts(c echo.Context) error {
 			}
 			hash, _ := bcrypt.GenerateFromPassword([]byte(*s.NISN), 10)
 			pwHash := string(hash)
+			studentID := s.ID
 			u := models.User{
 				Name: &s.FullName, Email: *s.NISN + "@sekolahku.id",
 				Username: s.NISN, PasswordHash: &pwHash,
 				Role: "siswa", IsActive: true,
+				StudentID: &studentID,
 				// NISN bukan rahasia; tanpa paksa ganti, siapa pun yang
 				// mengetahui NISN seorang siswa bisa masuk ke akunnya.
 				MustChangePassword: true,

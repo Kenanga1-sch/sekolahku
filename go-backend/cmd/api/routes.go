@@ -76,6 +76,7 @@ type AllHandlers struct {
 	Sync           *handlers.SyncHandler
 	Push           *handlers.PushHandler
 	Parent         *handlers.ParentHandler
+	StudentMe      *handlers.StudentMeHandler
 	// PushSvc dipakai handler lain (absen, tabungan, pengumuman) untuk
 	// mengirim push ke orang tua.
 	PushSvc *push.Service
@@ -664,6 +665,13 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	parentGroup.GET("/attendance", h.Parent.GetChildAttendance)
 	parentGroup.GET("/notification-preferences", h.Parent.GetPreferences)
 	parentGroup.PUT("/notification-preferences", h.Parent.UpdatePreferences)
+
+	// Portal Siswa (role: siswa) — self-service, data ter-scoping
+	studentGroup := server.Group("/api/student")
+	studentGroup.Use(authMiddleware.JWTMiddleware, authMiddleware.RoleMiddleware(authMiddleware.RoleSiswa))
+	studentGroup.GET("/me", h.StudentMe.GetMe)
+	studentGroup.GET("/me/attendance", h.StudentMe.GetMyAttendance)
+	studentGroup.GET("/me/savings", h.StudentMe.GetMySavings)
 
 	// Pengajuan izin/sakit: guru/admin meninjau
 	guruGroup.GET("/leave-requests", h.Parent.ListLeaves)

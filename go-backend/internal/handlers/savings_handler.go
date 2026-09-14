@@ -54,22 +54,32 @@ func (h *SavingsHandler) GetSiswa(c echo.Context) error {
 		classId = c.QueryParam("kelasId")
 	}
 
+	role, _ := c.Get("user_role").(string)
+
 	// Guru dipaksa hanya melihat siswa kelas yang ia wali-kan;
 	// parameter classId dari frontend diabaikan demi konsistensi
 	// dengan scoping di /api/classes dan presensi.
-	if role, _ := c.Get("user_role").(string); role == "guru" {
+	if role == "guru" {
 		userID, _ := c.Get("user_id").(string)
 		var forced, forcedName string
 		err := h.Repo.DB.QueryRow(
 			`SELECT id, name FROM student_classes WHERE wali_user_id = ? AND is_active = 1`, userID,
 		).Scan(&forced, &forcedName)
 		if err != nil {
-			// Guru tanpa wali kelas: kosongkan filter supaya tidak
-			// justru menampilkan semua siswa.
 			classId = "__no_wali__"
 		} else {
 			classId = forced
 		}
+	}
+
+	// Siswa hanya boleh melihat data tabungan dirinya sendiri.
+	if role == "siswa" {
+		userID, _ := c.Get("user_id").(string)
+		var sid string
+		if err := h.Repo.DB.QueryRow("SELECT COALESCE(student_id,'') FROM users WHERE id = ?", userID).Scan(&sid); err != nil || sid == "" {
+			return c.JSON(http.StatusForbidden, map[string]interface{}{"success": false, "error": "Akun belum terhubung ke data siswa"})
+		}
+		return h.GetDetailSiswaById(c, sid)
 	}
 
 	list, total, err := h.Repo.GetSiswa(page, limit, search, classId)
@@ -93,7 +103,14 @@ func (h *SavingsHandler) GetSiswa(c echo.Context) error {
 }
 
 func (h *SavingsHandler) GetDetailSiswa(c echo.Context) error {
-	id := c.Param("id")
+	return h.getDetailSiswaCore(c, c.Param("id"))
+}
+
+func (h *SavingsHandler) GetDetailSiswaById(c echo.Context, id string) error {
+	return h.getDetailSiswaCore(c, id)
+}
+
+func (h *SavingsHandler) getDetailSiswaCore(c echo.Context, id string) error {
 	s, err := h.Repo.GetSiswaByQR(id)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})

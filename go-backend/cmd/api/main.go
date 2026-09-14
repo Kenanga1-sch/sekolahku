@@ -278,6 +278,7 @@ func main() {
 		Document:       handlers.NewDocumentHandler(repos.Document),
 		Push:           handlers.NewPushHandler(pushSvc),
 		Parent:         handlers.NewParentHandler(repos.Parent, repos.User, repos.Attendance, repos.Notification, pushSvc, prefsRepo),
+		StudentMe:      handlers.NewStudentMeHandler(repos.Student, repos.Attendance, repos.Savings, repos.Announcement, db),
 		PushSvc:        pushSvc,
 	}
 

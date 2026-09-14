@@ -26,10 +26,6 @@ func (h *SavingsHandler) GetTransactions(c echo.Context) error {
 	if limit < 1 {
 		limit, _ = strconv.Atoi(c.QueryParam("perPage"))
 	}
-	// fetchAll untuk jalur laporan yang butuh seluruh baris dalam periode.
-	// Tanpa ini halaman laporan meminta perPage=10000, limit dipotong ke 100
-	// di repo, dan totalItems bohong = len(list) — ringkasan laporan pun
-	// menjumlah dari data yang terpotong tanpa tanda apa pun.
 	fetchAll := c.QueryParam("fetchAll") == "1"
 	var startMs, endMs int64
 	if startDate := c.QueryParam("startDate"); startDate != "" {
@@ -42,12 +38,21 @@ func (h *SavingsHandler) GetTransactions(c echo.Context) error {
 			endMs = parsed.UnixMilli()
 		}
 	}
+
+	// Siswa hanya boleh melihat transaksi dirinya sendiri.
+	if role, _ := c.Get("user_role").(string); role == "siswa" {
+		userID, _ := c.Get("user_id").(string)
+		var sid string
+		if err := h.Repo.DB.QueryRow("SELECT COALESCE(student_id,'') FROM users WHERE id = ?", userID).Scan(&sid); err != nil || sid == "" {
+			return c.JSON(http.StatusForbidden, map[string]interface{}{"success": false, "error": "Akun belum terhubung ke data siswa"})
+		}
+		siswaId = sid
+	}
+
 	list, total, err := h.Repo.GetTransactions(siswaId, status, guruID, search, tipe, startMs, endMs, limit, fetchAll)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
-	// totalPages dihitung dari total sejati, bukan konstanta 1. Pemanggil lama
-	// (riwayat berpaginasi) memakai ini untuk berhenti menelusuri halaman.
 	totalPages := 1
 	if limit > 0 {
 		totalPages = (total + limit - 1) / limit

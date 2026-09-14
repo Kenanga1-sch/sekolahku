@@ -16,6 +16,7 @@ type User struct {
 	IsActive           bool       `json:"isActive"`
 	MustChangePassword bool       `json:"mustChangePassword"`
 	EmployeeID         *string    `json:"employeeId"`
+	StudentID          *string    `json:"studentId,omitempty"` // siswa: ID dari tabel students
 	CreatedAt          *time.Time `json:"createdAt"`
 	UpdatedAt          *time.Time `json:"updatedAt"`
 }

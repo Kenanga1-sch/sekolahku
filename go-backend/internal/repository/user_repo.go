@@ -151,15 +151,19 @@ func (r *UserRepository) GetUsersByRole(page, limit int, search, role string) ([
 
 func (r *UserRepository) GetUserByID(id string) (*models.User, error) {
 	query := `
-		SELECT id, name, COALESCE(email,''), role, phone, username, full_name, password_hash, is_active, must_change_password, created_at, updated_at, image
+		SELECT id, name, COALESCE(email,''), role, phone, username, full_name,
+		       password_hash, is_active, must_change_password, student_id,
+		       created_at, updated_at, image
 		FROM users WHERE id = ?
 	`
 	var u models.User
-	var name, username, phone, fullName, passwordHash, image sql.NullString
+	var name, username, phone, fullName, passwordHash, image, studentID sql.NullString
 	var crAt, upAt, isActive, mustChange sql.NullInt64
 
 	err := r.DB.QueryRow(query, id).Scan(
-		&u.ID, &name, &u.Email, &u.Role, &phone, &username, &fullName, &passwordHash, &isActive, &mustChange, &crAt, &upAt, &image,
+		&u.ID, &name, &u.Email, &u.Role, &phone, &username, &fullName,
+		&passwordHash, &isActive, &mustChange, &studentID,
+		&crAt, &upAt, &image,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -186,6 +190,9 @@ func (r *UserRepository) GetUserByID(id string) (*models.User, error) {
 	if image.Valid {
 		u.Image = &image.String
 	}
+	if studentID.Valid {
+		u.StudentID = &studentID.String
+	}
 	u.IsActive = isActive.Int64 != 0
 	u.MustChangePassword = mustChange.Int64 != 0
 	u.CreatedAt = SafeTime(crAt)
@@ -210,10 +217,10 @@ func (r *UserRepository) CreateUser(u models.User) (string, error) {
 	}
 
 	query := `
-		INSERT INTO users (id, name, full_name, email, username, password_hash, role, phone, is_active, must_change_password, created_at, updated_at)
-		VALUES (?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO users (id, name, full_name, email, username, password_hash, role, phone, is_active, must_change_password, student_id, created_at, updated_at)
+		VALUES (?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), ?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	_, err := r.DB.Exec(query, u.ID, u.Name, u.FullName, u.Email, u.Username, u.PasswordHash, u.Role, u.Phone, isActiveInt, mustChangeInt, now, now)
+	_, err := r.DB.Exec(query, u.ID, u.Name, u.FullName, u.Email, u.Username, u.PasswordHash, u.Role, u.Phone, isActiveInt, mustChangeInt, u.StudentID, now, now)
 	if err != nil {
 		return "", err
 	}

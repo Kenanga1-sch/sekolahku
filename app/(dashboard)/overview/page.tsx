@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { getDashboardStats, getSystemHealth } from "@/lib/data/dashboard";
 import { OverviewClient } from "@/components/dashboard/overview-client";
+import { SiswaOverview } from "@/components/dashboard/siswa-overview";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -51,7 +52,7 @@ export default function OverviewPage() {
             setStats(statsData);
             setHealth(healthData);
         } else {
-            // For non-admins, we don't have stats yet, just set empty
+            // For non-admins (guru/staff/siswa), just set empty to trigger render
             setStats({});
             setHealth(null);
         }
@@ -93,6 +94,11 @@ export default function OverviewPage() {
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
+  }
+
+  // Siswa: tampilkan dashboard mandiri
+  if (session?.user?.role === "siswa") {
+    return <SiswaOverview />;
   }
 
   return (

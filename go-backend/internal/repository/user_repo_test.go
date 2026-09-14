@@ -28,7 +28,8 @@ func setupTestDB(t *testing.T) *sql.DB {
 			is_active INTEGER DEFAULT 1,
 			must_change_password INTEGER DEFAULT 0,
 			created_at INTEGER,
-			updated_at INTEGER
+			updated_at INTEGER,
+			student_id TEXT
 		)
 	`)
 	if err != nil {

@@ -32,6 +32,7 @@ const (
 	RoleStaff      = "staff"
 	RoleGuru       = "guru"
 	RoleBendahara  = "bendahara"
+	RoleSiswa      = "siswa"
 	RoleUser       = "user"
 	RoleOrangtua   = "orangtua"
 )

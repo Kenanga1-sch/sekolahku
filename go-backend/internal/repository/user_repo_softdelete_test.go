@@ -23,7 +23,7 @@ func setupUserSoftDeleteTestDB(t *testing.T) *sql.DB {
 			username TEXT UNIQUE, password_hash TEXT, role TEXT DEFAULT 'user',
 			phone TEXT, is_active INTEGER DEFAULT 1, created_at INTEGER,
 			updated_at INTEGER, image TEXT, email_verified INTEGER,
-			must_change_password INTEGER DEFAULT 0
+			must_change_password INTEGER DEFAULT 0, student_id TEXT
 		)`,
 		`CREATE TABLE audit_logs (id TEXT PRIMARY KEY, user_id TEXT REFERENCES users(id), action TEXT, resource TEXT, details TEXT, ip_address TEXT, user_agent TEXT, created_at INTEGER)`,
 		`CREATE TABLE notifications (id TEXT PRIMARY KEY, user_id TEXT REFERENCES users(id), title TEXT, message TEXT, is_read INTEGER DEFAULT 0, created_at INTEGER)`,

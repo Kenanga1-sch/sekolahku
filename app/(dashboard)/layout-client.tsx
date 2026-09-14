@@ -170,10 +170,19 @@ const ADMIN_ROLES: UserRole[] = ["admin", "superadmin"];
 const SYSTEM_ADMIN_ROLES: UserRole[] = ["admin", "superadmin"];
 const INVENTARIS_ROLES: UserRole[] = ["admin", "superadmin", "guru", "staff"];
 const GURU_ACCESS_ROLES: UserRole[] = ["admin", "superadmin", "guru"]; 
-const ALL_DASHBOARD_ROLES: UserRole[] = ["admin", "superadmin", "guru", "staff"];
-const TABUNGAN_ROLES: UserRole[] = ["admin", "superadmin", "guru", "staff"]; 
+const ALL_DASHBOARD_ROLES: UserRole[] = ["admin", "superadmin", "guru", "staff", "siswa"];
+const TABUNGAN_ROLES: UserRole[] = ["admin", "superadmin", "guru", "staff"];
+const SISWA_ROLES: UserRole[] = ["siswa"];
 
 const navGroups: NavGroup[] = [
+  {
+    label: "Menu Siswa",
+    items: [
+      { href: "/overview", label: "Beranda", icon: LayoutDashboard, roles: SISWA_ROLES },
+      { href: "/presensi/saya", label: "Presensi Saya", icon: ClipboardList, roles: SISWA_ROLES },
+      { href: "/tabungan/saya", label: "Tabungan Saya", icon: Wallet, roles: SISWA_ROLES },
+    ],
+  },
   {
     label: "Menu Utama",
     items: [
