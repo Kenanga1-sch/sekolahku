@@ -109,6 +109,29 @@ function writeSW(assets) {
   console.log(
     `[sw-precache] ${assets.length} aset → CACHE_NAME=sekolahku-${hash}`,
   );
+
+  // Sinkronkan out/ → dist/ agar binary Go embed versi terbaru.
+  const DIST_DIR = path.join(ROOT, "go-backend", "cmd", "api", "dist");
+  if (fs.existsSync(DIST_DIR)) {
+    copyDir(OUT_DIR, DIST_DIR);
+    console.log(`[sw-precache] out/ → dist/ synced`);
+  }
+}
+
+/**
+ * Rekursif copy direktori (tanpa dependency eksternal).
+ */
+function copyDir(src, dest) {
+  if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      copyDir(srcPath, destPath);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+    }
+  }
 }
 
 writeSW(collectAssets());

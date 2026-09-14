@@ -2,8 +2,6 @@
 
 import { GraduationCap, Quote } from "lucide-react";
 import Link from "next/link";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { WavyBackground } from "@/components/ui/wavy-background";
 
