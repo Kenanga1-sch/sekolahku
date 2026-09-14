@@ -1,9 +1,11 @@
 "use client";
 
-import { GraduationCap, Quote } from "lucide-react";
+import { GraduationCap, Quote, Home, Briefcase, Newspaper, Users } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { WavyBackground } from "@/components/ui/wavy-background";
+import { cn } from "@/lib/utils";
 
 export default function AuthLayout({
   children,
@@ -11,6 +13,15 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   const { settings } = useSchoolSettings();
+  const pathname = usePathname();
+
+  const navItems = [
+    { id: "home", label: "Beranda", href: "/", icon: Home },
+    { id: "spmb", label: "SPMB", href: "/spmb", icon: GraduationCap },
+    { id: "layanan", label: "Layanan", href: "/layanan", icon: Briefcase },
+    { id: "berita", label: "Berita", href: "/berita", icon: Newspaper },
+    { id: "guru", label: "Guru & Staf", href: "/guru-staf", icon: Users },
+  ];
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
@@ -71,13 +82,10 @@ export default function AuthLayout({
       </div>
 
       {/* Right Side - Form */}
-      <div className="flex items-center justify-center p-6 sm:p-12 lg:p-16 bg-background relative">
+      <div className="flex items-center justify-center p-6 sm:p-12 lg:p-16 bg-background relative pb-24 md:pb-16">
         <div className="w-full max-w-[400px] space-y-6 mx-auto">
-          {/* Mobile Back Button & Logo */}
-          <div className="lg:hidden flex flex-col items-center gap-4 mb-8">
-            <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-              <span className="text-lg leading-none">&larr;</span> Kembali ke Beranda
-            </Link>
+          {/* Mobile Logo */}
+          <div className="lg:hidden flex justify-center mb-8">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary shadow-lg text-primary-foreground overflow-hidden">
               {settings?.school_logo ? (
                 <img 
@@ -96,6 +104,30 @@ export default function AuthLayout({
           {children}
         </div>
       </div>
+      {/* Bottom Nav - Mobile Only */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-neutral-200 safe-area-pb">
+        <div className="flex items-center justify-around py-2">
+          {navItems.map((item) => {
+            const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.id}
+                href={item.href}
+                className={cn(
+                  "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-colors active:scale-[0.95]",
+                  isActive
+                    ? "text-[#065F46]"
+                    : "text-[#4b6b4b] hover:text-[#065F46]"
+                )}
+              >
+                <Icon className={cn("h-5 w-5", isActive && "fill-current")} strokeWidth={isActive ? 2.5 : 2} />
+                <span className="text-[10px] font-medium">{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }
