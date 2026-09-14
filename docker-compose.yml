@@ -23,6 +23,7 @@ services:
       - ./data:/app/data
       - ./public/uploads:/app/public/uploads
       - ./uploads:/app/uploads
+      - ./dist:/app/dist
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8181/api/health"]
       interval: 30s

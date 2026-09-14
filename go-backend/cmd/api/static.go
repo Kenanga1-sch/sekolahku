@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
 )
@@ -17,12 +18,50 @@ import (
 //go:embed all:dist
 var frontendFiles embed.FS
 
-func getFrontendFS() http.FileSystem {
+var (
+	embedFS http.FileSystem // fallback: files compiled ke dalam binary
+	diskFS  http.FileSystem // hot-swap: files dari volume mount /app/dist
+)
+
+func initFrontendFS() {
 	fsys, err := fs.Sub(frontendFiles, "dist")
 	if err != nil {
 		log.Fatal(err)
 	}
-	return http.FS(fsys)
+	embedFS = http.FS(fsys)
+
+	// Coba buka /app/dist/ sebagai disk fallback (volume mount).
+	for _, candidate := range []string{"/app/dist", "../dist", "dist"} {
+		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+			diskFS = http.Dir(candidate)
+			log.Printf("[static] disk frontend: %s", candidate)
+			return
+		}
+	}
+	// Tidak ada disk → embed saja (backward compatible, single-binary).
+}
+
+// serveFrontendFile mencoba serve dari disk dulu, lalu fallback ke embed.
+// Ini memungkinkan hot-swap frontend tanpa rebuild binary.
+func serveFrontendFile(c echo.Context, name string) error {
+	// 1. Coba disk (volume mount) — file terbaru.
+	if diskFS != nil {
+		f, err := diskFS.Open(name)
+		if err == nil {
+			defer f.Close()
+			d, err := f.Stat()
+			if err == nil && !d.IsDir() {
+				data, err := io.ReadAll(f)
+				if err == nil {
+					setCacheHeaders(c, name, d.ModTime(), data)
+					return nil
+				}
+			}
+		}
+	}
+
+	// 2. Fallback ke embed (compiled dalam binary).
+	return serveEmbeddedFile(c, embedFS, name)
 }
 
 func fileExists(fsys http.FileSystem, name string) bool {
@@ -40,22 +79,21 @@ func fileExists(fsys http.FileSystem, name string) bool {
 	return true
 }
 
-func serveEmbeddedFile(c echo.Context, fsys http.FileSystem, name string) error {
-	f, err := fsys.Open(name)
+// diskFileExists mengecek file di disk (volume mount) saja.
+func diskFileExists(name string) bool {
+	if diskFS == nil {
+		return false
+	}
+	f, err := diskFS.Open(name)
 	if err != nil {
-		return c.NoContent(http.StatusNotFound)
+		return false
 	}
 	defer f.Close()
 	d, err := f.Stat()
-	if err != nil {
-		return c.NoContent(http.StatusNotFound)
-	}
+	return err == nil && !d.IsDir()
+}
 
-	// Read entire file into memory to support seeking (io.ReadSeeker)
-	data, err := io.ReadAll(f)
-	if err != nil {
-		return c.NoContent(http.StatusInternalServerError)
-	}
+func setCacheHeaders(c echo.Context, name string, modTime time.Time, data []byte) {
 	seeker := bytes.NewReader(data)
 
 	ext := filepath.Ext(name)
@@ -91,7 +129,26 @@ func serveEmbeddedFile(c echo.Context, fsys http.FileSystem, name string) error 
 	c.Response().Header().Set(echo.HeaderContentType, contentType)
 	c.Response().Header().Set(echo.HeaderCacheControl, cacheControl)
 
-	http.ServeContent(c.Response(), c.Request(), name, d.ModTime(), seeker)
+	http.ServeContent(c.Response(), c.Request(), name, modTime, seeker)
+}
+
+func serveEmbeddedFile(c echo.Context, fsys http.FileSystem, name string) error {
+	f, err := fsys.Open(name)
+	if err != nil {
+		return c.NoContent(http.StatusNotFound)
+	}
+	defer f.Close()
+	d, err := f.Stat()
+	if err != nil {
+		return c.NoContent(http.StatusNotFound)
+	}
+
+	data, err := io.ReadAll(f)
+	if err != nil {
+		return c.NoContent(http.StatusInternalServerError)
+	}
+
+	setCacheHeaders(c, name, d.ModTime(), data)
 	return nil
 }
 
@@ -130,6 +187,8 @@ func serveUploadFile(c echo.Context, roots []string) error {
 
 // registerStaticRoutes sets up static file serving and SPA fallback.
 func registerStaticRoutes(server *echo.Echo) {
+	initFrontendFS()
+
 	publicUploadPath := resolvePublicUploadsDir()
 	legacyUploadPath := filepath.Join("uploads")
 	subDirs := []string{"announcements", "spmb", "profiles", "gallery", "alumni", "staff", "library", "arsip", "inventory"}
@@ -141,21 +200,19 @@ func registerStaticRoutes(server *echo.Echo) {
 		return serveUploadFile(c, []string{publicUploadPath, legacyUploadPath})
 	})
 
-	frontendFS := getFrontendFS()
-
-	// Direct asset routes
+	// Direct asset routes — serveFrontendFile tries disk first, then embed.
 	server.GET("/_next/*", func(c echo.Context) error {
 		p := strings.TrimPrefix(c.Request().URL.Path, "/")
-		return serveEmbeddedFile(c, frontendFS, p)
+		return serveFrontendFile(c, p)
 	})
 	server.GET("/images/*", func(c echo.Context) error {
 		p := strings.TrimPrefix(c.Request().URL.Path, "/")
-		return serveEmbeddedFile(c, frontendFS, p)
+		return serveFrontendFile(c, p)
 	})
-	server.GET("/favicon.ico", func(c echo.Context) error { return serveEmbeddedFile(c, frontendFS, "favicon.ico") })
-	server.GET("/manifest.json", func(c echo.Context) error { return serveEmbeddedFile(c, frontendFS, "manifest.json") })
-	server.GET("/logo.png", func(c echo.Context) error { return serveEmbeddedFile(c, frontendFS, "logo.png") })
-	server.GET("/sw.js", func(c echo.Context) error { return serveEmbeddedFile(c, frontendFS, "sw.js") })
+	server.GET("/favicon.ico", func(c echo.Context) error { return serveFrontendFile(c, "favicon.ico") })
+	server.GET("/manifest.json", func(c echo.Context) error { return serveFrontendFile(c, "manifest.json") })
+	server.GET("/logo.png", func(c echo.Context) error { return serveFrontendFile(c, "logo.png") })
+	server.GET("/sw.js", func(c echo.Context) error { return serveFrontendFile(c, "sw.js") })
 
 	// SPA fallback
 	server.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -174,29 +231,29 @@ func registerStaticRoutes(server *echo.Echo) {
 
 			cleanPath := strings.TrimPrefix(path, "/")
 			if cleanPath == "" {
-				return serveEmbeddedFile(c, frontendFS, "index.html")
+				return serveFrontendFile(c, "index.html")
 			}
 
-			// Try to serve the exact file if it exists
-			if fileExists(frontendFS, cleanPath) {
-				return serveEmbeddedFile(c, frontendFS, cleanPath)
+			// Try to serve the exact file if it exists (disk or embed)
+			if diskFileExists(cleanPath) || fileExists(embedFS, cleanPath) {
+				return serveFrontendFile(c, cleanPath)
 			}
 
 			// Try adding .html (Next.js static export pattern)
 			if !strings.Contains(cleanPath, ".") {
 				altPath := cleanPath + ".html"
-				if fileExists(frontendFS, altPath) {
-					return serveEmbeddedFile(c, frontendFS, altPath)
+				if diskFileExists(altPath) || fileExists(embedFS, altPath) {
+					return serveFrontendFile(c, altPath)
 				}
 			}
 
 			// Fallback to index.html for SPA client-side routing
 			if strings.HasPrefix(cleanPath, "__next") || c.QueryParam("_rsc") != "" {
-				return serveEmbeddedFile(c, frontendFS, "index.html")
+				return serveFrontendFile(c, "index.html")
 			}
 
 			if !strings.Contains(cleanPath, ".") && !strings.HasPrefix(cleanPath, "_next/") {
-				return serveEmbeddedFile(c, frontendFS, "index.html")
+				return serveFrontendFile(c, "index.html")
 			}
 
 			return next(c)

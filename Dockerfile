@@ -7,7 +7,7 @@ WORKDIR /app
 COPY sekolahku_linux /app/sekolahku
 
 RUN chmod +x /app/sekolahku && \
-    mkdir -p /app/data /app/uploads /app/public/uploads
+    mkdir -p /app/data /app/uploads /app/public/uploads /app/dist
 
 ENV PORT=8181
 ENV TZ=Asia/Jakarta

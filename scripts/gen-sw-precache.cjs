@@ -113,9 +113,38 @@ function writeSW(assets) {
   // Sinkronkan out/ → dist/ agar binary Go embed versi terbaru.
   const DIST_DIR = path.join(ROOT, "go-backend", "cmd", "api", "dist");
   if (fs.existsSync(DIST_DIR)) {
+    // Hapus isi dist/ lama agar file stale tidak menumpuk.
+    fs.rmSync(DIST_DIR, { recursive: true, force: true });
+    fs.mkdirSync(DIST_DIR, { recursive: true });
+
     copyDir(OUT_DIR, DIST_DIR);
-    console.log(`[sw-precache] out/ → dist/ synced`);
+
+    // Verifikasi: pastikan jumlah file out/ == dist/.
+    const countOut = countFiles(OUT_DIR);
+    const countDist = countFiles(DIST_DIR);
+    if (countOut !== countDist) {
+      console.error(
+        `[sw-precache] SYNC GAGAL: out/=${countOut} files, dist/=${countDist} files`,
+      );
+      process.exit(1);
+    }
+    console.log(`[sw-precache] out/ → dist/ synced (${countDist} files)`);
   }
+}
+
+/**
+ * Hitung jumlah file secara rekursif.
+ */
+function countFiles(dir) {
+  let count = 0;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      count += countFiles(path.join(dir, entry.name));
+    } else {
+      count++;
+    }
+  }
+  return count;
 }
 
 /**
