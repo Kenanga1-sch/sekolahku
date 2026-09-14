@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -183,14 +184,31 @@ func (h *ParentHandler) CreateLeave(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "id": id})
 }
 
-// GetMyLeaves riwayat pengajuan milik orang tua.
+// GetMyLeaves riwayat pengajuan milik orang tua (paginated).
 func (h *ParentHandler) GetMyLeaves(c echo.Context) error {
 	userID, _ := c.Get("user_id").(string)
-	list, err := h.Repo.GetLeaveByParent(userID)
+	limitStr := c.QueryParam("limit")
+	pageStr := c.QueryParam("page")
+	limit := 20
+	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+		limit = l
+	}
+	page := 1
+	if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+		page = p
+	}
+	offset := (page - 1) * limit
+	list, total, err := h.Repo.GetLeaveByParent(userID, limit, offset)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
-	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": list})
+	totalPages := (total + limit - 1) / limit
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"data":       list,
+		"total":      total,
+		"page":       page,
+		"totalPages": totalPages,
+	})
 }
 
 // CancelLeave membatalkan pengajuan izin/sakit milik orang tua (hanya jika status pending).

@@ -23,13 +23,21 @@ interface Notif {
 export default function ParentNotifikasiPage() {
   const [items, setItems] = useState<Notif[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const router = useRouter();
 
-  const load = async () => {
+  const load = async (p = 1) => {
     setLoading(true);
     try {
-      const data = await goGet<Notif[]>("/api/notifications?limit=50");
-      setItems(Array.isArray(data) ? data : []);
+      const data = await goGet<{ data: Notif[]; totalPages: number }>(`/api/notifications?limit=20&page=${p}`);
+      if (p === 1) {
+        setItems(data.data || []);
+      } else {
+        setItems((prev) => [...prev, ...(data.data || [])]);
+      }
+      setTotalPages(data.totalPages || 1);
+      setPage(p);
     } catch {
       toast.error("Gagal memuat notifikasi");
     } finally {
@@ -112,6 +120,15 @@ export default function ParentNotifikasiPage() {
                   </div>
                 </button>
               ))}
+              {page < totalPages && (
+                <button
+                  onClick={() => load(page + 1)}
+                  disabled={loading}
+                  className="w-full py-3 text-sm text-primary hover:underline disabled:opacity-50"
+                >
+                  {loading ? "Memuat..." : "Muat lebih banyak"}
+                </button>
+              )}
             </div>
           )}
         </CardContent>

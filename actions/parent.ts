@@ -31,8 +31,9 @@ export async function getChildAttendanceAction(studentId?: string) {
   return handleAction(goGet(`/api/parent/attendance${q}`));
 }
 
-export async function getMyLeavesAction() {
-  return handleAction(goGet("/api/parent/leave-requests"));
+export async function getMyLeavesAction(page?: number) {
+  const q = page && page > 1 ? `?page=${page}` : "";
+  return handleAction(goGet(`/api/parent/leave-requests${q}`));
 }
 
 export async function createLeaveAction(payload: {

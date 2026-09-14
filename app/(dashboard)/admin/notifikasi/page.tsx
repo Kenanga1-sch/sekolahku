@@ -31,13 +31,21 @@ interface AdminNotification {
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const router = useRouter();
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (p = 1) => {
     setIsLoading(true);
     try {
-      const data = await goGet<AdminNotification[]>("/api/notifications?limit=50");
-      setNotifications(Array.isArray(data) ? data : []);
+      const res = await goGet<{ data: AdminNotification[]; totalPages: number }>(`/api/notifications?limit=20&page=${p}`);
+      if (p === 1) {
+        setNotifications(res.data || []);
+      } else {
+        setNotifications((prev) => [...prev, ...(res.data || [])]);
+      }
+      setTotalPages(res.totalPages || 1);
+      setPage(p);
     } catch (error) {
       toast.error("Gagal memuat notifikasi");
     } finally {
@@ -124,7 +132,7 @@ export default function NotificationsPage() {
         <CardHeader>
           <CardTitle>Semua Notifikasi</CardTitle>
           <CardDescription>
-            Menampilkan 50 notifikasi terakhir Anda.
+            Notifikasi terbaru Anda.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -181,6 +189,16 @@ export default function NotificationsPage() {
                   </div>
                 </div>
               ))}
+              {page < totalPages && (
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => fetchNotifications(page + 1)}
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Memuat..." : "Muat Lebih Banyak"}
+                </Button>
+              )}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">

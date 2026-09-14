@@ -249,8 +249,16 @@ func (r *ParentRepository) CreateLeave(lr models.LeaveRequest) (string, error) {
 	return id, err
 }
 
-func (r *ParentRepository) GetLeaveByParent(userID string) ([]models.LeaveRequest, error) {
-	return r.scanLeaves(`
+func (r *ParentRepository) GetLeaveByParent(userID string, limit, offset int) ([]models.LeaveRequest, int, error) {
+	if limit < 1 {
+		limit = 20
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	var total int
+	_ = r.DB.QueryRow(`SELECT COUNT(*) FROM leave_requests WHERE parent_user_id = ?`, userID).Scan(&total)
+	list, err := r.scanLeaves(`
 		SELECT lr.id, lr.student_id, COALESCE(s.full_name,''), COALESCE(s.class_name,''), lr.parent_user_id,
 		       COALESCE(u.name,''), lr.type, lr.start_date, lr.end_date, lr.reason, lr.attachment_path,
 		       lr.status, lr.reviewed_by, lr.reviewed_at, lr.review_note, lr.created_at, lr.updated_at
@@ -259,7 +267,9 @@ func (r *ParentRepository) GetLeaveByParent(userID string) ([]models.LeaveReques
 		LEFT JOIN users u ON lr.parent_user_id = u.id
 		WHERE lr.parent_user_id = ?
 		ORDER BY lr.created_at DESC
-	`, userID)
+		LIMIT ? OFFSET ?
+	`, userID, limit, offset)
+	return list, total, err
 }
 
 func (r *ParentRepository) GetLeaveByID(id string) (*models.LeaveRequest, error) {

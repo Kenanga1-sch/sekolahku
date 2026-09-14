@@ -118,7 +118,7 @@ func TestParentLeaveFlow(t *testing.T) {
 		t.Fatalf("create leave: %v", err)
 	}
 
-	list, err := repo.GetLeaveByParent("pu1")
+	list, _, err := repo.GetLeaveByParent("pu1", 20, 0)
 	if err != nil || len(list) != 1 {
 		t.Fatalf("leaves: %d %v", len(list), err)
 	}

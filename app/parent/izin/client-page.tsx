@@ -62,6 +62,8 @@ export default function IzinClientPage() {
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   const [studentId, setStudentId] = useState("");
   const [type, setType] = useState<"izin" | "sakit">("izin");
@@ -78,9 +80,25 @@ export default function IzinClientPage() {
         const preselect = searchParams.get("anak");
         setStudentId(preselect || list[0]?.studentId || "");
       }
-      if (lRes.success) setLeaves((lRes.data as Leave[]) || []);
+      if (lRes.success && lRes.data) {
+        const d = lRes.data as { data?: Leave[]; totalPages?: number };
+        setLeaves(d.data || (lRes.data as Leave[]) || []);
+        setTotalPages(d.totalPages || 1);
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMore = async () => {
+    const next = page + 1;
+    const lRes = await getMyLeavesAction(next);
+    if (lRes.success && lRes.data) {
+      const d = lRes.data as { data?: Leave[]; totalPages?: number };
+      const newLeaves = d.data || (lRes.data as Leave[]) || [];
+      setLeaves((prev) => [...prev, ...newLeaves]);
+      setTotalPages(d.totalPages || 1);
+      setPage(next);
     }
   };
 
@@ -202,40 +220,50 @@ export default function IzinClientPage() {
           {leaves.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">Belum ada pengajuan.</p>
           ) : (
-            leaves.map((l) => (
-              <div key={l.id} className="rounded-lg border p-3 space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-medium truncate">{l.studentName} · {l.type === "sakit" ? "Sakit" : "Izin"}</p>
-                  <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-semibold", STATUS_STYLE[l.status] || STATUS_STYLE.pending)}>
-                    {STATUS_LABEL[l.status] || l.status}
-                  </span>
+            <>
+              {leaves.map((l) => (
+                <div key={l.id} className="rounded-lg border p-3 space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium truncate">{l.studentName} · {l.type === "sakit" ? "Sakit" : "Izin"}</p>
+                    <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-semibold", STATUS_STYLE[l.status] || STATUS_STYLE.pending)}>
+                      {STATUS_LABEL[l.status] || l.status}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {formatDate(l.startDate)}{l.endDate !== l.startDate ? ` – ${formatDate(l.endDate)}` : ""}
+                  </p>
+                  <p className="text-sm">{l.reason}</p>
+                  {l.reviewNote && <p className="text-xs text-muted-foreground italic">Catatan sekolah: {l.reviewNote}</p>}
+                  {l.status === "pending" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-1 h-7 text-xs text-destructive hover:text-destructive"
+                      onClick={async () => {
+                        if (!confirm("Batalkan pengajuan ini?")) return;
+                        const res = await cancelLeaveAction(l.id);
+                        if (res.success) {
+                          toast.success("Pengajuan dibatalkan");
+                          setLeaves((prev) => prev.map((x) => x.id === l.id ? { ...x, status: "cancelled" } : x));
+                        } else {
+                          toast.error(res.error || "Gagal membatalkan");
+                        }
+                      }}
+                    >
+                      Batalkan
+                    </Button>
+                  )}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {formatDate(l.startDate)}{l.endDate !== l.startDate ? ` – ${formatDate(l.endDate)}` : ""}
-                </p>
-                <p className="text-sm">{l.reason}</p>
-                {l.reviewNote && <p className="text-xs text-muted-foreground italic">Catatan sekolah: {l.reviewNote}</p>}
-                {l.status === "pending" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-1 h-7 text-xs text-destructive hover:text-destructive"
-                    onClick={async () => {
-                      if (!confirm("Batalkan pengajuan ini?")) return;
-                      const res = await cancelLeaveAction(l.id);
-                      if (res.success) {
-                        toast.success("Pengajuan dibatalkan");
-                        setLeaves((prev) => prev.map((x) => x.id === l.id ? { ...x, status: "cancelled" } : x));
-                      } else {
-                        toast.error(res.error || "Gagal membatalkan");
-                      }
-                    }}
-                  >
-                    Batalkan
-                  </Button>
-                )}
-              </div>
-            ))
+              ))}
+              {page < totalPages && (
+                <button
+                  onClick={loadMore}
+                  className="w-full py-2.5 text-sm text-primary hover:underline"
+                >
+                  Muat lebih banyak
+                </button>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

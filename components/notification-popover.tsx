@@ -52,8 +52,8 @@ export function NotificationPopover({ className }: { className?: string }) {
   const fetchNotifications = async () => {
     setIsLoading(true);
     try {
-      const data = await goGet<AdminNotification[]>("/api/notifications?limit=20");
-      setNotifications(Array.isArray(data) ? data : []);
+      const res = await goGet<{ data: AdminNotification[] }>("/api/notifications?limit=20");
+      setNotifications(res.data || []);
     } catch (error) {
       console.error("Failed to fetch notifications", error);
     } finally {

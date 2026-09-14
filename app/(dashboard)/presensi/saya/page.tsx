@@ -20,9 +20,9 @@ const STATUS_CONFIG: Record<string, { label: string; icon: React.ReactNode; colo
   alpha: { label: "Alpha", icon: <X className="h-4 w-4" />, color: "bg-red-100 text-red-800" },
 };
 
-function formatTimestamp(ts: number): string {
+function formatTimestamp(ts: string | number): string {
   if (!ts) return "-";
-  const d = new Date(ts);
+  const d = new Date(typeof ts === "string" ? `${ts}T00:00:00` : ts);
   return d.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 }
 

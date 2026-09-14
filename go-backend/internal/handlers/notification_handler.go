@@ -21,19 +21,31 @@ func NewNotificationHandler(repo *repository.NotificationRepository) *Notificati
 func (h *NotificationHandler) GetNotifications(c echo.Context) error {
 	userID, _ := c.Get("user_id").(string)
 	limitStr := c.QueryParam("limit")
+	pageStr := c.QueryParam("page")
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil || limit <= 0 {
 		limit = 20
 	}
+	page := 1
+	if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+		page = p
+	}
+	offset := (page - 1) * limit
 
-	notifications, err := h.Repo.GetNotifications(userID, limit)
+	notifications, err := h.Repo.GetNotifications(userID, limit, offset)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 
-	// The frontend expect an array directly in some places, or a wrapper.
-	// Based on admin/notifikasi/page.tsx: data = await res.json(); setNotifications(data);
-	return c.JSON(http.StatusOK, notifications)
+	total, _ := h.Repo.CountNotifications(userID)
+	totalPages := (total + limit - 1) / limit
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"data":       notifications,
+		"total":      total,
+		"page":       page,
+		"totalPages": totalPages,
+	})
 }
 
 func (h *NotificationHandler) GetStats(c echo.Context) error {

@@ -16,15 +16,21 @@ func NewNotificationRepository(db *sql.DB) *NotificationRepository {
 	return &NotificationRepository{DB: db}
 }
 
-func (r *NotificationRepository) GetNotifications(userID string, limit int) ([]models.Notification, error) {
+func (r *NotificationRepository) GetNotifications(userID string, limit, offset int) ([]models.Notification, error) {
+	if limit < 1 {
+		limit = 20
+	}
+	if offset < 0 {
+		offset = 0
+	}
 	query := `
 		SELECT id, user_id, type, category, title, message, target_url, is_read, metadata, created_at
 		FROM admin_notifications
 		WHERE (user_id IS NULL OR user_id = ?)
 		ORDER BY created_at DESC
-		LIMIT ?
+		LIMIT ? OFFSET ?
 	`
-	rows, err := r.DB.Query(query, userID, limit)
+	rows, err := r.DB.Query(query, userID, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -56,6 +62,16 @@ func (r *NotificationRepository) GetStats(userID string) (models.NotificationSta
 	var count int
 	err := r.DB.QueryRow(query, userID).Scan(&count)
 	return models.NotificationStats{UnreadCount: count}, err
+}
+
+// CountNotifications total notifikasi untuk user (broadcast + personal).
+func (r *NotificationRepository) CountNotifications(userID string) (int, error) {
+	var count int
+	err := r.DB.QueryRow(`
+		SELECT COUNT(*) FROM admin_notifications
+		WHERE (user_id IS NULL OR user_id = ?)
+	`, userID).Scan(&count)
+	return count, err
 }
 
 func (r *NotificationRepository) MarkAsRead(id string) error {
