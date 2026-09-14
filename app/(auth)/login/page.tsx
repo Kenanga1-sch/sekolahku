@@ -213,28 +213,6 @@ export default function LoginPage() {
       className="space-y-6 w-full max-w-md mx-auto p-8 rounded-2xl bg-white/50 dark:bg-black/30 backdrop-blur-md border border-zinc-200/50 dark:border-white/10 shadow-xl"
     >
       <div className="space-y-2 text-center flex flex-col items-center">
-        {/* School Logo - Make sure it's always the school logo */}
-        {schoolLogo ? (
-          <img 
-            src={schoolLogo} 
-            alt="Logo Sekolah" 
-            className="h-16 w-16 object-contain mb-2 p-1.5 bg-white rounded-xl shadow-md border"
-            onError={(e) => {
-              // Fallback if logo fails to load
-              const target = e.target as HTMLImageElement;
-              target.style.display = 'none';
-              target.nextElementSibling?.classList.remove('hidden');
-            }}
-          />
-        ) : null}
-        {/* Fallback graduation cap icon */}
-        <div className={cn(
-          "h-16 w-16 flex items-center justify-center rounded-xl bg-primary text-primary-foreground mb-2 shadow-md",
-          schoolLogo ? "hidden" : ""
-        )}>
-          <GraduationCap className="h-8 w-8" />
-        </div>
-        
         <h1 className="text-3xl font-bold tracking-tight text-zinc-800 dark:text-white">Selamat Datang</h1>
         <p className="text-muted-foreground text-sm">
           Masuk ke dashboard untuk mengelola data sekolah

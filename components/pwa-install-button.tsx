@@ -18,7 +18,13 @@ interface BeforeInstallPromptEvent extends Event {
  * - Desktop Chrome/Edge: panggil prompt atau tampilkan dialog instruksi.
  * - Sudah ter-install: tampilkan status "Aplikasi sudah terpasang".
  */
-export function PwaInstallButton({ className }: { className?: string }) {
+interface PwaInstallButtonProps {
+  className?: string;
+  /** Tampilkan ikon saja (cocok untuk header mobile) */
+  iconOnly?: boolean;
+}
+
+export function PwaInstallButton({ className, iconOnly = false }: PwaInstallButtonProps) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
@@ -27,13 +33,17 @@ export function PwaInstallButton({ className }: { className?: string }) {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const standalone =
-      window.matchMedia("(display-mode: standalone)").matches ||
-      (window.navigator as any).standalone === true;
-    setIsInstalled(standalone);
+    const detect = () => {
+      const standalone =
+        window.matchMedia("(display-mode: standalone)").matches ||
+        (window.navigator as any).standalone === true;
+      const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      return { standalone, ios };
+    };
 
-    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const { standalone, ios } = detect();
+    setIsInstalled(standalone);
     setIsIOS(ios);
 
     const handler = (e: BeforeInstallPromptEvent) => {
@@ -57,23 +67,31 @@ export function PwaInstallButton({ className }: { className?: string }) {
   }, [deferredPrompt]);
 
   if (isInstalled) {
+    if (iconOnly) return null;
     return (
       <div className={cn("flex items-center gap-2 text-sm text-green-600 dark:text-green-400", className)}>
         <CheckCircle className="h-4 w-4" />
-        Aplikasi sudah terpasang
+        Aplikasi terpasang
       </div>
     );
   }
 
-  // iOS: always show instructions dialog
-  if (isIOS) {
+  const Icon = isIOS ? Smartphone : Download;
+
+  if (iconOnly) {
     return (
       <>
-        <Button variant="outline" size="sm" onClick={() => setShowDialog(true)} className={className}>
-          <ArrowDownToLine className="mr-2 h-4 w-4" />
-          Pasang Aplikasi
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn("h-9 w-9 text-muted-foreground hover:bg-muted relative", className)}
+          onClick={handleInstall}
+          title="Pasang Aplikasi"
+          aria-label="Pasang Aplikasi"
+        >
+          <Icon className="h-5 w-5 text-primary" />
         </Button>
-        {showDialog && <InstallInstructionsDialog onClose={() => setShowDialog(false)} isIOS />}
+        {showDialog && <InstallInstructionsDialog onClose={() => setShowDialog(false)} isIOS={isIOS} />}
       </>
     );
   }
@@ -81,10 +99,10 @@ export function PwaInstallButton({ className }: { className?: string }) {
   return (
     <>
       <Button variant="outline" size="sm" onClick={handleInstall} className={className}>
-        <Download className="mr-2 h-4 w-4" />
+        <Icon className="mr-2 h-4 w-4 text-primary" />
         {deferredPrompt ? "Pasang Sekarang" : "Pasang Aplikasi"}
       </Button>
-      {showDialog && <InstallInstructionsDialog onClose={() => setShowDialog(false)} />}
+      {showDialog && <InstallInstructionsDialog onClose={() => setShowDialog(false)} isIOS={isIOS} />}
     </>
   );
 }

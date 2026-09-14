@@ -2,6 +2,7 @@
 
 import { GraduationCap, Quote } from "lucide-react";
 import Link from "next/link";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { WavyBackground } from "@/components/ui/wavy-background";
@@ -74,8 +75,11 @@ export default function AuthLayout({
       {/* Right Side - Form */}
       <div className="flex items-center justify-center p-6 sm:p-12 lg:p-16 bg-background relative">
         <div className="w-full max-w-[400px] space-y-6 mx-auto">
-          {/* Mobile Logo (Visible only on small screens) */}
-          <div className="lg:hidden flex justify-center mb-8">
+          {/* Mobile Back Button & Logo */}
+          <div className="lg:hidden flex flex-col items-center gap-4 mb-8">
+            <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+              <span className="text-lg leading-none">&larr;</span> Kembali ke Beranda
+            </Link>
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary shadow-lg text-primary-foreground overflow-hidden">
               {settings?.school_logo ? (
                 <img 

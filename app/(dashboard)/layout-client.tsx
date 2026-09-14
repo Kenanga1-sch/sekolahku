@@ -454,8 +454,9 @@ export default function DashboardLayoutClient({
             {/* Right: Actions */}
             <div className="flex items-center gap-1 sm:gap-3 md:gap-4 ml-auto">
              {/* Install PWA */}
-             <div className="hidden sm:flex items-center justify-center min-w-[44px] min-h-[44px]">
-                <PwaInstallButton />
+             <div className="flex items-center justify-center min-w-[44px] min-h-[44px]">
+                <PwaInstallButton iconOnly className="sm:hidden" />
+                <PwaInstallButton className="hidden sm:flex" />
              </div>
 
              {/* Theme Toggle */}
