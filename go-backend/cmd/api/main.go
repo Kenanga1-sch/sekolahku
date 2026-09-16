@@ -191,6 +191,8 @@ func main() {
 		Holiday:        repository.NewSchoolHolidayRepository(db),
 		Push:           repository.NewPushRepository(db),
 		Parent:         repository.NewParentRepository(db),
+		BankSoal:       repository.NewBankSoalRepository(db),
+		Kurikulum:      repository.NewKurikulumRepository(db),
 	}
 
 	// Aktifkan pemeriksaan status user pada setiap request terautentikasi,
@@ -279,6 +281,8 @@ func main() {
 		Push:           handlers.NewPushHandler(pushSvc),
 		Parent:         handlers.NewParentHandler(repos.Parent, repos.User, repos.Attendance, repos.Notification, pushSvc, prefsRepo),
 		StudentMe:      handlers.NewStudentMeHandler(repos.Student, repos.Attendance, repos.Savings, repos.Announcement, db),
+		BankSoal:       handlers.NewBankSoalHandler(repos.BankSoal),
+		Kurikulum:      handlers.NewKurikulumHandler(repos.Kurikulum),
 		PushSvc:        pushSvc,
 	}
 

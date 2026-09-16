@@ -248,3 +248,137 @@ export interface SystemHealth {
     last_backup: Date | string | null;
   };
 }
+
+// ==========================================
+// Bank Soal Types
+// ==========================================
+
+export type QuestionType =
+  | "pg_single"
+  | "pg_multi"
+  | "true_false"
+  | "fill_blank"
+  | "matching"
+  | "pair_match"
+  | "essay";
+
+export type QuestionDifficulty = "easy" | "medium" | "hard";
+
+export interface QuestionOption {
+  id: string;
+  text: string;
+  isCorrect: boolean;
+  mediaUrl?: string;
+}
+
+export interface Bab {
+  id: string;
+  subjectId: string;
+  classId?: string;
+  kurikulumId?: string;
+  semester?: string;
+  title: string;
+  description?: string;
+  orderNumber: number;
+  createdAt?: number;
+  updatedAt?: number;
+  subjectName?: string;
+  className?: string;
+  kurikulumName?: string;
+}
+
+export interface QuestionBank {
+  id: string;
+  subjectId: string;
+  classId?: string;
+  babId?: string;
+  kurikulumId?: string;
+  semester?: string;
+  title: string;
+  description?: string;
+  createdBy: string;
+  createdAt?: number;
+  updatedAt?: number;
+  subjectName?: string;
+  className?: string;
+  babTitle?: string;
+  creatorName?: string;
+  kurikulumName?: string;
+  questionCount?: number;
+}
+
+export interface Kurikulum {
+  id: string;
+  name: string;
+  description?: string;
+  isActive: boolean;
+  createdAt?: number;
+  updatedAt?: number;
+}
+
+export interface Question {
+  id: string;
+  bankId: string;
+  type: QuestionType;
+  content: string;
+  mediaUrl?: string;
+  mediaType?: "image" | "video";
+  options?: string; // JSON string of QuestionOption[]
+  correctAnswer?: string;
+  explanation?: string;
+  points: number;
+  orderNumber: number;
+  difficulty: QuestionDifficulty;
+  createdBy: string;
+  createdAt?: number;
+  updatedAt?: number;
+}
+
+export interface QuestionSet {
+  id: string;
+  name: string;
+  bankId: string;
+  academicYear?: string;
+  shuffleQuestions: boolean;
+  shuffleOptions: boolean;
+  timerMinutes?: number;
+  createdBy: string;
+  createdAt?: number;
+  updatedAt?: number;
+  bankTitle?: string;
+  itemCount?: number;
+}
+
+export interface QuestionSetItem {
+  id: string;
+  setId: string;
+  questionId: string;
+  orderNumber: number;
+  pointsOverride?: number;
+  question?: Question;
+}
+
+export interface StudentPractice {
+  id: string;
+  studentId: string;
+  setId: string;
+  startedAt?: number;
+  finishedAt?: number;
+  totalScore: number;
+  maxScore: number;
+  isCompleted: boolean;
+  attemptNumber: number;
+  createdAt?: number;
+  setName?: string;
+  studentName?: string;
+}
+
+export interface StudentPracticeAnswer {
+  id: string;
+  practiceId: string;
+  questionId: string;
+  answer?: string;
+  isCorrect?: boolean;
+  pointsEarned: number;
+  answeredAt?: number;
+}

@@ -1,0 +1,12 @@
+-- ============================================================
+-- 000051: Normalize question options ke JSON
+--
+-- Soal lama menyimpan options sebagai plain text "A|B|C|D".
+-- Soal baru menyimpan JSON [{id,text,isCorrect}].
+--
+-- Normalisasi dijalankan sebagai post-migration di Go
+-- (migrate.go -> postMigrations[51] -> MigrateNormalizeOptions),
+-- karena parsing JSON lebih aman dilakukan di Go.
+--
+-- File SQL ini hanya marker agar migrasi tercatat di _migrations.
+-- ============================================================

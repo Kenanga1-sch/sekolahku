@@ -1,0 +1,2 @@
+-- Rollback 000051: tidak ada perubahan skema SQL yang perlu di-rollback.
+-- Normalisasi options bersifat data-only; rollback opsional dilakukan manual.

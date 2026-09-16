@@ -42,6 +42,8 @@ type Repositories struct {
 	Holiday        *repository.SchoolHolidayRepository
 	Push           *repository.PushRepository
 	Parent         *repository.ParentRepository
+	BankSoal       *repository.BankSoalRepository
+	Kurikulum      *repository.KurikulumRepository
 }
 
 // AllHandlers holds all HTTP handler instances.
@@ -77,6 +79,8 @@ type AllHandlers struct {
 	Push           *handlers.PushHandler
 	Parent         *handlers.ParentHandler
 	StudentMe      *handlers.StudentMeHandler
+	BankSoal       *handlers.BankSoalHandler
+	Kurikulum      *handlers.KurikulumHandler
 	// PushSvc dipakai handler lain (absen, tabungan, pengumuman) untuk
 	// mengirim push ke orang tua.
 	PushSvc *push.Service
@@ -211,11 +215,15 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	adminGroup.POST("/academic/years", h.Academic.CreateAcademicYear)
 	adminGroup.PUT("/academic/years/:id", h.Academic.UpdateAcademicYear)
 	adminGroup.DELETE("/academic/years/:id", h.Academic.DeleteAcademicYear)
-	adminGroup.GET("/academic/subjects", h.Academic.GetSubjects)
+	guruGroup.GET("/academic/subjects", h.Academic.GetSubjects)
+	guruGroup.GET("/academic/kurikulum", h.Kurikulum.ListKurikulum)
 	adminGroup.POST("/academic/subjects", h.Academic.CreateSubject)
+	adminGroup.POST("/academic/kurikulum", h.Kurikulum.CreateKurikulum)
+	adminGroup.PUT("/academic/kurikulum/:id", h.Kurikulum.UpdateKurikulum)
+	adminGroup.DELETE("/academic/kurikulum/:id", h.Kurikulum.DeleteKurikulum)
 	adminGroup.PUT("/academic/subjects/:id", h.Academic.UpdateSubject)
 	adminGroup.DELETE("/academic/subjects/:id", h.Academic.DeleteSubject)
-	adminGroup.GET("/academic/classes", h.Academic.GetClasses)
+	guruGroup.GET("/academic/classes", h.Academic.GetClasses)
 	auth.GET("/academic/classes/suggested-capacity", h.Academic.GetSuggestedCapacity)
 	adminGroup.POST("/academic/classes", h.Academic.CreateClass)
 	adminGroup.PUT("/academic/classes/:id", h.Academic.UpdateClass)
@@ -636,6 +644,7 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	adminGroup.POST("/admin/mutasi/masuk/langsung", h.Mutasi.DirectMutasiMasuk)
 	adminGroup.POST("/admin/mutasi-keluar/langsung", h.Mutasi.DirectMutasiKeluar)
 	adminGroup.GET("/admin/mutasi/logs", h.Mutasi.GetMutasiLogs)
+	adminGroup.PUT("/admin/mutasi/logs/:id", h.Mutasi.UpdateMutasiLog)
 	adminGroup.GET("/admin/mutasi/rekap", h.Mutasi.GetMutasiRekap)
 
 	// Notifications
@@ -675,9 +684,56 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	studentGroup.GET("/me/attendance", h.StudentMe.GetMyAttendance)
 	studentGroup.GET("/me/savings", h.StudentMe.GetMySavings)
 
+	// Bank Soal: Praktik Siswa
+	studentGroup.GET("/me/practices", h.BankSoal.ListPractices)
+	studentGroup.POST("/me/practices", h.BankSoal.CreatePractice)
+	studentGroup.GET("/me/practices/:id", h.BankSoal.GetPractice)
+	studentGroup.POST("/me/practices/:id/submit", h.BankSoal.SubmitPractice)
+	studentGroup.GET("/me/practices/:id/result", h.BankSoal.GetPracticeResult)
+
+	// Bank Soal: Siswa melihat paket soal
+	studentGroup.GET("/me/sets", h.BankSoal.ListSets)
+	studentGroup.GET("/me/sets/:id/items", h.BankSoal.ListSetItems)
+
 	// Pengajuan izin/sakit: guru/admin meninjau
 	guruGroup.GET("/leave-requests", h.Parent.ListLeaves)
 	guruGroup.POST("/leave-requests/:id/review", h.Parent.ReviewLeave)
+
+	// Bank Soal
+	guruGroup.GET("/bank-soal/bab", h.BankSoal.ListBabs)
+	guruGroup.POST("/bank-soal/bab", h.BankSoal.CreateBab)
+	guruGroup.GET("/bank-soal/bab/:id", h.BankSoal.GetBab)
+	guruGroup.PUT("/bank-soal/bab/:id", h.BankSoal.UpdateBab)
+	guruGroup.DELETE("/bank-soal/bab/:id", h.BankSoal.DeleteBab)
+
+	guruGroup.GET("/bank-soal/questions", h.BankSoal.ListQuestions)
+	guruGroup.POST("/bank-soal/questions", h.BankSoal.CreateQuestion)
+	guruGroup.GET("/bank-soal/questions/:id", h.BankSoal.GetQuestion)
+	guruGroup.PUT("/bank-soal/questions/:id", h.BankSoal.UpdateQuestion)
+	guruGroup.DELETE("/bank-soal/questions/:id", h.BankSoal.DeleteQuestion)
+	guruGroup.POST("/bank-soal/questions/bulk-delete", h.BankSoal.BulkDeleteQuestions)
+
+	guruGroup.GET("/bank-soal/sets", h.BankSoal.ListSets)
+	guruGroup.POST("/bank-soal/sets", h.BankSoal.CreateSet)
+	guruGroup.GET("/bank-soal/sets/:id", h.BankSoal.GetSet)
+	guruGroup.PUT("/bank-soal/sets/:id", h.BankSoal.UpdateSet)
+	guruGroup.DELETE("/bank-soal/sets/:id", h.BankSoal.DeleteSet)
+	guruGroup.GET("/bank-soal/sets/:id/items", h.BankSoal.ListSetItems)
+	guruGroup.POST("/bank-soal/sets/:id/items", h.BankSoal.AddSetItem)
+	guruGroup.POST("/bank-soal/sets/:id/items/bulk", h.BankSoal.BulkAddSetItems)
+	guruGroup.DELETE("/bank-soal/sets/:id/items/:questionId", h.BankSoal.RemoveSetItem)
+	guruGroup.PUT("/bank-soal/sets/:id/items/reorder", h.BankSoal.ReorderSetItems)
+
+	guruGroup.GET("/bank-soal/banks", h.BankSoal.ListBanks)
+	guruGroup.POST("/bank-soal/banks", h.BankSoal.CreateBank)
+	guruGroup.GET("/bank-soal/banks/:id", h.BankSoal.GetBank)
+	guruGroup.DELETE("/bank-soal/banks/:id", h.BankSoal.DeleteBank)
+
+	// Student practices (guru/admin bisa melihat semua)
+	guruGroup.GET("/bank-soal/practices", h.BankSoal.ListPractices)
+	guruGroup.GET("/bank-soal/practices/:id", h.BankSoal.GetPractice)
+	guruGroup.GET("/bank-soal/practices/:id/result", h.BankSoal.GetPracticeResult)
+	guruGroup.PUT("/bank-soal/practices/:id/answers/:questionId/grade", h.BankSoal.GradeAnswer)
 	// Tautan ortu <-> siswa (admin)
 	adminGroup.GET("/master/students/:id/parents", h.Parent.GetStudentParents)
 	adminGroup.POST("/master/students/:id/parents", h.Parent.LinkParent)
