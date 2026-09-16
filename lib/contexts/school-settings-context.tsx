@@ -1,8 +1,8 @@
 "use client";
 
-import { createContext, useContext, ReactNode } from "react";
+import { createContext, useCallback, useContext, ReactNode } from "react";
 import useSWR from "swr";
-import { goGet } from "@/lib/api-client";
+import { goGet, goPatch } from "@/lib/api-client";
 import type { SchoolSettings } from "@/types";
 
 // Default fallback values
@@ -16,6 +16,7 @@ const DEFAULT_SETTINGS: Partial<SchoolSettings> = {
 interface SchoolSettingsContextType {
     settings: SchoolSettings | null;
     isLoading: boolean;
+    updateSettings: (patch: Partial<SchoolSettings>) => Promise<void>;
 }
 
 interface SchoolSettingsResponse {
@@ -26,18 +27,24 @@ interface SchoolSettingsResponse {
 const SchoolSettingsContext = createContext<SchoolSettingsContextType>({
     settings: null,
     isLoading: true,
+    updateSettings: async () => {},
 });
 
 export function SchoolSettingsProvider({ children }: { children: ReactNode }) {
-    const { data: response, isLoading } = useSWR<SchoolSettingsResponse>("/api/public/school-settings", goGet, {
-        revalidateOnFocus: false, // Don't revalidate on window focus (settings rarely change)
-        dedupingInterval: 60000, // Dedup requests within 1 minute
+    const { data: response, isLoading, mutate } = useSWR<SchoolSettingsResponse>("/api/public/school-settings", goGet, {
+        revalidateOnFocus: false,
+        dedupingInterval: 60000,
     });
 
     const settings = (response?.success ? response.data : response?.data) ?? null;
 
+    const updateSettings = useCallback(async (patch: Partial<SchoolSettings>) => {
+        await goPatch("/api/public/school-settings", patch);
+        await mutate();
+    }, [mutate]);
+
     return (
-        <SchoolSettingsContext.Provider value={{ settings, isLoading }}>
+        <SchoolSettingsContext.Provider value={{ settings, isLoading, updateSettings }}>
             {children}
         </SchoolSettingsContext.Provider>
     );
