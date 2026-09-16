@@ -83,7 +83,7 @@ const allItems: BottomNavItem[] = [
   },
   {
     href: "/profile",
-    label: "Profil",
+    label: "Akun",
     icon: UserCircle,
     matchPaths: ["/profile", "/profil"],
   },
@@ -107,7 +107,7 @@ export function BottomNav({ onMenuClick, userRole }: BottomNavProps) {
   const pathname = usePathname();
 
   const visibleItems = useMemo(
-    () => filterItemsByRole(allItems, userRole).slice(0, 4),
+    () => filterItemsByRole(allItems, userRole).slice(0, 5),
     [userRole]
   );
   const splitIndex = Math.ceil(visibleItems.length / 2);
