@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, ReactNode } from "react";
 import useSWR from "swr";
-import { goGet, goPatch } from "@/lib/api-client";
+import { goGet, goPost } from "@/lib/api-client";
 import type { SchoolSettings } from "@/types";
 
 // Default fallback values
@@ -39,9 +39,9 @@ export function SchoolSettingsProvider({ children }: { children: ReactNode }) {
     const settings = (response?.success ? response.data : response?.data) ?? null;
 
     const updateSettings = useCallback(async (patch: Partial<SchoolSettings>) => {
-        await goPatch("/api/public/school-settings", patch);
+        await goPost("/api/school-settings", { id: settings?.id, ...patch });
         await mutate();
-    }, [mutate]);
+    }, [mutate, settings?.id]);
 
     return (
         <SchoolSettingsContext.Provider value={{ settings, isLoading, updateSettings }}>

@@ -2,15 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Activity, Database, Settings, Users } from "lucide-react";
+import { Activity, Database, LayoutTemplate, Settings, Sparkles, Users } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
-import TabSekolah from "./tab-sekolah";
 import TabUsers from "./tab-users";
 import TabSystemLogs from "./tab-system-logs";
 import TabBackup from "./tab-backup";
 import TabProfil from "./tab-profil";
-import TabSistem from "./tab-sistem";
 import TabLandingSections from "./tab-landing-sections";
 import TabVisiMisi from "./tab-visi-misi";
 
@@ -44,49 +42,50 @@ export default function PengaturanPage() {
             </div>
 
             <Tabs defaultValue="profil" className="w-full">
-                <TabsList className="grid grid-cols-2 overflow-x-auto rounded-xl bg-slate-100/80 dark:bg-zinc-900/80 border border-slate-200/40 dark:border-zinc-800/40 p-1 sm:grid-cols-4">
-                    <TabsTrigger value="profil" className="min-w-[150px] rounded-lg px-3 py-2 text-xs font-semibold">
-                        <Settings className="mr-2 h-4 w-4" />
+                <TabsList className="w-full max-w-full h-auto flex-nowrap rounded-xl bg-slate-100/80 dark:bg-zinc-900/80 border-slate-200/40 dark:border-zinc-800/40 p-1">
+                    <TabsTrigger value="profil" className="min-w-[140px] shrink-0 rounded-lg px-3 py-2 text-xs font-semibold">
+                        <Settings className="h-4 w-4" />
                         Profil Sekolah
                     </TabsTrigger>
-                    <TabsTrigger value="sekolah" className="min-w-[150px] rounded-lg px-3 py-2 text-xs font-semibold">
-                        <Activity className="mr-2 h-4 w-4" />
-                        Identitas & Kontak
-                    </TabsTrigger>
-                    <TabsTrigger value="sistem" className="min-w-[150px] rounded-lg px-3 py-2 text-xs font-semibold">
-                        <Database className="mr-2 h-4 w-4" />
-                        Sistem & Akademik
-                    </TabsTrigger>
-                    <TabsTrigger value="users" className="min-w-[150px] rounded-lg px-3 py-2 text-xs font-semibold">
-                        <Users className="mr-2 h-4 w-4" />
+                    <TabsTrigger value="users" className="min-w-[140px] shrink-0 rounded-lg px-3 py-2 text-xs font-semibold">
+                        <Users className="h-4 w-4" />
                         Manajemen Pengguna
+                    </TabsTrigger>
+                    <TabsTrigger value="system-logs" className="min-w-[140px] shrink-0 rounded-lg px-3 py-2 text-xs font-semibold">
+                        <Activity className="h-4 w-4" />
+                        Log Aktivitas
+                    </TabsTrigger>
+                    <TabsTrigger value="backup" className="min-w-[140px] shrink-0 rounded-lg px-3 py-2 text-xs font-semibold">
+                        <Database className="h-4 w-4" />
+                        Backup Telegram
+                    </TabsTrigger>
+                    <TabsTrigger value="visi-misi" className="min-w-[140px] shrink-0 rounded-lg px-3 py-2 text-xs font-semibold">
+                        <Sparkles className="h-4 w-4" />
+                        Visi & Misi
+                    </TabsTrigger>
+                    <TabsTrigger value="landing" className="min-w-[140px] shrink-0 rounded-lg px-3 py-2 text-xs font-semibold">
+                        <LayoutTemplate className="h-4 w-4" />
+                        Landing Halaman
                     </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="profil" className="pt-4">
                     <TabProfil settings={settings} setSettings={updateSettings} />
                 </TabsContent>
-                <TabsContent value="sekolah" className="pt-4">
-                    <TabSekolah />
-                </TabsContent>
-                <TabsContent value="sistem" className="pt-4">
-                    <TabSistem settings={settings} setSettings={updateSettings} />
-                </TabsContent>
                 <TabsContent value="users" className="pt-4">
                     <TabUsers />
                 </TabsContent>
-
                 <TabsContent value="system-logs" className="pt-4">
                     <TabSystemLogs />
                 </TabsContent>
                 <TabsContent value="backup" className="pt-4">
                     <TabBackup />
                 </TabsContent>
-                <TabsContent value="landing" className="pt-4">
-                    <TabLandingSections settings={settings} setSettings={updateSettings} />
-                </TabsContent>
                 <TabsContent value="visi-misi" className="pt-4">
                     <TabVisiMisi settings={settings} setSettings={updateSettings} />
+                </TabsContent>
+                <TabsContent value="landing" className="pt-4">
+                    <TabLandingSections settings={settings} setSettings={updateSettings} />
                 </TabsContent>
             </Tabs>
         </div>
