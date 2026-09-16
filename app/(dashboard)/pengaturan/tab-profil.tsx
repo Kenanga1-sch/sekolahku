@@ -161,6 +161,28 @@ export default function TabProfil({ settings, setSettings }: TabProfilProps) {
             />
           </div>
           <div className="space-y-2">
+            <Label htmlFor="governance_name">Nama Pemerintah Daerah/Kabupaten</Label>
+            <Input
+              id="governance_name"
+              value={settings.governance_name}
+              onChange={(e) =>
+                setSettings((prev: any) => ({ ...prev, governance_name: e.target.value }))
+              }
+              placeholder="Pemerintah Kabupaten Indramayu"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="department_name">Nama Dinas</Label>
+            <Input
+              id="department_name"
+              value={settings.department_name}
+              onChange={(e) =>
+                setSettings((prev: any) => ({ ...prev, department_name: e.target.value }))
+              }
+              placeholder="Dinas Pendidikan dan Kebudayaan"
+            />
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="school_address">Alamat Lengkap</Label>
             <Textarea
               id="school_address"

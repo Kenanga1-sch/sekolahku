@@ -10,6 +10,16 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2, Save, Send, Database, AlertCircle, CheckCircle, Info, UploadCloud } from "lucide-react";
 import { goGet, goPut, goPost } from "@/lib/api-client";
 import { toast } from "sonner";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface BackupSettings {
     id: string;
@@ -35,6 +45,7 @@ export default function TabBackup() {
     const [error, setError] = useState<string | null>(null);
     const [successMsg, setSuccessMsg] = useState<string | null>(null);
     const [fileToRestore, setFileToRestore] = useState<File | null>(null);
+    const [isRestoreConfirmOpen, setIsRestoreConfirmOpen] = useState(false);
 
     useEffect(() => {
         let mounted = true;
@@ -121,10 +132,12 @@ export default function TabBackup() {
             return;
         }
 
-        if (!confirm("PERINGATAN: Melakukan restore akan MENIMPA dan MENGHAPUS seluruh database dan file upload saat ini. Apakah Anda yakin ingin melanjutkan?")) {
-            return;
-        }
+        setIsRestoreConfirmOpen(true);
+    };
 
+    const confirmRestore = async () => {
+        setIsRestoreConfirmOpen(false);
+        if (!fileToRestore) return;
         setIsRestoring(true);
         try {
             const formData = new FormData();
@@ -314,6 +327,27 @@ export default function TabBackup() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Restore Confirmation Dialog */}
+            <AlertDialog open={isRestoreConfirmOpen} onOpenChange={setIsRestoreConfirmOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Konfirmasi Restore</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            PERINGATAN: Melakukan restore akan MENIMPA dan MENGHAPUS seluruh database dan file upload saat ini. Apakah Anda yakin ingin melanjutkan?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Batal</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={confirmRestore}
+                            className="bg-destructive text-destructive-foreground"
+                        >
+                            Ya, Lanjutkan Restore
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

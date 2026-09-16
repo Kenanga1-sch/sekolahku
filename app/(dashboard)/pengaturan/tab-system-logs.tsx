@@ -29,6 +29,7 @@ import {
 import type { AuditAction, AuditResource } from "@/lib/audit";
 import { goGet } from "@/lib/api-client";
 import { formatDate } from "@/lib/utils";
+import { showError } from "@/lib/toast";
 import { useSortableData } from "@/hooks/use-sortable-data";
 
 interface AuditLogEntry {
@@ -211,6 +212,7 @@ export default function TabSystemLogs() {
     const [totalPages, setTotalPages] = useState(1);
     const [filterAction, setFilterAction] = useState<string>("all");
     const [filterResource, setFilterResource] = useState<string>("all");
+    const [totalLogs, setTotalLogs] = useState(0);
     const { sortedData: sortedLogs, sortConfig, requestSort } = useSortableData(logs);
 
     const fetchLogs = useCallback(async () => {
@@ -226,8 +228,11 @@ export default function TabSystemLogs() {
             const result: any = await goGet(`/api/audit-logs?${queryParams.toString()}`);
             setLogs((result.items || []).map(normalizeLog));
             setTotalPages(result.totalPages || 1);
+            setTotalLogs(result.totalItems || 0);
         } catch {
             setLogs([]);
+            setTotalLogs(0);
+            showError("Gagal memuat log aktivitas");
         } finally {
             setIsLoading(false);
             setIsRefreshing(false);
@@ -371,12 +376,12 @@ export default function TabSystemLogs() {
                     },
                 ]}
             />
-            {!isLoading && logs.length > 0 && (
+            {!isLoading && totalLogs > 0 && (
                 <TablePagination
                     page={page}
                     totalPages={totalPages}
                     onPageChange={setPage}
-                    label={`${logs.length} log`}
+                    label={`${totalLogs} log`}
                 />
             )}
         </div>

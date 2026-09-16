@@ -16,7 +16,6 @@ import { goGet, goPost } from "@/lib/api-client";
 import { showSuccess, showError } from "@/lib/toast";
 import { getCurrentAcademicYear } from "@/lib/config";
 
-// Subcomponents relocated to profile
 import TabProfil from "./tab-profil";
 import TabVisiMisi from "./tab-visi-misi";
 import TabSistem from "./tab-sistem";
@@ -31,6 +30,8 @@ export default function TabSekolah() {
   const [settings, setSettings] = useState({
     school_name: "",
     school_npsn: "",
+    governance_name: "",
+    department_name: "",
     school_address: "",
     school_phone: "",
     school_email: "",
@@ -78,6 +79,8 @@ export default function TabSekolah() {
         setSettings({
           school_name: record.school_name || "",
           school_npsn: record.school_npsn || "",
+          governance_name: record.governance_name || "",
+          department_name: record.department_name || "",
           school_address: record.school_address || "",
           school_phone: record.school_phone || "",
           school_email: record.school_email || "",

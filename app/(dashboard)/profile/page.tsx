@@ -29,9 +29,6 @@ import {
     Globe,
     ChevronRight,
     Sparkles,
-    Settings,
-    Users,
-    Database,
     Download,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
@@ -41,10 +38,6 @@ import { toast } from "sonner";
 import { PwaInstallButton } from "@/components/pwa-install-button";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { siteConfig } from "@/lib/config";
-import TabSekolah from "./tab-sekolah";
-import TabUsers from "./tab-users";
-import TabSystemLogs from "./tab-system-logs";
-import TabBackup from "./tab-backup";
 
 export default function ProfilePage() {
     const router = useRouter();
@@ -435,26 +428,6 @@ export default function ProfilePage() {
                             <History className="h-4 w-4" />
                             Aktivitas Saya
                         </TabsTrigger>
-                        {(user.role === "admin" || user.role === "superadmin") && (
-                            <>
-                                <TabsTrigger value="sekolah" className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all cursor-pointer whitespace-nowrap text-xs">
-                                    <Settings className="h-4 w-4" />
-                                    Pengaturan Sekolah
-                                </TabsTrigger>
-                                <TabsTrigger value="users" className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all cursor-pointer whitespace-nowrap text-xs">
-                                    <Users className="h-4 w-4" />
-                                    Manajemen Pengguna
-                                </TabsTrigger>
-                                <TabsTrigger value="system-logs" className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all cursor-pointer whitespace-nowrap text-xs">
-                                    <Activity className="h-4 w-4" />
-                                    Log Aktivitas Sistem
-                                </TabsTrigger>
-                                <TabsTrigger value="backup" className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all cursor-pointer whitespace-nowrap text-xs">
-                                    <Database className="h-4 w-4" />
-                                    Backup Telegram
-                                </TabsTrigger>
-                            </>
-                        )}
                     </TabsList>
                     <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-slate-100 to-transparent dark:from-zinc-900 sm:hidden" aria-hidden="true" />
                 </div>
@@ -865,23 +838,6 @@ export default function ProfilePage() {
                     </Card>
                 </TabsContent>
 
-                {/* Admin-only Tabs */}
-                {(user.role === "admin" || user.role === "superadmin") && (
-                    <>
-                        <TabsContent value="sekolah" className="space-y-6">
-                            <TabSekolah />
-                        </TabsContent>
-                        <TabsContent value="users" className="space-y-6">
-                            <TabUsers />
-                        </TabsContent>
-                        <TabsContent value="system-logs" className="space-y-6">
-                            <TabSystemLogs />
-                        </TabsContent>
-                        <TabsContent value="backup" className="space-y-6">
-                            <TabBackup />
-                        </TabsContent>
-                    </>
-                )}
             </Tabs>
         </div>
     );

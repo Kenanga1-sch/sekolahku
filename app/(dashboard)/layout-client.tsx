@@ -34,6 +34,7 @@ import {
   ChevronDown,
   ChevronUp,
   Menu,
+  Settings,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
@@ -128,9 +129,20 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/halaman-depan": "Halaman Depan",
   "/admin/notifikasi": "Notifikasi",
   "/admin": "Administrasi",
+  // Bank Soal
+  "/bank-soal/soal/baru": "Buat Soal",
+  "/bank-soal/soal/edit": "Edit Soal",
+  "/bank-soal/soal": "Kelola Soal",
+  "/bank-soal/bab": "Kelola Bab",
+  "/bank-soal/paket": "Paket Soal",
+  "/bank-soal": "Bank Soal",
+  // Praktik
+  "/praktik/hasil": "Hasil Praktik",
+  "/praktik": "Latihan Soal",
   // Profil
   "/profil/ganti-password": "Ganti Password",
   "/profile": "Profil",
+  "/pengaturan": "Pengaturan",
 };
 
 // Pre-compute sorted keys (longest first for prefix matching)
@@ -180,6 +192,7 @@ const navGroups: NavGroup[] = [
     label: "Menu Siswa",
     items: [
       { href: "/overview", label: "Beranda", icon: LayoutDashboard, roles: SISWA_ROLES },
+      { href: "/praktik", label: "Latihan Soal", icon: BookOpen, roles: SISWA_ROLES },
       { href: "/presensi/saya", label: "Presensi Saya", icon: ClipboardList, roles: SISWA_ROLES },
       { href: "/tabungan/saya", label: "Tabungan Saya", icon: Wallet, roles: SISWA_ROLES },
     ],
@@ -197,6 +210,7 @@ const navGroups: NavGroup[] = [
     label: "Manajemen Siswa",
     items: [
       { href: "/admin/siswa", label: "Manajemen Siswa", icon: Users, roles: ADMIN_ROLES },
+      { href: "/bank-soal", label: "Bank Soal", icon: BookOpen, roles: GURU_ACCESS_ROLES },
       { href: "/presensi", label: "Presensi", icon: ClipboardList, roles: GURU_ACCESS_ROLES },
       { href: "/presensi/pengajuan", label: "Pengajuan Izin", icon: CalendarDays, roles: GURU_ACCESS_ROLES },
       { href: "/tabungan", label: "Tabungan Siswa", icon: Wallet, roles: TABUNGAN_ROLES },
@@ -493,7 +507,10 @@ export default function DashboardLayoutClient({
                     <User className="mr-2 h-4 w-4" />
                     <span>Profil Saya</span>
                   </DropdownMenuItem>
-                  
+                  <DropdownMenuItem onClick={() => router.push("/pengaturan")}>
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Pengaturan</span>
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => router.push("/")}>
                     <Globe className="mr-2 h-4 w-4" />
                     <span>Kunjungi Website</span>

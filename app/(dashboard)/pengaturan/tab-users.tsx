@@ -364,14 +364,7 @@ export default function TabUsers() {
         setTimeout(() => setCopied(false), 2000);
     };
 
-    const visibleUsers = users.filter(
-        (u) =>
-            u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            u.username?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
-    const { sortedData: sortedUsers, sortConfig, requestSort } = useSortableData(visibleUsers);
+    const { sortedData: sortedUsers, sortConfig, requestSort } = useSortableData(users);
 
     const getRoleInfo = (role: string) => roles.find((r) => r.value === role) || roles.find((r) => r.value === "user") || roles[0];
     const formatCreatedDate = (value?: string) => {

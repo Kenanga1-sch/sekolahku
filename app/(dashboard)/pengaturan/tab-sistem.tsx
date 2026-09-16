@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { AlertTriangle, Compass, GraduationCap, ShieldCheck } from "lucide-react";
 import { goGet } from "@/lib/api-client";
+import { showError } from "@/lib/toast";
 
 interface TabSistemProps {
   settings: any;
@@ -21,12 +22,18 @@ export default function TabSistem({ settings, setSettings }: TabSistemProps) {
     // Fetch GTK/Employees for treasurer list
     goGet("/api/master/employees?limit=200").then((res: any) => {
       setEmployees(res?.data || res || []);
-    }).catch(err => console.error("Error fetching employees:", err));
+    }).catch(err => {
+      console.error("Error fetching employees:", err);
+      showError("Gagal memuat daftar pegawai");
+    });
 
     // Fetch Academic Years list
     goGet("/api/academic/years").then((res: any) => {
       setAcademicYears(res || []);
-    }).catch(err => console.error("Error fetching academic years:", err));
+    }).catch(err => {
+      console.error("Error fetching academic years:", err);
+      showError("Gagal memuat daftar tahun ajaran");
+    });
   }, []);
 
   return (
