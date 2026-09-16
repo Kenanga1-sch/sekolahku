@@ -10,11 +10,11 @@ import {
   Wallet,
   ClipboardList,
   Package,
-  UserCircle,
   Menu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types";
+import { AccountAvatarMenu } from "@/components/ui/account-avatar-menu";
 
 interface BottomNavItem {
   href: string;
@@ -22,9 +22,16 @@ interface BottomNavItem {
   icon: React.ElementType;
   matchPaths?: string[];
   roles?: UserRole[];
+  /**
+   * Roles yang TIDAK melihat item ini di bottom nav. Item tetap bisa
+   * diakses dari menu lain (FAB / sidebar). Berguna untuk memberi ruang
+   * bagi slot Akun (avatar) di bottom nav mobile.
+   */
+  excludeFromBottomNav?: string[];
 }
 
-// Ordered by priority; first 4 visible items fill the nav (2 left, 2 right of the FAB)
+// Ordered by priority; first 3 visible items fill the link slots (2 left, 1 right of FAB);
+// the 4th slot is reserved for the account avatar dropdown.
 const allItems: BottomNavItem[] = [
   {
     href: "/overview",
@@ -52,6 +59,7 @@ const allItems: BottomNavItem[] = [
     icon: Wallet,
     matchPaths: ["/tabungan"],
     roles: ["admin", "superadmin", "guru", "staff"],
+    excludeFromBottomNav: ["admin", "superadmin"],
   },
   {
     href: "/inventaris",
@@ -59,6 +67,7 @@ const allItems: BottomNavItem[] = [
     icon: Package,
     matchPaths: ["/inventaris"],
     roles: ["admin", "superadmin", "guru", "staff"],
+    excludeFromBottomNav: ["guru", "staff"],
   },
   {
     href: "/presensi",
@@ -81,12 +90,6 @@ const allItems: BottomNavItem[] = [
     matchPaths: ["/tabungan/saya"],
     roles: ["siswa"],
   },
-  {
-    href: "/profile",
-    label: "Akun",
-    icon: UserCircle,
-    matchPaths: ["/profile", "/profil"],
-  },
 ];
 
 function filterItemsByRole(items: BottomNavItem[], userRole?: string | null): BottomNavItem[] {
@@ -94,7 +97,9 @@ function filterItemsByRole(items: BottomNavItem[], userRole?: string | null): Bo
   if (!userRole) return items.filter((item) => !item.roles);
   const normalized = userRole.toLowerCase();
   return items.filter(
-    (item) => !item.roles || item.roles.some((role) => role.toLowerCase() === normalized)
+    (item) =>
+      (!item.roles || item.roles.some((role) => role.toLowerCase() === normalized)) &&
+      !item.excludeFromBottomNav?.some((r) => r.toLowerCase() === normalized)
   );
 }
 
@@ -107,7 +112,7 @@ export function BottomNav({ onMenuClick, userRole }: BottomNavProps) {
   const pathname = usePathname();
 
   const visibleItems = useMemo(
-    () => filterItemsByRole(allItems, userRole).slice(0, 5),
+    () => filterItemsByRole(allItems, userRole).slice(0, 3),
     [userRole]
   );
   const splitIndex = Math.ceil(visibleItems.length / 2);
@@ -199,6 +204,7 @@ export function BottomNav({ onMenuClick, userRole }: BottomNavProps) {
         {/* Right Items */}
         <div className="flex flex-1 items-center justify-around">
           {rightItems.map(renderItem)}
+          <AccountAvatarMenu placement="bottom-nav" />
         </div>
       </div>
     </nav>

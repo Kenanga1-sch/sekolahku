@@ -10,8 +10,6 @@ import {
   CalendarDays,
   GraduationCap,
   Bell,
-  LogOut,
-  User,
   Home,
   BookOpen,
   ExternalLink,
@@ -34,13 +32,11 @@ import {
   ChevronDown,
   ChevronUp,
   Menu,
-  Settings,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { getSchoolLogo } from "@/lib/school-logo";
 import { APP_VERSION } from "@/lib/api-client";
-import { resetAuthGuard } from "@/components/auth-guard";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types";
 import { Sidebar, SidebarBody, SidebarLink, useSidebar } from "@/components/ui/sidebar";
@@ -48,6 +44,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { Button } from "@/components/ui/button";
 import { PwaInstallButton } from "@/components/pwa-install-button";
+import { AccountAvatarMenu } from "@/components/ui/account-avatar-menu";
 import dynamic from "next/dynamic";
 const NotificationPopover = dynamic(
   () => import("@/components/notification-popover").then((mod) => mod.NotificationPopover),
@@ -56,15 +53,6 @@ const NotificationPopover = dynamic(
     loading: () => <Bell className="h-5 w-5 text-neutral-700 dark:text-neutral-200" />,
   }
 );
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import type { SchoolSettings } from "@/types";
 
 // Page title mapping for mobile header (longest-prefix match)
@@ -486,44 +474,7 @@ export default function DashboardLayoutClient({
               {/* Profile Dropdown (desktop only — mobile accesses akun via bottom nav) */}
             <div className="hidden md:block">
               {mounted ? (
-                <DropdownMenu onOpenChange={setIsDropdownOpen}>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative min-w-[44px] min-h-[44px] md:h-auto md:w-auto rounded-full md:rounded-xl p-0 md:px-3 md:py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800 focus-visible:ring-0 focus-visible:ring-offset-0">
-                       <div className="h-8 w-8 sm:h-9 sm:w-9 md:h-8 md:w-8 flex-shrink-0 rounded-full bg-neutral-200 dark:bg-neutral-700 overflow-hidden ring-2 ring-transparent transition-all">
-                          <Avatar className="h-full w-full">
-                             <AvatarImage src={userImage} className="object-cover" />
-                             <AvatarFallback>{displayInitials}</AvatarFallback>
-                          </Avatar>
-                       </div>
-                       <div className="hidden md:flex flex-col items-start ml-2">
-                          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200">{displayName}</span>
-                          <span className="text-xs text-neutral-500 dark:text-neutral-400 capitalize">{normalizedRaw}</span>
-                       </div>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" side="bottom" className="w-56" sideOffset={8}>
-                    <DropdownMenuLabel>Akun Saya</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => router.push("/profile")}>
-                      <User className="mr-2 h-4 w-4" />
-                      <span>Profil Saya</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push("/pengaturan")}>
-                      <Settings className="mr-2 h-4 w-4" />
-                      <span>Pengaturan</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => router.push("/")}>
-                      <Globe className="mr-2 h-4 w-4" />
-                      <span>Kunjungi Website</span>
-                    </DropdownMenuItem>
-
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/10" onClick={() => { resetAuthGuard(); logout(); router.push("/login");}}>
-                      <LogOut className="mr-2 h-4 w-4" />
-                      <span>Keluar</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <AccountAvatarMenu placement="header" />
               ) : (
                 <div className="h-8 w-32 animate-pulse bg-neutral-200 dark:bg-neutral-800 rounded-md" />
               )}
