@@ -67,7 +67,7 @@ export default function PengaturanPage() {
                     <TabProfil settings={settings} setSettings={updateSettings} />
                 </TabsContent>
                 <TabsContent value="sekolah" className="pt-4">
-                    <TabSekolah settings={settings} setSettings={updateSettings} />
+                    <TabSekolah />
                 </TabsContent>
                 <TabsContent value="sistem" className="pt-4">
                     <TabSistem settings={settings} setSettings={updateSettings} />
