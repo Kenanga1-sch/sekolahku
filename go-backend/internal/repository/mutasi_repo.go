@@ -84,7 +84,9 @@ func (r *MutasiRepository) GetMutasiRequests(page, perPage int, month string) ([
 		return nil, 0, err
 	}
 
-	args := append([]interface{}{perPage, offset}, monthArgs...)
+	// monthFilter menempati placeholder WHERE yang datang sebelum
+	// LIMIT ? OFFSET ?, jadi bind monthArgs lebih dulu (posisional).
+	args := append(append([]interface{}{}, monthArgs...), perPage, offset)
 	rows, err := r.DB.Query(`
 		SELECT id, registration_number, student_name, nisn, gender, origin_school, 
 		       origin_school_address, origin_nis, origin_class, target_grade, target_class_id, parent_name, 
@@ -150,12 +152,24 @@ func (r *MutasiRepository) GetMutasiRequests(page, perPage int, month string) ([
 			return nil, 0, err
 		}
 
-		if osa.Valid { m.OriginSchoolAddress = &osa.String }
-		if onis.Valid { m.OriginNis = &onis.String }
-		if oclass.Valid { m.OriginClass = &oclass.String }
-		if tcid.Valid { m.TargetClassID = &tcid.String }
-		if appno.Valid { m.ApprovalNo = &appno.String }
-		if appdate.Valid { m.ApprovalDate = &appdate.String }
+		if osa.Valid {
+			m.OriginSchoolAddress = &osa.String
+		}
+		if onis.Valid {
+			m.OriginNis = &onis.String
+		}
+		if oclass.Valid {
+			m.OriginClass = &oclass.String
+		}
+		if tcid.Valid {
+			m.TargetClassID = &tcid.String
+		}
+		if appno.Valid {
+			m.ApprovalNo = &appno.String
+		}
+		if appdate.Valid {
+			m.ApprovalDate = &appdate.String
+		}
 
 		m.CreatedAt = SafeTime(crat)
 		m.UpdatedAt = SafeTime(upat)
@@ -285,10 +299,18 @@ func (r *MutasiRepository) UpdateMutasiRequestStatus(id string, status string, t
 
 		logID := cuid2.Generate()
 		var oNis, oClass, aNo, aDate *string
-		if onis.Valid { oNis = &onis.String }
-		if oclass.Valid { oClass = &oclass.String }
-		if appno.Valid { aNo = &appno.String }
-		if appdate.Valid { aDate = &appdate.String }
+		if onis.Valid {
+			oNis = &onis.String
+		}
+		if oclass.Valid {
+			oClass = &oclass.String
+		}
+		if appno.Valid {
+			aNo = &appno.String
+		}
+		if appdate.Valid {
+			aDate = &appdate.String
+		}
 
 		_, _ = tx.Exec(`
 			INSERT INTO mutasi_logs (
@@ -367,7 +389,9 @@ func (r *MutasiRepository) GetMutasiOutRequests(page, perPage int, month string)
 		return nil, 0, err
 	}
 
-	args := append([]interface{}{perPage, offset}, monthArgs...)
+	// monthFilter menempati placeholder WHERE yang datang sebelum
+	// LIMIT ? OFFSET ?, jadi bind monthArgs lebih dulu (posisional).
+	args := append(append([]interface{}{}, monthArgs...), perPage, offset)
 	rows, err := r.DB.Query(`
 		SELECT id, student_id, student_name, nisn, class_name,
 		       destination_school, destination_class, letter_no, reason, reason_detail, status,
@@ -430,9 +454,15 @@ func (r *MutasiRepository) GetMutasiOutRequests(page, perPage int, month string)
 			return nil, 0, err
 		}
 
-		if dclass.Valid { m.DestinationClass = &dclass.String }
-		if letno.Valid { m.LetterNo = &letno.String }
-		if rd.Valid { m.ReasonDetail = &rd.String }
+		if dclass.Valid {
+			m.DestinationClass = &dclass.String
+		}
+		if letno.Valid {
+			m.LetterNo = &letno.String
+		}
+		if rd.Valid {
+			m.ReasonDetail = &rd.String
+		}
 
 		m.DownloadedAt = SafeTime(dat)
 		m.ProcessedAt = SafeTime(pat)
@@ -583,10 +613,18 @@ func (r *MutasiRepository) UpdateMutasiOutStatus(id string, status string) error
 
 			logID := cuid2.Generate()
 			var dSchool, dClass, lNo, rsn string
-			if destinationSchool.Valid { dSchool = destinationSchool.String }
-			if destClass.Valid { dClass = destClass.String }
-			if letNo.Valid { lNo = letNo.String }
-			if reason.Valid { rsn = reason.String }
+			if destinationSchool.Valid {
+				dSchool = destinationSchool.String
+			}
+			if destClass.Valid {
+				dClass = destClass.String
+			}
+			if letNo.Valid {
+				lNo = letNo.String
+			}
+			if reason.Valid {
+				rsn = reason.String
+			}
 
 			_, _ = tx.Exec(`
 				INSERT INTO mutasi_logs (
@@ -753,7 +791,7 @@ func (r *MutasiRepository) DirectMutasiMasuk(s models.Student, reason string, or
 	}
 	s.Status = "active"
 	s.IsActive = true
-    
+
 	if s.ClassID != nil && *s.ClassID != "" {
 		var className string
 		if err := tx.QueryRow("SELECT name FROM student_classes WHERE id = ?", *s.ClassID).Scan(&className); err == nil {
@@ -911,7 +949,9 @@ func (r *MutasiRepository) GetMutasiLogs(page, perPage int, month string) ([]mod
 		return nil, 0, err
 	}
 
-	args := append([]interface{}{perPage, offset}, monthArgs...)
+	// monthFilter menempati placeholder WHERE yang datang sebelum
+	// LIMIT ? OFFSET ?, jadi bind monthArgs lebih dulu (posisional).
+	args := append(append([]interface{}{}, monthArgs...), perPage, offset)
 	rows, err := r.DB.Query(`
 		SELECT ml.id, ml.mutasi_type, ml.student_id, ml.student_name, ml.nisn,
 		       s.nis, ml.gender, COALESCE(s.class_name, sch.class_name) as class_name, COALESCE(sc.grade, sch.grade) as class_grade,
@@ -951,26 +991,48 @@ func (r *MutasiRepository) GetMutasiLogs(page, perPage int, month string) ([]mod
 			return nil, 0, err
 		}
 
-		if sid.Valid { m.StudentID = &sid.String }
-		if nis.Valid { m.NIS = &nis.String }
-		if gender.Valid { m.Gender = &gender.String }
-		if className.Valid { m.ClassName = &className.String }
+		if sid.Valid {
+			m.StudentID = &sid.String
+		}
+		if nis.Valid {
+			m.NIS = &nis.String
+		}
+		if gender.Valid {
+			m.Gender = &gender.String
+		}
+		if className.Valid {
+			m.ClassName = &className.String
+		}
 		if classGrade.Valid {
 			g := int(classGrade.Int64)
 			m.ClassGrade = &g
 		}
-		if onis.Valid { m.OriginNis = &onis.String }
-		if oclass.Valid { m.OriginClass = &oclass.String }
-		if appdate.Valid { m.ApprovalDate = &appdate.String }
-		if appno.Valid { m.ApprovalNo = &appno.String }
-		if letno.Valid { m.LetterNo = &letno.String }
-		if destclass.Valid { m.DestinationClass = &destclass.String }
+		if onis.Valid {
+			m.OriginNis = &onis.String
+		}
+		if oclass.Valid {
+			m.OriginClass = &oclass.String
+		}
+		if appdate.Valid {
+			m.ApprovalDate = &appdate.String
+		}
+		if appno.Valid {
+			m.ApprovalNo = &appno.String
+		}
+		if letno.Valid {
+			m.LetterNo = &letno.String
+		}
+		if destclass.Valid {
+			m.DestinationClass = &destclass.String
+		}
 
 		if mutDate.Valid {
 			t := time.UnixMilli(mutDate.Int64)
 			m.MutationDate = &t
 		}
-		if reason.Valid { m.Reason = &reason.String }
+		if reason.Valid {
+			m.Reason = &reason.String
+		}
 		if crAt.Valid {
 			t := time.UnixMilli(crAt.Int64)
 			m.CreatedAt = &t
@@ -982,6 +1044,44 @@ func (r *MutasiRepository) GetMutasiLogs(page, perPage int, month string) ([]mod
 		results = []models.MutasiLog{}
 	}
 	return results, total, nil
+}
+
+// UpdateMutasiLog patches only the document fields of a finalised Buku Mutasi
+// entry. Identity columns (student_name, nisn, gender, student_id) are never
+// touched. nil request fields are left unchanged.
+func (r *MutasiRepository) UpdateMutasiLog(id string, req models.UpdateMutasiLogRequest) error {
+	var sets []string
+	var args []interface{}
+	add := func(col string, v *string) {
+		if v != nil {
+			sets = append(sets, col+" = ?")
+			args = append(args, *v)
+		}
+	}
+	if req.MutationDate != nil {
+		sets = append(sets, "mutation_date = ?")
+		args = append(args, *req.MutationDate)
+	}
+	add("origin_or_destination", req.OriginOrDestination)
+	add("origin_nis", req.OriginNis)
+	add("origin_class", req.OriginClass)
+	add("approval_date", req.ApprovalDate)
+	add("approval_no", req.ApprovalNo)
+	add("letter_no", req.LetterNo)
+	add("destination_class", req.DestinationClass)
+	add("reason", req.Reason)
+	if len(sets) == 0 {
+		return nil
+	}
+	args = append(args, id)
+	res, err := r.DB.Exec("UPDATE mutasi_logs SET "+strings.Join(sets, ", ")+" WHERE id = ?", args...)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return errlib.New("mutasi tidak ditemukan")
+	}
+	return nil
 }
 
 func (r *MutasiRepository) GetMutasiRekap(monthStart, monthEnd int64) ([]models.MutasiRekapItem, error) {

@@ -68,6 +68,20 @@ type MutasiLog struct {
 	CreatedAt           *time.Time `json:"createdAt"`
 }
 
+// UpdateMutasiLogRequest carries editable document fields for a Buku Mutasi
+// entry. Identity fields (name, NISN, gender) are intentionally absent.
+type UpdateMutasiLogRequest struct {
+	MutationDate      *int64  `json:"mutationDate"`
+	OriginOrDestination *string `json:"originOrDestination"`
+	OriginNis         *string `json:"originNis"`
+	OriginClass       *string `json:"originClass"`
+	ApprovalDate      *string `json:"approvalDate"`
+	ApprovalNo        *string `json:"approvalNo"`
+	LetterNo          *string `json:"letterNo"`
+	DestinationClass  *string `json:"destinationClass"`
+	Reason            *string `json:"reason"`
+}
+
 // MutasiRekapItem represents per-grade rekap data for Buku Mutasi
 type MutasiRekapItem struct {
 	Grade   int `json:"grade"`

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { mutate } from "swr";
+import { format } from "date-fns";
 import { Loader2, PlusCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ export function DialogMutasiMasuk({ classStats }: Props) {
     originNis: "",
     originClass: "",
     classId: "",
+    mutationDate: format(new Date(), "yyyy-MM-dd"),
     approvalNo: "",
     approvalDate: "",
     reason: ""
@@ -37,6 +39,10 @@ export function DialogMutasiMasuk({ classStats }: Props) {
     e.preventDefault();
     if (!form.fullName || !form.nisn || !form.classId) {
       toast.error("Nama, NISN, dan Kelas tujuan wajib diisi");
+      return;
+    }
+    if (!form.mutationDate) {
+      toast.error("Tanggal Mutasi wajib diisi");
       return;
     }
 
@@ -55,15 +61,18 @@ export function DialogMutasiMasuk({ classStats }: Props) {
         originNis: form.originNis,
         originClass: form.originClass,
         approvalNo: form.approvalNo,
-        approvalDate: form.approvalDate
+        approvalDate: form.approvalDate,
+        mutationDate: new Date(form.mutationDate).getTime()
       };
 
       await goPost("/api/admin/mutasi/masuk/langsung", payload);
       toast.success("Mutasi masuk berhasil diproses");
       setOpen(false);
-      mutate("/api/admin/mutasi/logs");
+      // Revalidate semua list mutasi (key SWR menyertakan query string,
+      // jadi gunakan matcher prefix agar list benar-benar diperbarui).
+      await mutate((key) => typeof key === "string" && key.startsWith("/api/admin/mutasi"));
       mutate("/api/classes/stats");
-      setForm({ fullName: "", nisn: "", nis: "", gender: "L", metaData: "", originNis: "", originClass: "", classId: "", approvalNo: "", approvalDate: "", reason: "" });
+      setForm({ fullName: "", nisn: "", nis: "", gender: "L", metaData: "", originNis: "", originClass: "", classId: "", mutationDate: format(new Date(), "yyyy-MM-dd"), approvalNo: "", approvalDate: "", reason: "" });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Gagal memproses mutasi masuk");
     } finally {
@@ -75,7 +84,9 @@ export function DialogMutasiMasuk({ classStats }: Props) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm">
-          <PlusCircle className="mr-2 h-4 w-4" /> Proses Mutasi Masuk
+          <PlusCircle className="mr-2 h-4 w-4" />
+          <span className="hidden sm:inline">Proses Mutasi Masuk</span>
+          <span className="sm:hidden">Mutasi Masuk</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-lg">
@@ -166,7 +177,7 @@ export function DialogMutasiMasuk({ classStats }: Props) {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label>Nomor Surat Persetujuan</Label>
               <Input
@@ -181,6 +192,15 @@ export function DialogMutasiMasuk({ classStats }: Props) {
                 type="date"
                 value={form.approvalDate}
                 onChange={(e) => setForm({...form, approvalDate: e.target.value})}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Tanggal Mutasi *</Label>
+              <Input
+                type="date"
+                value={form.mutationDate}
+                onChange={(e) => setForm({...form, mutationDate: e.target.value})}
+                required
               />
             </div>
           </div>

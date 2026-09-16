@@ -116,7 +116,7 @@ export default function TabDirektori() {
             
             setStudents(result?.data ?? []);
             setTotalPages(result?.pagination?.totalPages ?? 1);
-            setTotalStudents(result?.summary?.total ?? result?.pagination?.total ?? 0);
+            setTotalStudents(result?.summary?.active ?? result?.summary?.total ?? result?.pagination?.total ?? 0);
             setActiveStudents(result?.summary?.active ?? 0);
             setActiveMale(result?.summary?.male ?? 0);
             setActiveFemale(result?.summary?.female ?? 0);
@@ -197,7 +197,7 @@ export default function TabDirektori() {
                         <div className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-zinc-50">
                             {isLoading && totalStudents === 0 ? <Skeleton className="h-8 w-16" /> : totalStudents}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1 font-medium">Seluruh Siswa Terdaftar</p>
+                        <p className="text-xs text-muted-foreground mt-1 font-medium">Siswa Aktif Saat Ini</p>
                     </CardContent>
                 </Card>
 

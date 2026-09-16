@@ -143,7 +143,7 @@ export default function CetakBatchPage() {
 
   return (
     <>
-      <div className="print:hidden fixed top-4 right-4 z-50 flex gap-2">
+      <div className="print:hidden fixed top-4 right-4 z-50 flex flex-col items-end gap-2 sm:flex-row sm:items-center">
         <Button size="sm" variant="outline" onClick={() => router.back()}>Kembali</Button>
         <Button size="sm" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Cetak Semua ({students.length})</Button>
       </div>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { mutate } from "swr";
 import useSWR from "swr";
+import { format } from "date-fns";
 import { Loader2, ArrowRightCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ export function DialogMutasiKeluar() {
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     studentId: "",
+    mutationDate: format(new Date(), "yyyy-MM-dd"),
     destinationSchool: "",
     destinationClass: "",
     letterNo: "",
@@ -26,9 +28,11 @@ export function DialogMutasiKeluar() {
 
   const { data: dataStudents } = useSWR(
     open ? "/api/students?limit=500&status=active" : null,
-    (url: string) => goGet<{ data?: StudentItem[] }>(url)
+    (url: string) => goGet<{ data?: { data?: StudentItem[] } }>(url)
   );
-  const students = dataStudents?.data || [];
+  // /api/students mengembalikan StudentResponse double-bungkus:
+  // { success, data: { data: [...siswa], pagination, summary } }
+  const students = dataStudents?.data?.data || [];
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,14 +40,31 @@ export function DialogMutasiKeluar() {
       toast.error("Siswa dan Sekolah Tujuan wajib diisi");
       return;
     }
+    if (!form.mutationDate) {
+      toast.error("Tanggal Mutasi wajib diisi");
+      return;
+    }
 
     setLoading(true);
     try {
-      await goPost("/api/admin/mutasi-keluar/langsung", form);
+      await goPost("/api/admin/mutasi-keluar/langsung", {
+        ...form,
+        mutationDate: new Date(form.mutationDate).getTime(),
+      });
       toast.success("Mutasi keluar berhasil diproses");
       setOpen(false);
-      mutate("/api/admin/mutasi/logs");
-      setForm({ studentId: "", destinationSchool: "", destinationClass: "", letterNo: "", reason: "" });
+      // Revalidate semua list mutasi (key SWR menyertakan query string,
+      // jadi gunakan matcher prefix agar list benar-benar diperbarui).
+      await mutate((key) => typeof key === "string" && key.startsWith("/api/admin/mutasi"));
+      mutate("/api/classes/stats");
+      setForm({
+        studentId: "",
+        mutationDate: format(new Date(), "yyyy-MM-dd"),
+        destinationSchool: "",
+        destinationClass: "",
+        letterNo: "",
+        reason: "",
+      });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Gagal memproses mutasi keluar. Pastikan tidak ada sangkutan.");
     } finally {
@@ -55,7 +76,9 @@ export function DialogMutasiKeluar() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm" variant="outline" className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700">
-          <ArrowRightCircle className="mr-2 h-4 w-4" /> Proses Mutasi Keluar
+          <ArrowRightCircle className="mr-2 h-4 w-4" />
+          <span className="hidden sm:inline">Proses Mutasi Keluar</span>
+          <span className="sm:hidden">Mutasi Keluar</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-md">
@@ -77,6 +100,16 @@ export function DialogMutasiKeluar() {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Tanggal Mutasi *</Label>
+            <Input
+              type="date"
+              value={form.mutationDate}
+              onChange={(e) => setForm({...form, mutationDate: e.target.value})}
+              required
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

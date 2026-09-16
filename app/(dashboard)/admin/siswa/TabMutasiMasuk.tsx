@@ -391,7 +391,9 @@ export default function TabMutasiMasuk() {
                               onClick={() => handleUpdateStatusIn(req.id, "verified")}
                               disabled={isUpdatingIn}
                             >
-                              <Check className="mr-2 h-4 w-4" /> Verifikasi Dokumen
+                              <Check className="mr-2 h-4 w-4" />
+                              <span className="hidden sm:inline">Verifikasi Dokumen</span>
+                              <span className="sm:hidden">Verifikasi</span>
                             </Button>
                             <Button
                               variant="destructive"
@@ -432,7 +434,9 @@ export default function TabMutasiMasuk() {
                                 onClick={() => handleUpdateStatusIn(req.id, "principal_approved", targetClass)}
                                 disabled={isUpdatingIn || !targetClass}
                               >
-                                <Check className="mr-2 h-4 w-4" /> Setujui (Kepsek)
+                                <Check className="mr-2 h-4 w-4" />
+                                <span className="hidden sm:inline">Setujui (Kepsek)</span>
+                                <span className="sm:hidden">Setujui</span>
                               </Button>
                               <Button
                                 variant="destructive"

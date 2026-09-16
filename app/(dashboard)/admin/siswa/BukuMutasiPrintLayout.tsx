@@ -87,9 +87,9 @@ export function BukuMutasiPrintLayout({
                     <tr key={`masuk-${index}`} className="h-6">
                       <td className="border border-black px-1 py-1 text-center font-medium">{row.no}</td>
                       <td className="border border-black px-1 py-1 text-center whitespace-nowrap">{row.tanggal}</td>
-                      <td className="border border-black px-1 py-1 font-medium break-words whitespace-normal leading-tight">{row.nama}</td>
-                      <td className="border border-black px-1 py-1 text-center">{row.lp}</td>
-                      <td className="border border-black px-1 py-1 text-center font-mono">{row.noInduk}</td>
+                       <td className="border border-black px-1 py-1 font-medium break-words whitespace-normal leading-tight">{row.nama}</td>
+                       <td className="border border-black px-1 py-1 text-center">{row.lp}</td>
+                       <td className="border border-black px-1 py-1 text-center font-mono">{row.noInduk}</td>
                       <td className="border border-black px-1 py-1 text-center">{row.kelas}</td>
                       <td className="border border-black px-1 py-1 break-words whitespace-normal leading-tight">{row.sekolah}</td>
                       <td className="border border-black px-1 py-1 text-center font-mono">{row.asalNoInduk}</td>
@@ -137,8 +137,8 @@ export function BukuMutasiPrintLayout({
                     <tr key={`keluar-${index}`} className="h-6">
                       <td className="border border-black px-1 py-1 text-center font-medium">{row.no}</td>
                       <td className="border border-black px-1 py-1 text-center whitespace-nowrap">{row.tanggal}</td>
-                      <td className="border border-black px-1 py-1 font-medium break-words whitespace-normal leading-tight">{row.nama}</td>
-                      <td className="border border-black px-1 py-1 text-center font-mono">{row.noInduk}</td>
+                       <td className="border border-black px-1 py-1 font-medium break-words whitespace-normal leading-tight">{row.nama}</td>
+                       <td className="border border-black px-1 py-1 text-center font-mono">{row.noInduk}</td>
                       <td className="border border-black px-1 py-1 text-center">{row.lp}</td>
                       <td className="border border-black px-1 py-1 text-center">{row.kelas}</td>
                       <td className="border border-black px-1 py-1 text-center break-words whitespace-normal leading-tight">{row.nomorSurat}</td>

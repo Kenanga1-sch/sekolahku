@@ -62,6 +62,7 @@ export interface MutasiLog {
   approvalNo?: string;
   letterNo?: string;
   destinationClass?: string;
+  reason?: string;
 }
 
 export interface StudentItem {

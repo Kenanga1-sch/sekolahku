@@ -337,6 +337,34 @@ func (h *MutasiHandler) GetMutasiLogs(c echo.Context) error {
 	})
 }
 
+// UpdateMutasiLog edits the document fields of a Buku Mutasi entry
+// (tanggal mutasi, sekolah asal/tujuan, kelas, nomor surat, keterangan).
+// Identity fields (nama, NISN, jenis kelamin) are not editable here.
+func (h *MutasiHandler) UpdateMutasiLog(c echo.Context) error {
+	id := c.Param("id")
+	if id == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ID mutasi wajib diisi"})
+	}
+
+	var req models.UpdateMutasiLogRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
+	}
+	if req.MutationDate == nil || *req.MutationDate <= 0 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Tanggal Mutasi wajib diisi"})
+	}
+
+	if err := h.Repo.UpdateMutasiLog(id, req); err != nil {
+		log.Printf("ERROR UpdateMutasiLog id=%s: %v", id, err)
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Entri buku mutasi diperbarui",
+	})
+}
+
 func (h *MutasiHandler) GetMutasiRekap(c echo.Context) error {
 	monthStr := c.QueryParam("month") // format: "2025-07"
 	if monthStr == "" {
