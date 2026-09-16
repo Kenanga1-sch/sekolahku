@@ -75,7 +75,8 @@ export default function IzinClientPage() {
     try {
       const [cRes, lRes] = await Promise.all([getChildrenAction(), getMyLeavesAction()]);
       if (cRes.success) {
-        const list = (cRes.data as Child[]) || [];
+        const cd = cRes.data as { data?: Child[] };
+        const list = cd.data || (cRes.data as Child[]) || [];
         setChildren(list);
         const preselect = searchParams.get("anak");
         setStudentId(preselect || list[0]?.studentId || "");
@@ -124,7 +125,12 @@ export default function IzinClientPage() {
         setStartDate(today());
         setEndDate(today());
         const lRes = await getMyLeavesAction();
-        if (lRes.success) setLeaves((lRes.data as Leave[]) || []);
+        if (lRes.success && lRes.data) {
+          const d = lRes.data as { data?: Leave[]; totalPages?: number };
+          setLeaves(d.data || []);
+          setPage(1);
+          setTotalPages(d.totalPages || 1);
+        }
       } else {
         toast.error(res.error || "Gagal mengirim pengajuan");
       }

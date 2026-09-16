@@ -21,6 +21,8 @@ func setupSettingTestDB(t *testing.T) *sql.DB {
 			id TEXT PRIMARY KEY,
 			school_name TEXT NOT NULL,
 			school_npsn TEXT,
+			governance_name TEXT,
+			department_name TEXT,
 			school_address TEXT,
 			school_phone TEXT,
 			school_email TEXT,
@@ -68,13 +70,16 @@ func TestSettingRepositoryUpdatePreservesProfileFields(t *testing.T) {
 
 	_, err := db.Exec(`
 		INSERT INTO school_settings (
-			id, school_name, school_lat, school_lng, max_distance_km,
+			id, school_name, school_npsn, governance_name, department_name,
+			school_lat, school_lng, max_distance_km,
 			spmb_is_open, current_academic_year, letter_number_format,
 			savings_treasurer_id, school_vision, school_mission,
 			school_history_timeline, school_curriculum, created_at, updated_at
 		)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, "settings-1", "UPTD SDN 1 Kenanga", -6.2, 106.8, 3.0, true,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, "settings-1", "UPTD SDN 1 Kenanga", "12345678",
+		"Pemerintah Kabupaten Indramayu", "Dinas Pendidikan dan Kebudayaan",
+		-6.2, 106.8, 3.0, true,
 		"2026/2027", "421/{nomor}/SDN1/{bulan}/{tahun}", "treasurer-1",
 		"Visi lama", `["Misi lama"]`, `[{"year":"1970"}]`,
 		`{"description":"Kurikulum lama"}`, int64(1), int64(1))
@@ -104,5 +109,11 @@ func TestSettingRepositoryUpdatePreservesProfileFields(t *testing.T) {
 	}
 	if updated.MaxDistanceKM == nil || *updated.MaxDistanceKM != 3.0 {
 		t.Fatalf("expected max distance to be preserved, got %#v", updated.MaxDistanceKM)
+	}
+	if updated.GovernanceName == nil || *updated.GovernanceName != "Pemerintah Kabupaten Indramayu" {
+		t.Fatalf("expected governance name to be preserved, got %#v", updated.GovernanceName)
+	}
+	if updated.DepartmentName == nil || *updated.DepartmentName != "Dinas Pendidikan dan Kebudayaan" {
+		t.Fatalf("expected department name to be preserved, got %#v", updated.DepartmentName)
 	}
 }

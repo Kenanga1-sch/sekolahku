@@ -77,6 +77,28 @@ func (r *DashboardRepository) GetDashboardStats() (*models.DashboardStats, error
 
 	// 4b. Core school stats: active students & today's attendance
 	r.DB.QueryRow("SELECT COUNT(*) FROM students WHERE status = 'active' OR is_active = 1").Scan(&stats.TotalActiveStudents)
+	r.DB.QueryRow("SELECT COUNT(*) FROM students WHERE (status = 'active' OR is_active = 1) AND gender = 'L'").Scan(&stats.ActiveMale)
+	r.DB.QueryRow("SELECT COUNT(*) FROM students WHERE (status = 'active' OR is_active = 1) AND gender = 'P'").Scan(&stats.ActiveFemale)
+
+	// By-class breakdown (active students)
+	stats.StudentsByClass = []models.StudentByClass{}
+	byClassRows, err := r.DB.Query(`
+		SELECT class_name, COUNT(*) as count
+		FROM students
+		WHERE (status = 'active' OR is_active = 1) AND class_name IS NOT NULL AND class_name != ''
+		GROUP BY class_name
+		ORDER BY CAST(class_name AS INTEGER), class_name
+	`)
+	if err == nil {
+		defer byClassRows.Close()
+		for byClassRows.Next() {
+			var bc models.StudentByClass
+			if byClassRows.Scan(&bc.ClassName, &bc.Count) == nil {
+				stats.StudentsByClass = append(stats.StudentsByClass, bc)
+			}
+		}
+	}
+
 	today := now.Format("2006-01-02")
 	r.DB.QueryRow(`
 		SELECT COUNT(*)

@@ -83,7 +83,8 @@ export default function PresensiClientPage() {
       try {
         const res = await getChildrenAction();
         if (res.success) {
-          const list = (res.data as Child[]) || [];
+          const d = res.data as { data?: Child[] };
+          const list = d.data || (res.data as Child[]) || [];
           setChildren(list);
           const preselect = searchParams.get("anak");
           setStudentId(preselect || list[0]?.studentId || "");
@@ -104,15 +105,13 @@ export default function PresensiClientPage() {
       try {
         const res = await getChildAttendanceAction(studentId);
         if (res.success) {
-          const data =
-            (res.data as {
-              summary?: Summary[];
-              recent?: Recent[];
-              weekly?: Recent[];
-            }) || {};
-          setSummary(data.summary || []);
-          setRecent(data.recent || []);
-          setWeekly(data.weekly || []);
+          const d = res.data as {
+            data?: { summary?: Summary[]; recent?: Recent[]; weekly?: Recent[] };
+          };
+          const payload = d.data || (res.data as { summary?: Summary[]; recent?: Recent[]; weekly?: Recent[] }) || {};
+          setSummary(payload.summary || []);
+          setRecent(payload.recent || []);
+          setWeekly(payload.weekly || []);
         } else {
           toast.error(res.error || "Gagal memuat presensi");
         }

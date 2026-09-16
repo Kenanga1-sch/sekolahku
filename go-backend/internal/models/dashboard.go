@@ -5,6 +5,9 @@ type DashboardStats struct {
 	SPMB                SPMBStats                `json:"spmb"`
 	ModuleStats         ModuleStats              `json:"moduleStats"`
 	TotalActiveStudents int                      `json:"totalActiveStudents"`
+	ActiveMale          int                      `json:"activeMale"`
+	ActiveFemale        int                      `json:"activeFemale"`
+	StudentsByClass     []StudentByClass         `json:"studentsByClass"`
 	PresensiHariIni     int                      `json:"presensiHariIni"`
 	RegistrationTrend   []RegistrationTrendPoint `json:"registrationTrend"`
 	RecentRegistrants   []SPMBRegistrant         `json:"recentRegistrants"`

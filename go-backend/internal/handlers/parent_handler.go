@@ -204,6 +204,7 @@ func (h *ParentHandler) GetMyLeaves(c echo.Context) error {
 	}
 	totalPages := (total + limit - 1) / limit
 	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success":    true,
 		"data":       list,
 		"total":      total,
 		"page":       page,

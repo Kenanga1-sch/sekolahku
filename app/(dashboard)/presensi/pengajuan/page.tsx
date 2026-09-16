@@ -57,8 +57,14 @@ export default function PengajuanIzinPage() {
     setLoading(true);
     try {
       const res = await listLeavesAction(status || undefined);
-      if (res.success) setItems((res.data as Leave[]) || []);
-      else toast.error(res.error || "Gagal memuat pengajuan");
+      if (res.success && res.data) {
+        // handleAction membungkus response backend {success, data}; payload
+        // array asli berada di res.data.data.
+        const d = res.data as { data?: Leave[] };
+        setItems(d.data || (res.data as Leave[]) || []);
+      } else if (!res.success) {
+        toast.error(res.error || "Gagal memuat pengajuan");
+      }
     } finally {
       setLoading(false);
     }

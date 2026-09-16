@@ -31,7 +31,8 @@ export default function ParentHomePage() {
       try {
         const res = await getChildrenAction();
         if (res.success) {
-          setChildren((res.data as Child[]) || []);
+          const d = res.data as { data?: Child[] };
+          setChildren(d.data || (res.data as Child[]) || []);
         } else {
           toast.error(res.error || "Gagal memuat data anak");
         }

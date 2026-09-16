@@ -17,6 +17,8 @@ var postMigrations = map[int]func(*sql.DB) error{
 	// 000034 membuat tabel inventaris "_new" ber-FK; datanya harus disalin dan
 	// tabelnya diganti nama sebelum migrasi 000035 ALTER inventory_items.
 	34: MigrateInventoryData,
+	// 000051 menormalisasi options soal lama ("A|B|C|D") menjadi JSON.
+	51: MigrateNormalizeOptions,
 }
 
 // stripTxControl menghapus statement kontrol transaksi (BEGIN/COMMIT/ROLLBACK)

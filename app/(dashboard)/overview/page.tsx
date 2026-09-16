@@ -106,6 +106,9 @@ export default function OverviewPage() {
       stats={stats.spmb}
       moduleStats={stats.moduleStats}
       totalActiveStudents={stats.totalActiveStudents}
+      activeMale={stats.activeMale}
+      activeFemale={stats.activeFemale}
+      studentsByClass={stats.studentsByClass}
       presensiHariIni={stats.presensiHariIni}
       registrationTrend={stats.registrationTrend}
       recentRegistrants={stats.recentRegistrants}

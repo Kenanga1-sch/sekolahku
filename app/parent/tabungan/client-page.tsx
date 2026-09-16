@@ -52,7 +52,8 @@ export default function ParentTabunganClient() {
       try {
         const res = await getChildrenAction();
         if (res.success) {
-          const list = (res.data as Child[]) || [];
+          const d = res.data as { data?: Child[] };
+          const list = d.data || (res.data as Child[]) || [];
           setChildren(list);
           if (list[0]?.studentId) setStudentId(list[0].studentId);
         }
@@ -71,9 +72,10 @@ export default function ParentTabunganClient() {
       try {
         const res = await getChildSavingsAction(studentId);
         if (res.success) {
-          const data = res.data as { balance: number; transactions: TxItem[] };
-          setBalance(data.balance || 0);
-          setTransactions(data.transactions || []);
+          const d = res.data as { data?: { balance: number; transactions: TxItem[] } };
+          const payload = d.data || (res.data as { balance: number; transactions: TxItem[] });
+          setBalance(payload.balance || 0);
+          setTransactions(payload.transactions || []);
         }
       } catch {
         toast.error("Gagal memuat data tabungan");

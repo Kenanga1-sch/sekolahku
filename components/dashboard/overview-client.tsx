@@ -98,6 +98,9 @@ interface OverviewClientProps {
   stats: OverviewStats;
   moduleStats: ModuleStats;
   totalActiveStudents?: number;
+  activeMale?: number;
+  activeFemale?: number;
+  studentsByClass?: Array<{ className?: string; count: number }>;
   presensiHariIni?: number;
   registrationTrend?: RegistrationTrendPoint[];
   recentRegistrants: Registrant[];
@@ -147,6 +150,9 @@ export function OverviewClient({
   stats,
   moduleStats,
   totalActiveStudents = 0,
+  activeMale = 0,
+  activeFemale = 0,
+  studentsByClass = [],
   presensiHariIni = 0,
   registrationTrend = [],
   recentRegistrants = [],
@@ -274,6 +280,87 @@ export function OverviewClient({
           </Badge>
         )}
       </div>
+
+      {/* ── Rekap Siswa Aktif ── */}
+      <section>
+        <h2 className="mb-3 flex items-center gap-2 text-lg font-bold sm:mb-4 sm:text-xl">
+          <Users className="h-5 w-5 text-primary" />
+          Rekap Siswa Aktif
+        </h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:gap-6">
+          <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20">
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Total Siswa Aktif</p>
+                  <p className="mt-1 text-3xl font-bold text-blue-700 dark:text-blue-300">{totalActiveStudents}</p>
+                  <p className="mt-1 text-xs text-blue-600/70 dark:text-blue-400/70">{presensiHariIni} hadir hari ini</p>
+                </div>
+                <div className="rounded-full bg-blue-100 p-3 dark:bg-blue-900/50">
+                  <Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-sky-200 bg-sky-50/50 dark:border-sky-800 dark:bg-sky-950/20">
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-sky-600 dark:text-sky-400">Laki-laki</p>
+                  <p className="mt-1 text-3xl font-bold text-sky-700 dark:text-sky-300">{activeMale}</p>
+                  <p className="mt-1 text-xs text-sky-600/70 dark:text-sky-400/70">{totalActiveStudents > 0 ? `${Math.round((activeMale / totalActiveStudents) * 100)}% dari total` : '-'}</p>
+                </div>
+                <div className="rounded-full bg-sky-100 p-3 dark:bg-sky-900/50">
+                  <span className="text-lg font-bold text-sky-600 dark:text-sky-400">L</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-rose-200 bg-rose-50/50 dark:border-rose-800 dark:bg-rose-950/20">
+            <CardContent className="p-4 sm:p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-rose-600 dark:text-rose-400">Perempuan</p>
+                  <p className="mt-1 text-3xl font-bold text-rose-700 dark:text-rose-300">{activeFemale}</p>
+                  <p className="mt-1 text-xs text-rose-600/70 dark:text-rose-400/70">{totalActiveStudents > 0 ? `${Math.round((activeFemale / totalActiveStudents) * 100)}% dari total` : '-'}</p>
+                </div>
+                <div className="rounded-full bg-rose-100 p-3 dark:bg-rose-900/50">
+                  <span className="text-lg font-bold text-rose-600 dark:text-rose-400">P</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Rekap per Kelas */}
+        {studentsByClass.length > 0 && (
+          <Card className="mt-4">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-bold">Siswa Aktif per Kelas</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
+                    <tr>
+                      <th className="px-4 py-2.5 text-left">Kelas</th>
+                      <th className="px-4 py-2.5 text-center">Jumlah</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {studentsByClass.map((cls) => (
+                      <tr key={cls.className} className="hover:bg-muted/30">
+                        <td className="px-4 py-2.5 font-medium">Kelas {cls.className}</td>
+                        <td className="px-4 py-2.5 text-center font-semibold">{cls.count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </section>
 
       {/* ── KPI: 4 tile seragam ── */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 lg:gap-6">
@@ -431,40 +518,6 @@ export function OverviewClient({
               )}
             </CardContent>
           </Card>
-
-          {/* Aksi Cepat */}
-          <section>
-            <h2 className="mb-3 text-lg font-bold sm:mb-4 sm:text-xl">Aksi Cepat</h2>
-            <Card>
-              <CardContent className="grid grid-cols-2 gap-2 p-3 sm:p-4">
-                {[
-                  { label: "Verifikasi SPMB", icon: Clock, href: "/admin/siswa?tab=spmb", color: "bg-purple-100 text-purple-600", badge: safeStats.pending || 0 },
-                  { label: "Kelola Periode", icon: Calendar, href: "/admin/siswa?tab=spmb&sub=periods", color: "bg-blue-100 text-blue-600" },
-                  { label: "Peminjaman Buku", icon: BookOpen, href: "/perpustakaan/peminjaman", color: "bg-amber-100 text-amber-600" },
-                  { label: "Transaksi Tabungan", icon: Wallet, href: "/kiosk-kelas", color: "bg-emerald-100 text-emerald-600" },
-                ].map((action) => (
-                  <Button
-                    key={action.label}
-                    asChild
-                    variant="outline"
-                    className="relative h-auto min-h-24 flex-col gap-2 whitespace-normal px-2 py-3 text-center text-xs font-normal"
-                  >
-                    <Link href={action.href}>
-                      <span className={`rounded-md p-2 ${action.color}`}>
-                        <action.icon className="h-4 w-4" />
-                      </span>
-                      {action.label}
-                      {action.badge !== undefined && action.badge > 0 && (
-                        <Badge className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center p-0 text-[10px]">
-                          {action.badge}
-                        </Badge>
-                      )}
-                    </Link>
-                  </Button>
-                ))}
-              </CardContent>
-            </Card>
-          </section>
         </div>
       </div>
 
