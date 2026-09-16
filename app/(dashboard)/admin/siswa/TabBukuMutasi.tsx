@@ -22,6 +22,7 @@ import { goGet } from "@/lib/api-client";
 import { useSchoolSettings } from "@/lib/hooks/use-settings";
 import type { ClassStatsItem, MutasiLog, RekapRow } from "./types-mutasi";
 import { BukuMutasiPrintLayout } from "./BukuMutasiPrintLayout";
+import { DialogEditMutasi } from "./DialogEditMutasi";
 
 const fetcher = (url: string) => goGet(url);
 const BOOK_ROW_COUNT = 10;
@@ -359,6 +360,7 @@ export default function TabBukuMutasi() {
             rekapRows={rekapRows}
             isPerClass={isPerClass}
             selectedClassName={selectedClass?.name || ""}
+            renderEditAction={(log) => <DialogEditMutasi log={log} />}
           />
         </div>
       </div>

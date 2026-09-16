@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import type { MutasiLog, ReportRow, RekapRow, SchoolSettings } from "./types-mutasi";
@@ -17,6 +18,7 @@ interface Props {
   rekapRows: RekapRow[];
   isPerClass: boolean;
   selectedClassName: string;
+  renderEditAction?: (log: MutasiLog) => ReactNode;
 }
 
 export function BukuMutasiPrintLayout({
@@ -29,6 +31,7 @@ export function BukuMutasiPrintLayout({
   rekapRows,
   isPerClass,
   selectedClassName,
+  renderEditAction,
 }: Props) {
   const signatureLabel = isPerClass ? "Kepala Sekolah," : "Pengawas Sekolah,";
   const signatureName = isPerClass
@@ -85,7 +88,12 @@ export function BukuMutasiPrintLayout({
                 <tbody>
                   {masukRows.map((row, index) => (
                     <tr key={`masuk-${index}`} className="h-6">
-                      <td className="border border-black px-1 py-1 text-center font-medium">{row.no}</td>
+                      <td className="border border-black px-1 py-1 text-center font-medium">
+                        {row.no}
+                        {renderEditAction && index < monthlyMasukLogs.length && monthlyMasukLogs[index]?.id && (
+                          <span className="no-print ml-1 inline-flex align-middle">{renderEditAction(monthlyMasukLogs[index])}</span>
+                        )}
+                      </td>
                       <td className="border border-black px-1 py-1 text-center whitespace-nowrap">{row.tanggal}</td>
                        <td className="border border-black px-1 py-1 font-medium break-words whitespace-normal leading-tight">{row.nama}</td>
                        <td className="border border-black px-1 py-1 text-center">{row.lp}</td>
@@ -135,7 +143,12 @@ export function BukuMutasiPrintLayout({
                 <tbody>
                   {keluarRows.map((row, index) => (
                     <tr key={`keluar-${index}`} className="h-6">
-                      <td className="border border-black px-1 py-1 text-center font-medium">{row.no}</td>
+                      <td className="border border-black px-1 py-1 text-center font-medium">
+                        {row.no}
+                        {renderEditAction && index < monthlyKeluarLogs.length && monthlyKeluarLogs[index]?.id && (
+                          <span className="no-print ml-1 inline-flex align-middle">{renderEditAction(monthlyKeluarLogs[index])}</span>
+                        )}
+                      </td>
                       <td className="border border-black px-1 py-1 text-center whitespace-nowrap">{row.tanggal}</td>
                        <td className="border border-black px-1 py-1 font-medium break-words whitespace-normal leading-tight">{row.nama}</td>
                        <td className="border border-black px-1 py-1 text-center font-mono">{row.noInduk}</td>
