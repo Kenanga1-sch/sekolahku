@@ -315,6 +315,22 @@ export default function DashboardLayoutClient({
     ? (user.image.startsWith("http") || user.image.startsWith("/") ? user.image : `/uploads/${user.image}`)
     : undefined;
   
+  // Add role badge display in header for better visibility
+  const getRoleInfo = (role: string) => {
+    const roles = [
+      { value: "superadmin", label: "Super Admin", color: "bg-purple-100 text-purple-700" },
+      { value: "admin", label: "Admin", color: "bg-amber-100 text-amber-700" },
+      { value: "guru", label: "Guru", color: "bg-blue-100 text-blue-700" },
+      { value: "staff", label: "Staff", color: "bg-cyan-100 text-cyan-700" },
+      { value: "bendahara", label: "Bendahara", color: "bg-indigo-100 text-indigo-700" },
+      { value: "user", label: "User", color: "bg-zinc-100 text-zinc-700" },
+      { value: "siswa", label: "Siswa", color: "bg-green-100 text-green-700" },
+      { value: "calon_siswa", label: "Calon Siswa", color: "bg-teal-100 text-teal-700" },
+      { value: "orangtua", label: "Orang Tua", color: "bg-rose-100 text-rose-700" },
+    ];
+    return roles.find((r) => r.value === role) || roles[0];
+  };
+  
   const { settings } = useSchoolSettings();
   const schoolName = settings?.school_name || "Sekolahku";
   const schoolLogo = getSchoolLogo(settings?.school_logo);

@@ -15,10 +15,12 @@ import {
   MapPin,
   Calendar,
   Newspaper,
+  LogIn,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { goGet } from "@/lib/api-client";
+import { useAuthStore } from "@/lib/stores/auth-store";
 import { siteConfig } from "@/lib/config";
 import { Reveal, EASE_OUT } from "@/components/public/motion";
 
@@ -68,9 +70,12 @@ interface GalleryItem {
 
 export default function PublicHomepage() {
   const reduce = useReducedMotion();
+  const { isAuthenticated, user } = useAuthStore();
   const [data, setData] = useState<HomepageData | null>(null);
   const [staff, setStaff] = useState<StaffItem[]>([]);
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
+
+  const dashboardHref = user?.role === "staff" ? "/inventaris" : user?.role === "orangtua" ? "/parent" : "/overview";
 
   useEffect(() => {
     goGet("/api/public/homepage", { ttl: 60_000 })
@@ -132,6 +137,21 @@ export default function PublicHomepage() {
                     Layanan Sekolah
                   </Button>
                 </Link>
+                {isAuthenticated ? (
+                  <Link href={dashboardHref}>
+                    <Button variant="outline" className="rounded-full border-[#065F46]/30 text-[#065F46] hover:bg-[#A7F3D0]/40 px-6 h-11 text-sm font-medium active:scale-[0.97] transition-transform">
+                      <LogIn className="h-4 w-4 mr-1.5" />
+                      Dashboard
+                    </Button>
+                  </Link>
+                ) : (
+                  <Link href="/login">
+                    <Button variant="outline" className="rounded-full border-[#065F46]/30 text-[#065F46] hover:bg-[#A7F3D0]/40 px-6 h-11 text-sm font-medium active:scale-[0.97] transition-transform">
+                      <LogIn className="h-4 w-4 mr-1.5" />
+                      Masuk
+                    </Button>
+                  </Link>
+                )}
               </div>
             </Reveal>
           </div>

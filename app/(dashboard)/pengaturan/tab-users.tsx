@@ -24,6 +24,11 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog";
 import {
+    Tabs,
+    TabsList,
+    TabsTrigger,
+} from "@/components/ui/tabs";
+import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
@@ -51,7 +56,7 @@ import {
     Search,
     UserCog,
     UserPlus,
-    GraduationCap,
+    User,
     Copy,
     Check,
     Eye,
@@ -63,6 +68,7 @@ import type { User as UserType } from "@/types";
 import { useSortableData } from "@/hooks/use-sortable-data";
 
 interface ClassOption {
+    id?: string;
     name: string;
 }
 
@@ -80,10 +86,20 @@ const roles = [
     { value: "admin", label: "Admin", color: "bg-amber-100 text-amber-700" },
     { value: "guru", label: "Guru", color: "bg-blue-100 text-blue-700" },
     { value: "staff", label: "Staff", color: "bg-cyan-100 text-cyan-700" },
+    { value: "bendahara", label: "Bendahara", color: "bg-indigo-100 text-indigo-700" },
     { value: "user", label: "User", color: "bg-zinc-100 text-zinc-700" },
     { value: "siswa", label: "Siswa", color: "bg-green-100 text-green-700" },
+    { value: "calon_siswa", label: "Calon Siswa", color: "bg-teal-100 text-teal-700" },
     { value: "orangtua", label: "Orang Tua", color: "bg-rose-100 text-rose-700" },
 ];
+
+const userGroups = {
+    staff: ["superadmin", "admin", "guru", "staff", "bendahara"],
+    siswa: ["siswa", "calon_siswa"],
+    orangtua: ["orangtua"],
+};
+
+type UserGroup = keyof typeof userGroups;
 
 export default function TabUsers() {
     const [users, setUsers] = useState<UserType[]>([]);
@@ -98,6 +114,13 @@ export default function TabUsers() {
     const [limit, setLimit] = useState(20);
     const [totalPages, setTotalPages] = useState(1);
     const [totalUsers, setTotalUsers] = useState(0);
+    const [activeUsers, setActiveUsers] = useState(0);
+    const [inactiveUsers, setInactiveUsers] = useState(0);
+    const [activeUserGroup, setActiveUserGroup] = useState<UserGroup>("staff");
+    
+    // State for managing selected user profile details
+    const [selectedUser, setSelectedUser] = useState<UserType | null>(null);
+    const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
 
     // GTK Dropdown State
     const [gtkOptions, setGtkOptions] = useState<GtkOption[]>([]);
@@ -127,29 +150,44 @@ export default function TabUsers() {
         employeeId: "",
     });
 
+    const activeUserRoles = userGroups[activeUserGroup];
+    const availableRoles = roles.filter((role) => activeUserRoles.includes(role.value));
+    const defaultRoleForGroup = activeUserGroup === "staff" ? "guru" : activeUserGroup;
+    const groupLabel = activeUserGroup === "staff" ? "Staff & GTK" : activeUserGroup === "siswa" ? "Siswa" : "Orang Tua";
+
+    const handleUserGroupChange = (value: string) => {
+        setActiveUserGroup(value as UserGroup);
+        setSearchQuery("");
+        setPage(1);
+    };
+
     const fetchUsers = useCallback(async () => {
         try {
             const params = new URLSearchParams({
                 page: page.toString(),
                 limit: limit.toString(),
+                role: userGroups[activeUserGroup].join(","),
                 ...(searchQuery && { search: searchQuery }),
             });
 
             const result: any = await goGet(`/api/users?${params}`);
-            
-            setUsers((result.items || []).map((u: any) => ({
+            const items = result.items || [];
+
+            setUsers(items.map((u: any) => ({
                 ...u,
                 created: u.createdAt || u.created || "",
             })));
             setTotalPages(result.totalPages || 1);
             setTotalUsers(result.totalItems || 0);
+            setActiveUsers(result.activeItems ?? items.filter((u: any) => u.isActive !== false).length);
+            setInactiveUsers(result.inactiveItems ?? items.filter((u: any) => u.isActive === false).length);
         } catch (error) {
             console.error("Failed to fetch users:", error);
             showError("Gagal memuat daftar pengguna");
         } finally {
             setIsLoading(false);
         }
-    }, [page, limit, searchQuery]);
+    }, [page, limit, searchQuery, activeUserGroup]);
 
     // Fetch GTK without accounts
     const fetchGtkWithoutAccount = useCallback(async () => {
@@ -166,20 +204,38 @@ export default function TabUsers() {
     }, [fetchUsers]);
 
     useEffect(() => {
-        if (isDialogOpen && !editingId) {
+        if (isDialogOpen && !editingId && activeUserGroup === "staff") {
             fetchGtkWithoutAccount();
         }
-    }, [isDialogOpen, editingId, fetchGtkWithoutAccount]);
+    }, [isDialogOpen, editingId, activeUserGroup, fetchGtkWithoutAccount]);
 
     // Fetch classes for generation dropdown
     useEffect(() => {
-        if (isGenerateOpen && genType === "student") {
-             const classList: ClassOption[] = [];
-             for(let i=1; i<=6; i++) {
-                classList.push({name: `${i}`});
-             }
-             setAvailableClasses(classList);
+        if (!isGenerateOpen || genType !== "student") {
+            return;
         }
+
+        let active = true;
+
+        const fetchClasses = async () => {
+            try {
+                const result: any = await goGet("/api/classes");
+                const classList: ClassOption[] = (result?.data ?? result ?? []).map(
+                    (item: any) => ({ id: item.id, name: item.name })
+                );
+                if (active) {
+                    setAvailableClasses(classList);
+                }
+            } catch (error) {
+                console.error("Gagal memuat daftar kelas:", error);
+            }
+        };
+
+        fetchClasses();
+
+        return () => {
+            active = false;
+        };
     }, [isGenerateOpen, genType]);
 
     const handleGtkSelect = (gtkId: string) => {
@@ -220,7 +276,10 @@ export default function TabUsers() {
         setIsSaving(true);
         setGenResult(null);
         try {
-            const result: any = await goPost("/api/users/generate", { type: "student", className: selectedClass });
+            const result: any = await goPost("/api/users/generate", {
+                type: "student",
+                className: selectedClass === "__all__" ? "" : selectedClass,
+            });
             setGenResult(result.message || "Berhasil generate akun");
             showSuccess(result.message || "Berhasil generate akun");
             fetchUsers();
@@ -348,7 +407,7 @@ export default function TabUsers() {
             email: "",
             password: "",
             passwordConfirm: "",
-            role: "user",
+            role: defaultRoleForGroup,
             phone: "",
             employeeId: "",
         });
@@ -362,6 +421,18 @@ export default function TabUsers() {
         navigator.clipboard.writeText(text);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleOpenGenerate = () => {
+        setGenResult(null);
+        setGenAccounts([]);
+        setGenType(activeUserGroup === "siswa" ? "student" : "staff");
+        setIsGenerateOpen(true);
+    };
+
+    const handleOpenCreate = () => {
+        resetForm();
+        setIsDialogOpen(true);
     };
 
     const { sortedData: sortedUsers, sortConfig, requestSort } = useSortableData(users);
@@ -380,30 +451,46 @@ export default function TabUsers() {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 dark:border-zinc-800/60 pb-4 mb-4">
                 <div>
                     <h3 className="text-lg font-bold">Manajemen Pengguna</h3>
-                    <p className="text-muted-foreground text-xs font-normal">Buat akun login untuk GTK yang sudah terdaftar.</p>
+                    <p className="text-muted-foreground text-xs font-normal">Kelola akun {groupLabel} untuk login sekolah.</p>
                 </div>
                 <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
                     <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={() => { setIsLoading(true); fetchUsers(); }}>
                         <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
                         Refresh
                     </Button>
-                    <Button size="sm" className="w-full sm:w-auto" variant="secondary" onClick={() => { setGenResult(null); setGenAccounts([]); setIsGenerateOpen(true); }}>
-                        <UserPlus className="h-4 w-4 mr-2" />
-                        Generate Akun
-                    </Button>
-                    <Button size="sm" className="col-span-2 w-full sm:col-span-1 sm:w-auto text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.98] transition-all shadow-sm" onClick={() => { resetForm(); setIsDialogOpen(true); }}>
+                    {activeUserGroup !== "orangtua" && (
+                        <Button size="sm" className="w-full sm:w-auto" variant="secondary" onClick={handleOpenGenerate}>
+                            <UserPlus className="h-4 w-4 mr-2" />
+                            Generate Akun
+                        </Button>
+                    )}
+                    <Button size="sm" className="col-span-2 w-full sm:col-span-1 sm:w-auto text-white bg-blue-600 hover:bg-blue-700 active:scale-[0.98] transition-all shadow-sm" onClick={handleOpenCreate}>
                         <Plus className="h-4 w-4 mr-2" />
-                        Tambah User
+                        Tambah {groupLabel}
                     </Button>
                 </div>
             </div>
 
+            <Tabs value={activeUserGroup} onValueChange={handleUserGroupChange} className="w-full">
+                <TabsList className="bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl w-full mb-4">
+                    <TabsTrigger value="staff" className="rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap px-2 min-h-[40px]">
+                        Staff & GTK
+                    </TabsTrigger>
+                    <TabsTrigger value="siswa" className="rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap px-2 min-h-[40px]">
+                        Siswa
+                    </TabsTrigger>
+                    <TabsTrigger value="orangtua" className="rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap px-2 min-h-[40px]">
+                        Orang Tua
+                    </TabsTrigger>
+                </TabsList>
+            </Tabs>
+
             {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card className="p-4 border-slate-200/50 dark:border-zinc-800/50 hover:shadow-md transition-all duration-300 bg-gradient-to-br from-white to-slate-50/50 dark:from-zinc-950 dark:to-zinc-900/50 relative overflow-hidden group">
                     <div className="flex justify-between items-start">
                         <div>
-                            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total User</div>
+                            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Akun {groupLabel}</div>
                             <div className="text-2xl font-extrabold mt-1 text-slate-800 dark:text-white">
                                 {isLoading ? <Skeleton className="h-7 w-12" /> : totalUsers}
                             </div>
@@ -417,186 +504,234 @@ export default function TabUsers() {
                 <Card className="p-4 border-slate-200/50 dark:border-zinc-800/50 hover:shadow-md transition-all duration-300 bg-gradient-to-br from-white to-slate-50/50 dark:from-zinc-950 dark:to-zinc-900/50 relative overflow-hidden group">
                     <div className="flex justify-between items-start">
                         <div>
-                            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Admin</div>
-                            <div className="text-2xl font-extrabold mt-1 text-amber-600 dark:text-amber-500">
-                                {isLoading ? <Skeleton className="h-7 w-12" /> : users.filter((u) => u.role === "admin" || u.role === "superadmin").length}
-                            </div>
-                        </div>
-                        <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform">
-                            <UserCog className="h-5 w-5" />
-                        </div>
-                    </div>
-                </Card>
-
-                <Card className="p-4 border-slate-200/50 dark:border-zinc-800/50 hover:shadow-md transition-all duration-300 bg-gradient-to-br from-white to-slate-50/50 dark:from-zinc-950 dark:to-zinc-900/50 relative overflow-hidden group">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Staff/Guru</div>
-                            <div className="text-2xl font-extrabold mt-1 text-blue-600 dark:text-blue-500">
-                                {isLoading ? <Skeleton className="h-7 w-12" /> : users.filter((u) => u.role === "staff" || u.role === "guru").length}
-                            </div>
-                        </div>
-                        <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
-                            <UserPlus className="h-5 w-5" />
-                        </div>
-                    </div>
-                </Card>
-
-                <Card className="p-4 border-slate-200/50 dark:border-zinc-800/50 hover:shadow-md transition-all duration-300 bg-gradient-to-br from-white to-slate-50/50 dark:from-zinc-950 dark:to-zinc-900/50 relative overflow-hidden group">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">User/Siswa</div>
+                            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Aktif</div>
                             <div className="text-2xl font-extrabold mt-1 text-emerald-600 dark:text-emerald-500">
-                                {isLoading ? <Skeleton className="h-7 w-12" /> : users.filter((u) => u.role === "user" || u.role === "siswa").length}
+                                {isLoading ? <Skeleton className="h-7 w-12" /> : activeUsers}
                             </div>
                         </div>
                         <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform">
-                            <GraduationCap className="h-5 w-5" />
+                            <ShieldCheck className="h-5 w-5" />
                         </div>
                     </div>
                 </Card>
-            </div>
 
-            {/* Search */}
-            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-                <div className="relative w-full sm:max-w-md">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Cari nama atau email..."
-                        className="pl-10"
-                        value={searchQuery}
-                        onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
-                    />
+                <Card className="p-4 border-slate-200/50 dark:border-zinc-800/50 hover:shadow-md transition-all duration-300 bg-gradient-to-br from-white to-slate-50/50 dark:from-zinc-950 dark:to-zinc-900/50 relative overflow-hidden group">
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nonaktif</div>
+                            <div className="text-2xl font-extrabold mt-1 text-zinc-600 dark:text-zinc-400">
+                                {isLoading ? <Skeleton className="h-7 w-12" /> : inactiveUsers}
+                            </div>
+                        </div>
+                        <div className="p-2 rounded-lg bg-zinc-100 dark:bg-zinc-900 text-zinc-500 group-hover:scale-110 transition-transform">
+                            <UserCog className="h-5 w-5" />
+                        </div>
+                    </div>
+                    </Card>
                 </div>
-                <div className="flex gap-2 w-full sm:w-auto justify-end">
-                    <Select
-                        value={limit.toString()}
-                        onValueChange={(val) => {
-                            setLimit(parseInt(val));
-                            setPage(1);
-                        }}
+
+                {/* Add User Profile Details Button */}
+                <div className="flex justify-end mb-4">
+                    <Button 
+                        size="sm" 
+                        variant="outline" 
+                        onClick={() => setIsProfileDialogOpen(true)}
+                        className="text-xs"
                     >
-                        <SelectTrigger className="w-[120px] bg-background">
-                            <SelectValue placeholder="Baris" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="10">10 Baris</SelectItem>
-                            <SelectItem value="20">20 Baris</SelectItem>
-                            <SelectItem value="50">50 Baris</SelectItem>
-                            <SelectItem value="100">100 Baris</SelectItem>
-                        </SelectContent>
-                    </Select>
+                        <User className="h-3.5 w-3.5 mr-1" />
+                        Lihat Detail Akun
+                    </Button>
                 </div>
-            </div>
 
-            {/* Table */}
-            <DataTable
-                data={isLoading ? [] : sortedUsers}
-                getRowId={(user) => user.id}
-                loading={isLoading}
-                sortConfig={sortConfig}
-                onSort={requestSort}
-                emptyTitle="Tidak ada pengguna ditemukan"
-                emptyDescription="Coba ubah kata kunci pencarian atau filter."
-                columns={[
-                    {
-                        key: "name",
-                        header: "Nama",
-                        sortable: true,
-                        card: "title",
-                        render: (user) => <span className="font-medium">{user.name || "-"}</span>,
-                    },
-                    {
-                        key: "email",
-                        header: "Email",
-                        sortable: true,
-                        card: "field",
-                        render: (user) => (
-                            <span className="text-muted-foreground">{user.email}</span>
-                        ),
-                    },
-                    {
-                        key: "role",
-                        header: "Role",
-                        sortable: true,
-                        card: "field",
-                        render: (user) => {
-                            const roleInfo = getRoleInfo(user.role);
-                            return <Badge className={roleInfo.color}>{roleInfo.label}</Badge>;
+                {/* Search */}
+                <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+                    <div className="relative w-full sm:max-w-md">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Cari nama atau email..."
+                            className="pl-10"
+                            value={searchQuery}
+                            onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+                        />
+                    </div>
+                    <div className="flex gap-2 w-full sm:w-auto justify-end">
+                        <Select
+                            value={limit.toString()}
+                            onValueChange={(val) => {
+                                setLimit(parseInt(val));
+                                setPage(1);
+                            }}
+                        >
+                            <SelectTrigger className="w-[120px] bg-background">
+                                <SelectValue placeholder="Baris" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="10">10 Baris</SelectItem>
+                                <SelectItem value="20">20 Baris</SelectItem>
+                                <SelectItem value="50">50 Baris</SelectItem>
+                                <SelectItem value="100">100 Baris</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+
+                {/* Table */}
+                <DataTable
+                    data={isLoading ? [] : sortedUsers}
+                    getRowId={(user) => user.id}
+                    loading={isLoading}
+                    sortConfig={sortConfig}
+                    onSort={requestSort}
+                    emptyTitle="Tidak ada pengguna ditemukan"
+                    emptyDescription="Coba ubah kata kunci pencarian atau filter."
+                    columns={[
+                        {
+                            key: "name",
+                            header: "Nama",
+                            sortable: true,
+                            card: "title",
+                            render: (user) => <span className="font-medium">{user.name || "-"}</span>,
                         },
-                    },
-                    {
-                        key: "isActive",
-                        header: "Status",
-                        card: "field",
-                        render: (user) => (
-                            user.isActive === false
-                                ? <Badge variant="outline" className="border-zinc-300 text-zinc-500">Nonaktif</Badge>
-                                : <Badge className="bg-green-100 text-green-700">Aktif</Badge>
-                        ),
-                    },
-                    {
-                        key: "phone",
-                        header: "Telepon",
-                        sortable: true,
-                        card: "field",
-                        render: (user) => (
-                            <span className="text-muted-foreground">{user.phone || "-"}</span>
-                        ),
-                    },
-                    {
-                        key: "created",
-                        header: "Bergabung",
-                        sortable: true,
-                        card: "hidden",
-                        render: (user) => (
-                            <span className="text-muted-foreground text-sm">
-                                {formatCreatedDate(user.created)}
-                            </span>
-                        ),
-                    },
-                ]}
-                actions={(user) => (
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground bg-background/50">
-                                <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleEdit(user)}>
-                                <Pencil className="h-4 w-4 mr-2" />
-                                Edit
-                            </DropdownMenuItem>
-                            {user.isActive === false ? (
-                                <DropdownMenuItem
-                                    className="text-green-600"
-                                    onClick={() => handleToggleActive(user, true)}
-                                >
-                                    <ShieldCheck className="h-4 w-4 mr-2" />
-                                    Aktifkan
+                        {
+                            key: "email",
+                            header: "Email",
+                            sortable: true,
+                            card: "field",
+                            render: (user) => (
+                                <span className="text-muted-foreground">{user.email}</span>
+                            ),
+                        },
+                        {
+                            key: "role",
+                            header: "Role",
+                            sortable: true,
+                            card: "field",
+                            render: (user) => {
+                                const roleInfo = getRoleInfo(user.role);
+                                return <Badge className={roleInfo.color}>{roleInfo.label}</Badge>;
+                            },
+                        },
+                        {
+                            key: "isActive",
+                            header: "Status",
+                            card: "field",
+                            render: (user) => (
+                                user.isActive === false
+                                    ? <Badge variant="outline" className="border-zinc-300 text-zinc-500">Nonaktif</Badge>
+                                    : <Badge className="bg-green-100 text-green-700">Aktif</Badge>
+                            ),
+                        },
+                        {
+                            key: "phone",
+                            header: "Telepon",
+                            sortable: true,
+                            card: "field",
+                            render: (user) => (
+                                <span className="text-muted-foreground">{user.phone || "-"}</span>
+                            ),
+                        },
+                        {
+                            key: "created",
+                            header: "Bergabung",
+                            sortable: true,
+                            card: "hidden",
+                            render: (user) => (
+                                <span className="text-muted-foreground text-sm">
+                                    {formatCreatedDate(user.created)}
+                                </span>
+                            ),
+                        },
+                        {
+                            key: "actions",
+                            header: "Aksi",
+                            card: "field",
+                            render: (user) => (
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground bg-background/50">
+                                            <MoreHorizontal className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => handleEdit(user)}>
+                                            <Pencil className="h-4 w-4 mr-2" />
+                                            Edit
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => { setSelectedUser(user); setIsProfileDialogOpen(true); }}>
+                                            <User className="h-4 w-4 mr-2" />
+                                            Lihat Profil
+                                        </DropdownMenuItem>
+                                        {user.isActive === false ? (
+                                            <DropdownMenuItem
+                                                className="text-green-600"
+                                                onClick={() => handleToggleActive(user, true)}
+                                            >
+                                                <ShieldCheck className="h-4 w-4 mr-2" />
+                                                Aktifkan
+                                            </DropdownMenuItem>
+                                        ) : (
+                                            <>
+                                                <DropdownMenuItem
+                                                    onClick={() => handleToggleActive(user, false)}
+                                                >
+                                                    <UserCog className="h-4 w-4 mr-2" />
+                                                    Nonaktifkan
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem
+                                                    className="text-destructive"
+                                                    onClick={() => setDeleteId(user.id)}
+                                                >
+                                                    <Trash2 className="h-4 w-4 mr-2" />
+                                                    Hapus
+                                                </DropdownMenuItem>
+                                            </>
+                                        )}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            ),
+                        },
+                    ]}
+                    actions={(user) => (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground bg-background/50">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleEdit(user)}>
+                                    <Pencil className="h-4 w-4 mr-2" />
+                                    Edit
                                 </DropdownMenuItem>
-                            ) : (
-                                <>
+                                {user.isActive === false ? (
                                     <DropdownMenuItem
-                                        onClick={() => handleToggleActive(user, false)}
+                                        className="text-green-600"
+                                        onClick={() => handleToggleActive(user, true)}
                                     >
-                                        <UserCog className="h-4 w-4 mr-2" />
-                                        Nonaktifkan
+                                        <ShieldCheck className="h-4 w-4 mr-2" />
+                                        Aktifkan
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        className="text-destructive"
-                                        onClick={() => setDeleteId(user.id)}
-                                    >
-                                        <Trash2 className="h-4 w-4 mr-2" />
-                                        Hapus
-                                    </DropdownMenuItem>
-                                </>
-                            )}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                )}
-            />
+                                ) : (
+                                    <>
+                                        <DropdownMenuItem
+                                            onClick={() => handleToggleActive(user, false)}
+                                        >
+                                            <UserCog className="h-4 w-4 mr-2" />
+                                            Nonaktifkan
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            className="text-destructive"
+                                            onClick={() => setDeleteId(user.id)}
+                                        >
+                                            <Trash2 className="h-4 w-4 mr-2" />
+                                            Hapus
+                                        </DropdownMenuItem>
+                                    </>
+                                )}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
+                    />
 
             {/* Pagination */}
             {!isLoading && totalUsers > 0 && (
@@ -604,193 +739,276 @@ export default function TabUsers() {
                     page={page}
                     totalPages={totalPages}
                     onPageChange={setPage}
-                    label={`${totalUsers} pengguna`}
+                    label={`${totalUsers} ${groupLabel.toLowerCase()}`}
                 />
             )}
 
-            {/* Create/Edit Dialog */}
-            <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!open) resetForm(); else setIsDialogOpen(true); }}>
-                <DialogContent className="max-w-lg">
-                    <DialogHeader>
-                        <DialogTitle>{editingId ? "Edit Pengguna" : "Tambah Pengguna Baru"}</DialogTitle>
-                        <DialogDescription>
-                            {editingId ? "Perbarui informasi pengguna" : "Buat akun login — pilih dari GTK yang sudah terdaftar"}
-                        </DialogDescription>
-                    </DialogHeader>
+                {/* Create/Edit Dialog */}
+                <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!open) resetForm(); else setIsDialogOpen(true); }}>
+                    <DialogContent className="max-w-lg">
+                        <DialogHeader>
+                            <DialogTitle>{editingId ? `Edit ${groupLabel}` : `Tambah ${groupLabel} Baru`}</DialogTitle>
+                            <DialogDescription>
+                                {editingId ? "Perbarui informasi pengguna" : `Buat akun login ${groupLabel.toLowerCase()} untuk masuk ke sistem.`}
+                            </DialogDescription>
+                        </DialogHeader>
 
-                    {/* Show created password */}
-                    {createdPassword && (
-                        <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4 space-y-2">
-                            <div className="flex items-center gap-2 text-green-700 dark:text-green-400 font-semibold">
-                                <ShieldCheck className="h-4 w-4" />
-                                Akun berhasil dibuat!
-                            </div>
-                            <p className="text-xs text-green-600 dark:text-green-400">
-                                Password hanya ditampilkan sekali. Catat dan sampaikan ke user.
-                            </p>
-                            <div className="flex items-center gap-2 bg-white dark:bg-zinc-900 rounded border p-2 font-mono text-sm">
-                                <span className="flex-1 select-all">{showPw ? createdPassword : "••••••••"}</span>
-                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowPw(!showPw)}>
-                                    {showPw ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => copyToClipboard(createdPassword)}>
-                                    {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
-                                </Button>
-                            </div>
-                            <Button variant="outline" size="sm" className="w-full" onClick={resetForm}>
-                                Tutup & Buat Baru
-                            </Button>
-                        </div>
-                    )}
-
-                    {!createdPassword && (
-                    <div className="grid gap-4 py-4">
-                        {/* GTK Dropdown (only for new users) */}
-                        {!editingId && (
-                            <div className="space-y-2">
-                                <Label>Pilih dari GTK</Label>
-                                <Select value={selectedGtkId} onValueChange={handleGtkSelect}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="-- Pilih GTK yang belum punya akun --" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {gtkOptions.length === 0 ? (
-                                            <div className="px-2 py-4 text-sm text-muted-foreground text-center">
-                                                Semua GTK sudah punya akun
-                                            </div>
-                                        ) : (
-                                            gtkOptions.map((gtk) => (
-                                                <SelectItem key={gtk.id} value={gtk.id}>
-                                                    {gtk.name} — {gtk.role} {gtk.nip ? `(NIP: ${gtk.nip})` : ""}
-                                                </SelectItem>
-                                            ))
-                                        )}
-                                    </SelectContent>
-                                </Select>
-                                <p className="text-xs text-muted-foreground">
-                                    Pilih GTK dari direktori, atau isi manual di bawah.
+                        {/* Show created password */}
+                        {createdPassword && (
+                            <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg p-4 space-y-2">
+                                <div className="flex items-center gap-2 text-green-700 dark:text-green-400 font-semibold">
+                                    <ShieldCheck className="h-4 w-4" />
+                                    Akun berhasil dibuat!
+                                </div>
+                                <p className="text-xs text-green-600 dark:text-green-400">
+                                    Password hanya ditampilkan sekali. Catat dan sampaikan ke user.
                                 </p>
+                                <div className="flex items-center gap-2 bg-white dark:bg-zinc-900 rounded border p-2 font-mono text-sm">
+                                    <span className="flex-1 select-all">{showPw ? createdPassword : "••••••••"}</span>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowPw(!showPw)}>
+                                        {showPw ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => copyToClipboard(createdPassword)}>
+                                        {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+                                    </Button>
+                                </div>
+                                <Button variant="outline" size="sm" className="w-full" onClick={resetForm}>
+                                    Tutup & Buat Baru
+                                </Button>
                             </div>
                         )}
 
-                        <div className="space-y-2">
-                            <Label htmlFor="name">Nama Lengkap</Label>
-                            <Input
-                                id="name"
-                                value={formData.name}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                placeholder="Nama pengguna"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="email">Email</Label>
-                            <Input
-                                id="email"
-                                type="email"
-                                value={formData.email}
-                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                placeholder="email@example.com"
-                                disabled={!!editingId || !!selectedGtkId}
-                            />
-                            {(editingId || selectedGtkId) && (
-                                <p className="text-xs text-muted-foreground">Email tidak dapat diubah</p>
-                            )}
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="username">Username</Label>
-                            <Input
-                                id="username"
-                                value={formData.username}
-                                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                                placeholder="username (opsional)"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="role">Role</Label>
-                            <Select
-                                value={formData.role}
-                                onValueChange={(v) => setFormData({ ...formData, role: v })}
-                                disabled={!!selectedGtkId}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {roles.map((role) => (
-                                        <SelectItem key={role.value} value={role.value}>
-                                            {role.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="phone">Nomor Telepon</Label>
-                            <Input
-                                id="phone"
-                                value={formData.phone}
-                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                placeholder="08xxxxxxxxxx"
-                            />
-                        </div>
-                        {!editingId && (
-                            <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-xs text-blue-700 dark:text-blue-400">
-                                Password akan dibuat otomatis. Anda bisa isi manual jika ingin.
-                            </div>
-                        )}
-                        {!editingId && (
-                            <>
+                        {!createdPassword && (
+                            <div className="grid gap-4 py-4">
+                                {activeUserGroup === "staff" && !editingId && (
+                                    <div className="space-y-2">
+                                        <Label>Pilih dari GTK</Label>
+                                        <Select value={selectedGtkId} onValueChange={handleGtkSelect}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="-- Pilih GTK yang belum punya akun --" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {gtkOptions.length === 0 ? (
+                                                    <div className="px-2 py-4 text-sm text-muted-foreground text-center">
+                                                        Semua GTK sudah punya akun
+                                                    </div>
+                                                ) : (
+                                                    gtkOptions.map((gtk) => (
+                                                        <SelectItem key={gtk.id} value={gtk.id}>
+                                                            {gtk.name} — {gtk.role} {gtk.nip ? `(NIP: ${gtk.nip})` : ""}
+                                                        </SelectItem>
+                                                    ))
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                        <p className="text-xs text-muted-foreground">
+                                            Pilih GTK dari direktori, atau isi manual di bawah.
+                                        </p>
+                                    </div>
+                                )}
+
                                 <div className="space-y-2">
-                                    <Label htmlFor="password">Password (opsional — auto-generate jika kosong)</Label>
+                                    <Label htmlFor="name">Nama Lengkap</Label>
                                     <Input
-                                        id="password"
-                                        type="password"
-                                        value={formData.password}
-                                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                        placeholder="Kosongkan untuk auto-generate"
+                                        id="name"
+                                        value={formData.name}
+                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                        placeholder="Nama pengguna"
                                     />
                                 </div>
-                                {formData.password && (
+                                <div className="space-y-2">
+                                    <Label htmlFor="email">Email</Label>
+                                    <Input
+                                        id="email"
+                                        type="email"
+                                        value={formData.email}
+                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                        placeholder="email@example.com"
+                                        disabled={!!editingId || !!selectedGtkId}
+                                    />
+                                    {(editingId || selectedGtkId) && (
+                                        <p className="text-xs text-muted-foreground">Email tidak dapat diubah</p>
+                                    )}
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="username">Username</Label>
+                                    <Input
+                                        id="username"
+                                        value={formData.username}
+                                        onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                                        placeholder="username (opsional)"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="role">Role</Label>
+                                    <Select
+                                        value={formData.role}
+                                        onValueChange={(v) => setFormData({ ...formData, role: v })}
+                                        disabled={!!selectedGtkId}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {availableRoles.map((role) => (
+                                                <SelectItem key={role.value} value={role.value}>
+                                                    {role.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="phone">Nomor Telepon</Label>
+                                    <Input
+                                        id="phone"
+                                        value={formData.phone}
+                                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                        placeholder="08xxxxxxxxxx"
+                                    />
+                                </div>
+                                {!editingId && (
+                                    <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-xs text-blue-700 dark:text-blue-400">
+                                        Password akan dibuat otomatis. Anda bisa isi manual jika ingin.
+                                    </div>
+                                )}
+                                {!editingId && (
+                                    <>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="password">Password (opsional — auto-generate jika kosong)</Label>
+                                            <Input
+                                                id="password"
+                                                type="password"
+                                                value={formData.password}
+                                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                                placeholder="Kosongkan untuk auto-generate"
+                                            />
+                                        </div>
+                                        {formData.password && (
+                                            <div className="space-y-2">
+                                                <Label htmlFor="passwordConfirm">Konfirmasi Password</Label>
+                                                <Input
+                                                    id="passwordConfirm"
+                                                    type="password"
+                                                    value={formData.passwordConfirm}
+                                                    onChange={(e) => setFormData({ ...formData, passwordConfirm: e.target.value })}
+                                                    placeholder="Ulangi password"
+                                                />
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                                {editingId && (
                                     <div className="space-y-2">
-                                        <Label htmlFor="passwordConfirm">Konfirmasi Password</Label>
+                                        <Label htmlFor="password">Password Baru (opsional)</Label>
                                         <Input
-                                            id="passwordConfirm"
+                                            id="password"
                                             type="password"
-                                            value={formData.passwordConfirm}
-                                            onChange={(e) => setFormData({ ...formData, passwordConfirm: e.target.value })}
-                                            placeholder="Ulangi password"
+                                            value={formData.password}
+                                            onChange={(e) => setFormData({ ...formData, password: e.target.value, passwordConfirm: e.target.value })}
+                                            placeholder="Kosongkan jika tidak ingin mengubah"
                                         />
                                     </div>
                                 )}
-                            </>
-                        )}
-                        {editingId && (
-                            <div className="space-y-2">
-                                <Label htmlFor="password">Password Baru (opsional)</Label>
-                                <Input
-                                    id="password"
-                                    type="password"
-                                    value={formData.password}
-                                    onChange={(e) => setFormData({ ...formData, password: e.target.value, passwordConfirm: e.target.value })}
-                                    placeholder="Kosongkan jika tidak ingin mengubah"
-                                />
                             </div>
                         )}
-                    </div>
-                    )}
-                    {!createdPassword && (
+                        {!createdPassword && (
+                            <DialogFooter>
+                                <Button variant="outline" onClick={resetForm}>
+                                    Batal
+                                </Button>
+                                <Button onClick={handleSubmit} disabled={isSaving || !formData.name || !formData.email}>
+                                    {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                                    {editingId ? "Simpan" : "Buat Akun"}
+                                </Button>
+                            </DialogFooter>
+                        )}
+                    </DialogContent>
+                </Dialog>
+
+                {/* User Profile Details Dialog */}
+                <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
+                    <DialogContent className="max-w-2xl">
+                        <DialogHeader>
+                            <DialogTitle>Detail Akun Pengguna</DialogTitle>
+                            <DialogDescription>
+                                Informasi lengkap akun pengguna {selectedUser?.name}
+                            </DialogDescription>
+                        </DialogHeader>
+                        
+                        {selectedUser && (
+                            <div className="space-y-6 py-4">
+                                <div className="flex items-center gap-4">
+                                    <div className="h-16 w-16 rounded-full bg-slate-200 dark:bg-zinc-700 flex items-center justify-center text-xl font-semibold">
+                                        {selectedUser.name?.substring(0, 2).toUpperCase() || "U"}
+                                    </div>
+                                    <div>
+                                        <h3 className="font-semibold text-lg">{selectedUser.name}</h3>
+                                        <p className="text-sm text-muted-foreground">{selectedUser.email}</p>
+                                        <Badge className="mt-1 capitalize" variant="outline">
+                                            {selectedUser.role}
+                                        </Badge>
+                                    </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label className="text-xs font-semibold text-muted-foreground">Nama Panggilan</Label>
+                                        <p className="text-sm">{selectedUser.name}</p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-xs font-semibold text-muted-foreground">Username</Label>
+                                        <p className="text-sm">{selectedUser.username || "-"}</p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-xs font-semibold text-muted-foreground">Telepon</Label>
+                                        <p className="text-sm">{selectedUser.phone || "-"}</p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-xs font-semibold text-muted-foreground">Status</Label>
+                                        <Badge variant={selectedUser.isActive ? "default" : "secondary"} className="text-xs">
+                                            {selectedUser.isActive ? "Aktif" : "Nonaktif"}
+                                        </Badge>
+                                    </div>
+                                </div>
+                                
+                                <div className="pt-4 border-t">
+                                    <h4 className="font-medium mb-3">Aktivitas & Keamanan</h4>
+                                    <div className="space-y-2 text-sm">
+                                        <div className="flex justify-between">
+                                            <span className="text-muted-foreground">Terdaftar</span>
+                                            <span>{formatCreatedDate(selectedUser.created)}</span>
+                                        </div>
+                                        {selectedUser.mustChangePassword && (
+                                            <div className="flex justify-between">
+                                                <span className="text-muted-foreground">Wajib ganti password</span>
+                                                <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">Ya</Badge>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                
+                                <div className="pt-4 border-t">
+                                    <h4 className="font-medium mb-3">Aksi Terbaru</h4>
+                                    <div className="flex items-center gap-3">
+                                        <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+                                        <div className="text-sm text-muted-foreground">
+                                            Profil pengguna dengan peran {selectedUser.role} di sistem
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        
                         <DialogFooter>
-                            <Button variant="outline" onClick={resetForm}>
-                                Batal
-                            </Button>
-                            <Button onClick={handleSubmit} disabled={isSaving || !formData.name || !formData.email}>
-                                {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                                {editingId ? "Simpan" : "Buat Akun"}
+                            <Button variant="outline" onClick={() => setIsProfileDialogOpen(false)}>Tutup</Button>
+                            <Button onClick={() => { if (selectedUser) { handleEdit(selectedUser); setIsProfileDialogOpen(false); } }}>
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Edit Profil
                             </Button>
                         </DialogFooter>
-                    )}
-                </DialogContent>
-            </Dialog>
+                    </DialogContent>
+                </Dialog>
 
             {/* Generate Dialog */}
             <Dialog open={isGenerateOpen} onOpenChange={setIsGenerateOpen}>
@@ -906,8 +1124,9 @@ export default function TabUsers() {
                                             <SelectValue placeholder="-- Pilih Kelas --" />
                                         </SelectTrigger>
                                         <SelectContent>
+                                            <SelectItem value="__all__" className="py-3">Semua Kelas</SelectItem>
                                             {availableClasses.map((c) => (
-                                                <SelectItem key={c.name} value={c.name} className="py-3">Kelas {c.name}</SelectItem>
+                                                <SelectItem key={c.id ?? c.name} value={c.name} className="py-3">{c.name}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>

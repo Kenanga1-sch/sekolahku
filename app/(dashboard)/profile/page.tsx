@@ -776,23 +776,27 @@ export default function ProfilePage() {
                                                     {getActionIcon(log.action)}
                                                 </div>
                                                 <div className="flex-1 space-y-1.5 min-w-0">
-                                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="font-semibold text-sm text-slate-800 dark:text-slate-200">
-                                                                {log.details || "Aktivitas Akun"}
-                                                            </span>
-                                                            {getFriendlyActionBadge(log.action)}
-                                                        </div>
-                                                        <span className="text-[10px] text-muted-foreground font-medium shrink-0">
-                                                            {log.createdAt ? new Date(log.createdAt).toLocaleString("id-ID", {
-                                                                day: "numeric",
-                                                                month: "short",
-                                                                year: "numeric",
-                                                                hour: "2-digit",
-                                                                minute: "2-digit"
-                                                            }) : ""}
-                                                        </span>
-                                                    </div>
+                                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                                                 <div className="flex items-center gap-2">
+                                                     <span className="font-semibold text-sm text-slate-800 dark:text-slate-200">
+                                                         {log.details || "Aktivitas Akun"}
+                                                     </span>
+                                                     {getFriendlyActionBadge(log.action)}
+                                                 </div>
+                                                 <span className="text-[10px] text-muted-foreground font-medium shrink-0">
+                                                     {log.createdAt ? new Date(log.createdAt).toLocaleString("id-ID", {
+                                                         day: "numeric",
+                                                         month: "short",
+                                                         year: "numeric",
+                                                         hour: "2-digit",
+                                                         minute: "2-digit"
+                                                     }) : ""}
+                                                 </span>
+                                             </div>
+                                             <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1 sm:hidden">
+                                                 <Shield className="h-3 w-3" />
+                                                 <span>{user?.role || "User"}</span>
+                                             </div>
                                                     <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted-foreground items-center font-medium">
                                                         <span className="flex items-center gap-1">
                                                             <Globe className="h-3.5 w-3.5 text-slate-400" />

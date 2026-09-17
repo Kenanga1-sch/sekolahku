@@ -40,6 +40,7 @@ var allowedUserRoles = map[string]bool{
 	"staff":       true,
 	"user":        true,
 	"guru":        true,
+	"bendahara":   true,
 	"siswa":       true,
 	"calon_siswa": true,
 	"orangtua":    true,
@@ -51,6 +52,21 @@ func normalizeUserRole(role string) (string, bool) {
 		normalized = "user"
 	}
 	return normalized, allowedUserRoles[normalized]
+}
+
+func parseUserRoles(roleParam string) []string {
+	roles := []string{}
+	seen := map[string]bool{}
+
+	for _, role := range strings.Split(roleParam, ",") {
+		normalized, ok := normalizeUserRole(role)
+		if ok && !seen[normalized] {
+			roles = append(roles, normalized)
+			seen[normalized] = true
+		}
+	}
+
+	return roles
 }
 
 // ============ Admin CRUD ============
@@ -69,17 +85,25 @@ func (h *UserHandler) GetUsers(c echo.Context) error {
 		limit = l
 	}
 
-	users, total, err := h.UserRepo.GetUsersByRole(page, limit, search, c.QueryParam("role"))
+	roles := parseUserRoles(c.QueryParam("role"))
+
+	users, total, err := h.UserRepo.GetUsersByRole(page, limit, search, roles)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+	}
+	activeUsers, inactiveUsers, err := h.UserRepo.GetUserCountsByRole(search, roles)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 	totalPages := (total + limit - 1) / limit
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"items":      users,
-		"totalItems": total,
-		"page":       page,
-		"limit":      limit,
-		"totalPages": totalPages,
+		"items":         users,
+		"totalItems":    total,
+		"activeItems":   activeUsers,
+		"inactiveItems": inactiveUsers,
+		"page":          page,
+		"limit":         limit,
+		"totalPages":    totalPages,
 	})
 }
 
@@ -372,7 +396,7 @@ func (h *UserHandler) GenerateAccounts(c echo.Context) error {
 	skipped := 0
 
 	if req.Type == "student" {
-		students, err := h.StudentRepo.SimpleSearch("", req.ClassName)
+		students, err := h.StudentRepo.SimpleSearchAll(req.ClassName)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 		}

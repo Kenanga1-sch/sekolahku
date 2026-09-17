@@ -99,7 +99,9 @@ export async function goFetch<T = any>(
         if (res.status === 401 && typeof window !== "undefined" && window.location.pathname !== "/login") {
           document.cookie = "session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
           window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
-          throw new Error("Session expired");
+          const sessionError = new Error("Session expired");
+          (sessionError as any).status = 401;
+          throw sessionError;
         }
         const errorData = await res.json().catch(() => ({ error: res.statusText }));
         const error = new Error(errorData.error || `API Error: ${res.status}`);

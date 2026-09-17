@@ -867,7 +867,15 @@ func (r *StudentRepository) GetClasses() ([]models.StudentClassItem, error) {
 }
 
 func (r *StudentRepository) SimpleSearch(query, className string) ([]models.Student, error) {
-	sqlQuery := "SELECT id, full_name, nis, nisn, class_name, gender, birth_place, birth_date, nik, religion, father_name, mother_name, parent_name, guardian_name, parent_phone, address FROM students WHERE status = 'active'"
+	return r.simpleSearch(query, className, 50)
+}
+
+func (r *StudentRepository) SimpleSearchAll(className string) ([]models.Student, error) {
+	return r.simpleSearch("", className, 0)
+}
+
+func (r *StudentRepository) simpleSearch(query, className string, limit int) ([]models.Student, error) {
+	sqlQuery := "SELECT s.id, s.full_name, s.nis, s.nisn, s.class_name, s.gender, s.birth_place, s.birth_date, s.nik, s.religion, s.father_name, s.mother_name, s.parent_name, s.guardian_name, s.parent_phone, s.address FROM students s WHERE s.status = 'active'"
 	args := []interface{}{}
 
 	if query != "" {
@@ -877,11 +885,20 @@ func (r *StudentRepository) SimpleSearch(query, className string) ([]models.Stud
 	}
 
 	if className != "" {
-		sqlQuery += " AND class_name = ?"
-		args = append(args, className)
+		sqlQuery += ` AND (
+			s.class_name = ?
+			OR s.class_id IN (
+				SELECT id FROM student_classes
+				WHERE name = ? OR CAST(grade AS TEXT) = ?
+			)
+		)`
+		args = append(args, className, className, className)
 	}
 
-	sqlQuery += " ORDER BY full_name ASC LIMIT 50"
+	sqlQuery += " ORDER BY full_name ASC"
+	if limit > 0 {
+		sqlQuery += fmt.Sprintf(" LIMIT %d", limit)
+	}
 
 	rows, err := r.DB.Query(sqlQuery, args...)
 	if err != nil {

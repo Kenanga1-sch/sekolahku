@@ -73,13 +73,13 @@ export default function GantiPasswordPage() {
                 passwordConfirm: confirmPassword,
             });
             
-            setSuccess(true);
-            showSuccess("Password berhasil diubah!");
-            
-            // Redirect to overview after 2 seconds
-            setTimeout(() => {
-                router.push("/overview");
-            }, 2000);
+                            setSuccess(true);
+                            showSuccess("Password berhasil diubah!");
+                            
+                            // Redirect to profile page after 2 seconds
+                            setTimeout(() => {
+                                router.push("/profile");
+                            }, 2000);
         } catch (err: any) {
             setError(err.message || "Gagal mengubah password. Pastikan password lama benar.");
         } finally {

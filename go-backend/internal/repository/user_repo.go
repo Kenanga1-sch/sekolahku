@@ -69,12 +69,12 @@ func (r *UserRepository) GetUserByEmail(email string) (*models.User, error) {
 }
 
 func (r *UserRepository) GetUsers(page, limit int, search string) ([]models.User, int, error) {
-	return r.GetUsersByRole(page, limit, search, "")
+	return r.GetUsersByRole(page, limit, search, nil)
 }
 
 // GetUsersByRole memfilter daftar user berdasarkan role (opsional).
 // Dipakai dropdown Wali Kelas yang hanya perlu menampilkan guru.
-func (r *UserRepository) GetUsersByRole(page, limit int, search, role string) ([]models.User, int, error) {
+func (r *UserRepository) GetUsersByRole(page, limit int, search string, roles []string) ([]models.User, int, error) {
 	offset := (page - 1) * limit
 	whereClause := "1=1"
 	var args []interface{}
@@ -84,9 +84,13 @@ func (r *UserRepository) GetUsersByRole(page, limit int, search, role string) ([
 		pattern := "%" + search + "%"
 		args = append(args, pattern, pattern, pattern)
 	}
-	if role != "" {
-		whereClause += " AND role = ?"
-		args = append(args, role)
+	if len(roles) > 0 {
+		placeholders := make([]string, len(roles))
+		for i, role := range roles {
+			placeholders[i] = "?"
+			args = append(args, role)
+		}
+		whereClause += fmt.Sprintf(" AND role IN (%s)", strings.Join(placeholders, ","))
 	}
 
 	// 1. Data Query
@@ -147,6 +151,38 @@ func (r *UserRepository) GetUsersByRole(page, limit int, search, role string) ([
 	}
 
 	return users, total, nil
+}
+
+func (r *UserRepository) GetUserCountsByRole(search string, roles []string) (int, int, error) {
+	whereClause := "1=1"
+	var args []interface{}
+
+	if search != "" {
+		whereClause += " AND (name LIKE ? OR email LIKE ? OR username LIKE ?)"
+		pattern := "%" + search + "%"
+		args = append(args, pattern, pattern, pattern)
+	}
+	if len(roles) > 0 {
+		placeholders := make([]string, len(roles))
+		for i, role := range roles {
+			placeholders[i] = "?"
+			args = append(args, role)
+		}
+		whereClause += fmt.Sprintf(" AND role IN (%s)", strings.Join(placeholders, ","))
+	}
+
+	var total, active int
+	countQuery := fmt.Sprintf(`
+		SELECT COUNT(*), COALESCE(SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END), 0)
+		FROM users
+		WHERE %s
+	`, whereClause)
+	err := r.DB.QueryRow(countQuery, args...).Scan(&total, &active)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return active, total - active, nil
 }
 
 func (r *UserRepository) GetUserByID(id string) (*models.User, error) {

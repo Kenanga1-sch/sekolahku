@@ -20,6 +20,7 @@ export type UserRole =
   | "staff"
   | "user"
   | "guru"
+  | "bendahara"
   | "siswa"
   | "calon_siswa"
   | "orangtua";

@@ -2,8 +2,8 @@ package repository
 
 import (
 	"database/sql"
-	"testing"
 	_ "modernc.org/sqlite"
+	"testing"
 )
 
 func setupTestDB(t *testing.T) *sql.DB {
@@ -12,8 +12,8 @@ func setupTestDB(t *testing.T) *sql.DB {
 		t.Fatalf("Failed to open in-memory db: %v", err)
 	}
 
-		// Create users table matching the actual schema expected by user_repo.go
-		_, err = db.Exec(`
+	// Create users table matching the actual schema expected by user_repo.go
+	_, err = db.Exec(`
 		CREATE TABLE users (
 			id TEXT PRIMARY KEY,
 			name TEXT,
@@ -44,11 +44,11 @@ func TestUserRepository_GetUserByEmail(t *testing.T) {
 	defer db.Close()
 
 	repo := NewUserRepository(db)
-	
+
 	// Seed a user with all expected columns
 	_, err := db.Exec(`
 		INSERT INTO users (id, name, email, role, password_hash, is_active) 
-		VALUES (?, ?, ?, ?, ?, ?)`, 
+		VALUES (?, ?, ?, ?, ?, ?)`,
 		"user-1", "Test User", "test@example.com", "admin", "hashed_pass", 1)
 	if err != nil {
 		t.Fatalf("Failed to seed user: %v", err)
@@ -86,23 +86,35 @@ func TestUserRepository_GetUserByID(t *testing.T) {
 	defer db.Close()
 
 	repo := NewUserRepository(db)
-	
+
 	// Seed
-	_, err := db.Exec(`INSERT INTO users (id, name, email, role) VALUES (?, ?, ?, ?)`, 
+	_, err := db.Exec(`INSERT INTO users (id, name, email, role) VALUES (?, ?, ?, ?)`,
 		"id-123", "John Doe", "john@example.com", "staff")
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	t.Run("Exists", func(t *testing.T) {
 		user, err := repo.GetUserByID("id-123")
-		if err != nil { t.Fatal(err) }
-		if user == nil || user.ID != "id-123" { t.Error("Failed to get correct user") }
-		if user.Role != "staff" { t.Errorf("Expected staff, got %s", user.Role) }
+		if err != nil {
+			t.Fatal(err)
+		}
+		if user == nil || user.ID != "id-123" {
+			t.Error("Failed to get correct user")
+		}
+		if user.Role != "staff" {
+			t.Errorf("Expected staff, got %s", user.Role)
+		}
 	})
 
 	t.Run("Not Exists", func(t *testing.T) {
 		user, err := repo.GetUserByID("unknown")
-		if err != nil { t.Fatal(err) }
-		if user != nil { t.Error("Should be nil") }
+		if err != nil {
+			t.Fatal(err)
+		}
+		if user != nil {
+			t.Error("Should be nil")
+		}
 	})
 }
 
@@ -135,8 +147,42 @@ func TestUserRepository_EmailNullLoginViaUsername(t *testing.T) {
 		t.Fatalf("GetUserByID dengan email NULL: %+v %v", byID, err)
 	}
 
-	list, total, err := repo.GetUsersByRole(1, 10, "", "orangtua")
+	list, total, err := repo.GetUsersByRole(1, 10, "", []string{"orangtua"})
 	if err != nil || total != 1 || len(list) != 1 {
 		t.Fatalf("GetUsersByRole email NULL: total=%d len=%d err=%v", total, len(list), err)
+	}
+}
+
+func TestUserRepository_GetUsersByRoleMultipleRoles(t *testing.T) {
+	db := setupTestDB(t)
+	defer db.Close()
+	repo := NewUserRepository(db)
+
+	_, err := db.Exec(`
+		INSERT INTO users (id, name, email, role, is_active)
+		VALUES
+			('multi-admin', 'Admin Satu', 'admin1@example.com', 'admin', 1),
+			('multi-guru', 'Guru Satu', 'guru1@example.com', 'guru', 0),
+			('multi-siswa', 'Siswa Satu', 'siswa1@example.com', 'siswa', 1),
+			('multi-ortu', 'Orang Tua Satu', 'ortu1@example.com', 'orangtua', 1)
+	`)
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	list, total, err := repo.GetUsersByRole(1, 10, "", []string{"admin", "guru"})
+	if err != nil {
+		t.Fatalf("GetUsersByRole multi-role error: %v", err)
+	}
+	if total != 2 || len(list) != 2 {
+		t.Fatalf("admin+guru harusnya 2: total=%d len=%d", total, len(list))
+	}
+
+	active, inactive, err := repo.GetUserCountsByRole("", []string{"admin", "guru"})
+	if err != nil {
+		t.Fatalf("GetUserCountsByRole multi-role error: %v", err)
+	}
+	if active != 1 || inactive != 1 {
+		t.Fatalf("admin+guru harusnya 1 aktif dan 1 nonaktif: active=%d inactive=%d", active, inactive)
 	}
 }
