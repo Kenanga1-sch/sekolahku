@@ -120,3 +120,4 @@ go-backend/internal/repository/public/
 /public/uploads_from_server/
 /go-backend/public/uploads/
 /go-backend/uploads/
+.cloudflared-token
