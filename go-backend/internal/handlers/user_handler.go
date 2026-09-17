@@ -376,6 +376,30 @@ func (h *UserHandler) UpdateUserStatus(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
 
+// GetUserByID mendapatkan detail pengguna berdasarkan ID
+func (h *UserHandler) GetUserByID(c echo.Context) error {
+id := c.Param("id")	currentUserID, _ := c.Get("user_id").(string)
+
+	// Verifikasi bahwa pengguna memiliki akses untuk melihat pengguna ini
+	if currentUserID != "" && currentUserID != id {
+		// Hanya admin/superadmin yang bisa melihat detail pengguna lain
+		role, _ := c.Get("user_role").(string)
+		if role != "admin" && role != "superadmin" {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "Hanya admin/superadmin yang bisa melihat detail pengguna lain"})
+		}
+	}
+
+	user, err := h.UserRepo.GetUserByID(id)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal mengambil data pengguna"})
+	}
+	if user == nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Pengguna tidak ditemukan"})
+	}
+
+	return c.JSON(http.StatusOK, user)
+}
+
 func (h *UserHandler) GenerateAccounts(c echo.Context) error {
 	var req struct {
 		Type      string `json:"type"`

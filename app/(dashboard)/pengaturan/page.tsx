@@ -17,7 +17,13 @@ export default function PengaturanPage() {
     const { user, isAuthenticated, isLoading: authLoading } = useAuthStore();
     const { settings, updateSettings } = useSchoolSettings();
     const isAdmin = user?.role === "admin" || user?.role === "superadmin";
-
+    
+    // Force re-render when user data changes
+    const [, forceUpdate] = useState({});
+    useEffect(() => {
+        forceUpdate({});
+    }, [user?.role]);
+    
     if (authLoading || !user) {
         return (
             <div className="space-y-6 max-w-7xl mx-auto pb-10">

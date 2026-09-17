@@ -470,13 +470,14 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	adminGroup.PATCH("/announcements/:id", h.Announcement.UpdateAnnouncement)
 	adminGroup.DELETE("/announcements/:id", h.Announcement.DeleteAnnouncement)
 
-	// User Management
-	adminGroup.GET("/users", h.User.GetUsers)
-	adminGroup.POST("/users", h.User.CreateUser)
-	adminGroup.PATCH("/users/:id", h.User.UpdateUser)
-	adminGroup.DELETE("/users/:id", h.User.DeleteUser)
-	adminGroup.PATCH("/users/:id/status", h.User.UpdateUserStatus)
-	adminGroup.POST("/users/generate", h.User.GenerateAccounts)
+		// User Management
+		adminGroup.GET("/users", h.User.GetUsers)
+		adminGroup.POST("/users", h.User.CreateUser)
+		adminGroup.PATCH("/users/:id", h.User.UpdateUser)
+		adminGroup.DELETE("/users/:id", h.User.DeleteUser)
+		adminGroup.PATCH("/users/:id/status", h.User.UpdateUserStatus)
+		adminGroup.POST("/users/generate", h.User.GenerateAccounts)
+		adminGroup.GET("/users/:id", h.User.GetUserByID)
 
 	// Audit Logs
 	adminGroup.GET("/audit-logs", h.AuditLog.GetLogs)
