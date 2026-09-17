@@ -378,7 +378,8 @@ func (h *UserHandler) UpdateUserStatus(c echo.Context) error {
 
 // GetUserByID mendapatkan detail pengguna berdasarkan ID
 func (h *UserHandler) GetUserByID(c echo.Context) error {
-id := c.Param("id")	currentUserID, _ := c.Get("user_id").(string)
+	id := c.Param("id")
+	currentUserID, _ := c.Get("user_id").(string)
 
 	// Verifikasi bahwa pengguna memiliki akses untuk melihat pengguna ini
 	if currentUserID != "" && currentUserID != id {

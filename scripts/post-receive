@@ -1,0 +1,73 @@
+#!/bin/bash
+# ==========================================
+# post-receive hook — trigger CI/CD otomatis
+# Dipasang di /opt/sekolahku.git/hooks/post-receive
+#
+# Saat push ke main: jalankan CI, lalu deploy.
+# Saat push ke branch lain: CI saja (test).
+# ==========================================
+set -euo pipefail
+
+REPO_DIR="/opt/sekolahku-work"          # workspace build (checkout sementara)
+BARE_REPO="/opt/sekolahku.git"
+SCRIPTS_DIR="/opt/sekolahku-scripts"    # symlink ke scripts/ repo
+
+LOG="/opt/sekolahku-prod/backups/cicd.log"
+exec >> "$LOG" 2>&1
+echo ""
+echo "══════════════════════════════════════════════════"
+echo "  post-receive — $(date '+%Y-%m-%d %H:%M:%S')"
+echo "══════════════════════════════════════════════════"
+
+BRANCH=""
+while read -r _oldrev _newrev ref; do
+  BRANCH="${ref#refs/heads/}"
+done
+
+if [ -z "$BRANCH" ]; then
+  echo "✗ Tidak ada branch terdeteksi, skip."
+  exit 0
+fi
+
+echo "→ Branch yang di-push: $BRANCH"
+
+# Siapkan workspace checkout
+mkdir -p "$REPO_DIR"
+git --work-tree="$REPO_DIR" --git-dir="$BARE_REPO" checkout -f "$BRANCH"
+
+cd "$REPO_DIR"
+export PATH="/usr/local/go/bin:$PATH"
+
+# ── Jalankan CI (lint + test + build) ─────
+echo "▶ Menjalankan CI..."
+if ! bash "$REPO_DIR/scripts/ci.sh"; then
+  echo "✗ CI GAGAL — deploy dibatalkan."
+  echo "  Kode yang gagal tidak akan masuk produksi."
+  exit 1
+fi
+echo "✓ CI LULUS."
+
+# ── Deploy hanya untuk branch main ────────
+if [ "$BRANCH" = "main" ]; then
+  echo "▶ Branch main → deploy ke STAGING (dev) dulu..."
+  SRC_DIR="$REPO_DIR" bash "$REPO_DIR/scripts/deploy.sh" dev
+
+  echo "▶ Health check staging..."
+  if ! bash "$REPO_DIR/scripts/health-check.sh" dev; then
+    echo "✗ Staging GAGAL — deploy produksi dibatalkan."
+    exit 1
+  fi
+  echo "✓ Staging sehat."
+
+  echo "▶ Promote ke PRODUKSI (blue-green)..."
+  SRC_DIR="$REPO_DIR" bash "$REPO_DIR/scripts/deploy.sh" prod
+
+  echo "▶ Health check produksi..."
+  bash "$REPO_DIR/scripts/health-check.sh" prod && \
+    echo "✓✓ DEPLOY PRODUKSI BERHASIL." || \
+    { echo "✗ Produksi gagal! Jalankan rollback.sh"; exit 1; }
+else
+  echo "→ Branch non-main: CI saja, tidak deploy."
+fi
+
+echo "═══════ Pipeline selesai ═══════"

@@ -1,146 +1,134 @@
-# 🚀 Deployment Guide: Sekolahku (Podman Container)
+# 🚀 Panduan Deployment — Sekolahku (Self-Hosted CI/CD)
 
-Panduan deployment resmi dan lengkap untuk AI Agent & Pengembang dalam melakukan deployment proyek **Sekolahku** ke server produksi menggunakan **Podman**.
+CI/CD **100% self-hosted, gratis, tanpa pihak ketiga** (tidak menggunakan GitHub Actions, tidak ada layanan berbayar).
 
----
-
-## 🏗️ Arsitektur Deployment
-
-Aplikasi Sekolahku menggunakan container **Podman**:
+## Arsitektur
 
 ```
-sdn1kenanga.sch.id
-    │
-    ▼ Cloudflare Edge
-    │
-    ▼ Cloudflare Tunnel (cloudflared)
-    │
-    ▼ localhost:3000 (Host Server)
-    │
-    ▼ Podman Container (sekolahku:latest)
-         ├─ Port: 3000 (HTTP API + Next.js Static Assets)
-         ├─ Database: /home/kenanga/sekolahku-deploy/data/sekolahku.db (SQLite - Mounted Volume)
-         ├─ Uploads: /home/kenanga/sekolahku-deploy/uploads (Mounted Volume)
-         └─ Telegram Backup (Opsional): aiogram/telegram-bot-api
+Developer (git push main)
+        ↓
+  Bare repo: /opt/sekolahku.git
+        ↓
+  hooks/post-receive  (trigger otomatis)
+        ↓
+  ┌──────────── PIPELINE ────────────┐
+  │ 1. ci.sh:  lint + typecheck      │  ← GAGAL? tolak push
+  │            + unit test + build   │
+  │ 2. deploy ke STAGING (port 3001) │
+  │ 3. health-check staging          │  ← GAGAL? berhenti
+  │ 4. promote ke PRODUKSI (8181)    │  ← blue-green
+  │ 5. health-check produksi         │  ← GAGAL? rollback
+  └──────────────────────────────────┘
 ```
 
-### Karakteristik Utama:
-- **Containerized Runtime**: Berjalan di dalam container Podman (rootless mode), aman dan terisolasi.
-- **Embedded Frontend**: Next.js di-build sebagai static export dan di-embed ke dalam binary Go via `embed.FS`.
-- **Single Executable in Container**: Seluruh aplikasi berjalan dari satu file binary di dalam image berbasis Alpine Linux (~80 MB total).
-- **SQLite Database**: Database lokal dengan WAL mode dan auto-repair schema, dipetakan via Docker volume (`-v`).
+## Isolasi Environment (satu server fisik)
 
----
+|            | Staging/Dev                   | Produksi                      |
+| ---------- | ----------------------------- | ----------------------------- |
+| Folder     | `/opt/sekolahku-dev`          | `/opt/sekolahku-prod`         |
+| Port       | 3001                          | 8181                          |
+| Database   | `data/sekolahku.db` (sendiri) | `data/sekolahku.db` (sendiri) |
+| `.env`     | `.env.dev`                    | `.env.prod`                   |
+| Container  | `sekolahku-dev`               | `sekolahku-prod`              |
+| systemd    | `sekolahku-dev.service`       | `sekolahku-prod.service`      |
+| Cloudflare | —                             | `sdn1kenanga.sch.id`          |
 
-## 📋 Prasyarat Server Produksi
-
-- **OS**: Linux x86_64 (Debian 13 diprioritaskan)
-- **RAM Minimum**: 1GB
-- **Akses**: SSH dengan akses `sudo` (atau user `kenanga`)
-- **Container Engine**: Podman terinstal
-- **Networking**: Cloudflare Tunnel (`cloudflared`) terkonfigurasi mengarah ke `http://localhost:3000`
-
----
-
-## 🔄 Alur Rilis (Versi)
-
-Setiap kali melakukan deployment, **WAJIB** menaikkan nomor versi aplikasi di dua file berikut:
-
-1. **`app/layout.tsx`**: Update atribut `#app-version` (misal: `v1.1.014` → `v1.1.015`)
-2. **`lib/api-client.ts`**: Update konstanta `APP_VERSION` (misal: `v1.1.014` → `v1.1.015`)
-
----
-
-## 🛠️ Langkah Build (Lokal)
-
-Build dilakukan di komputer pengembang (Windows/Linux) menggunakan script cross-compile:
-
-### Di Windows (PowerShell):
-```cmd
-build-linux.bat
-```
-
-Script ini melakukan 4 langkah otomatis:
-1. `npm run build` — Next.js static export ke `out/`
-2. Membersihkan & membuat folder `go-backend/cmd/api/dist/`
-3. Salin seluruh isi `out/*` ke `go-backend/cmd/api/dist/`
-4. Kompilasi binary Linux (`GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o ..\sekolahku_linux .\cmd\api`).
-
-Output file: **`sekolahku_linux`** di root proyek.
-
----
-
-## 📦 Langkah Deployment ke Server
-
-### 1. Upload File ke Server
-Upload `sekolahku_linux`, `Dockerfile`, dan pastikan `.env` tersedia di `/home/kenanga/sekolahku-deploy/`:
+## Setup Awal (jalankan sekali di server)
 
 ```bash
-scp sekolahku_linux Dockerfile kenanga@100.97.52.50:/home/kenanga/sekolahku-deploy/
+# 1. Jalankan setup script
+bash scripts/setup-cicd.sh
+
+# 2. Aktifkan systemd user (agar jalan tanpa login manual)
+sudo loginctl enable-linger $(whoami)
+
+# 3. Tambahkan remote self-hosted
+git remote add selfhost /opt/sekolahku.git
 ```
 
-### 2. Build Image & Jalankan Container di Server
-Masuk ke server via SSH, lalu jalankan:
+## Konfigurasi `.env` (wajib sebelum deploy pertama)
 
 ```bash
-cd /home/kenanga/sekolahku-deploy
-podman build -t sekolahku:latest .
+# Produksi
+cp .env.production.example /opt/sekolahku-prod/.env.prod
+nano /opt/sekolahku-prod/.env.prod    # isi JWT_SECRET, dll.
+
+# Staging
+cp .env.production.example /opt/sekolahku-dev/.env.dev
+nano /opt/sekolahku-dev/.env.dev      # JWT_SECRET berbeda!
 ```
 
-### 3. Konfigurasi Container & Systemd Auto-Start
-Hentikan container lama (jika ada) dan jalankan container baru dengan volume mapping:
+> ⚠️ **Penting:** JWT_SECRET staging & produksi **harus berbeda**.
+
+## Penggunaan Sehari-hari
+
+### Deploy ke produksi (otomatis)
 
 ```bash
-podman rm -f sekolahku
-podman run -d --name sekolahku --restart=always --network=host \
-  -v /home/kenanga/sekolahku-deploy/data:/app/data \
-  -v /home/kenanga/sekolahku-deploy/uploads:/app/uploads \
-  --env-file /home/kenanga/sekolahku-deploy/.env \
-  localhost/sekolahku:latest
+git push selfhost main
+# → CI jalan → staging → health check → produksi → health check
 ```
 
-Untuk memastikan container otomatis berjalan setelah server reboot (systemd rootless):
+### Test saja (tanpa deploy)
+
 ```bash
-podman generate systemd --new --name sekolahku > ~/.config/systemd/user/container-sekolahku.service
-systemctl --user daemon-reload
-systemctl --user enable container-sekolahku.service
+git push selfhost <branch-lain>
+# → CI jalan (lint+test+build), tidak ada deploy
 ```
 
----
+### Cek status pipeline
 
-## 🔍 Verifikasi & Monitoring
-
-### Health Check
 ```bash
-curl http://127.0.0.1:3000/api/health
-# Harus mengembalikan: {"status":"OK"}
+tail -f /var/log/sekolahku-cicd.log
 ```
 
-### Cek Logs Container
+## Operasional
+
+| Aksi                        | Perintah                        |
+| --------------------------- | ------------------------------- |
+| Cek kesehatan prod          | `scripts/health-check.sh prod`  |
+| Cek kesehatan staging       | `scripts/health-check.sh dev`   |
+| Backup manual               | `scripts/backup.sh prod`        |
+| Rollback ke backup terakhir | `scripts/rollback.sh prod`      |
+| Lihat log container         | `podman logs -f sekolahku-prod` |
+| Restart container           | `podman restart sekolahku-prod` |
+
+### Backup otomatis (cron)
+
 ```bash
-podman logs --tail 50 -f sekolahku
+# Backup tiap malam jam 02:00
+crontab -e
+0 2 * * * /path/to/scripts/backup.sh prod >> /var/log/sekolahku-backup.log 2>&1
 ```
 
-### Cek Status Port
+## Rollback (saat produksi bermasalah)
+
 ```bash
-ss -tlnp | grep 3000
+# Kembali ke backup terakhir (otomatis dibuat sebelum setiap deploy)
+scripts/rollback.sh prod
+
+# Atau pilih arsip spesifik
+scripts/rollback.sh prod /opt/sekolahku-prod/backups/sekolahku-prod-20260101_120000.tar.gz
 ```
 
----
+## Keamanan
 
-## 🛡️ Backup & Recovery
+- ✅ Tidak ada layanan pihak ketiga (GitHub Actions, Snyk, dll.)
+- ✅ Tidak ada hardcoded password di script
+- ✅ `.env` tidak masuk git (ada di `.gitignore`)
+- ✅ Deploy hanya dari branch `main` yang sudah lulus CI
+- ✅ Blue-green deployment: produksi lama dipertahankan sampai container baru sehat
 
-### Backup Database Manual
-```bash
-cp /home/kenanga/sekolahku-deploy/data/sekolahku.db \
-   /home/kenanga/sekolahku-deploy/data/sekolahku.db.bak.$(date +%Y%m%d)
-```
+## Troubleshooting
 
----
+**CI gagal di ESLint/typecheck**
+→ Perbaiki kode di branch, push ulang. Lihat log: `tail -50 /var/log/sekolahku-cicd.log`
 
-## 🚨 Troubleshooting
+**Deploy staging gagal health check**
+→ Produksi **tidak** terkena. Cek: `podman logs --tail 50 sekolahku-dev`
 
-### Error: 502 Bad Gateway di Browser
-1. Cek status container: `podman ps`
-2. Cek logs: `podman logs sekolahku`
-3. Pastikan port `3000` aktif dan container menggunakan `--network=host`.
+**Produksi gagal setelah deploy**
+→ Rollback otomatis berjalan. Jika masih bermasalah: `scripts/rollback.sh prod`
+
+**Container tidak start setelah reboot**
+→ Pastikan lingering aktif: `loginctl enable-linger $(whoami)`
