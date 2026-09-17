@@ -3,6 +3,7 @@
 import React from "react";
 import DashboardLayoutClient from "./layout-client";
 import { AuthGuard } from "@/components/auth-guard";
+import { ChatSocketProvider } from "@/components/chat/chat-socket-provider";
 
 export default function DashboardLayout({
   children,
@@ -29,9 +30,11 @@ export default function DashboardLayout({
 
   return (
     <AuthGuard>
-      <DashboardLayoutClient schoolSettings={settings}>
-        {children}
-      </DashboardLayoutClient>
+      <ChatSocketProvider>
+        <DashboardLayoutClient schoolSettings={settings}>
+          {children}
+        </DashboardLayoutClient>
+      </ChatSocketProvider>
     </AuthGuard>
   );
 }

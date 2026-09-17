@@ -44,6 +44,7 @@ type Repositories struct {
 	Parent         *repository.ParentRepository
 	BankSoal       *repository.BankSoalRepository
 	Kurikulum      *repository.KurikulumRepository
+	Chat           *repository.ChatRepository
 }
 
 // AllHandlers holds all HTTP handler instances.
@@ -81,6 +82,7 @@ type AllHandlers struct {
 	StudentMe      *handlers.StudentMeHandler
 	BankSoal       *handlers.BankSoalHandler
 	Kurikulum      *handlers.KurikulumHandler
+	Chat           *handlers.ChatHandler
 	// PushSvc dipakai handler lain (absen, tabungan, pengumuman) untuk
 	// mengirim push ke orang tua.
 	PushSvc *push.Service
@@ -665,6 +667,17 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	pushGroup.POST("/subscribe", h.Push.Subscribe)
 	pushGroup.DELETE("/subscribe", h.Push.Unsubscribe)
 	adminGroup.POST("/push/test", h.Push.TestSend)
+
+	// Chat (DM 1-1) — semua user terautentikasi. WebSocket route (GET)
+	// sengaja dibuat terpisah (lihat bawah) karena middleware-nya beda.
+	chatGroup := auth.Group("")
+	chatGroup.GET("/chat/conversations", h.Chat.List)
+	chatGroup.POST("/chat/conversations", h.Chat.Create)
+	chatGroup.GET("/chat/conversations/:id/messages", h.Chat.History)
+	chatGroup.POST("/chat/conversations/:id/messages", h.Chat.SendMessage)
+	chatGroup.POST("/chat/conversations/:id/read", h.Chat.MarkRead)
+	chatGroup.GET("/chat/users", h.Chat.ListUsers)
+	chatGroup.GET("/chat/ws", h.Chat.WS)
 
 	// Portal Orang Tua (role: orangtua)
 	parentGroup := server.Group("/api/parent")

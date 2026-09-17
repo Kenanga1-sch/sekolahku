@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, CalendarPlus, CalendarCheck, Wallet, Bell, User, LogOut } from "lucide-react";
+import { Home, CalendarPlus, CalendarCheck, Wallet, Bell, User, LogOut, MessageCircle } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { PwaInstallButton } from "@/components/pwa-install-button";
@@ -15,6 +15,7 @@ const NAV = [
   { href: "/parent/presensi", label: "Presensi", icon: CalendarCheck },
   { href: "/parent/tabungan", label: "Tabungan", icon: Wallet },
   { href: "/parent/izin", label: "Izin/Sakit", icon: CalendarPlus },
+  { href: "/parent/chat", label: "Pesan", icon: MessageCircle },
   { href: "/parent/notifikasi", label: "Notifikasi", icon: Bell },
   { href: "/parent/profil", label: "Profil", icon: User },
 ];

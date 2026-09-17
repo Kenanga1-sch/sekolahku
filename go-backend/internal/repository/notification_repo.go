@@ -100,6 +100,17 @@ func (r *NotificationRepository) CreateNotification(n models.Notification) error
 	return err
 }
 
+// MarkConversationRead tandai sudah dibaca semua notifikasi yang menunjuk
+// ke satu percakapan chat (target_url = /chat/open?c=<convId>). Dipanggil
+// saat user membuka percakapan supaya badge langsung bersih.
+func (r *NotificationRepository) MarkConversationRead(userID, convID string) error {
+	_, err := r.DB.Exec(`
+		UPDATE admin_notifications SET is_read = 1
+		WHERE user_id = ? AND category = 'chat' AND target_url = ?
+	`, userID, "/chat/open?c="+convID)
+	return err
+}
+
 func (r *NotificationRepository) BroadcastNotification(n models.Notification) error {
 	n.UserID = nil // NULL user_id means broadcast to all
 	return r.CreateNotification(n)

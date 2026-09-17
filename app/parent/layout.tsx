@@ -3,6 +3,7 @@
 import React from "react";
 import ParentLayoutClient from "./layout-client";
 import { AuthGuard } from "@/components/auth-guard";
+import { ChatSocketProvider } from "@/components/chat/chat-socket-provider";
 
 export default function ParentLayout({
   children,
@@ -11,7 +12,9 @@ export default function ParentLayout({
 }) {
   return (
     <AuthGuard>
-      <ParentLayoutClient>{children}</ParentLayoutClient>
+      <ChatSocketProvider>
+        <ParentLayoutClient>{children}</ParentLayoutClient>
+      </ChatSocketProvider>
     </AuthGuard>
   );
 }

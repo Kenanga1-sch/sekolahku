@@ -29,6 +29,7 @@ import {
   Banknote,
   PanelLeftClose,
   PanelLeftOpen,
+  MessageCircle,
   ChevronDown,
   ChevronUp,
   Menu,
@@ -189,6 +190,7 @@ const navGroups: NavGroup[] = [
     label: "Menu Utama",
     items: [
       { href: "/overview", label: "Beranda", icon: LayoutDashboard, roles: ALL_DASHBOARD_ROLES },
+      { href: "/chat", label: "Pesan", icon: MessageCircle, roles: ALL_DASHBOARD_ROLES },
       { href: "/perpustakaan", label: "Perpustakaan", icon: Library, roles: ADMIN_ROLES },
       { href: "/inventaris", label: "Inventaris", icon: Package, roles: INVENTARIS_ROLES },
       { href: "/arsip", label: "E-Arsip", icon: FileText, roles: ADMIN_ROLES },

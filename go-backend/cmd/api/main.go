@@ -15,6 +15,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	gommonLog "github.com/labstack/gommon/log"
 	authMiddleware "github.com/sekolahku/go-backend/internal/middleware"
+	"github.com/sekolahku/go-backend/internal/chat"
 	"github.com/sekolahku/go-backend/internal/notify"
 	"github.com/sekolahku/go-backend/internal/push"
 	"github.com/sekolahku/go-backend/internal/repository"
@@ -119,6 +120,12 @@ func main() {
 	server.Use(middleware.BodyLimit("60M"))
 	server.Use(middleware.GzipWithConfig(middleware.GzipConfig{
 		Level: 5,
+		// WebSocket handshake (HTTP 101) tidak boleh melewati gzip:
+		// 101 yang ditulis melalui gzip.Writer tersangkut di buffer dan
+		// handshake client tidak pernah selesai.
+		Skipper: func(c echo.Context) bool {
+			return strings.HasSuffix(c.Request().URL.Path, "/api/chat/ws")
+		},
 	}))
 	server.Use(authMiddleware.SecurityHeaders)
 	// CSRF defense-in-depth: Origin/Referer check untuk semua mutating /api/*
@@ -193,6 +200,7 @@ func main() {
 		Parent:         repository.NewParentRepository(db),
 		BankSoal:       repository.NewBankSoalRepository(db),
 		Kurikulum:      repository.NewKurikulumRepository(db),
+		Chat:           repository.NewChatRepository(db),
 	}
 
 	// Aktifkan pemeriksaan status user pada setiap request terautentikasi,
@@ -242,6 +250,9 @@ func main() {
 		repos.Parent, repos.Notification, prefsRepo, pushSvc,
 	)
 
+	// Hub WebSocket chat (in-memory; tidak menyentuh DB).
+	chatHub := chat.NewHub()
+
 	// Background scheduler (perlu pushSvc supaya notifikasi otomatis ke ortu
 	// (alpha warning + daily digest) juga dapat muncul via Web Push).
 	cronScheduler := scheduler.NewScheduler(db, pushSvc)
@@ -283,6 +294,7 @@ func main() {
 		StudentMe:      handlers.NewStudentMeHandler(repos.Student, repos.Attendance, repos.Savings, repos.Announcement, db),
 		BankSoal:       handlers.NewBankSoalHandler(repos.BankSoal),
 		Kurikulum:      handlers.NewKurikulumHandler(repos.Kurikulum),
+		Chat:           handlers.NewChatHandler(repos.Chat, repos.Notification, pushSvc, chatHub),
 		PushSvc:        pushSvc,
 	}
 
