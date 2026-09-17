@@ -79,7 +79,7 @@ git push selfhost <branch-lain>
 ### Cek status pipeline
 
 ```bash
-tail -f /var/log/sekolahku-cicd.log
+tail -f /opt/sekolahku-prod/backups/cicd.log
 ```
 
 ## Operasional
@@ -98,7 +98,7 @@ tail -f /var/log/sekolahku-cicd.log
 ```bash
 # Backup tiap malam jam 02:00
 crontab -e
-0 2 * * * /path/to/scripts/backup.sh prod >> /var/log/sekolahku-backup.log 2>&1
+0 2 * * * /home/chitchat/sekolahku/scripts/backup.sh prod >> /opt/sekolahku-prod/backups/backup.log 2>&1
 ```
 
 ## Rollback (saat produksi bermasalah)
@@ -122,7 +122,7 @@ scripts/rollback.sh prod /opt/sekolahku-prod/backups/sekolahku-prod-20260101_120
 ## Troubleshooting
 
 **CI gagal di ESLint/typecheck**
-→ Perbaiki kode di branch, push ulang. Lihat log: `tail -50 /var/log/sekolahku-cicd.log`
+→ Perbaiki kode di branch, push ulang. Lihat log: `tail -50 /opt/sekolahku-prod/backups/cicd.log`
 
 **Deploy staging gagal health check**
 → Produksi **tidak** terkena. Cek: `podman logs --tail 50 sekolahku-dev`

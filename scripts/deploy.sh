@@ -48,11 +48,35 @@ if [ -f "$DEPLOY_DIR/data/sekolahku.db" ]; then
 fi
 
 # ── Copy artifacts hasil CI ───────────────
-SRC_DIR="${SRC_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-cp "$SRC_DIR/go-backend/sekolahku_linux" "$DEPLOY_DIR/sekolahku_linux"
-cp -r "$SRC_DIR/out/." "$DEPLOY_DIR/dist/"
-[ -f "$SRC_DIR/Dockerfile" ] && cp "$SRC_DIR/Dockerfile" "$DEPLOY_DIR/Dockerfile"
-[ -f "$SRC_DIR/docker-compose.yml" ] && cp "$SRC_DIR/docker-compose.yml" "$DEPLOY_DIR/docker-compose.yml"
+# Cari artifacts di workspace pipeline atau repo tempat CI berjalan.
+find_artifact() {
+  for CANDIDATE in "$@"; do
+    [ -e "$CANDIDATE" ] && { echo "$(dirname "$CANDIDATE")"; return 0; }
+  done
+  return 1
+}
+
+SRC_ROOT="${SRC_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+BINARY_DIR="$(find_artifact \
+  "$SRC_ROOT/go-backend/sekolahku_linux" \
+  "$SRC_ROOT/../go-backend/sekolahku_linux" \
+  "$HOME/sekolahku/go-backend/sekolahku_linux")"
+OUT_DIR="$(find_artifact \
+  "$SRC_ROOT/out/index.html" \
+  "$HOME/sekolahku/out/index.html")"
+
+if [ -z "$BINARY_DIR" ] || [ -z "$OUT_DIR" ]; then
+  echo "✗ FATAL: artifacts build tidak ditemukan!"
+  echo "  Binary: ${BINARY_DIR:-<tidak ada>}  | out/: ${OUT_DIR:-<tidak ada>}"
+  echo "  Jalankan scripts/ci.sh terlebih dahulu."
+  exit 1
+fi
+
+echo "→ Artifacts: binary=$BINARY_DIR  out=$OUT_DIR"
+cp "$BINARY_DIR/sekolahku_linux" "$DEPLOY_DIR/sekolahku_linux"
+cp -r "$OUT_DIR/." "$DEPLOY_DIR/dist/"
+[ -f "$SRC_ROOT/Dockerfile" ] && cp "$SRC_ROOT/Dockerfile" "$DEPLOY_DIR/Dockerfile"
+[ -f "$SRC_ROOT/docker-compose.yml" ] && cp "$SRC_ROOT/docker-compose.yml" "$DEPLOY_DIR/docker-compose.yml"
 
 echo "▶ File artifacts tersalin ke $DEPLOY_DIR"
 
