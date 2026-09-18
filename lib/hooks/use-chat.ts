@@ -31,6 +31,14 @@ interface HistoryResponse {
   hasMore: boolean;
 }
 
+/**
+ * Referensi array kosong stabil. Selector zustand v5 (useSyncExternalStore)
+ * tidak boleh mengembalikan reference baru saat tidak ada data — React
+ * mendeteksinya sebagai perubahan state dan re-render tanpa henti
+ * (Minified React error #185).
+ */
+const EMPTY_MESSAGES: ChatMessage[] = [];
+
 export function useChat() {
   const conversations = useChatStore((s) => s.conversations);
   const socketState = useChatStore((s) => s.socketState);
@@ -67,7 +75,7 @@ export function useChat() {
  */
 export function useChatConversation(conversationId: string | null) {
   const messages = useChatStore((s) =>
-    conversationId ? s.messagesByConv[conversationId] || [] : []
+    conversationId ? s.messagesByConv[conversationId] || EMPTY_MESSAGES : EMPTY_MESSAGES
   );
   const cursor = useChatStore((s) =>
     conversationId ? s.cursorByConv[conversationId] ?? null : null
