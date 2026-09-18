@@ -19,15 +19,39 @@ func strPtrOrNil(s string) *string {
 	return &s
 }
 
+// PresenceChecker menanyakan apakah seorang user sedang melihat aplikasi.
+// Diimplementasikan oleh chat hub (lihat cmd/api/main.go); dipakai untuk
+// menahan Web Push saat pengguna sedang membuka PWA (notifikasi in-app
+// sudah cukup dan tidak ada notifikasi ganda).
+type PresenceChecker interface {
+	IsUserVisible(userID string) bool
+}
+
 type ParentNotifier struct {
-	Parents *repository.ParentRepository
-	Notifs  *repository.NotificationRepository
-	Prefs   *repository.PreferenceRepository
-	Push    *push.Service
+	Parents  *repository.ParentRepository
+	Notifs   *repository.NotificationRepository
+	Prefs    *repository.PreferenceRepository
+	Push     *push.Service
+	Presence PresenceChecker
 }
 
 func NewParentNotifier(parents *repository.ParentRepository, notifs *repository.NotificationRepository, prefs *repository.PreferenceRepository, pushSvc *push.Service) *ParentNotifier {
 	return &ParentNotifier{Parents: parents, Notifs: notifs, Prefs: prefs, Push: pushSvc}
+}
+
+// pushable memfilter user yang layak dapat Web Push: push dikirim hanya
+// bila pengguna tidak sedang melihat aplikasinya (visible=false/offline).
+func (n *ParentNotifier) pushable(userIDs []string) []string {
+	if n.Presence == nil {
+		return userIDs
+	}
+	out := make([]string, 0, len(userIDs))
+	for _, uid := range userIDs {
+		if !n.Presence.IsUserVisible(uid) {
+			out = append(out, uid)
+		}
+	}
+	return out
 }
 
 // NotifyParentsOfStudent mengirim notifikasi (in-app + push) ke semua
@@ -69,9 +93,9 @@ func (n *ParentNotifier) NotifyParentsOfStudent(studentID, category, nType, titl
 		}
 	}
 
-	// Push ke semua perangkat ortu yang berlangganan.
+	// Push ke perangkat ortu yang sedang tidak membuka aplikasi.
 	if n.Push != nil && n.Push.Enabled() {
-		n.Push.SendToUsers(userIDs, models.PushPayload{
+		n.Push.SendToUsers(n.pushable(userIDs), models.PushPayload{
 			Title: title,
 			Body:  body,
 			URL:   targetURL,
@@ -125,7 +149,7 @@ func (n *ParentNotifier) NotifyAllParents(category, nType, title, body, targetUR
 	}
 
 	if n.Push != nil && n.Push.Enabled() {
-		n.Push.SendToUsers(ids, models.PushPayload{
+		n.Push.SendToUsers(n.pushable(ids), models.PushPayload{
 			Title: title,
 			Body:  body,
 			URL:   targetURL,

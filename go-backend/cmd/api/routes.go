@@ -672,7 +672,9 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	pushGroup.GET("/status", h.Push.Status)
 	pushGroup.POST("/subscribe", h.Push.Subscribe)
 	pushGroup.DELETE("/subscribe", h.Push.Unsubscribe)
-	adminGroup.POST("/push/test", h.Push.TestSend)
+	// Kirim notifikasi uji ke perangkat pemanggil sendiri — semua user
+	// terautentikasi boleh, agar orang tua bisa memverifikasi push aktif.
+	pushGroup.POST("/test", h.Push.TestSend)
 
 	// Chat (DM 1-1) — semua user terautentikasi. WebSocket route (GET)
 	// sengaja dibuat terpisah (lihat bawah) karena middleware-nya beda.

@@ -116,3 +116,62 @@ func TestUnregisterUnknownConnection(t *testing.T) {
 		t.Fatal("unregister kedua kalinya harus false")
 	}
 }
+
+// TestActiveConversation memastikan notifikasi hanya ditahan untuk
+// percakapan yang memang sedang dibuka pengguna.
+func TestActiveConversation(t *testing.T) {
+	h := NewHub()
+	c := NewConnection("u1")
+	h.Register(c)
+
+	if h.IsActiveConversation("u1", "convX") {
+		t.Fatal("koneksi baru belum membuka percakapan apapun")
+	}
+	h.SetActiveConversation(c, "convX")
+	if !h.IsActiveConversation("u1", "convX") {
+		t.Fatal("convX harus terdeteksi sedang dibuka")
+	}
+	if h.IsActiveConversation("u1", "convLain") {
+		t.Fatal("convLain tidak sedang dibuka")
+	}
+	// Keluar dari percakapan: tidak ada lagi yang aktif.
+	h.SetActiveConversation(c, "")
+	if h.IsActiveConversation("u1", "convX") {
+		t.Fatal("setelah keluar, tidak ada percakapan aktif")
+	}
+	// Percakapan aktif hilang saat koneksi diputus.
+	h.SetActiveConversation(c, "convX")
+	h.Unregister(c)
+	if h.IsActiveConversation("u1", "convX") {
+		t.Fatal("koneksi putus harus menghapus status percakapan aktif")
+	}
+}
+
+// TestVisibility memastikan push hanya ditahan saat halaman benar-benar
+// terlihat (foreground), termasuk kasus multi-tab.
+func TestVisibility(t *testing.T) {
+	h := NewHub()
+	c1 := NewConnection("u1")
+	c2 := NewConnection("u1") // tab kedua
+	h.Register(c1)
+	h.Register(c2)
+
+	if !h.IsUserVisible("u1") {
+		t.Fatal("koneksi baru dianggap visible")
+	}
+	// Tab pertama di-background, tab kedua masih terlihat.
+	h.SetVisibility(c1, false)
+	if !h.IsUserVisible("u1") {
+		t.Fatal("user masih visible lewat tab kedua")
+	}
+	// Semua tab di-background: user tidak terlihat (push dikirim).
+	h.SetVisibility(c2, false)
+	if h.IsUserVisible("u1") {
+		t.Fatal("semua tab tersembunyi harusnya tidak visible")
+	}
+	// Kembali terlihat.
+	h.SetVisibility(c2, true)
+	if !h.IsUserVisible("u1") {
+		t.Fatal("tab terlihat kembali harus membuat user visible")
+	}
+}

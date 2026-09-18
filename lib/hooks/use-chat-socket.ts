@@ -106,6 +106,13 @@ function openSocket() {
   socket.onopen = () => {
     reconnectAttempt = 0;
     useChatStore.getState().setSocketState("connected");
+    // Segera laporkan status terlihat agar server tahu apakah push perlu
+    // ditahan (mis. tab sudah terbuka sebelum socket tersambung).
+    reportVisibility();
+    // Percakapan aktif mungkin diterapkan ke store sebelum socket siap
+    // (mis. buka langsung ?c=<id>); kirim ulang agar server tahu pengguna
+    // sedang melihatnya dan tidak mengirim notifikasi bocor.
+    sendActiveConversation(useChatStore.getState().activeConversationId);
   };
 
   socket.onmessage = (e) => {
@@ -178,18 +185,25 @@ export function useChatSocket() {
           const isMine = auth()?.user.id === msg.senderId;
           if (!isMine && s.activeConversationId !== msg.conversationId) {
             s.bumpUnread(msg.conversationId);
-            const conv = s.conversations.find((c) => c.id === msg.conversationId);
-            const senderName = conv?.otherUser?.name || "Pesan baru";
-            const myRole = auth()?.user?.role;
-            const base = myRole === "orangtua" ? "/parent/chat" : "/chat";
-            toast(senderName, {
-              description: msg.content || "Mengirim lampiran",
-              action: {
-                label: "Buka",
-                onClick: () =>
-                  router.push(`${base}?c=${msg.conversationId}`),
-              },
-            });
+            // Banner toast hanya untuk pengguna yang sedang di halaman lain.
+            // Di area chat, pesan langsung tampil di thread/daftar + badge,
+            // meniru aplikasi pesan pada umumnya.
+            const p = typeof window !== "undefined" ? window.location.pathname : "";
+            const onChatPage = p === "/chat" || p === "/parent/chat";
+            if (!onChatPage) {
+              const conv = s.conversations.find((c) => c.id === msg.conversationId);
+              const senderName = conv?.otherUser?.name || "Pesan baru";
+              const myRole = auth()?.user?.role;
+              const base = myRole === "orangtua" ? "/parent/chat" : "/chat";
+              toast(senderName, {
+                description: msg.content || "Mengirim lampiran",
+                action: {
+                  label: "Buka",
+                  onClick: () =>
+                    router.push(`${base}?c=${msg.conversationId}`),
+                },
+              });
+            }
           }
           s.touchConversation(msg.conversationId, msg);
           return;
@@ -231,8 +245,15 @@ export function useChatSocket() {
     onEvent = handleEvent;
     const user = auth();
     if (user?.user?.id) openSocket();
+
+    // Laporkan setiap kali aplikasi maju ke foreground / mundur ke
+    // background — server memakainya untuk memutuskan kirim Web Push.
+    const onVisibilityChange = () => reportVisibility();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
     return () => {
       onEvent = null;
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       disconnectSocket();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -253,4 +274,25 @@ export function sendTyping(conversationId: string, isTyping: boolean) {
   if (isTyping) lastTypingSent[conversationId] = now;
   else delete lastTypingSent[conversationId];
   sendRaw(JSON.stringify({ type: "typing", data: { conversationId, isTyping } }));
+}
+
+/**
+ * Beri tahu server percakapan mana yang sedang dibuka (atau null bila
+ * tidak ada). Server menahan notifikasi untuk pesan yang sedang dilihat.
+ */
+export function sendActiveConversation(conversationId: string | null) {
+  sendRaw(
+    JSON.stringify({ type: "active", data: { conversationId: conversationId || "" } }),
+  );
+}
+
+/** Beri tahu server apakah halaman sedang terlihat (foreground). */
+function sendVisibility(visible: boolean) {
+  sendRaw(JSON.stringify({ type: "visibility", data: { visible } }));
+}
+
+/** Laporkan status terlihat saat ini (dipanggil saat socket buka & berubah). */
+function reportVisibility() {
+  if (typeof document === "undefined") return;
+  sendVisibility(document.visibilityState === "visible");
 }

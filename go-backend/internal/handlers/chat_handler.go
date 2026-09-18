@@ -184,9 +184,18 @@ func (h *ChatHandler) SendMessage(c echo.Context) error {
 	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true, "data": msg})
 }
 
-// notifyRecipient kirim notifikasi in-app + Web Push ke lawan bicara bila
-// dia sedang offline. Dijalankan di goroutine terpisah agar request cepat
-// kembali: push ke perangkat tidak boleh memblokir response.
+// notifyRecipient kirim notifikasi in-app + Web Push ke lawan bicara.
+// Dijalankan di goroutine terpisah agar request cepat kembali: push ke
+// perangkat tidak boleh memblokir response.
+//
+// Aturan gating (meniru aplikasi pesan pada umumnya):
+//   - engaged (penerima sedang membuka percakapan ini)  → lewati semua;
+//     pesan sudah dilihatnya.
+//   - sisanya: selalu buat baris notifikasi in-app (agar badge lonceng &
+//     halaman notifikasi menampilkan pesan masuk).
+//   - Web Push hanya bila penerima tidak sedang melihat aplikasi
+//     (visible=false atau offline) — pengguna yang sedang membuka PWA
+//     tidak butuh notifikasi sistem (toast in-app sudah cukup).
 func (h *ChatHandler) notifyRecipient(convID, senderID string, msg models.ChatMessage, recipientID string) {
 	if recipientID == "" {
 		var err error
@@ -195,10 +204,14 @@ func (h *ChatHandler) notifyRecipient(convID, senderID string, msg models.ChatMe
 			return
 		}
 	}
-	// Pengirim sedang online → pesan sudah terkirim real-time; lewati.
-	if h.Hub != nil && h.Hub.IsUserOnline(recipientID) {
+
+	engaged := h.Hub != nil && h.Hub.IsActiveConversation(recipientID, convID)
+	if engaged {
 		return
 	}
+	// Pengirim sedang online di percakapan ini → pesan sudah terkirim
+	// real-time; tidak perlu notifikasi apa pun.
+	visible := h.Hub != nil && h.Hub.IsUserVisible(recipientID)
 
 	sender, err := h.Repo.GetUserSummary(senderID)
 	senderName := "Pesan baru"
@@ -227,7 +240,7 @@ func (h *ChatHandler) notifyRecipient(convID, senderID string, msg models.ChatMe
 		})
 	}
 
-	if h.Push != nil && h.Push.Enabled() {
+	if !visible && h.Push != nil && h.Push.Enabled() {
 		h.Push.SendToUser(recipientID, models.PushPayload{
 			Title: senderName,
 			Body:  preview,

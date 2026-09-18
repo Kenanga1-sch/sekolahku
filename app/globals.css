@@ -528,3 +528,22 @@
     mix-blend-mode: normal !important;
   }
 }
+
+/*
+ * Tinggi area chat yang stabil di PWA mobile.
+ *
+ * Tailwind h-[calc(100dvh-8.5rem)] bermasalah di Android Chrome PWA: unit
+ * 100dvh kadang tidak diperbarui setelah keyboard muncul/hilang atau
+ * setelah navigasi, sehingga room chat "menyusut" mengikuti isi pesan dan
+ * baru normal setelah refresh. Variabel --app-vh dijaga oleh hook
+ * useStableViewportHeight dari visualViewport (yang selalu akurat);
+ * 100dvh tetap menjadi fallback sebelum JS berjalan.
+ */
+.chat-fill {
+  height: calc(var(--app-vh, 100dvh) - 8.5rem);
+}
+@media (min-width: 768px) {
+  .chat-fill {
+    height: 100%;
+  }
+}

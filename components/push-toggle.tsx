@@ -18,11 +18,12 @@ import {
 } from "@/lib/push";
 
 interface PushToggleProps {
-  /** Tampilkan tombol "Kirim Notifikasi Uji" (khusus admin). */
+  /** Tampilkan tombol "Kirim Notifikasi Uji". Default true: semua user
+   * boleh menguji perangkatnya sendiri (route kirim ke pemanggil). */
   showTest?: boolean;
 }
 
-export function PushToggle({ showTest = false }: PushToggleProps) {
+export function PushToggle({ showTest = true }: PushToggleProps) {
   const [support, setSupport] = useState<PushSupportState>("unsupported");
   const [status, setStatus] = useState<PushStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -75,7 +76,11 @@ export function PushToggle({ showTest = false }: PushToggleProps) {
     setBusy(true);
     try {
       const sent = await sendTestPush();
-      toast.success(`Notifikasi uji terkirim ke ${sent} perangkat`);
+      if (sent > 0) {
+        toast.success(`Notifikasi uji terkirim ke ${sent} perangkat`);
+      } else {
+        toast.error("Tidak ada perangkat yang menerima — coba aktifkan ulang notifikasi di perangkat ini.");
+      }
     } catch (err: any) {
       toast.error(err?.message || "Gagal mengirim notifikasi uji");
     } finally {

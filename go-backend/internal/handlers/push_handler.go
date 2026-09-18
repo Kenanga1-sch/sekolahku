@@ -78,7 +78,8 @@ func (h *PushHandler) Status(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "enabled": h.Push.Enabled(), "devices": n})
 }
 
-// TestSend mengirim notifikasi uji ke perangkat pemanggil (admin).
+// TestSend mengirim notifikasi uji ke perangkat pemanggil sendiri. Dipakai
+// halaman profil (admin maupun orang tua) untuk memverifikasi push aktif.
 func (h *PushHandler) TestSend(c echo.Context) error {
 	if !h.Push.Enabled() {
 		return c.JSON(http.StatusServiceUnavailable, map[string]interface{}{"success": false, "error": "Notifikasi push belum diaktifkan server"})

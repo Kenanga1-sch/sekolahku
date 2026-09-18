@@ -10,6 +10,7 @@ import { ChatComposer } from "@/components/chat/chat-composer";
 import { NewConversationDialog } from "@/components/chat/new-conversation-dialog";
 import { useChatStore } from "@/lib/stores/chat-store";
 import { useChatConversation } from "@/lib/hooks/use-chat";
+import { sendActiveConversation } from "@/lib/hooks/use-chat-socket";
 import { cn } from "@/lib/utils";
 
 interface ChatLayoutProps {
@@ -29,7 +30,17 @@ export function ChatLayout({ conversationId, basePath }: ChatLayoutProps) {
 
   // Tandai percakapan aktif (suppress toast + auto mark-read); bersihkan
   // saat keluar. setActive adalah useCallback yang bergantung conversationId.
-  useEffect(() => setActive(), [setActive]);
+  // Cleanup-nya WAJIB dikembalikan agar status pecakapan tidak tersangkut
+  // setelah pengguna keluar (notifikasi untuk percakapan terakhir akan
+  // tertekan selamanya). Beri tahu juga server via WS untuk gating push.
+  useEffect(() => {
+    const cleanup = setActive();
+    sendActiveConversation(conversationId);
+    return () => {
+      cleanup();
+      sendActiveConversation(null);
+    };
+  }, [setActive, conversationId]);
 
   const otherName = conversation?.otherUser?.name || "Percakapan";
   const otherId = conversation?.otherUser?.id || null;

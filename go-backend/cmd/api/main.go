@@ -253,6 +253,10 @@ func main() {
 	// Hub WebSocket chat (in-memory; tidak menyentuh DB).
 	chatHub := chat.NewHub()
 
+	// Pengguna yang sedang membuka PWA tidak perlu Web Push (notifikasi
+	// in-app sudah tampil) — hub menjadi sumber kebenaran status terlihat.
+	parentNotify.Presence = chatHub
+
 	// Background scheduler (perlu pushSvc supaya notifikasi otomatis ke ortu
 	// (alpha warning + daily digest) juga dapat muncul via Web Push).
 	cronScheduler := scheduler.NewScheduler(db, pushSvc)

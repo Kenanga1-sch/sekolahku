@@ -16,6 +16,7 @@ import { BottomNav, type BottomNavItem } from "@/components/ui/bottom-nav";
 import { PwaInstallButton } from "@/components/pwa-install-button";
 import { AccountAvatarMenu } from "@/components/ui/account-avatar-menu";
 import { goGet } from "@/lib/api-client";
+import { useStableViewportHeight } from "@/lib/hooks/use-viewport-height";
 
 // Urutan menentukan slot bottom nav mobile: 3 pertama mengisi slot link
 // (Beranda, Tabungan, Presensi), sisanya hanya tampil di bottom sheet FAB.
@@ -57,6 +58,9 @@ export default function ParentLayoutClient({ children }: { children: React.React
   const [open, setOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const { settings } = useSchoolSettings();
+  // Jaga --app-vh agar tinggi viewport stabil (fix room chat menyusut di
+  // PWA Android setelah keyboard / navigasi).
+  useStableViewportHeight();
 
   const schoolName = settings?.school_name || "Sekolahku";
   const schoolLogo = getSchoolLogo(settings?.school_logo);

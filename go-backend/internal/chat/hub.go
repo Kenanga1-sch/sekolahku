@@ -25,10 +25,12 @@ const (
 	EventPong              = "pong"
 )
 
-// Tipe pesan yang diterima dari klien.
+// Tipe pesan yang diterima dari klien (typing/pong/active/visibility).
 const (
-	ClientTyping = "typing"
-	ClientPong   = "pong"
+	ClientTyping     = "typing"
+	ClientPong       = "pong"
+	ClientActive     = "active"
+	ClientVisibility = "visibility"
 )
 
 // HeartbeatInterval server mengirim ping app-level setiap ini.
@@ -65,28 +67,46 @@ type ReadPayload struct {
 
 // PresencePayload data event online/offline.
 type PresencePayload struct {
-	UserID  string `json:"userId"`
-	Online  bool   `json:"online"`
+	UserID string `json:"userId"`
+	Online bool   `json:"online"`
+}
+
+// ActivePayload data event client "active" (percakapan yang sedang dibuka).
+type ActivePayload struct {
+	ConversationID string `json:"conversationId"`
+}
+
+// VisibilityPayload data event client "visibility" (halaman terlihat).
+type VisibilityPayload struct {
+	Visible bool `json:"visible"`
 }
 
 // Connection satu koneksi WebSocket milik seorang user. Seorang user
 // boleh punya beberapa Connection (mis. beberapa tab browser).
 type Connection struct {
-	userID string
-	send   chan Event
+	userID     string
+	send       chan Event
+	activeConv string // percakapan yang sedang dibuka klien ini ("" = tidak ada)
+	visible    bool   // halaman klien ini sedang terlihat (foreground)
 }
 
-// NewConnection membuat koneksi baru (send buffer internal).
+// NewConnection membuat koneksi baru (send buffer internal). Koneksi baru
+// dianggap visible sampai klien melaporkan status sebenarnya.
 func NewConnection(userID string) *Connection {
-	return &Connection{userID: userID, send: make(chan Event, 64)}
+	return &Connection{userID: userID, send: make(chan Event, 64), visible: true}
 }
+
+// UserID pemilik koneksi (dipakai handler untuk lookup database).
+func (c *Connection) UserID() string { return c.userID }
 
 // AcceptOptions hook aplikasi yang dipanggil hub pada momen tertentu.
 // Hub tetap tidak tahu apa-apa tentang database — hook inilah yang
 // melakukan lookup (mis. siapa lawan bicara) lalu memanggil BroadcastToUser.
 type AcceptOptions struct {
-	// OnMessage dipanggil untuk setiap pesan masuk dari klien (typing/pong).
-	OnMessage func(userID string, msg ClientMessage)
+	// OnMessage dipanggil untuk setiap pesan masuk dari klien (typing/pong/
+	// active/visibility). Menerima connection agar handler bisa memilih
+	// koneksi mana yang harus diperbarui (multi-tab).
+	OnMessage func(c *Connection, msg ClientMessage)
 	// OnPresence dipanggil saat user berstatus online (koneksi pertama)
 	// atau offline (koneksi terakhir ditutup).
 	OnPresence func(userID string, online bool)
@@ -158,6 +178,49 @@ func (h *Hub) IsUserOnline(userID string) bool {
 	return len(h.conns[userID]) > 0
 }
 
+// SetActiveConversation menandai percakapan yang sedang dibuka pada
+// connection ini. convID kosong berarti tidak ada percakapan dibuka.
+// Hanya connection pengirim yang diperbarui: tiap tab punya state sendiri.
+func (h *Hub) SetActiveConversation(c *Connection, convID string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	c.activeConv = convID
+}
+
+// IsActiveConversation true bila user membuka percakapan ini di salah
+// satu koneksinya — pesan itu sedang dilihat, tidak perlu notifikasi.
+func (h *Hub) IsActiveConversation(userID, convID string) bool {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for c := range h.conns[userID] {
+		if convID != "" && c.activeConv == convID {
+			return true
+		}
+	}
+	return false
+}
+
+// SetVisibility menandai apakah halaman connection ini sedang terlihat
+// (foreground) atau di-background perangkat.
+func (h *Hub) SetVisibility(c *Connection, visible bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	c.visible = visible
+}
+
+// IsUserVisible true bila salah satu koneksi user terlihat — push tidak
+// perlu dikirim karena pengguna sudah melihat aplikasinya.
+func (h *Hub) IsUserVisible(userID string) bool {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for c := range h.conns[userID] {
+		if c.visible {
+			return true
+		}
+	}
+	return false
+}
+
 // Accept menerima koneksi WebSocket, mendaftarkannya di hub, lalu
 // menjalankan read+write loop sampai koneksi ditutup. Method ini
 // memblokir echo handler selama koneksi hidup (pola normal untuk WS).
@@ -206,7 +269,7 @@ func (h *Hub) readLoop(ctx context.Context, c *Connection, conn *websocket.Conn,
 			continue
 		}
 		if opts.OnMessage != nil {
-			opts.OnMessage(c.userID, msg)
+			opts.OnMessage(c, msg)
 		}
 	}
 }

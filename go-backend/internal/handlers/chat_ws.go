@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sekolahku/go-backend/internal/chat"
@@ -34,20 +35,45 @@ func (h *ChatHandler) WS(c echo.Context) error {
 }
 
 // handleClientMessage memproses pesan masuk dari klien: relay typing ke
-// lawan bicara dan abaikan pong (deadline direset di readLoop).
-func (h *ChatHandler) handleClientMessage(userID string, msg chat.ClientMessage) {
+// lawan bicara, catat percakapan aktif & status terlihat, abaikan pong
+// (deadline direset di readLoop).
+func (h *ChatHandler) handleClientMessage(c *chat.Connection, msg chat.ClientMessage) {
 	switch msg.Type {
 	case chat.ClientTyping:
 		var p chat.TypingPayload
 		if err := json.Unmarshal(msg.Data, &p); err != nil || p.ConversationID == "" {
 			return
 		}
-		other, err := h.Repo.GetOtherParticipant(p.ConversationID, userID)
+		other, err := h.Repo.GetOtherParticipant(p.ConversationID, c.UserID())
 		if err != nil || other == "" {
 			return
 		}
-		p.UserID = userID
+		p.UserID = c.UserID()
 		h.Hub.BroadcastToUser(other, chat.Event{Type: chat.EventTyping, Data: p})
+
+	case chat.ClientActive:
+		// Percakapan yang sedang dibuka — dipakai server untuk menekan
+		// notifikasi pesan yang sedang dilihat. Validasi peserta dahulu
+		// agar klien tidak bisa menekan notifikasi percakapan orang lain.
+		var p chat.ActivePayload
+		if err := json.Unmarshal(msg.Data, &p); err != nil {
+			return
+		}
+		convID := strings.TrimSpace(p.ConversationID)
+		if convID != "" {
+			ok, err := h.Repo.IsParticipant(convID, c.UserID())
+			if err != nil || !ok {
+				return
+			}
+		}
+		h.Hub.SetActiveConversation(c, convID)
+
+	case chat.ClientVisibility:
+		var p chat.VisibilityPayload
+		if err := json.Unmarshal(msg.Data, &p); err != nil {
+			return
+		}
+		h.Hub.SetVisibility(c, p.Visible)
 
 	case chat.ClientPong:
 		// tidak ada aksi; read deadline sudah direset oleh readLoop.

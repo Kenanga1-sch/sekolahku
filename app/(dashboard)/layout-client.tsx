@@ -46,6 +46,7 @@ import { BottomNav } from "@/components/ui/bottom-nav";
 import { Button } from "@/components/ui/button";
 import { PwaInstallButton } from "@/components/pwa-install-button";
 import { AccountAvatarMenu } from "@/components/ui/account-avatar-menu";
+import { useStableViewportHeight } from "@/lib/hooks/use-viewport-height";
 import dynamic from "next/dynamic";
 const NotificationPopover = dynamic(
   () => import("@/components/notification-popover").then((mod) => mod.NotificationPopover),
@@ -270,6 +271,9 @@ export default function DashboardLayoutClient({
 }) {
   const { user, logout, isLoading: authLoading } = useAuthStore();
   const [mounted, setMounted] = useState(false);
+  // Jaga --app-vh agar tinggi viewport stabil (fix room chat menyusut di
+  // PWA Android setelah keyboard / navigasi).
+  useStableViewportHeight();
   const [open, setOpen] = useState(false); // Sidebar open state
   const [isDropdownOpen, setIsDropdownOpen] = useState(false); // Track dropdown state
   const [sidebarVisible, setSidebarVisible] = useState(true); // Sidebar completely hidden/visible
