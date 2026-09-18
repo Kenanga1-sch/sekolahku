@@ -9,7 +9,7 @@ import { getFromCache, setCache, CacheTTL } from "./cache";
 import { logger } from "./logger";
 
 const GO_API_URL = process.env.NEXT_PUBLIC_API_URL || "";
-export const APP_VERSION = "v1.1.027";
+export const APP_VERSION = "v1.2.0";
 
 const DEFAULT_TIMEOUT_MS = 15_000;
 
