@@ -37,6 +37,25 @@ interface ServerEvent {
   data?: unknown;
 }
 
+/** Payload per-event, menyesuaikan struktur yang dikirim backend. */
+interface ConversationUpdatePayload {
+  conversationId: string;
+  lastMessage: ChatMessage;
+}
+interface TypingPayload {
+  conversationId: string;
+  userId: string;
+  isTyping: boolean;
+}
+interface ReadPayload {
+  conversationId: string;
+  lastReadAt: number;
+}
+interface PresencePayload {
+  userId: string;
+  online: boolean;
+}
+
 function buildWsUrl(): string {
   const apiBase = process.env.NEXT_PUBLIC_API_URL || "";
   if (apiBase) {
@@ -176,28 +195,28 @@ export function useChatSocket() {
           return;
         }
         case "conversation_updated": {
-          const d = ev.data;
+          const d = ev.data as ConversationUpdatePayload;
           if (d?.conversationId && d?.lastMessage) {
-            s.touchConversation(d.conversationId, d.lastMessage as ChatMessage);
+            s.touchConversation(d.conversationId, d.lastMessage);
           }
           return;
         }
         case "typing": {
-          const d = ev.data;
+          const d = ev.data as TypingPayload;
           if (d?.conversationId && d?.userId) {
             s.setTyping(d.conversationId, d.userId, Boolean(d.isTyping));
           }
           return;
         }
         case "read": {
-          const d = ev.data;
+          const d = ev.data as ReadPayload;
           if (d?.conversationId && d?.lastReadAt) {
             s.markConvRead(d.conversationId, d.lastReadAt, false);
           }
           return;
         }
         case "presence": {
-          const d = ev.data;
+          const d = ev.data as PresencePayload;
           if (d?.userId) s.setPresence(d.userId, Boolean(d.online));
           return;
         }
