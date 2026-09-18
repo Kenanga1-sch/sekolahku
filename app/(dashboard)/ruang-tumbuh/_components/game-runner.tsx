@@ -12,9 +12,17 @@ import {
   collectDeviceInfo,
 } from "@/lib/ruang-tumbuh/types";
 import { TangkapTarget } from "./games/tangkap-target";
+import { JanganTerkecoh } from "./games/jangan-terkecoh";
+import { IngatUrutannya } from "./games/ingat-urutannya";
+import { KeretaKata } from "./games/kereta-kata";
+import { TokoBuah } from "./games/toko-buah";
 
 const GAME_BY_ID: Record<string, React.ComponentType<{ attemptId: string; onComplete: (trials: TrialRecord[]) => void }>> = {
   "game-tangkap-target": TangkapTarget,
+  "game-jangan-terkecoh": JanganTerkecoh,
+  "game-ingat-urutannya": IngatUrutannya,
+  "game-kereta-kata": KeretaKata,
+  "game-toko-buah": TokoBuah,
 };
 
 export function GameRunner({ sessionId }: { sessionId: string }) {

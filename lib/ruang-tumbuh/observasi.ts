@@ -71,8 +71,14 @@ export const OBSERVATION_ITEMS: Record<string, ObservationDomain> = {
   },
 };
 
-// Game yang sudah punya implementasi frontend (M1: hanya Tangkap Target).
-export const IMPLEMENTED_GAME_IDS = ["game-tangkap-target"];
+// Game yang sudah punya implementasi frontend (semua 5 game M2).
+export const IMPLEMENTED_GAME_IDS = [
+  "game-tangkap-target",
+  "game-jangan-terkecoh",
+  "game-ingat-urutannya",
+  "game-kereta-kata",
+  "game-toko-buah",
+];
 
 // Label metrik untuk guru (§23: tampilan per dimensi, bukan satu angka).
 export function metricDescriptors(m: {
