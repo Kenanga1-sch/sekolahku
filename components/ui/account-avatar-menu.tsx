@@ -22,6 +22,12 @@ type Placement = "header" | "bottom-nav";
 
 interface Props {
   placement: Placement;
+  /** Rute halaman profil (default "/profile"; portal orang tua pakai "/parent/profil"). */
+  profileHref?: string;
+  /** Tampilkan menu Pengaturan (default true; portal orang tua tidak punya halaman pengaturan). */
+  showSettings?: boolean;
+  /** Rute website (default "/"). */
+  websiteHref?: string;
 }
 
 export function resolveUserImage(image: string | null | undefined): string | undefined {
@@ -36,7 +42,7 @@ function initialsFromName(name: string | undefined): string {
   return name.substring(0, 2).toUpperCase();
 }
 
-export function AccountAvatarMenu({ placement }: Props) {
+export function AccountAvatarMenu({ placement, profileHref = "/profile", showSettings = true, websiteHref = "/" }: Props) {
   const router = useRouter();
   const { user, logout, isLoading } = useAuthStore();
   const mounted = typeof window !== "undefined";
@@ -115,15 +121,17 @@ export function AccountAvatarMenu({ placement }: Props) {
       >
         <DropdownMenuLabel>Akun Saya</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => router.push("/profile")}>
+        <DropdownMenuItem onClick={() => router.push(profileHref)}>
           <User className="mr-2 h-4 w-4" />
           <span>Profil Saya</span>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => router.push("/pengaturan")}>
-          <Settings className="mr-2 h-4 w-4" />
-          <span>Pengaturan</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => router.push("/")}>
+        {showSettings && (
+          <DropdownMenuItem onClick={() => router.push("/pengaturan")}>
+            <Settings className="mr-2 h-4 w-4" />
+            <span>Pengaturan</span>
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem onClick={() => router.push(websiteHref)}>
           <Globe className="mr-2 h-4 w-4" />
           <span>Kunjungi Website</span>
         </DropdownMenuItem>

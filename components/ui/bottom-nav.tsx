@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types";
 import { AccountAvatarMenu } from "@/components/ui/account-avatar-menu";
 
-interface BottomNavItem {
+export interface BottomNavItem {
   href: string;
   label: string;
   icon: React.ElementType;
@@ -28,6 +28,12 @@ interface BottomNavItem {
    * bagi slot Akun (avatar) di bottom nav mobile.
    */
   excludeFromBottomNav?: string[];
+  /**
+   * Cocokkan href secara eksak (pathname === href), bukan startsWith.
+   * Wajib untuk rute induk yang menjadi prefix rute lain (mis. "/parent"
+   * yang diikuti "/parent/presensi"), agar tidak selalu aktif.
+   */
+  exact?: boolean;
 }
 
 // Ordered by priority; first 3 visible items fill the link slots (2 left, 1 right of FAB);
@@ -106,20 +112,28 @@ function filterItemsByRole(items: BottomNavItem[], userRole?: string | null): Bo
 interface BottomNavProps {
   onMenuClick: () => void;
   userRole?: string | null;
+  /**
+   * Daftar item custom (mis. untuk portal orang tua). Jika diberikan,
+   * item ini dipakai apa adanya tanpa filter role; 3 pertama mengisi
+   * slot link mobile, sisanya tampil di bottom sheet FAB (bersama semua
+   * item lain yang dirender layout di SidebarBody).
+   */
+  items?: BottomNavItem[];
 }
 
-export function BottomNav({ onMenuClick, userRole }: BottomNavProps) {
+export function BottomNav({ onMenuClick, userRole, items }: BottomNavProps) {
   const pathname = usePathname();
 
   const visibleItems = useMemo(
-    () => filterItemsByRole(allItems, userRole).slice(0, 3),
-    [userRole]
+    () => (items ?? filterItemsByRole(allItems, userRole)).slice(0, 3),
+    [userRole, items]
   );
   const splitIndex = Math.ceil(visibleItems.length / 2);
   const leftItems = visibleItems.slice(0, splitIndex);
   const rightItems = visibleItems.slice(splitIndex);
 
   const isActive = (item: BottomNavItem) => {
+    if (item.exact) return pathname === item.href;
     if (item.matchPaths) {
       return item.matchPaths.some((p) => pathname.startsWith(p));
     }
