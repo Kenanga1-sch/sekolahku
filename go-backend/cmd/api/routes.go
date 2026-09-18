@@ -45,6 +45,7 @@ type Repositories struct {
 	BankSoal       *repository.BankSoalRepository
 	Kurikulum      *repository.KurikulumRepository
 	Chat           *repository.ChatRepository
+	Skrining       *repository.SkriningRepository
 }
 
 // AllHandlers holds all HTTP handler instances.
@@ -83,6 +84,7 @@ type AllHandlers struct {
 	BankSoal       *handlers.BankSoalHandler
 	Kurikulum      *handlers.KurikulumHandler
 	Chat           *handlers.ChatHandler
+	Skrining       *handlers.SkriningHandler
 	// PushSvc dipakai handler lain (absen, tabungan, pengumuman) untuk
 	// mengirim push ke orang tua.
 	PushSvc *push.Service
@@ -717,9 +719,27 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	studentGroup.GET("/me/sets", h.BankSoal.ListSets)
 	studentGroup.GET("/me/sets/:id/items", h.BankSoal.ListSetItems)
 
+	// Ruang Tumbuh: siswa menjalankan game skrining dari sesi yang aktif.
+	studentGroup.GET("/me/ruang-tumbuh/sessions", h.Skrining.ListMySessions)
+	studentGroup.POST("/me/ruang-tumbuh/sessions/:id/start", h.Skrining.StartMyAttempt)
+	studentGroup.POST("/me/ruang-tumbuh/attempts/:id/submit", h.Skrining.SubmitMyAttempt)
+	studentGroup.GET("/me/ruang-tumbuh/attempts/:id/result", h.Skrining.GetMyAttemptResult)
+	studentGroup.GET("/me/ruang-tumbuh/history", h.Skrining.MyHistory)
+
 	// Pengajuan izin/sakit: guru/admin meninjau
 	guruGroup.GET("/leave-requests", h.Parent.ListLeaves)
 	guruGroup.POST("/leave-requests/:id/review", h.Parent.ReviewLeave)
+
+	// Ruang Tumbuh: modul skrining & perkembangan peserta didik (guru/staff).
+	guruGroup.GET("/ruang-tumbuh/games", h.Skrining.ListGames)
+	guruGroup.GET("/ruang-tumbuh/sessions", h.Skrining.ListSessions)
+	guruGroup.POST("/ruang-tumbuh/sessions", h.Skrining.CreateSession)
+	guruGroup.GET("/ruang-tumbuh/sessions/:id", h.Skrining.GetSession)
+	guruGroup.POST("/ruang-tumbuh/sessions/:id/start", h.Skrining.StartSession)
+	guruGroup.POST("/ruang-tumbuh/sessions/:id/finish", h.Skrining.FinishSession)
+	guruGroup.GET("/ruang-tumbuh/sessions/:id/students/:studentId", h.Skrining.GetStudentResult)
+	guruGroup.POST("/ruang-tumbuh/sessions/:id/observations", h.Skrining.SaveObservation)
+	guruGroup.GET("/ruang-tumbuh/dashboard", h.Skrining.ClassDashboard)
 
 	// Bank Soal
 	guruGroup.GET("/bank-soal/bab", h.BankSoal.ListBabs)

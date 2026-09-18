@@ -33,6 +33,7 @@ import {
   ChevronDown,
   ChevronUp,
   Menu,
+  Sprout,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
@@ -183,6 +184,7 @@ const navGroups: NavGroup[] = [
     items: [
       { href: "/overview", label: "Beranda", icon: LayoutDashboard, roles: SISWA_ROLES },
       { href: "/praktik", label: "Latihan Soal", icon: BookOpen, roles: SISWA_ROLES },
+      { href: "/ruang-tumbuh", label: "Ruang Tumbuh", icon: Sprout, roles: SISWA_ROLES },
       { href: "/presensi/saya", label: "Presensi Saya", icon: ClipboardList, roles: SISWA_ROLES },
       { href: "/tabungan/saya", label: "Tabungan Saya", icon: Wallet, roles: SISWA_ROLES },
     ],
@@ -202,6 +204,7 @@ const navGroups: NavGroup[] = [
     items: [
       { href: "/admin/siswa", label: "Manajemen Siswa", icon: Users, roles: ADMIN_ROLES },
       { href: "/bank-soal", label: "Bank Soal", icon: BookOpen, roles: GURU_ACCESS_ROLES },
+      { href: "/ruang-tumbuh/guru", label: "Skrining Siswa", icon: Sprout, roles: GURU_ACCESS_ROLES },
       { href: "/presensi", label: "Presensi", icon: ClipboardList, roles: GURU_ACCESS_ROLES },
       { href: "/presensi/pengajuan", label: "Pengajuan Izin", icon: CalendarDays, roles: GURU_ACCESS_ROLES },
       { href: "/tabungan", label: "Tabungan Siswa", icon: Wallet, roles: TABUNGAN_ROLES },

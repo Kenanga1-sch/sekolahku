@@ -201,6 +201,7 @@ func main() {
 		BankSoal:       repository.NewBankSoalRepository(db),
 		Kurikulum:      repository.NewKurikulumRepository(db),
 		Chat:           repository.NewChatRepository(db),
+		Skrining:       repository.NewSkriningRepository(db),
 	}
 
 	// Aktifkan pemeriksaan status user pada setiap request terautentikasi,
@@ -299,6 +300,7 @@ func main() {
 		BankSoal:       handlers.NewBankSoalHandler(repos.BankSoal),
 		Kurikulum:      handlers.NewKurikulumHandler(repos.Kurikulum),
 		Chat:           handlers.NewChatHandler(repos.Chat, repos.Notification, pushSvc, chatHub),
+		Skrining:       handlers.NewSkriningHandler(repos.Skrining, repos.Academic, repos.AuditLog, db),
 		PushSvc:        pushSvc,
 	}
 
