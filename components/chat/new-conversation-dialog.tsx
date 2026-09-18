@@ -36,13 +36,15 @@ export function NewConversationDialog({
   const upsertConversation = useChatStore((s) => s.upsertConversation);
   const conversations = useChatStore((s) => s.conversations);
 
-  // Muat daftar saat dialog dibuka.
+  // Muat daftar saat dialog dibuka. searchUsers di-dependensikan agar
+  // dependency array stabil (useCallback di hook parent).
   useEffect(() => {
     if (open) {
       setQuery("");
       searchUsers("");
     }
-  }, [open, searchUsers]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const handleSearch = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {

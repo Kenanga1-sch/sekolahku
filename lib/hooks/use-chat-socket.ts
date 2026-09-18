@@ -31,6 +31,12 @@ let activeUserId: string | null = null;
 /** Handler event yang dipasang oleh hook (butuh router untuk toast action). */
 let onEvent: ((raw: string) => void) | null = null;
 
+/** Tipe event yang datang dari server (minimal: type). */
+interface ServerEvent {
+  type: string;
+  data?: unknown;
+}
+
 function buildWsUrl(): string {
   const apiBase = process.env.NEXT_PUBLIC_API_URL || "";
   if (apiBase) {
@@ -135,9 +141,9 @@ export function useChatSocket() {
 
   const handleEvent = useCallback(
     (raw: string) => {
-      let ev: { type: string; data?: any };
+      let ev: ServerEvent;
       try {
-        ev = JSON.parse(raw);
+        ev = JSON.parse(raw) as ServerEvent;
       } catch {
         return;
       }
