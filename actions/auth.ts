@@ -84,9 +84,75 @@ export async function getSessionAction() {
         email: data.email,
         name: data.name,
         image: data.image || undefined,
+        // Hanya ada saat sesi di-impersonasi admin (hasil /api/auth/switch).
+        // Dipakai UI untuk menampilkan "Kembali ke Akun Admin".
+        impersonatedBy: data.imp || undefined,
+        impersonatedByName: data.impName || undefined,
       },
     };
   } catch {
     return null;
+  }
+}
+
+// Home route sesuai role — sama dengan logika redirect di halaman login.
+function homeRouteForRole(role: string | undefined): string {
+  if (role === "staff") return "/inventaris";
+  if (role === "orangtua") return "/parent";
+  return "/overview";
+}
+
+/**
+ * Admin ganti ke akun lain (impersonation). Backend mereset cookie session +
+ * user_info, jadi sesi "benar" berpindah. Hard redirect dipakai agar chat
+ * socket provider remount dengan identitas baru — tanpa itu, guard
+ * activeUserId di use-chat-socket akan melihat mismatch dan socket mati.
+ */
+export async function switchAccountAction(userId: string): Promise<{ error?: string; success?: boolean }> {
+  try {
+    const csrf = getCSRFToken();
+    const data = await goPost(
+      "/api/auth/switch",
+      { userId },
+      { skipRetry: true, headers: csrf ? { "X-CSRF-Token": csrf } : undefined },
+    );
+
+    if (data && (data as any).success) {
+      const role = (data as any).user?.role;
+      if (typeof window !== "undefined") {
+        window.location.href = homeRouteForRole(role);
+      }
+      return { success: true };
+    }
+
+    return { error: (data as any).error || "Gagal mengganti akun" };
+  } catch (e: any) {
+    return { error: e.message || "Terjadi kesalahan pada server" };
+  }
+}
+
+/**
+ * Kembali ke akun admin asal (hanya jika sesi sedang di-impersonasi).
+ * Backend memverifikasi klaim JWT imp — klien tidak bisa memalsukan.
+ */
+export async function returnToAdminAction(): Promise<{ error?: string; success?: boolean }> {
+  try {
+    const csrf = getCSRFToken();
+    const data = await goPost(
+      "/api/auth/return",
+      {},
+      { skipRetry: true, headers: csrf ? { "X-CSRF-Token": csrf } : undefined },
+    );
+
+    if (data && (data as any).success) {
+      if (typeof window !== "undefined") {
+        window.location.href = "/overview";
+      }
+      return { success: true };
+    }
+
+    return { error: (data as any).error || "Gagal kembali ke akun admin" };
+  } catch (e: any) {
+    return { error: e.message || "Terjadi kesalahan pada server" };
   }
 }

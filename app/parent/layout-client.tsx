@@ -3,12 +3,13 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, CalendarPlus, CalendarCheck, Wallet, Bell, User, LogOut, MessageCircle } from "lucide-react";
+import { Home, CalendarPlus, CalendarCheck, Wallet, Bell, User, LogOut, MessageCircle, Undo2 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { PwaInstallButton } from "@/components/pwa-install-button";
 import { cn } from "@/lib/utils";
 import { goGet } from "@/lib/api-client";
+import { returnToAdminAction } from "@/actions/auth";
 
 const NAV = [
   { href: "/parent", label: "Beranda", icon: Home },
@@ -25,6 +26,10 @@ export default function ParentLayoutClient({ children }: { children: React.React
   const pathname = usePathname();
   const router = useRouter();
   const [unreadCount, setUnreadCount] = useState(0);
+
+  // Sesuatu hasil /api/auth/switch (cookie user_info.imp). Tombol kembali
+  // ke akun admin hanya muncul di sesi yang sedang di-impersonasi.
+  const impersonating = !!(user as any)?.impersonatedBy;
 
   useEffect(() => {
     if (!isLoading && user && user.role && user.role !== "orangtua") {
@@ -57,6 +62,15 @@ export default function ParentLayoutClient({ children }: { children: React.React
           <div className="flex items-center gap-1">
             <PwaInstallButton />
             <ThemeToggle />
+            {impersonating && (
+              <button
+                onClick={() => returnToAdminAction()}
+                className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                title="Kembali ke akun admin"
+              >
+                <Undo2 className="h-4 w-4" /> Kembali ke Admin
+              </button>
+            )}
             <Link
               href="/parent/notifikasi"
               className="relative inline-flex items-center justify-center h-9 w-9 rounded-md text-muted-foreground hover:bg-muted"

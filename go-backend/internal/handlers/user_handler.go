@@ -66,6 +66,13 @@ func parseUserRoles(roleParam string) []string {
 		}
 	}
 
+	// roleParam kosong = tidak ada filter role. Tanpa ini, normalizeUserRole
+	// mengubah "" menjadi "user" sehingga GET /api/users tanpa param role
+	// hanya menampilkan role "user" saja.
+	if strings.TrimSpace(roleParam) == "" {
+		return []string{}
+	}
+
 	return roles
 }
 

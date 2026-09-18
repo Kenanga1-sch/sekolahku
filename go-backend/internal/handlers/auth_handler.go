@@ -2,9 +2,11 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -154,6 +156,188 @@ func (h *AuthHandler) Login(c echo.Context) error {
 		"user":               user,
 		"public_info":        userInfo,
 		"mustChangePassword": user.MustChangePassword,
+	})
+}
+
+// ============ Admin Account Switch (impersonation) ============
+//
+// Admin/superadmin dapat "mengganti akun" ke user manapun untuk pengetesan
+// atau dukungan tanpa logout+login. Sesi hasil switch membawa klaim JWT "imp"
+// (impersonated-by) yang tidak bisa dipalsukan klien karena ada di dalam
+// HttpOnly session cookie. Endpoint Return memakai klaim itu untuk kembali
+// ke akun admin asal — satu klik, tanpa password.
+
+type SwitchRequest struct {
+	UserID string `json:"userId"`
+}
+
+// issueSession membuat JWT + cookie session/user_info untuk user target.
+// Jika adminID != "" maka klaim "imp" disisipkan (penanda impersonasi).
+func (h *AuthHandler) issueSession(c echo.Context, user *models.User, adminID string, adminName string) (string, error) {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		return "", fmt.Errorf("JWT_SECRET not set")
+	}
+
+	claims := jwt.MapClaims{
+		"sub":   user.ID,
+		"email": user.Email,
+		"role":  user.Role,
+		"name":  user.Name,
+		"exp":   time.Now().Add(time.Hour * 24 * 7).Unix(),
+	}
+	if adminID != "" && adminID != user.ID {
+		claims["imp"] = adminID
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString([]byte(secret))
+	if err != nil {
+		return "", err
+	}
+
+	cookieSecure := os.Getenv("COOKIE_SECURE") != "false"
+
+	sessionCookie := &http.Cookie{
+		Name:     "session",
+		Value:    tokenString,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   cookieSecure,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   7 * 24 * 3600,
+	}
+	c.SetCookie(sessionCookie)
+
+	userName := ""
+	if user.Name != nil {
+		userName = *user.Name
+	}
+	userImage := ""
+	if user.Image != nil {
+		userImage = *user.Image
+	}
+
+	// user_info dibaca frontend untuk tampilan saja (avatar, nama, role,
+	// dan tanda impersonasi). HttpOnly session tetap satu-satunya sumber
+	// kebenaran yang diverifikasi middleware di setiap request.
+	userInfo := map[string]string{
+		"id":     user.ID,
+		"name":   userName,
+		"role":   user.Role,
+		"image":  userImage,
+		"imp":    adminID,
+		"impName": adminName,
+	}
+	userInfoJSON, _ := json.Marshal(userInfo)
+
+	infoCookie := &http.Cookie{
+		Name:     "user_info",
+		Value:    url.QueryEscape(string(userInfoJSON)),
+		Path:     "/",
+		HttpOnly: false,
+		Secure:   cookieSecure,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   7 * 24 * 3600,
+	}
+	c.SetCookie(infoCookie)
+
+	return tokenString, nil
+}
+
+func (h *AuthHandler) SwitchAccount(c echo.Context) error {
+	var req SwitchRequest
+	if err := c.Bind(&req); err != nil || strings.TrimSpace(req.UserID) == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "userId wajib diisi"})
+	}
+
+	adminID, _ := c.Get("user_id").(string)
+	adminRole, _ := c.Get("user_role").(string)
+	adminName, _ := c.Get("user_name").(string)
+
+	target, err := h.Repo.GetUserByID(req.UserID)
+	if err != nil || target == nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Akun tujuan tidak ditemukan"})
+	}
+
+	if !target.IsActive {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "Akun tujuan tidak aktif"})
+	}
+
+	// Admin (bukan superadmin) tidak boleh switch ke superadmin — mencegah
+	// privilege escalation. Superadmin boleh switch ke siapapun.
+	if adminRole != "superadmin" && target.Role == "superadmin" {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "Anda tidak dapat mengganti ke akun superadmin"})
+	}
+
+	tokenString, err := h.issueSession(c, target, adminID, adminName)
+	if err != nil {
+		c.Logger().Error("Error issuing switched session:", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal membuat sesi"})
+	}
+
+	ip := c.RealIP()
+	ua := c.Request().UserAgent()
+	details := fmt.Sprintf("Admin switched to account: %s (%s)", target.Email, target.Role)
+	h.AuditRepo.CreateLog(models.AuditLog{
+		Action:    "switch_account",
+		Resource:  "user",
+		UserID:    &adminID,
+		UserName:  &adminName,
+		UserEmail: nil,
+		IPAddress: &ip,
+		UserAgent: &ua,
+		Details:   &details,
+	})
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"token":   tokenString,
+		"user":    target,
+	})
+}
+
+func (h *AuthHandler) ReturnToAdmin(c echo.Context) error {
+	// Klaim imp dibaca dari JWT terverifikasi (middleware sudah inject
+	// user_id dari HttpOnly cookie). Klien tidak bisa memalsukan nilai ini.
+	impID, _ := c.Get("imp").(string)
+	if impID == "" {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "Sesi ini tidak diimpersonasi"})
+	}
+
+	admin, err := h.Repo.GetUserByID(impID)
+	if err != nil || admin == nil || !admin.IsActive {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "Akun admin asal tidak tersedia"})
+	}
+
+	tokenString, err := h.issueSession(c, admin, "", "")
+	if err != nil {
+		c.Logger().Error("Error issuing admin session:", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal membuat sesi"})
+	}
+
+	ip := c.RealIP()
+	ua := c.Request().UserAgent()
+	adminName := ""
+	if admin.Name != nil {
+		adminName = *admin.Name
+	}
+	details := fmt.Sprintf("Returned to admin account: %s", admin.Email)
+	h.AuditRepo.CreateLog(models.AuditLog{
+		Action:    "return_account",
+		Resource:  "user",
+		UserID:    &admin.ID,
+		UserName:  &adminName,
+		UserEmail: &admin.Email,
+		IPAddress: &ip,
+		UserAgent: &ua,
+		Details:   &details,
+	})
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"token":   tokenString,
+		"user":    admin,
 	})
 }
 

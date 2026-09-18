@@ -211,6 +211,12 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	adminGroup.GET("/admin/dashboard/stats", h.Dashboard.GetStats)
 	adminGroup.GET("/admin/system/health", h.Dashboard.GetHealth)
 
+	// Account switching (admin impersonation)
+	// switch = admin-only (pindah ke akun manapun), return = siapapun yang
+	// sedang di-impersonasi (klaim JWT imp) untuk kembali ke akun admin asal.
+	adminGroup.POST("/auth/switch", h.Auth.SwitchAccount)
+	auth.POST("/auth/return", h.Auth.ReturnToAdmin)
+
 	// Academic
 	auth.GET("/academic/active-year", h.Academic.GetActiveAcademicYear)
 	adminGroup.GET("/academic/years", h.Academic.GetAcademicYears)

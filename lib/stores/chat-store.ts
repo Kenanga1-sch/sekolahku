@@ -118,12 +118,24 @@ export const useChatStore = create<ChatState>((set) => ({
 
   setMessages: (convId, messages, opts) =>
     set((state) => {
-      const existing = opts?.prepend
-        ? state.messagesByConv[convId] || []
-        : [];
-      const merged = opts?.prepend
-        ? [...messages, ...existing]
-        : messages;
+      const existing = state.messagesByConv[convId] || [];
+      // Merge + dedup by id, bukan replace mentah. Tanpa ini, response GET
+      // pesan yang lambat (mis. saat membuka percakapan baru lalu langsung
+      // kirim) bisa tiba setelah addMessage/post dan menghapus pesan yang
+      // sudah optimis masuk ke store — pesan hilang dari layar.
+      const seen = new Set<string>();
+      const merged: ChatMessage[] = [];
+      const push = (m: ChatMessage) => {
+        if (!seen.has(m.id)) {
+          seen.add(m.id);
+          merged.push(m);
+        }
+      };
+      if (opts?.prepend) messages.forEach(push);
+      else existing.forEach(push);
+      const other = opts?.prepend ? existing : messages;
+      other.forEach(push);
+      merged.sort((a, b) => a.createdAt - b.createdAt);
       return {
         messagesByConv: { ...state.messagesByConv, [convId]: merged },
       };

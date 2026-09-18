@@ -13,6 +13,9 @@ type User = {
     image?: string;
     fullName?: string;
     username?: string;
+    // Hanya diisi saat sesi di-impersonasi admin (hasil /api/auth/switch).
+    impersonatedBy?: string;
+    impersonatedByName?: string;
 };
 
 interface AuthState {

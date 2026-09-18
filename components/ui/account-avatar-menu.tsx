@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Globe, LogOut, Settings, User } from "lucide-react";
+import { Globe, LogOut, Settings, User, Undo2 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { resetAuthGuard } from "@/components/auth-guard";
 import { useAuthStore } from "@/lib/stores/auth-store";
+import { returnToAdminAction } from "@/actions/auth";
+import { SwitchAccountDialog } from "@/components/ui/switch-account-dialog";
 
 type Placement = "header" | "bottom-nav";
 
@@ -22,7 +24,7 @@ interface Props {
   placement: Placement;
 }
 
-function resolveUserImage(image: string | undefined): string | undefined {
+export function resolveUserImage(image: string | null | undefined): string | undefined {
   if (!image) return undefined;
   return image.startsWith("http") || image.startsWith("/")
     ? image
@@ -47,6 +49,16 @@ export function AccountAvatarMenu({ placement }: Props) {
     ? resolveUserImage(user.image)
     : undefined;
   const normalizedRole = (user?.role ?? "").toString().toLowerCase();
+
+  // Hanya admin/superadmin yang boleh mengganti akun (endpoint admin-only).
+  const canSwitch = normalizedRole === "admin" || normalizedRole === "superadmin";
+  // Sedang di-impersonasi? user_info.imp diisi backend saat /api/auth/switch.
+  const impersonating = !!(user as any)?.impersonatedBy;
+
+  const handleReturnToAdmin = async () => {
+    await returnToAdminAction();
+    // returnToAdminAction melakukan hard redirect ke /overview saat sukses.
+  };
 
   const isHeader = placement === "header";
 
@@ -115,6 +127,26 @@ export function AccountAvatarMenu({ placement }: Props) {
           <Globe className="mr-2 h-4 w-4" />
           <span>Kunjungi Website</span>
         </DropdownMenuItem>
+
+        {impersonating && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-amber-700 dark:text-amber-500 focus:text-amber-700 focus:bg-amber-50 dark:focus:bg-amber-950/30"
+              onClick={handleReturnToAdmin}
+            >
+              <Undo2 className="mr-2 h-4 w-4" />
+              <span>Kembali ke Admin</span>
+            </DropdownMenuItem>
+          </>
+        )}
+
+        {canSwitch && (
+          <>
+            <DropdownMenuSeparator />
+            <SwitchAccountDialog />
+          </>
+        )}
 
         <DropdownMenuSeparator />
         <DropdownMenuItem

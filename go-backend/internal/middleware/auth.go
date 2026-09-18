@@ -156,6 +156,13 @@ func JWTMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		c.Set("userId", claims["sub"])
 		c.Set("user_email", claims["email"])
 		c.Set("user_role", claims["role"])
+		c.Set("user_name", claims["name"])
+
+		// Klaim imp (impersonated-by) hanya ada pada sesi hasil admin switch.
+		// Dipakai endpoint /api/auth/return untuk kembali ke akun admin asal.
+		if imp, ok := claims["imp"].(string); ok && imp != "" {
+			c.Set("imp", imp)
+		}
 
 		// Pastikan akun pemilik token masih aktif. JWT berlaku 7 hari, jadi
 		// tanpa pemeriksaan ini user yang dinonaktifkan tetap bisa memakai
