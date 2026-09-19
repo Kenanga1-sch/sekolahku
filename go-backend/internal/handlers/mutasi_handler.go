@@ -257,67 +257,6 @@ func (h *MutasiHandler) GetPublicMutasiStatus(c echo.Context) error {
 	})
 }
 
-func (h *MutasiHandler) ValidatePublicMutasiOut(c echo.Context) error {
-	var req struct {
-		NISN      string `json:"nisn"`
-		BirthDate string `json:"birthDate"`
-	}
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
-	}
-	if strings.TrimSpace(req.NISN) == "" || strings.TrimSpace(req.BirthDate) == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "NISN dan tanggal lahir wajib diisi"})
-	}
-
-	s, err := h.Repo.GetStudentForPublicValidation(req.NISN, req.BirthDate)
-	if err != nil {
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "Data siswa tidak ditemukan atau tidak aktif"})
-	}
-
-	schoolName := h.Repo.GetSchoolName()
-
-	return c.JSON(http.StatusOK, map[string]interface{}{
-		"success": true,
-		"data": map[string]interface{}{
-			"id":         s.ID,
-			"fullName":   s.FullName,
-			"nisn":       s.NISN,
-			"className":  s.ClassName,
-			"parentName": s.ParentName,
-			"schoolName": schoolName,
-		},
-	})
-}
-
-func (h *MutasiHandler) CreatePublicMutasiOutRequest(c echo.Context) error {
-	var m models.MutasiOutRequest
-	if err := c.Bind(&m); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
-	}
-	if strings.TrimSpace(m.StudentID) == "" || strings.TrimSpace(m.DestinationSchool) == "" || strings.TrimSpace(m.Reason) == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Data mutasi keluar belum lengkap"})
-	}
-
-	err := h.Repo.CreateMutasiOutRequest(m)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
-	}
-
-	// Notifikasi admin: permohonan mutasi keluar baru.
-	if h.Notifications != nil {
-		_ = h.Notifications.NotifyRoles(models.Notification{
-			Type:      "info",
-			Category:  "mutasi",
-			Title:     "Permohonan mutasi keluar baru",
-			Message:   "Siswa menuju " + strings.TrimSpace(m.DestinationSchool) + " menunggu penyelesaian surat.",
-			TargetURL: StrPtr("/admin/siswa/mutasi"),
-		}, "admin", "superadmin")
-	}
-
-	return c.JSON(http.StatusCreated, map[string]interface{}{
-		"success": true,
-	})
-}
 
 func (h *MutasiHandler) GetMutasiLogs(c echo.Context) error {
 	page, _ := strconv.Atoi(c.QueryParam("page"))

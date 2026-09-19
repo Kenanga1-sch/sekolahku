@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import {
-  Wallet,
   ArrowRightLeft,
   MessageSquareHeart,
   ArrowRight,
@@ -11,14 +10,8 @@ import { Reveal } from "@/components/public/motion";
 
 const categories = [
   {
-    title: "Tabungan",
-    desc: "Cek saldo tabungan siswa dan lihat rekening koran transaksi.",
-    href: "/layanan/tabungan",
-    icon: Wallet,
-  },
-  {
     title: "Mutasi",
-    desc: "Permohonan pindah masuk, pindah keluar, dan cek status permohonan.",
+    desc: "Permohonan pindah masuk dan cek status permohonan.",
     href: "/layanan/mutasi",
     icon: ArrowRightLeft,
   },

@@ -55,19 +55,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.7,
     },
     {
-      url: `${baseUrl}/layanan/cek-saldo`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.7,
-    },
-    {
       url: `${baseUrl}/layanan/mutasi-masuk`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/layanan/mutasi-keluar`,
       lastModified: new Date(),
       changeFrequency: 'weekly',
       priority: 0.7,

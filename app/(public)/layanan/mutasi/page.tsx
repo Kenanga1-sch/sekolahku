@@ -5,7 +5,6 @@ import {
   ArrowRight,
   ArrowRightLeft,
   Search,
-  ChevronRight,
 } from "lucide-react";
 import { Reveal } from "@/components/public/motion";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
@@ -21,12 +20,6 @@ export default function LayananMutasiPage() {
       desc: `Ajukan permohonan pindah sekolah ke ${schoolName}.`,
       href: "/layanan/mutasi-masuk",
       icon: ArrowRightLeft,
-    },
-    {
-      title: "Mutasi Keluar",
-      desc: `Ajukan permohonan pindah dari ${schoolName} ke sekolah lain.`,
-      href: "/layanan/mutasi-keluar",
-      icon: ChevronRight,
     },
     {
       title: "Cek Status Permohonan",

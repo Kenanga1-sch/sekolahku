@@ -8,7 +8,6 @@ import {
   GraduationCap,
   Users,
   BookOpen,
-  Wallet,
   ArrowRightLeft,
   MessageSquareHeart,
   ArrowRight,
@@ -192,8 +191,7 @@ export default function PublicHomepage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {[
-              { title: "Tabungan", desc: "Cek saldo tabungan dan rekening koran siswa.", href: "/layanan/tabungan", icon: Wallet },
-              { title: "Mutasi", desc: "Permohonan pindah masuk/keluar dan cek status permohonan.", href: "/layanan/mutasi", icon: ArrowRightLeft },
+              { title: "Mutasi", desc: "Permohonan pindah masuk dan cek status permohonan.", href: "/layanan/mutasi", icon: ArrowRightLeft },
               { title: "Kritik & Pengaduan", desc: "Sampaikan masukan atau laporkan perundungan, bisa anonim.", href: "/layanan/kritik-saran-pengaduan", icon: MessageSquareHeart },
             ].map((item, i) => (
               <Reveal key={item.title} delay={i * 0.05}>

@@ -296,7 +296,7 @@ func main() {
 		Integration:    handlers.NewIntegrationHandler(repos.Integration),
 		Document:       handlers.NewDocumentHandler(repos.Document),
 		Push:           handlers.NewPushHandler(pushSvc),
-		Parent:         handlers.NewParentHandler(repos.Parent, repos.User, repos.Attendance, repos.Notification, pushSvc, prefsRepo),
+		Parent:         handlers.NewParentHandler(repos.Parent, repos.User, repos.Attendance, repos.Notification, pushSvc, prefsRepo, repos.Mutasi),
 		StudentMe:      handlers.NewStudentMeHandler(repos.Student, repos.Attendance, repos.Savings, repos.Announcement, db),
 		BankSoal:       handlers.NewBankSoalHandler(repos.BankSoal),
 		Kurikulum:      handlers.NewKurikulumHandler(repos.Kurikulum),

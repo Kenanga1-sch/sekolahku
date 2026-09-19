@@ -74,6 +74,10 @@ fi
 
 echo "→ Artifacts: binary=$BINARY_DIR  out=$OUT_DIR"
 cp "$BINARY_DIR/sekolahku_linux" "$DEPLOY_DIR/sekolahku_linux"
+# Bersihkan dist lama sebelum salin: cp tanpa --delete meninggalkan halaman
+# yang sudah dihapus dari repo (mis. /layanan/mutasi-keluar) tetap dilayani.
+rm -rf "$DEPLOY_DIR/dist"
+mkdir -p "$DEPLOY_DIR/dist"
 cp -r "$OUT_DIR/." "$DEPLOY_DIR/dist/"
 [ -f "$SRC_ROOT/Dockerfile" ] && cp "$SRC_ROOT/Dockerfile" "$DEPLOY_DIR/Dockerfile"
 [ -f "$SRC_ROOT/docker-compose.yml" ] && cp "$SRC_ROOT/docker-compose.yml" "$DEPLOY_DIR/docker-compose.yml"

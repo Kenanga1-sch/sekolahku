@@ -81,3 +81,18 @@ export async function getChildSavingsAction(studentId: string) {
 export async function cancelLeaveAction(leaveId: string) {
   return handleAction(goDelete(`/api/parent/leave-requests/${encodeURIComponent(leaveId)}`), "Pengajuan dibatalkan");
 }
+
+// ===== Mutasi keluar (portal ortu) =====
+export async function listMutasiKeluarAction() {
+  return handleAction(goGet("/api/parent/mutasi-keluar"));
+}
+
+export async function createMutasiKeluarAction(payload: {
+  studentId: string;
+  destinationSchool: string;
+  destinationClass?: string;
+  reason: "domisili" | "tugas_orangtua" | "lainnya";
+  reasonDetail?: string;
+}) {
+  return handleAction(goPost("/api/parent/mutasi-keluar", payload), "Permohonan berhasil dibuat");
+}

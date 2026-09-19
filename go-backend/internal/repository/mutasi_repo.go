@@ -696,53 +696,67 @@ func (r *MutasiRepository) GetMutasiRequestByRegNum(regNum, nisn string) (*model
 	return &m, nil
 }
 
-func (r *MutasiRepository) GetStudentForPublicValidation(nisn, birthDate string) (*models.Student, error) {
-	query := `
-		SELECT id, nik, nisn, nis, full_name, gender, birth_place, birth_date, 
-		       parent_name, class_name, class_id, status
-		FROM students
-		WHERE nisn = ? AND birth_date = ? AND is_active = 1
-	`
-	var s models.Student
-	var nik, nis, nisn_val, gender, bp, bd, pn, cn, cid sql.NullString
-
-	err := r.DB.QueryRow(query, nisn, birthDate).Scan(
-		&s.ID, &nik, &nisn_val, &nis, &s.FullName, &gender, &bp, &bd,
-		&pn, &cn, &cid, &s.Status,
-	)
+// ListMutasiOutByParentUser: permohonan mutasi keluar untuk semua anak yang
+// tertaut ke akun orang tua ini (portal ortu, status pengajuan).
+func (r *MutasiRepository) ListMutasiOutByParentUser(userID string) ([]models.MutasiOutRequest, error) {
+	rows, err := r.DB.Query(`
+		SELECT m.id, m.student_id, s.full_name, COALESCE(s.nisn, ''), COALESCE(s.class_name, '-'),
+		       m.destination_school, m.destination_class, m.letter_no, m.reason, m.reason_detail,
+		       m.status, m.downloaded_at, m.processed_at, m.completed_at, m.created_at, m.updated_at
+		FROM mutasi_out_requests m
+		JOIN students s ON s.id = m.student_id
+		JOIN parent_students ps ON ps.student_id = m.student_id AND ps.is_active = 1
+		WHERE ps.user_id = ?
+		ORDER BY m.created_at DESC
+	`, userID)
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
-	if nik.Valid {
-		s.NIK = Ptr(nik.String)
+	list := make([]models.MutasiOutRequest, 0)
+	for rows.Next() {
+		var m models.MutasiOutRequest
+		var destinationClass, letterNo, reasonDetail sql.NullString
+		var downloadedAt, processedAt, completedAt, createdAt, updatedAt sql.NullInt64
+		if err := rows.Scan(
+			&m.ID, &m.StudentID, &m.StudentName, &m.NISN, &m.ClassName,
+			&m.DestinationSchool, &destinationClass, &letterNo, &m.Reason, &reasonDetail,
+			&m.Status, &downloadedAt, &processedAt, &completedAt, &createdAt, &updatedAt,
+		); err != nil {
+			return nil, err
+		}
+		if destinationClass.Valid {
+			m.DestinationClass = &destinationClass.String
+		}
+		if letterNo.Valid {
+			m.LetterNo = &letterNo.String
+		}
+		if reasonDetail.Valid {
+			m.ReasonDetail = &reasonDetail.String
+		}
+		m.DownloadedAt = SafeTime(downloadedAt)
+		m.ProcessedAt = SafeTime(processedAt)
+		m.CompletedAt = SafeTime(completedAt)
+		m.CreatedAt = SafeTime(createdAt)
+		m.UpdatedAt = SafeTime(updatedAt)
+		list = append(list, m)
 	}
-	if nisn_val.Valid {
-		s.NISN = Ptr(nisn_val.String)
-	}
-	if nis.Valid {
-		s.NIS = Ptr(nis.String)
-	}
-	if gender.Valid {
-		s.Gender = Ptr(gender.String)
-	}
-	if bp.Valid {
-		s.BirthPlace = Ptr(bp.String)
-	}
-	if bd.Valid {
-		s.BirthDate = Ptr(bd.String)
-	}
-	if pn.Valid {
-		s.ParentName = Ptr(pn.String)
-	}
-	if cn.Valid {
-		s.ClassName = Ptr(cn.String)
-	}
-	if cid.Valid {
-		s.ClassID = Ptr(cid.String)
-	}
+	return list, nil
+}
 
-	return &s, nil
+// HasActiveMutasiOut: apakah siswa masih punya permohonan yang belum selesai
+// (mencegah pengajuan ganda dari portal orang tua).
+func (r *MutasiRepository) HasActiveMutasiOut(studentID string) (bool, error) {
+	var count int
+	err := r.DB.QueryRow(`
+		SELECT COUNT(*) FROM mutasi_out_requests
+		WHERE student_id = ? AND status IN ('draft', 'processed')
+	`, studentID).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 func (r *MutasiRepository) CreateMutasiOutRequest(m models.MutasiOutRequest) error {
@@ -760,15 +774,6 @@ func (r *MutasiRepository) CreateMutasiOutRequest(m models.MutasiOutRequest) err
 		"draft", now, now,
 	)
 	return err
-}
-
-func (r *MutasiRepository) GetSchoolName() string {
-	var name string
-	err := r.DB.QueryRow("SELECT school_name FROM school_settings LIMIT 1").Scan(&name)
-	if err != nil {
-		return "Sekolahku"
-	}
-	return name
 }
 
 func (r *MutasiRepository) DirectMutasiMasuk(s models.Student, reason string, originNis, originClass, approvalDate, approvalNo string, mutationDate int64) error {

@@ -252,7 +252,13 @@ func registerStaticRoutes(server *echo.Echo) {
 				return serveFrontendFile(c, "index.html")
 			}
 
+			// Path tanpa ekstensi yang tidak cocok file/konten manapun:
+			// tampilkan halaman 404 (bukan index.html — selama ini URL lama
+			// yang sudah dihapus malah menampilkan Beranda).
 			if !strings.Contains(cleanPath, ".") && !strings.HasPrefix(cleanPath, "_next/") {
+				if diskFileExists("404.html") || fileExists(embedFS, "404.html") {
+					return serveFrontendFile(c, "404.html")
+				}
 				return serveFrontendFile(c, "index.html")
 			}
 

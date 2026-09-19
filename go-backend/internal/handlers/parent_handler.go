@@ -24,10 +24,11 @@ type ParentHandler struct {
 	Notifications *repository.NotificationRepository
 	Push          *push.Service
 	Prefs         *repository.PreferenceRepository
+	Mutasi        *repository.MutasiRepository
 }
 
-func NewParentHandler(repo *repository.ParentRepository, users *repository.UserRepository, attendance *repository.AttendanceRepository, notifications *repository.NotificationRepository, pushSvc *push.Service, prefs *repository.PreferenceRepository) *ParentHandler {
-	return &ParentHandler{Repo: repo, Users: users, Attendance: attendance, Notifications: notifications, Push: pushSvc, Prefs: prefs}
+func NewParentHandler(repo *repository.ParentRepository, users *repository.UserRepository, attendance *repository.AttendanceRepository, notifications *repository.NotificationRepository, pushSvc *push.Service, prefs *repository.PreferenceRepository, mutasi *repository.MutasiRepository) *ParentHandler {
+	return &ParentHandler{Repo: repo, Users: users, Attendance: attendance, Notifications: notifications, Push: pushSvc, Prefs: prefs, Mutasi: mutasi}
 }
 
 var parentDateRegex = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
@@ -548,4 +549,96 @@ func (h *ParentHandler) UnlinkParent(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal melepas tautan"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
+}
+
+// ===== Mutasi Keluar (portal orang tua) =====
+//
+// Pengajuan pindah sekolah untuk anak yang tertaut. Berbeda dengan versi
+// publik lama (NISN + tanggal lahir), di sini ke pemilikan sudah diverifikasi
+// lewat parent_students, jadi ortu cukup pilih anak dan isi tujuan.
+
+func (h *ParentHandler) ListMutasiOut(c echo.Context) error {
+	userID, _ := c.Get("user_id").(string)
+	list, err := h.Mutasi.ListMutasiOutByParentUser(userID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": list})
+}
+
+func (h *ParentHandler) CreateMutasiOut(c echo.Context) error {
+	userID, _ := c.Get("user_id").(string)
+	var req struct {
+		StudentID         string `json:"studentId"`
+		DestinationSchool string `json:"destinationSchool"`
+		DestinationClass  string `json:"destinationClass"`
+		Reason            string `json:"reason"`
+		ReasonDetail      string `json:"reasonDetail"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Data tidak valid"})
+	}
+
+	req.StudentID = strings.TrimSpace(req.StudentID)
+	req.DestinationSchool = strings.TrimSpace(req.DestinationSchool)
+	req.DestinationClass = strings.TrimSpace(req.DestinationClass)
+	req.Reason = strings.TrimSpace(req.Reason)
+	req.ReasonDetail = strings.TrimSpace(req.ReasonDetail)
+
+	if req.StudentID == "" || req.DestinationSchool == "" || req.Reason == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Sekolah tujuan dan alasan wajib diisi"})
+	}
+	if req.Reason != "domisili" && req.Reason != "tugas_orangtua" && req.Reason != "lainnya" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Alasan tidak valid"})
+	}
+	if req.Reason == "lainnya" && req.ReasonDetail == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Detail alasan wajib diisi"})
+	}
+
+	// Hanya boleh mengajukan untuk anak yang tertaut ke akun ini.
+	ok, err := h.Repo.IsParentOf(userID, req.StudentID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+	if !ok {
+		return c.JSON(http.StatusForbidden, map[string]interface{}{"success": false, "error": "Siswa bukan anak Anda"})
+	}
+
+	// Cegah pengajuan ganda: masih ada permohonan yang belum selesai.
+	active, err := h.Mutasi.HasActiveMutasiOut(req.StudentID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+	if active {
+		return c.JSON(http.StatusConflict, map[string]interface{}{"success": false, "error": "Masih ada permohonan mutasi yang sedang diproses untuk anak ini"})
+	}
+
+	m := models.MutasiOutRequest{
+		StudentID:         req.StudentID,
+		DestinationSchool: req.DestinationSchool,
+		Reason:            req.Reason,
+	}
+	if req.DestinationClass != "" {
+		m.DestinationClass = &req.DestinationClass
+	}
+	if req.ReasonDetail != "" {
+		m.ReasonDetail = &req.ReasonDetail
+	}
+
+	if err := h.Mutasi.CreateMutasiOutRequest(m); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal membuat permohonan"})
+	}
+
+	// Notifikasi admin: permohonan mutasi keluar baru dari portal ortu.
+	if h.Notifications != nil {
+		_ = h.Notifications.NotifyRoles(models.Notification{
+			Type:      "info",
+			Category:  "mutasi",
+			Title:     "Permohonan mutasi keluar baru",
+			Message:   "Pengajuan dari portal orang tua menunggu penyelesaian surat.",
+			TargetURL: StrPtr("/admin/siswa/mutasi"),
+		}, "admin", "superadmin")
+	}
+
+	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true})
 }
