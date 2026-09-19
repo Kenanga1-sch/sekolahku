@@ -100,6 +100,24 @@ func TestAuthHandlerLoginSuccess(t *testing.T) {
 	if resp["token"] == "" {
 		t.Errorf("expected non-empty token")
 	}
+
+	// Regression: cookie session harus persisten (MaxAge ~365 hari). Dulu
+	// MaxAge di-set setelah SetCookie → no-op → session hilang saat app ditutup.
+	var sessionMaxAge, infoMaxAge int
+	for _, c := range rec.Result().Cookies() {
+		switch c.Name {
+		case "session":
+			sessionMaxAge = c.MaxAge
+		case "user_info":
+			infoMaxAge = c.MaxAge
+		}
+	}
+	if sessionMaxAge != sessionMaxAge {
+		t.Errorf("expected session cookie MaxAge=%d, got %d", sessionMaxAge, sessionMaxAge)
+	}
+	if infoMaxAge != sessionMaxAge {
+		t.Errorf("expected user_info cookie MaxAge=%d, got %d", sessionMaxAge, infoMaxAge)
+	}
 }
 
 func TestAuthHandlerLoginWrongPassword(t *testing.T) {

@@ -6,7 +6,7 @@ import { useAuthStore } from "@/lib/stores/auth-store";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,7 +16,21 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Settings, LogOut, User, LogIn, LayoutDashboard, Home, GraduationCap, Briefcase, Users, Newspaper } from "lucide-react";
 import { logoutAction } from "@/actions/auth";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect } from "react";
+
+// Aplikasi yang dipasang (PWA standalone) melewati semua halaman publik dan
+// langsung masuk ke aplikasi: login bila belum terauth, atau home per role.
+// Browser biasa (mobile maupun desktop) tetap menampilkan halaman publik.
+function isStandalonePWA(): boolean {
+  if (typeof window === "undefined") return false;
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (navigator as any).standalone === true
+  );
+}
+
+// useLayoutEffect di klien, useEffect di SSR (hindari warning).
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { siteConfig } from "@/lib/config";
 
@@ -33,20 +47,40 @@ export default function PublicLayoutClient({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, isAuthenticated, logout: storeLogout } = useAuthStore();
+  const { user, isAuthenticated, logout: storeLogout, isLoading } = useAuthStore();
   const { settings } = useSchoolSettings();
   const [mounted, setMounted] = useState(false);
+  const [pwaRedirect, setPwaRedirect] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // PWA standalone: jangan pernah tampilkan konten publik. Tunggu sesi
+  // terverifikasi dulu (isLoading), lalu arahkan ke login atau home per role.
+  useIsomorphicLayoutEffect(() => {
+    if (!isStandalonePWA()) return;
+    setPwaRedirect(true);
+    if (isLoading) return;
+    const home = isAuthenticated
+      ? user?.role === "staff"
+        ? "/inventaris"
+        : user?.role === "orangtua"
+        ? "/parent"
+        : "/overview"
+      : "/login";
+    router.replace(home);
+  }, [isLoading, isAuthenticated, user, router]);
 
   const handleLogout = async () => {
     await logoutAction();
     storeLogout();
     window.location.href = "/login";
   };
+
+  if (pwaRedirect) return null;
 
   return (
     <div className="flex flex-col bg-public-bg text-[#1a2e1a] w-full min-h-screen">

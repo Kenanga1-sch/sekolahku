@@ -22,6 +22,14 @@ type AuthHandler struct {
 	AuditRepo *repository.AuditLogRepository
 }
 
+// SessionTTL: umur sesi login. JWT stateless + cookie persisten agar PWA
+// terasa seperti aplikasi native — sekali login, praktis tidak logout lagi
+// di perangkat itu (sama seperti aplikasi mobile pada umumnya). Logout tetap
+// membutihkan cookie; ganti password tidak membatalkan token lama.
+const sessionDays = 365
+const SessionTTL = sessionDays * 24 * time.Hour
+const sessionMaxAge = sessionDays * 24 * 3600
+
 func NewAuthHandler(repo *repository.UserRepository, auditRepo *repository.AuditLogRepository) *AuthHandler {
 	return &AuthHandler{
 		Repo:      repo,
@@ -74,7 +82,7 @@ func (h *AuthHandler) Login(c echo.Context) error {
 		"email": user.Email,
 		"role":  user.Role,
 		"name":  user.Name,
-		"exp":   time.Now().Add(time.Hour * 24 * 7).Unix(), // 7 days expiration
+		"exp":   time.Now().Add(SessionTTL).Unix(),
 	})
 
 	tokenString, err := token.SignedString([]byte(secret))
@@ -93,6 +101,9 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	sessionCookie.HttpOnly = true
 	sessionCookie.Secure = cookieSecure
 	sessionCookie.SameSite = http.SameSiteLaxMode
+	// MaxAge wajib diset SEBELUM SetCookie — Echo menyalin struct cookie
+	// saat SetCookie, jadi assignment setelahnya tidak ber efek.
+	sessionCookie.MaxAge = sessionMaxAge
 	c.SetCookie(sessionCookie)
 
 	// Extract name safely
@@ -127,11 +138,9 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	infoCookie.Secure = cookieSecure
 	infoCookie.SameSite = http.SameSiteLaxMode
 
-	// Persist cookie for 7 days if user requested "remember me"
-	if req.RememberMe {
-		infoCookie.MaxAge = 7 * 24 * 3600
-		sessionCookie.MaxAge = 7 * 24 * 3600
-	}
+	// Session selalu persisten (PWA mode): cookie bertahan setelah app ditutup.
+	// "Ingat saya" hanya dipakai frontend untuk prefill identitas.
+	infoCookie.MaxAge = sessionMaxAge
 	c.SetCookie(infoCookie)
 
 	// Record Audit Log
@@ -184,7 +193,7 @@ func (h *AuthHandler) issueSession(c echo.Context, user *models.User, adminID st
 		"email": user.Email,
 		"role":  user.Role,
 		"name":  user.Name,
-		"exp":   time.Now().Add(time.Hour * 24 * 7).Unix(),
+		"exp":   time.Now().Add(SessionTTL).Unix(),
 	}
 	if adminID != "" && adminID != user.ID {
 		claims["imp"] = adminID
@@ -205,7 +214,7 @@ func (h *AuthHandler) issueSession(c echo.Context, user *models.User, adminID st
 		HttpOnly: true,
 		Secure:   cookieSecure,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   7 * 24 * 3600,
+		MaxAge:   sessionMaxAge,
 	}
 	c.SetCookie(sessionCookie)
 
@@ -238,7 +247,7 @@ func (h *AuthHandler) issueSession(c echo.Context, user *models.User, adminID st
 		HttpOnly: false,
 		Secure:   cookieSecure,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   7 * 24 * 3600,
+		MaxAge:   sessionMaxAge,
 	}
 	c.SetCookie(infoCookie)
 
