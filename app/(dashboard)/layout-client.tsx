@@ -34,6 +34,7 @@ import {
   ChevronUp,
   Menu,
   Sprout,
+  BarChart3,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
@@ -205,6 +206,7 @@ const navGroups: NavGroup[] = [
       { href: "/admin/siswa", label: "Manajemen Siswa", icon: Users, roles: ADMIN_ROLES },
       { href: "/bank-soal", label: "Bank Soal", icon: BookOpen, roles: GURU_ACCESS_ROLES },
       { href: "/ruang-tumbuh/guru", label: "Skrining Siswa", icon: Sprout, roles: GURU_ACCESS_ROLES },
+      { href: "/ruang-tumbuh/staff", label: "Agregat Skrining", icon: BarChart3, roles: ADMIN_ROLES },
       { href: "/presensi", label: "Presensi", icon: ClipboardList, roles: GURU_ACCESS_ROLES },
       { href: "/presensi/pengajuan", label: "Pengajuan Izin", icon: CalendarDays, roles: GURU_ACCESS_ROLES },
       { href: "/tabungan", label: "Tabungan Siswa", icon: Wallet, roles: TABUNGAN_ROLES },

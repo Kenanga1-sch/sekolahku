@@ -219,6 +219,15 @@ type SaveParentObservationRequest struct {
 	Notes     string              `json:"notes"`
 }
 
+// SaveRecommendationRequest: rekomendasi tindak lanjut dari guru (§25).
+type SaveRecommendationRequest struct {
+	StudentID      string `json:"studentId"`
+	Domain         string `json:"domain"`
+	Recommendation string `json:"recommendation"`
+	FollowUpType   string `json:"followUpType"`
+	SharedToParent *bool  `json:"sharedToParent"`
+}
+
 // ScreeningDashboard adalah statistik kelas untuk guru (§29).
 type ScreeningDashboard struct {
 	ClassID         string                  `json:"classId,omitempty"`

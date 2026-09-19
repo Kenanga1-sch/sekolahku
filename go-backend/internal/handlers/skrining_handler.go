@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -18,14 +19,15 @@ import (
 //   - staff/admin: konfigurasi + agregat (lihat semua kelas).
 //   - siswa  : menjalankan game dari sesi kelasnya yang sedang aktif.
 type SkriningHandler struct {
-	Repo    *repository.SkriningRepository
-	Academic *repository.AcademicRepository
-	Audit   *repository.AuditLogRepository
-	DB      *sql.DB
+	Repo         *repository.SkriningRepository
+	Academic     *repository.AcademicRepository
+	Audit        *repository.AuditLogRepository
+	Notifications *repository.NotificationRepository
+	DB           *sql.DB
 }
 
-func NewSkriningHandler(repo *repository.SkriningRepository, academic *repository.AcademicRepository, audit *repository.AuditLogRepository, db *sql.DB) *SkriningHandler {
-	return &SkriningHandler{Repo: repo, Academic: academic, Audit: audit, DB: db}
+func NewSkriningHandler(repo *repository.SkriningRepository, academic *repository.AcademicRepository, audit *repository.AuditLogRepository, notif *repository.NotificationRepository, db *sql.DB) *SkriningHandler {
+	return &SkriningHandler{Repo: repo, Academic: academic, Audit: audit, Notifications: notif, DB: db}
 }
 
 const (
@@ -551,4 +553,149 @@ func (h *SkriningHandler) ListParentRecommendations(c echo.Context) error {
 		recs = []models.ScreeningRecommendation{}
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": recs})
+}
+
+// ══════════════════════════════════════════════════════════
+// GURU — rekomendasi & undangan (§25)
+// ══════════════════════════════════════════════════════════
+
+// SaveRecommendation: guru menyimpan rekomendasi tindak lanjut untuk siswa.
+func (h *SkriningHandler) SaveRecommendation(c echo.Context) error {
+	sessionID := c.Param("id")
+	sess, err := h.Repo.GetSession(sessionID)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Sesi tidak ditemukan"})
+	}
+	if !h.canAccessSession(c, sess) {
+		return c.JSON(http.StatusForbidden, map[string]interface{}{"success": false, "error": "Anda tidak memiliki akses ke sesi ini"})
+	}
+	var req models.SaveRecommendationRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Data tidak valid"})
+	}
+	req.StudentID = strings.TrimSpace(req.StudentID)
+	req.Recommendation = strings.TrimSpace(req.Recommendation)
+	if req.StudentID == "" || req.Recommendation == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Siswa dan isi rekomendasi wajib diisi"})
+	}
+	userID, _ := c.Get("user_id").(string)
+	shared := false
+	if req.SharedToParent != nil {
+		shared = *req.SharedToParent
+	}
+	rec := &models.ScreeningRecommendation{
+		StudentID:      req.StudentID,
+		SessionID:      sessionID,
+		Domain:         req.Domain,
+		Recommendation: req.Recommendation,
+		FollowUpType:   req.FollowUpType,
+		SharedToParent: shared,
+		CreatedBy:      userID,
+	}
+	if err := h.Repo.SaveRecommendation(rec); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal menyimpan rekomendasi"})
+	}
+	h.audit(c, "CREATE", "screening_recommendation", "Rekomendasi untuk student: "+req.StudentID)
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": rec, "message": "Rekomendasi tersimpan"})
+}
+
+// ListSessionRecommendations: rekomendasi satu siswa dalam sesi (guru).
+func (h *SkriningHandler) ListSessionRecommendations(c echo.Context) error {
+	sessionID := c.Param("id")
+	studentID := strings.TrimSpace(c.QueryParam("studentId"))
+	sess, err := h.Repo.GetSession(sessionID)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Sesi tidak ditemukan"})
+	}
+	if !h.canAccessSession(c, sess) {
+		return c.JSON(http.StatusForbidden, map[string]interface{}{"success": false, "error": "Anda tidak memiliki akses ke sesi ini"})
+	}
+	recs, err := h.Repo.ListSessionRecommendations(sessionID, studentID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal memuat rekomendasi"})
+	}
+	if recs == nil {
+		recs = []models.ScreeningRecommendation{}
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": recs})
+}
+
+// ToggleRecommendationShare: bagikan / tarik rekomendasi dari orang tua.
+func (h *SkriningHandler) ToggleRecommendationShare(c echo.Context) error {
+	recID := c.Param("recId")
+	var req struct {
+		Shared bool `json:"shared"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Data tidak valid"})
+	}
+	if err := h.Repo.ToggleRecommendationShare(recID, req.Shared); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal mengubah status berbagi"})
+	}
+	action := "tarik dari orang tua"
+	if req.Shared {
+		action = "bagikan ke orang tua"
+	}
+	h.audit(c, "UPDATE", "screening_recommendation", "Rekomendasi "+recID+" "+action)
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "message": "Status berbagi diperbarui"})
+}
+
+// InviteParents: kirim notifikasi undangan ke orang tua siswa kelas untuk
+// mengisi pengamatan & melihat hasil skrining (§25).
+func (h *SkriningHandler) InviteParents(c echo.Context) error {
+	sessionID := c.Param("id")
+	sess, err := h.Repo.GetSession(sessionID)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Sesi tidak ditemukan"})
+	}
+	if !h.canAccessSession(c, sess) {
+		return c.JSON(http.StatusForbidden, map[string]interface{}{"success": false, "error": "Anda tidak memiliki akses ke sesi ini"})
+	}
+	if h.Notifications == nil {
+		return c.JSON(http.StatusServiceUnavailable, map[string]interface{}{"success": false, "error": "Layanan notifikasi tidak tersedia"})
+	}
+	parentUsers, err := h.Repo.ListClassParentUsers(sess.ClassID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal memuat daftar orang tua"})
+	}
+	target := "/parent/perkembangan"
+	title := "Undangan Pengamatan Perkembangan Anak"
+	msg := "Sekolah mengundang Anda mengisi pengamatan perkembangan anak di portal orang tua."
+	if sess.Title != "" {
+		msg = "Sesi skrining \"" + sess.Title + "\" telah berjalan. Lihat perkembangan anak Anda & isi pengamatan di rumah."
+	}
+	sent := 0
+	for _, uid := range parentUsers {
+		uid := uid
+		if err := h.Notifications.CreateNotification(models.Notification{
+			UserID:    &uid,
+			Type:      "info",
+			Category:  "ruang_tumbuh",
+			Title:     title,
+			Message:   msg,
+			TargetURL: &target,
+		}); err == nil {
+			sent++
+		}
+	}
+	h.audit(c, "CREATE", "parent_invite", "Undangan orang tua sesi: "+sessionID)
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "invited": sent, "message": "Undangan terkirim ke " + strconv.Itoa(sent) + " orang tua"})
+}
+
+// ══════════════════════════════════════════════════════════
+// STAFF/ADMIN — agregat lintas kelas (§29)
+// ══════════════════════════════════════════════════════════
+
+// StaffAggregate: statistik seluruh sesi skrining untuk staff/admin.
+func (h *SkriningHandler) StaffAggregate(c echo.Context) error {
+	role, _ := c.Get("role").(string)
+	if !isStaffOrAdmin(role) {
+		return c.JSON(http.StatusForbidden, map[string]interface{}{"success": false, "error": "Hanya staff/admin"})
+	}
+	year := strings.TrimSpace(c.QueryParam("academicYear"))
+	agg, err := h.Repo.GetStaffAggregate(year)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal memuat agregat"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": agg})
 }

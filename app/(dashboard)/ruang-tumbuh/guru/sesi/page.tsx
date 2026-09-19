@@ -10,6 +10,9 @@ import {
   Square,
   ClipboardCheck,
   Loader2,
+  Mail,
+  Lightbulb,
+  Share2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,7 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { goGet, goPost } from "@/lib/api-client";
+import { goGet, goPost, goPut } from "@/lib/api-client";
 import { showError, showSuccess } from "@/lib/toast";
 import type { ScreeningSession, SessionRosterItem } from "@/lib/ruang-tumbuh/types";
 import { OBSERVATION_ITEMS, metricDescriptors } from "@/lib/ruang-tumbuh/observasi";
@@ -60,6 +63,11 @@ export default function SessionDetailPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [checked, setChecked] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
+  const [recText, setRecText] = useState("");
+  const [recFollowUp, setRecFollowUp] = useState("observasi");
+  const [recShared, setRecShared] = useState(true);
+  const [recList, setRecList] = useState<any[]>([]);
+  const [inviting, setInviting] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -112,6 +120,17 @@ export default function SessionDetailPage() {
       const obsItems = d.observation?.checklist ? JSON.parse(d.observation.checklist) : [];
       setChecked(Array.isArray(obsItems) ? obsItems : []);
       setNotes(d.observation?.notes || "");
+      // Muat rekomendasi yang sudah pernah dibuat untuk siswa ini.
+      try {
+        const recRes: any = await goGet(
+          `/api/ruang-tumbuh/sessions/${sessionID}/recommendations?studentId=${item.studentId}`,
+        );
+        setRecList(recRes?.data || []);
+      } catch {
+        setRecList([]);
+      }
+      setRecText("");
+      setRecShared(true);
     } catch {
       showError("Gagal memuat hasil siswa");
     } finally {
@@ -131,6 +150,61 @@ export default function SessionDetailPage() {
       fetchData();
     } catch {
       showError("Gagal menyimpan observasi");
+    }
+  };
+
+  const handleSaveRecommendation = async () => {
+    if (!detailStudent) return;
+    const text = recText.trim();
+    if (!text) {
+      showError("Isi rekomendasi terlebih dahulu");
+      return;
+    }
+    try {
+      const res: any = await goPost(`/api/ruang-tumbuh/sessions/${sessionID}/recommendations`, {
+        studentId: detailStudent.studentId,
+        domain: detail?.result?.domain || "",
+        recommendation: text,
+        followUpType: recFollowUp,
+        sharedToParent: recShared,
+      });
+      showSuccess(recShared ? "Rekomendasi tersimpan & dibagikan ke orang tua" : "Rekomendasi tersimpan");
+      setRecText("");
+      const recRes: any = await goGet(
+        `/api/ruang-tumbuh/sessions/${sessionID}/recommendations?studentId=${detailStudent.studentId}`,
+      );
+      setRecList(recRes?.data || []);
+      fetchData();
+      void res;
+    } catch {
+      showError("Gagal menyimpan rekomendasi");
+    }
+  };
+
+  const handleToggleShare = async (recId: string, shared: boolean) => {
+    try {
+      await goPut(`/api/ruang-tumbuh/recommendations/${recId}/share`, { shared });
+      showSuccess(shared ? "Rekomendasi dibagikan ke orang tua" : "Rekomendasi ditarik dari orang tua");
+      if (detailStudent) {
+        const recRes: any = await goGet(
+          `/api/ruang-tumbuh/sessions/${sessionID}/recommendations?studentId=${detailStudent.studentId}`,
+        );
+        setRecList(recRes?.data || []);
+      }
+    } catch {
+      showError("Gagal mengubah status berbagi");
+    }
+  };
+
+  const handleInviteParents = async () => {
+    setInviting(true);
+    try {
+      const res: any = await goPost(`/api/ruang-tumbuh/sessions/${sessionID}/invite-parents`, {});
+      showSuccess(res?.message || "Undangan terkirim");
+    } catch {
+      showError("Gagal mengirim undangan");
+    } finally {
+      setInviting(false);
     }
   };
 
@@ -184,6 +258,15 @@ export default function SessionDetailPage() {
                 <CheckCircle2 className="h-4 w-4" /> Sesi Selesai
               </span>
             )}
+            <Button
+              onClick={handleInviteParents}
+              disabled={inviting}
+              variant="outline"
+              className="rounded-full border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900/50 dark:text-emerald-300"
+            >
+              {inviting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Mail className="mr-1 h-4 w-4" />}
+              Undang Orang Tua
+            </Button>
           </div>
 
           <div className="flex items-center gap-3 text-sm">
@@ -317,6 +400,61 @@ export default function SessionDetailPage() {
                   onChange={(e) => setNotes(e.target.value)}
                   rows={3}
                 />
+              </div>
+
+              {/* Rekomendasi tindak lanjut (§25) */}
+              <div className="space-y-2 border-t pt-4">
+                <p className="flex items-center gap-1.5 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  <Lightbulb className="h-4 w-4 text-amber-500" /> Rekomendasi Tindak Lanjut
+                </p>
+                {recList.length > 0 && (
+                  <div className="space-y-1.5">
+                    {recList.map((rec) => (
+                      <div
+                        key={rec.id}
+                        className="flex items-start gap-2 rounded-lg border border-amber-100 bg-amber-50/60 p-2.5 dark:border-amber-900/40 dark:bg-amber-950/20"
+                      >
+                        <span className="flex-1 text-sm text-slate-700 dark:text-slate-200">{rec.recommendation}</span>
+                        <button
+                          onClick={() => handleToggleShare(rec.id, !rec.sharedToParent)}
+                          className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition ${
+                            rec.sharedToParent
+                              ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300"
+                              : "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400"
+                          }`}
+                        >
+                          <Share2 className="h-3 w-3" />
+                          {rec.sharedToParent ? "Dibagikan" : "Bagikan"}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <Textarea
+                  placeholder="Tuliskan rekomendasi tindak lanjut untuk siswa…"
+                  value={recText}
+                  onChange={(e) => setRecText(e.target.value)}
+                  rows={2}
+                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value={recFollowUp}
+                    onChange={(e) => setRecFollowUp(e.target.value)}
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                  >
+                    <option value="observasi">Observasi lanjutan</option>
+                    <option value="pendampingan">Pendampingan guru</option>
+                    <option value="komunikasi">Komunikasi orang tua</option>
+                    <option value="ruang_baca">Ruang baca khusus</option>
+                  </select>
+                  <label className="flex cursor-pointer items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
+                    <Checkbox checked={recShared} onCheckedChange={(v) => setRecShared(!!v)} />
+                    Bagikan ke orang tua
+                  </label>
+                  <Button size="sm" onClick={handleSaveRecommendation} className="ml-auto rounded-full">
+                    Tambah Rekomendasi
+                  </Button>
+                </div>
               </div>
             </div>
           )}

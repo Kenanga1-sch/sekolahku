@@ -300,7 +300,7 @@ func main() {
 		BankSoal:       handlers.NewBankSoalHandler(repos.BankSoal),
 		Kurikulum:      handlers.NewKurikulumHandler(repos.Kurikulum),
 		Chat:           handlers.NewChatHandler(repos.Chat, repos.Notification, pushSvc, chatHub),
-		Skrining:       handlers.NewSkriningHandler(repos.Skrining, repos.Academic, repos.AuditLog, db),
+		Skrining:       handlers.NewSkriningHandler(repos.Skrining, repos.Academic, repos.AuditLog, repos.Notification, db),
 		PushSvc:        pushSvc,
 	}
 

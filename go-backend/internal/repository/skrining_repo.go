@@ -883,3 +883,147 @@ func (r *SkriningRepository) ListSharedRecommendations(studentID string) ([]mode
 	}
 	return list, nil
 }
+
+// ══════════════════════════════════════════════════════════
+// GURU — rekomendasi & undangan orang tua (§25)
+// ══════════════════════════════════════════════════════════
+
+// SaveRecommendation menyimpan rekomendasi tindak lanjut karya guru.
+func (r *SkriningRepository) SaveRecommendation(rec *models.ScreeningRecommendation) error {
+	now := UnixMilli()
+	if rec.ID == "" {
+		rec.ID = r.genID()
+	}
+	rec.CreatedAt = now
+	rec.UpdatedAt = now
+	if rec.FollowUpType == "" {
+		rec.FollowUpType = "observasi"
+	}
+	_, err := r.DB.Exec(`
+		INSERT INTO screening_recommendations (id, student_id, session_id, domain, recommendation, follow_up_type, shared_to_parent, created_by, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, rec.ID, rec.StudentID, rec.SessionID, rec.Domain, rec.Recommendation, rec.FollowUpType, rec.SharedToParent, rec.CreatedBy, rec.CreatedAt, rec.UpdatedAt)
+	return err
+}
+
+// ListSessionRecommendations: rekomendasi untuk satu siswa dalam satu sesi
+// (dilihat guru — termasuk yang belum dibagikan).
+func (r *SkriningRepository) ListSessionRecommendations(sessionID, studentID string) ([]models.ScreeningRecommendation, error) {
+	rows, err := r.DB.Query(`
+		SELECT id, student_id, session_id, domain, recommendation, follow_up_type, shared_to_parent, created_by, created_at, updated_at
+		FROM screening_recommendations
+		WHERE session_id = ? AND student_id = ? AND deleted_at IS NULL
+		ORDER BY created_at DESC
+	`, sessionID, studentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []models.ScreeningRecommendation
+	for rows.Next() {
+		var rec models.ScreeningRecommendation
+		var domain, followUp sql.NullString
+		if err := rows.Scan(&rec.ID, &rec.StudentID, &rec.SessionID, &domain, &rec.Recommendation, &followUp, &rec.SharedToParent, &rec.CreatedBy, &rec.CreatedAt, &rec.UpdatedAt); err != nil {
+			return nil, err
+		}
+		rec.Domain = domain.String
+		rec.FollowUpType = followUp.String
+		list = append(list, rec)
+	}
+	return list, nil
+}
+
+// ToggleRecommendationShare membalik status berbagi rekomendasi ke orang tua.
+func (r *SkriningRepository) ToggleRecommendationShare(recID string, shared bool) error {
+	_, err := r.DB.Exec(`
+		UPDATE screening_recommendations SET shared_to_parent = ?, updated_at = ? WHERE id = ?
+	`, shared, UnixMilli(), recID)
+	return err
+}
+
+// ListClassParentUsers mengambil daftar user_id orang tua dari siswa suatu
+// kelas (untuk undangan mengisi pengamatan / melihat hasil).
+func (r *SkriningRepository) ListClassParentUsers(classID string) ([]string, error) {
+	rows, err := r.DB.Query(`
+		SELECT DISTINCT ps.user_id
+		FROM parent_students ps
+		JOIN students s ON s.id = ps.student_id
+		WHERE s.class_id = ? AND ps.is_active = 1
+	`, classID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []string
+	for rows.Next() {
+		var u string
+		if err := rows.Scan(&u); err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, nil
+}
+
+// ══════════════════════════════════════════════════════════
+// STAFF/ADMIN — agregat lintas kelas (§29)
+// ══════════════════════════════════════════════════════════
+
+// GetStaffAggregate: statistik skrining seluruh kelas untuk staff/admin.
+func (r *SkriningRepository) GetStaffAggregate(academicYear string) (*models.ScreeningDashboard, error) {
+	d := &models.ScreeningDashboard{AcademicYear: academicYear}
+
+	// TotalStudents dipakai sebagai "jumlah sesi" agregat lintas kelas.
+	if err := r.DB.QueryRow(`
+		SELECT COUNT(DISTINCT s.id)
+		FROM screening_sessions s
+		WHERE s.deleted_at IS NULL AND (? = '' OR s.academic_year = ?)
+	`, academicYear, academicYear).Scan(&d.TotalStudents); err != nil {
+		return nil, err
+	}
+
+	if err := r.DB.QueryRow(`
+		SELECT COUNT(DISTINCT a.student_id)
+		FROM screening_attempts a
+		JOIN screening_sessions s ON s.id = a.session_id
+		WHERE a.status = 'completed' AND s.deleted_at IS NULL AND (? = '' OR s.academic_year = ?)
+	`, academicYear, academicYear).Scan(&d.ScreenedCount); err != nil {
+		return nil, err
+	}
+
+	rows, err := r.DB.Query(`
+		SELECT g.domain, COUNT(*) AS attempts, AVG(r.accuracy) AS avg_acc
+		FROM screening_results r
+		JOIN screening_sessions s ON s.id = r.session_id
+		JOIN screening_games g ON g.id = r.game_id
+		WHERE s.deleted_at IS NULL AND (? = '' OR s.academic_year = ?)
+		GROUP BY g.domain
+		ORDER BY attempts DESC
+	`, academicYear, academicYear)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var st models.ScreeningDomainStat
+		if err := rows.Scan(&st.Domain, &st.Attempts, &st.AvgAccuracy); err != nil {
+			return nil, err
+		}
+		if label, ok := models.DomainLabels[st.Domain]; ok {
+			st.DomainLabel = label
+		} else {
+			st.DomainLabel = st.Domain
+		}
+		d.DomainStats = append(d.DomainStats, st)
+	}
+
+	sessions, _, err := r.ListSessions("", "", "", true, 1, 10)
+	if err != nil {
+		return nil, err
+	}
+	d.RecentSessions = sessions
+	return d, nil
+}

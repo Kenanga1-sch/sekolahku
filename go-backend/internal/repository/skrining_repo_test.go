@@ -89,6 +89,8 @@ func setupSkriningTestDB(t *testing.T) *sql.DB {
 	_, err = db.Exec(`
 		INSERT INTO screening_games (id, code, name, domain, version, order_number, is_active, created_at, updated_at)
 		VALUES ('game-tangkap-target', 'tangkap-target', 'Tangkap Target', 'perhatian', '1.0', 1, 1, 0, 0);
+		INSERT INTO screening_games (id, code, name, domain, version, order_number, is_active, created_at, updated_at)
+		VALUES ('game-kereta-kata', 'kereta-kata', 'Kereta Kata', 'literasi', '1.0', 4, 1, 0, 0);
 		INSERT INTO student_classes (id, name, academic_year, is_active, wali_user_id) VALUES ('c1', 'Kelas 4', '2026/2027', 1, 'g1');
 		INSERT INTO students (id, full_name, class_id, status, is_active) VALUES ('s1', 'Siti A', 'c1', 'active', 1);
 		INSERT INTO students (id, full_name, class_id, status, is_active) VALUES ('s2', 'Budi B', 'c1', 'active', 1);
@@ -371,5 +373,94 @@ func TestSkriningSharedRecommendations(t *testing.T) {
 	list, err := repo.ListSharedRecommendations("s1")
 	if err != nil || len(list) != 1 || list[0].ID != "r1" {
 		t.Fatalf("expected only r1 shared, got len=%d err=%v", len(list), err)
+	}
+}
+
+func TestSkriningRecommendationFlow(t *testing.T) {
+	db := setupSkriningTestDB(t)
+	defer db.Close()
+	repo := NewSkriningRepository(db)
+
+	// Guru simpan rekomendasi (belum dibagikan).
+	shared := false
+	rec := &models.ScreeningRecommendation{
+		StudentID:      "s1",
+		SessionID:      "ses1",
+		Domain:         "perhatian",
+		Recommendation: "Latihan fokus 10 menit/hari",
+		SharedToParent: shared,
+		CreatedBy:      "g1",
+	}
+	if err := repo.SaveRecommendation(rec); err != nil {
+		t.Fatalf("SaveRecommendation: %v", err)
+	}
+	if rec.ID == "" || rec.CreatedAt == 0 {
+		t.Fatalf("expected id+timestamps set, got %+v", rec)
+	}
+	if rec.FollowUpType != "observasi" {
+		t.Fatalf("expected default follow_up_type observasi, got %q", rec.FollowUpType)
+	}
+
+	// Lihat dari sisi guru (termasuk yang belum dibagikan).
+	gList, err := repo.ListSessionRecommendations("ses1", "s1")
+	if err != nil || len(gList) != 1 || gList[0].Recommendation != "Latihan fokus 10 menit/hari" {
+		t.Fatalf("guru list: len=%d err=%v", len(gList), err)
+	}
+
+	// Belum dibagikan → ortu tidak melihat.
+	pList, _ := repo.ListSharedRecommendations("s1")
+	if len(pList) != 0 {
+		t.Fatalf("parent should not see unshared rec, got %d", len(pList))
+	}
+
+	// Bagikan → ortu melihat.
+	if err := repo.ToggleRecommendationShare(rec.ID, true); err != nil {
+		t.Fatalf("ToggleShare: %v", err)
+	}
+	pList, _ = repo.ListSharedRecommendations("s1")
+	if len(pList) != 1 || pList[0].ID != rec.ID {
+		t.Fatalf("parent should see shared rec, got %d", len(pList))
+	}
+}
+
+func TestSkriningStaffAggregate(t *testing.T) {
+	db := setupSkriningTestDB(t)
+	defer db.Close()
+	repo := NewSkriningRepository(db)
+
+	// Buat 2 sesi di kelas c1 dan set hasilnya.
+	sess1, _ := repo.CreateSession("game-tangkap-target", "c1", "Kelas 4", "g1", "2026/2027", "A", "")
+	sess2, _ := repo.CreateSession("game-kereta-kata", "c1", "Kelas 4", "g1", "2026/2027", "B", "")
+	if sess1 == nil || sess2 == nil {
+		t.Fatalf("CreateSession returned nil (game not seeded?)")
+	}
+	_ = repo.UpdateSessionStatus(sess1.ID, "active")
+	_ = repo.UpdateSessionStatus(sess2.ID, "active")
+	a1, _ := repo.StartAttempt(sess1.ID, "s1")
+	_ = repo.SubmitAttempt(a1.ID, buildSubmitRequest(4, []int{1, 1, 2, 2}, func(i int) (bool, string, int64) {
+		return true, "x", 800
+	}))
+
+	agg, err := repo.GetStaffAggregate("2026/2027")
+	if err != nil {
+		t.Fatalf("GetStaffAggregate: %v", err)
+	}
+	if agg.TotalStudents != 2 {
+		t.Fatalf("expected 2 sessions, got %d", agg.TotalStudents)
+	}
+	if agg.ScreenedCount != 1 {
+		t.Fatalf("expected 1 screened student, got %d", agg.ScreenedCount)
+	}
+	if len(agg.DomainStats) != 1 || agg.DomainStats[0].Domain != "perhatian" {
+		t.Fatalf("expected 1 domain (perhatian), got %+v", agg.DomainStats)
+	}
+	if len(agg.RecentSessions) == 0 {
+		t.Fatalf("expected recent sessions, got 0")
+	}
+
+	// Filter tahun yang tidak ada → kosong.
+	agg2, _ := repo.GetStaffAggregate("1999/2000")
+	if agg2.TotalStudents != 0 || agg2.ScreenedCount != 0 {
+		t.Fatalf("expected empty for old year, got %+v", agg2)
 	}
 }
