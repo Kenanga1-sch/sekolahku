@@ -202,6 +202,7 @@ func main() {
 		Kurikulum:      repository.NewKurikulumRepository(db),
 		Chat:           repository.NewChatRepository(db),
 		Skrining:       repository.NewSkriningRepository(db),
+		Tugas:          repository.NewTugasRepository(db),
 	}
 
 	// Aktifkan pemeriksaan status user pada setiap request terautentikasi,
@@ -301,6 +302,7 @@ func main() {
 		Kurikulum:      handlers.NewKurikulumHandler(repos.Kurikulum),
 		Chat:           handlers.NewChatHandler(repos.Chat, repos.Notification, pushSvc, chatHub),
 		Skrining:       handlers.NewSkriningHandler(repos.Skrining, repos.Academic, repos.AuditLog, repos.Notification, db),
+		Tugas:          handlers.NewTugasHandler(repos.Tugas, repos.Academic, repos.AuditLog, repos.Notification, db),
 		PushSvc:        pushSvc,
 	}
 

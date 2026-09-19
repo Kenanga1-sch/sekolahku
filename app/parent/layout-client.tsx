@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Home, CalendarPlus, Wallet, Bell, User, MessageCircle, ClipboardList, Sprout } from "lucide-react";
+import { Home, CalendarPlus, Wallet, Bell, User, MessageCircle, ClipboardList, Sprout, Backpack } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { getSchoolLogo } from "@/lib/school-logo";
@@ -25,6 +25,7 @@ const NAV_ITEMS: BottomNavItem[] = [
   { href: "/parent/tabungan", label: "Tabungan", icon: Wallet },
   { href: "/parent/presensi", label: "Presensi", icon: ClipboardList },
   { href: "/parent/perkembangan", label: "Perkembangan", icon: Sprout },
+  { href: "/parent/tugas", label: "Tugas", icon: Backpack },
   { href: "/parent/chat", label: "Pesan", icon: MessageCircle },
   { href: "/parent/izin", label: "Izin/Sakit", icon: CalendarPlus },
   { href: "/parent/notifikasi", label: "Notifikasi", icon: Bell },

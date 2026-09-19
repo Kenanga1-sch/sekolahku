@@ -46,6 +46,7 @@ type Repositories struct {
 	Kurikulum      *repository.KurikulumRepository
 	Chat           *repository.ChatRepository
 	Skrining       *repository.SkriningRepository
+	Tugas          *repository.TugasRepository
 }
 
 // AllHandlers holds all HTTP handler instances.
@@ -85,6 +86,7 @@ type AllHandlers struct {
 	Kurikulum      *handlers.KurikulumHandler
 	Chat           *handlers.ChatHandler
 	Skrining       *handlers.SkriningHandler
+	Tugas          *handlers.TugasHandler
 	// PushSvc dipakai handler lain (absen, tabungan, pengumuman) untuk
 	// mengirim push ke orang tua.
 	PushSvc *push.Service
@@ -705,6 +707,8 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	parentGroup.GET("/ruang-tumbuh/recommendations", h.Skrining.ListParentRecommendations)
 	parentGroup.GET("/ruang-tumbuh/observations", h.Skrining.ListParentObservations)
 	parentGroup.POST("/ruang-tumbuh/observations", h.Skrining.SaveParentObservation)
+	// Modul Tugas & PR: tugas & deadline anak (orang tua memantau pengumpulan).
+	parentGroup.GET("/tugas", h.Tugas.ListChildrenTugas)
 
 	// Portal Siswa (role: siswa) — self-service, data ter-scoping
 	studentGroup := server.Group("/api/student")
@@ -731,6 +735,11 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	studentGroup.GET("/me/ruang-tumbuh/attempts/:id/result", h.Skrining.GetMyAttemptResult)
 	studentGroup.GET("/me/ruang-tumbuh/history", h.Skrining.MyHistory)
 
+	// Modul Tugas & PR: siswa melihat & mengumpulkan tugas kelasnya.
+	studentGroup.GET("/me/tugas", h.Tugas.ListMyTugas)
+	studentGroup.GET("/me/tugas/:id", h.Tugas.GetMyTugas)
+	studentGroup.POST("/me/tugas/:id/submit", h.Tugas.SubmitMyTugas)
+
 	// Pengajuan izin/sakit: guru/admin meninjau
 	guruGroup.GET("/leave-requests", h.Parent.ListLeaves)
 	guruGroup.POST("/leave-requests/:id/review", h.Parent.ReviewLeave)
@@ -752,6 +761,19 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	staffGroup := auth.Group("")
 	staffGroup.Use(authMiddleware.RoleMiddleware(authMiddleware.RoleSuperadmin, authMiddleware.RoleAdmin, authMiddleware.RoleStaff))
 	staffGroup.GET("/ruang-tumbuh/aggregate", h.Skrining.StaffAggregate)
+
+	// Modul Tugas & PR (guru → siswa), scoped ke kelas wali.
+	guruGroup.GET("/tugas", h.Tugas.ListTugas)
+	guruGroup.POST("/tugas", h.Tugas.CreateTugas)
+	guruGroup.GET("/tugas/:id", h.Tugas.GetTugas)
+	guruGroup.PUT("/tugas/:id", h.Tugas.UpdateTugas)
+	guruGroup.DELETE("/tugas/:id", h.Tugas.DeleteTugas)
+	guruGroup.POST("/tugas/:id/archive", h.Tugas.ArchiveTugas)
+	guruGroup.GET("/tugas/:id/roster", h.Tugas.ListRoster)
+	guruGroup.GET("/tugas/:id/submissions", h.Tugas.ListSubmissions)
+	guruGroup.GET("/tugas/:id/submissions/:subId", h.Tugas.GetSubmission)
+	guruGroup.PUT("/tugas/:id/submissions/:subId/grade", h.Tugas.GradeSubmission)
+	guruGroup.POST("/tugas/:id/remind", h.Tugas.Remind)
 
 	// Bank Soal
 	guruGroup.GET("/bank-soal/bab", h.BankSoal.ListBabs)
