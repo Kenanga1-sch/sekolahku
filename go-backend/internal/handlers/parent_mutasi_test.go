@@ -71,6 +71,7 @@ func newParentMutasiHandler(db *sql.DB) *ParentHandler {
 		repository.NewPreferenceRepository(db),
 		repository.NewMutasiRepository(db),
 		repository.NewSavingsRepository(db),
+		repository.NewTugasRepository(db),
 	)
 }
 

@@ -168,7 +168,8 @@ func (r *ParentRepository) GetWeeklyAttendance(studentID string) ([]models.Paren
 }
 
 // ListParentsOfStudent daftar akun ortu yang tertaut ke siswa (admin).
-func (r *ParentRepository) ListParentsOfStudent(studentID string) ([]models.ParentAccount, error) {	rows, err := r.DB.Query(`
+func (r *ParentRepository) ListParentsOfStudent(studentID string) ([]models.ParentAccount, error) {
+	rows, err := r.DB.Query(`
 		SELECT u.id, COALESCE(u.name,''), COALESCE(u.phone,''), ps.relation
 		FROM parent_students ps
 		JOIN users u ON ps.user_id = u.id
@@ -359,4 +360,53 @@ func (r *ParentRepository) scanLeaves(query string, args ...interface{}) ([]mode
 		list = append(list, lr)
 	}
 	return list, nil
+}
+
+// GetPendingLeaveCounts jumlah pengajuan izin/sakit berstatus menunggu,
+// dikelompokkan per student_id milik orang tua tersebut.
+func (r *ParentRepository) GetPendingLeaveCounts(userID string) (map[string]int, error) {
+	rows, err := r.DB.Query(`
+		SELECT student_id, COUNT(*)
+		FROM leave_requests
+		WHERE parent_user_id = ? AND status = 'pending'
+		GROUP BY student_id
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	counts := make(map[string]int)
+	for rows.Next() {
+		var studentID string
+		var count int
+		if err := rows.Scan(&studentID, &count); err != nil {
+			return nil, err
+		}
+		counts[studentID] = count
+	}
+	return counts, nil
+}
+
+// GetLatestVerifiedTransaction transaksi tabungan tersimpan terakhir milik siswa.
+func (r *ParentRepository) GetLatestVerifiedTransaction(studentID string) (*models.ParentDashboardTransaction, error) {
+	var tx models.ParentDashboardTransaction
+	var catatan sql.NullString
+	err := r.DB.QueryRow(`
+		SELECT tipe, nominal, catatan, created_at
+		FROM tabungan_transaksi
+		WHERE siswa_id = ? AND status = 'verified'
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, studentID).Scan(&tx.Tipe, &tx.Nominal, &catatan, &tx.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if catatan.Valid {
+		tx.Catatan = catatan.String
+	}
+	return &tx, nil
 }

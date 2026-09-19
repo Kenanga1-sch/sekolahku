@@ -697,6 +697,31 @@ func (r *TugasRepository) GetMyTugas(tugasID, studentID string) (*models.Tugas, 
 // ORANG TUA
 // ══════════════════════════════════════════════════════════
 
+// CountChildrenTugasStatus menghitung tugas published milik satu anak: total,
+// belum dikumpulkan, dan sudah lewat batas waktu. Satu query, tidak memuat baris.
+func (r *TugasRepository) CountChildrenTugasStatus(parentUserID, studentID string) (total, unsubmitted, overdue int, err error) {
+	if studentID == "" {
+		return 0, 0, 0, nil
+	}
+	now := UnixMilli()
+	row := r.DB.QueryRow(`
+		SELECT
+			COUNT(*),
+			COALESCE(SUM(CASE WHEN my.submitted_at IS NULL THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN my.submitted_at IS NULL AND t.due_at IS NOT NULL AND t.due_at < ? THEN 1 ELSE 0 END), 0)
+		FROM tugas t
+		JOIN parent_students ps ON ps.user_id = ? AND ps.is_active = 1
+		JOIN students s ON s.id = ps.student_id AND s.class_id = t.class_id
+		LEFT JOIN tugas_submissions my
+		       ON my.tugas_id = t.id AND my.student_id = s.id AND my.deleted_at IS NULL
+		WHERE t.deleted_at IS NULL AND t.status = 'published' AND ps.student_id = ?
+	`, now, parentUserID, studentID)
+	if err = row.Scan(&total, &unsubmitted, &overdue); err != nil {
+		return 0, 0, 0, err
+	}
+	return total, unsubmitted, overdue, nil
+}
+
 // ListChildrenTugas mengambil tugas semua anak orang tua + status pengumpulan
 // masing-masing. studentID kosong = semua anak.
 func (r *TugasRepository) ListChildrenTugas(parentUserID, studentID string, page, limit int) ([]models.Tugas, int, error) {

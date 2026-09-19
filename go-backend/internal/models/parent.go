@@ -81,3 +81,44 @@ type ParentAttendanceRecord struct {
 	CheckInTime  *int64 `json:"checkInTime"`
 	RecordMethod string `json:"recordMethod"`
 }
+
+// ParentDashboardWeekly ringkasan kehadiran 7 hari terakhir untuk beranda ortu.
+type ParentDashboardWeekly struct {
+	Hadir int `json:"hadir"`
+	Sakit int `json:"sakit"`
+	Izin  int `json:"izin"`
+	Alpha int `json:"alpha"`
+}
+
+// ParentDashboardTugas ringkasan tugas anak untuk beranda ortu.
+type ParentDashboardTugas struct {
+	Total     int `json:"total"`
+	Belum     int `json:"belum"`
+	Terlambat int `json:"terlambat"`
+}
+
+// ParentDashboardMutasi status permohonan mutasi keluar terbaru untuk beranda ortu.
+type ParentDashboardMutasi struct {
+	ID                string `json:"id"`
+	Status            string `json:"status"`
+	DestinationSchool string `json:"destinationSchool"`
+}
+
+// ParentDashboardTransaction transaksi tabungan tersimpan terakhir untuk beranda ortu.
+type ParentDashboardTransaction struct {
+	Tipe      string `json:"tipe"`
+	Nominal   int    `json:"nominal"`
+	Catatan   string `json:"catatan"`
+	CreatedAt int64  `json:"createdAt"`
+}
+
+// ParentDashboardChild seluruh ringkasan satu anak untuk beranda orang tua.
+type ParentDashboardChild struct {
+	ParentChild
+	AttendanceToday   *ParentAttendanceRecord     `json:"attendanceToday"`
+	Weekly            ParentDashboardWeekly       `json:"weekly"`
+	Tugas             ParentDashboardTugas        `json:"tugas"`
+	PendingLeaves     int                         `json:"pendingLeaves"`
+	LatestTransaction *ParentDashboardTransaction `json:"latestTransaction"`
+	Mutasi            *ParentDashboardMutasi      `json:"mutasi"`
+}

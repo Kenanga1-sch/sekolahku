@@ -26,10 +26,11 @@ type ParentHandler struct {
 	Prefs         *repository.PreferenceRepository
 	Mutasi        *repository.MutasiRepository
 	Savings       *repository.SavingsRepository
+	Tugas         *repository.TugasRepository
 }
 
-func NewParentHandler(repo *repository.ParentRepository, users *repository.UserRepository, attendance *repository.AttendanceRepository, notifications *repository.NotificationRepository, pushSvc *push.Service, prefs *repository.PreferenceRepository, mutasi *repository.MutasiRepository, savings *repository.SavingsRepository) *ParentHandler {
-	return &ParentHandler{Repo: repo, Users: users, Attendance: attendance, Notifications: notifications, Push: pushSvc, Prefs: prefs, Mutasi: mutasi, Savings: savings}
+func NewParentHandler(repo *repository.ParentRepository, users *repository.UserRepository, attendance *repository.AttendanceRepository, notifications *repository.NotificationRepository, pushSvc *push.Service, prefs *repository.PreferenceRepository, mutasi *repository.MutasiRepository, savings *repository.SavingsRepository, tugas *repository.TugasRepository) *ParentHandler {
+	return &ParentHandler{Repo: repo, Users: users, Attendance: attendance, Notifications: notifications, Push: pushSvc, Prefs: prefs, Mutasi: mutasi, Savings: savings, Tugas: tugas}
 }
 
 var parentDateRegex = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
@@ -130,6 +131,87 @@ func (h *ParentHandler) GetChildren(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": children})
+}
+
+// GetDashboard ringkasan beranda orang tua: kehadiran, tugas, status pengajuan,
+// dan tabungan untuk semua anak yang tertaut — satu request.
+func (h *ParentHandler) GetDashboard(c echo.Context) error {
+	userID, _ := c.Get("user_id").(string)
+
+	children, err := h.Repo.GetChildrenByUser(userID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+	if len(children) == 0 {
+		return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": []interface{}{}})
+	}
+
+	pendingLeaves, err := h.Repo.GetPendingLeaveCounts(userID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+
+	mutasiList, err := h.Mutasi.ListMutasiOutByParentUser(userID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+	activeMutasi := make(map[string]*models.MutasiOutRequest)
+	for i := range mutasiList {
+		m := mutasiList[i]
+		if m.Status != "completed" && activeMutasi[m.StudentID] == nil {
+			activeMutasi[m.StudentID] = &m
+		}
+	}
+
+	today := repository.TodayJakarta()
+	items := make([]models.ParentDashboardChild, 0, len(children))
+	for _, ch := range children {
+		item := models.ParentDashboardChild{ParentChild: ch}
+
+		if recent, err := h.Repo.GetRecentAttendance(ch.StudentID, 1); err == nil && len(recent) > 0 && recent[0].Date == today {
+			rec := recent[0]
+			item.AttendanceToday = &rec
+		}
+
+		if weekly, err := h.Repo.GetWeeklyAttendance(ch.StudentID); err == nil {
+			for _, w := range weekly {
+				switch w.Status {
+				case "hadir":
+					item.Weekly.Hadir++
+				case "sakit":
+					item.Weekly.Sakit++
+				case "izin":
+					item.Weekly.Izin++
+				case "alpha":
+					item.Weekly.Alpha++
+				}
+			}
+		}
+
+		if h.Tugas != nil {
+			if total, unsubmitted, overdue, err := h.Tugas.CountChildrenTugasStatus(userID, ch.StudentID); err == nil {
+				item.Tugas = models.ParentDashboardTugas{Total: total, Belum: unsubmitted, Terlambat: overdue}
+			}
+		}
+
+		item.PendingLeaves = pendingLeaves[ch.StudentID]
+
+		if tx, err := h.Repo.GetLatestVerifiedTransaction(ch.StudentID); err == nil && tx != nil {
+			item.LatestTransaction = tx
+		}
+
+		if m, ok := activeMutasi[ch.StudentID]; ok {
+			item.Mutasi = &models.ParentDashboardMutasi{
+				ID:                m.ID,
+				Status:            m.Status,
+				DestinationSchool: m.DestinationSchool,
+			}
+		}
+
+		items = append(items, item)
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": items})
 }
 
 // CreateLeave pengajuan izin/sakit dari orang tua.

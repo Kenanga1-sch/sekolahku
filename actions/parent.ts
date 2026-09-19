@@ -26,6 +26,10 @@ export async function getChildrenAction() {
   return handleAction(goGet("/api/parent/children"));
 }
 
+export async function getParentDashboardAction() {
+  return handleAction(goGet("/api/parent/dashboard"));
+}
+
 export async function getChildAttendanceAction(studentId?: string) {
   const q = studentId ? `?studentId=${encodeURIComponent(studentId)}` : "";
   return handleAction(goGet(`/api/parent/attendance${q}`));

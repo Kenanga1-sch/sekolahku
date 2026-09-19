@@ -690,6 +690,7 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	parentGroup := server.Group("/api/parent")
 	parentGroup.Use(authMiddleware.JWTMiddleware, authMiddleware.RoleMiddleware(authMiddleware.RoleOrangtua))
 	parentGroup.GET("/children", h.Parent.GetChildren)
+	parentGroup.GET("/dashboard", h.Parent.GetDashboard)
 	parentGroup.GET("/leave-requests", h.Parent.GetMyLeaves)
 	parentGroup.POST("/leave-requests", h.Parent.CreateLeave)
 	parentGroup.DELETE("/leave-requests/:id", h.Parent.CancelLeave)
