@@ -119,9 +119,14 @@ interface BottomNavProps {
    * item lain yang dirender layout di SidebarBody).
    */
   items?: BottomNavItem[];
+  /**
+   * Rute halaman profil untuk avatar di slot ke-4 (default "/profile";
+   * portal orang tua pakai "/parent/profil").
+   */
+  profileHref?: string;
 }
 
-export function BottomNav({ onMenuClick, userRole, items }: BottomNavProps) {
+export function BottomNav({ onMenuClick, userRole, items, profileHref }: BottomNavProps) {
   const pathname = usePathname();
 
   const visibleItems = useMemo(
@@ -218,7 +223,7 @@ export function BottomNav({ onMenuClick, userRole, items }: BottomNavProps) {
         {/* Right Items */}
         <div className="flex flex-1 items-center justify-around">
           {rightItems.map(renderItem)}
-          <AccountAvatarMenu placement="bottom-nav" />
+          <AccountAvatarMenu placement="bottom-nav" profileHref={profileHref} />
         </div>
       </div>
     </nav>

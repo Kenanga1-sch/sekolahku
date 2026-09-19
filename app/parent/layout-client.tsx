@@ -194,7 +194,7 @@ export default function ParentLayoutClient({ children }: { children: React.React
 
       {/* Bottom nav mobile: 3 slot link + FAB (buka bottom sheet) + avatar */}
       <div className="print:hidden">
-        <BottomNav items={NAV_ITEMS} onMenuClick={() => setOpen(true)} />
+        <BottomNav items={NAV_ITEMS} onMenuClick={() => setOpen(true)} profileHref="/parent/profil" />
       </div>
     </div>
   );
