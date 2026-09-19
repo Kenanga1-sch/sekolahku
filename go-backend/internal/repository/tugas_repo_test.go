@@ -226,6 +226,7 @@ func TestListMyTugas(t *testing.T) {
 	r := NewTugasRepository(db)
 
 	tg, _ := r.CreateTugas(&models.Tugas{TeacherUserID: "g1", ClassID: "c1", Title: "PR Siswa"})
+	noSubmission, _ := r.CreateTugas(&models.Tugas{TeacherUserID: "g1", ClassID: "c1", Title: "PR Belum Dikerjakan"})
 	archived, _ := r.CreateTugas(&models.Tugas{TeacherUserID: "g1", ClassID: "c1", Title: "PR Lama"})
 	_ = r.SetArchived(archived.ID, true)
 	_, _ = r.UpsertSubmission(tg.ID, "s1", "jwb", "", "", false)
@@ -234,15 +235,24 @@ func TestListMyTugas(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListMyTugas: %v", err)
 	}
-	if total != 1 || len(list) != 1 {
-		t.Fatalf("siswa c1 must see 1 active tugas (archived excluded), got %d", total)
+	if total != 2 || len(list) != 2 {
+		t.Fatalf("siswa c1 must see 2 active tugas (archived excluded), got %d", total)
 	}
-	if list[0].MyStatus != "submitted" || list[0].MySubmissionID == "" {
-		t.Errorf("myStatus wrong: %+v", list[0])
+	byTitle := map[string]models.Tugas{}
+	for _, t := range list {
+		byTitle[t.Title] = t
 	}
-	if list[0].TeacherName != "Guru Satu" {
-		t.Errorf("teacher name missing: %q", list[0].TeacherName)
+	if byTitle["PR Siswa"].MyStatus != "submitted" || byTitle["PR Siswa"].MySubmissionID == "" {
+		t.Errorf("myStatus wrong: %+v", byTitle["PR Siswa"])
 	}
+	// Tugas tanpa pengumpulan: kolom my.* harus NULL-safe (bukan error).
+	if byTitle["PR Belum Dikerjakan"].MyStatus != "" || byTitle["PR Belum Dikerjakan"].MySubmissionID != "" {
+		t.Errorf("tugas tanpa submission must have empty my fields: %+v", byTitle["PR Belum Dikerjakan"])
+	}
+	if byTitle["PR Siswa"].TeacherName != "Guru Satu" {
+		t.Errorf("teacher name missing: %q", byTitle["PR Siswa"].TeacherName)
+	}
+	_ = noSubmission
 }
 
 func TestListChildrenTugas(t *testing.T) {
@@ -251,21 +261,31 @@ func TestListChildrenTugas(t *testing.T) {
 	r := NewTugasRepository(db)
 
 	tg, _ := r.CreateTugas(&models.Tugas{TeacherUserID: "g1", ClassID: "c1", Title: "PR Ortu"})
+	noSub, _ := r.CreateTugas(&models.Tugas{TeacherUserID: "g1", ClassID: "c1", Title: "PR Ortu Belum Kumpul"})
 	_, _ = r.UpsertSubmission(tg.ID, "s1", "jwb", "", "", false)
 
 	list, total, err := r.ListChildrenTugas("p1", "", 1, 20)
 	if err != nil {
 		t.Fatalf("ListChildrenTugas: %v", err)
 	}
-	if total != 1 || len(list) != 1 {
-		t.Fatalf("parent p1 must see 1 tugas, got %d", total)
+	if total != 2 || len(list) != 2 {
+		t.Fatalf("parent p1 must see 2 tugas, got %d", total)
 	}
-	if list[0].StudentID != "s1" || list[0].StudentName != "Siti A" {
-		t.Errorf("student tag missing: %+v", list[0])
+	byTitle := map[string]models.Tugas{}
+	for _, t := range list {
+		byTitle[t.Title] = t
 	}
-	if list[0].MyStatus != "submitted" {
-		t.Errorf("child submission status missing: %+v", list[0])
+	if byTitle["PR Ortu"].StudentID != "s1" || byTitle["PR Ortu"].StudentName != "Siti A" {
+		t.Errorf("student tag missing: %+v", byTitle["PR Ortu"])
 	}
+	if byTitle["PR Ortu"].MyStatus != "submitted" {
+		t.Errorf("child submission status missing: %+v", byTitle["PR Ortu"])
+	}
+	// Tugas tanpa pengumpulan: NULL-safe.
+	if byTitle["PR Ortu Belum Kumpul"].MyStatus != "" {
+		t.Errorf("tugas tanpa submission must have empty myStatus: %+v", byTitle["PR Ortu Belum Kumpul"])
+	}
+	_ = noSub
 
 	// Parent lain (tidak punya anak di c1) tidak melihat apa-apa.
 	other, total, _ := r.ListChildrenTugas("pLain", "", 1, 20)

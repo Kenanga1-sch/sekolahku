@@ -104,7 +104,8 @@ func scanMyTugas(row rowScanner) (*models.Tugas, error) {
 		description, attachmentURL, attachmentName, myID, myStatus,
 		myAnswer, myAttachmentURL, myAttachmentName, myFeedback sql.NullString
 	var dueAt, mySubmittedAt sql.NullInt64
-	var allowLate, myIsLate int
+	var allowLate int
+	var myIsLate sql.NullInt64
 	var myScore sql.NullFloat64
 	if err := row.Scan(
 		&t.ID, &t.TeacherUserID, &teacherName, &t.ClassID, &className,
@@ -132,7 +133,7 @@ func scanMyTugas(row rowScanner) (*models.Tugas, error) {
 	if myID.Valid {
 		t.MySubmissionID = myID.String
 		t.MyStatus = myStatus.String
-		t.MyIsLate = myIsLate == 1
+		t.MyIsLate = myIsLate.Valid && myIsLate.Int64 == 1
 		t.MyAnswerText = myAnswer.String
 		t.MyAttachmentURL = myAttachmentURL.String
 		t.MyAttachmentName = myAttachmentName.String
@@ -742,7 +743,8 @@ func (r *TugasRepository) ListChildrenTugas(parentUserID, studentID string, page
 			description, attachmentURL, attachmentName, myID, myStatus,
 			myAnswer, myAttachmentURL, myAttachmentName, myFeedback sql.NullString
 		var dueAt, mySubmittedAt sql.NullInt64
-		var allowLate, myIsLate int
+		var allowLate int
+		var myIsLate sql.NullInt64
 		var myScore sql.NullFloat64
 		if err := rows.Scan(
 			&t.ID, &t.TeacherUserID, &teacherName, &t.ClassID, &className,
@@ -771,7 +773,7 @@ func (r *TugasRepository) ListChildrenTugas(parentUserID, studentID string, page
 		if myID.Valid {
 			t.MySubmissionID = myID.String
 			t.MyStatus = myStatus.String
-			t.MyIsLate = myIsLate == 1
+			t.MyIsLate = myIsLate.Valid && myIsLate.Int64 == 1
 			t.MyAnswerText = myAnswer.String
 			t.MyAttachmentURL = myAttachmentURL.String
 			t.MyAttachmentName = myAttachmentName.String
