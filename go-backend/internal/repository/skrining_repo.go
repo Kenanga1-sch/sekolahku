@@ -796,3 +796,90 @@ func (r *SkriningRepository) GetWaliClassID(userID string) (classID, className s
 	).Scan(&classID, &className)
 	return classID, className, err
 }
+
+// ══════════════════════════════════════════════════════════
+// PARENT — pengamatan orang tua (§24) & rekomendasi (§25)
+// ══════════════════════════════════════════════════════════
+
+// IsParentOf memverifikasi user adalah orang tua aktif dari student.
+func (r *SkriningRepository) IsParentOf(userID, studentID string) (bool, error) {
+	var n int
+	err := r.DB.QueryRow(
+		`SELECT COUNT(1) FROM parent_students WHERE user_id = ? AND student_id = ? AND is_active = 1`,
+		userID, studentID,
+	).Scan(&n)
+	if err != nil {
+		return false, err
+	}
+	return n > 0, nil
+}
+
+// SaveParentObservation menyimpan kuesioner pengamatan orang tua. Upsert
+// per (student, parent, tahun ajaran) — jawaban terbaru menimpa.
+func (r *SkriningRepository) SaveParentObservation(userID, studentID, academicYear, answersJSON, notes string) error {
+	now := UnixMilli()
+	_, err := r.DB.Exec(`
+		INSERT INTO parent_observations (id, student_id, parent_user_id, academic_year, answers, notes, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(student_id, parent_user_id, academic_year) DO UPDATE SET
+			answers = excluded.answers, notes = excluded.notes, updated_at = excluded.updated_at
+	`, r.genID(), studentID, userID, academicYear, answersJSON, notes, now, now)
+	return err
+}
+
+// ListParentObservations daftar pengamatan orang tua untuk seorang siswa
+// (yang terbaru di atas).
+func (r *SkriningRepository) ListParentObservations(studentID string) ([]models.ParentObservation, error) {
+	rows, err := r.DB.Query(`
+		SELECT id, student_id, parent_user_id, academic_year, answers, notes, created_at, updated_at
+		FROM parent_observations
+		WHERE student_id = ?
+		ORDER BY created_at DESC
+	`, studentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []models.ParentObservation
+	for rows.Next() {
+		var o models.ParentObservation
+		var answers, notes sql.NullString
+		if err := rows.Scan(&o.ID, &o.StudentID, &o.ParentUserID, &o.AcademicYear, &answers, &notes, &o.CreatedAt, &o.UpdatedAt); err != nil {
+			return nil, err
+		}
+		o.Answers = answers.String
+		o.Notes = notes.String
+		list = append(list, o)
+	}
+	return list, nil
+}
+
+// ListSharedRecommendations: rekomendasi tindak lanjut yang sudah
+// dibagikan ke orang tua (shared_to_parent = 1).
+func (r *SkriningRepository) ListSharedRecommendations(studentID string) ([]models.ScreeningRecommendation, error) {
+	rows, err := r.DB.Query(`
+		SELECT id, student_id, session_id, domain, recommendation, follow_up_type, shared_to_parent, created_by, created_at, updated_at
+		FROM screening_recommendations
+		WHERE student_id = ? AND shared_to_parent = 1 AND deleted_at IS NULL
+		ORDER BY created_at DESC
+	`, studentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []models.ScreeningRecommendation
+	for rows.Next() {
+		var rec models.ScreeningRecommendation
+		var sessionID, domain, followUp sql.NullString
+		if err := rows.Scan(&rec.ID, &rec.StudentID, &sessionID, &domain, &rec.Recommendation, &followUp, &rec.SharedToParent, &rec.CreatedBy, &rec.CreatedAt, &rec.UpdatedAt); err != nil {
+			return nil, err
+		}
+		rec.SessionID = sessionID.String
+		rec.Domain = domain.String
+		rec.FollowUpType = followUp.String
+		list = append(list, rec)
+	}
+	return list, nil
+}

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"database/sql"
+	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -450,4 +451,104 @@ func (h *SkriningHandler) MyHistory(c echo.Context) error {
 		results = []models.ScreeningResult{}
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": results})
+}
+
+// ══════════════════════════════════════════════════════════
+// ORANG TUA (§24 kuesioner, §25 rekomendasi yang dibagikan,
+// §28 profil perkembangan anak)
+// ══════════════════════════════════════════════════════════
+
+// checkParentAccess memastikan user yang login adalah orang tua aktif
+// dari studentID. Mengembalikan false (sekaligus respon error) bila tidak.
+func (h *SkriningHandler) checkParentAccess(c echo.Context, studentID string) bool {
+	if studentID == "" {
+		c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Pilih anak terlebih dahulu"})
+		return false
+	}
+	userID, _ := c.Get("user_id").(string)
+	ok, err := h.Repo.IsParentOf(userID, studentID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+		return false
+	}
+	if !ok {
+		c.JSON(http.StatusForbidden, map[string]interface{}{"success": false, "error": "Anda tidak memiliki akses ke anak ini"})
+		return false
+	}
+	return true
+}
+
+// SaveParentObservation: kuesioner pengamatan orang tua (§24).
+func (h *SkriningHandler) SaveParentObservation(c echo.Context) error {
+	var req models.SaveParentObservationRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Data tidak valid"})
+	}
+	studentID := strings.TrimSpace(req.StudentID)
+	if !h.checkParentAccess(c, studentID) {
+		return nil
+	}
+	if len(req.Answers) == 0 {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Isi minimal satu bagian pengamatan"})
+	}
+	answersJSON, err := json.Marshal(req.Answers)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+	year := h.currentAcademicYear()
+	if err := h.Repo.SaveParentObservation(c.Get("user_id").(string), studentID, year, string(answersJSON), strings.TrimSpace(req.Notes)); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal menyimpan pengamatan"})
+	}
+	h.audit(c, "CREATE", "parent_observation", "Pengamatan orang tua untuk student: "+studentID)
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "message": "Pengamatan tersimpan. Terima kasih!"})
+}
+
+// ListParentObservations: riwayat kuesioner pengamatan orang tua.
+func (h *SkriningHandler) ListParentObservations(c echo.Context) error {
+	studentID := strings.TrimSpace(c.QueryParam("studentId"))
+	if !h.checkParentAccess(c, studentID) {
+		return nil
+	}
+	list, err := h.Repo.ListParentObservations(studentID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal memuat pengamatan"})
+	}
+	if list == nil {
+		list = []models.ParentObservation{}
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": list})
+}
+
+// ListParentResults: profil perkembangan anak — hasil skrining dari semua
+// sesi (§28). Orang tua hanya melihat anaknya sendiri.
+func (h *SkriningHandler) ListParentResults(c echo.Context) error {
+	studentID := strings.TrimSpace(c.QueryParam("studentId"))
+	if !h.checkParentAccess(c, studentID) {
+		return nil
+	}
+	results, err := h.Repo.ListStudentResults(studentID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal memuat perkembangan anak"})
+	}
+	if results == nil {
+		results = []models.ScreeningResult{}
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": results})
+}
+
+// ListParentRecommendations: rekomendasi tindak lanjut yang sudah
+// dibagikan guru ke orang tua (§25).
+func (h *SkriningHandler) ListParentRecommendations(c echo.Context) error {
+	studentID := strings.TrimSpace(c.QueryParam("studentId"))
+	if !h.checkParentAccess(c, studentID) {
+		return nil
+	}
+	recs, err := h.Repo.ListSharedRecommendations(studentID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal memuat rekomendasi"})
+	}
+	if recs == nil {
+		recs = []models.ScreeningRecommendation{}
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": recs})
 }

@@ -700,6 +700,11 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	parentGroup.GET("/savings/:studentId", h.Parent.GetChildSavings)
 	parentGroup.GET("/notification-preferences", h.Parent.GetPreferences)
 	parentGroup.PUT("/notification-preferences", h.Parent.UpdatePreferences)
+	// Ruang Tumbuh — profil perkembangan anak & pengamatan orang tua (§24/§25/§28)
+	parentGroup.GET("/ruang-tumbuh/results", h.Skrining.ListParentResults)
+	parentGroup.GET("/ruang-tumbuh/recommendations", h.Skrining.ListParentRecommendations)
+	parentGroup.GET("/ruang-tumbuh/observations", h.Skrining.ListParentObservations)
+	parentGroup.POST("/ruang-tumbuh/observations", h.Skrining.SaveParentObservation)
 
 	// Portal Siswa (role: siswa) — self-service, data ter-scoping
 	studentGroup := server.Group("/api/student")

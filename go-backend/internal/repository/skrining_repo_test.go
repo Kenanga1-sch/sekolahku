@@ -60,10 +60,26 @@ func setupSkriningTestDB(t *testing.T) *sql.DB {
 			id TEXT PRIMARY KEY, full_name TEXT NOT NULL, class_id TEXT,
 			status TEXT DEFAULT 'active', is_active INTEGER DEFAULT 1
 		);
-		CREATE TABLE student_classes (
-			id TEXT PRIMARY KEY, name TEXT, academic_year TEXT, is_active INTEGER DEFAULT 1,
-			wali_user_id TEXT
-		);
+	CREATE TABLE student_classes (
+		id TEXT PRIMARY KEY, name TEXT, academic_year TEXT, is_active INTEGER DEFAULT 1,
+		wali_user_id TEXT
+	);
+	CREATE TABLE parent_students (
+		id TEXT PRIMARY KEY, user_id TEXT NOT NULL, student_id TEXT NOT NULL,
+		is_active INTEGER DEFAULT 1, relation TEXT
+	);
+	CREATE TABLE parent_observations (
+		id TEXT PRIMARY KEY, student_id TEXT NOT NULL, parent_user_id TEXT NOT NULL,
+		academic_year TEXT, answers TEXT NOT NULL, notes TEXT,
+		created_at INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL DEFAULT 0
+	);
+	CREATE UNIQUE INDEX idx_parent_observations_unique ON parent_observations(student_id, parent_user_id, academic_year);
+	CREATE TABLE screening_recommendations (
+		id TEXT PRIMARY KEY, student_id TEXT NOT NULL, session_id TEXT, domain TEXT,
+		recommendation TEXT NOT NULL, follow_up_type TEXT NOT NULL DEFAULT 'observasi',
+		shared_to_parent INTEGER NOT NULL DEFAULT 0, created_by TEXT NOT NULL,
+		created_at INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL DEFAULT 0, deleted_at INTEGER
+	);
 	`
 	_, err = db.Exec(schema)
 	if err != nil {
@@ -276,5 +292,84 @@ func TestSkriningErrorBreakpointNotReached(t *testing.T) {
 	result, _ := repo.GetAttemptResult(attempt.ID)
 	if result.Metrics.ErrorBreakpoint != nil {
 		t.Fatalf("expected no breakpoint, got %d", *result.Metrics.ErrorBreakpoint)
+	}
+}
+
+func TestSkriningParentObservation(t *testing.T) {
+	db := setupSkriningTestDB(t)
+	defer db.Close()
+	repo := NewSkriningRepository(db)
+
+	if _, err := db.Exec(`INSERT INTO parent_students (id, user_id, student_id, is_active, relation) VALUES ('ps1', 'p1', 's1', 1, 'ayah')`); err != nil {
+		t.Fatalf("seed parent link: %v", err)
+	}
+
+	ok, err := repo.IsParentOf("p1", "s1")
+	if err != nil || !ok {
+		t.Fatalf("IsParentOf p1/s1: ok=%v err=%v", ok, err)
+	}
+	if ok, _ := repo.IsParentOf("p1", "s2"); ok {
+		t.Fatalf("p1 bukan orang tua s2")
+	}
+	if ok, _ := repo.IsParentOf("px", "s1"); ok {
+		t.Fatalf("px bukan orang tua")
+	}
+
+	answers := `{"perhatian":["Mudah teralihkan perhatiannya"]}`
+	if err := repo.SaveParentObservation("p1", "s1", "2026/2027", answers, "catatan"); err != nil {
+		t.Fatalf("SaveParentObservation: %v", err)
+	}
+	list, err := repo.ListParentObservations("s1")
+	if err != nil || len(list) != 1 || list[0].Notes != "catatan" || list[0].Answers != answers {
+		t.Fatalf("list: len=%d notes=%q err=%v", len(list), list[0].Notes, err)
+	}
+
+	// Upsert: tahun sama → timpa, tetap 1 baris.
+	if err := repo.SaveParentObservation("p1", "s1", "2026/2027", answers, "catatan 2"); err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+	list, _ = repo.ListParentObservations("s1")
+	if len(list) != 1 || list[0].Notes != "catatan 2" {
+		t.Fatalf("upsert failed: len=%d notes=%q", len(list), list[0].Notes)
+	}
+
+	// Tahun ajaran berbeda → baris baru (riwayat).
+	if err := repo.SaveParentObservation("p1", "s1", "2025/2026", answers, "tahun lalu"); err != nil {
+		t.Fatalf("save tahun lalu: %v", err)
+	}
+	list, _ = repo.ListParentObservations("s1")
+	if len(list) != 2 {
+		t.Fatalf("expected 2 rows, got %d", len(list))
+	}
+	byYear := map[string]string{}
+	for _, o := range list {
+		byYear[o.AcademicYear] = o.Notes
+	}
+	if byYear["2026/2027"] != "catatan 2" || byYear["2025/2026"] != "tahun lalu" {
+		t.Fatalf("riwayat tahun salah: %v", byYear)
+	}
+}
+
+func TestSkriningSharedRecommendations(t *testing.T) {
+	db := setupSkriningTestDB(t)
+	defer db.Close()
+	repo := NewSkriningRepository(db)
+
+	seed := func(shared int, deleted bool, id string) {
+		var del interface{} = nil
+		if deleted {
+			del = 1
+		}
+		if _, err := db.Exec(`INSERT INTO screening_recommendations (id, student_id, recommendation, follow_up_type, shared_to_parent, created_by, created_at, deleted_at) VALUES (?, 's1', 'Ajakan bermain puzzle', 'observasi', ?, 'g1', 0, ?)`, id, shared, del); err != nil {
+			t.Fatalf("seed rec %s: %v", id, err)
+		}
+	}
+	seed(1, false, "r1") // dibagikan
+	seed(0, false, "r2") // belum dibagikan
+	seed(1, true, "r3")  // dibagikan lalu dihapus (soft delete)
+
+	list, err := repo.ListSharedRecommendations("s1")
+	if err != nil || len(list) != 1 || list[0].ID != "r1" {
+		t.Fatalf("expected only r1 shared, got len=%d err=%v", len(list), err)
 	}
 }

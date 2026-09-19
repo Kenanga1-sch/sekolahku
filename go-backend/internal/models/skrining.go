@@ -149,6 +149,35 @@ type TeacherObservation struct {
 	UpdatedAt  int64  `json:"updatedAt,omitempty"`
 }
 
+// ParentObservation adalah pengamatan orang tua di rumah (§24).
+// answers = JSON {domain: [item tercentang]}; struktur sama dengan
+// observasi guru namun konteks rumah.
+type ParentObservation struct {
+	ID           string `json:"id"`
+	StudentID    string `json:"studentId"`
+	ParentUserID string `json:"parentUserId"`
+	AcademicYear string `json:"academicYear,omitempty"`
+	Answers      string `json:"answers,omitempty"`
+	Notes        string `json:"notes,omitempty"`
+	CreatedAt    int64  `json:"createdAt"`
+	UpdatedAt    int64  `json:"updatedAt,omitempty"`
+}
+
+// ScreeningRecommendation adalah rekomendasi tindak lanjut (§25).
+// Dibuat guru/staff; bisa dibagikan ke orang tua (shared_to_parent).
+type ScreeningRecommendation struct {
+	ID             string `json:"id"`
+	StudentID      string `json:"studentId"`
+	SessionID      string `json:"sessionId,omitempty"`
+	Domain         string `json:"domain,omitempty"`
+	Recommendation string `json:"recommendation"`
+	FollowUpType   string `json:"followUpType,omitempty"`
+	SharedToParent bool   `json:"sharedToParent"`
+	CreatedBy      string `json:"createdBy"`
+	CreatedAt      int64  `json:"createdAt"`
+	UpdatedAt      int64  `json:"updatedAt,omitempty"`
+}
+
 // ══════════════════════════════════════════════════════════
 // Request DTOs
 // ══════════════════════════════════════════════════════════
@@ -181,6 +210,13 @@ type SaveObservationRequest struct {
 	StudentID string   `json:"studentId"`
 	Checklist []string `json:"checklist"`
 	Notes     string   `json:"notes"`
+}
+
+// SaveParentObservationRequest: kuesioner pengamatan orang tua (§24).
+type SaveParentObservationRequest struct {
+	StudentID string              `json:"studentId"`
+	Answers   map[string][]string `json:"answers"`
+	Notes     string              `json:"notes"`
 }
 
 // ScreeningDashboard adalah statistik kelas untuk guru (§29).
