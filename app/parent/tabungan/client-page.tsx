@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Wallet, ArrowDownCircle, ArrowUpCircle, Loader2 } from "lucide-react";
+import { Wallet, ArrowDownCircle, ArrowUpCircle, Loader2, FileText } from "lucide-react";
+import Link from "next/link";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getChildSavingsAction, getChildrenAction } from "@/actions/parent";
 
@@ -133,7 +135,20 @@ export default function ParentTabunganClient() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Riwayat Transaksi</CardTitle>
+              <CardTitle className="flex items-center justify-between gap-2 text-base">
+                <span>Riwayat Transaksi</span>
+                <Button
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs font-medium"
+                  disabled={!studentId}
+                >
+                  <Link href="/parent/tabungan/rekening-koran">
+                    <FileText className="mr-1.5 h-3.5 w-3.5" /> Cetak Rekening Koran
+                  </Link>
+                </Button>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {transactions.length === 0 ? (

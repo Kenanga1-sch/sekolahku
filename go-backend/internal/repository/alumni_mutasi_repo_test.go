@@ -217,6 +217,11 @@ func newAlumniMutasiTestDB(t *testing.T) *sql.DB {
 			id TEXT PRIMARY KEY,
 			student_id TEXT NOT NULL,
 			destination_school TEXT,
+			destination_street TEXT,
+			destination_village TEXT,
+			destination_district TEXT,
+			destination_regency TEXT,
+			destination_province TEXT,
 			destination_class TEXT,
 			letter_no TEXT,
 			reason TEXT,
@@ -225,6 +230,25 @@ func newAlumniMutasiTestDB(t *testing.T) *sql.DB {
 			processed_at INTEGER,
 			completed_at INTEGER,
 			updated_at INTEGER
+		)`,
+		`CREATE TABLE mutasi_logs (
+			id TEXT PRIMARY KEY,
+			mutasi_type TEXT,
+			student_id TEXT,
+			student_name TEXT,
+			nisn TEXT,
+			gender TEXT,
+			origin_or_destination TEXT,
+			destination_street TEXT,
+			destination_village TEXT,
+			destination_district TEXT,
+			destination_regency TEXT,
+			destination_province TEXT,
+			destination_class TEXT,
+			letter_no TEXT,
+			mutation_date INTEGER,
+			reason TEXT,
+			created_at INTEGER
 		)`,
 	}
 

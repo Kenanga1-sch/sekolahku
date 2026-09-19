@@ -19,6 +19,11 @@ export interface MutasiPDFStudent {
 export interface MutasiPDFParams {
   student: MutasiPDFStudent;
   destinationSchool: string;
+  destinationStreet?: string;
+  destinationVillage?: string;
+  destinationDistrict?: string;
+  destinationRegency?: string;
+  destinationProvince?: string;
   destinationClass?: string;
   reason: string; // "domisili" | "tugas_orangtua" | "lainnya"
   reasonDetail?: string;
@@ -74,29 +79,43 @@ export async function generateMutasiKeluarPDF(p: MutasiPDFParams): Promise<void>
   doc.text(`Sekolah Tujuan`, 30, startY + 40);
   doc.text(`: ${p.destinationSchool}`, 80, startY + 40);
 
-  doc.text(`Alasan Pindah`, 30, startY + 48);
-  doc.text(`: ${reasonText}`, 80, startY + 48);
+  const alamatTujuan = [p.destinationStreet, p.destinationVillage, p.destinationDistrict, p.destinationRegency, p.destinationProvince]
+    .filter((s) => s && s.trim())
+    .join(", ");
+  if (alamatTujuan) {
+    doc.setFontSize(10);
+    const lines = doc.splitTextToSize(alamatTujuan, 110);
+    lines.forEach((line: string, i: number) => {
+      doc.text(i === 0 ? `: ${line}` : `  ${line}`, 80, startY + 46 + i * 5);
+    });
+    doc.setFontSize(12);
+  }
+
+  const alamatOffset = alamatTujuan ? 8 + (doc.splitTextToSize(alamatTujuan, 110).length - 1) * 5 : 0;
+
+  doc.text(`Alasan Pindah`, 30, startY + 48 + alamatOffset);
+  doc.text(`: ${reasonText}`, 80, startY + 48 + alamatOffset);
 
   doc.text(
     "Demikian surat permohonan ini saya buat dengan sebenar-benarnya untuk dapat dipergunakan sebagaimana mestinya.",
     20,
-    startY + 65,
+    startY + 65 + alamatOffset,
     { maxWidth: 170, align: "justify" },
   );
 
   // Footer
-  doc.text("Hormat saya,", 140, startY + 90);
-  doc.text("Orang Tua / Wali Murid", 140, startY + 96);
+  doc.text("Hormat saya,", 140, startY + 90 + alamatOffset);
+  doc.text("Orang Tua / Wali Murid", 140, startY + 96 + alamatOffset);
 
   // Meterai box
   doc.setLineWidth(0.1);
-  doc.rect(142, startY + 105, 25, 25);
+  doc.rect(142, startY + 105 + alamatOffset, 25, 25);
   doc.setFontSize(8);
-  doc.text("Meterai", 145, startY + 115);
-  doc.text("10.000", 145, startY + 120);
+  doc.text("Meterai", 145, startY + 115 + alamatOffset);
+  doc.text("10.000", 145, startY + 120 + alamatOffset);
 
   doc.setFontSize(12);
-  doc.text(`( ${p.student.parentName || "......................"} )`, 140, startY + 145);
+  doc.text(`( ${p.student.parentName || "......................"} )`, 140, startY + 145 + alamatOffset);
 
   doc.save(`Permohonan_Mutasi_${p.student.fullName}.pdf`);
 }

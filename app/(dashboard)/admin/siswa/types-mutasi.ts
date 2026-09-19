@@ -22,6 +22,11 @@ export interface MutasiRequest {
   gender?: string;
   className?: string;
   destinationSchool?: string;
+  destinationStreet?: string;
+  destinationVillage?: string;
+  destinationDistrict?: string;
+  destinationRegency?: string;
+  destinationProvince?: string;
   letterNo?: string;
   status?: string;
   parentName?: string;

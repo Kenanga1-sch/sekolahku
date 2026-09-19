@@ -14,8 +14,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	gommonLog "github.com/labstack/gommon/log"
-	authMiddleware "github.com/sekolahku/go-backend/internal/middleware"
 	"github.com/sekolahku/go-backend/internal/chat"
+	authMiddleware "github.com/sekolahku/go-backend/internal/middleware"
 	"github.com/sekolahku/go-backend/internal/notify"
 	"github.com/sekolahku/go-backend/internal/push"
 	"github.com/sekolahku/go-backend/internal/repository"
@@ -155,10 +155,10 @@ func main() {
 		}
 	}
 	server.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins:      allowOrigins,
-		AllowMethods:      []string{http.MethodGet, http.MethodPut, http.MethodPatch, http.MethodPost, http.MethodDelete, http.MethodOptions},
-		AllowHeaders:      []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization, "X-CSRF-Token"},
-		AllowCredentials:  true,
+		AllowOrigins:     allowOrigins,
+		AllowMethods:     []string{http.MethodGet, http.MethodPut, http.MethodPatch, http.MethodPost, http.MethodDelete, http.MethodOptions},
+		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization, "X-CSRF-Token"},
+		AllowCredentials: true,
 	}))
 
 	// Database initialization
@@ -274,7 +274,7 @@ func main() {
 		SPMB:           handlers.NewSPMBHandler(repos.SPMB, repos.Notification),
 		Student:        handlers.NewStudentHandler(repos.Student, db),
 		Employee:       handlers.NewEmployeeHandler(repos.Employee),
-		Savings:         handlers.NewSavingsHandler(repos.Savings, repos.Notification, parentNotify),
+		Savings:        handlers.NewSavingsHandler(repos.Savings, repos.Notification, parentNotify),
 		Library:        handlers.NewLibraryHandler(repos.Library, repos.Notification),
 		EOffice:        handlers.NewEOfficeHandler(repos.EOffice, repos.Notification),
 		Attendance:     handlers.NewAttendanceHandler(repos.Attendance, parentNotify),
@@ -296,7 +296,7 @@ func main() {
 		Integration:    handlers.NewIntegrationHandler(repos.Integration),
 		Document:       handlers.NewDocumentHandler(repos.Document),
 		Push:           handlers.NewPushHandler(pushSvc),
-		Parent:         handlers.NewParentHandler(repos.Parent, repos.User, repos.Attendance, repos.Notification, pushSvc, prefsRepo, repos.Mutasi),
+		Parent:         handlers.NewParentHandler(repos.Parent, repos.User, repos.Attendance, repos.Notification, pushSvc, prefsRepo, repos.Mutasi, repos.Savings),
 		StudentMe:      handlers.NewStudentMeHandler(repos.Student, repos.Attendance, repos.Savings, repos.Announcement, db),
 		BankSoal:       handlers.NewBankSoalHandler(repos.BankSoal),
 		Kurikulum:      handlers.NewKurikulumHandler(repos.Kurikulum),

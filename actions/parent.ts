@@ -77,6 +77,11 @@ export async function getChildSavingsAction(studentId: string) {
   return handleAction(goGet(`/api/parent/savings/${encodeURIComponent(studentId)}`));
 }
 
+export async function getChildStatementAction(studentId: string, startDate: string, endDate: string) {
+  const q = `?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`;
+  return handleAction(goGet(`/api/parent/savings/${encodeURIComponent(studentId)}/rekening-koran${q}`));
+}
+
 // ===== Batalkan izin =====
 export async function cancelLeaveAction(leaveId: string) {
   return handleAction(goDelete(`/api/parent/leave-requests/${encodeURIComponent(leaveId)}`), "Pengajuan dibatalkan");
@@ -90,6 +95,11 @@ export async function listMutasiKeluarAction() {
 export async function createMutasiKeluarAction(payload: {
   studentId: string;
   destinationSchool: string;
+  destinationStreet: string;
+  destinationVillage: string;
+  destinationDistrict: string;
+  destinationRegency: string;
+  destinationProvince: string;
   destinationClass?: string;
   reason: "domisili" | "tugas_orangtua" | "lainnya";
   reasonDetail?: string;

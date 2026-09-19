@@ -394,11 +394,17 @@ func (r *MutasiRepository) GetMutasiOutRequests(page, perPage int, month string)
 	args := append(append([]interface{}{}, monthArgs...), perPage, offset)
 	rows, err := r.DB.Query(`
 		SELECT id, student_id, student_name, nisn, class_name,
-		       destination_school, destination_class, letter_no, reason, reason_detail, status,
+		       destination_school,
+		       destination_street, destination_village, destination_district,
+		       destination_regency, destination_province,
+		       destination_class, letter_no, reason, reason_detail, status,
 			   downloaded_at, processed_at, completed_at, created_at, updated_at
 		FROM (
 			SELECT m.id, m.student_id, s.full_name as student_name, s.nisn, COALESCE(s.class_name, '-') as class_name,
-			       m.destination_school, m.destination_class, m.letter_no, m.reason, m.reason_detail, m.status,
+			       m.destination_school,
+			       m.destination_street, m.destination_village, m.destination_district,
+			       m.destination_regency, m.destination_province,
+			       m.destination_class, m.letter_no, m.reason, m.reason_detail, m.status,
 				   m.downloaded_at, m.processed_at, m.completed_at, m.created_at, m.updated_at
 			FROM mutasi_out_requests m
 			JOIN students s ON m.student_id = s.id
@@ -411,6 +417,11 @@ func (r *MutasiRepository) GetMutasiOutRequests(page, perPage int, month string)
 			       ml.nisn,
 			       COALESCE(s.class_name, sch.class_name, '-') as class_name,
 			       ml.origin_or_destination as destination_school,
+			       ml.destination_street,
+			       ml.destination_village,
+			       ml.destination_district,
+			       ml.destination_regency,
+			       ml.destination_province,
 			       ml.destination_class,
 			       ml.letter_no,
 			       COALESCE(ml.reason, 'Mutasi Keluar Direct') as reason,
@@ -442,18 +453,35 @@ func (r *MutasiRepository) GetMutasiOutRequests(page, perPage int, month string)
 	var results []models.MutasiOutRequest
 	for rows.Next() {
 		var m models.MutasiOutRequest
-		var dclass, letno, rd sql.NullString
+		var dstreet, dvillage, ddistrict, dregency, dprovince, dclass, letno, rd sql.NullString
 		var dat, pat, cat, crat, upat sql.NullInt64
 
 		err := rows.Scan(
 			&m.ID, &m.StudentID, &m.StudentName, &m.NISN, &m.ClassName,
-			&m.DestinationSchool, &dclass, &letno, &m.Reason, &rd, &m.Status,
+			&m.DestinationSchool,
+			&dstreet, &dvillage, &ddistrict, &dregency, &dprovince,
+			&dclass, &letno, &m.Reason, &rd, &m.Status,
 			&dat, &pat, &cat, &crat, &upat,
 		)
 		if err != nil {
 			return nil, 0, err
 		}
 
+		if dstreet.Valid {
+			m.DestinationStreet = &dstreet.String
+		}
+		if dvillage.Valid {
+			m.DestinationVillage = &dvillage.String
+		}
+		if ddistrict.Valid {
+			m.DestinationDistrict = &ddistrict.String
+		}
+		if dregency.Valid {
+			m.DestinationRegency = &dregency.String
+		}
+		if dprovince.Valid {
+			m.DestinationProvince = &dprovince.String
+		}
 		if dclass.Valid {
 			m.DestinationClass = &dclass.String
 		}
@@ -481,11 +509,17 @@ func (r *MutasiRepository) GetMutasiOutRequests(page, perPage int, month string)
 func (r *MutasiRepository) GetMutasiOutByID(id string) (*models.MutasiOutRequest, error) {
 	query := `
 		SELECT id, student_id, student_name, nisn, class_name,
-		       destination_school, reason, reason_detail, status,
+		       destination_school,
+		       destination_street, destination_village, destination_district,
+		       destination_regency, destination_province,
+		       destination_class, letter_no, reason, reason_detail, status,
 			   downloaded_at, processed_at, completed_at, created_at, updated_at
 		FROM (
 			SELECT m.id, m.student_id, s.full_name as student_name, s.nisn, COALESCE(s.class_name, '-') as class_name,
-			       m.destination_school, m.reason, m.reason_detail, m.status,
+			       m.destination_school,
+			       m.destination_street, m.destination_village, m.destination_district,
+			       m.destination_regency, m.destination_province,
+			       m.destination_class, m.letter_no, m.reason, m.reason_detail, m.status,
 				   m.downloaded_at, m.processed_at, m.completed_at, m.created_at, m.updated_at
 			FROM mutasi_out_requests m
 			JOIN students s ON m.student_id = s.id
@@ -498,6 +532,13 @@ func (r *MutasiRepository) GetMutasiOutByID(id string) (*models.MutasiOutRequest
 			       ml.nisn,
 			       COALESCE(s.class_name, sch.class_name, '-') as class_name,
 			       ml.origin_or_destination as destination_school,
+			       ml.destination_street,
+			       ml.destination_village,
+			       ml.destination_district,
+			       ml.destination_regency,
+			       ml.destination_province,
+			       ml.destination_class,
+			       ml.letter_no,
 			       COALESCE(ml.reason, 'Mutasi Keluar Direct') as reason,
 			       NULL as reason_detail,
 			       'completed' as status,
@@ -519,20 +560,40 @@ func (r *MutasiRepository) GetMutasiOutByID(id string) (*models.MutasiOutRequest
 		LIMIT 1
 	`
 	var m models.MutasiOutRequest
-	var rd sql.NullString
+	var dstreet, dvillage, ddistrict, dregency, dprovince, dclass, letno, rd sql.NullString
 	var dat, pat, cat, crat, upat sql.NullInt64
 
 	err := r.DB.QueryRow(query, id).Scan(
 		&m.ID, &m.StudentID, &m.StudentName, &m.NISN, &m.ClassName,
-		&m.DestinationSchool, &m.Reason, &rd, &m.Status,
+		&m.DestinationSchool,
+		&dstreet, &dvillage, &ddistrict, &dregency, &dprovince,
+		&dclass, &letno, &m.Reason, &rd, &m.Status,
 		&dat, &pat, &cat, &crat, &upat,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	if rd.Valid {
-		m.ReasonDetail = &rd.String
+	if dstreet.Valid {
+		m.DestinationStreet = &dstreet.String
+	}
+	if dvillage.Valid {
+		m.DestinationVillage = &dvillage.String
+	}
+	if ddistrict.Valid {
+		m.DestinationDistrict = &ddistrict.String
+	}
+	if dregency.Valid {
+		m.DestinationRegency = &dregency.String
+	}
+	if dprovince.Valid {
+		m.DestinationProvince = &dprovince.String
+	}
+	if dclass.Valid {
+		m.DestinationClass = &dclass.String
+	}
+	if letno.Valid {
+		m.LetterNo = &letno.String
 	}
 
 	m.DownloadedAt = SafeTime(dat)
@@ -570,8 +631,15 @@ func (r *MutasiRepository) UpdateMutasiOutStatus(id string, status string) error
 
 	if status == "completed" {
 		var studentID, destinationSchool sql.NullString
-		var destClass, letNo, reason sql.NullString
-		if err := tx.QueryRow("SELECT student_id, destination_school, destination_class, letter_no, reason FROM mutasi_out_requests WHERE id = ?", id).Scan(&studentID, &destinationSchool, &destClass, &letNo, &reason); err != nil {
+		var destStreet, destVillage, destDistrict, destRegency, destProvince, destClass, letNo, reason sql.NullString
+		if err := tx.QueryRow(`
+			SELECT student_id, destination_school,
+			       destination_street, destination_village, destination_district,
+			       destination_regency, destination_province,
+			       destination_class, letter_no, reason
+			FROM mutasi_out_requests WHERE id = ?`,
+			id,
+		).Scan(&studentID, &destinationSchool, &destStreet, &destVillage, &destDistrict, &destRegency, &destProvince, &destClass, &letNo, &reason); err != nil {
 			return err
 		}
 
@@ -613,8 +681,24 @@ func (r *MutasiRepository) UpdateMutasiOutStatus(id string, status string) error
 
 			logID := cuid2.Generate()
 			var dSchool, dClass, lNo, rsn string
+			var dStreet, dVillage, dDistrict, dRegency, dProvince interface{}
 			if destinationSchool.Valid {
 				dSchool = destinationSchool.String
+			}
+			if destStreet.Valid {
+				dStreet = destStreet.String
+			}
+			if destVillage.Valid {
+				dVillage = destVillage.String
+			}
+			if destDistrict.Valid {
+				dDistrict = destDistrict.String
+			}
+			if destRegency.Valid {
+				dRegency = destRegency.String
+			}
+			if destProvince.Valid {
+				dProvince = destProvince.String
 			}
 			if destClass.Valid {
 				dClass = destClass.String
@@ -629,11 +713,14 @@ func (r *MutasiRepository) UpdateMutasiOutStatus(id string, status string) error
 			_, _ = tx.Exec(`
 				INSERT INTO mutasi_logs (
 					id, mutasi_type, student_id, student_name, nisn, gender,
-					origin_or_destination, destination_class, letter_no,
+					origin_or_destination, destination_street, destination_village,
+					destination_district, destination_regency, destination_province,
+					destination_class, letter_no,
 					mutation_date, reason, created_at
-				) VALUES (?, 'keluar', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				) VALUES (?, 'keluar', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			`, logID, studentID.String, studentName.String, nisn.String, gender.String,
-				dSchool, dClass, lNo, now, rsn, now)
+				dSchool, dStreet, dVillage, dDistrict, dRegency, dProvince,
+				dClass, lNo, now, rsn, now)
 		}
 	}
 
@@ -701,7 +788,10 @@ func (r *MutasiRepository) GetMutasiRequestByRegNum(regNum, nisn string) (*model
 func (r *MutasiRepository) ListMutasiOutByParentUser(userID string) ([]models.MutasiOutRequest, error) {
 	rows, err := r.DB.Query(`
 		SELECT m.id, m.student_id, s.full_name, COALESCE(s.nisn, ''), COALESCE(s.class_name, '-'),
-		       m.destination_school, m.destination_class, m.letter_no, m.reason, m.reason_detail,
+		       m.destination_school,
+		       m.destination_street, m.destination_village, m.destination_district,
+		       m.destination_regency, m.destination_province,
+		       m.destination_class, m.letter_no, m.reason, m.reason_detail,
 		       m.status, m.downloaded_at, m.processed_at, m.completed_at, m.created_at, m.updated_at
 		FROM mutasi_out_requests m
 		JOIN students s ON s.id = m.student_id
@@ -717,14 +807,32 @@ func (r *MutasiRepository) ListMutasiOutByParentUser(userID string) ([]models.Mu
 	list := make([]models.MutasiOutRequest, 0)
 	for rows.Next() {
 		var m models.MutasiOutRequest
+		var destStreet, destVillage, destDistrict, destRegency, destProvince sql.NullString
 		var destinationClass, letterNo, reasonDetail sql.NullString
 		var downloadedAt, processedAt, completedAt, createdAt, updatedAt sql.NullInt64
 		if err := rows.Scan(
 			&m.ID, &m.StudentID, &m.StudentName, &m.NISN, &m.ClassName,
-			&m.DestinationSchool, &destinationClass, &letterNo, &m.Reason, &reasonDetail,
+			&m.DestinationSchool,
+			&destStreet, &destVillage, &destDistrict, &destRegency, &destProvince,
+			&destinationClass, &letterNo, &m.Reason, &reasonDetail,
 			&m.Status, &downloadedAt, &processedAt, &completedAt, &createdAt, &updatedAt,
 		); err != nil {
 			return nil, err
+		}
+		if destStreet.Valid {
+			m.DestinationStreet = &destStreet.String
+		}
+		if destVillage.Valid {
+			m.DestinationVillage = &destVillage.String
+		}
+		if destDistrict.Valid {
+			m.DestinationDistrict = &destDistrict.String
+		}
+		if destRegency.Valid {
+			m.DestinationRegency = &destRegency.String
+		}
+		if destProvince.Valid {
+			m.DestinationProvince = &destProvince.String
 		}
 		if destinationClass.Valid {
 			m.DestinationClass = &destinationClass.String
@@ -765,12 +873,16 @@ func (r *MutasiRepository) CreateMutasiOutRequest(m models.MutasiOutRequest) err
 
 	query := `
 		INSERT INTO mutasi_out_requests (
-			id, student_id, destination_school, destination_class, letter_no, reason, reason_detail, 
+			id, student_id, destination_school, destination_street, destination_village,
+			destination_district, destination_regency, destination_province,
+			destination_class, letter_no, reason, reason_detail, 
 			status, created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	_, err := r.DB.Exec(query,
-		id, m.StudentID, m.DestinationSchool, m.DestinationClass, m.LetterNo, m.Reason, m.ReasonDetail,
+		id, m.StudentID, m.DestinationSchool, m.DestinationStreet, m.DestinationVillage,
+		m.DestinationDistrict, m.DestinationRegency, m.DestinationProvince,
+		m.DestinationClass, m.LetterNo, m.Reason, m.ReasonDetail,
 		"draft", now, now,
 	)
 	return err
@@ -864,7 +976,7 @@ func (r *MutasiRepository) DirectMutasiMasuk(s models.Student, reason string, or
 	return err
 }
 
-func (r *MutasiRepository) DirectMutasiKeluar(studentID string, destinationSchool, destinationClass, letterNo, reason string, mutationDate int64) error {
+func (r *MutasiRepository) DirectMutasiKeluar(studentID string, destinationSchool, destinationStreet, destinationVillage, destinationDistrict, destinationRegency, destinationProvince, destinationClass, letterNo, reason string, mutationDate int64) error {
 	now := time.Now().UnixMilli()
 	mutDate := mutationDate
 	if mutDate <= 0 {
@@ -916,11 +1028,15 @@ func (r *MutasiRepository) DirectMutasiKeluar(studentID string, destinationSchoo
 	_, err = tx.Exec(`
 		INSERT INTO mutasi_logs (
 			id, mutasi_type, student_id, student_name, nisn, gender,
-			origin_or_destination, destination_class, letter_no,
+			origin_or_destination, destination_street, destination_village,
+			destination_district, destination_regency, destination_province,
+			destination_class, letter_no,
 			mutation_date, reason, created_at
-		) VALUES (?, 'keluar', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, 'keluar', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, logID, studentID, studentName.String, nisn.String, gender.String,
-		destinationSchool, destinationClass, letterNo,
+		destinationSchool, nullIfEmpty(destinationStreet), nullIfEmpty(destinationVillage),
+		nullIfEmpty(destinationDistrict), nullIfEmpty(destinationRegency), nullIfEmpty(destinationProvince),
+		destinationClass, letterNo,
 		mutDate, reason, now)
 	if err != nil {
 		return err
@@ -960,7 +1076,10 @@ func (r *MutasiRepository) GetMutasiLogs(page, perPage int, month string) ([]mod
 	rows, err := r.DB.Query(`
 		SELECT ml.id, ml.mutasi_type, ml.student_id, ml.student_name, ml.nisn,
 		       s.nis, ml.gender, COALESCE(s.class_name, sch.class_name) as class_name, COALESCE(sc.grade, sch.grade) as class_grade,
-		       ml.origin_or_destination, ml.origin_nis, ml.origin_class, ml.approval_date, ml.approval_no, ml.letter_no, ml.destination_class,
+		       ml.origin_or_destination,
+		       ml.destination_street, ml.destination_village, ml.destination_district,
+		       ml.destination_regency, ml.destination_province,
+		       ml.origin_nis, ml.origin_class, ml.approval_date, ml.approval_no, ml.letter_no, ml.destination_class,
 		       ml.mutation_date, ml.reason, ml.created_at
 		FROM mutasi_logs ml
 		LEFT JOIN students s ON ml.student_id = s.id
@@ -982,14 +1101,16 @@ func (r *MutasiRepository) GetMutasiLogs(page, perPage int, month string) ([]mod
 	for rows.Next() {
 		var m models.MutasiLog
 		var sid, nis, gender, className, reason sql.NullString
-		var onis, oclass, appdate, appno, letno, destclass sql.NullString
+		var dstreet, dvillage, ddistrict, dregency, dprovince, onis, oclass, appdate, appno, letno, destclass sql.NullString
 		var classGrade sql.NullInt64
 		var mutDate, crAt sql.NullInt64
 
 		err := rows.Scan(
 			&m.ID, &m.MutasiType, &sid, &m.StudentName, &m.NISN,
 			&nis, &gender, &className, &classGrade,
-			&m.OriginOrDestination, &onis, &oclass, &appdate, &appno, &letno, &destclass,
+			&m.OriginOrDestination,
+			&dstreet, &dvillage, &ddistrict, &dregency, &dprovince,
+			&onis, &oclass, &appdate, &appno, &letno, &destclass,
 			&mutDate, &reason, &crAt,
 		)
 		if err != nil {
@@ -1011,6 +1132,21 @@ func (r *MutasiRepository) GetMutasiLogs(page, perPage int, month string) ([]mod
 		if classGrade.Valid {
 			g := int(classGrade.Int64)
 			m.ClassGrade = &g
+		}
+		if dstreet.Valid {
+			m.DestinationStreet = &dstreet.String
+		}
+		if dvillage.Valid {
+			m.DestinationVillage = &dvillage.String
+		}
+		if ddistrict.Valid {
+			m.DestinationDistrict = &ddistrict.String
+		}
+		if dregency.Valid {
+			m.DestinationRegency = &dregency.String
+		}
+		if dprovince.Valid {
+			m.DestinationProvince = &dprovince.String
 		}
 		if onis.Valid {
 			m.OriginNis = &onis.String
@@ -1068,6 +1204,11 @@ func (r *MutasiRepository) UpdateMutasiLog(id string, req models.UpdateMutasiLog
 		args = append(args, *req.MutationDate)
 	}
 	add("origin_or_destination", req.OriginOrDestination)
+	add("destination_street", req.DestinationStreet)
+	add("destination_village", req.DestinationVillage)
+	add("destination_district", req.DestinationDistrict)
+	add("destination_regency", req.DestinationRegency)
+	add("destination_province", req.DestinationProvince)
 	add("origin_nis", req.OriginNis)
 	add("origin_class", req.OriginClass)
 	add("approval_date", req.ApprovalDate)

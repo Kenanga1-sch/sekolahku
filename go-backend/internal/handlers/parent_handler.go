@@ -25,10 +25,11 @@ type ParentHandler struct {
 	Push          *push.Service
 	Prefs         *repository.PreferenceRepository
 	Mutasi        *repository.MutasiRepository
+	Savings       *repository.SavingsRepository
 }
 
-func NewParentHandler(repo *repository.ParentRepository, users *repository.UserRepository, attendance *repository.AttendanceRepository, notifications *repository.NotificationRepository, pushSvc *push.Service, prefs *repository.PreferenceRepository, mutasi *repository.MutasiRepository) *ParentHandler {
-	return &ParentHandler{Repo: repo, Users: users, Attendance: attendance, Notifications: notifications, Push: pushSvc, Prefs: prefs, Mutasi: mutasi}
+func NewParentHandler(repo *repository.ParentRepository, users *repository.UserRepository, attendance *repository.AttendanceRepository, notifications *repository.NotificationRepository, pushSvc *push.Service, prefs *repository.PreferenceRepository, mutasi *repository.MutasiRepository, savings *repository.SavingsRepository) *ParentHandler {
+	return &ParentHandler{Repo: repo, Users: users, Attendance: attendance, Notifications: notifications, Push: pushSvc, Prefs: prefs, Mutasi: mutasi, Savings: savings}
 }
 
 var parentDateRegex = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
@@ -238,10 +239,10 @@ func (h *ParentHandler) CancelLeave(c echo.Context) error {
 // validNotifCategories daftar kategori yang dikenal sistem preferensi.
 var validNotifCategories = map[string]bool{
 	repository.NotifCategoryAbsensi:    true,
-	repository.NotifCategoryTabungan:  true,
+	repository.NotifCategoryTabungan:   true,
 	repository.NotifCategoryPengumuman: true,
-	repository.NotifCategoryPR:        true,
-	repository.NotifCategoryUmum:      true,
+	repository.NotifCategoryPR:         true,
+	repository.NotifCategoryUmum:       true,
 }
 
 // GetPreferences preferensi notifikasi user; kategori tanpa baris = aktif.
@@ -569,11 +570,16 @@ func (h *ParentHandler) ListMutasiOut(c echo.Context) error {
 func (h *ParentHandler) CreateMutasiOut(c echo.Context) error {
 	userID, _ := c.Get("user_id").(string)
 	var req struct {
-		StudentID         string `json:"studentId"`
-		DestinationSchool string `json:"destinationSchool"`
-		DestinationClass  string `json:"destinationClass"`
-		Reason            string `json:"reason"`
-		ReasonDetail      string `json:"reasonDetail"`
+		StudentID           string `json:"studentId"`
+		DestinationSchool   string `json:"destinationSchool"`
+		DestinationStreet   string `json:"destinationStreet"`
+		DestinationVillage  string `json:"destinationVillage"`
+		DestinationDistrict string `json:"destinationDistrict"`
+		DestinationRegency  string `json:"destinationRegency"`
+		DestinationProvince string `json:"destinationProvince"`
+		DestinationClass    string `json:"destinationClass"`
+		Reason              string `json:"reason"`
+		ReasonDetail        string `json:"reasonDetail"`
 	}
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Data tidak valid"})
@@ -581,12 +587,20 @@ func (h *ParentHandler) CreateMutasiOut(c echo.Context) error {
 
 	req.StudentID = strings.TrimSpace(req.StudentID)
 	req.DestinationSchool = strings.TrimSpace(req.DestinationSchool)
+	req.DestinationStreet = strings.TrimSpace(req.DestinationStreet)
+	req.DestinationVillage = strings.TrimSpace(req.DestinationVillage)
+	req.DestinationDistrict = strings.TrimSpace(req.DestinationDistrict)
+	req.DestinationRegency = strings.TrimSpace(req.DestinationRegency)
+	req.DestinationProvince = strings.TrimSpace(req.DestinationProvince)
 	req.DestinationClass = strings.TrimSpace(req.DestinationClass)
 	req.Reason = strings.TrimSpace(req.Reason)
 	req.ReasonDetail = strings.TrimSpace(req.ReasonDetail)
 
 	if req.StudentID == "" || req.DestinationSchool == "" || req.Reason == "" {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Sekolah tujuan dan alasan wajib diisi"})
+	}
+	if req.DestinationStreet == "" || req.DestinationVillage == "" || req.DestinationDistrict == "" || req.DestinationRegency == "" || req.DestinationProvince == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Alamat lengkap sekolah tujuan wajib diisi"})
 	}
 	if req.Reason != "domisili" && req.Reason != "tugas_orangtua" && req.Reason != "lainnya" {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Alasan tidak valid"})
@@ -618,6 +632,21 @@ func (h *ParentHandler) CreateMutasiOut(c echo.Context) error {
 		DestinationSchool: req.DestinationSchool,
 		Reason:            req.Reason,
 	}
+	if req.DestinationStreet != "" {
+		m.DestinationStreet = &req.DestinationStreet
+	}
+	if req.DestinationVillage != "" {
+		m.DestinationVillage = &req.DestinationVillage
+	}
+	if req.DestinationDistrict != "" {
+		m.DestinationDistrict = &req.DestinationDistrict
+	}
+	if req.DestinationRegency != "" {
+		m.DestinationRegency = &req.DestinationRegency
+	}
+	if req.DestinationProvince != "" {
+		m.DestinationProvince = &req.DestinationProvince
+	}
 	if req.DestinationClass != "" {
 		m.DestinationClass = &req.DestinationClass
 	}
@@ -641,4 +670,41 @@ func (h *ParentHandler) CreateMutasiOut(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true})
+}
+
+// GetChildStatement menyusun rekening koran lengkap satu anak untuk orang tua.
+// Kepemilikan diverifikasi lewat parent_students (403 bila bukan anaknya),
+// lalu penyusunan saldo berjalan dan hash verifikasi diserahkan ke
+// SavingsRepository.GetStatement — kode yang sama dipakai halaman admin.
+func (h *ParentHandler) GetChildStatement(c echo.Context) error {
+	userID, _ := c.Get("user_id").(string)
+	studentID := strings.TrimSpace(c.Param("studentId"))
+	if studentID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "studentId wajib diisi"})
+	}
+	startDate := strings.TrimSpace(c.QueryParam("startDate"))
+	endDate := strings.TrimSpace(c.QueryParam("endDate"))
+	if startDate == "" || endDate == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Rentang tanggal wajib diisi"})
+	}
+	if !parentDateRegex.MatchString(startDate) || !parentDateRegex.MatchString(endDate) {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Format tanggal tidak valid"})
+	}
+
+	ok, err := h.Repo.IsParentOf(userID, studentID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+	if !ok {
+		return c.JSON(http.StatusForbidden, map[string]interface{}{"success": false, "error": "Siswa bukan anak Anda"})
+	}
+
+	st, err := h.Savings.GetStatement(studentID, startDate, endDate)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+	if st == nil {
+		return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Siswa tidak memiliki rekening tabungan"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": st})
 }

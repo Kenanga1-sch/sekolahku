@@ -257,7 +257,6 @@ func (h *MutasiHandler) GetPublicMutasiStatus(c echo.Context) error {
 	})
 }
 
-
 func (h *MutasiHandler) GetMutasiLogs(c echo.Context) error {
 	page, _ := strconv.Atoi(c.QueryParam("page"))
 	perPage, _ := strconv.Atoi(c.QueryParam("perPage"))
@@ -374,12 +373,17 @@ func (h *MutasiHandler) DirectMutasiMasuk(c echo.Context) error {
 
 func (h *MutasiHandler) DirectMutasiKeluar(c echo.Context) error {
 	var payload struct {
-		StudentID         string `json:"studentId"`
-		DestinationSchool string `json:"destinationSchool"`
-		DestinationClass  string `json:"destinationClass"`
-		LetterNo          string `json:"letterNo"`
-		Reason            string `json:"reason"`
-		MutationDate      int64  `json:"mutationDate"`
+		StudentID           string `json:"studentId"`
+		DestinationSchool   string `json:"destinationSchool"`
+		DestinationStreet   string `json:"destinationStreet"`
+		DestinationVillage  string `json:"destinationVillage"`
+		DestinationDistrict string `json:"destinationDistrict"`
+		DestinationRegency  string `json:"destinationRegency"`
+		DestinationProvince string `json:"destinationProvince"`
+		DestinationClass    string `json:"destinationClass"`
+		LetterNo            string `json:"letterNo"`
+		Reason              string `json:"reason"`
+		MutationDate        int64  `json:"mutationDate"`
 	}
 	if err := c.Bind(&payload); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
@@ -391,6 +395,8 @@ func (h *MutasiHandler) DirectMutasiKeluar(c echo.Context) error {
 
 	err := h.Repo.DirectMutasiKeluar(
 		payload.StudentID, payload.DestinationSchool,
+		payload.DestinationStreet, payload.DestinationVillage,
+		payload.DestinationDistrict, payload.DestinationRegency, payload.DestinationProvince,
 		payload.DestinationClass, payload.LetterNo,
 		payload.Reason, payload.MutationDate,
 	)

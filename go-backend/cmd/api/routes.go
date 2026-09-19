@@ -165,11 +165,11 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	publicGroup.GET("/faqs", h.FAQ.GetPublicFAQs)
 	publicGroup.GET("/spmb/landing", h.SPMB.GetLandingData)
 	publicGroup.POST("/spmb/register", h.SPMB.Register)
-publicGroup.GET("/spmb/registrants", h.SPMB.GetPublicRegistrants)
-publicGroup.GET("/spmb/registrants/:number", h.SPMB.GetRegistrant)
-// Verifikasi rekening koran: halamannya publik (QR discan tanpa login),
-// jadi rute ini harus di luar auth. Rute lama di auth tetap untuk konsistensi.
-publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
+	publicGroup.GET("/spmb/registrants", h.SPMB.GetPublicRegistrants)
+	publicGroup.GET("/spmb/registrants/:number", h.SPMB.GetRegistrant)
+	// Verifikasi rekening koran: halamannya publik (QR discan tanpa login),
+	// jadi rute ini harus di luar auth. Rute lama di auth tetap untuk konsistensi.
+	publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	// Kritik/saran/pengaduan: kini layanan masukan publik (rate-limit),
 	// pengaduan boleh anonim, plus cek status via kode tiket.
 	publicGroup.POST("/contact", h.Contact.SubmitMessage, publicFormLimit)
@@ -478,14 +478,14 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	adminGroup.PATCH("/announcements/:id", h.Announcement.UpdateAnnouncement)
 	adminGroup.DELETE("/announcements/:id", h.Announcement.DeleteAnnouncement)
 
-		// User Management
-		adminGroup.GET("/users", h.User.GetUsers)
-		adminGroup.POST("/users", h.User.CreateUser)
-		adminGroup.PATCH("/users/:id", h.User.UpdateUser)
-		adminGroup.DELETE("/users/:id", h.User.DeleteUser)
-		adminGroup.PATCH("/users/:id/status", h.User.UpdateUserStatus)
-		adminGroup.POST("/users/generate", h.User.GenerateAccounts)
-		adminGroup.GET("/users/:id", h.User.GetUserByID)
+	// User Management
+	adminGroup.GET("/users", h.User.GetUsers)
+	adminGroup.POST("/users", h.User.CreateUser)
+	adminGroup.PATCH("/users/:id", h.User.UpdateUser)
+	adminGroup.DELETE("/users/:id", h.User.DeleteUser)
+	adminGroup.PATCH("/users/:id/status", h.User.UpdateUserStatus)
+	adminGroup.POST("/users/generate", h.User.GenerateAccounts)
+	adminGroup.GET("/users/:id", h.User.GetUserByID)
 
 	// Audit Logs
 	adminGroup.GET("/audit-logs", h.AuditLog.GetLogs)
@@ -565,7 +565,6 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	adminGroup.PUT("/arsip/dokumen/:id", h.Document.Update)
 	adminGroup.DELETE("/arsip/dokumen/:id", h.Document.Delete)
 	adminGroup.GET("/arsip/daftar-1", h.EOffice.GetDaftar1Stats)
-
 
 	// Kiosk (dibuka dari HP guru yang sudah login; ikut role guru+)
 	guruGroup.POST("/kiosk/attendance", h.Attendance.KioskRecordAttendance)
@@ -696,6 +695,7 @@ publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
 	parentGroup.DELETE("/leave-requests/:id", h.Parent.CancelLeave)
 	parentGroup.GET("/attendance", h.Parent.GetChildAttendance)
 	parentGroup.GET("/savings/:studentId", h.Parent.GetChildSavings)
+	parentGroup.GET("/savings/:studentId/rekening-koran", h.Parent.GetChildStatement)
 	parentGroup.GET("/notification-preferences", h.Parent.GetPreferences)
 	parentGroup.PUT("/notification-preferences", h.Parent.UpdatePreferences)
 	// Mutasi keluar: pengajuan pindah sekolah untuk anak yang tertaut.

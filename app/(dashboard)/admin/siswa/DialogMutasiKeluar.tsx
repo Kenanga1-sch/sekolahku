@@ -21,6 +21,11 @@ export function DialogMutasiKeluar() {
     studentId: "",
     mutationDate: format(new Date(), "yyyy-MM-dd"),
     destinationSchool: "",
+    destinationStreet: "",
+    destinationVillage: "",
+    destinationDistrict: "",
+    destinationRegency: "",
+    destinationProvince: "",
     destinationClass: "",
     letterNo: "",
     reason: ""
@@ -61,6 +66,11 @@ export function DialogMutasiKeluar() {
         studentId: "",
         mutationDate: format(new Date(), "yyyy-MM-dd"),
         destinationSchool: "",
+        destinationStreet: "",
+        destinationVillage: "",
+        destinationDistrict: "",
+        destinationRegency: "",
+        destinationProvince: "",
         destinationClass: "",
         letterNo: "",
         reason: "",
@@ -128,6 +138,53 @@ export function DialogMutasiKeluar() {
                 value={form.destinationClass}
                 onChange={(e) => setForm({...form, destinationClass: e.target.value})}
                 placeholder="misal: Kelas 4"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Jalan / Dusun</Label>
+            <Input
+              value={form.destinationStreet}
+              onChange={(e) => setForm({...form, destinationStreet: e.target.value})}
+              placeholder="Jl. Melati No. 12"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Desa / Kelurahan</Label>
+              <Input
+                value={form.destinationVillage}
+                onChange={(e) => setForm({...form, destinationVillage: e.target.value})}
+                placeholder="Kenanga"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Kecamatan</Label>
+              <Input
+                value={form.destinationDistrict}
+                onChange={(e) => setForm({...form, destinationDistrict: e.target.value})}
+                placeholder="Sindang"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Kabupaten / Kota</Label>
+              <Input
+                value={form.destinationRegency}
+                onChange={(e) => setForm({...form, destinationRegency: e.target.value})}
+                placeholder="Indramayu"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Provinsi</Label>
+              <Input
+                value={form.destinationProvince}
+                onChange={(e) => setForm({...form, destinationProvince: e.target.value})}
+                placeholder="Jawa Barat"
               />
             </div>
           </div>

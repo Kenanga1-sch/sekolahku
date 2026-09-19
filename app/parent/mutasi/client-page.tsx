@@ -41,6 +41,11 @@ interface MutasiOut {
   studentName?: string;
   className?: string;
   destinationSchool: string;
+  destinationStreet?: string | null;
+  destinationVillage?: string | null;
+  destinationDistrict?: string | null;
+  destinationRegency?: string | null;
+  destinationProvince?: string | null;
   destinationClass?: string | null;
   letterNo?: string | null;
   reason: string;
@@ -69,6 +74,11 @@ const REASON_LABEL: Record<string, string> = {
 
 const schema = z.object({
   destinationSchool: z.string().min(3, "Nama sekolah tujuan minimal 3 karakter"),
+  destinationStreet: z.string().min(3, "Jalan/dusun wajib diisi"),
+  destinationVillage: z.string().min(2, "Desa/kelurahan wajib diisi"),
+  destinationDistrict: z.string().min(2, "Kecamatan wajib diisi"),
+  destinationRegency: z.string().min(2, "Kabupaten/kota wajib diisi"),
+  destinationProvince: z.string().min(2, "Provinsi wajib diisi"),
   destinationClass: z.string().optional(),
   reason: z.enum(["domisili", "tugas_orangtua", "lainnya"]),
   reasonDetail: z.string().optional(),
@@ -88,7 +98,17 @@ export default function ParentMutasiClientPage() {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { destinationSchool: "", destinationClass: "", reason: "domisili", reasonDetail: "" },
+    defaultValues: {
+      destinationSchool: "",
+      destinationStreet: "",
+      destinationVillage: "",
+      destinationDistrict: "",
+      destinationRegency: "",
+      destinationProvince: "",
+      destinationClass: "",
+      reason: "domisili",
+      reasonDetail: "",
+    },
   });
 
   const loadData = async () => {
@@ -142,6 +162,11 @@ export default function ParentMutasiClientPage() {
       const res = await createMutasiKeluarAction({
         studentId: selectedChild.studentId,
         destinationSchool: values.destinationSchool,
+        destinationStreet: values.destinationStreet,
+        destinationVillage: values.destinationVillage,
+        destinationDistrict: values.destinationDistrict,
+        destinationRegency: values.destinationRegency,
+        destinationProvince: values.destinationProvince,
         destinationClass: values.destinationClass,
         reason: values.reason,
         reasonDetail: values.reason === "lainnya" ? values.reasonDetail : undefined,
@@ -159,6 +184,11 @@ export default function ParentMutasiClientPage() {
           parentName: user?.name,
         },
         destinationSchool: values.destinationSchool,
+        destinationStreet: values.destinationStreet,
+        destinationVillage: values.destinationVillage,
+        destinationDistrict: values.destinationDistrict,
+        destinationRegency: values.destinationRegency,
+        destinationProvince: values.destinationProvince,
         destinationClass: values.destinationClass,
         reason: values.reason,
         reasonDetail: values.reasonDetail,
@@ -247,6 +277,12 @@ export default function ParentMutasiClientPage() {
                   Alasan: {REASON_LABEL[r.reason] || r.reason}
                   {r.letterNo ? ` · No. Surat: ${r.letterNo}` : ""}
                 </p>
+                {(() => {
+                  const parts = [r.destinationStreet, r.destinationVillage, r.destinationDistrict, r.destinationRegency, r.destinationProvince]
+                    .filter((s) => s && s.trim())
+                    .join(", ");
+                  return parts ? <p className="text-xs text-muted-foreground">Alamat: {parts}</p> : null;
+                })()}
                 {r.status !== "completed" && (
                   <p className="text-xs text-muted-foreground">
                     Sekolah sedang memproses surat keterangan pindah. Anda akan dinotifikasi saat selesai.
@@ -317,6 +353,68 @@ export default function ParentMutasiClientPage() {
                 {form.formState.errors.destinationSchool && (
                   <p className="text-xs text-destructive">{form.formState.errors.destinationSchool.message}</p>
                 )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="destinationStreet">Jalan / Dusun</Label>
+                <Input
+                  id="destinationStreet"
+                  placeholder="Mis. Jl. Melati No. 12"
+                  {...form.register("destinationStreet")}
+                />
+                {form.formState.errors.destinationStreet && (
+                  <p className="text-xs text-destructive">{form.formState.errors.destinationStreet.message}</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="destinationVillage">Desa / Kelurahan</Label>
+                  <Input
+                    id="destinationVillage"
+                    placeholder="Mis. Kenanga"
+                    {...form.register("destinationVillage")}
+                  />
+                  {form.formState.errors.destinationVillage && (
+                    <p className="text-xs text-destructive">{form.formState.errors.destinationVillage.message}</p>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="destinationDistrict">Kecamatan</Label>
+                  <Input
+                    id="destinationDistrict"
+                    placeholder="Mis. Sindang"
+                    {...form.register("destinationDistrict")}
+                  />
+                  {form.formState.errors.destinationDistrict && (
+                    <p className="text-xs text-destructive">{form.formState.errors.destinationDistrict.message}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="destinationRegency">Kabupaten / Kota</Label>
+                  <Input
+                    id="destinationRegency"
+                    placeholder="Mis. Indramayu"
+                    {...form.register("destinationRegency")}
+                  />
+                  {form.formState.errors.destinationRegency && (
+                    <p className="text-xs text-destructive">{form.formState.errors.destinationRegency.message}</p>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="destinationProvince">Provinsi</Label>
+                  <Input
+                    id="destinationProvince"
+                    placeholder="Mis. Jawa Barat"
+                    {...form.register("destinationProvince")}
+                  />
+                  {form.formState.errors.destinationProvince && (
+                    <p className="text-xs text-destructive">{form.formState.errors.destinationProvince.message}</p>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-1.5">

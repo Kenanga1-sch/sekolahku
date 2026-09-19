@@ -297,6 +297,21 @@ export default function TabMutasiKeluar() {
                               <span className="text-muted-foreground block">Sekolah Tujuan:</span>
                               <span className="font-semibold">{selectedRequestOut.destinationSchool}</span>
                             </div>
+                            {(() => {
+                              const parts = [
+                                selectedRequestOut.destinationStreet,
+                                selectedRequestOut.destinationVillage,
+                                selectedRequestOut.destinationDistrict,
+                                selectedRequestOut.destinationRegency,
+                                selectedRequestOut.destinationProvince,
+                              ].filter((s) => s && s.trim()).join(", ");
+                              return parts ? (
+                                <div className="sm:col-span-2">
+                                  <span className="text-muted-foreground block">Alamat Sekolah Tujuan:</span>
+                                  <span className="font-semibold">{parts}</span>
+                                </div>
+                              ) : null;
+                            })()}
                             <div>
                               <span className="text-muted-foreground block">Alasan:</span>
                               <span className="font-semibold">{selectedRequestOut.reasonDetail || selectedRequestOut.reason}</span>

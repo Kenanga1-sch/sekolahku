@@ -41,6 +41,8 @@ func setupParentMutasiDB(t *testing.T) *sql.DB {
 			('ps1','p1','s1','orangtua')`,
 		`CREATE TABLE mutasi_out_requests (
 			id TEXT PRIMARY KEY, student_id TEXT, destination_school TEXT,
+			destination_street TEXT, destination_village TEXT, destination_district TEXT,
+			destination_regency TEXT, destination_province TEXT,
 			destination_class TEXT, letter_no TEXT, reason TEXT, reason_detail TEXT,
 			status TEXT, downloaded_at INTEGER, processed_at INTEGER, completed_at INTEGER,
 			created_at INTEGER, updated_at INTEGER
@@ -68,6 +70,7 @@ func newParentMutasiHandler(db *sql.DB) *ParentHandler {
 		nil,
 		repository.NewPreferenceRepository(db),
 		repository.NewMutasiRepository(db),
+		repository.NewSavingsRepository(db),
 	)
 }
 
@@ -88,7 +91,7 @@ func TestParentCreateMutasiOutSuccess(t *testing.T) {
 	db := setupParentMutasiDB(t)
 	defer db.Close()
 
-	rec, _ := callCreateMutasiOut(db, "p1", `{"studentId":"s1","destinationSchool":"SDN 2 Kenanga","reason":"domisili"}`)
+	rec, _ := callCreateMutasiOut(db, "p1", `{"studentId":"s1","destinationStreet":"Jl. Melati No. 12","destinationVillage":"Kenanga","destinationDistrict":"Sindang","destinationRegency":"Indramayu","destinationProvince":"Jawa Barat","destinationSchool":"SDN 2 Kenanga","reason":"domisili"}`)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -115,7 +118,7 @@ func TestParentCreateMutasiOutNotOwnChild(t *testing.T) {
 	db := setupParentMutasiDB(t)
 	defer db.Close()
 
-	rec, _ := callCreateMutasiOut(db, "p1", `{"studentId":"s2","destinationSchool":"SDN 2 Kenanga","reason":"domisili"}`)
+	rec, _ := callCreateMutasiOut(db, "p1", `{"studentId":"s2","destinationStreet":"Jl. Melati No. 12","destinationVillage":"Kenanga","destinationDistrict":"Sindang","destinationRegency":"Indramayu","destinationProvince":"Jawa Barat","destinationSchool":"SDN 2 Kenanga","reason":"domisili"}`)
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("expected 403 for other's child, got %d: %s", rec.Code, rec.Body.String())
 	}
@@ -125,12 +128,12 @@ func TestParentCreateMutasiOutDuplicate(t *testing.T) {
 	db := setupParentMutasiDB(t)
 	defer db.Close()
 
-	rec, _ := callCreateMutasiOut(db, "p1", `{"studentId":"s1","destinationSchool":"SDN 2 Kenanga","reason":"domisili"}`)
+	rec, _ := callCreateMutasiOut(db, "p1", `{"studentId":"s1","destinationStreet":"Jl. Melati No. 12","destinationVillage":"Kenanga","destinationDistrict":"Sindang","destinationRegency":"Indramayu","destinationProvince":"Jawa Barat","destinationSchool":"SDN 2 Kenanga","reason":"domisili"}`)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("first request expected 201, got %d", rec.Code)
 	}
 
-	rec2, _ := callCreateMutasiOut(db, "p1", `{"studentId":"s1","destinationSchool":"SDN 3 Kenanga","reason":"domisili"}`)
+	rec2, _ := callCreateMutasiOut(db, "p1", `{"studentId":"s1","destinationStreet":"Jl. Melati No. 12","destinationVillage":"Kenanga","destinationDistrict":"Sindang","destinationRegency":"Indramayu","destinationProvince":"Jawa Barat","destinationSchool":"SDN 3 Kenanga","reason":"domisili"}`)
 	if rec2.Code != http.StatusConflict {
 		t.Fatalf("expected 409 for duplicate, got %d: %s", rec2.Code, rec2.Body.String())
 	}
@@ -140,10 +143,10 @@ func TestParentListMutasiOutScoped(t *testing.T) {
 	db := setupParentMutasiDB(t)
 	defer db.Close()
 
-	callCreateMutasiOut(db, "p1", `{"studentId":"s1","destinationSchool":"SDN 2 Kenanga","reason":"domisili"}`)
+	callCreateMutasiOut(db, "p1", `{"studentId":"s1","destinationStreet":"Jl. Melati No. 12","destinationVillage":"Kenanga","destinationDistrict":"Sindang","destinationRegency":"Indramayu","destinationProvince":"Jawa Barat","destinationSchool":"SDN 2 Kenanga","reason":"domisili"}`)
 	// Sisipkan permohonan milik siswa lain (bukan anak p1) — tidak boleh ikut.
-	if _, err := db.Exec(`INSERT INTO mutasi_out_requests (id, student_id, destination_school, reason, status, created_at, updated_at)
-		VALUES ('x1','s2','SDN X','domisili','draft',1,1)`); err != nil {
+	if _, err := db.Exec(`INSERT INTO mutasi_out_requests (id, student_id, destination_school, destination_street, destination_village, destination_district, destination_regency, destination_province, reason, status, created_at, updated_at)
+		VALUES ('x1','s2','SDN X','Jl. X','Desa X','Kec. X','Kab. X','Provinsi X','domisili','draft',1,1)`); err != nil {
 		t.Fatal(err)
 	}
 

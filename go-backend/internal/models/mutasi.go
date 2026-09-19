@@ -27,22 +27,27 @@ type MutasiRequest struct {
 
 // MutasiOutRequest represents an outgoing student transfer request
 type MutasiOutRequest struct {
-	ID                string     `json:"id"`
-	StudentID         string     `json:"studentId"`
-	StudentName       string     `json:"studentName"` // Joined from students
-	NISN              string     `json:"nisn"`        // Joined from students
-	ClassName         string     `json:"className"`   // Joined from students
-	DestinationSchool string     `json:"destinationSchool"`
-	DestinationClass  *string    `json:"destinationClass"`
-	LetterNo          *string    `json:"letterNo"`
-	Reason            string     `json:"reason"`
-	ReasonDetail      *string    `json:"reasonDetail"`
-	Status            string     `json:"status"` // draft, processed, completed
-	DownloadedAt      *time.Time `json:"downloadedAt"`
-	ProcessedAt       *time.Time `json:"processedAt"`
-	CompletedAt       *time.Time `json:"completedAt"`
-	CreatedAt         *time.Time `json:"createdAt"`
-	UpdatedAt         *time.Time `json:"updatedAt"`
+	ID                  string     `json:"id"`
+	StudentID           string     `json:"studentId"`
+	StudentName         string     `json:"studentName"` // Joined from students
+	NISN                string     `json:"nisn"`        // Joined from students
+	ClassName           string     `json:"className"`   // Joined from students
+	DestinationSchool   string     `json:"destinationSchool"`
+	DestinationStreet   *string    `json:"destinationStreet"`
+	DestinationVillage  *string    `json:"destinationVillage"`
+	DestinationDistrict *string    `json:"destinationDistrict"`
+	DestinationRegency  *string    `json:"destinationRegency"`
+	DestinationProvince *string    `json:"destinationProvince"`
+	DestinationClass    *string    `json:"destinationClass"`
+	LetterNo            *string    `json:"letterNo"`
+	Reason              string     `json:"reason"`
+	ReasonDetail        *string    `json:"reasonDetail"`
+	Status              string     `json:"status"` // draft, processed, completed
+	DownloadedAt        *time.Time `json:"downloadedAt"`
+	ProcessedAt         *time.Time `json:"processedAt"`
+	CompletedAt         *time.Time `json:"completedAt"`
+	CreatedAt           *time.Time `json:"createdAt"`
+	UpdatedAt           *time.Time `json:"updatedAt"`
 }
 
 // MutasiLog represents a finalised mutation entry in the Buku Mutasi
@@ -57,6 +62,11 @@ type MutasiLog struct {
 	ClassName           *string    `json:"className"`
 	ClassGrade          *int       `json:"classGrade"`
 	OriginOrDestination string     `json:"originOrDestination"`
+	DestinationStreet   *string    `json:"destinationStreet"`
+	DestinationVillage  *string    `json:"destinationVillage"`
+	DestinationDistrict *string    `json:"destinationDistrict"`
+	DestinationRegency  *string    `json:"destinationRegency"`
+	DestinationProvince *string    `json:"destinationProvince"`
 	OriginNis           *string    `json:"originNis"`
 	OriginClass         *string    `json:"originClass"`
 	ApprovalDate        *string    `json:"approvalDate"`
@@ -71,15 +81,20 @@ type MutasiLog struct {
 // UpdateMutasiLogRequest carries editable document fields for a Buku Mutasi
 // entry. Identity fields (name, NISN, gender) are intentionally absent.
 type UpdateMutasiLogRequest struct {
-	MutationDate      *int64  `json:"mutationDate"`
+	MutationDate        *int64  `json:"mutationDate"`
 	OriginOrDestination *string `json:"originOrDestination"`
-	OriginNis         *string `json:"originNis"`
-	OriginClass       *string `json:"originClass"`
-	ApprovalDate      *string `json:"approvalDate"`
-	ApprovalNo        *string `json:"approvalNo"`
-	LetterNo          *string `json:"letterNo"`
-	DestinationClass  *string `json:"destinationClass"`
-	Reason            *string `json:"reason"`
+	DestinationStreet   *string `json:"destinationStreet"`
+	DestinationVillage  *string `json:"destinationVillage"`
+	DestinationDistrict *string `json:"destinationDistrict"`
+	DestinationRegency  *string `json:"destinationRegency"`
+	DestinationProvince *string `json:"destinationProvince"`
+	OriginNis           *string `json:"originNis"`
+	OriginClass         *string `json:"originClass"`
+	ApprovalDate        *string `json:"approvalDate"`
+	ApprovalNo          *string `json:"approvalNo"`
+	LetterNo            *string `json:"letterNo"`
+	DestinationClass    *string `json:"destinationClass"`
+	Reason              *string `json:"reason"`
 }
 
 // MutasiRekapItem represents per-grade rekap data for Buku Mutasi
@@ -94,7 +109,6 @@ type MutasiRekapItem struct {
 	AkhirL  int `json:"akhirL"`
 	AkhirP  int `json:"akhirP"`
 }
-
 
 // ClassStats represents enrollment statistics for a specific class
 type ClassStats struct {
