@@ -20,8 +20,12 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { goGet, goPost } from "@/lib/api-client";
 import { showError, showSuccess } from "@/lib/toast";
+import { useAuthStore } from "@/lib/stores/auth-store";
 import type { ScreeningGame, ScreeningSession } from "@/lib/ruang-tumbuh/types";
 import { IMPLEMENTED_GAME_IDS } from "@/lib/ruang-tumbuh/observasi";
+
+// Sama dengan isStaffOrAdmin di backend (skrining_handler.go:39).
+const STAFF_ADMIN_ROLES = ["superadmin", "admin", "staff"];
 
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   pending: { label: "Belum dimulai", cls: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
@@ -40,12 +44,15 @@ const GAME_ICON: Record<string, string> = {
 
 export default function GuruRuangTumbuhPage() {
   const router = useRouter();
+  const { user } = useAuthStore();
+  const isStaffAdmin = STAFF_ADMIN_ROLES.includes((user?.role || "").toLowerCase());
   const [sessions, setSessions] = useState<ScreeningSession[]>([]);
   const [games, setGames] = useState<ScreeningGame[]>([]);
+  const [classes, setClasses] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ gameId: "", title: "" });
+  const [form, setForm] = useState({ gameId: "", title: "", classId: "" });
 
   const fetchData = useCallback(async () => {
     try {
@@ -55,12 +62,22 @@ export default function GuruRuangTumbuhPage() {
       ]);
       setSessions(sessRes?.data || []);
       setGames(gameRes?.data || []);
+      // Staff/admin tidak terikat ke kelas wali — mereka memilih kelas saat
+      // membuat sesi. Ambun daftar kelas aktif untuk picker.
+      if (isStaffAdmin) {
+        try {
+          const clsRes: any = await goGet(`/api/academic/classes`);
+          setClasses(clsRes?.data || clsRes || []);
+        } catch {
+          setClasses([]);
+        }
+      }
     } catch {
       showError("Gagal memuat data skrining");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isStaffAdmin]);
 
   useEffect(() => {
     fetchData();
@@ -71,19 +88,32 @@ export default function GuruRuangTumbuhPage() {
       showError("Pilih jenis skrining dulu");
       return;
     }
+    if (isStaffAdmin && !form.classId) {
+      showError("Pilih kelas terlebih dahulu");
+      return;
+    }
     setCreating(true);
     try {
-      await goPost(`/api/ruang-tumbuh/sessions`, {
+      // Staff/admin menentukan kelas via query classId (backend:
+      // skrining_handler.go:141). Guru wali tidak perlu — backend ambil
+      // kelas wali-nya otomatis.
+      const base = `/api/ruang-tumbuh/sessions`;
+      const url = isStaffAdmin && form.classId
+        ? `${base}?classId=${encodeURIComponent(form.classId)}`
+        : base;
+      await goPost(url, {
         gameId: form.gameId,
         title: form.title.trim(),
         notes: "",
       });
       showSuccess("Sesi skrining berhasil dibuat");
       setOpen(false);
-      setForm({ gameId: "", title: "" });
+      setForm({ gameId: "", title: "", classId: "" });
       fetchData();
-    } catch {
-      showError("Gagal membuat sesi");
+    } catch (e) {
+      // Tampilkan alasan sebenarnya dari backend (mis. "Anda bukan wali
+      // kelas manapun") alih-alih toast generik.
+      showError(e instanceof Error ? e.message : "Gagal membuat sesi");
     } finally {
       setCreating(false);
     }
@@ -123,9 +153,38 @@ export default function GuruRuangTumbuhPage() {
             <DialogHeader>
               <DialogTitle>Buat Sesi Skrining</DialogTitle>
               <DialogDescription>
-                Sesi berlaku untuk seluruh siswa aktif di kelas Anda saat ini.
+                {isStaffAdmin
+                  ? "Pilih kelas yang akan diskrining — sesi berlaku untuk seluruh siswa aktif di kelas tersebut."
+                  : "Sesi berlaku untuk seluruh siswa aktif di kelas Anda saat ini."}
               </DialogDescription>
             </DialogHeader>
+            {isStaffAdmin && (
+              <div className="space-y-2">
+                <Label htmlFor="class">Kelas <span className="text-rose-500">*</span></Label>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {classes.length === 0 ? (
+                    <p className="col-span-full text-sm text-slate-500">
+                      Tidak ada kelas aktif. Tambahkan kelas di Manajemen Siswa terlebih dahulu.
+                    </p>
+                  ) : (
+                    classes.map((cls) => (
+                      <button
+                        key={cls.id}
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, classId: cls.id }))}
+                        className={`rounded-xl border p-2.5 text-sm font-medium transition ${
+                          form.classId === cls.id
+                            ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40"
+                            : "hover:bg-slate-50 dark:hover:bg-slate-900/50"
+                        }`}
+                      >
+                        {cls.name}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
             <div className="space-y-4 py-2">
               <div className="space-y-2">
                 <Label htmlFor="game">Jenis Skrining</Label>
@@ -173,7 +232,10 @@ export default function GuruRuangTumbuhPage() {
               <Button variant="outline" onClick={() => setOpen(false)}>
                 Batal
               </Button>
-              <Button onClick={handleCreate} disabled={creating || !form.gameId}>
+              <Button
+                onClick={handleCreate}
+                disabled={creating || !form.gameId || (isStaffAdmin && !form.classId)}
+              >
                 {creating ? "Membuat…" : "Buat Sesi"}
               </Button>
             </DialogFooter>

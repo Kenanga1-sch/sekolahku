@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v4"
@@ -57,7 +58,8 @@ func execSkriningHandlerSchema(t *testing.T, db *sql.DB) {
 	schema := `
 		CREATE TABLE screening_games (
 			id TEXT PRIMARY KEY, code TEXT UNIQUE, name TEXT NOT NULL, domain TEXT NOT NULL,
-			icon TEXT, is_active INTEGER DEFAULT 1, created_at INTEGER, updated_at INTEGER
+			description TEXT, icon TEXT, version TEXT DEFAULT '1.0', order_number INTEGER DEFAULT 0,
+			is_active INTEGER DEFAULT 1, created_at INTEGER, updated_at INTEGER, deleted_at INTEGER
 		);
 		CREATE TABLE screening_sessions (
 			id TEXT PRIMARY KEY, game_id TEXT NOT NULL, class_id TEXT NOT NULL, class_name TEXT,
@@ -78,6 +80,14 @@ func execSkriningHandlerSchema(t *testing.T, db *sql.DB) {
 			id TEXT PRIMARY KEY, attempt_id TEXT NOT NULL UNIQUE, session_id TEXT NOT NULL,
 			student_id TEXT NOT NULL, game_id TEXT NOT NULL, domain TEXT NOT NULL,
 			metrics TEXT NOT NULL, level_reached INTEGER, accuracy REAL, computed_at INTEGER
+		);
+		CREATE TABLE student_classes (
+			id TEXT PRIMARY KEY, name TEXT NOT NULL, academic_year TEXT, is_active INTEGER DEFAULT 1,
+			wali_user_id TEXT
+		);
+		CREATE TABLE students (
+			id TEXT PRIMARY KEY, full_name TEXT, class_id TEXT, status TEXT DEFAULT 'active',
+			is_active INTEGER DEFAULT 1
 		);
 	`
 	if _, err := db.Exec(schema); err != nil {
@@ -189,5 +199,98 @@ func TestSkriningStaffAggregateEmpty(t *testing.T) {
 	}
 	if resp.Data.RecentSessions == nil {
 		t.Errorf("recentSessions = null, want [] (null membuat frontend crash pada .length): %s", rec.Body.String())
+	}
+}
+
+// setupSkriningCreateSessionDB: DB dengan satu game aktif + kelas aktif yang
+// diwali user 'wali-1'. Dipakai menguji CreateSession.
+func setupSkriningCreateSessionDB(t *testing.T) *sql.DB {
+	t.Helper()
+	db := openSkriningHandlerDB(t)
+	execSkriningHandlerSchema(t, db)
+	if _, err := db.Exec(`
+		INSERT INTO screening_games (id, code, name, domain, is_active, created_at, updated_at)
+			VALUES ('game-tangkap-target', 'tangkap-target', 'Tangkap Target', 'perhatian', 1, 0, 0);
+		INSERT INTO student_classes (id, name, academic_year, is_active, wali_user_id)
+			VALUES ('c1', 'Kelas 4', '2026/2027', 1, 'wali-1');
+	`); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	return db
+}
+
+// TestSkriningCreateSessionStaffWithClassId: staff/admin tidak punya kelas
+// wali, jadi mereka harus menentukan classId. Tanpa picker di frontend,
+// request tanpa classId jatuh ke cabang wali → 403 "Anda bukan wali kelas
+// manapun".
+func TestSkriningCreateSessionStaffWithClassId(t *testing.T) {
+	db := setupSkriningCreateSessionDB(t)
+	h := &SkriningHandler{
+		Repo:     repository.NewSkriningRepository(db),
+		Academic: repository.NewAcademicRepository(db),
+		DB:       db,
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/ruang-tumbuh/sessions?classId=c1",
+		strings.NewReader(`{"gameId":"game-tangkap-target","title":"Sesi Uji"}`))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := echo.New().NewContext(req, rec)
+	c.Set("user_role", "admin")
+
+	if err := h.CreateSession(c); err != nil {
+		t.Fatalf("handler error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d (%s)", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		Success bool `json:"success"`
+		Data    struct {
+			ID        string `json:"id"`
+			GameID    string `json:"gameId"`
+			ClassID   string `json:"classId"`
+			ClassName string `json:"className"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if !resp.Success || resp.Data.ID == "" {
+		t.Fatalf("expected success with session, got: %s", rec.Body.String())
+	}
+	if resp.Data.ClassID != "c1" {
+		t.Errorf("classId = %q, want \"c1\"", resp.Data.ClassID)
+	}
+	if resp.Data.ClassName != "Kelas 4" {
+		t.Errorf("className = %q, want \"Kelas 4\"", resp.Data.ClassName)
+	}
+}
+
+// TestSkriningCreateSessionNonWaliGuruDenied: guru yang bukan wali kelas
+// manapun (tidak punya kelas, tidak mengirim classId) harus ditolak dengan
+// pesan jelas — bukan 500 atau toast generik.
+func TestSkriningCreateSessionNonWaliGuruDenied(t *testing.T) {
+	db := setupSkriningCreateSessionDB(t)
+	h := &SkriningHandler{
+		Repo:     repository.NewSkriningRepository(db),
+		Academic: repository.NewAcademicRepository(db),
+		DB:       db,
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/ruang-tumbuh/sessions",
+		strings.NewReader(`{"gameId":"game-tangkap-target","title":"Sesi Uji"}`))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := echo.New().NewContext(req, rec)
+	c.Set("user_role", "guru")
+
+	_ = h.CreateSession(c)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d (%s)", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "Anda bukan wali kelas manapun") {
+		t.Errorf("expected penolakan yang jelas, got: %s", rec.Body.String())
 	}
 }

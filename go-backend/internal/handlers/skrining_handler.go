@@ -19,11 +19,11 @@ import (
 //   - staff/admin: konfigurasi + agregat (lihat semua kelas).
 //   - siswa  : menjalankan game dari sesi kelasnya yang sedang aktif.
 type SkriningHandler struct {
-	Repo         *repository.SkriningRepository
-	Academic     *repository.AcademicRepository
-	Audit        *repository.AuditLogRepository
+	Repo          *repository.SkriningRepository
+	Academic      *repository.AcademicRepository
+	Audit         *repository.AuditLogRepository
 	Notifications *repository.NotificationRepository
-	DB           *sql.DB
+	DB            *sql.DB
 }
 
 func NewSkriningHandler(repo *repository.SkriningRepository, academic *repository.AcademicRepository, audit *repository.AuditLogRepository, notif *repository.NotificationRepository, db *sql.DB) *SkriningHandler {
@@ -140,6 +140,15 @@ func (h *SkriningHandler) CreateSession(c echo.Context) error {
 	classID, className := "", ""
 	if cid := c.QueryParam("classId"); cid != "" && isStaffOrAdmin(role) {
 		classID = cid
+		var classNameFromDB string
+		if err := h.DB.QueryRow(
+			"SELECT name FROM student_classes WHERE id = ? AND is_active = 1",
+			cid,
+		).Scan(&classNameFromDB); err == nil {
+			className = classNameFromDB
+		} else if err != sql.ErrNoRows {
+			return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal memuat kelas"})
+		}
 	} else {
 		var err error
 		classID, className, err = h.Repo.GetWaliClassID(userID)
@@ -241,8 +250,8 @@ func (h *SkriningHandler) GetStudentResult(c echo.Context) error {
 
 	attemptID, attemptStatus, err := h.Repo.GetStudentAttemptStatus(sessionID, studentID)
 	response := map[string]interface{}{
-		"session":     sess,
-		"hasAttempt":  err == nil,
+		"session":       sess,
+		"hasAttempt":    err == nil,
 		"attemptStatus": attemptStatus,
 	}
 	if err == nil && attemptStatus == "completed" {
