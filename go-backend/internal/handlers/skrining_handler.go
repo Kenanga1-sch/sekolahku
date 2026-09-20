@@ -688,7 +688,7 @@ func (h *SkriningHandler) InviteParents(c echo.Context) error {
 
 // StaffAggregate: statistik seluruh sesi skrining untuk staff/admin.
 func (h *SkriningHandler) StaffAggregate(c echo.Context) error {
-	role, _ := c.Get("role").(string)
+	role, _ := c.Get("user_role").(string)
 	if !isStaffOrAdmin(role) {
 		return c.JSON(http.StatusForbidden, map[string]interface{}{"success": false, "error": "Hanya staff/admin"})
 	}

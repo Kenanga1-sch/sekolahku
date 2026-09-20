@@ -1,0 +1,124 @@
+package handlers
+
+import (
+	"database/sql"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/labstack/echo/v4"
+	"github.com/sekolahku/go-backend/internal/repository"
+	_ "modernc.org/sqlite"
+)
+
+// setupSkriningHandlerTestDB menyediakan skema minimal yang dipakai
+// GetStaffAggregate (game, sesi, roster, attempt, hasil) + satu sesi selesai.
+func setupSkriningHandlerTestDB(t *testing.T) *sql.DB {
+	t.Helper()
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	schema := `
+		CREATE TABLE screening_games (
+			id TEXT PRIMARY KEY, code TEXT UNIQUE, name TEXT NOT NULL, domain TEXT NOT NULL,
+			icon TEXT, is_active INTEGER DEFAULT 1, created_at INTEGER, updated_at INTEGER
+		);
+		CREATE TABLE screening_sessions (
+			id TEXT PRIMARY KEY, game_id TEXT NOT NULL, class_id TEXT NOT NULL, class_name TEXT,
+			teacher_user_id TEXT NOT NULL, academic_year TEXT, title TEXT,
+			status TEXT DEFAULT 'pending', started_at INTEGER, finished_at INTEGER, notes TEXT,
+			created_at INTEGER, updated_at INTEGER, deleted_at INTEGER
+		);
+		CREATE TABLE screening_session_students (
+			id TEXT PRIMARY KEY, session_id TEXT NOT NULL, student_id TEXT NOT NULL,
+			UNIQUE(session_id, student_id)
+		);
+		CREATE TABLE screening_attempts (
+			id TEXT PRIMARY KEY, session_id TEXT NOT NULL, student_id TEXT NOT NULL,
+			game_id TEXT NOT NULL, status TEXT DEFAULT 'in_progress',
+			started_at INTEGER, completed_at INTEGER, created_at INTEGER, updated_at INTEGER
+		);
+		CREATE TABLE screening_results (
+			id TEXT PRIMARY KEY, attempt_id TEXT NOT NULL UNIQUE, session_id TEXT NOT NULL,
+			student_id TEXT NOT NULL, game_id TEXT NOT NULL, domain TEXT NOT NULL,
+			metrics TEXT NOT NULL, level_reached INTEGER, accuracy REAL, computed_at INTEGER
+		);
+	`
+	if _, err := db.Exec(schema); err != nil {
+		t.Fatalf("create schema: %v", err)
+	}
+	if _, err := db.Exec(`
+		INSERT INTO screening_games (id, code, name, domain, is_active, created_at, updated_at)
+			VALUES ('game-tangkap-target', 'tangkap-target', 'Tangkap Target', 'perhatian', 1, 0, 0);
+		INSERT INTO screening_sessions (id, game_id, class_id, class_name, teacher_user_id, academic_year, title, status, created_at, updated_at)
+			VALUES ('ses-1', 'game-tangkap-target', 'c1', 'Kelas 4', 'g1', '2026/2027', 'Sesi A', 'finished', 1000, 1000);
+		INSERT INTO screening_session_students (id, session_id, student_id) VALUES ('ss-1', 'ses-1', 's1');
+		INSERT INTO screening_attempts (id, session_id, student_id, game_id, status, started_at, completed_at, created_at, updated_at)
+			VALUES ('att-1', 'ses-1', 's1', 'game-tangkap-target', 'completed', 1000, 2000, 1000, 2000);
+		INSERT INTO screening_results (id, attempt_id, session_id, student_id, game_id, domain, metrics, level_reached, accuracy, computed_at)
+			VALUES ('res-1', 'att-1', 'ses-1', 's1', 'game-tangkap-target', 'perhatian', '{}', 3, 87.5, 2000);
+	`); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	return db
+}
+
+// TestSkriningStaffAggregateRoleCheck: StaffAggregate dulunya membaca context
+// key "role" yang tidak pernah diisi JWT middleware (yang benar "user_role"),
+// sehingga superadmin/admin/staf selalu kena 403 dan halaman agregat skrining
+// menampilkan "Gagal memuat agregat skrining".
+func TestSkriningStaffAggregateRoleCheck(t *testing.T) {
+	h := &SkriningHandler{Repo: repository.NewSkriningRepository(setupSkriningHandlerTestDB(t))}
+
+	for _, role := range []string{"superadmin", "admin", "staff"} {
+		req := httptest.NewRequest(http.MethodGet, "/api/ruang-tumbuh/aggregate", nil)
+		rec := httptest.NewRecorder()
+		c := echo.New().NewContext(req, rec)
+		c.Set("user_role", role)
+
+		if err := h.StaffAggregate(c); err != nil {
+			t.Fatalf("role %s: handler error: %v", role, err)
+		}
+		if rec.Code != http.StatusOK {
+			t.Fatalf("role %s: expected 200, got %d (%s)", role, rec.Code, rec.Body.String())
+		}
+		var resp map[string]interface{}
+		if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+			t.Fatalf("role %s: decode response: %v", role, err)
+		}
+		if resp["success"] != true {
+			t.Fatalf("role %s: expected success=true, got %v", role, resp)
+		}
+		data, ok := resp["data"].(map[string]interface{})
+		if !ok {
+			t.Fatalf("role %s: expected data object, got %T", role, resp["data"])
+		}
+		// Agregat benar-benar terisi, bukan sekadar lolos gate role.
+		if data["totalStudents"] != float64(1) {
+			t.Errorf("role %s: totalStudents = %v, want 1", role, data["totalStudents"])
+		}
+		if data["screenedCount"] != float64(1) {
+			t.Errorf("role %s: screenedCount = %v, want 1", role, data["screenedCount"])
+		}
+		stats, _ := data["domainStats"].([]interface{})
+		if len(stats) != 1 {
+			t.Errorf("role %s: domainStats len = %d, want 1", role, len(stats))
+		}
+		sessions, _ := data["recentSessions"].([]interface{})
+		if len(sessions) != 1 {
+			t.Errorf("role %s: recentSessions len = %d, want 1", role, len(sessions))
+		}
+	}
+
+	// Role non-staff tetap ditolak di level handler.
+	req := httptest.NewRequest(http.MethodGet, "/api/ruang-tumbuh/aggregate", nil)
+	rec := httptest.NewRecorder()
+	c := echo.New().NewContext(req, rec)
+	c.Set("user_role", "guru")
+	_ = h.StaffAggregate(c)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("guru: expected 403, got %d", rec.Code)
+	}
+}
