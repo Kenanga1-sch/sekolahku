@@ -66,12 +66,12 @@ func saveArsipPDF(c echo.Context, category string, required bool) (string, error
 		}
 		return "", nil
 	}
-	if file.Size > 10*1024*1024 {
-		return "", fmt.Errorf("ukuran file maksimal 10MB")
-	}
-	ext := strings.ToLower(filepath.Ext(file.Filename))
-	if ext != ".pdf" && ext != ".jpg" && ext != ".jpeg" && ext != ".png" {
-		return "", fmt.Errorf("hanya file PDF dan Gambar (JPG, PNG) yang diperbolehkan")
+	_, err = validateUploadedFile(file, uploadValidationOpts{
+		AllowedExtensions: []string{".pdf", ".jpg", ".jpeg", ".png"},
+		MaxBytes:          10 * 1024 * 1024,
+	})
+	if err != nil {
+		return "", err
 	}
 	src, err := file.Open()
 	if err != nil {

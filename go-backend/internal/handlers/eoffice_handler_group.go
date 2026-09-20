@@ -107,7 +107,7 @@ func (h *EOfficeHandler) GenerateGroupAndSubmit(c echo.Context) error {
 		}
 
 		sk := models.SuratKeluar{
-			MailNumber:         req.MailNumber, // Note: if blank, repo will auto-generate sequence
+			MailNumber:         "", // Auto-generate per item; shared mail_number would violate UNIQUE constraint for bundles.
 			Recipient:          req.Recipient,
 			Subject:            subject,
 			DateOfLetter:       dateLetter,
@@ -117,10 +117,9 @@ func (h *EOfficeHandler) GenerateGroupAndSubmit(c echo.Context) error {
 			CreatedBy:          &uid,
 		}
 
-		// If MailNumber is not blank, we might have duplicate mail numbers. That is usually allowed for bundles.
-		// However, CreateSuratKeluar (or CreateSuratKeluarFromTemplate) handles it.
-		// Wait, CreateSuratKeluarFromTemplate doesn't auto-generate mail number! It assumes it's provided.
-		// So we use CreateSuratKeluar which auto-generates if blank.
+		// MailNumber sengaja dikosongkan: CreateSuratKeluar akan men-generate
+		// nomor unik per item. Jika diberi satu nomor bersama untuk bundle >1
+		// item, constraint UNIQUE pada mail_number akan dilanggar.
 
 		id, _, err := h.Repo.CreateSuratKeluar(sk)
 		if err != nil {

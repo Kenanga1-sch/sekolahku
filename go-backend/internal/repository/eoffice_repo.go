@@ -223,19 +223,48 @@ func (r *EOfficeRepository) UpdateKlasifikasi(code string, k models.KlasifikasiS
 	if newCode == "" {
 		newCode = code
 	}
-	
-	// Ensure we update child records if code changed (manual cascade)
-	if newCode != code {
-		_, _ = r.DB.Exec("UPDATE generated_letters SET classification_code = ? WHERE classification_code = ?", newCode, code)
-		_, _ = r.DB.Exec("UPDATE incoming_letters SET classification_code = ? WHERE classification_code = ?", newCode, code)
+
+	// Saat kode berubah, referensi di tabel anak harus diperbarui. Dengan
+	// PRAGMA foreign_keys = ON, SQLite menolak update child ke kode yang belum
+	// ada di tabel parent (dan sebaliknya). Karena itu seluruh operasi
+	// dijalankan dalam satu transaksi dengan pemeriksaan FK ditangguhkan
+	// hingga commit — saat itu parent sudah baru dan child sudah baru.
+	if newCode == code {
+		_, err := r.DB.Exec(`
+			UPDATE klasifikasi_surat
+			SET code = ?, name = ?, description = ?, is_active = ?
+			WHERE code = ?
+		`, newCode, k.Name, desc, k.IsActive, code)
+		return err
 	}
 
-	_, err := r.DB.Exec(`
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec("PRAGMA defer_foreign_keys = ON"); err != nil {
+		return err
+	}
+	if _, err := tx.Exec("UPDATE generated_letters SET classification_code = ? WHERE classification_code = ?", newCode, code); err != nil {
+		return err
+	}
+	if _, err := tx.Exec("UPDATE surat_masuk SET classification_code = ? WHERE classification_code = ?", newCode, code); err != nil {
+		return err
+	}
+	if _, err := tx.Exec("UPDATE surat_keluar SET classification_code = ? WHERE classification_code = ?", newCode, code); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`
 		UPDATE klasifikasi_surat
 		SET code = ?, name = ?, description = ?, is_active = ?
 		WHERE code = ?
-	`, newCode, k.Name, desc, k.IsActive, code)
-	return err
+	`, newCode, k.Name, desc, k.IsActive, code); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (r *EOfficeRepository) DeleteKlasifikasi(code string) error {
@@ -808,6 +837,11 @@ func (r *EOfficeRepository) CreateSuratKeluar(s models.SuratKeluar) (string, str
 		s.MailNumber = formatLetterNumber(pattern, seq, classCode, letterDate)
 	}
 
+	status := strings.TrimSpace(s.Status)
+	if status == "" {
+		status = "Draft"
+	}
+
 	tx, err := r.DB.Begin()
 	if err != nil {
 		return "", "", err
@@ -816,8 +850,8 @@ func (r *EOfficeRepository) CreateSuratKeluar(s models.SuratKeluar) (string, str
 
 	_, err = tx.Exec(`
 		INSERT INTO surat_keluar (id, mail_number, recipient, subject, date_of_letter, classification_code, file_path, status, html_content, created_by, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, 'Draft', ?, ?, ?, ?)
-	`, s.ID, s.MailNumber, s.Recipient, s.Subject, s.DateOfLetter, s.ClassificationCode, s.FilePath, s.HtmlContent, s.CreatedBy, now, now)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, s.ID, s.MailNumber, s.Recipient, s.Subject, s.DateOfLetter, s.ClassificationCode, s.FilePath, status, s.HtmlContent, s.CreatedBy, now, now)
 	if err != nil {
 		return "", "", err
 	}
@@ -1038,12 +1072,12 @@ func (r *EOfficeRepository) UpdateSuratKeluar(id string, s models.SuratKeluar) e
 	return err
 }
 
-func (r *EOfficeRepository) UpdateSuratKeluarFinalFile(id string, finalFilePath string) error {
+func (r *EOfficeRepository) UpdateSuratKeluarFinalFile(suratID, filePath string) error {
+	now := UnixMilli()
 	res, err := r.DB.Exec(`
 		UPDATE surat_keluar
 		SET final_file_path = ?, status = 'Arsip', updated_at = ?
-		WHERE id = ?
-	`, finalFilePath, UnixMilli(), id)
+		WHERE id = ? AND status IN ('Terverifikasi', 'Menunggu Verifikasi')`, filePath, now, suratID)
 	if err != nil {
 		return err
 	}

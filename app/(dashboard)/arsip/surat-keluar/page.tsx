@@ -306,7 +306,7 @@ export default function SuratKeluarPage() {
                             Kelola Template
                         </Button>
                     </Link>
-                    <Link href="/admin/surat/buat">
+                    <Link href="/arsip/surat-keluar/baru">
                         <Button className="gap-2 bg-blue-600 hover:bg-blue-700">
                             <Plus className="h-4 w-4" />
                             Buat Surat (Otomatis)

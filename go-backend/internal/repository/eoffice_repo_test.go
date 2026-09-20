@@ -312,6 +312,21 @@ func TestEOfficeRepositoryOutgoingArchiveFlow(t *testing.T) {
 		t.Fatalf("expected creator to be populated")
 	}
 
+	// Final file upload hanya boleh dilakukan pada surat yang sudah diverifikasi.
+	// Surat baru dibuat sebagai Draft, jadi upload dari Draft harus ditolak.
+	if err := repo.UpdateSuratKeluarFinalFile(suratID, "/uploads/arsip/surat-keluar/final.pdf"); err != sql.ErrNoRows {
+		t.Fatalf("expected ErrNoRows when uploading final file on a Draft letter, got %v", err)
+	}
+
+	// Ajukan verifikasi, lalu verifikasi. Setelah Terverifikasi, upload final
+	// file harus berhasil dan mengarsipkan surat.
+	if err := repo.UpdateSuratKeluar(suratID, models.SuratKeluar{Status: "Menunggu Verifikasi"}); err != nil {
+		t.Fatalf("UpdateSuratKeluar returned error: %v", err)
+	}
+	if err := repo.VerifySuratKeluar(suratID, "u-kepala", "ttd-123"); err != nil {
+		t.Fatalf("VerifySuratKeluar returned error: %v", err)
+	}
+
 	if err := repo.UpdateSuratKeluarFinalFile(suratID, "/uploads/arsip/surat-keluar/final.pdf"); err != nil {
 		t.Fatalf("UpdateSuratKeluarFinalFile returned error: %v", err)
 	}
@@ -325,6 +340,105 @@ func TestEOfficeRepositoryOutgoingArchiveFlow(t *testing.T) {
 	}
 	if letter.FinalFilePath == nil || *letter.FinalFilePath != "/uploads/arsip/surat-keluar/final.pdf" {
 		t.Fatalf("expected final PDF path to be stored")
+	}
+}
+
+// TestCreateSuratKeluarHonorsStatus memastikan status yang diteruskan ke
+// CreateSuratKeluar dipakai (sebelumnya INSERT hardcode 'Draft', sehingga
+// generasi grup yang mengirim "Menunggu Verifikasi" menghasilkan data salah).
+func TestCreateSuratKeluarHonorsStatus(t *testing.T) {
+	db := setupEOfficeTestDB(t)
+	defer db.Close()
+	repo := NewEOfficeRepository(db)
+
+	id, _, err := repo.CreateSuratKeluar(models.SuratKeluar{
+		Recipient:          "Komite Sekolah",
+		Subject:            "Undangan rapat komite",
+		DateOfLetter:       "2026-05-26",
+		ClassificationCode: strPtr("421"),
+		Status:             "Menunggu Verifikasi",
+	})
+	if err != nil {
+		t.Fatalf("CreateSuratKeluar returned error: %v", err)
+	}
+
+	letter, err := repo.GetSuratKeluarByID(id)
+	if err != nil {
+		t.Fatalf("GetSuratKeluarByID returned error: %v", err)
+	}
+	if letter.Status != "Menunggu Verifikasi" {
+		t.Fatalf("expected status Menunggu Verifikasi to be honored, got %s", letter.Status)
+	}
+
+	// Default tetap Draft bila status tidak diisi.
+	id2, _, err := repo.CreateSuratKeluar(models.SuratKeluar{
+		Recipient:          "Orang Tua Siswa",
+		Subject:            "Pemberitahuan",
+		DateOfLetter:       "2026-06-01",
+		ClassificationCode: strPtr("421"),
+	})
+	if err != nil {
+		t.Fatalf("CreateSuratKeluar (default) returned error: %v", err)
+	}
+	letter2, err := repo.GetSuratKeluarByID(id2)
+	if err != nil {
+		t.Fatalf("GetSuratKeluarByID (default) returned error: %v", err)
+	}
+	if letter2.Status != "Draft" {
+		t.Fatalf("expected default status Draft, got %s", letter2.Status)
+	}
+}
+
+// TestUpdateKlasifikasiCascade memastikan rename kode klasifikasi juga
+// memperbarui referensi di surat_masuk (sebelumnya menulis ke tabel
+// incoming_letters yang tidak ada, sehingga error tertelan).
+func TestUpdateKlasifikasiCascade(t *testing.T) {
+	db := setupEOfficeTestDB(t)
+	defer db.Close()
+	repo := NewEOfficeRepository(db)
+
+	oldCode := "421"
+	newCode := "421.1"
+	// Hapus seed '421' bawaan test DB agar bisa dibuat ulang dengan kode ini.
+	if _, err := db.Exec("DELETE FROM klasifikasi_surat WHERE code = ?", oldCode); err != nil {
+		t.Fatalf("failed to clean seed klasifikasi: %v", err)
+	}
+	if err := repo.CreateKlasifikasi(models.KlasifikasiSurat{
+		Code: oldCode, Name: "Umum", IsActive: true,
+	}); err != nil {
+		t.Fatalf("CreateKlasifikasi returned error: %v", err)
+	}
+
+	if _, err := repo.CreateSuratMasuk(models.SuratMasuk{
+		OriginalNumber:     "100/UND/V/2026",
+		Sender:             "Dinas Pendidikan",
+		Subject:            "Undangan",
+		DateOfLetter:       "2026-05-25",
+		ClassificationCode: strPtr(oldCode),
+	}); err != nil {
+		t.Fatalf("CreateSuratMasuk returned error: %v", err)
+	}
+
+	if err := repo.UpdateKlasifikasi(oldCode, models.KlasifikasiSurat{
+		Code: newCode, Name: "Umum (diperbarui)", IsActive: true,
+	}); err != nil {
+		t.Fatalf("UpdateKlasifikasi returned error: %v", err)
+	}
+
+	letters, _, err := repo.GetSuratMasuk(1, 10, "")
+	if err != nil {
+		t.Fatalf("GetSuratMasuk returned error: %v", err)
+	}
+	if len(letters) == 0 {
+		t.Fatalf("expected at least one surat masuk")
+	}
+	for _, l := range letters {
+		if l.ClassificationCode == nil {
+			t.Fatalf("expected classification code to be set on surat masuk")
+		}
+		if *l.ClassificationCode != newCode {
+			t.Fatalf("expected classification code cascaded to %s, got %s", newCode, *l.ClassificationCode)
+		}
 	}
 }
 

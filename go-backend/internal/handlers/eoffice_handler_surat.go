@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -172,6 +173,9 @@ func (h *EOfficeHandler) UpdateSuratKeluar(c echo.Context) error {
 			return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": err.Error()})
 		}
 		if err := h.Repo.UpdateSuratKeluarFinalFile(id, filePath); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Surat keluar tidak ditemukan atau belum terverifikasi"})
+			}
 			return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 		}
 		return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "finalFilePath": filePath})
@@ -214,14 +218,16 @@ func (h *EOfficeHandler) CreateDisposisi(c echo.Context) error {
 	// Notifikasi ke penerima disposisi
 	uid := d.ToUserID
 	targetURL := "/arsip/surat-masuk/detail?id=" + d.SuratMasukID
-	_ = h.Notifications.CreateNotification(models.Notification{
-		UserID:    &uid,
-		Type:      "info",
-		Category:  "eoffice",
-		Title:     "Disposisi Surat Baru",
-		Message:   "Anda menerima disposisi surat \"" + surat.Subject + "\" dari " + surat.Sender + ". Perihal: " + surat.Subject,
-		TargetURL: &targetURL,
-	})
+	if h.Notifications != nil {
+		_ = h.Notifications.CreateNotification(models.Notification{
+			UserID:    &uid,
+			Type:      "info",
+			Category:  "eoffice",
+			Title:     "Disposisi Surat Baru",
+			Message:   "Anda menerima disposisi surat \"" + surat.Subject + "\" dari " + surat.Sender + ". Perihal: " + surat.Subject,
+			TargetURL: &targetURL,
+		})
+	}
 	return c.JSON(http.StatusCreated, map[string]interface{}{"id": id, "success": true})
 }
 

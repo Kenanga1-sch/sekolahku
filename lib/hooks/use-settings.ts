@@ -20,6 +20,7 @@ const defaultSettings = {
     current_academic_year: "2026/2027",
     principal_name: "",
     principal_nip: "",
+    school_stamp: "",
     supervisor_name: "",
     supervisor_nip: "",
     last_letter_number: 0,

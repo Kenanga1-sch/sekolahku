@@ -33,7 +33,7 @@ const QUICK_ACTIONS = [
         title: "Buat Keluar",
         description: "Draf surat dinas",
         icon: FileText,
-        href: "/admin/surat/template",
+        href: "/arsip/surat-keluar/baru",
         color: "text-purple-500",
         bgColor: "bg-purple-500/10 hover:bg-purple-500/20",
     },

@@ -81,9 +81,9 @@ export default function LaporanPage() {
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="2024">2024</SelectItem>
-                                    <SelectItem value="2025">2025</SelectItem>
-                                    <SelectItem value="2026">2026</SelectItem>
+                                    {Array.from({ length: 5 }, (_, i) => String(new Date().getFullYear() - 2 + i)).map((y) => (
+                                        <SelectItem key={y} value={y}>{y}</SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>

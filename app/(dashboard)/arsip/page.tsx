@@ -86,11 +86,14 @@ export default function ArsipDashboard() {
     // Get status color for Surat Masuk
     const getStatusMasukBadge = (status: string) => {
         const s = status.toLowerCase();
-        if (s === "disposed" || s === "disposisi") {
-            return "bg-emerald-50 text-emerald-700 border-emerald-200/60 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50";
+        if (s === "terdisposisi") {
+            return "bg-blue-50 text-blue-700 border-blue-200/60 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/50";
         }
-        if (s === "pending" || s === "menunggu") {
+        if (s === "menunggu disposisi") {
             return "bg-amber-50 text-amber-700 border-amber-200/60 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/50";
+        }
+        if (s === "selesai" || s === "arsip") {
+            return "bg-emerald-50 text-emerald-700 border-emerald-200/60 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50";
         }
         return "bg-slate-50 text-slate-700 border-slate-200/60 dark:bg-zinc-900/40 dark:text-zinc-400 dark:border-zinc-800";
     };
@@ -98,13 +101,13 @@ export default function ArsipDashboard() {
     // Get status color for Surat Keluar
     const getStatusKeluarBadge = (status: string) => {
         const s = status.toLowerCase();
-        if (s === "signed" || s === "ttd" || s === "completed") {
+        if (s === "terverifikasi" || s === "arsip") {
             return "bg-emerald-50 text-emerald-700 border-emerald-200/60 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/50";
         }
-        if (s === "verified" || s === "disetujui") {
+        if (s === "menunggu verifikasi") {
             return "bg-blue-50 text-blue-700 border-blue-200/60 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/50";
         }
-        if (s === "rejected" || s === "ditolak" || s === "revision") {
+        if (s === "revisi") {
             return "bg-rose-50 text-rose-700 border-rose-200/60 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-900/50";
         }
         if (s === "draft") {

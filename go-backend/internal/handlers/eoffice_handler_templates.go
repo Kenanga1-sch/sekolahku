@@ -100,6 +100,10 @@ func (h *EOfficeHandler) ImportLetterTemplate(c echo.Context) error {
 	return c.JSON(http.StatusCreated, map[string]interface{}{"success": true, "id": id})
 }
 
+// GenerateBatch belum diimplementasikan: sebelumnya handler ini mengembalikan
+// hasil palsu ("status":"generated") tanpa benar-benar membuat surat. Endpoint
+// ini tidak digunakan frontend mana pun. Kembalikan 501 agar tidak menyesatkan
+// jika dipanggil langsung.
 func (h *EOfficeHandler) GenerateBatch(c echo.Context) error {
 	var req struct {
 		TemplateID         string `json:"templateId"`
@@ -114,16 +118,8 @@ func (h *EOfficeHandler) GenerateBatch(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
 	}
-	results := make([]interface{}, 0)
-	for _, recipient := range req.Recipients {
-		results = append(results, map[string]interface{}{
-			"recipient": recipient.Name,
-			"status":    "generated",
-		})
-	}
-	return c.JSON(http.StatusOK, map[string]interface{}{
-		"success": true,
-		"results": results,
-		"data":    results,
+	return c.JSON(http.StatusNotImplemented, map[string]interface{}{
+		"success": false,
+		"error":   "Generasi batch surat belum didukung. Gunakan pembuatan surat tunggal atau grup template.",
 	})
 }
