@@ -35,7 +35,19 @@ export default function StaffAggregatePage() {
       try {
         const res: any = await goGet("/api/ruang-tumbuh/aggregate");
         if (cancelled) return;
-        setAgg(res?.data || null);
+        // Backend mengirim null (bukan []) saat belum ada sesi sama sekali.
+        // Tanpa normalisasi, agg.domainStats.length melempar TypeError dan
+        // halaman jatuh ke root error boundary.
+        const data = res?.data;
+        setAgg(
+          data
+            ? {
+                ...data,
+                domainStats: data.domainStats ?? [],
+                recentSessions: data.recentSessions ?? [],
+              }
+            : null,
+        );
       } catch {
         showError("Gagal memuat agregat skrining");
       } finally {

@@ -973,7 +973,13 @@ func (r *SkriningRepository) ListClassParentUsers(classID string) ([]string, err
 
 // GetStaffAggregate: statistik skrining seluruh kelas untuk staff/admin.
 func (r *SkriningRepository) GetStaffAggregate(academicYear string) (*models.ScreeningDashboard, error) {
-	d := &models.ScreeningDashboard{AcademicYear: academicYear}
+	// Slice diinisialisasi non-nil agar JSON selalu mengandung "[]" saat belum
+	// ada data — bukan "null" yang bisa membuat client crash saat .length/.map.
+	d := &models.ScreeningDashboard{
+		AcademicYear:   academicYear,
+		DomainStats:    []models.ScreeningDomainStat{},
+		RecentSessions: []models.ScreeningSession{},
+	}
 
 	// TotalStudents dipakai sebagai "jumlah sesi" agregat lintas kelas.
 	if err := r.DB.QueryRow(`
@@ -1023,6 +1029,9 @@ func (r *SkriningRepository) GetStaffAggregate(academicYear string) (*models.Scr
 	sessions, _, err := r.ListSessions("", "", "", true, 1, 10)
 	if err != nil {
 		return nil, err
+	}
+	if sessions == nil {
+		sessions = []models.ScreeningSession{}
 	}
 	d.RecentSessions = sessions
 	return d, nil
