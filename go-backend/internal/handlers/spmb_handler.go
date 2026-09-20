@@ -300,7 +300,7 @@ func (h *SPMBHandler) Register(c echo.Context) error {
 			Category:  "spmb",
 			Title:     "Pendaftar SPMB baru",
 			Message:   m.FullName + " (" + regNum + ") telah mendaftar dan menunggu verifikasi.",
-			TargetURL: StrPtr("/admin/siswa/spmb"),
+			TargetURL: StrPtr("/admin/siswa?tab=spmb"),
 		}, "admin", "superadmin")
 	}
 

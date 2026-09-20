@@ -747,7 +747,7 @@ func (h *ParentHandler) CreateMutasiOut(c echo.Context) error {
 			Category:  "mutasi",
 			Title:     "Permohonan mutasi keluar baru",
 			Message:   "Pengajuan dari portal orang tua menunggu penyelesaian surat.",
-			TargetURL: StrPtr("/admin/siswa/mutasi"),
+			TargetURL: StrPtr("/admin/siswa?tab=mutasi"),
 		}, "admin", "superadmin")
 	}
 

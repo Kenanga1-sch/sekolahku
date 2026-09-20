@@ -110,7 +110,7 @@ func (h *MutasiHandler) CreateMutasiRequest(c echo.Context) error {
 			Category:  "mutasi",
 			Title:     "Permohonan mutasi masuk baru",
 			Message:   m.StudentName + " (NISN " + m.NISN + ") dari " + m.OriginSchool + ".",
-			TargetURL: StrPtr("/admin/siswa/mutasi"),
+			TargetURL: StrPtr("/admin/siswa?tab=mutasi"),
 		}, "admin", "superadmin")
 	}
 
