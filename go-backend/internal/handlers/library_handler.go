@@ -87,6 +87,9 @@ func (h *LibraryHandler) UpdateBook(c echo.Context) error {
 func (h *LibraryHandler) DeleteBook(c echo.Context) error {
 	id := c.Param("id")
 	if err := h.Repo.DeleteBook(id); err != nil {
+		if errors.Is(err, repository.ErrBookStillBorrowed) {
+			return c.JSON(http.StatusConflict, map[string]string{"error": err.Error()})
+		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
@@ -101,7 +104,8 @@ func (h *LibraryHandler) SwapQR(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input"})
 	}
 	if err := h.Repo.SwapQR(req.OldQr, req.NewQr); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+		// Error validasi (QR tidak ditemukan / sudah terdaftar) → 400.
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }

@@ -78,6 +78,9 @@ func (h *LibraryHandler) UpdateMember(c echo.Context) error {
 func (h *LibraryHandler) DeleteMember(c echo.Context) error {
 	id := c.Param("id")
 	if err := h.Repo.DeleteMember(id); err != nil {
+		if errors.Is(err, repository.ErrMemberHasOutstandingLoan) {
+			return c.JSON(http.StatusConflict, map[string]string{"error": err.Error()})
+		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})

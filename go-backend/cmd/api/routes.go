@@ -461,15 +461,19 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	adminGroup.POST("/library/loans/:id/pay-fine", h.Library.PayFine)
 	adminGroup.POST("/library/loans/:id/renew", h.Library.RenewLoan)
 	adminGroup.GET("/library/members/:id/history", h.Library.GetMemberLoanHistory)
-	adminGroup.GET("/library/assets/:id", h.Library.GetBookByQRCode)
 	adminGroup.POST("/library/visits/manual", h.Library.RecordVisit)
 	adminGroup.GET("/library/visits", h.Library.GetVisits)
 	adminGroup.GET("/library/reports", h.Library.GetReports)
 	adminGroup.GET("/library/qr-generator", h.Library.GetQRCodeBatches)
 	adminGroup.POST("/library/qr-generator", h.Library.GenerateQRCodeBatch)
-	auth.POST("/kiosk/scan-complete", h.Library.KioskScanComplete)
-	auth.POST("/kiosk/scan", h.Library.KioskScan)
-	auth.POST("/kiosk/transaction", h.Library.KioskTransaction)
+
+	// Kiosk (dibuka dari HP guru yang sudah login; ikut role guru+)
+	guruGroup.POST("/kiosk/scan-complete", h.Library.KioskScanComplete)
+	guruGroup.POST("/kiosk/scan", h.Library.KioskScan)
+	guruGroup.POST("/kiosk/transaction", h.Library.KioskTransaction)
+	guruGroup.POST("/kiosk/attendance", h.Attendance.KioskRecordAttendance)
+	guruGroup.POST("/kiosk/savings-deposit", h.Savings.KioskDeposit)
+	guruGroup.GET("/kiosk/savings-lookup", h.Savings.GetSiswa)
 
 	// Announcements
 	auth.GET("/announcements", h.Announcement.GetAnnouncements)
@@ -566,9 +570,6 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	adminGroup.DELETE("/arsip/dokumen/:id", h.Document.Delete)
 	adminGroup.GET("/arsip/daftar-1", h.EOffice.GetDaftar1Stats)
 
-	// Kiosk (dibuka dari HP guru yang sudah login; ikut role guru+)
-	guruGroup.POST("/kiosk/attendance", h.Attendance.KioskRecordAttendance)
-	guruGroup.POST("/kiosk/savings-deposit", h.Savings.KioskDeposit)
 	guruGroup.GET("/kiosk/savings-lookup", h.Savings.GetSiswa)
 
 	// Attendance (mutasi & laporan hanya guru ke atas; siswa hanya rangkuman sendiri)

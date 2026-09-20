@@ -29,7 +29,8 @@ func (r *LibraryRepository) RecordVisit(memberId string) error {
 	}
 
 	now := time.Now()
-	date := now.Format("2006-01-02")
+	// Konsisten dengan HasVisitedToday/GetVisits yang memakai WIB.
+	date := TodayJakarta()
 	timeStr := now.Format("15:04:05")
 	id := cuid2.Generate()
 
@@ -42,7 +43,7 @@ func (r *LibraryRepository) RecordVisit(memberId string) error {
 
 func (r *LibraryRepository) RecordGuestVisit(name, institution, purpose string) error {
 	now := time.Now()
-	date := now.Format("2006-01-02")
+	date := TodayJakarta()
 	timeStr := now.Format("15:04:05")
 	id := cuid2.Generate()
 

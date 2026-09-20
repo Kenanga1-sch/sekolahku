@@ -68,6 +68,7 @@ export interface LibraryAsset extends BaseRecord {
     year: number | null;
     category: ItemCategory;
     description: string | null;
+    cover: string | null;
 }
 
 // Legacy alias for compatibility
@@ -170,7 +171,8 @@ export const ITEM_CATEGORIES: { value: ItemCategory; label: string }[] = [
 
 
 export const DEFAULT_LOAN_DAYS = 7;
-export const FINE_PER_DAY = 1000; // Rp 1.000 per hari
+// Harus sama dengan repository.FinePerDay di backend (Rp 500/hari).
+export const FINE_PER_DAY = 500;
 
 // ==========================================
 // Report Types

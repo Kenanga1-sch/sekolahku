@@ -1,11 +1,13 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sekolahku/go-backend/internal/models"
+	"github.com/sekolahku/go-backend/internal/repository"
 )
 
 // ============ Loans ============
@@ -48,6 +50,9 @@ func (h *LibraryHandler) BorrowBook(c echo.Context) error {
 	}
 	loan, err := h.Repo.BorrowItem(req.MemberID, req.ItemID, req.LoanDays)
 	if err != nil {
+		if errors.Is(err, repository.ErrMaxLimitReached) || errors.Is(err, repository.ErrMemberInactive) {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		}
 		c.Logger().Error("Failed to borrow library asset:", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}

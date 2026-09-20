@@ -47,7 +47,9 @@ func (r *LibraryRepository) GetStats() (*models.LibraryStats, error) {
 	stats.OverdueLoans = overdueCount
 
 	var todayVisits int
-	r.DB.QueryRow("SELECT COUNT(*) FROM library_visits WHERE DATE(created_at / 1000, 'unixepoch') = DATE('now')").Scan(&todayVisits)
+	// Bandingkan dengan tanggal WIB (bukan DATE('now') SQLite yang memakai UTC),
+	// konsisten dengan RecordVisit/HasVisitedToday.
+	r.DB.QueryRow("SELECT COUNT(*) FROM library_visits WHERE date = ?", TodayJakarta()).Scan(&todayVisits)
 	stats.TodayVisits = todayVisits
 
 	return stats, nil
@@ -121,6 +123,9 @@ func (r *LibraryRepository) CreateBook(input models.CreateBookRequest) error {
 	if title == "" || author == "" {
 		return errors.New("judul dan penulis wajib diisi")
 	}
+	if input.Copies < 1 {
+		return ErrMinCopies
+	}
 	category := strings.TrimSpace(input.Category)
 	if category == "" {
 		category = "Uncategorized"
@@ -176,6 +181,13 @@ func (r *LibraryRepository) UpdateBook(id string, input models.UpdateBookRequest
 	return err
 }
 
+// Pre-condition errors untuk operasi hapus.
+var (
+	ErrBookStillBorrowed        = errors.New("buku sedang dipinjam, tidak dapat dihapus")
+	ErrMemberHasOutstandingLoan = errors.New("anggota masih memiliki pinjaman aktif atau denda belum dibayar")
+	ErrMinCopies                = errors.New("jumlah eksemplar minimal 1")
+)
+
 func (r *LibraryRepository) DeleteBook(id string) error {
 	tx, err := r.DB.Begin()
 	if err != nil {
@@ -187,6 +199,15 @@ func (r *LibraryRepository) DeleteBook(id string) error {
 	err = tx.QueryRow("SELECT catalog_id FROM library_assets WHERE id = ?", id).Scan(&catalogID)
 	if err != nil {
 		return err
+	}
+
+	// Tidak boleh menghapus aset yang sedang dipinjam.
+	var activeLoans int
+	if err := tx.QueryRow("SELECT COUNT(*) FROM library_loans WHERE item_id = ? AND is_returned = 0", id).Scan(&activeLoans); err != nil {
+		return err
+	}
+	if activeLoans > 0 {
+		return ErrBookStillBorrowed
 	}
 
 	var catalogRefCount int
@@ -302,30 +323,39 @@ func (r *LibraryRepository) CreateMember(m models.LibraryMember) error {
 	return errors.New("member siswa/guru wajib dipilih")
 }
 
-// UpdateMember only updates module-owned data (max_borrow_limit)
+// UpdateMember memperbarui data milik modul: limit pinjaman dan status aktif.
 func (r *LibraryRepository) UpdateMember(id string, input models.UpdateMemberRequest) error {
 	now := UnixMilli()
+	// is_active default true bila tidak diberikan (kolom NOT NULL di model).
+	isActive := 1
+	if input.IsActive != nil {
+		if *input.IsActive {
+			isActive = 1
+		} else {
+			isActive = 0
+		}
+	}
 	_, err := r.DB.Exec(`
-		UPDATE library_members SET max_borrow_limit=?, updated_at=?
+		UPDATE library_members SET max_borrow_limit=?, is_active=?, updated_at=?
 		WHERE id=?
-	`, input.MaxBorrowLimit, now, id)
+	`, input.MaxBorrowLimit, isActive, now, id)
 	return err
 }
 
 func (r *LibraryRepository) DeleteMember(id string) error {
+	// Tidak boleh menghapus anggota dengan pinjaman aktif atau denda belum lunas.
+	var outstanding int
+	if err := r.DB.QueryRow(`
+		SELECT COUNT(*) FROM library_loans
+		WHERE member_id = ?
+		  AND (is_returned = 0 OR (fine_amount > 0 AND fine_paid = 0))
+	`, id).Scan(&outstanding); err != nil {
+		return err
+	}
+	if outstanding > 0 {
+		return ErrMemberHasOutstandingLoan
+	}
 	_, err := r.DB.Exec("DELETE FROM library_members WHERE id = ?", id)
-	return err
-}
-
-// EnsureMember creates a library extension row for an active student if missing
-func (r *LibraryRepository) EnsureMember(studentID string) error {
-	_, err := r.DB.Exec(`
-		INSERT INTO library_members (id, student_id, max_borrow_limit, is_active, created_at, updated_at)
-		SELECT 'lib_' || s.id, s.id, 3, 1, ?, ?
-		FROM students s
-		WHERE s.id = ? AND (s.status = 'active' OR s.is_active = 1)
-		  AND NOT EXISTS (SELECT 1 FROM library_members lm WHERE lm.student_id = s.id)
-	`, UnixMilli(), UnixMilli(), studentID)
 	return err
 }
 
@@ -371,7 +401,7 @@ func (r *LibraryRepository) GetMemberByCode(code string) (*models.LibraryMember,
 	m, err = scanMember(r.DB.QueryRow(memberBaseQuery+" WHERE m.id = ?", code))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
+			return nil, sql.ErrNoRows
 		}
 		return nil, err
 	}

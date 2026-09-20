@@ -9,8 +9,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function PerpustakaanPage() {
     const [stats, setStats] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [refreshSignal, setRefreshSignal] = useState(0);
 
     useEffect(() => {
+        setIsLoading(true);
         getCachedLibraryStats()
             .then(data => {
                 setStats(data);
@@ -23,13 +25,16 @@ export default function PerpustakaanPage() {
             .finally(() => {
                 setIsLoading(false);
             });
-    }, []);
+    }, [refreshSignal]);
 
     if (isLoading || !stats) return <PerpustakaanSkeleton />;
 
     return (
         <Suspense fallback={<PerpustakaanSkeleton />}>
-            <PerpustakaanClient initialStats={stats} />
+            <PerpustakaanClient
+                initialStats={stats}
+                onRefresh={() => setRefreshSignal(s => s + 1)}
+            />
         </Suspense>
     );
 }

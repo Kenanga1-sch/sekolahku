@@ -16,7 +16,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { LibraryStats } from "@/types/library";
-import { useRouter } from "next/navigation";
 
 const QuickActionsPanel = dynamic(
     () => import("@/components/perpustakaan/quick-actions").then(mod => ({ default: mod.QuickActionsPanel })),
@@ -28,15 +27,17 @@ const QuickActionsPanel = dynamic(
 
 interface PerpustakaanClientProps {
     initialStats: LibraryStats | null;
+    onRefresh?: () => void;
 }
 
-export default function PerpustakaanClient({ initialStats }: PerpustakaanClientProps) {
-    const router = useRouter();
+export default function PerpustakaanClient({ initialStats, onRefresh }: PerpustakaanClientProps) {
     const [refreshing, setRefreshing] = useState(false);
 
     const handleRefresh = () => {
         setRefreshing(true);
-        router.refresh();
+        // Memicu re-fetch stats di parent (router.refresh tidak menjalankan
+        // useEffect client page).
+        onRefresh?.();
         setTimeout(() => setRefreshing(false), 1000);
     };
 

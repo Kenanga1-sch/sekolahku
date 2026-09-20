@@ -55,16 +55,6 @@ type geminiRequestBody struct {
 }
 
 func (r *LibraryRepository) ClassifyBookWithAI(title, author, description string, subjects []string, apiKey string) (*GeminiClassifyResult, error) {
-	if apiKey == "mock_test_key" || title == "Buku Tes AI" {
-		return &GeminiClassifyResult{
-			Category:    "000_COMPUTER",
-			Shelf:       "RAK-000",
-			Reason:      "Buku ini membahas tentang rekayasa perangkat lunak dan pemrograman, sehingga masuk kategori 000 (Komputer) di RAK-000.",
-			Description: "Panduan lengkap mengenai pengembangan aplikasi dan pemrograman komputer modern.",
-			Subjects:    []string{"Teknologi", "Komputer", "Pemrograman"},
-		}, nil
-	}
-
 	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 

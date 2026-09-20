@@ -116,12 +116,12 @@ func (s *Scheduler) checkLibraryOverdue() {
 		UPDATE library_loans 
 		SET status = 'overdue', 
 		    overdue_at = COALESCE(overdue_at, ?),
-		    fine_amount = CAST(MAX(0, (? - due_date) / 86400000) * 500 AS INTEGER),
+		    fine_amount = CAST(MAX(0, (? - due_date) / 86400000) * ? AS INTEGER),
 		    updated_at = ?
 		WHERE is_returned = 0
 		  AND due_date < ?
 		  AND (status IS NULL OR status != 'overdue')
-	`, now, now, now, now)
+	`, now, repository.FinePerDay, now, now)
 
 	if err != nil {
 		log.Printf("[CRON] Library overdue check error: %v", err)

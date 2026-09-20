@@ -11,6 +11,11 @@ import (
 	"github.com/sekolahku/go-backend/internal/models"
 )
 
+// FinePerDay adalah tarif denda keterlambatan per hari (Rp).
+// Satu-satunya sumber kebenaran: dipakai oleh ReturnItem saat pengembalian
+// dan oleh scheduler saat menandai pinjaman overdue.
+const FinePerDay = 500
+
 // Loans
 func (r *LibraryRepository) GetLoans(loanType string, page, perPage int) ([]models.LoanDetail, int, error) {
 	query := `
@@ -269,6 +274,13 @@ func (r *LibraryRepository) GetMemberLoanHistory(memberID string, limit int) ([]
 	return results, nil
 }
 
+// Pre-condition errors untuk operasi peminjaman.
+var (
+	ErrMemberInactive  = errors.New("member tidak aktif, tidak dapat meminjam")
+	ErrMaxLimitReached = errors.New("MAX_LIMIT_REACHED: member has reached maximum borrowing limit")
+	ErrLoanOverdue     = errors.New("pinjaman sudah jatuh tempo, kembalikan dan bayar denda terlebih dahulu")
+)
+
 func (r *LibraryRepository) BorrowItem(memberId string, itemId string, loanDays int) (*models.LibraryLoan, error) {
 	tx, err := r.DB.Begin()
 	if err != nil {
@@ -278,7 +290,8 @@ func (r *LibraryRepository) BorrowItem(memberId string, itemId string, loanDays 
 
 	// 1. Verify Member limit (accept member id, or student qr/nisn/nis/id)
 	var maxLimit int
-	err = tx.QueryRow("SELECT max_borrow_limit FROM library_members WHERE id = ?", memberId).Scan(&maxLimit)
+	var isActive int
+	err = tx.QueryRow("SELECT max_borrow_limit, is_active FROM library_members WHERE id = ?", memberId).Scan(&maxLimit, &isActive)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			// Resolve via students, then ensure extension row exists
@@ -295,7 +308,7 @@ func (r *LibraryRepository) BorrowItem(memberId string, itemId string, loanDays 
 				UnixMilli(), UnixMilli(), studentID); err != nil {
 				return nil, err
 			}
-			err = tx.QueryRow("SELECT id, max_borrow_limit FROM library_members WHERE student_id = ?", studentID).Scan(&memberId, &maxLimit)
+			err = tx.QueryRow("SELECT id, max_borrow_limit, is_active FROM library_members WHERE student_id = ?", studentID).Scan(&memberId, &maxLimit, &isActive)
 			if err != nil {
 				return nil, errors.New("member not found")
 			}
@@ -303,11 +316,16 @@ func (r *LibraryRepository) BorrowItem(memberId string, itemId string, loanDays 
 			return nil, err
 		}
 	}
+	if isActive != 1 {
+		return nil, ErrMemberInactive
+	}
 
 	var currentLoans int
-	err = tx.QueryRow("SELECT count(*) FROM library_loans WHERE member_id = ? AND is_returned = 0", memberId).Scan(&currentLoans)
-	if err == nil && currentLoans >= maxLimit {
-		return nil, errors.New("MAX_LIMIT_REACHED: member has reached maximum borrowing limit")
+	if err := tx.QueryRow("SELECT count(*) FROM library_loans WHERE member_id = ? AND is_returned = 0", memberId).Scan(&currentLoans); err != nil {
+		return nil, fmt.Errorf("gagal menghitung pinjaman aktif: %w", err)
+	}
+	if currentLoans >= maxLimit {
+		return nil, ErrMaxLimitReached
 	}
 
 	// 2. Verify Asset Available (atomic: klaim langsung, cek RowsAffected untuk race)
@@ -390,7 +408,7 @@ func (r *LibraryRepository) ReturnItem(loanId string, memberId ...string) (*mode
 		diff := now.Sub(dueDate).Hours() / 24
 		daysLate := int(math.Ceil(diff))
 		if daysLate > 0 {
-			fineAmount = daysLate * 1000 // Custom fine rule logic
+			fineAmount = daysLate * FinePerDay
 		}
 	}
 
@@ -475,7 +493,15 @@ func (r *LibraryRepository) RenewLoan(loanID string, extraDays int) (*models.Lib
 		return nil, errors.New("perpanjangan maksimal 30 hari")
 	}
 
-	newDueDate := time.UnixMilli(dueDateMi).AddDate(0, 0, extraDays)
+	// Pinjaman yang sudah overdue tidak boleh diperpanjang — perpanjangan
+	// dari due date lama hanya akan menghasilkan due date di masa lalu.
+	if dueDateMi < UnixMilli() {
+		return nil, ErrLoanOverdue
+	}
+
+	// Perpanjang dari waktu sekarang, bukan dari due date lama, agar jangka
+	// waktu tambahan benar-benar penuh.
+	newDueDate := time.Now().AddDate(0, 0, extraDays)
 	now := UnixMilli()
 	_, err = tx.Exec("UPDATE library_loans SET due_date = ?, updated_at = ? WHERE id = ?", newDueDate.UnixMilli(), now, loanID)
 	if err != nil {

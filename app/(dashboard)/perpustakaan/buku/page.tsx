@@ -402,15 +402,15 @@ export default function BukuPage() {
                 emptyDescription="Klik “Tambah Buku” untuk menambahkan koleksi pertama."
                 columns={[
                     {
-                        key: "catalog.cover",
+                        key: "cover",
                         header: "Sampul",
                         card: "hidden",
                         render: (item) => (
                             <div className="w-12 h-16 rounded overflow-hidden border bg-muted flex items-center justify-center">
-                                {item.catalog?.cover ? (
+                                {item.cover ? (
                                     <img
-                                        src={item.catalog.cover}
-                                        alt={item.catalog.title}
+                                        src={item.cover}
+                                        alt={item.title}
                                         className="w-full h-full object-cover"
                                         onError={(e) => {
                                             (e.target as HTMLImageElement).src = "/images/placeholder-book.png";
@@ -423,12 +423,12 @@ export default function BukuPage() {
                         ),
                     },
                     {
-                        key: "catalog.title",
+                        key: "title",
                         header: "Judul",
                         sortable: true,
                         card: "title",
                         render: (item) => (
-                            <p className="font-medium">{item.catalog?.title || "No Title"}</p>
+                            <p className="font-medium">{item.title || "No Title"}</p>
                         ),
                     },
                     {
@@ -438,27 +438,27 @@ export default function BukuPage() {
                         render: (item) => (
                             <div className="flex flex-col items-start gap-1">
                                 <Badge variant="outline" className="text-[10px] h-4 font-mono">{item.id}</Badge>
-                                {item.catalog?.isbn && (
-                                    <p className="text-xs text-muted-foreground">ISBN: {item.catalog.isbn}</p>
+                                {item.isbn && (
+                                    <p className="text-xs text-muted-foreground">ISBN: {item.isbn}</p>
                                 )}
                             </div>
                         ),
                     },
                     {
-                        key: "catalog.author",
+                        key: "author",
                         header: "Penulis",
                         sortable: true,
                         card: "field",
-                        render: (item) => item.catalog?.author || "-",
+                        render: (item) => item.author || "-",
                     },
                     {
-                        key: "catalog.category",
+                        key: "category",
                         header: "Kategori",
                         sortable: true,
                         card: "field",
                         render: (item) => (
                             <Badge variant="secondary">
-                                {CATEGORIES.find((c) => c.value === item.catalog?.category)?.label || item.catalog?.category || "-"}
+                                {CATEGORIES.find((c) => c.value === item.category)?.label || item.category || "-"}
                             </Badge>
                         ),
                     },
@@ -524,7 +524,7 @@ export default function BukuPage() {
                     {swappingItem && (
                         <div className="space-y-4 py-4">
                             <div className="bg-muted p-3 rounded-md">
-                                <p className="text-sm font-bold">{swappingItem.catalog?.title}</p>
+                                <p className="text-sm font-bold">{swappingItem.title}</p>
                                 <p className="text-xs text-muted-foreground">QR Lama: {swappingItem.id}</p>
                             </div>
                             <div className="grid gap-2">

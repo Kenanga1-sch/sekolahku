@@ -20,6 +20,12 @@ func (r *LibraryRepository) SwapQR(oldId, newId string) error {
 		return errors.New("QR code baru harus berbeda dari yang lama")
 	}
 
+	// Mengganti PK library_assets.id dengan FK ON selalu gagal di SQLite
+	// tanpa penangguhan cek FK (baik update parent atau child duluan).
+	// Karena itu seluruh operasi berjalan dalam satu transaksi dengan
+	// PRAGMA defer_foreign_keys = ON, dan code QR baru di-reserve di
+	// library_qr_codes terlebih dahulu agar tetap unik (mengikuti pola
+	// GenerateQRBatch), sementara code lama dilepas.
 	tx, err := r.DB.Begin()
 	if err != nil {
 		return err
@@ -42,14 +48,26 @@ func (r *LibraryRepository) SwapQR(oldId, newId string) error {
 		return errors.New("QR code baru sudah terdaftar")
 	}
 
-	_, err = tx.Exec("UPDATE library_assets SET id = ? WHERE id = ?", newId, oldId)
-	if err != nil {
+	if _, err := tx.Exec("PRAGMA defer_foreign_keys = ON"); err != nil {
+		return err
+	}
+
+	// Reserve QR baru (kode unik, batch_id NULL) sebelum dipakai.
+	if _, err := tx.Exec("INSERT INTO library_qr_codes (code, batch_id, created_at) VALUES (?, NULL, ?)", newId, UnixMilli()); err != nil {
+		return errors.New("QR code baru tidak dapat direservasi: " + err.Error())
+	}
+
+	if _, err := tx.Exec("UPDATE library_assets SET id = ? WHERE id = ?", newId, oldId); err != nil {
 		return errors.New("gagal memperbarui ID aset: " + err.Error())
 	}
 
-	_, err = tx.Exec("UPDATE library_loans SET item_id = ? WHERE item_id = ?", newId, oldId)
-	if err != nil {
+	if _, err := tx.Exec("UPDATE library_loans SET item_id = ? WHERE item_id = ?", newId, oldId); err != nil {
 		return errors.New("gagal memperbarui referensi peminjaman: " + err.Error())
+	}
+
+	// Lepas code lama dari reservasi agar bisa digunakan kembali.
+	if _, err := tx.Exec("DELETE FROM library_qr_codes WHERE code = ?", oldId); err != nil {
+		return errors.New("gagal melepas reservasi QR lama: " + err.Error())
 	}
 
 	return tx.Commit()
@@ -69,7 +87,7 @@ func (r *LibraryRepository) GetAssetByCode(code string) (*models.BookDetail, err
 	`, code).Scan(&b.ID, &b.CatalogID, &b.Title, &b.Author, &b.ISBN, &b.Status, &loc, &cond, &pub, &yr, &cat)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
+			return nil, sql.ErrNoRows
 		}
 		return nil, err
 	}
@@ -109,15 +127,20 @@ func (r *LibraryRepository) LookupISBN(isbn string) (*models.ISBNLookupResponse,
 
 	ext, extErr := lookupISBNOnline(isbn)
 	if extErr != nil || ext == nil {
-		return nil, nil
+		return nil, sql.ErrNoRows
 	}
 	return &models.ISBNLookupResponse{
 		Title:       ext.Title,
 		Author:      ext.Author,
 		Publisher:   ext.Publisher,
 		Year:        int64(ext.Year),
-		Description: ext.DDCCategory,
+		ISBN:        isbn,
 		Cover:       ext.CoverURL,
+		CoverURL:    ext.CoverURL,
+		Subjects:    ext.Subjects,
+		DDCCategory: ext.DDCCategory,
+		Category:    ext.Category,
+		Sources:     ext.Sources,
 	}, nil
 }
 

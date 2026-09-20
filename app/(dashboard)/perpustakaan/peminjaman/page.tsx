@@ -47,9 +47,11 @@ import {
 import { showError, showSuccess } from "@/lib/toast";
 import { goGet, goPost } from "@/lib/api-client";
 import type { LibraryLoan, LibraryItem, LibraryMember } from "@/types/library";
+import { FINE_PER_DAY } from "@/types/library";
 
 export default function PeminjamanPage() {
   const searchParams = useSearchParams();
+  const initialTab = searchParams.get("filter") === "overdue" ? "overdue" : "active";
     const [activeLoans, setActiveLoans] = useState<LibraryLoan[]>([]);
     const [overdueLoans, setOverdueLoans] = useState<LibraryLoan[]>([]);
     const [loading, setLoading] = useState(true);
@@ -173,7 +175,7 @@ export default function PeminjamanPage() {
         if (loan.isReturned) return loan.fineAmount;
         const daysOverdue = -getDaysUntilDue(loan.dueDate);
         if (daysOverdue <= 0) return 0;
-        return daysOverdue * 1000; // Rp 1.000 per hari
+        return daysOverdue * FINE_PER_DAY;
     };
 
     const filteredActiveLoans = activeLoans.filter((loan) => {
@@ -371,7 +373,7 @@ export default function PeminjamanPage() {
             </Card>
 
             {/* Tabs */}
-            <Tabs defaultValue="active">
+            <Tabs defaultValue={initialTab}>
                 <TabsList>
                     <TabsTrigger value="active" className="gap-2">
                         <BookMarked className="h-4 w-4" />

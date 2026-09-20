@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -154,6 +155,11 @@ func (h *UploadHandler) LibraryCoverUpload(c echo.Context) error {
 		"image/webp": "webp",
 	}
 
+	// Batasi ukuran upload (sama dengan GeneralUpload).
+	if file.Size > 5*1024*1024 {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Ukuran file melebihi batas 5 MB"})
+	}
+
 	src, err := file.Open()
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Cannot open file"})
@@ -165,7 +171,7 @@ func (h *UploadHandler) LibraryCoverUpload(c echo.Context) error {
 	ct := http.DetectContentType(buf[:n])
 	src.Seek(0, io.SeekStart)
 
-	_, ok := coverAllowed[ct]
+	detectedExt, ok := coverAllowed[ct]
 	if !ok {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid file type. Only JPG, PNG, WEBP allowed."})
 	}
@@ -173,15 +179,18 @@ func (h *UploadHandler) LibraryCoverUpload(c echo.Context) error {
 	uploadDir := filepath.Join("public", "uploads", "library", "covers")
 	os.MkdirAll(uploadDir, 0755)
 
-	// Use ISBN or catalogId for naming, fallback to timestamp
+	// Gunakan ISBN atau catalogId untuk penamaan, fallback ke timestamp.
+	// Sanitasi wajib: nilai form bisa mengandung traversal (../../...).
 	baseName := isbn
 	if baseName == "" {
 		baseName = catalogId
 	}
+	baseName = sanitizeCoverName(baseName)
 	if baseName == "" {
 		baseName = fmt.Sprintf("%d", time.Now().UnixMilli())
 	}
-	filename := baseName + ".webp"
+	// Ekstensi mengikuti isi file yang terdeteksi, bukan asumsi .webp.
+	filename := baseName + "." + detectedExt
 	dstPath := filepath.Join(uploadDir, filename)
 
 	dst, err := os.Create(dstPath)
@@ -190,11 +199,16 @@ func (h *UploadHandler) LibraryCoverUpload(c echo.Context) error {
 	}
 	defer dst.Close()
 
-	io.Copy(dst, src)
+	if _, err := io.Copy(dst, src); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal menyimpan file"})
+	}
 	dst.Close()
 
-	// Resize large covers to reduce bandwidth
-	util.ResizeImage(dstPath, util.DefaultResizeConfig)
+	// Resize cover besar untuk menghemat bandwidth.
+	if err := util.ResizeImage(dstPath, util.DefaultResizeConfig); err != nil {
+		// Resize gagal tidak fatal; file asli tetap tersimpan.
+		log.Printf("[LibraryCoverUpload] resize warning: %v", err)
+	}
 
 	imageURL := fmt.Sprintf("/uploads/library/covers/%s", filename)
 
@@ -202,4 +216,25 @@ func (h *UploadHandler) LibraryCoverUpload(c echo.Context) error {
 		"success": true,
 		"url":     imageURL,
 	})
+}
+
+// sanitizeCoverName memastikan nama file hanya berisi karakter aman
+// (alnum, dash, underscore, dot) sehingga tidak bisa keluar dari direktori
+// upload. Hasil bisa kosong bila input tidak valid.
+func sanitizeCoverName(name string) string {
+	name = strings.TrimSpace(name)
+	var b strings.Builder
+	for _, r := range name {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+		case r == '-' || r == '_':
+			b.WriteRune(r)
+		}
+	}
+	out := b.String()
+	if len(out) > 64 {
+		out = out[:64]
+	}
+	return out
 }

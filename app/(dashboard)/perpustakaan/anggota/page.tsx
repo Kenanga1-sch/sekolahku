@@ -53,6 +53,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { goGet, goPost, goPatch, goDelete } from "@/lib/api-client";
 import { useSortableData } from "@/hooks/use-sortable-data";
+import { useSchoolSettings } from "@/lib/hooks/use-settings";
+import { QRCodeSVG } from "qrcode.react";
 
 import type { LibraryMember } from "@/types/library";
 
@@ -60,6 +62,7 @@ import type { LibraryMember } from "@/types/library";
 
 // ID Card Preview Component
 const MemberCardPreview = ({ member }: { member: LibraryMember }) => {
+    const { settings } = useSchoolSettings();
     return (
         <div className="w-[350px] h-[220px] bg-white rounded-xl shadow-lg overflow-hidden border border-slate-200 relative print:shadow-none print:border-black">
             {/* Header Pattern */}
@@ -74,16 +77,13 @@ const MemberCardPreview = ({ member }: { member: LibraryMember }) => {
                     </div>
                     <div className="text-right text-white">
                         <h3 className="font-bold text-sm">PERPUSTAKAAN</h3>
-                        <p className="text-[10px] opacity-90">SD Negeri 1 Kenanga</p>
+                        <p className="text-[10px] opacity-90">{settings?.school_name || "Sekolah"}</p>
                     </div>
                 </div>
 
                 <div className="flex gap-4 items-end mt-auto">
                     <div className="bg-white p-1 rounded-lg">
-                        {/* Mock QR if real one not renderable easily here without lib, but text serves purpose */}
-                        <div className="h-20 w-20 bg-slate-900 text-white text-[8px] flex items-center justify-center text-center p-1">
-                            {member.qrCode}
-                        </div>
+                        <QRCodeSVG value={member.qrCode || member.id} size={80} level="M" />
                     </div>
                     <div className="mb-1">
                         <h2 className="font-bold text-lg text-slate-800 leading-tight">{member.name}</h2>
@@ -684,12 +684,7 @@ export default function AnggotaPage() {
                     </DialogHeader>
                     <div className="flex justify-center py-6">
                         <div className="bg-white p-4 rounded-xl border-2 border-slate-900 shadow-sm">
-                            {/* In a real app, use a QRCode library here. For now, we simulate visual */}
-                            <div className="h-48 w-48 bg-slate-100 flex items-center justify-center text-slate-500 text-xs text-center p-4">
-                                [QR CODE: {memberQR?.qrCode}]
-                                <br/>
-                                (Install library like 'react-qr-code' to render actual QR)
-                            </div>
+                            <QRCodeSVG value={memberQR?.qrCode || memberQR?.id || ""} size={192} level="M" className="rounded" />
                         </div>
                     </div>
                     <div className="text-center text-xs text-muted-foreground font-mono">
@@ -706,7 +701,7 @@ export default function AnggotaPage() {
                         <DialogDescription>Preview desain kartu untuk {memberToPrint?.name}</DialogDescription>
                     </DialogHeader>
                     
-                    <div className="flex flex-col items-center justify-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-300">
+                    <div className="flex flex-col items-center justify-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-300 print-area">
                         {memberToPrint && <MemberCardPreview member={memberToPrint} />}
                     </div>
 
@@ -721,6 +716,28 @@ export default function AnggotaPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Saat cetak kartu, sembunyikan seluruh chrome aplikasi dan hanya
+                tampilkan area kartu (class .print-area di atas). */}
+            <style jsx global>{`
+                @media print {
+                    body * {
+                        visibility: hidden;
+                    }
+                    .print-area,
+                    .print-area * {
+                        visibility: visible;
+                    }
+                    .print-area {
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        border: none !important;
+                        background: white !important;
+                        padding: 0 !important;
+                    }
+                }
+            `}</style>
         </div>
     );
 }

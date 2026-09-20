@@ -72,7 +72,7 @@ func (h *LibraryHandler) KioskScanComplete(c echo.Context) error {
 	}
 
 	member, err := h.Repo.GetMemberByCode(req.Code)
-	if err == nil {
+	if err == nil && member != nil {
 		visited, err := h.Repo.HasVisitedToday(member.ID)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]interface{}{"type": "error", "message": "Gagal mengecek kunjungan"})
@@ -96,18 +96,18 @@ func (h *LibraryHandler) KioskScanComplete(c echo.Context) error {
 			"activeLoans": activeLoans,
 		})
 	}
-	if !errors.Is(err, sql.ErrNoRows) {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"type": "error", "message": "Gagal membaca data anggota"})
 	}
 
 	item, err := h.Repo.GetAssetByCode(req.Code)
-	if err == nil {
+	if err == nil && item != nil {
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"type": "item",
 			"data": item,
 		})
 	}
-	if errors.Is(err, sql.ErrNoRows) {
+	if err != nil && errors.Is(err, sql.ErrNoRows) {
 		return c.JSON(http.StatusOK, map[string]interface{}{"type": "error", "message": "QR tidak ditemukan"})
 	}
 	return c.JSON(http.StatusInternalServerError, map[string]interface{}{"type": "error", "message": "Gagal membaca data buku"})
@@ -134,12 +134,18 @@ func (h *LibraryHandler) KioskScan(c echo.Context) error {
 	}
 
 	member, err := h.Repo.GetMemberByCode(req.Code)
-	if err == nil {
+	if err == nil && member != nil {
 		return c.JSON(http.StatusOK, map[string]interface{}{"type": "member", "data": member})
 	}
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"type": "error", "message": "Gagal membaca data anggota"})
+	}
 	item, err := h.Repo.GetAssetByCode(req.Code)
-	if err == nil {
+	if err == nil && item != nil {
 		return c.JSON(http.StatusOK, map[string]interface{}{"type": "item", "data": item})
+	}
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"type": "error", "message": "Gagal membaca data buku"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"type": "error", "message": "QR tidak ditemukan"})
 }
