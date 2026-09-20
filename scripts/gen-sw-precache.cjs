@@ -68,12 +68,38 @@ function collectAssets() {
   return Array.from(assets).sort();
 }
 
-/** Content hash (deterministic) dari daftar aset → bump cache tiap build berubah. */
+/**
+ * Content hash (deterministic) dari daftar aset DAN isi file-nya.
+ *
+ * Isi file wajib diikutsertakan: bila hanya daftar URL, mengganti isi
+ * /icon-192.png (mis. ganti logo sekolah) tidak mengubah hash, sehingga
+ * CACHE_NAME tetap sama dan perangkat pengguna memakai ikon lama selamanya.
+ */
 function contentHash(assets) {
   let h = 0;
+  const fold = (buf) => {
+    for (let i = 0; i < buf.length; i++) {
+      h = (h * 31 + buf[i]) | 0;
+    }
+  };
   for (const a of assets) {
     for (let i = 0; i < a.length; i++) {
       h = (h * 31 + a.charCodeAt(i)) | 0;
+    }
+    const rel = a.replace(/^\//, "") || "index.html";
+    const full = path.join(OUT_DIR, rel);
+    // URL "/offline" bisa diekspor sebagai out/offline/index.html, bukan
+    // out/offline.html; tangani keduanya agar tidak readFileSync direktori.
+    let target = full;
+    try {
+      const st = fs.statSync(full);
+      target = st.isDirectory() ? path.join(full, "index.html") : full;
+    } catch {
+      // Aset fallback yang belum ada di out/ (mis. /offline.html) → skip.
+      continue;
+    }
+    if (fs.existsSync(target) && fs.statSync(target).isFile()) {
+      fold(fs.readFileSync(target));
     }
   }
   return Math.abs(h).toString(36);
