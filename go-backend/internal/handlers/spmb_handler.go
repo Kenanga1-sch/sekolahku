@@ -314,7 +314,7 @@ func (h *SPMBHandler) Register(c echo.Context) error {
 }
 
 func (h *SPMBHandler) UploadDocuments(c echo.Context) error {
-	registrantId := c.QueryParam("id")
+	registrantId := c.Param("id")
 	if registrantId == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "ID pendaftar diperlukan"})
 	}
@@ -510,6 +510,31 @@ func (h *SPMBHandler) GetRegistrant(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
 		"data":    registrant,
+	})
+}
+
+// GetPublicRegistrantStatus adalah versi publik GetRegistrant untuk halaman
+// "Lacak Status". Tidak mengembalikan PII lengkap atau path dokumen — lihat
+// PublicRegistrantStatus. Dipakai oleh route /api/public/spmb/registrants/:number.
+func (h *SPMBHandler) GetPublicRegistrantStatus(c echo.Context) error {
+	regNum := c.Param("number")
+	if regNum == "" {
+		regNum = c.QueryParam("id")
+	}
+	if regNum == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Nomor registrasi wajib diisi"})
+	}
+	registrant, err := h.Repo.GetRegistrantByNumber(regNum)
+	if err != nil {
+		c.Logger().Error("Failed to fetch registrant:", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal mengambil data pendaftar"})
+	}
+	if registrant == nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Pendaftar tidak ditemukan"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data":    registrant.ToPublicRegistrantStatus(),
 	})
 }
 

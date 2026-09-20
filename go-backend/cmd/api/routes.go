@@ -87,6 +87,7 @@ type AllHandlers struct {
 	Chat           *handlers.ChatHandler
 	Skrining       *handlers.SkriningHandler
 	Tugas          *handlers.TugasHandler
+	File           *handlers.FileHandler
 	// PushSvc dipakai handler lain (absen, tabungan, pengumuman) untuk
 	// mengirim push ke orang tua.
 	PushSvc *push.Service
@@ -164,9 +165,8 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	publicGroup.GET("/news/:slug", h.Announcement.GetPublicAnnouncementBySlug)
 	publicGroup.GET("/faqs", h.FAQ.GetPublicFAQs)
 	publicGroup.GET("/spmb/landing", h.SPMB.GetLandingData)
-	publicGroup.POST("/spmb/register", h.SPMB.Register)
 	publicGroup.GET("/spmb/registrants", h.SPMB.GetPublicRegistrants)
-	publicGroup.GET("/spmb/registrants/:number", h.SPMB.GetRegistrant)
+	publicGroup.GET("/spmb/registrants/:number", h.SPMB.GetPublicRegistrantStatus)
 	// Verifikasi rekening koran: halamannya publik (QR discan tanpa login),
 	// jadi rute ini harus di luar auth. Rute lama di auth tetap untuk konsistensi.
 	publicGroup.GET("/savings/statement/verify", h.Savings.VerifyStatement)
@@ -183,7 +183,6 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	publicGroup.GET("/mutasi/status/:regNum", h.Mutasi.GetPublicMutasiStatus, publicFormLimit)
 	publicGroup.POST("/tabungan/check-balance", h.Savings.CheckPublicBalance, publicFormLimit)
 	publicGroup.POST("/tabungan/statement", h.Savings.GetPublicStatement, publicFormLimit)
-	publicGroup.GET("/spmb/reference-date", h.SPMB.GetReferenceDate)
 	// Label inventaris: halaman detail yang dibuka lewat QR pada stiker fisik.
 	// Sengaja publik — QR harus bisa discan siapa pun. Handler membatasi
 	// respons hanya pada field aman (tanpa harga, catatan, user_id).
@@ -197,6 +196,11 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	// Admin Protected Routes
 	auth := server.Group("/api")
 	auth.Use(authMiddleware.JWTMiddleware)
+
+	// File privat (spmb, alumni, arsip, chat, tugas, dll). Role check
+	// per-folder dilakukan di handler (lihat FileHandler.folderRoleMatrix).
+	// Route anonim /uploads/* hanya melayani folder publik.
+	auth.GET("/files/*", h.File.ServeFile)
 
 	adminGroup := auth.Group("")
 	adminGroup.Use(authMiddleware.RoleMiddleware(authMiddleware.RoleSuperadmin, authMiddleware.RoleAdmin))
@@ -763,6 +767,13 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	staffGroup.Use(authMiddleware.RoleMiddleware(authMiddleware.RoleSuperadmin, authMiddleware.RoleAdmin, authMiddleware.RoleStaff))
 	staffGroup.GET("/ruang-tumbuh/aggregate", h.Skrining.StaffAggregate)
 
+	// SPMB — input data pendaftar oleh panitia/admin di sekolah.
+	// Sebelumnya /api/public/spmb/register (publik, ortu isi sendiri);
+	// kini wajib login + role staff/admin/superadmin.
+	staffGroup.POST("/spmb/registrants", h.SPMB.Register)
+	// Tanggal referensi untuk kalkulasi usia di form input panitia.
+	staffGroup.GET("/spmb/reference-date", h.SPMB.GetReferenceDate)
+
 	// Modul Tugas & PR (guru → siswa), scoped ke kelas wali.
 	guruGroup.GET("/tugas", h.Tugas.ListTugas)
 	guruGroup.POST("/tugas", h.Tugas.CreateTugas)
@@ -825,7 +836,8 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 
 	// Upload
 	auth.POST("/upload", h.Upload.GeneralUpload)
-	// Upload dokumen SPMB dipanggil pendaftar publik — selain possession
-	// check di handler, rute ini kini ikut rate limit anti-spam.
-	server.POST("/api/spmb/upload", h.SPMB.UploadDocuments, publicFormLimit)
+	// Upload dokumen SPMB oleh panitia/admin (input data di sekolah).
+	// Sebelumnya rute ini publik (hanya cek nomor registrasi); kini
+	// wajib login + role staff/admin/superadmin.
+	staffGroup.POST("/spmb/registrants/:id/upload", h.SPMB.UploadDocuments)
 }

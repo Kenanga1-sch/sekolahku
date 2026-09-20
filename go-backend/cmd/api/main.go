@@ -303,6 +303,7 @@ func main() {
 		Chat:           handlers.NewChatHandler(repos.Chat, repos.Notification, pushSvc, chatHub),
 		Skrining:       handlers.NewSkriningHandler(repos.Skrining, repos.Academic, repos.AuditLog, repos.Notification, db),
 		Tugas:          handlers.NewTugasHandler(repos.Tugas, repos.Academic, repos.AuditLog, repos.Notification, db),
+		File:           handlers.NewFileHandler(),
 		PushSvc:        pushSvc,
 	}
 

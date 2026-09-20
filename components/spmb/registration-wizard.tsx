@@ -37,6 +37,11 @@ interface RegistrationWizardProps {
   schoolLng: number;
   maxDistanceKm: number;
   onSubmit: (data: RegistrationData) => Promise<{ success: boolean; registrationNumber?: string; id?: string; error?: string; details?: Record<string, string>; errorCode?: string; duplicateRegistrationNumber?: string }>;
+  /**
+   * "staff" = diisi panitia/admin di sekolah (teks & tombol sukses
+   * disesuaikan; kembali ke dashboard). Default "public".
+   */
+  variant?: "public" | "staff";
 }
 
 const STEPS = [
@@ -55,6 +60,7 @@ function RegistrationWizardContent({
   schoolLng,
   maxDistanceKm,
   onSubmit,
+  variant = "public",
   initialData,
 }: RegistrationWizardProps & { initialData: RegistrationData & { lastStep?: number } }) {
   
@@ -348,9 +354,13 @@ function RegistrationWizardContent({
             </div>
             
             <div className="space-y-2">
-              <h2 className="text-3xl font-bold text-green-600 dark:text-green-400">Pendaftaran Berhasil!</h2>
+              <h2 className="text-3xl font-bold text-green-600 dark:text-green-400">
+                {variant === "staff" ? "Data Pendaftar Tersimpan!" : "Pendaftaran Berhasil!"}
+              </h2>
               <p className="text-muted-foreground text-lg">
-                Data Anda telah kami terima untuk verifikasi.
+                {variant === "staff"
+                  ? "Data pendaftar telah tersimpan dan siap diverifikasi."
+                  : "Data Anda telah kami terima untuk verifikasi."}
               </p>
             </div>
 
@@ -362,9 +372,9 @@ function RegistrationWizardContent({
             <Button 
               size="lg" 
               className="mt-4 gap-2 rounded-full px-8 w-full sm:w-auto"
-              onClick={() => window.location.href = "/spmb/tracking"}
+              onClick={() => window.location.href = variant === "staff" ? "/admin/siswa?tab=spmb" : "/spmb/tracking"}
             >
-              Cek Status Pendaftaran <ChevronRight className="h-4 w-4" />
+              {variant === "staff" ? "Kembali ke Daftar Pendaftar" : "Cek Status Pendaftaran"} <ChevronRight className="h-4 w-4" />
             </Button>
             
             {submitResult.registrationNumber && submitResult.id && (
@@ -372,7 +382,7 @@ function RegistrationWizardContent({
                   variant="outline"
                   size="lg" 
                   className="mt-2 gap-2 rounded-full px-8 w-full sm:w-auto"
-                  onClick={() => window.open(`/spmb/bukti/detail?id=${submitResult.registrationNumber}`, '_blank')}
+                  onClick={() => window.open(`/admin/siswa/spmb-bukti/detail?id=${submitResult.registrationNumber}`, '_blank')}
                 >
                   <Printer className="h-4 w-4" /> Cetak Bukti Pendaftaran
                 </Button>

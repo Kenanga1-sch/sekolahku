@@ -37,6 +37,7 @@ import { compressImage } from "@/lib/utils";
 import { toast } from "sonner";
 import { PwaInstallButton } from "@/components/pwa-install-button";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import { resolveUploadUrl } from "@/lib/upload-url";
 import { siteConfig } from "@/lib/config";
 
 export default function ProfilePage() {
@@ -258,11 +259,7 @@ export default function ProfilePage() {
         }
     };
 
-    const resolveImageUrl = (path?: string) => {
-        if (!path) return undefined;
-        if (path.startsWith("http") || path.startsWith("/")) return path;
-        return `/uploads/${path}`;
-    };
+    const resolveImageUrl = (path?: string) => resolveUploadUrl(path);
 
     const handleChangePassword = async () => {
         if (!user) return;

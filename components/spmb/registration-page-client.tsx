@@ -18,12 +18,20 @@ interface RegistrationPageClientProps {
   schoolLat: number;
   schoolLng: number;
   maxDistanceKm: number;
+  /**
+   * "public" = aliran lama, ortu isi sendiri (endpoint /api/public/spmb/*).
+   * "staff"  = input oleh panitia/admin di sekolah (endpoint /api/spmb/* yang
+   *            terautentikasi). Formulir 5-langkahnya sama, hanya endpoint
+   *            yang berbeda.
+   */
+  variant?: "public" | "staff";
 }
 
 export function RegistrationPageClient({
   schoolLat,
   schoolLng,
   maxDistanceKm,
+  variant = "public",
 }: RegistrationPageClientProps) {
   const [schoolSettings] = useState({
     lat: schoolLat,
@@ -152,8 +160,11 @@ export function RegistrationPageClient({
         is_within_zone: data.location.is_within_zone,
       };
 
-      // Submit to API route
-      const response = await fetch("/api/public/spmb/register", {
+      // Endpoint tergantung mode: publik (ortu) atau staff (panitia).
+      const registerUrl = variant === "staff"
+        ? "/api/spmb/registrants"
+        : "/api/public/spmb/register";
+      const response = await fetch(registerUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -193,7 +204,7 @@ export function RegistrationPageClient({
             }
         });
 
-        await fetch(`/api/spmb/upload?id=${result.data.id}`, {
+        await fetch(`/api/spmb/registrants/${result.data.id}/upload`, {
           method: "POST",
           body: formData,
         });
@@ -220,31 +231,34 @@ export function RegistrationPageClient({
 
   return (
     <div className="min-h-screen bg-muted/30">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white pt-20 pb-8">
-        <div className="container">
-          <Link href="/spmb">
-            <Button
-              variant="ghost"
-              className="text-white hover:bg-white/10 mb-4 -ml-4"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Kembali
-            </Button>
-          </Link>
-          <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-lg bg-white/20 flex items-center justify-center">
-              <GraduationCap className="h-7 w-7" />
-            </div>
-            <div>
-              <Badge className="bg-white/20 mb-1">{getSPMBPeriodLabel()}</Badge>
-              <h1 className="text-2xl md:text-3xl font-bold">
-                Formulir Pendaftaran Siswa Baru
-              </h1>
+      {variant === "public" && (
+        // Header untuk aliran publik (ortu). Halaman staff (spmb-tambah)
+        // sudah memiliki header sendiri, jadi tidak perlu digandakan.
+        <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white pt-20 pb-8">
+          <div className="container">
+            <Link href="/spmb">
+              <Button
+                variant="ghost"
+                className="text-white hover:bg-white/10 mb-4 -ml-4"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Kembali
+              </Button>
+            </Link>
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-lg bg-white/20 flex items-center justify-center">
+                <GraduationCap className="h-7 w-7" />
+              </div>
+              <div>
+                <Badge className="bg-white/20 mb-1">{getSPMBPeriodLabel()}</Badge>
+                <h1 className="text-2xl md:text-3xl font-bold">
+                  Formulir Pendaftaran Siswa Baru
+                </h1>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Form */}
       <div className="container py-8">
@@ -253,6 +267,7 @@ export function RegistrationPageClient({
           schoolLng={schoolSettings.lng}
           maxDistanceKm={schoolSettings.maxDistanceKm}
           onSubmit={handleSubmit}
+          variant={variant}
         />
       </div>
     </div>

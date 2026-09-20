@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { showSuccess, showError } from "@/lib/toast";
 import { useDebounce } from "@/hooks/use-debounce";
 import { goGet, goDelete } from "@/lib/api-client";
+import { resolveUploadUrl } from "@/lib/upload-url";
 import { StudentFormDialog } from "@/components/master/student-form-dialog";
 import { StudentImportDialog } from "@/components/master/student-import-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -379,7 +380,7 @@ export default function TabDirektori() {
                                 render: (student) => (
                                     <div className="flex items-center gap-2.5">
                                         <Avatar className="h-8 w-8 md:h-10 md:w-10 border border-slate-100 dark:border-zinc-800 shadow-sm shrink-0">
-                                            <AvatarImage src={student.photo || undefined} />
+                                            <AvatarImage src={resolveUploadUrl(student.photo)} />
                                             <AvatarFallback className="bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-semibold text-xs">
                                                 {student.fullName
                                                     ?.split(" ")

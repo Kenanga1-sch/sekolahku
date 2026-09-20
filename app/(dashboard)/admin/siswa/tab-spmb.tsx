@@ -59,7 +59,8 @@ import {
   Loader2,
   Plus,
   Pencil,
-  Power
+  Power,
+  UserPlus
 } from "lucide-react";
 import { exportToExcel, exportToPDF } from "@/lib/spmb-export";
 import { goGet, goPost, goPatch, goDelete } from "@/lib/api-client";
@@ -483,10 +484,18 @@ export default function TabSPMB() {
           </div>
         </div>
 
-        <Button variant="outline" onClick={handleRefresh} disabled={isRefreshing} className="w-full sm:w-auto">
-          <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          <Button variant="outline" onClick={handleRefresh} disabled={isRefreshing} className="w-full sm:w-auto">
+            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button asChild className="w-full sm:w-auto">
+            <Link href="/admin/siswa/spmb-tambah">
+              <UserPlus className="h-4 w-4 mr-2" />
+              Input Pendaftar
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Tab Navigation */}

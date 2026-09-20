@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { showError, showSuccess } from "@/lib/toast";
+import { resolveUploadUrl } from "@/lib/upload-url";
 import { gradeTugasSubmission, formatDate, type TugasSubmission } from "@/lib/tugas";
 
 interface GradingDialogProps {
@@ -85,7 +86,7 @@ export function GradingDialog({ open, onOpenChange, submission, tugasId, onSaved
             <div className="space-y-1">
               <Label>Lampiran Siswa</Label>
               <a
-                href={submission.attachmentUrl}
+                href={resolveUploadUrl(submission.attachmentUrl) ?? "#"}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"

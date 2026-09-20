@@ -13,7 +13,6 @@ import {
   ArrowRight,
   Clock,
   UserPlus,
-  FileSearch,
   Navigation,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -61,9 +60,9 @@ const requirements = [
 
 const services = [
   {
-    title: "Pendaftaran Siswa Baru",
-    desc: "Daftarkan calon siswa baru secara online.",
-    href: "/spmb/daftar",
+    title: "Cara Mendaftar",
+    desc: "Orang tua membawa dokumen lengkap dan datang langsung ke sekolah; data diisikan oleh panitia.",
+    href: "/spmb/cara-mendaftar",
     icon: UserPlus,
   },
   {
@@ -71,12 +70,6 @@ const services = [
     desc: "Pantau status pendaftaran siswa baru dengan nomor registrasi.",
     href: "/spmb/tracking",
     icon: Search,
-  },
-  {
-    title: "Verifikasi Berkas SPMB",
-    desc: "Verifikasi dan unduh bukti pendaftaran SPMB.",
-    href: "/spmb/verify",
-    icon: FileSearch,
   },
 ];
 
@@ -130,9 +123,9 @@ export default function SPMBLandingPage() {
 
             {isOpen && (
               <Reveal delay={0.24}>
-                <Link href="/spmb/daftar">
+                <Link href="#persyaratan">
                   <Button className="bg-[#065F46] text-white hover:bg-[#047857] rounded-full px-6 h-11 text-sm font-semibold active:scale-[0.97] transition-transform">
-                    Daftar Sekarang
+                    Cara Mendaftar
                     <ArrowRight className="h-4 w-4 ml-1.5" />
                   </Button>
                 </Link>
@@ -221,13 +214,13 @@ export default function SPMBLandingPage() {
         </div>
       </section>
 
-      <section className="py-16 md:py-20">
+      <section id="persyaratan" className="py-16 md:py-20 scroll-mt-20">
         <div className="max-w-6xl mx-auto px-4">
           <Reveal>
-            <h2 className="text-2xl md:text-3xl font-bold text-[#1a2e1a] mb-4">Syarat Dokumen</h2>
+            <h2 className="text-2xl md:text-3xl font-bold text-[#1a2e1a] mb-4">Syarat Dokumen & Cara Mendaftar</h2>
           </Reveal>
           <Reveal delay={0.08}>
-            <p className="text-[#4b6b4b] mb-10 max-w-[55ch]">Siapkan dokumen berikut sebelum mengisi formulir pendaftaran.</p>
+            <p className="text-[#4b6b4b] mb-10 max-w-[55ch]">Siapkan dokumen berikut dan bawa langsung ke sekolah. Data pendaftaran diisikan oleh panitia di lokasi.</p>
           </Reveal>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {requirements.map((req, i) => (
@@ -328,17 +321,15 @@ export default function SPMBLandingPage() {
               </h2>
               <p className="text-white/80 mb-8 max-w-md mx-auto">
                 {isOpen
-                  ? `Kuota terbatas. Daftarkan putra-putri Anda sebelum ${formatDate(period?.end_date)}.`
+                  ? `Kuota terbatas. Bawa dokumen lengkap dan datang ke sekolah sebelum ${formatDate(period?.end_date)} untuk mendaftar.`
                   : `Hubungi panitia ${period?.committee_name || "PPDB"} di sekolah untuk informasi lebih lanjut.`}
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                {isOpen && (
-                  <Link href="/spmb/daftar">
-                    <Button className="bg-white text-[#065F46] hover:bg-[#A7F3D0] rounded-full px-6 h-11 text-sm font-semibold active:scale-[0.97] transition-transform">
-                      Daftar Sekarang
-                    </Button>
-                  </Link>
-                )}
+                <Link href="#persyaratan">
+                  <Button className="bg-white text-[#065F46] hover:bg-[#A7F3D0] rounded-full px-6 h-11 text-sm font-semibold active:scale-[0.97] transition-transform">
+                    Cara Mendaftar
+                  </Button>
+                </Link>
                 <Link href="/spmb/tracking">
                   <Button variant="outline" className="border-white/30 text-white hover:bg-white/10 rounded-full px-6 h-11 text-sm font-medium active:scale-[0.97] transition-transform">
                     Lacak Status Pendaftaran

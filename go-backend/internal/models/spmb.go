@@ -89,6 +89,37 @@ type SPMBRegistrant struct {
 	UpdatedAt  int64  `json:"updatedAt"`
 }
 
+// PublicRegistrantStatus adalah tampilan PUBLIK data pendaftar untuk halaman
+// "Lacak Status". Hanya berisi apa yang orang tua perlukan untuk mengetahui
+// posisi pendaftarannya — tanpa NIK, nomor KK, alamat, data orang tua, dan
+// terutama tanpa path dokumen (yang kini juga dibalik endpoint terautentikasi).
+//
+// Sebelumnya GET /api/public/spmb/registrants/:number mengembalikan seluruh
+// struct SPMBRegistrant, yang membocorkan PII lengkap + daftar path file
+// dokumen ke siapa pun yang mengetahui nomor registrasi.
+type PublicRegistrantStatus struct {
+	ID                 string `json:"id"`
+	RegistrationNumber string `json:"registrationNumber"`
+	FullName           string `json:"fullName"`
+	Status             string `json:"status"`
+	Notes              string `json:"notes"`
+	PeriodID           string `json:"periodId"`
+	CreatedAt          int64  `json:"createdAt"`
+}
+
+// ToPublicRegistrantStatus memetakan SPMBRegistrant ke DTO publiknya.
+func (r SPMBRegistrant) ToPublicRegistrantStatus() PublicRegistrantStatus {
+	return PublicRegistrantStatus{
+		ID:                 r.ID,
+		RegistrationNumber: r.RegistrationNumber,
+		FullName:           r.FullName,
+		Status:             r.Status,
+		Notes:              r.Notes,
+		PeriodID:           r.PeriodID,
+		CreatedAt:          r.CreatedAt,
+	}
+}
+
 type SPMBStats struct {
 	TotalRegistrants    int `json:"total"`
 	VerifiedRegistrants int `json:"verified"`

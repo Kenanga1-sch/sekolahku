@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sekolahku/go-backend/internal/handlers"
 )
 
 //go:embed all:dist
@@ -171,6 +172,11 @@ func serveUploadFile(c echo.Context, roots []string) error {
 	relPath := filepath.Clean(c.Param("*"))
 	if relPath == "." || strings.HasPrefix(relPath, "..") || filepath.IsAbs(relPath) {
 		return c.NoContent(http.StatusBadRequest)
+	}
+
+	// Folder privat tidak disajikan di route anonim ini; lihat FileHandler.
+	if !handlers.IsPublicUploadPath(relPath) {
+		return c.NoContent(http.StatusNotFound)
 	}
 
 	for _, root := range roots {

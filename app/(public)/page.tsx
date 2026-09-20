@@ -223,12 +223,12 @@ export default function PublicHomepage() {
                     {data?.activePeriod?.name || "Penerimaan Siswa Baru"}
                   </h2>
                   <p className="text-white/80 leading-relaxed max-w-[50ch]">
-                    Segera daftarkan putra-putri Anda. Kuota terbatas untuk tahun ajaran {data?.activePeriod?.academic_year || academicYear}.
+                    Segera daftarkan putra-putri Anda. Kuota terbatas untuk tahun ajaran {data?.activePeriod?.academic_year || academicYear}. Bawa dokumen lengkap dan datang langsung ke sekolah.
                   </p>
                   <div className="flex flex-wrap gap-3 pt-1">
-                    <Link href="/spmb/daftar">
+                    <Link href="/spmb">
                       <Button className="bg-white text-[#065F46] hover:bg-[#A7F3D0] rounded-full px-6 h-11 text-sm font-semibold active:scale-[0.97] transition-transform">
-                        Daftar Sekarang
+                        Cara Mendaftar
                         <ArrowRight className="h-4 w-4 ml-1.5" />
                       </Button>
                     </Link>

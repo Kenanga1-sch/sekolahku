@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { Check, CheckCheck, FileText } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { resolveUploadUrl } from "@/lib/upload-url";
 import type { ChatMessage, ChatUserSummary } from "@/lib/stores/chat-store";
 
 interface MessageBubbleProps {
@@ -33,7 +34,8 @@ export function MessageBubble({
   showAvatar,
 }: MessageBubbleProps) {
   const time = format(new Date(message.createdAt), "HH.mm");
-  const hasAttachment = Boolean(message.attachmentUrl);
+  const attachmentUrl = resolveUploadUrl(message.attachmentUrl);
+  const hasAttachment = Boolean(attachmentUrl);
   const isImage = message.attachmentKind === "image";
 
   return (
@@ -62,14 +64,14 @@ export function MessageBubble({
       >
         {hasAttachment && isImage && (
           <a
-            href={message.attachmentUrl || "#"}
+            href={attachmentUrl ?? "#"}
             target="_blank"
             rel="noopener noreferrer"
             className="block mb-1 rounded-lg overflow-hidden bg-black/5"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={message.attachmentUrl || ""}
+              src={attachmentUrl ?? ""}
               alt={message.attachmentName || "lampiran"}
               className="max-h-52 w-auto object-cover"
             />
@@ -77,7 +79,7 @@ export function MessageBubble({
         )}
         {hasAttachment && !isImage && (
           <a
-            href={message.attachmentUrl || "#"}
+            href={attachmentUrl ?? "#"}
             target="_blank"
             rel="noopener noreferrer"
             className={cn(

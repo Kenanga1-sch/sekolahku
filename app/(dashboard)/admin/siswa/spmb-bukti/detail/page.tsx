@@ -56,7 +56,7 @@ function ProofContent() {
       return;
     }
 
-    fetch(`/api/public/spmb/registrants/${id}`)
+    fetch(`/api/spmb/registrants/${id}`)
       .then(res => {
         if (!res.ok) throw new Error("Registrant not found");
         return res.json();

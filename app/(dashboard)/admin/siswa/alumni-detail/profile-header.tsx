@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ArrowLeft, Edit, Trash2, Printer, User, School, Phone, MapPin, BookMarked } from "lucide-react";
+import { resolveUploadUrl } from "@/lib/upload-url";
 import Link from "next/link";
 import type { AlumniDetail } from "./types-alumni";
 
@@ -55,7 +56,7 @@ export function ProfileHeader({ alumni, onDelete }: ProfileHeaderProps) {
           <CardContent className="p-6">
             <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
               <Avatar className="h-20 w-20 shrink-0 border-2 border-slate-100 dark:border-zinc-800">
-                <AvatarImage src={alumni.photo || undefined} />
+                <AvatarImage src={resolveUploadUrl(alumni.photo)} />
                 <AvatarFallback className="text-xl font-bold bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300">
                   {alumni.fullName.charAt(0)}
                 </AvatarFallback>

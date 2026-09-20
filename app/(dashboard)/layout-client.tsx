@@ -36,10 +36,12 @@ import {
   Sprout,
   BarChart3,
   Backpack,
+  ClipboardCheck,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { getSchoolLogo } from "@/lib/school-logo";
+import { resolveUploadUrl } from "@/lib/upload-url";
 import { APP_VERSION } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types";
@@ -107,6 +109,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/presensi": "Presensi",
   // Admin
   "/admin/siswa/spmb-detail": "Detail Pendaftar SPMB",
+  "/admin/siswa/spmb-tambah": "Input Pendaftar SPMB",
+  "/admin/siswa/spmb-bukti": "Bukti Pendaftaran SPMB",
   "/admin/siswa/buku-induk": "Buku Induk",
   "/admin/siswa/import": "Import Siswa",
   "/admin/siswa/kelulusan": "Kelulusan",
@@ -174,6 +178,8 @@ interface NavGroup {
 
 const ADMIN_ROLES: UserRole[] = ["admin", "superadmin"];
 const SYSTEM_ADMIN_ROLES: UserRole[] = ["admin", "superadmin"];
+// Panitia SPMB = role staff; admin/superadmin tetap bisa input pendaftar.
+const SPMB_ROLES: UserRole[] = ["admin", "superadmin", "staff"];
 const INVENTARIS_ROLES: UserRole[] = ["admin", "superadmin", "guru", "staff"];
 const GURU_ACCESS_ROLES: UserRole[] = ["admin", "superadmin", "guru"]; 
 const ALL_DASHBOARD_ROLES: UserRole[] = ["admin", "superadmin", "guru", "staff", "siswa"];
@@ -206,6 +212,7 @@ const navGroups: NavGroup[] = [
     label: "Manajemen Siswa",
     items: [
       { href: "/admin/siswa", label: "Manajemen Siswa", icon: Users, roles: ADMIN_ROLES },
+      { href: "/admin/siswa/spmb-tambah", label: "Input Pendaftar SPMB", icon: ClipboardCheck, roles: SPMB_ROLES },
       { href: "/bank-soal", label: "Bank Soal", icon: BookOpen, roles: GURU_ACCESS_ROLES },
       { href: "/tugas", label: "Tugas & PR", icon: Backpack, roles: GURU_ACCESS_ROLES },
       { href: "/ruang-tumbuh/guru", label: "Skrining Siswa", icon: Sprout, roles: GURU_ACCESS_ROLES },
@@ -325,9 +332,7 @@ export default function DashboardLayoutClient({
   const filteredNav = normalizedRaw ? filterNavByRole(navGroups, normalizedRaw as UserRole) : [];
   const displayName = mounted && !authLoading && user?.name ? user.name : "Admin";
   const displayInitials = mounted && !authLoading && user?.name ? user.name.substring(0, 2).toUpperCase() : "A";
-  const userImage = mounted && !authLoading && user?.image
-    ? (user.image.startsWith("http") || user.image.startsWith("/") ? user.image : `/uploads/${user.image}`)
-    : undefined;
+  const userImage = resolveUploadUrl(mounted && !authLoading && user?.image ? user.image : undefined);
   
   // Add role badge display in header for better visibility
   const getRoleInfo = (role: string) => {

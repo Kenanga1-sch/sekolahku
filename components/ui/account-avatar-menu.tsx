@@ -16,6 +16,7 @@ import {
 import { resetAuthGuard } from "@/components/auth-guard";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { returnToAdminAction } from "@/actions/auth";
+import { resolveUploadUrl } from "@/lib/upload-url";
 import { SwitchAccountDialog } from "@/components/ui/switch-account-dialog";
 
 type Placement = "header" | "bottom-nav";
@@ -31,10 +32,7 @@ interface Props {
 }
 
 export function resolveUserImage(image: string | null | undefined): string | undefined {
-  if (!image) return undefined;
-  return image.startsWith("http") || image.startsWith("/")
-    ? image
-    : `/uploads/${image}`;
+  return resolveUploadUrl(image);
 }
 
 function initialsFromName(name: string | undefined): string {

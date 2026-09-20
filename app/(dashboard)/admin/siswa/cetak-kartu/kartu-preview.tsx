@@ -3,6 +3,7 @@
 import NextImage from "next/image";
 import { QRCodeSVG } from "qrcode.react";
 import type { StudentCard } from "./use-cetak-kartu";
+import { resolveUploadUrl } from "@/lib/upload-url";
 
 interface PreviewProps {
   student: StudentCard;
@@ -67,7 +68,7 @@ function StudentCardFront({ student, schoolName, schoolAddress, schoolLogo, show
                 <div className="absolute -bottom-0.5 -left-0.5 w-2 h-2 border-l-2 border-b-2 border-amber-400 rounded-bl" />
                 <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 border-r-2 border-b-2 border-amber-400 rounded-br" />
                 <div className="w-full h-full overflow-hidden rounded-sm bg-slate-50">
-                  {student.photo ? <img src={student.photo.startsWith("http") || student.photo.startsWith("/") ? student.photo : `/uploads/${student.photo}`} alt={student.fullName} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; e.currentTarget.nextElementSibling?.classList.remove("hidden"); }} /> : null}
+                  {student.photo ? <img src={resolveUploadUrl(student.photo)} alt={student.fullName} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; e.currentTarget.nextElementSibling?.classList.remove("hidden"); }} /> : null}
                   <div className={`w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 ${student.photo ? "hidden" : ""}`}><span className="font-bold text-slate-400" style={{ fontSize: "18px" }}>{initials}</span></div>
                 </div>
               </div>
@@ -178,7 +179,7 @@ function NISNCardFront({ student, schoolName, schoolAddress, showPhoto, forPrint
             </div>
             <div style={{ width: forPrint ? "17mm" : "64px", height: forPrint ? "22mm" : "82px", padding: "2px", background: "white", borderRadius: "2px", boxShadow: "0 1px 3px rgba(0,0,0,0.15)" }} className="mt-1">
               <div className="w-full h-full overflow-hidden bg-[#d32f2f] relative">
-                {student.photo ? <img src={student.photo.startsWith("http") || student.photo.startsWith("/") ? student.photo : `/uploads/${student.photo}`} alt={student.fullName} className="w-full h-full object-cover relative z-10" onError={(e) => { e.currentTarget.style.display = "none"; e.currentTarget.nextElementSibling?.classList.remove("hidden"); }} /> : null}
+                {student.photo ? <img src={resolveUploadUrl(student.photo)} alt={student.fullName} className="w-full h-full object-cover relative z-10" onError={(e) => { e.currentTarget.style.display = "none"; e.currentTarget.nextElementSibling?.classList.remove("hidden"); }} /> : null}
                 <div className={`w-full h-full flex flex-col items-center justify-end pb-1 bg-[#d32f2f] ${student.photo ? "hidden" : ""}`}>
                   <svg viewBox="0 0 100 100" className="w-[80%] h-[80%] fill-white/80 opacity-90"><circle cx="50" cy="35" r="20" /><path d="M15,85 C15,65 30,55 50,55 C70,55 85,65 85,85 Z" /></svg>
                 </div>

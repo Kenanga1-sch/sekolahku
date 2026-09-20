@@ -12,14 +12,12 @@ import {
   XCircle,
   AlertCircle,
   FileText,
-  Loader2,
-  ArrowRight
+  Loader2
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -122,25 +120,18 @@ function TrackingContent() {
                <div className={cn("h-2 w-full", getStatusConfig(registrant.status).color.split(' ')[0])} />
                <CardContent className="p-8">
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                     <div className="space-y-1">
-                        <p className="text-sm text-muted-foreground font-medium uppercase tracking-wider">Status Saat Ini</p>
-                        <div className="flex items-center gap-3">
-                           {React.createElement(getStatusConfig(registrant.status).icon, { 
-                              className: cn("h-8 w-8", getStatusConfig(registrant.status).color.split(' ')[1]) 
-                           })}
-                           <h2 className="text-2xl font-bold">{getStatusConfig(registrant.status).label}</h2>
-                        </div>
-                     </div>
-                     <Link 
-                        href={`/spmb/bukti/detail?id=${encodeURIComponent(registrant.registrationNumber)}`}
-                        className={cn(buttonVariants({ variant: "outline" }), "group")}
-                     >
-                        Lihat Bukti Pendaftaran
-                        <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                     </Link>
-                  </div>
-               </CardContent>
-            </Card>
+                      <div className="space-y-1">
+                         <p className="text-sm text-muted-foreground font-medium uppercase tracking-wider">Status Saat Ini</p>
+                         <div className="flex items-center gap-3">
+                            {React.createElement(getStatusConfig(registrant.status).icon, { 
+                               className: cn("h-8 w-8", getStatusConfig(registrant.status).color.split(' ')[1]) 
+                            })}
+                            <h2 className="text-2xl font-bold">{getStatusConfig(registrant.status).label}</h2>
+                         </div>
+                      </div>
+                   </div>
+                </CardContent>
+             </Card>
 
             <div className="grid md:grid-cols-2 gap-6">
                <Card>

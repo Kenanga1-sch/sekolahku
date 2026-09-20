@@ -28,6 +28,7 @@ import {
   CalendarDays,
 } from "lucide-react";
 import { goGet, goPost } from "@/lib/api-client";
+import { resolveUploadUrl } from "@/lib/upload-url";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 
@@ -292,7 +293,7 @@ export default function SesiDetailPage() {
                   >
                     <div className="flex items-center gap-3">
                       <Avatar className="h-10 w-10">
-                        <AvatarImage src={record.student?.photo || undefined} />
+                        <AvatarImage src={resolveUploadUrl(record.student?.photo)} />
                         <AvatarFallback>
                           {record.student?.fullName?.charAt(0) || "?"}
                         </AvatarFallback>
@@ -352,7 +353,7 @@ export default function SesiDetailPage() {
                 >
                   <div className="flex items-center gap-3">
                     <Avatar className="h-10 w-10">
-                      <AvatarImage src={student.photo || undefined} />
+                      <AvatarImage src={resolveUploadUrl(student.photo)} />
                       <AvatarFallback>
                         {student.fullName?.charAt(0) || "?"}
                       </AvatarFallback>

@@ -31,6 +31,27 @@ var allowedMimeTypes = map[string]string{
 	"application/pdf": "pdf",
 }
 
+// generalUploadFolders adalah folder yang boleh ditulis lewat endpoint umum
+// POST /api/upload. Folder dokumen privat (spmb, alumni, arsip, eoffice,
+// templates, inventory, bank-soal) sengaja dikecualikan: penulisannya hanya
+// lewat handler khusus yang memvalidasi kepemilikan/konteks.
+var generalUploadFolders = map[string]bool{
+	"uploads":      true,
+	"profiles":     true,
+	"gallery":      true,
+	"announcements": true,
+	"staff":        true,
+	"chat":         true,
+	"tugas":        true,
+	"logo":         true,
+	"stamp":        true,
+	"library":      true,
+}
+
+func isGeneralUploadFolderAllowed(folder string) bool {
+	return generalUploadFolders[folder]
+}
+
 func generateSafeFilename(ext string) string {
 	// ext datang dengan titik (".png"); fungsi ini menambahkan titik
 	// sendiri, jadi titik ganda harus dinetralkan (dulu ".png" menjadi
@@ -72,6 +93,14 @@ func (h *UploadHandler) GeneralUpload(c echo.Context) error {
 	// Validate folder name to prevent directory traversal
 	if strings.Contains(folder, "..") || strings.Contains(folder, "/") || strings.Contains(folder, "\\") {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid folder name"})
+	}
+
+	// Allowlist folder: tanpa ini, user manapun (termasuk siswa) bisa menulis
+	// ke folder dokumen privat seperti "spmb" atau "alumni" lewat endpoint
+	// umum. Penulisan ke folder privat hanya lewat handler khusus (SPMB,
+	// alumni, eoffice) yang memvalidasi kepemilikan.
+	if !isGeneralUploadFolderAllowed(folder) {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Folder upload tidak diizinkan"})
 	}
 
 	// Max size 5MB

@@ -49,6 +49,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { goGet, goDelete } from "@/lib/api-client";
+import { resolveUploadUrl } from "@/lib/upload-url";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import { useSortableData } from "@/hooks/use-sortable-data";

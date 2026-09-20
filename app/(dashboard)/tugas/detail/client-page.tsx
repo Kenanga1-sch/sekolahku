@@ -30,6 +30,7 @@ import {
 import { DataTable, type Column } from "@/components/data-table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { showError, showSuccess } from "@/lib/toast";
+import { resolveUploadUrl } from "@/lib/upload-url";
 import {
   archiveTugas,
   deleteTugas,
@@ -274,7 +275,7 @@ export function TugasDetailClient() {
 
           {tugas.attachmentUrl && (
             <a
-              href={tugas.attachmentUrl}
+              href={resolveUploadUrl(tugas.attachmentUrl) ?? "#"}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-blue-600 transition hover:bg-blue-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-blue-400 dark:hover:bg-blue-950/20"

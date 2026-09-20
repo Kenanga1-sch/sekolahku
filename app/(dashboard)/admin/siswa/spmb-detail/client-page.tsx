@@ -41,9 +41,11 @@ import {
     Save,
     Loader2,
     Briefcase,
+    Printer,
 } from "lucide-react";
 
 import { DocumentList } from "@/components/document-viewer";
+import { resolveUploadUrl } from "@/lib/upload-url";
 import { SPMBStatusBadge } from "@/components/spmb/status-badge";
 import { goGet, goPatch, goDelete } from "@/lib/api-client";
 
@@ -476,7 +478,7 @@ export default function RegistrantDetailPage() {
                         <CardContent>
                              <DocumentList 
                                 documents={parsedDocs}
-                                getUrl={(doc) => doc}
+                                getUrl={(doc) => resolveUploadUrl(doc) as string}
                              />
                         </CardContent>
                     </Card>
@@ -523,6 +525,14 @@ export default function RegistrantDetailPage() {
                                     <Save className="h-4 w-4 mr-2" />
                                 )}
                                 Simpan Perubahan
+                            </Button>
+                            <Button
+                                variant="outline"
+                                className="w-full"
+                                onClick={() => window.open(`/admin/siswa/spmb-bukti/detail?id=${registrant.registrationNumber}`, "_blank")}
+                            >
+                                <Printer className="h-4 w-4 mr-2" />
+                                Cetak Bukti Pendaftaran
                             </Button>
                         </CardContent>
                     </Card>

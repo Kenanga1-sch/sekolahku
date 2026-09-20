@@ -26,6 +26,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getParentDashboardAction } from "@/actions/parent";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { cn } from "@/lib/utils";
+import { resolveUploadUrl } from "@/lib/upload-url";
 
 interface AttendanceRecord {
   date: string;
@@ -201,7 +202,7 @@ function ChildSummaryCard({ child: c }: { child: DashboardChild }) {
           <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center overflow-hidden shrink-0">
             {c.photo ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={c.photo} alt={c.fullName} className="h-full w-full object-cover" />
+              <img src={resolveUploadUrl(c.photo) ?? undefined} alt={c.fullName} className="h-full w-full object-cover" />
             ) : (
               <GraduationCap className="h-6 w-6 text-muted-foreground" />
             )}

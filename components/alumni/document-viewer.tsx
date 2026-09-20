@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { sanitizeUrl } from "@/lib/security";
+import { resolveUploadUrl } from "@/lib/upload-url";
 import { Badge } from "@/components/ui/badge";
 import {
   Download,
@@ -54,12 +55,15 @@ export function DocumentViewer({ document, open, onClose }: DocumentViewerProps)
   const [zoom, setZoom] = useState(1);
   const isImage = document.mimeType?.startsWith("image/");
   const isPdf = document.mimeType === "application/pdf";
-  // filePath berasal dari backend; validasi skema mencegah javascript:/data:
-  // dipakai di src maupun window.open.
-  const safeUrl = sanitizeUrl(document.filePath);
-  
+
   const status = statusConfig[document.verificationStatus as keyof typeof statusConfig] || statusConfig.pending;
   const StatusIcon = status.icon;
+
+  // filePath ("/uploads/alumni/...") kini hanya bisa dibaca lewat endpoint
+  // terautentikasi /api/files/*. sanitizeUrl tetap dipertahankan sebagai
+  // defense-in-depth terhadap skema berbahaya (javascript:/data:) di data
+  // yang berasal dari backend.
+  const safeUrl = sanitizeUrl(resolveUploadUrl(document.filePath) ?? "") as string;
 
   const handleDownload = () => {
     window.open(`/api/alumni/documents/${document.id}/download`, "_blank");
