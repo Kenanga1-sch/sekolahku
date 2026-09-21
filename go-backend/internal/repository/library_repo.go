@@ -141,10 +141,16 @@ func (r *LibraryRepository) CreateBook(input models.CreateBookRequest) error {
 	defer tx.Rollback()
 
 	catalogID := cuid2.Generate()
+	var yearVal interface{}
+	if input.Year != nil {
+		yearVal = *input.Year
+	} else {
+		yearVal = 0 // NULL-compatible for SQLite
+	}
 	_, err = tx.Exec(`
 		INSERT INTO library_catalog (id, isbn, title, author, publisher, year, category, description, cover, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, catalogID, isbn, title, author, input.Publisher, input.Year, category, input.Description, input.Cover, now, now)
+	`, catalogID, isbn, title, author, input.Publisher, yearVal, category, input.Description, input.Cover, now, now)
 	if err != nil {
 		return err
 	}
@@ -172,13 +178,25 @@ func (r *LibraryRepository) UpdateBook(id string, input models.UpdateBookRequest
 	if err != nil {
 		return err
 	}
+	
+	// Always update except year if nil or zero
 	_, err = r.DB.Exec(`
-		UPDATE library_catalog SET isbn=?, title=?, author=?, publisher=?, year=?, category=?, description=?, cover=?, updated_at=?
+		UPDATE library_catalog SET isbn=?, title=?, author=?, publisher=?, 
+		category=?, description=?, cover=?, updated_at=?
 		WHERE id=?
-	`, input.ISBN, input.Title, input.Author, input.Publisher, input.Year, input.Category, input.Description, input.Cover, now, catalogID)
+	`, input.ISBN, input.Title, input.Author, input.Publisher, input.Category, input.Description, input.Cover, now, catalogID)
 	if err != nil {
 		return err
 	}
+	
+	// Update year separately only if provided (non-nil and > 0)
+	if input.Year != nil && *input.Year > 0 {
+		_, err = r.DB.Exec(`UPDATE library_catalog SET year=? WHERE id=?`, *input.Year, catalogID)
+		if err != nil {
+			return err
+		}
+	}
+	
 	_, err = r.DB.Exec("UPDATE library_assets SET location=?, updated_at=? WHERE id=?",
 		input.Location, now, id)
 	return err

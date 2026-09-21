@@ -263,7 +263,7 @@ type CreateBookRequest struct {
 	Title       string `json:"title"`
 	Author      string `json:"author"`
 	Publisher   string `json:"publisher"`
-	Year        int    `json:"year"`
+	Year        *int   `json:"year"`
 	Category    string `json:"category"`
 	Description string `json:"description"`
 	Cover       string `json:"cover"`
@@ -286,7 +286,7 @@ type UpdateBookRequest struct {
 	Author      string `json:"author"`
 	ISBN        string `json:"isbn"`
 	Publisher   string `json:"publisher"`
-	Year        int    `json:"year"`
+	Year        *int   `json:"year"`
 	Category    string `json:"category"`
 	Description string `json:"description"`
 	Cover       string `json:"cover"`
