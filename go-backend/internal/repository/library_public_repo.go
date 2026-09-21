@@ -50,10 +50,20 @@ func (r *PublicLibraryRepository) GetBooksForPublic(page, perPage int, search, c
 		return nil, 0, err
 	}
 
-	// Query with availability counts using GROUP BY
+	// Satu baris per buku (catalog), bukan per eksemplar fisik.
+	//
+	// Sebelumnya GROUP BY menyertakan a.id sehingga buku dengan 2 kopi muncul
+	// sebagai 2 baris terpisah (masing-masing "1/1") alih-alih 1 baris "2/2".
+	// Ini juga membuat paginasi tidak konsisten: count-query menghitung per
+	// catalog (COUNT DISTINCT c.id) sementara list-query mengembalikan baris
+	// per-asset, jadi totalItems meleset dari jumlah yang benar.
+	//
+	// Kini GROUP BY c.id saja; id aset representatif diambil via MIN(a.id)
+	// agar link detail tetap valid (halaman detail menerima asset id maupun
+	// catalog id).
 	query := `
 		SELECT 
-			DISTINCT a.id, a.catalog_id,
+			MIN(a.id) AS id, c.id AS catalog_id,
 			COALESCE(c.title, ''),
 			COALESCE(c.author, ''),
 			COALESCE(c.isbn, ''),
@@ -62,14 +72,14 @@ func (r *PublicLibraryRepository) GetBooksForPublic(page, perPage int, search, c
 			c.category,
 			COALESCE(c.description, ''),
 			COALESCE(c.cover, ''),
-			a.status, a.location, a.condition,
-			a.created_at, a.updated_at,
+			MIN(a.status), MIN(a.location), MIN(a.condition),
+			MIN(a.created_at), MIN(a.updated_at),
 			SUM(CASE WHEN a.status = 'AVAILABLE' THEN 1 ELSE 0 END) as available_count,
 			COUNT(*) as total_exemplars
 		FROM library_assets a
 		JOIN library_catalog c ON a.catalog_id = c.id
 		` + where + `
-		GROUP BY c.id, a.id, a.status, a.location, a.condition, a.created_at, a.updated_at
+		GROUP BY c.id
 		ORDER BY c.title ASC
 		LIMIT ? OFFSET ?
 	`
@@ -116,11 +126,13 @@ func (r *PublicLibraryRepository) GetBooksForPublic(page, perPage int, search, c
 	return books, total, nil
 }
 
-// GetBookDetail retrieves full details for a single book by asset ID or catalog ID
+// GetBookDetail retrieves full details for a single book by asset ID or catalog ID.
+// Stok yang dikembalikan adalah gabungan semua kopi fisik dari satu catalog,
+// sehingga halaman detail menampilkan "X dari Y eksemplar tersedia" dengan benar.
 func (r *PublicLibraryRepository) GetBookDetail(id string) (*models.BookWithAvailability, error) {
 	query := `
 		SELECT 
-			a.id, a.catalog_id,
+			MIN(a.id) AS id, c.id AS catalog_id,
 			COALESCE(c.title, ''),
 			COALESCE(c.author, ''),
 			COALESCE(c.isbn, ''),
@@ -129,14 +141,20 @@ func (r *PublicLibraryRepository) GetBookDetail(id string) (*models.BookWithAvai
 			c.category,
 			COALESCE(c.description, ''),
 			COALESCE(c.cover, ''),
-			a.status, a.location, a.condition,
-			a.created_at, a.updated_at,
+			MIN(a.status), MIN(a.location), MIN(a.condition),
+			MIN(a.created_at), MIN(a.updated_at),
 			SUM(CASE WHEN a.status = 'AVAILABLE' THEN 1 ELSE 0 END) as available_count,
 			COUNT(*) as total_exemplars
 		FROM library_assets a
 		JOIN library_catalog c ON a.catalog_id = c.id
-		WHERE a.id = ? OR c.id = ?
-		GROUP BY c.id, a.id, a.status, a.location, a.condition, a.created_at, a.updated_at
+		WHERE c.id = (
+			SELECT c2.id FROM library_catalog c2
+			WHERE c2.id = ? OR EXISTS (
+				SELECT 1 FROM library_assets a2 WHERE a2.id = ? AND a2.catalog_id = c2.id
+			)
+			LIMIT 1
+		)
+		GROUP BY c.id
 	`
 
 	var b models.BookWithAvailability
