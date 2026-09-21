@@ -5,10 +5,17 @@ import {
   ArrowRightLeft,
   MessageSquareHeart,
   ArrowRight,
+  BookOpen,
 } from "lucide-react";
 import { Reveal } from "@/components/public/motion";
 
 const categories = [
+  {
+    title: "Perpustakaan",
+    desc: "Jelajahi koleksi buku & cek ketersediaan secara real-time.",
+    href: "/katalog-buku",
+    icon: BookOpen,
+  },
   {
     title: "Mutasi",
     desc: "Permohonan pindah masuk dan cek status permohonan.",

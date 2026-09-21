@@ -191,6 +191,7 @@ export default function PublicHomepage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {[
+              { title: "Perpustakaan", desc: "Jelajahi koleksi buku & cek ketersediaan secara real-time.", href: "/katalog-buku", icon: BookOpen },
               { title: "Mutasi", desc: "Permohonan pindah masuk dan cek status permohonan.", href: "/layanan/mutasi", icon: ArrowRightLeft },
               { title: "Kritik & Pengaduan", desc: "Sampaikan masukan atau laporkan perundungan, bisa anonim.", href: "/layanan/kritik-saran-pengaduan", icon: MessageSquareHeart },
             ].map((item, i) => (
