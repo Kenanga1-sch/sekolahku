@@ -31,7 +31,15 @@ func (h *TelegramBackupHandler) GetSettings(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal mengambil pengaturan backup Telegram"})
 	}
-	return c.JSON(http.StatusOK, settings)
+	// Sertakan status enkripsi (tanpa membocorkan password-nya) supaya admin
+	// tahu backup yang dikirim sudah terenkripsi atau masih plain.
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"botToken":          settings.BotToken,
+		"chatId":            settings.ChatID,
+		"isEnabled":         settings.IsEnabled,
+		"lastBackupAt":      settings.LastBackupAt,
+		"encryptionEnabled": BackupEncryptionEnabled(),
+	})
 }
 
 func (h *TelegramBackupHandler) UpdateSettings(c echo.Context) error {

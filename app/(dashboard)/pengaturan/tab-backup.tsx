@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, Save, Send, Database, AlertCircle, CheckCircle, Info, UploadCloud } from "lucide-react";
+import { Loader2, Save, Send, Database, AlertCircle, CheckCircle, Info, UploadCloud, Lock, Unlock } from "lucide-react";
 import { goGet, goPut, goPost } from "@/lib/api-client";
 import { toast } from "sonner";
 import {
@@ -27,6 +27,7 @@ interface BackupSettings {
     chatId: string;
     isEnabled: boolean;
     lastBackupAt: number;
+    encryptionEnabled?: boolean;
 }
 
 export default function TabBackup() {
@@ -36,6 +37,7 @@ export default function TabBackup() {
         chatId: "",
         isEnabled: false,
         lastBackupAt: 0,
+        encryptionEnabled: false,
     });
     
     const [isLoading, setIsLoading] = useState(true);
@@ -183,6 +185,21 @@ export default function TabBackup() {
                         <CardDescription className="text-xs">
                             Atur bot Telegram untuk menerima file backup database (SQLite) secara otomatis setiap hari pukul 02:00 WIB.
                         </CardDescription>
+                        {!isLoading && (
+                            <div className={`mt-1 inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${settings.encryptionEnabled ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"}`}>
+                                {settings.encryptionEnabled ? (
+                                    <>
+                                        <Lock className="h-3.5 w-3.5" />
+                                        Backup terenkripsi AES-256-GCM
+                                    </>
+                                ) : (
+                                    <>
+                                        <Unlock className="h-3.5 w-3.5" />
+                                        Backup TANPA enkripsi — set BACKUP_ZIP_PASSWORD di server
+                                    </>
+                                )}
+                            </div>
+                        )}
                     </CardHeader>
                     
                     <CardContent className="space-y-6">
