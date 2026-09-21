@@ -358,3 +358,12 @@ func AutoSyncStudentToBukuInduk(db SyncQueryer, studentID string) error {
 	return nil
 }
 
+
+// SafeTimeVal returns time.Time (never nil) from a Unix-millisecond NullInt64.
+func SafeTimeVal(ni sql.NullInt64) time.Time {
+	t := SafeTime(ni)
+	if t == nil {
+		return time.Time{}
+	}
+	return *t
+}

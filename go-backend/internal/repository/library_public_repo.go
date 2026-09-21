@@ -84,13 +84,13 @@ func (r *PublicLibraryRepository) GetBooksForPublic(page, perPage int, search, c
 	var books []models.BookWithAvailability
 	for rows.Next() {
 		var b models.BookWithAvailability
-		var yr, availCount, totalCounts sql.NullInt64
+		var yr, availCount, totalCounts, crAt, upAt sql.NullInt64
 		var loc, cond, pub, desc, cover sql.NullString
 
 		if err := rows.Scan(
 			&b.ID, &b.CatalogID, &b.Title, &b.Author, &b.ISBN,
 			&pub, &yr, &b.Category, &desc, &cover,
-			&b.Status, &loc, &cond, &b.CreatedAt, &b.UpdatedAt,
+			&b.Status, &loc, &cond, &crAt, &upAt,
 			&availCount, &totalCounts,
 		); err != nil {
 			return nil, 0, err
@@ -104,6 +104,8 @@ func (r *PublicLibraryRepository) GetBooksForPublic(page, perPage int, search, c
 		if cond.Valid { b.Condition = cond.String } else { b.Condition = "" }
 		if availCount.Valid { b.AvailableCount = int(availCount.Int64) } else { b.AvailableCount = 0 }
 		if totalCounts.Valid { b.TotalExemplars = int(totalCounts.Int64) } else { b.TotalExemplars = 0 }
+		b.CreatedAt = SafeTimeVal(crAt)
+		b.UpdatedAt = SafeTimeVal(upAt)
 
 		books = append(books, b)
 	}
@@ -138,13 +140,13 @@ func (r *PublicLibraryRepository) GetBookDetail(id string) (*models.BookWithAvai
 	`
 
 	var b models.BookWithAvailability
-	var yr, availCount, totalCounts sql.NullInt64
+	var yr, availCount, totalCounts, crAt, upAt sql.NullInt64
 	var loc, cond, pub, desc, cover sql.NullString
 
 	err := r.DB.QueryRow(query, id, id).Scan(
 		&b.ID, &b.CatalogID, &b.Title, &b.Author, &b.ISBN,
 		&pub, &yr, &b.Category, &desc, &cover,
-		&b.Status, &loc, &cond, &b.CreatedAt, &b.UpdatedAt,
+		&b.Status, &loc, &cond, &crAt, &upAt,
 		&availCount, &totalCounts,
 	)
 
@@ -163,6 +165,8 @@ func (r *PublicLibraryRepository) GetBookDetail(id string) (*models.BookWithAvai
 	if cond.Valid { b.Condition = cond.String } else { b.Condition = "" }
 	if availCount.Valid { b.AvailableCount = int(availCount.Int64) } else { b.AvailableCount = 0 }
 	if totalCounts.Valid { b.TotalExemplars = int(totalCounts.Int64) } else { b.TotalExemplars = 0 }
+	b.CreatedAt = SafeTimeVal(crAt)
+	b.UpdatedAt = SafeTimeVal(upAt)
 
 	return &b, nil
 }
