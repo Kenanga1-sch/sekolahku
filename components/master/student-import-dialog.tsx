@@ -106,7 +106,7 @@ export function StudentImportDialog({ open, onOpenChange, onSuccess }: StudentIm
         const reader = new FileReader();
         reader.onload = async (e) => {
             const data = e.target?.result;
-            const XLSX = await import("xlsx");
+            const XLSX = await import("@e965/xlsx");
             const workbook = XLSX.read(data, { type: "binary", cellDates: true });
             const sheetName = workbook.SheetNames[0]; // First sheet
             const sheet = workbook.Sheets[sheetName];
@@ -207,7 +207,7 @@ export function StudentImportDialog({ open, onOpenChange, onSuccess }: StudentIm
     };
 
     const downloadTemplate = async () => {
-        const XLSX = await import("xlsx");
+        const XLSX = await import("@e965/xlsx");
         // Create dummy data
         const ws = XLSX.utils.json_to_sheet([
             { 

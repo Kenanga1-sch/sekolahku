@@ -32,7 +32,7 @@ export function EmployeeImportDialog({ open, onOpenChange, onSuccess }: Employee
     reader.onload = async (evt) => {
       try {
         const bstr = evt.target?.result;
-        const XLSX = await import("xlsx");
+        const XLSX = await import("@e965/xlsx");
         const wb = XLSX.read(bstr, { type: "binary" });
         const wsname = wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
@@ -61,7 +61,7 @@ export function EmployeeImportDialog({ open, onOpenChange, onSuccess }: Employee
   };
 
   const downloadTemplate = async () => {
-    const XLSX = await import("xlsx");
+    const XLSX = await import("@e965/xlsx");
     const headers = [
       { 
         "NamaLengkap": "Budi Santoso", 

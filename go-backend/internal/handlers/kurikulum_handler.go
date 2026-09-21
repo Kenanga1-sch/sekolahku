@@ -6,6 +6,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/sekolahku/go-backend/internal/models"
 	"github.com/sekolahku/go-backend/internal/repository"
+	"github.com/sekolahku/go-backend/internal/shared"
 )
 
 type KurikulumHandler struct {
@@ -50,10 +51,8 @@ func (h *KurikulumHandler) CreateKurikulum(c echo.Context) error {
 	}
 	k, err := h.Repo.Create(&req)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
-			"success": false,
-			"error":   "Gagal membuat kurikulum: " + err.Error(),
-		})
+		c.Logger().Errorf("gagal membuat kurikulum: %v", err)
+		return shared.InternalError(c)
 	}
 	return c.JSON(http.StatusCreated, map[string]interface{}{
 		"success": true,

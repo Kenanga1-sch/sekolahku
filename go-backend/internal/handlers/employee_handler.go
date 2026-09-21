@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -222,9 +221,18 @@ func (h *EmployeeHandler) DeleteEmployee(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
 }
 
-// generateRandomPassword generates a random 8-char alphanumeric password
+// generateRandomPassword membuat password acak 16-karakter alphanumeric.
+// Pakai crypto/rand (RNG aman) dan entropi yang cukup (16 char = ~95 bit)
+// — sebelumnya hanya 8 hex char (~48 bit, mudah ditebak saat password
+// sementara ini belum diganti).
 func generateRandomPassword() string {
-	b := make([]byte, 6)
-	rand.Read(b)
-	return hex.EncodeToString(b)[:8]
+	const charset = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789"
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		panic("crypto/rand failed: " + err.Error())
+	}
+	for i := range b {
+		b[i] = charset[b[i]%byte(len(charset))]
+	}
+	return string(b)
 }

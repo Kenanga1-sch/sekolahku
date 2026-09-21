@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sekolahku/go-backend/internal/shared"
 	"github.com/sekolahku/go-backend/internal/models"
 	"github.com/sekolahku/go-backend/internal/repository"
 )
@@ -105,12 +106,12 @@ func inventoryError(c echo.Context, err error) error {
 	case errors.Is(err, repository.ErrInventoryNotFound):
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Data tidak ditemukan"})
 	case errors.Is(err, repository.ErrInventoryBusinessRule):
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return shared.BadRequest(c, "Input tidak valid")
 	// Nomor bungkus yang sudah keluar atau tidak dikenal adalah kesalahan
 	// input, bukan kegagalan server. Tanpa cabang ini petugas hanya melihat
 	// "Terjadi kesalahan internal" dan tidak tahu nomor mana yang bermasalah.
 	case errors.Is(err, repository.ErrUnitNotAvailable), errors.Is(err, repository.ErrUnitNotFound):
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return shared.BadRequest(c, "Input tidak valid")
 	default:
 		c.Logger().Error("inventory error:", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
@@ -252,7 +253,7 @@ func (h *InventoryHandler) CreateAsset(c echo.Context) error {
 	}
 	a, err := buildInventoryAsset(payload)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return shared.BadRequest(c, "Input tidak valid")
 	}
 	if a.Name == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Nama aset wajib diisi"})
@@ -289,7 +290,7 @@ func (h *InventoryHandler) UpdateAsset(c echo.Context) error {
 	}
 	a, err := buildInventoryAsset(payload)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return shared.BadRequest(c, "Input tidak valid")
 	}
 	if a.Name == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Nama aset wajib diisi"})

@@ -11,6 +11,7 @@ import (
 	"github.com/sekolahku/go-backend/internal/models"
 	"github.com/sekolahku/go-backend/internal/notify"
 	"github.com/sekolahku/go-backend/internal/repository"
+	"github.com/sekolahku/go-backend/internal/shared"
 )
 
 type SavingsHandler struct {
@@ -19,10 +20,13 @@ type SavingsHandler struct {
 	// ParentNotify mengabari orang tua saat saldo tabungan anak berubah
 	// (transaksi diverifikasi bendahara). Kosong = nonaktif (mis. di test).
 	ParentNotify *notify.ParentNotifier
+	// AuditLog mencatat aksi keuangan (setoran, verifikasi, brankas, hutang)
+	// untuk jejak akuntabilitas "siapa mengubah saldo kapan".
+	AuditRepo *repository.AuditLogRepository
 }
 
-func NewSavingsHandler(repo *repository.SavingsRepository, notifications *repository.NotificationRepository, parentNotify *notify.ParentNotifier) *SavingsHandler {
-	return &SavingsHandler{Repo: repo, Notifications: notifications, ParentNotify: parentNotify}
+func NewSavingsHandler(repo *repository.SavingsRepository, notifications *repository.NotificationRepository, parentNotify *notify.ParentNotifier, auditRepo *repository.AuditLogRepository) *SavingsHandler {
+	return &SavingsHandler{Repo: repo, Notifications: notifications, ParentNotify: parentNotify, AuditRepo: auditRepo}
 }
 
 // ============ Siswa (Student Savings) ============
@@ -80,6 +84,16 @@ func (h *SavingsHandler) GetSiswa(c echo.Context) error {
 			return c.JSON(http.StatusForbidden, map[string]interface{}{"success": false, "error": "Akun belum terhubung ke data siswa"})
 		}
 		return h.GetDetailSiswaById(c, sid)
+	}
+
+	// Roster tabungan penuh hanya untuk bendahara/admin/staff. Guru diizinkan
+	// tetapi sudah dipaksa scoped ke kelas wali-nya di atas; role lain (orangtua,
+	// user, calon_siswa) tidak punya kebutuhan membaca daftar ini — orangtua
+	// mengakses tabungan anaknya lewat /api/parent/* yang sudah di-scope
+	// per-student. Tanpa blok ini, role apa pun yang login dapat seluruh daftar
+	// tabungan sekolah (horizontal over-exposure).
+	if role != "admin" && role != "superadmin" && role != "bendahara" && role != "staff" && role != "guru" {
+		return c.JSON(http.StatusForbidden, map[string]interface{}{"success": false, "error": "Akses daftar tabungan hanya untuk bendahara/admin"})
 	}
 
 	list, total, err := h.Repo.GetSiswa(page, limit, search, classId)
@@ -261,4 +275,31 @@ func (h *SavingsHandler) GetPublicStatement(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Data siswa tidak ditemukan atau data tidak cocok"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": st})
+}
+
+// auditSavings mencatat aksi keuangan ke audit log. Gagal mencatat tidak
+// membatalkan transaksi (hanya di-log server-side) — uang sudah berubah,
+// jejaknya tidak boleh hilang tapi juga tidak boleh menggagalkan operasi.
+func (h *SavingsHandler) auditSavings(c echo.Context, action, resource, detail string) {
+	if h.AuditRepo == nil {
+		return
+	}
+	ip := c.RealIP()
+	ua := c.Request().UserAgent()
+	uid, _ := c.Get("user_id").(string)
+	uname, _ := c.Get("user_name").(string)
+	uemail, _ := c.Get("user_email").(string)
+	puid := shared.StringPtr(uid)
+	pemail := shared.StringPtr(uemail)
+	pname := shared.StringPtr(uname)
+	_ = h.AuditRepo.CreateLog(models.AuditLog{
+		Action:    action,
+		Resource:  resource,
+		UserID:    puid,
+		UserName:  pname,
+		UserEmail: pemail,
+		IPAddress: &ip,
+		UserAgent: &ua,
+		Details:   &detail,
+	})
 }

@@ -65,6 +65,25 @@ func RoleMiddleware(allowedRoles ...string) echo.MiddlewareFunc {
 func SecurityHeaders(next echo.HandlerFunc) echo.HandlerFunc {
 	isProd := os.Getenv("ENV") == "production"
 
+	// CSP ini sengaja MIRIP dengan meta tag CSP di app/layout.tsx. Browser
+	// menegakkan IRISAN header + meta, jadi header tidak boleh lebih longgar
+	// (celah) maupun lebih ketat (mikrofon/hydration inline patah — output
+	// "export" Next.js menanam 2 <script> inline di tiap halaman).
+	//
+	// Nilai tambah via header: directive frame-ancestors HANYA ditegakkan dari
+	// header (diabaikan di meta tag), sehingga sebelum ini klikjacking hanya
+	// ditahan X-Frame-Options yang legacy.
+	const csp = "default-src 'self';" +
+		" script-src 'self' 'unsafe-inline' 'unsafe-eval';" +
+		" style-src 'self' 'unsafe-inline';" +
+		" img-src 'self' data: blob: https:;" +
+		" font-src 'self' data:;" +
+		" connect-src 'self' https: wss:;" +
+		" object-src 'none';" +
+		" base-uri 'self';" +
+		" form-action 'self';" +
+		" frame-ancestors 'none';"
+
 	return func(c echo.Context) error {
 		h := c.Response().Header()
 		h.Set("X-Content-Type-Options", "nosniff")
@@ -75,6 +94,7 @@ func SecurityHeaders(next echo.HandlerFunc) echo.HandlerFunc {
 		h.Set("X-XSS-Protection", "0")
 		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		h.Set("Permissions-Policy", "camera=(self), microphone=(), geolocation=(self), payment=()")
+		h.Set("Content-Security-Policy", csp)
 
 		// HSTS hanya masuk akal saat trafik benar-benar lewat HTTPS.
 		if isProd {
@@ -164,9 +184,10 @@ func JWTMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			c.Set("imp", imp)
 		}
 
-		// Pastikan akun pemilik token masih aktif. JWT berlaku 7 hari, jadi
-		// tanpa pemeriksaan ini user yang dinonaktifkan tetap bisa memakai
-		// token lamanya selama berminggu-minggu.
+		// Pastikan akun pemilik token masih aktif DAN role/must_change_password
+		// masih cocok dengan DB. Tanpa ini, admin yang diturunkan jabatan atau
+		// diwajibkan ganti password tetap membawa hak lama sampai JWT kadaluarsa
+		// (bisa setahun) — karena klaim role diambil dari snapshot login.
 		if userLookup != nil {
 			if id, ok := claims["sub"].(string); ok && id != "" {
 				user, err := userLookup.GetUserByID(id)
@@ -177,9 +198,34 @@ func JWTMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 				if err == sql.ErrNoRows || user == nil || !user.IsActive {
 					return c.JSON(http.StatusForbidden, map[string]string{"error": "Akun tidak aktif atau sudah dihapus"})
 				}
+
+				// Role di DB berubah sejak login → klaim JWT basi. Paksa login
+				// ulang supaya hak akses selalu mengikuti kondisi terkini.
+				if user.Role != c.Get("user_role") {
+					c.Logger().Infof("AUTH: role user %s berubah (%q → %q), paksa re-login", id, c.Get("user_role"), user.Role)
+					return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Hak akses berubah, silakan login kembali"})
+				}
+
+				// Password wajib diganti (akun baru/reset admin) → hanya boleh
+				// mengakses endpoint profil sampai password diganti; sebelumnya
+				// flag ini hanya dicek di frontend (mudah dilewati).
+				if user.MustChangePassword && !isPasswordChangePath(path) {
+					return c.JSON(http.StatusForbidden, map[string]string{"error": "Password wajib diganti sebelum lanjut", "mustChangePassword": "true"})
+				}
 			}
 		}
 
 		return next(c)
 	}
+}
+
+// isPasswordChangePath mendaftar endpoint yang tetap boleh diakses saat user
+// masih dalam keadaan must_change_password. Ganti password dilakukan lewat
+// PATCH /api/profile (password di body), jadi endpoint itu di-whitelist.
+func isPasswordChangePath(path string) bool {
+	switch path {
+	case "/api/profile", "/api/auth/logout", "/api/auth/me", "/api/settings/school":
+		return true
+	}
+	return false
 }

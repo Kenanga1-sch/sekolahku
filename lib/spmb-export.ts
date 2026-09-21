@@ -2,7 +2,7 @@ import type { SPMBRegistrant } from "@/types";
 
 // Dynamic import for xlsx and jspdf to reduce initial bundle
 export async function exportToExcel(data: SPMBRegistrant[], filename: string = "pendaftar") {
-    const XLSX = await import("xlsx");
+    const XLSX = await import("@e965/xlsx");
 
     const exportData = data.map((item, index) => ({
         "No": index + 1,

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sekolahku/go-backend/internal/shared"
 )
 
 func (h *EOfficeHandler) AIAnalyzeSuratMasuk(c echo.Context) error {
@@ -26,13 +27,15 @@ func (h *EOfficeHandler) AIAnalyzeSuratMasuk(c echo.Context) error {
 
 	src, err := file.Open()
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		c.Logger().Errorf("AI: gagal membuka file upload: %v", err)
+		return shared.InternalError(c)
 	}
 	defer src.Close()
 
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, src); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		c.Logger().Errorf("AI: gagal membaca file upload: %v", err)
+		return shared.InternalError(c)
 	}
 	fileBytes := buf.Bytes()
 
@@ -58,8 +61,10 @@ func (h *EOfficeHandler) AIAnalyzeSuratMasuk(c echo.Context) error {
 
 	result, err := h.Repo.AnalyzeIncomingLetterWithAI(fileBytes, mimeType, apiKey)
 	if err != nil {
-		c.Logger().Error("AI Analysis of letter failed: ", err)
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		// Detail error Gemini hanya di server; response pakai pesan generik
+		// agar response API pihak ketiga tidak bocor ke client.
+		c.Logger().Errorf("AI: analisis surat gagal: %v", err)
+		return shared.InternalError(c)
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{

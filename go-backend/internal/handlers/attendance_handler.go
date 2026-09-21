@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sekolahku/go-backend/internal/shared"
 	"github.com/sekolahku/go-backend/internal/models"
 	"github.com/sekolahku/go-backend/internal/notify"
 	"github.com/sekolahku/go-backend/internal/repository"
@@ -75,7 +76,10 @@ func (h *AttendanceHandler) RecordManual(c echo.Context) error {
 	}
 
 	if err := h.Repo.RecordManualV2(req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": err.Error()})
+		// Kegagalan DB dikirim 400 dengan err.Error() mentah — salah kode status
+		// sekaligus membocorkan skema. Log di server, client dapat pesan generik.
+		c.Logger().Errorf("gagal mencatat presensi manual: %v", err)
+		return shared.InternalError(c)
 	}
 
 	h.notifyParentsOfAttendance(req.StudentID, req.Status, "manual")

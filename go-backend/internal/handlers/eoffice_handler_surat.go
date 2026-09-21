@@ -57,7 +57,7 @@ func (h *EOfficeHandler) GetSuratMasukDetail(c echo.Context) error {
 func (h *EOfficeHandler) CreateSuratMasuk(c echo.Context) error {
 	filePath, err := saveArsipPDF(c, "surat-masuk", true)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": err.Error()})
+		return shared.BadRequest(c, "Input tidak valid")
 	}
 
 	s := models.SuratMasuk{
@@ -170,7 +170,7 @@ func (h *EOfficeHandler) UpdateSuratKeluar(c echo.Context) error {
 	if strings.HasPrefix(c.Request().Header.Get("Content-Type"), "multipart/form-data") {
 		filePath, err := saveArsipPDF(c, "surat-keluar", true)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": err.Error()})
+			return shared.BadRequest(c, "Input tidak valid")
 		}
 		if err := h.Repo.UpdateSuratKeluarFinalFile(id, filePath); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
@@ -396,7 +396,7 @@ func (h *EOfficeHandler) UploadDocx(c echo.Context) error {
 		MaxBytes:          maxDocxBytes,
 		AllowZip:          true,
 	}); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return shared.BadRequest(c, "Input tidak valid")
 	}
 
 	outDir := filepath.Join("public", "uploads", "eoffice", "docx")

@@ -55,7 +55,13 @@ func (h *AuthHandler) Login(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan sistem"})
 	}
 
+	// Anti user-enumeration timing: saat email tidak terdaftar, tetap jalankan
+	// bcrypt (dummy) supaya response time sama dengan saat email ada. Tanpa ini,
+	// perbedaan ~50-100ms membocorkan apakah email terdaftar di sistem.
+	dummyHash := []byte("$2a$10$abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.")
+
 	if user == nil || user.PasswordHash == nil {
+		_ = bcrypt.CompareHashAndPassword(dummyHash, []byte(req.Password))
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Username/email atau password salah."})
 	}
 

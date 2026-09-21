@@ -15,6 +15,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/sekolahku/go-backend/internal/models"
 	"github.com/sekolahku/go-backend/internal/repository"
+	"github.com/sekolahku/go-backend/internal/shared"
 )
 
 type TelegramBackupHandler struct {
@@ -58,7 +59,9 @@ func (h *TelegramBackupHandler) TestBackup(c echo.Context) error {
 
 	err = SendBackupToTelegram(settings.BotToken, settings.ChatID)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": fmt.Sprintf("Gagal mengirim backup: %v", err)})
+		// Detail error (response API Telegram, path server) hanya di log.
+		c.Logger().Errorf("backup telegram gagal: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal mengirim backup ke Telegram"})
 	}
 
 	// Update last backup time
@@ -96,6 +99,16 @@ func (h *TelegramBackupHandler) RestoreBackup(c echo.Context) error {
 	// Close tempFile so it can be read by zip reader
 	tempFile.Close()
 
+	// Backup terenkripsi (envelope "SKBP") didekripsi dulu ke zip plain.
+	// Plain zip lawas tetap dikenali dan langsung diekstrak.
+	if encrypted, err := decryptFileIfNeeded(tempPath, tempPath+".dec.zip"); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	} else if encrypted {
+		os.Remove(tempPath)
+		tempPath = tempPath + ".dec.zip"
+		defer os.Remove(tempPath)
+	}
+
 	// Open zip
 	r, err := zip.OpenReader(tempPath)
 	if err != nil {
@@ -106,7 +119,8 @@ func (h *TelegramBackupHandler) RestoreBackup(c echo.Context) error {
 	// Ekstrak dengan pengamanan zip-slip: semua entri dipaksa mendarat di
 	// dalam direktori aplikasi.
 	if err := extractZipSecurely(tempPath, restoreBaseDir()); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal memulihkan backup: " + err.Error()})
+		c.Logger().Errorf("gagal memulihkan backup: %v", err)
+		return shared.InternalError(c)
 	}
 
 	// Schedule restart
@@ -209,9 +223,23 @@ func SendBackupToTelegram(botToken, chatID string) error {
 	// Clean up after sending
 	defer os.Remove(zipPath)
 
-	file, err := os.Open(zipPath)
+	// Enkripsi backup bila password diset (env BACKUP_ZIP_PASSWORD).
+	// Tanpa ini, seluruh PII siswa terkirim plain ke server Telegram.
+	sendPath := zipPath
+	if password := backupPassword(); password != "" {
+		encPath := zipPath + ".enc"
+		if err := encryptFile(encPath, zipPath, password); err != nil {
+			return fmt.Errorf("gagal mengenkripsi backup: %v", err)
+		}
+		defer os.Remove(encPath)
+		sendPath = encPath
+	} else {
+		fmt.Println("⚠ BACKUP_ZIP_PASSWORD kosong — backup dikirim TANPA enkripsi. Set di .env server.")
+	}
+
+	file, err := os.Open(sendPath)
 	if err != nil {
-		return fmt.Errorf("gagal membuka file zip: %v", err)
+		return fmt.Errorf("gagal membuka file backup: %v", err)
 	}
 	defer file.Close()
 
@@ -223,12 +251,20 @@ func SendBackupToTelegram(botToken, chatID string) error {
 	_ = writer.WriteField("chat_id", chatID)
 
 	// Add caption
-	caption := fmt.Sprintf("📦 *Backup Lengkap Sekolahku*\n📅 Waktu: %s\n📁 Isi: Database & Folder Uploads", time.Now().Format("2006-01-02 15:04:05"))
+	encNote := "🔓 TANPA enkripsi — set BACKUP_ZIP_PASSWORD!"
+	if BackupEncryptionEnabled() {
+		encNote = "🔒 AES-256-GCM (enkripsi server-side)"
+	}
+	caption := fmt.Sprintf("📦 *Backup Lengkap Sekolahku*\n📅 Waktu: %s\n📁 Isi: Database & Folder Uploads\n%s", time.Now().Format("2006-01-02 15:04:05"), encNote)
 	_ = writer.WriteField("caption", caption)
 	_ = writer.WriteField("parse_mode", "Markdown")
 
 	// Add file field
-	filename := fmt.Sprintf("sekolahku_full_backup_%s.zip", time.Now().Format("20060102_150405"))
+	ext := ".zip"
+	if BackupEncryptionEnabled() {
+		ext = ".zip.enc"
+	}
+	filename := fmt.Sprintf("sekolahku_full_backup_%s%s", time.Now().Format("20060102_150405"), ext)
 	part, err := writer.CreateFormFile("document", filename)
 	if err != nil {
 		return err

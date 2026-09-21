@@ -380,7 +380,7 @@ export default function ImportWizardPage() {
     reader.onload = async (evt) => {
       try {
         const data = evt.target?.result;
-        const XLSX = await import("xlsx");
+        const XLSX = await import("@e965/xlsx");
         const workbook = XLSX.read(data, { type: "binary", cellDates: true });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];

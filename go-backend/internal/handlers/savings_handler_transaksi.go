@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -74,6 +75,7 @@ func (h *SavingsHandler) CreateTransaksi(c echo.Context) error {
 	if err := h.Repo.CreateTransaksi(req); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal mencatat transaksi"})
 	}
+	h.auditSavings(c, "create_transaksi", "savings", fmt.Sprintf("Transaksi %s siswa %s nominal %d", req.Tipe, req.SiswaID, req.Nominal))
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "message": "Transaksi berhasil dikumpulkan"})
 }
 
@@ -117,7 +119,10 @@ func (h *SavingsHandler) KioskDeposit(c echo.Context) error {
 		Catatan: shared.StringPtr("Setoran via kiosk"),
 	}
 	if err := h.Repo.CreateTransaksi(txReq); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal mencatat setoran: " + err.Error()})
+		// Endpoint keuangan: detail error SQLite (skema/constraint) tidak boleh
+		// bocor ke client — log saja di server.
+		c.Logger().Errorf("gagal mencatat setoran kiosk: %v", err)
+		return shared.InternalError(c)
 	}
 
 	// Setoran kiosk = kas tunai langsung; saldo anak berubah. Kabari orang tua.
@@ -185,8 +190,11 @@ func (h *SavingsHandler) VerifySetoran(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
 	}
 	if err := h.Repo.VerifySetoran(req); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": err.Error()})
+		c.Logger().Errorf("gagal verifikasi setoran: %v", err)
+		return shared.InternalError(c)
 	}
+
+	h.auditSavings(c, "verify_setoran", "savings", fmt.Sprintf("Verifikasi setoran ID %s status=%s", req.SetoranID, req.Status))
 
 	// Kabari guru penyetor: hasil verifikasi setorannya.
 	if h.Notifications != nil {

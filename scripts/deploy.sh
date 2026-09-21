@@ -98,8 +98,11 @@ echo "▶ Build image (podman)..."
 # ── BLUE-GREEN: simpan container lama ─────
 OLD_CID="$(podman ps -q --filter "name=sekolahku-$MODE" 2>/dev/null || true)"
 
-# ── Jalankan container baru ───────────────
-echo "▶ Start container baru..."
+# ── Jalankan container baru (hardened) ────
+# Podman di sini ROOTLESS: uid 0 container ter-map ke uid host 1000, jadi
+# "root" container = user biasa di host. Ditambah cap-drop + read-only,
+# ruang ledak celah RCE ditekan seminimal mungkin.
+echo "▶ Start container baru (cap-drop, no-new-privileges, read-only)..."
 podman run -d --replace \
   --name "sekolahku-$MODE" \
   --restart unless-stopped \
@@ -108,6 +111,10 @@ podman run -d --replace \
   -e PORT=8181 \
   -e ENV=production \
   -e TRUST_PROXY=true \
+  --cap-drop=ALL \
+  --security-opt no-new-privileges \
+  --read-only \
+  --tmpfs /tmp:rw,size=64m,mode=1777 \
   -v "$DEPLOY_DIR/data:/app/data" \
   -v "$DEPLOY_DIR/public/uploads:/app/public/uploads" \
   -v "$DEPLOY_DIR/uploads:/app/uploads" \

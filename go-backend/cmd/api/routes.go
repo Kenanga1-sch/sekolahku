@@ -8,6 +8,7 @@ import (
 	"github.com/sekolahku/go-backend/internal/push"
 	"github.com/sekolahku/go-backend/internal/repository"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -123,6 +124,37 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	server.POST("/api/auth/login", h.Auth.Login, loginLimit)
 	server.POST("/api/auth/logout", h.Auth.Logout)
 
+	// Rate limiter untuk endpoint sensitif terautentikasi:
+	// - /api/auth/switch : impersonasi akun (penyalahgunaan = akses penuh akun lain)
+	// - /api/files/*     : unduh dokumen privat (PII) — anti scraping massal
+	// - backup restore   : operasi berat + restart server
+	// Identifier memakai user_id bila ada (lebih akurat dari IP di belakang
+	// tunnel/proxy bersama), fallback ke IP.
+	sensitiveLimit := middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
+		Skipper: func(c echo.Context) bool {
+			path := c.Path()
+			switch path {
+			case "/api/auth/switch", "/api/settings/backup/telegram/restore":
+				return false
+			}
+			return !strings.HasPrefix(path, "/api/files/")
+		},
+		IdentifierExtractor: func(c echo.Context) (string, error) {
+			if uid, ok := c.Get("user_id").(string); ok && uid != "" {
+				return "u:" + uid, nil
+			}
+			return "ip:" + c.RealIP(), nil
+		},
+		Store: middleware.NewRateLimiterMemoryStoreWithConfig(middleware.RateLimiterMemoryStoreConfig{
+			Rate:      30,
+			Burst:     30,
+			ExpiresIn: 1 * time.Minute,
+		}),
+		DenyHandler: func(c echo.Context, id string, err error) error {
+			return c.JSON(http.StatusTooManyRequests, map[string]string{"error": "Terlalu banyak permintaan. Silakan lambat"})
+		},
+	})
+
 	// Rate limiter untuk endpoint pengajuan publik (anti-spam, tanpa auth)
 	publicFormLimit := middleware.RateLimiterWithConfig(middleware.RateLimiterConfig{
 		IdentifierExtractor: func(c echo.Context) (string, error) {
@@ -200,7 +232,7 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	// File privat (spmb, alumni, arsip, chat, tugas, dll). Role check
 	// per-folder dilakukan di handler (lihat FileHandler.folderRoleMatrix).
 	// Route anonim /uploads/* hanya melayani folder publik.
-	auth.GET("/files/*", h.File.ServeFile)
+	auth.GET("/files/*", h.File.ServeFile, sensitiveLimit)
 
 	adminGroup := auth.Group("")
 	adminGroup.Use(authMiddleware.RoleMiddleware(authMiddleware.RoleSuperadmin, authMiddleware.RoleAdmin))
@@ -218,7 +250,7 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	// Account switching (admin impersonation)
 	// switch = admin-only (pindah ke akun manapun), return = siapapun yang
 	// sedang di-impersonasi (klaim JWT imp) untuk kembali ke akun admin asal.
-	adminGroup.POST("/auth/switch", h.Auth.SwitchAccount)
+	adminGroup.POST("/auth/switch", h.Auth.SwitchAccount, sensitiveLimit)
 	auth.POST("/auth/return", h.Auth.ReturnToAdmin)
 
 	// Academic
@@ -357,45 +389,61 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	adminGroup.DELETE("/contact-messages/:id", h.Contact.DeleteMessage)
 
 	// Savings
-	auth.GET("/savings/stats", h.Savings.GetStats)
-	auth.GET("/savings/students", h.Savings.GetSiswa)
+	// Pembacaan finansial dibatasi ke role modul tabungan (sama seperti
+	// tabunganGroup). Tulan tetap di bendaharaGroup di bawah.
+	savingsRead := auth.Group("/savings")
+	savingsRead.Use(authMiddleware.RoleMiddleware(
+		authMiddleware.RoleSuperadmin, authMiddleware.RoleAdmin,
+		authMiddleware.RoleBendahara, authMiddleware.RoleGuru, authMiddleware.RoleStaff,
+	))
+	savingsRead.GET("/stats", h.Savings.GetStats)
+	savingsRead.GET("/students", h.Savings.GetSiswa)
 	auth.POST("/savings/students", h.Savings.CreateSiswa)
 	auth.POST("/savings/students/sync", h.Savings.SyncSavings)
-	auth.GET("/savings/students/:id", h.Savings.GetDetailSiswa)
+	savingsRead.GET("/savings/students/:id", h.Savings.GetDetailSiswa)
 	auth.PUT("/savings/students/:id", h.Savings.UpdateSiswa)
 	auth.DELETE("/savings/students/:id", h.Savings.DeleteSiswa)
-	auth.GET("/savings/transactions", h.Savings.GetTransactions)
+	savingsRead.GET("/savings/transactions", h.Savings.GetTransactions)
 	bendaharaGroup.POST("/savings/transactions", h.Savings.CreateTransaksi)
-	auth.GET("/savings/setoran", h.Savings.GetSetoranList)
+	savingsRead.GET("/savings/setoran", h.Savings.GetSetoranList)
 	bendaharaGroup.POST("/savings/setoran", h.Savings.CreateSetoran)
 	bendaharaGroup.POST("/savings/setoran/verify", h.Savings.VerifySetoran)
-	auth.GET("/savings/brankas", h.Savings.GetBrankasStatus)
-	auth.GET("/savings/brankas/summary", h.Savings.GetBrankasSummary)
+	savingsRead.GET("/savings/brankas", h.Savings.GetBrankasStatus)
+	savingsRead.GET("/savings/brankas/summary", h.Savings.GetBrankasSummary)
 	bendaharaGroup.POST("/savings/brankas", h.Savings.CreateBrankas)
 	bendaharaGroup.PUT("/savings/brankas/:id", h.Savings.UpdateBrankas)
 	bendaharaGroup.POST("/savings/brankas/transfer", h.Savings.TransferBrankas)
-	auth.GET("/savings/hutang", h.Savings.GetHutangList)
+	savingsRead.GET("/savings/hutang", h.Savings.GetHutangList)
 	bendaharaGroup.POST("/savings/hutang", h.Savings.CreateHutang)
 	bendaharaGroup.PUT("/savings/hutang/:id", h.Savings.UpdateHutang)
 	bendaharaGroup.DELETE("/savings/hutang/:id", h.Savings.CancelHutang)
 	bendaharaGroup.POST("/savings/hutang/:id/pay-cash", h.Savings.PayHutangCash)
 	bendaharaGroup.POST("/savings/hutang/:id/settle-savings", h.Savings.SettleHutangFromTabungan)
-	auth.GET("/savings/hutang/:id/payments", h.Savings.GetHutangPayments)
-	auth.GET("/savings/kelas", h.Savings.GetClassesWithReps)
+	savingsRead.GET("/savings/hutang/:id/payments", h.Savings.GetHutangPayments)
+	savingsRead.GET("/savings/kelas", h.Savings.GetClassesWithReps)
 	bendaharaGroup.POST("/savings/kelas", h.Savings.CreateKelas)
 	bendaharaGroup.PUT("/savings/kelas/:id", h.Savings.UpdateKelas)
 	bendaharaGroup.DELETE("/savings/kelas/:id", h.Savings.DeleteKelas)
-	auth.GET("/savings/treasurer", h.Savings.GetTreasurer)
+	savingsRead.GET("/savings/treasurer", h.Savings.GetTreasurer)
 	bendaharaGroup.POST("/savings/treasurer", h.Savings.AssignTreasurer)
 	bendaharaGroup.POST("/savings/kelas/:id/rep", h.Savings.AssignClassRep)
-	auth.GET("/savings/classes/reps", h.Savings.GetClassesWithReps)
+	savingsRead.GET("/savings/classes/reps", h.Savings.GetClassesWithReps)
 	bendaharaGroup.PUT("/savings/classes/:id/rep", h.Savings.AssignClassRep)
-	auth.GET("/savings/reports/final", h.Savings.GetFinalReport)
-	auth.GET("/savings/reports/statement", h.Savings.GetStatement)
-	auth.GET("/savings/reports/verify", h.Savings.VerifyStatement)
+	savingsRead.GET("/savings/reports/final", h.Savings.GetFinalReport)
+	savingsRead.GET("/savings/reports/statement", h.Savings.GetStatement)
+	savingsRead.GET("/savings/reports/verify", h.Savings.VerifyStatement)
 
 	// Tabungan route aliases
+	// Pembacaan finansial dibatasi untuk role yang sah memakai modul tabungan
+	// (admin/bendahara/guru/staff). Sebelumnya route ini hanya di `auth`, jadi
+	// orangtua/calon_siswa/user biasa pun bisa membaca seluruh daftar tabungan,
+	// hutang, dan brankas sekolah (horizontal over-exposure). Siswa mengakses
+	// tabungannya sendiri via /api/student/me/savings, bukan grup ini.
 	tabunganGroup := auth.Group("/tabungan")
+	tabunganGroup.Use(authMiddleware.RoleMiddleware(
+		authMiddleware.RoleSuperadmin, authMiddleware.RoleAdmin,
+		authMiddleware.RoleBendahara, authMiddleware.RoleGuru, authMiddleware.RoleStaff,
+	))
 	tabunganGroup.GET("/stats", h.Savings.GetStats)
 	tabunganGroup.GET("/data", h.Savings.GetStats)
 	tabunganGroup.GET("/students", h.Savings.GetSiswa)
@@ -610,7 +658,7 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	adminGroup.GET("/settings/backup/telegram", h.TelegramBackup.GetSettings)
 	adminGroup.PUT("/settings/backup/telegram", h.TelegramBackup.UpdateSettings)
 	adminGroup.POST("/settings/backup/telegram/test", h.TelegramBackup.TestBackup)
-	adminGroup.POST("/settings/backup/telegram/restore", h.TelegramBackup.RestoreBackup)
+	adminGroup.POST("/settings/backup/telegram/restore", h.TelegramBackup.RestoreBackup, sensitiveLimit)
 	adminGroup.POST("/integrations/test-connection", h.Integration.TestConnection)
 	adminGroup.POST("/integrations/sync", h.Integration.SyncNow)
 	adminGroup.GET("/alumni", h.Alumni.GetAlumni)

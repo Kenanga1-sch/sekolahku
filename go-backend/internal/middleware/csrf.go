@@ -15,14 +15,17 @@ const csrfHeaderName = "X-CSRF-Token"
 
 // allowedOriginSuffixes adalah daftar domain/host yang diperbolehkan
 // sebagai asal request (Origin header). Semua trafik publik masuk lewat
-// Cloudflare Tunnel dengan host sdn1kenanga.sch.id atau localhost.
-// EXTRA_ALLOWED_ORIGINS (koma-separated) menambah host dev/LAN tanpa rebuild.
+// Cloudflare Tunnel dengan host sdn1kenanga.sch.id.
+//
+// Host dev (localhost/127.0.0.1) hanya disertakan saat ENV != production,
+// sehingga binary produksi tidak bisa dipakai dengan asal dev. IP Tailscale
+// tidak lagi di-hardcode — tambah via EXTRA_ALLOWED_ORIGINS bila dibutuhkan.
 var allowedOriginSuffixes = func() []string {
 	list := []string{
 		"sdn1kenanga.sch.id",
-		"localhost",
-		"127.0.0.1",
-		"100.97.52.50",
+	}
+	if os.Getenv("ENV") != "production" {
+		list = append(list, "localhost", "127.0.0.1")
 	}
 	if extra := os.Getenv("EXTRA_ALLOWED_ORIGINS"); extra != "" {
 		for _, h := range strings.Split(extra, ",") {
@@ -104,8 +107,24 @@ func isAllowedOrigin(c echo.Context) bool {
 		if referer == "" {
 			return true
 		}
+		// Referer harus dicocokkan berdasarkan host-nya, bukan substring
+		// mentah: "https://evil.com/?x=localhost" akan lolos cek Contains.
+		// Kita ekstrak host referer lalu pakai rule host-boundary yang sama
+		// dengan pengecekan Origin di bawah.
+		refHost := referer
+		if idx := strings.Index(refHost, "://"); idx >= 0 {
+			refHost = refHost[idx+3:]
+		}
+		if idx := strings.Index(refHost, "/"); idx >= 0 {
+			refHost = refHost[:idx]
+		}
+		if idx := strings.Index(refHost, ":"); idx >= 0 {
+			refHost = refHost[:idx]
+		}
+		refHost = strings.ToLower(refHost)
 		for _, s := range allowedOriginSuffixes {
-			if strings.Contains(referer, s) {
+			lower := strings.ToLower(s)
+			if refHost == lower || strings.HasSuffix(refHost, "."+lower) {
 				return true
 			}
 		}

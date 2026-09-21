@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -41,6 +42,7 @@ func (h *SavingsHandler) TransferBrankas(c echo.Context) error {
 	if err := h.Repo.TransferBrankas(req); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
+	h.auditSavings(c, "transfer_brankas", "savings", fmt.Sprintf("Transfer brankas %s → %s nominal %d", req.FromID, req.ToID, req.Nominal))
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "message": "Transfer berhasil"})
 }
 

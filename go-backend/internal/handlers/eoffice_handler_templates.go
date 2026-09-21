@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sekolahku/go-backend/internal/shared"
 )
 
 // ============ Letter Templates ============
@@ -41,7 +42,7 @@ func (h *EOfficeHandler) GetLetterTemplateByID(c echo.Context) error {
 func (h *EOfficeHandler) CreateLetterTemplate(c echo.Context) error {
 	t, err := bindLetterTemplate(c, false)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": err.Error()})
+		return shared.BadRequest(c, "Input tidak valid")
 	}
 	id, err := h.Repo.CreateLetterTemplate(t)
 	if err != nil {
@@ -57,7 +58,7 @@ func (h *EOfficeHandler) UpdateLetterTemplate(c echo.Context) error {
 	}
 	t, err := bindLetterTemplate(c, true)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": err.Error()})
+		return shared.BadRequest(c, "Input tidak valid")
 	}
 	if err := h.Repo.UpdateLetterTemplate(id, t); err != nil {
 		if err == sql.ErrNoRows {
@@ -91,7 +92,7 @@ func (h *EOfficeHandler) GetTemplateVariables(c echo.Context) error {
 func (h *EOfficeHandler) ImportLetterTemplate(c echo.Context) error {
 	t, err := bindLetterTemplate(c, false)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": err.Error()})
+		return shared.BadRequest(c, "Input tidak valid")
 	}
 	id, err := h.Repo.CreateLetterTemplate(t)
 	if err != nil {

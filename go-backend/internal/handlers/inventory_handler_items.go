@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sekolahku/go-backend/internal/shared"
 	"github.com/sekolahku/go-backend/internal/models"
 )
 
@@ -171,7 +172,7 @@ func (h *InventoryHandler) CreateTransaction(c echo.Context) error {
 	}
 	date, err := parseInventoryDate(payload.Date)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return shared.BadRequest(c, "Input tidak valid")
 	}
 	t := models.InventoryTransaction{
 		ItemID:      itemID,

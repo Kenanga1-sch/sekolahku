@@ -13,6 +13,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/sekolahku/go-backend/internal/models"
 	"github.com/sekolahku/go-backend/internal/repository"
+	"github.com/sekolahku/go-backend/internal/shared"
 )
 
 type ContactHandler struct {
@@ -124,10 +125,8 @@ func (h *ContactHandler) SubmitMessage(c echo.Context) error {
 
 	id, ticket, err := h.Repo.CreateMessage(req)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
-			"success": false,
-			"error":   "Gagal mengirim pesan: " + err.Error(),
-		})
+		c.Logger().Errorf("gagal menyimpan pesan kontak: %v", err)
+		return shared.InternalError(c)
 	}
 
 	// Pesan tersimpan — sekarang simpan lampiran. Gagal simpan satu file

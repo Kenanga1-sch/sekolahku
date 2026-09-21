@@ -138,14 +138,21 @@ func main() {
 	if os.Getenv("ENV") == "production" && os.Getenv("TRUST_PROXY") != "true" {
 		server.Use(middleware.HTTPSRedirect())
 	}
-	// AllowOrigins: default + EXTRA_ALLOWED_ORIGINS (koma-separated) untuk host dev/LAN
+	// AllowOrigins: produksi hanya domain resmi; origin dev (localhost,
+	// 127.0.0.1, hostname Tailscale) hanya dimuat saat ENV != production
+	// agar binary produksi tidak menerima asal dev. Host dev/LAN tambahan
+	// selalu bisa ditambah via EXTRA_ALLOWED_ORIGINS tanpa rebuild.
 	allowOrigins := []string{
-		"http://localhost:3000",
-		"http://127.0.0.1:3000",
-		"http://localhost:3001",
-		"http://127.0.0.1:3001",
-		"https://server-kenanga.tail747644.ts.net",
 		"https://sdn1kenanga.sch.id",
+	}
+	if os.Getenv("ENV") != "production" {
+		allowOrigins = append(allowOrigins,
+			"http://localhost:3000",
+			"http://127.0.0.1:3000",
+			"http://localhost:3001",
+			"http://127.0.0.1:3001",
+			"https://server-kenanga.tail747644.ts.net",
+		)
 	}
 	if extra := os.Getenv("EXTRA_ALLOWED_ORIGINS"); extra != "" {
 		for _, o := range strings.Split(extra, ",") {
@@ -274,7 +281,7 @@ func main() {
 		SPMB:           handlers.NewSPMBHandler(repos.SPMB, repos.Notification),
 		Student:        handlers.NewStudentHandler(repos.Student, db),
 		Employee:       handlers.NewEmployeeHandler(repos.Employee),
-		Savings:        handlers.NewSavingsHandler(repos.Savings, repos.Notification, parentNotify),
+		Savings:        handlers.NewSavingsHandler(repos.Savings, repos.Notification, parentNotify, repos.AuditLog),
 		Library:        handlers.NewLibraryHandler(repos.Library, repos.Notification),
 		EOffice:        handlers.NewEOfficeHandler(repos.EOffice, repos.Notification),
 		Attendance:     handlers.NewAttendanceHandler(repos.Attendance, parentNotify),

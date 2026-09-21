@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -63,6 +64,7 @@ func (h *SavingsHandler) PayHutangCash(c echo.Context) error {
 	if err := h.Repo.PayHutangCash(id, req.Amount, operatorID); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
+	h.auditSavings(c, "pay_hutang_cash", "savings", fmt.Sprintf("Bayar hutang %s tunai nominal %d", id, req.Amount))
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "message": "Pembayaran berhasil"})
 }
 
@@ -80,6 +82,7 @@ func (h *SavingsHandler) SettleHutangFromTabungan(c echo.Context) error {
 	if err := h.Repo.SettleHutangFromSavings(id, req.Amount, operatorID); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
+	h.auditSavings(c, "settle_hutang_savings", "savings", fmt.Sprintf("Lunasi hutang %s dari tabungan nominal %d", id, req.Amount))
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "message": "Pelunasan dari tabungan berhasil"})
 }
 

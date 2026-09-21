@@ -19,6 +19,9 @@ services:
       EXTRA_ALLOWED_ORIGINS: ${EXTRA_ALLOWED_ORIGINS:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       TELEGRAM_API_URL: ${TELEGRAM_API_URL:-http://telegram-bot-api:8081}
+      # Password enkripsi backup Telegram (AES-256-GCM). Kosong = backup TANPA
+      # enkripsi (PII siswa terkirim plain). WAJIB diisi di .env server.
+      BACKUP_ZIP_PASSWORD: ${BACKUP_ZIP_PASSWORD:-}
     volumes:
       - ./data:/app/data
       - ./public/uploads:/app/public/uploads
