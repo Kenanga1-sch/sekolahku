@@ -286,6 +286,8 @@ type CreateBookRequest struct {
 	Category    string `json:"category"`
 	Description string `json:"description"`
 	Cover       string `json:"cover"`
+	Copies      int    `json:"copies"` // Number of physical copies to create (default 1)
+	Location    string `json:"location"` // Shelf location for new assets
 }
 
 // BookUpdateRequest handles partial updates with optional Year field
@@ -376,16 +378,4 @@ type UpdateMemberRequest struct {
 	Photo          string `json:"photo"`
 	MaxBorrowLimit int    `json:"maxBorrowLimit"`
 	IsActive       *bool  `json:"isActive"`
-}
-
-type UpdateBookRequest struct {
-	Title       string `json:"title"`
-	Author      string `json:"author"`
-	ISBN        string `json:"isbn"`
-	Publisher   string `json:"publisher"`
-	Year        *int   `json:"year"`
-	Category    string `json:"category"`
-	Description string `json:"description"`
-	Cover       string `json:"cover"`
-	Location    string `json:"location"`
 }

@@ -201,13 +201,7 @@ func (r *LibraryBookingRepository) GetBookingByID(id string) (*models.LibraryBoo
 
 // CancelBooking cancels an existing booking
 func (r *LibraryBookingRepository) CancelBooking(id string, reason *string) error {
-	tx, err := r.DB.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	_, err = tx.Exec(`
+	res, err := r.DB.Exec(`
 		UPDATE library_bookings 
 		SET status = 'cancelled', notes = COALESCE(?, notes), updated_at = ?
 		WHERE id = ? AND status IN ('pending', 'confirmed')
@@ -217,12 +211,12 @@ func (r *LibraryBookingRepository) CancelBooking(id string, reason *string) erro
 		return err
 	}
 
-	rowsAffected, _ := tx.RowsAffected
+	rowsAffected, _ := res.RowsAffected()
 	if rowsAffected == 0 {
 		return errors.New("tidak dapat membatalkan booking - status tidak valid atau booking tidak ditemukan")
 	}
 
-	return tx.Commit()
+	return nil
 }
 
 // ConfirmBooking - Librarian confirms the booking

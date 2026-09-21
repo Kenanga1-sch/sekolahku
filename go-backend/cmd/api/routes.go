@@ -36,6 +36,7 @@ type Repositories struct {
 	Dashboard      *repository.DashboardRepository
 	Public         *repository.PublicRepository
 	PublicLibrary  *repository.PublicLibraryRepository
+	Booking        *repository.LibraryBookingRepository
 	FAQ            *repository.FAQRepository
 	Contact        *repository.ContactRepository
 	Sync           *repository.SyncRepository
@@ -76,6 +77,7 @@ type AllHandlers struct {
 	Dashboard      *handlers.DashboardHandler
 	Public         *handlers.PublicHandler
 	PublicLibrary  *handlers.PublicLibraryHandler
+	Booking        *handlers.BookingHandler
 	FAQ            *handlers.FAQHandler
 	Contact        *handlers.ContactHandler
 	Upload         *handlers.UploadHandler
@@ -534,6 +536,11 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	guruGroup.POST("/kiosk/attendance", h.Attendance.KioskRecordAttendance)
 	guruGroup.POST("/kiosk/savings-deposit", h.Savings.KioskDeposit)
 	guruGroup.GET("/kiosk/savings-lookup", h.Savings.GetSiswa)
+	
+	// Library Booking Routes (authenticated only - students, teachers, staff)
+	guruGroup.POST("/library/bookings", h.Booking.CreateBooking)
+	guruGroup.GET("/library/bookings", h.Booking.GetMyBookings)
+	guruGroup.DELETE("/library/bookings/:id", h.Booking.CancelBooking)
 
 	// Announcements
 	auth.GET("/announcements", h.Announcement.GetAnnouncements)
