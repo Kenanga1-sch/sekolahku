@@ -172,7 +172,7 @@ export default function PublicCatalogPage() {
             sortable: true,
             card: "title",
             render: (book: PublicBook) => (
-              <Link href={`/perpustakaan/buku/${book.id}`}>
+              <Link href={`/katalog-buku/detail?id=${book.id}`}>
                 <p className="font-medium hover:text-primary transition-colors">{book.title}</p>
               </Link>
             ),

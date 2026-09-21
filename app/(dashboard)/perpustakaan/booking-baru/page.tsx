@@ -1,20 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { ArrowLeft, Calendar, Clock, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { createBooking } from "@/lib/library/booking";
 import { showSuccess, showError } from "@/lib/toast";
 
-export default function NewBookingPage({ params }: { params: { id: string } }) {
+function BookingForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const assetId = searchParams.get("asset") || "";
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     borrowDate: "",
@@ -28,18 +29,20 @@ export default function NewBookingPage({ params }: { params: { id: string } }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate dates
+
+    if (!assetId) {
+      showError("Buku tidak valid. Silakan ulangi dari katalog.");
+      return;
+    }
+
     if (!formData.borrowDate || !formData.dueDate) {
       showError("Tanggal pinjam dan jatuh tempo wajib diisi");
       return;
     }
 
-    // Convert to Unix ms
-    const borrowDateMs = new Date(formData.borrowDate).getTime() / 1000 * 1000;
-    const dueDateMs = new Date(formData.dueDate).getTime() / 1000 * 1000;
+    const borrowDateMs = new Date(formData.borrowDate).getTime();
+    const dueDateMs = new Date(formData.dueDate).getTime();
 
-    // Validate dates not in past
     if (borrowDateMs < Date.now()) {
       showError("Tanggal pinjam tidak boleh di masa lalu");
       return;
@@ -51,10 +54,9 @@ export default function NewBookingPage({ params }: { params: { id: string } }) {
     }
 
     setLoading(true);
-
     try {
       await createBooking({
-        assetId: params.id,
+        assetId,
         borrowDate: borrowDateMs,
         dueDate: dueDateMs,
         borrowerName: formData.borrowerName,
@@ -65,7 +67,7 @@ export default function NewBookingPage({ params }: { params: { id: string } }) {
       });
 
       showSuccess("Booking berhasil dibuat!");
-      router.push("/perpustakaan/saya/booking-an");
+      router.push("/perpustakaan/saya/bookings");
     } catch (error: any) {
       console.error("Booking error:", error);
       showError(error?.response?.data?.error || "Gagal membuat booking");
@@ -78,16 +80,14 @@ export default function NewBookingPage({ params }: { params: { id: string } }) {
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link href="/perpustakaan">
+        <Link href="/katalog-buku">
           <Button variant="ghost" size="icon">
             <ArrowLeft className="h-4 w-4" />
           </Button>
         </Link>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Booking Buku</h1>
-          <p className="text-muted-foreground">
-            Pesan buku yang ingin Anda pinjam dari perpustakaan
-          </p>
+          <p className="text-muted-foreground">Pesan buku yang ingin Anda pinjam dari perpustakaan</p>
         </div>
       </div>
 
@@ -100,7 +100,7 @@ export default function NewBookingPage({ params }: { params: { id: string } }) {
             <ol className="list-decimal list-inside text-muted-foreground">
               <li>Susun detail booking ini</li>
               <li>Perpustakaan akan mengonfirmasi dalam 1x24 jam</li>
-              <li>Buku siap diambil saat status "Ready"</li>
+              <li>Buku siap diambil saat status &quot;Ready&quot;</li>
               <li>Ambil sebelum tanggal jatuh tempo</li>
             </ol>
           </div>
@@ -111,10 +111,10 @@ export default function NewBookingPage({ params }: { params: { id: string } }) {
       <Card>
         <form onSubmit={handleSubmit}>
           <CardContent className="p-6 space-y-6">
-            {/* Book info placeholder - in real app would fetch book details */}
+            {/* Book info */}
             <div className="bg-muted p-4 rounded-lg">
               <p className="text-sm text-muted-foreground mb-1">Buku yang akan dibooking</p>
-              <code className="text-xs bg-background px-2 py-1 rounded">ID: {params.id}</code>
+              <code className="text-xs bg-background px-2 py-1 rounded">ID: {assetId || "(tidak ada)"}</code>
             </div>
 
             {/* Dates */}
@@ -153,7 +153,7 @@ export default function NewBookingPage({ params }: { params: { id: string } }) {
             {/* Borrower Info */}
             <div className="space-y-4">
               <h3 className="font-semibold border-b pb-2">Informasi Peminjam</h3>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="borrowerName">Nama Lengkap *</Label>
                 <Input
@@ -214,7 +214,7 @@ export default function NewBookingPage({ params }: { params: { id: string } }) {
 
             {/* Submit Button */}
             <div className="flex gap-4 pt-4 border-t">
-              <Link href="/perpustakaan">
+              <Link href="/katalog-buku">
                 <Button variant="outline" type="button">
                   Batal
                 </Button>
@@ -230,5 +230,19 @@ export default function NewBookingPage({ params }: { params: { id: string } }) {
         </form>
       </Card>
     </div>
+  );
+}
+
+export default function NewBookingPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-8 flex justify-center items-center text-muted-foreground animate-pulse font-medium">
+          Memuat formulir booking...
+        </div>
+      }
+    >
+      <BookingForm />
+    </Suspense>
   );
 }

@@ -10,7 +10,7 @@ const TabMutasi = lazy(() => import("./tab-mutasi"));
 const TabAlumni = lazy(() => import("./tab-alumni"));
 const TabSPMB = lazy(() => import("./tab-spmb"));
 const AkademikTabsContent = lazy(() =>
-  import("../akademik/page").then((mod) => ({ default: mod.AkademikTabsContent }))
+  import("../akademik/_components/tabs-content").then((mod) => ({ default: mod.AkademikTabsContent }))
 );
 
 type TabType = "direktori" | "kartu" | "mutasi" | "alumni" | "spmb" | "akademik";
