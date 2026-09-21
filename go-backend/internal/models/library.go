@@ -4,17 +4,66 @@ import "time"
 
 // LibraryCatalog represents a bibliographic record
 type LibraryCatalog struct {
-	ID          string     `json:"id"`
-	Isbn        *string    `json:"isbn"`
-	Title       string     `json:"title"`
-	Author      *string    `json:"author"`
-	Publisher   *string    `json:"publisher"`
-	Year        *int       `json:"year"`
-	Category    string     `json:"category"`
-	Description *string    `json:"description"`
-	Cover       *string    `json:"cover"`
-	CreatedAt   *time.Time `json:"createdAt"`
-	UpdatedAt   *time.Time `json:"updatedAt"`
+	ID          string  `json:"id"`
+	Isbn        *string `json:"isbn,omitempty"`
+	Title       string  `json:"title"`
+	Author      *string `json:"author,omitempty"`
+	Publisher   *string `json:"publisher,omitempty"`
+	Year        *int    `json:"year,omitempty"`
+	Category    string  `json:"category"`
+	Description *string `json:"description,omitempty"`
+	Cover       *string `json:"cover,omitempty"`
+}
+
+// BookWithAvailability extends BookDetail with stock information for public display
+type BookWithAvailability struct {
+	ID             string              `json:"id"`
+	CatalogID      string              `json:"catalogId"`
+	Status         string              `json:"status"`
+	Location       string              `json:"location,omitempty"`
+	Condition      string              `json:"condition"`
+	CreatedAt      time.Time           `json:"createdAt"`
+	UpdatedAt      time.Time           `json:"updatedAt"`
+	Title          string              `json:"title"`
+	Author         string              `json:"author"`
+	ISBN           string              `json:"isbn"`
+	Publisher      string              `json:"publisher"`
+	Year           int                 `json:"year"`
+	Category       string              `json:"category"`
+	Description    string              `json:"description"`
+	Cover          string              `json:"cover"`
+	TotalExemplars int                 `json:"totalExemplars"` // Total copies in inventory
+	AvailableCount int                 `json:"availableCount"`   // How many are currently AVAILABLE
+}
+
+type LibraryCatalogMini struct {
+	ID          string  `json:"id"`
+	Isbn        *string `json:"isbn,omitempty"`
+	Title       string  `json:"title"`
+	Author      *string `json:"author,omitempty"`
+	Publisher   *string `json:"publisher,omitempty"`
+	Year        *int    `json:"year,omitempty"`
+	Category    string  `json:"category"`
+	Description *string `json:"description,omitempty"`
+	Cover       *string `json:"cover,omitempty"`
+}
+
+type ISBNLookupResponse struct {
+	ID             string   `json:"id,omitempty"`
+	Title          string   `json:"title"`
+	Author         string   `json:"author"`
+	Publisher      string   `json:"publisher"`
+	Year           int64    `json:"year"`
+	ISBN           string   `json:"isbn,omitempty"`
+	Cover          string   `json:"cover,omitempty"`
+	CoverURL       string   `json:"coverUrl,omitempty"`
+	Subjects       []string `json:"subjects,omitempty"`
+	DDCCategory    string   `json:"ddcCategory,omitempty"`
+	Category       string   `json:"category,omitempty"`
+	Sources        []string `json:"sources,omitempty"`
+	LocalFound     bool     `json:"localFound,omitempty"`
+	TotalExemplars int      `json:"totalExemplars,omitempty"`
+	Description    string   `json:"description,omitempty"`
 }
 
 // LibraryAsset represents a physical book/item
@@ -76,24 +125,6 @@ type LibraryStatsResponse struct {
 	Data    *LibraryStats `json:"data"`
 }
 
-type ISBNLookupResponse struct {
-	ID             string   `json:"id,omitempty"`
-	Title          string   `json:"title"`
-	Author         string   `json:"author"`
-	Publisher      string   `json:"publisher"`
-	Year           int64    `json:"year"`
-	ISBN           string   `json:"isbn"`
-	Cover          string   `json:"cover"`
-	CoverURL       string   `json:"coverUrl"`
-	Subjects       []string `json:"subjects"`
-	DDCCategory    string   `json:"ddcCategory"`
-	Category       string   `json:"category"`
-	Description    string   `json:"description"`
-	LocalFound     bool     `json:"localFound"`
-	TotalExemplars int      `json:"totalExemplars"`
-	Sources        []string `json:"sources,omitempty"`
-}
-
 type CatalogInput struct {
 	Title       string `json:"title"`
 	Author      string `json:"author"`
@@ -123,18 +154,6 @@ type BookDetail struct {
 	Description string              `json:"description"`
 	Cover       string              `json:"cover"`
 	Catalog     *LibraryCatalogMini `json:"catalog"`
-}
-
-type LibraryCatalogMini struct {
-	ID          string  `json:"id"`
-	Isbn        string  `json:"isbn"`
-	Title       string  `json:"title"`
-	Author      string  `json:"author"`
-	Publisher   string  `json:"publisher"`
-	Year        int     `json:"year"`
-	Category    string  `json:"category"`
-	Description string  `json:"description"`
-	Cover       string  `json:"cover"`
 }
 
 type LoanDetail struct {
@@ -267,8 +286,86 @@ type CreateBookRequest struct {
 	Category    string `json:"category"`
 	Description string `json:"description"`
 	Cover       string `json:"cover"`
-	Location    string `json:"location"`
-	Copies      int    `json:"copies"`
+}
+
+// BookUpdateRequest handles partial updates with optional Year field
+type UpdateBookRequest struct {
+	ISBN        string  `json:"isbn"`
+	Title       string  `json:"title"`
+	Author      *string `json:"author,omitempty"`
+	Publisher   *string `json:"publisher,omitempty"`
+	Year        *int    `json:"year,omitempty"`
+	Category    string  `json:"category"`
+	Description *string `json:"description,omitempty"`
+	Cover       *string `json:"cover,omitempty"`
+	Location    string  `json:"location"`
+}
+
+// LibraryBooking represents a book reservation request
+type LibraryBooking struct {
+	ID           string             `json:"id"`
+	UserID       *string            `json:"userId,omitempty"`
+	MemberID     *string            `json:"memberId,omitempty"`
+	AssetID      string             `json:"assetId"`
+	CatalogID    string             `json:"catalogId"`
+	BorrowerName string             `json:"borrowerName"`
+	BorrowerEmail *string           `json:"borrowerEmail,omitempty"`
+	BorrowerPhone *string           `json:"borrowerPhone,omitempty"`
+	StudentClass *string            `json:"studentClass,omitempty"`
+	BorrowDate   time.Time          `json:"borrowDate"`
+	DueDate      time.Time          `json:"dueDate"`
+	ExpiresAt    *time.Time         `json:"expiresAt,omitempty"`
+	Status       BookingStatus      `json:"status"`
+	Notes        *string            `json:"notes,omitempty"`
+	CreatedAt    time.Time          `json:"createdAt"`
+	UpdatedAt    time.Time          `json:"updatedAt"`
+	
+	// Expanded relations
+	Item         *LibraryAssetMini `json:"item,omitempty"`
+	BorrowerInfo *BorrowerInfo     `json:"borrowerInfo,omitempty"`
+}
+
+type LibraryAssetMini struct {
+	ID       string `json:"id"`
+	Title    string `json:"title"`
+	Cover    string `json:"cover"`
+}
+
+type BorrowerInfo struct {
+	Name       string  `json:"name"`
+	Email      *string `json:"email,omitempty"`
+	Phone      *string `json:"phone,omitempty"`
+	ClassName  *string `json:"className,omitempty"`
+}
+
+// BookingStatus enumeration for reservation states
+type BookingStatus string
+
+const (
+	BookingStatusPending    BookingStatus = "pending"     // Initial state, awaiting confirmation
+	BookingStatusConfirmed  BookingStatus = "confirmed"   // Librarian confirmed the booking
+	BookingStatusReady      BookingStatus = "ready"       // Book is prepared for pickup
+	BookingStatusCompleted  BookingStatus = "completed"   // Borrower picked up the book
+	BookingStatusCancelled  BookingStatus = "cancelled"   // Booking cancelled by user or admin
+	BookingStatusExpired    BookingStatus = "expired"     // Auto-expired due to no pickup
+)
+
+// CreateBookingRequest represents input for creating a new booking
+type CreateBookingRequest struct {
+	AssetID      string `json:"assetId"`
+	BorrowDate   int64  `json:"borrowDate"` // Unix milliseconds
+	DueDate      int64  `json:"dueDate"`    // Unix milliseconds
+	BorrowerName string `json:"borrowerName"`
+	BorrowerEmail *string `json:"borrowerEmail,omitempty"`
+	BorrowerPhone *string `json:"borrowerPhone,omitempty"`
+	StudentClass *string `json:"studentClass,omitempty"`
+	Notes        *string `json:"notes,omitempty"`
+}
+
+// UpdateBookingStatusRequest for confirming/canceling bookings
+type UpdateBookingStatusRequest struct {
+	Status BookingStatus `json:"status"`
+	Notes  *string       `json:"notes,omitempty"`
 }
 
 type UpdateMemberRequest struct {

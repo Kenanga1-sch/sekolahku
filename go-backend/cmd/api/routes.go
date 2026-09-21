@@ -35,6 +35,7 @@ type Repositories struct {
 	TelegramBackup *repository.TelegramBackupRepository
 	Dashboard      *repository.DashboardRepository
 	Public         *repository.PublicRepository
+	PublicLibrary  *repository.PublicLibraryRepository
 	FAQ            *repository.FAQRepository
 	Contact        *repository.ContactRepository
 	Sync           *repository.SyncRepository
@@ -74,6 +75,7 @@ type AllHandlers struct {
 	User           *handlers.UserHandler
 	Dashboard      *handlers.DashboardHandler
 	Public         *handlers.PublicHandler
+	PublicLibrary  *handlers.PublicLibraryHandler
 	FAQ            *handlers.FAQHandler
 	Contact        *handlers.ContactHandler
 	Upload         *handlers.UploadHandler
@@ -220,6 +222,12 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	// respons hanya pada field aman (tanpa harga, catatan, user_id).
 	publicGroup.GET("/inventory/label", h.Inventory.GetPublicLabel)
 	publicGroup.POST("/sync/dapodik/students", h.Sync.SyncDapodikStudents)
+	
+	// Public Library Routes - no auth required, read-only with caching
+	publicGroup.GET("/library/books", h.PublicLibrary.GetBooks)
+	publicGroup.GET("/library/books/:id", h.PublicLibrary.GetBook)
+	publicGroup.GET("/library/stats", h.PublicLibrary.GetStats)
+	publicGroup.GET("/library/availability/:isbn", h.PublicLibrary.CheckAvailability)
 
 	// Public compatibility aliases
 	server.POST("/api/mutasi/request", h.Mutasi.CreateMutasiRequest, publicFormLimit)
