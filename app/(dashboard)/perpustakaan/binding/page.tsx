@@ -111,8 +111,23 @@ export default function LibraryBindingPage() {
     };
 
     // Step 1: Scan QR Identity
-    const handleQRScan = (code: string) => {
+    const checkQRBound = async (code: string): Promise<boolean> => {
+        // true jika QR sudah terikat ke aset lain
+        try {
+            const res: any = await goGet(`/api/library/books/qr/${encodeURIComponent(code)}`);
+            if (res && res.id) {
+                toast.error(`QR "${code}" sudah terikat ke buku "${res.title || 'tanpa judul'}". Gunakan QR lain.`);
+                return true;
+            }
+        } catch {
+            // 404 = belum terikat, aman
+        }
+        return false;
+    };
+
+    const handleQRScan = async (code: string) => {
         setQrCode(code);
+        if (await checkQRBound(code)) return; // tolak, tetap di langkah 1
         toast.success(`QR Code Terdeteksi: ${code}`);
         setStep(2);
     };
@@ -175,7 +190,10 @@ export default function LibraryBindingPage() {
                 setShowISBNScanner(false);
             } else {
                 setLookupStatus('not_found');
-                toast.error("Buku tidak ditemukan di database online.");
+                toast.info("Data buku tidak ditemukan di katalog online maupun lokal.", {
+                    description: "Periksa kembali ISBN, atau isi judul & penulis secara manual di bawah.",
+                    duration: 6000,
+                });
                 setCatalog(prev => ({ 
                     ...prev, 
                     title: "", 
@@ -329,7 +347,10 @@ export default function LibraryBindingPage() {
                                 value={qrCode}
                                 onChange={(e) => setQrCode(e.target.value.toUpperCase())}
                             />
-                            <Button disabled={!qrCode} onClick={() => setStep(2)}>Lanjut</Button>
+                            <Button disabled={!qrCode} onClick={async () => {
+                                if (await checkQRBound(qrCode)) return; // tolak, tetap di langkah 1
+                                setStep(2);
+                            }}>Lanjut</Button>
                         </div>
                     </CardContent>
                 </Card>

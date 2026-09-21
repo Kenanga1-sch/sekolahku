@@ -26,7 +26,7 @@ func setupLibraryHandlerTestDB(t *testing.T) *sql.DB {
 			title TEXT,
 			author TEXT,
 			publisher TEXT,
-			year TEXT,
+			year INTEGER,
 			category TEXT,
 			description TEXT,
 			cover TEXT,

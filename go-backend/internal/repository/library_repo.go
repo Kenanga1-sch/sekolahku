@@ -81,7 +81,7 @@ func (r *LibraryRepository) GetBooks(page, perPage int, search, category, status
 
 	query := `
 		SELECT a.id, a.catalog_id, c.title, c.author, c.isbn, a.status, a.location, a.condition,
-		       c.publisher, c.year, c.category
+		       c.publisher, c.year, c.category, COALESCE(c.description,''), COALESCE(c.cover,'')
 		FROM library_assets a
 		JOIN library_catalog c ON a.catalog_id = c.id
 		` + where + ` ORDER BY c.title ASC LIMIT ? OFFSET ?`
@@ -96,16 +96,19 @@ func (r *LibraryRepository) GetBooks(page, perPage int, search, category, status
 	var books []models.BookDetail
 	for rows.Next() {
 		var b models.BookDetail
-		var loc, cond, pub sql.NullString
+		var loc, cond, pub, desc, cover sql.NullString
 		var yr sql.NullInt64
 		var cat string
-		if err := rows.Scan(&b.ID, &b.CatalogID, &b.Title, &b.Author, &b.ISBN, &b.Status, &loc, &cond, &pub, &yr, &cat); err != nil {
+		if err := rows.Scan(&b.ID, &b.CatalogID, &b.Title, &b.Author, &b.ISBN, &b.Status, &loc, &cond, &pub, &yr, &cat, &desc, &cover); err != nil {
 			return nil, 0, err
 		}
 		b.Category = cat
 		if loc.Valid { b.Location = loc.String }
 		if cond.Valid { b.Condition = cond.String }
 		if pub.Valid { b.Publisher = pub.String }
+		if yr.Valid { b.Year = int(yr.Int64) }
+		if desc.Valid { b.Description = desc.String }
+		if cover.Valid { b.Cover = cover.String }
 		books = append(books, b)
 	}
 	if books == nil {
@@ -170,9 +173,9 @@ func (r *LibraryRepository) UpdateBook(id string, input models.UpdateBookRequest
 		return err
 	}
 	_, err = r.DB.Exec(`
-		UPDATE library_catalog SET isbn=?, title=?, author=?, publisher=?, year=?, category=?, description=?, updated_at=?
+		UPDATE library_catalog SET isbn=?, title=?, author=?, publisher=?, year=?, category=?, description=?, cover=?, updated_at=?
 		WHERE id=?
-	`, input.ISBN, input.Title, input.Author, input.Publisher, input.Year, input.Category, input.Description, now, catalogID)
+	`, input.ISBN, input.Title, input.Author, input.Publisher, input.Year, input.Category, input.Description, input.Cover, now, catalogID)
 	if err != nil {
 		return err
 	}

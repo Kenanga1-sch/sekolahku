@@ -76,15 +76,15 @@ func (r *LibraryRepository) SwapQR(oldId, newId string) error {
 // GetAssetByCode retrieves asset details by its QR code (asset ID)
 func (r *LibraryRepository) GetAssetByCode(code string) (*models.BookDetail, error) {
 	var b models.BookDetail
-	var loc, cond, pub, cat sql.NullString
+	var loc, cond, pub, cat, desc, cover sql.NullString
 	var yr sql.NullInt64
 	err := r.DB.QueryRow(`
 		SELECT a.id, a.catalog_id, c.title, c.author, COALESCE(c.isbn,''), a.status, a.location,
-		       a.condition, c.publisher, c.year, c.category
+		       a.condition, c.publisher, c.year, c.category, COALESCE(c.description,''), COALESCE(c.cover,'')
 		FROM library_assets a
 		JOIN library_catalog c ON a.catalog_id = c.id
 		WHERE a.id = ?
-	`, code).Scan(&b.ID, &b.CatalogID, &b.Title, &b.Author, &b.ISBN, &b.Status, &loc, &cond, &pub, &yr, &cat)
+	`, code).Scan(&b.ID, &b.CatalogID, &b.Title, &b.Author, &b.ISBN, &b.Status, &loc, &cond, &pub, &yr, &cat, &desc, &cover)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, sql.ErrNoRows
@@ -96,6 +96,8 @@ func (r *LibraryRepository) GetAssetByCode(code string) (*models.BookDetail, err
 	if pub.Valid { b.Publisher = pub.String }
 	if yr.Valid { b.Year = int(yr.Int64) }
 	if cat.Valid { b.Category = cat.String }
+	if desc.Valid { b.Description = desc.String }
+	if cover.Valid { b.Cover = cover.String }
 	return &b, nil
 }
 
@@ -113,15 +115,19 @@ func (r *LibraryRepository) LookupISBN(isbn string) (*models.ISBNLookupResponse,
 		FROM library_catalog WHERE isbn = ? LIMIT 1
 	`, isbn).Scan(&cachedID, &title, &author, &pub, &yr, &cat, &desc, &cover)
 	if err == nil {
+		var exemplars int
+		_ = r.DB.QueryRow("SELECT COUNT(*) FROM library_assets WHERE catalog_id = ?", cachedID).Scan(&exemplars)
 		return &models.ISBNLookupResponse{
-			ID:          cachedID,
-			Title:       title,
-			Author:      author,
-			Publisher:   pub,
-			Year:        yr,
-			Category:    cat,
-			Description: desc,
-			Cover:       cover,
+			ID:            cachedID,
+			Title:         title,
+			Author:        author,
+			Publisher:     pub,
+			Year:          yr,
+			Category:      cat,
+			Description:   desc,
+			Cover:         cover,
+			LocalFound:    true,
+			TotalExemplars: exemplars,
 		}, nil
 	}
 
@@ -227,6 +233,14 @@ func (r *LibraryRepository) BindAsset(qrCode, location string, catalog models.Ca
 			if (!existingCover.Valid || existingCover.String == "") && catalog.Cover != "" {
 				existingCover.String = catalog.Cover
 				existingCover.Valid = true
+			}
+			_, err = tx.Exec(`
+				UPDATE library_catalog
+				SET isbn=?, title=?, author=?, publisher=?, year=?, category=?, description=?, cover=?, updated_at=?
+				WHERE id=?
+			`, existingISBN, existingTitle, existingAuthor, existingPublisher, existingYear, existingCategory, existingDescription, existingCover, now, catalogID)
+			if err != nil {
+				return err
 			}
 		}
 	}

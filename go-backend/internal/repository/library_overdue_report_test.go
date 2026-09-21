@@ -22,7 +22,7 @@ func setupOverdueTestDB(t *testing.T, count int) *sql.DB {
 	if _, err := db.Exec(`
 		CREATE TABLE library_catalog (
 			id TEXT PRIMARY KEY, isbn TEXT, title TEXT, author TEXT, publisher TEXT,
-			year TEXT, category TEXT, description TEXT, cover TEXT, created_at INTEGER, updated_at INTEGER
+			year INTEGER, category TEXT, description TEXT, cover TEXT, created_at INTEGER, updated_at INTEGER
 		);
 		CREATE TABLE library_assets (
 			id TEXT PRIMARY KEY, catalog_id TEXT, status TEXT DEFAULT 'AVAILABLE',

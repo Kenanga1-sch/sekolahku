@@ -21,6 +21,7 @@ import {
     Wallet,
     Banknote,
     ArrowUp,
+    FlipHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -127,6 +128,11 @@ export default function KioskPage() {
     const [countdown, setCountdown] = useState(0);
     const [cameraEnabled, setCameraEnabled] = useState(true);
     const [cameraFacing, setCameraFacing] = useState<"environment" | "user">("environment");
+    const [mirrorPreview, setMirrorPreview] = useState(() => {
+        if (typeof window === "undefined") return true;
+        const stored = window.localStorage.getItem("kiosk-mirror-preview");
+        return stored === null ? true : stored === "1";
+    });
     const [lastScanTime, setLastScanTime] = useState(0);
     const [lastScannedCode, setLastScannedCode] = useState<string | null>(null);
     const [lastCodeScanTime, setLastCodeScanTime] = useState(0);
@@ -546,6 +552,20 @@ export default function KioskPage() {
                     <Button
                         variant="ghost"
                         size="sm"
+                        onClick={() => setMirrorPreview(prev => {
+                            const next = !prev;
+                            try { window.localStorage.setItem("kiosk-mirror-preview", next ? "1" : "0"); } catch {}
+                            return next;
+                        })}
+                        className={mirrorPreview ? "text-cyan-300 hover:bg-white/5 h-8 px-2 sm:h-9 sm:px-3 text-xs" : "text-blue-200/60 hover:bg-white/5 h-8 px-2 sm:h-9 sm:px-3 text-xs"}
+                        title="Mode Cermin (mirror): gerakan tangan kanan tampil ke kanan"
+                    >
+                        <FlipHorizontal className="h-4 w-4 sm:mr-1" />
+                        <span className="hidden sm:inline">{mirrorPreview ? "Cermin: On" : "Cermin: Off"}</span>
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => setCameraEnabled(!cameraEnabled)}
                         className="text-blue-200 hover:bg-white/5 h-8 px-2 sm:h-9 sm:px-3 text-xs"
                     >
@@ -603,6 +623,7 @@ export default function KioskPage() {
                                         </div>
                                     </div>
                                 ) : cameraEnabled && !cameraError ? (
+                                    <>
                                     <Scanner
                                         onScan={onScanResult}
                                         onError={handleScanError}
@@ -613,10 +634,17 @@ export default function KioskPage() {
                                                 width: "100%", 
                                                 height: "100%", 
                                                 objectFit: "cover",
-                                                transform: "scaleX(-1)"
+                                                transform: mirrorPreview ? "scaleX(-1)" : "none"
                                             },
                                         }}
                                     />
+                                    {mirrorPreview && (
+                                        <div className="absolute top-2 right-2 z-10 flex items-center gap-1 bg-black/60 backdrop-blur-sm px-2 py-1 rounded-full border border-cyan-400/40">
+                                            <FlipHorizontal className="h-3 w-3 text-cyan-300" />
+                                            <span className="text-[10px] text-cyan-200 font-medium">Cermin</span>
+                                        </div>
+                                    )}
+                                    </>
                                 ) : (
                                     <div className="absolute inset-0 flex items-center justify-center text-blue-300 bg-slate-900/80">
                                         <div className="text-center p-6 max-w-sm">
