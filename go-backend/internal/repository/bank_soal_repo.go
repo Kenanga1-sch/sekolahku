@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -24,6 +25,23 @@ func (r *BankSoalRepository) genID() string {
 
 func nowMs() int64 {
 	return time.Now().UnixMilli()
+}
+
+// msPtrToTime mengubah Unix-ms pointer (dari request JSON) jadi *time.Time.
+func msPtrToTime(ms *int64) *time.Time {
+	if ms == nil || *ms == 0 {
+		return nil
+	}
+	t := time.Unix(*ms/1000, (*ms%1000)*1000000).UTC()
+	return &t
+}
+
+// timeToMs mengubah *time.Time jadi sql.NullInt64 (Unix ms) untuk disimpan.
+func timeToMs(t *time.Time) sql.NullInt64 {
+	if t == nil {
+		return sql.NullInt64{}
+	}
+	return sql.NullInt64{Int64: t.UnixMilli(), Valid: true}
 }
 
 // ══════════════════════════════════════════════════════════
@@ -609,8 +627,9 @@ func (r *BankSoalRepository) ListSets(bankID, search string, page, limit int) ([
 
 	offset := (page - 1) * limit
 	query := fmt.Sprintf(`
-		SELECT qs.id, qs.name, qs.bank_id, qs.academic_year, qs.shuffle_questions, qs.shuffle_options,
-		       qs.timer_minutes, qs.created_by, qs.created_at, qs.updated_at,
+		SELECT qs.id, qs.name, qs.bank_id, qs.academic_year, qs.mode, qs.shuffle_questions, qs.shuffle_options,
+		       qs.timer_minutes, qs.max_attempts, qs.available_from, qs.available_until, qs.result_visible,
+		       qs.created_by, qs.created_at, qs.updated_at,
 		       qb.title AS bank_title,
 		       (SELECT COUNT(*) FROM question_set_items qi JOIN questions q ON qi.question_id = q.id WHERE qi.set_id = qs.id AND q.deleted_at IS NULL) AS item_count
 		FROM question_sets qs
@@ -629,39 +648,27 @@ func (r *BankSoalRepository) ListSets(bankID, search string, page, limit int) ([
 
 	var sets []models.QuestionSet
 	for rows.Next() {
-		var s models.QuestionSet
-		var bankTitle sql.NullString
-		var createdAt, updatedAt sql.NullInt64
-		err := rows.Scan(&s.ID, &s.Name, &s.BankID, &s.AcademicYear, &s.ShuffleQuestions,
-			&s.ShuffleOptions, &s.TimerMinutes, &s.CreatedBy, &createdAt, &updatedAt,
-			&bankTitle, &s.ItemCount)
+		s, err := scanQuestionSet(rows)
 		if err != nil {
 			return nil, 0, err
 		}
-		if bankTitle.Valid {
-			s.BankTitle = &bankTitle.String
-		}
-		s.CreatedAt = SafeTime(createdAt)
-		s.UpdatedAt = SafeTime(updatedAt)
-		sets = append(sets, s)
+		sets = append(sets, *s)
 	}
 	return sets, total, nil
 }
 
-func (r *BankSoalRepository) GetSet(id string) (*models.QuestionSet, error) {
+// scanQuestionSet membaca satu baris question_sets dengan kolom lengkap.
+func scanQuestionSet(row interface {
+	Scan(dest ...interface{}) error
+}) (*models.QuestionSet, error) {
 	var s models.QuestionSet
 	var bankTitle sql.NullString
-	var createdAt, updatedAt sql.NullInt64
-	err := r.DB.QueryRow(`
-		SELECT qs.id, qs.name, qs.bank_id, qs.academic_year, qs.shuffle_questions, qs.shuffle_options,
-		       qs.timer_minutes, qs.created_by, qs.created_at, qs.updated_at,
-		       qb.title AS bank_title,
-		       (SELECT COUNT(*) FROM question_set_items qi JOIN questions q ON qi.question_id = q.id WHERE qi.set_id = qs.id AND q.deleted_at IS NULL) AS item_count
-		FROM question_sets qs
-		LEFT JOIN question_banks qb ON qs.bank_id = qb.id
-		WHERE qs.id = ? AND qs.deleted_at IS NULL
-	`, id).Scan(&s.ID, &s.Name, &s.BankID, &s.AcademicYear, &s.ShuffleQuestions,
-		&s.ShuffleOptions, &s.TimerMinutes, &s.CreatedBy, &createdAt, &updatedAt,
+	var createdAt, updatedAt, availableFrom, availableUntil sql.NullInt64
+	var maxAttempts sql.NullInt64
+	var mode sql.NullString
+	err := row.Scan(&s.ID, &s.Name, &s.BankID, &s.AcademicYear, &mode, &s.ShuffleQuestions,
+		&s.ShuffleOptions, &s.TimerMinutes, &maxAttempts, &availableFrom, &availableUntil, &s.ResultVisible,
+		&s.CreatedBy, &createdAt, &updatedAt,
 		&bankTitle, &s.ItemCount)
 	if err != nil {
 		return nil, err
@@ -669,19 +676,59 @@ func (r *BankSoalRepository) GetSet(id string) (*models.QuestionSet, error) {
 	if bankTitle.Valid {
 		s.BankTitle = &bankTitle.String
 	}
+	if mode.Valid {
+		s.Mode = mode.String
+	} else {
+		s.Mode = "latihan"
+	}
+	if maxAttempts.Valid {
+		v := int(maxAttempts.Int64)
+		s.MaxAttempts = &v
+	}
+	s.AvailableFrom = SafeTime(availableFrom)
+	s.AvailableUntil = SafeTime(availableUntil)
 	s.CreatedAt = SafeTime(createdAt)
 	s.UpdatedAt = SafeTime(updatedAt)
 	return &s, nil
 }
 
+func (r *BankSoalRepository) GetSet(id string) (*models.QuestionSet, error) {
+	row := r.DB.QueryRow(`
+		SELECT qs.id, qs.name, qs.bank_id, qs.academic_year, qs.mode, qs.shuffle_questions, qs.shuffle_options,
+		       qs.timer_minutes, qs.max_attempts, qs.available_from, qs.available_until, qs.result_visible,
+		       qs.created_by, qs.created_at, qs.updated_at,
+		       qb.title AS bank_title,
+		       (SELECT COUNT(*) FROM question_set_items qi JOIN questions q ON qi.question_id = q.id WHERE qi.set_id = qs.id AND q.deleted_at IS NULL) AS item_count
+		FROM question_sets qs
+		LEFT JOIN question_banks qb ON qs.bank_id = qb.id
+		WHERE qs.id = ? AND qs.deleted_at IS NULL
+	`, id)
+	s, err := scanQuestionSet(row)
+	if err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
 func (r *BankSoalRepository) CreateSet(req *models.CreateQuestionSetRequest, createdBy string) (*models.QuestionSet, error) {
 	id := r.genID()
 	now := nowMs()
+	mode := req.Mode
+	if mode != "ujian" {
+		mode = "latihan"
+	}
+	resultVisible := true
+	if req.ResultVisible != nil {
+		resultVisible = *req.ResultVisible
+	}
 	_, err := r.DB.Exec(`
-		INSERT INTO question_sets (id, name, bank_id, academic_year, shuffle_questions, shuffle_options, timer_minutes, created_by, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, id, req.Name, req.BankID, req.AcademicYear, boolToInt(req.ShuffleQuestions),
-		boolToInt(req.ShuffleOptions), req.TimerMinutes, createdBy, now, now)
+		INSERT INTO question_sets (id, name, bank_id, academic_year, mode, shuffle_questions, shuffle_options, timer_minutes,
+			max_attempts, available_from, available_until, result_visible, created_by, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, id, req.Name, req.BankID, req.AcademicYear, mode, boolToInt(req.ShuffleQuestions),
+		boolToInt(req.ShuffleOptions), req.TimerMinutes, req.MaxAttempts,
+		timeToMs(msPtrToTime(req.AvailableFrom)), timeToMs(msPtrToTime(req.AvailableUntil)),
+		boolToInt(resultVisible), createdBy, now, now)
 	if err != nil {
 		return nil, err
 	}
@@ -703,6 +750,13 @@ func (r *BankSoalRepository) UpdateSet(id string, req *models.UpdateQuestionSetR
 	if req.AcademicYear != nil {
 		set.AcademicYear = req.AcademicYear
 	}
+	if req.Mode != nil {
+		if *req.Mode == "ujian" {
+			set.Mode = "ujian"
+		} else {
+			set.Mode = "latihan"
+		}
+	}
 	if req.ShuffleQuestions != nil {
 		set.ShuffleQuestions = *req.ShuffleQuestions
 	}
@@ -712,13 +766,27 @@ func (r *BankSoalRepository) UpdateSet(id string, req *models.UpdateQuestionSetR
 	if req.TimerMinutes != nil {
 		set.TimerMinutes = req.TimerMinutes
 	}
+	if req.MaxAttempts != nil {
+		set.MaxAttempts = req.MaxAttempts
+	}
+	if req.AvailableFrom != nil {
+		set.AvailableFrom = msPtrToTime(req.AvailableFrom)
+	}
+	if req.AvailableUntil != nil {
+		set.AvailableUntil = msPtrToTime(req.AvailableUntil)
+	}
+	if req.ResultVisible != nil {
+		set.ResultVisible = *req.ResultVisible
+	}
 
 	_, err = r.DB.Exec(`
 		UPDATE question_sets
-		SET name = ?, bank_id = ?, academic_year = ?, shuffle_questions = ?, shuffle_options = ?, timer_minutes = ?, updated_at = ?
+		SET name = ?, bank_id = ?, academic_year = ?, mode = ?, shuffle_questions = ?, shuffle_options = ?,
+		    timer_minutes = ?, max_attempts = ?, available_from = ?, available_until = ?, result_visible = ?, updated_at = ?
 		WHERE id = ? AND deleted_at IS NULL
-	`, set.Name, set.BankID, set.AcademicYear, boolToInt(set.ShuffleQuestions),
-		boolToInt(set.ShuffleOptions), set.TimerMinutes, nowMs(), id)
+	`, set.Name, set.BankID, set.AcademicYear, set.Mode, boolToInt(set.ShuffleQuestions),
+		boolToInt(set.ShuffleOptions), set.TimerMinutes, set.MaxAttempts,
+		timeToMs(set.AvailableFrom), timeToMs(set.AvailableUntil), boolToInt(set.ResultVisible), nowMs(), id)
 	if err != nil {
 		return nil, err
 	}
@@ -852,6 +920,92 @@ func (r *BankSoalRepository) GetStudentIDByUserID(userID string) (string, error)
 	return studentID, nil
 }
 
+// GetStudentClassID mengembalikan class_id siswa (dari tabel students).
+func (r *BankSoalRepository) GetStudentClassID(studentID string) (string, error) {
+	var classID sql.NullString
+	err := r.DB.QueryRow("SELECT class_id FROM students WHERE id = ?", studentID).Scan(&classID)
+	if err != nil {
+		return "", err
+	}
+	return classID.String, nil
+}
+
+// ListSetsForStudent mengembalikan paket yang boleh diakses siswa:
+//   - mode 'latihan'  -> semua siswa (perilaku lama)
+//   - mode 'ujian'    -> hanya bila kelasnya ditugaskan (window tetap ditampilkan,
+//     eksekusi dicek saat CreatePractice)
+func (r *BankSoalRepository) ListSetsForStudent(studentID string) ([]models.QuestionSet, error) {
+	query := `
+		SELECT qs.id, qs.name, qs.bank_id, qs.academic_year, qs.mode, qs.shuffle_questions, qs.shuffle_options,
+		       qs.timer_minutes, qs.max_attempts, qs.available_from, qs.available_until, qs.result_visible,
+		       qs.created_by, qs.created_at, qs.updated_at,
+		       qb.title AS bank_title,
+		       (SELECT COUNT(*) FROM question_set_items qi JOIN questions q ON qi.question_id = q.id WHERE qi.set_id = qs.id AND q.deleted_at IS NULL) AS item_count
+		FROM question_sets qs
+		LEFT JOIN question_banks qb ON qs.bank_id = qb.id
+		WHERE qs.deleted_at IS NULL
+		  AND (
+		    qs.mode = 'latihan'
+		    OR EXISTS (
+		      SELECT 1 FROM exam_assignments ea
+		      JOIN students st ON st.class_id = ea.class_id
+		      WHERE ea.set_id = qs.id AND st.id = ?
+		    )
+		  )
+		ORDER BY qs.created_at DESC
+	`
+	rows, err := r.DB.Query(query, studentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sets []models.QuestionSet
+	for rows.Next() {
+		s, err := scanQuestionSet(rows)
+		if err != nil {
+			return nil, err
+		}
+		sets = append(sets, *s)
+	}
+	return sets, nil
+}
+
+// CountAttempts menghitung jumlah sesi yang sudah dibuat siswa untuk sebuah paket.
+func (r *BankSoalRepository) CountAttempts(studentID, setID string) (int, error) {
+	var n int
+	err := r.DB.QueryRow(
+		"SELECT COUNT(*) FROM student_practices WHERE student_id = ? AND set_id = ?",
+		studentID, setID,
+	).Scan(&n)
+	return n, err
+}
+
+// ListQuestionIDsInSet mengembalikan id soal dalam paket sesuai urutan.
+func (r *BankSoalRepository) ListQuestionIDsInSet(setID string) ([]string, error) {
+	rows, err := r.DB.Query(`
+		SELECT qi.question_id
+		FROM question_set_items qi
+		JOIN questions q ON qi.question_id = q.id
+		WHERE qi.set_id = ? AND q.deleted_at IS NULL
+		ORDER BY qi.order_number ASC
+	`, setID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
 func (r *BankSoalRepository) ListPractices(studentID, setID string, page, limit int) ([]models.StudentPractice, int, error) {
 	where := []string{"sp.is_completed = 1"}
 	args := []interface{}{}
@@ -922,21 +1076,23 @@ func (r *BankSoalRepository) ListPractices(studentID, setID string, page, limit 
 
 func (r *BankSoalRepository) GetPractice(id string) (*models.StudentPractice, error) {
 	var p models.StudentPractice
-	var setName, studentName sql.NullString
-	var startedAt, finishedAt, createdAt sql.NullInt64
+	var setName, studentName, mode, questionOrder sql.NullString
+	var startedAt, finishedAt, createdAt, deadlineAt sql.NullInt64
 	var shuffleQuestions, shuffleOptions, timerMinutes sql.NullInt64
 	err := r.DB.QueryRow(`
 		SELECT sp.id, sp.student_id, sp.set_id, sp.started_at, sp.finished_at,
 		       sp.total_score, sp.max_score, sp.is_completed, sp.attempt_number, sp.created_at,
 		       qs.name, u.name,
-		       qs.shuffle_questions, qs.shuffle_options, qs.timer_minutes
+		       qs.shuffle_questions, qs.shuffle_options, qs.timer_minutes,
+		       qs.mode, sp.deadline_at, sp.question_order
 		FROM student_practices sp
 		LEFT JOIN question_sets qs ON sp.set_id = qs.id
 		LEFT JOIN users u ON sp.student_id = u.student_id
 		WHERE sp.id = ?
 	`, id).Scan(&p.ID, &p.StudentID, &p.SetID, &startedAt, &finishedAt,
 		&p.TotalScore, &p.MaxScore, &p.IsCompleted, &p.AttemptNumber, &createdAt,
-		&setName, &studentName, &shuffleQuestions, &shuffleOptions, &timerMinutes)
+		&setName, &studentName, &shuffleQuestions, &shuffleOptions, &timerMinutes,
+		&mode, &deadlineAt, &questionOrder)
 	if err != nil {
 		return nil, err
 	}
@@ -958,13 +1114,21 @@ func (r *BankSoalRepository) GetPractice(id string) (*models.StudentPractice, er
 		tm := int(timerMinutes.Int64)
 		p.TimerMinutes = &tm
 	}
+	if mode.Valid {
+		m := mode.String
+		p.Mode = &m
+	}
+	if questionOrder.Valid {
+		p.QuestionOrder = questionOrder.String
+	}
 	p.StartedAt = SafeTime(startedAt)
 	p.FinishedAt = SafeTime(finishedAt)
 	p.CreatedAt = SafeTime(createdAt)
+	p.DeadlineAt = SafeTime(deadlineAt)
 	return &p, nil
 }
 
-func (r *BankSoalRepository) CreatePractice(studentID, setID string) (*models.StudentPractice, error) {
+func (r *BankSoalRepository) CreatePractice(studentID, setID string, deadlineAt *time.Time, questionOrder []string) (*models.StudentPractice, error) {
 	id := r.genID()
 	now := nowMs()
 
@@ -972,10 +1136,17 @@ func (r *BankSoalRepository) CreatePractice(studentID, setID string) (*models.St
 	var attempt int
 	_ = r.DB.QueryRow("SELECT COALESCE(MAX(attempt_number), 0) FROM student_practices WHERE student_id = ? AND set_id = ?", studentID, setID).Scan(&attempt)
 
+	var orderJSON interface{}
+	if len(questionOrder) > 0 {
+		if b, err := json.Marshal(questionOrder); err == nil {
+			orderJSON = string(b)
+		}
+	}
+
 	_, err := r.DB.Exec(`
-		INSERT INTO student_practices (id, student_id, set_id, started_at, total_score, max_score, is_completed, attempt_number, created_at)
-		VALUES (?, ?, ?, ?, 0, 0, 0, ?, ?)
-	`, id, studentID, setID, now, attempt+1, now)
+		INSERT INTO student_practices (id, student_id, set_id, started_at, total_score, max_score, is_completed, attempt_number, created_at, deadline_at, question_order)
+		VALUES (?, ?, ?, ?, 0, 0, 0, ?, ?, ?, ?)
+	`, id, studentID, setID, now, attempt+1, now, timeToMs(deadlineAt), orderJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -988,6 +1159,23 @@ func (r *BankSoalRepository) SubmitPractice(practiceID string, answers []models.
 		return err
 	}
 	defer tx.Rollback()
+
+	// Validasi sesi: cegah submit ganda & lewat deadline (grace 60 detik).
+	var isCompleted int
+	var deadlineAt sql.NullInt64
+	err = tx.QueryRow(
+		"SELECT is_completed, deadline_at FROM student_practices WHERE id = ?",
+		practiceID,
+	).Scan(&isCompleted, &deadlineAt)
+	if err != nil {
+		return err
+	}
+	if isCompleted == 1 {
+		return fmt.Errorf("ujian sudah dikumpulkan")
+	}
+	if deadlineAt.Valid && deadlineAt.Int64 > 0 && nowMs() > deadlineAt.Int64+60_000 {
+		return fmt.Errorf("waktu ujian telah berakhir")
+	}
 
 	var totalScore, maxScore float64
 

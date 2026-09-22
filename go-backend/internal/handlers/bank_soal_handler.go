@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"fmt"
+	"math/rand"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sekolahku/go-backend/internal/models"
@@ -11,11 +13,12 @@ import (
 )
 
 type BankSoalHandler struct {
-	Repo *repository.BankSoalRepository
+	Repo         *repository.BankSoalRepository
+	AssignmentRepo *repository.ExamAssignmentRepository
 }
 
-func NewBankSoalHandler(repo *repository.BankSoalRepository) *BankSoalHandler {
-	return &BankSoalHandler{Repo: repo}
+func NewBankSoalHandler(repo *repository.BankSoalRepository, assignmentRepo *repository.ExamAssignmentRepository) *BankSoalHandler {
+	return &BankSoalHandler{Repo: repo, AssignmentRepo: assignmentRepo}
 }
 
 func parsePageLimit(c echo.Context) (int, int) {
@@ -493,9 +496,117 @@ func (h *BankSoalHandler) GetSet(c echo.Context) error {
 			"error":   "Paket soal tidak ditemukan",
 		})
 	}
+	if h.AssignmentRepo != nil {
+		if assignments, err := h.AssignmentRepo.ListBySet(id); err == nil {
+			set.AssignedClasses = assignments
+		}
+	}
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
 		"data":    set,
+	})
+}
+
+// ListSetsForStudent mengembalikan paket yang boleh diakses siswa yang login:
+// latihan (semua) + ujian yang kelasnya ditugaskan. Dilengkapi status attempt.
+func (h *BankSoalHandler) ListSetsForStudent(c echo.Context) error {
+	studentID, err := h.resolveStudentID(c)
+	if err != nil || studentID == "" {
+		return c.JSON(http.StatusForbidden, map[string]interface{}{
+			"success": false,
+			"error":   "Data siswa tidak ditemukan",
+		})
+	}
+
+	sets, err := h.Repo.ListSetsForStudent(studentID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			"success": false,
+			"error":   "Gagal memuat daftar paket soal",
+		})
+	}
+	if sets == nil {
+		sets = []models.QuestionSet{}
+	}
+
+	// Sertakan jumlah attempt yang sudah dipakai per paket.
+	used := map[string]int{}
+	for _, s := range sets {
+		if n, err := h.Repo.CountAttempts(studentID, s.ID); err == nil {
+			used[s.ID] = n
+		}
+	}
+
+	data := make([]map[string]interface{}, 0, len(sets))
+	for _, s := range sets {
+		data = append(data, map[string]interface{}{
+			"set":          s,
+			"attemptsUsed": used[s.ID],
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data":    data,
+	})
+}
+
+// ListAssignments mengembalikan daftar kelas yang ditugaskan ke paket.
+func (h *BankSoalHandler) ListAssignments(c echo.Context) error {
+	setID := c.Param("id")
+	assignments, err := h.AssignmentRepo.ListBySet(setID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			"success": false,
+			"error":   "Gagal memuat penugasan",
+		})
+	}
+	if assignments == nil {
+		assignments = []models.ExamAssignment{}
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data":    assignments,
+	})
+}
+
+// AssignClasses mengganti daftar kelas yang ditugaskan ke paket ujian.
+func (h *BankSoalHandler) AssignClasses(c echo.Context) error {
+	setID := c.Param("id")
+	var req models.AssignClassesRequest
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   "Data tidak valid",
+		})
+	}
+
+	set, err := h.Repo.GetSet(setID)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]interface{}{
+			"success": false,
+			"error":   "Paket soal tidak ditemukan",
+		})
+	}
+	if set.Mode != "ujian" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   "Hanya paket mode ujian yang dapat ditugaskan ke kelas",
+		})
+	}
+
+	userID, _ := c.Get("user_id").(string)
+	if err := h.AssignmentRepo.ReplaceForSet(setID, req.ClassIDs, userID); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			"success": false,
+			"error":   "Gagal menyimpan penugasan",
+		})
+	}
+
+	assignments, _ := h.AssignmentRepo.ListBySet(setID)
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data":    assignments,
 	})
 }
 
@@ -770,7 +881,93 @@ func (h *BankSoalHandler) CreatePractice(c echo.Context) error {
 			"error":   "Data siswa tidak ditemukan",
 		})
 	}
-	practice, err := h.Repo.CreatePractice(studentID, req.SetID)
+
+	// Muat set & validasi (mode/jadwal/attempt).
+	set, err := h.Repo.GetSet(req.SetID)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]interface{}{
+			"success": false,
+			"error":   "Paket soal tidak ditemukan",
+		})
+	}
+
+	now := time.Now()
+	if set.Mode == "ujian" {
+		// Akses hanya bila kelas siswa ditugaskan.
+		assignments, _ := h.AssignmentRepo.ListBySet(set.ID)
+		if len(assignments) == 0 {
+			return c.JSON(http.StatusForbidden, map[string]interface{}{
+				"success": false,
+				"error":   "Ujian ini belum ditugaskan ke kelas mana pun",
+			})
+		}
+		classID, _ := h.Repo.GetStudentClassID(studentID)
+		allowed := false
+		for _, a := range assignments {
+			if a.ClassID == classID && classID != "" {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			return c.JSON(http.StatusForbidden, map[string]interface{}{
+				"success": false,
+				"error":   "Ujian ini tidak ditugaskan untuk kelas Anda",
+			})
+		}
+	}
+
+	// Window jadwal (berlaku untuk mode ujian maupun latihan bila diisi).
+	if set.AvailableFrom != nil && now.Before(*set.AvailableFrom) {
+		return c.JSON(http.StatusForbidden, map[string]interface{}{
+			"success": false,
+			"error":   "Ujian belum dimulai",
+		})
+	}
+	if set.AvailableUntil != nil && now.After(*set.AvailableUntil) {
+		return c.JSON(http.StatusForbidden, map[string]interface{}{
+			"success": false,
+			"error":   "Masa pengerjaan ujian telah berakhir",
+		})
+	}
+
+	// Batas percobaan.
+	if set.MaxAttempts != nil && *set.MaxAttempts > 0 {
+		used, _ := h.Repo.CountAttempts(studentID, set.ID)
+		if used >= *set.MaxAttempts {
+			return c.JSON(http.StatusForbidden, map[string]interface{}{
+				"success": false,
+				"error":   "Batas percobaan telah tercapai",
+			})
+		}
+	}
+
+	// Deadline server-side = mulai + timer (bila ada). Juga dibatasi
+	// oleh available_until agar tidak melewati penutupan ujian.
+	var deadline *time.Time
+	if set.TimerMinutes != nil && *set.TimerMinutes > 0 {
+		d := now.Add(time.Duration(*set.TimerMinutes) * time.Minute)
+		deadline = &d
+	}
+	if set.AvailableUntil != nil && (deadline == nil || set.AvailableUntil.Before(*deadline)) {
+		deadline = set.AvailableUntil
+	}
+
+	// Urutan soal: bila shuffle, acak di server dan simpan; selain itu pakai urutan DB.
+	questionIDs, err := h.Repo.ListQuestionIDsInSet(set.ID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			"success": false,
+			"error":   "Gagal memuat soal",
+		})
+	}
+	if set.ShuffleQuestions {
+		rand.Shuffle(len(questionIDs), func(i, j int) {
+			questionIDs[i], questionIDs[j] = questionIDs[j], questionIDs[i]
+		})
+	}
+
+	practice, err := h.Repo.CreatePractice(studentID, req.SetID, deadline, questionIDs)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
 			"success": false,
@@ -820,9 +1017,19 @@ func (h *BankSoalHandler) SubmitPractice(c echo.Context) error {
 	}
 
 	if err := h.Repo.SubmitPractice(practiceID, answers); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+		status := http.StatusInternalServerError
+		msg := "Gagal menyimpan jawaban"
+		switch err.Error() {
+		case "ujian sudah dikumpulkan":
+			status = http.StatusConflict
+			msg = err.Error()
+		case "waktu ujian telah berakhir":
+			status = http.StatusForbidden
+			msg = err.Error()
+		}
+		return c.JSON(status, map[string]interface{}{
 			"success": false,
-			"error":   "Gagal menyimpan jawaban",
+			"error":   msg,
 		})
 	}
 
@@ -871,12 +1078,24 @@ func (h *BankSoalHandler) GetPracticeResult(c echo.Context) error {
 	}
 
 	// Siswa hanya boleh mengakses hasilnya sendiri.
+	isStudent := false
 	if role, _ := c.Get("user_role").(string); role == "siswa" {
+		isStudent = true
 		studentID, err := h.resolveStudentID(c)
 		if err != nil || practice.StudentID != studentID {
 			return c.JSON(http.StatusForbidden, map[string]interface{}{
 				"success": false,
 				"error":   "Anda tidak memiliki akses ke praktik ini",
+			})
+		}
+	}
+
+	// Bila guru menyembunyikan hasil, siswa tidak boleh melihat detail.
+	if isStudent {
+		if set, err := h.Repo.GetSet(practice.SetID); err == nil && !set.ResultVisible {
+			return c.JSON(http.StatusForbidden, map[string]interface{}{
+				"success": false,
+				"error":   "Hasil ujian belum dibuka oleh guru",
 			})
 		}
 	}

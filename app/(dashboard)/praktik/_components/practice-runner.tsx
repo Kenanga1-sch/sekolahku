@@ -32,6 +32,9 @@ interface Practice {
   shuffleQuestions?: boolean;
   shuffleOptions?: boolean;
   isCompleted: boolean;
+  mode?: string;
+  deadlineAt?: string;
+  questionOrder?: string;
 }
 
 const LETTERS = ["A", "B", "C", "D", "E", "F", "G", "H"];
@@ -79,15 +82,29 @@ export function PracticeRunner({ practiceId }: { practiceId: string }) {
       const items = itemsResult?.data || [];
       let qs = items.map((item: any) => item.question).filter(Boolean);
 
-      // Acak urutan soal sesuai pengaturan paket.
-      if (practiceData.shuffleQuestions) qs = shuffleArray(qs);
+      // Urutan soal: gunakan questionOrder yang tersimpan di server (stabil antar-refresh).
+      // Fallback ke urutan paket bila tidak ada.
+      const order: string[] = practiceData.questionOrder ? safeJsonParseArray(practiceData.questionOrder) : [];
+      if (order.length > 0) {
+        const byId = new Map<string, Question>(qs.map((q: Question) => [q.id, q]));
+        const ordered = order.map((id) => byId.get(id)).filter((q): q is Question => !!q);
+        // Sisipkan soal yang tidak ada di order (mis. baru ditambahkan) di akhir.
+        const orderedIds = new Set(order);
+        const extras = qs.filter((q: Question) => !orderedIds.has(q.id));
+        qs = [...ordered, ...extras];
+      }
       setQuestions(qs);
 
       const initialAnswers: Record<string, string> = {};
       qs.forEach((q: Question) => { initialAnswers[q.id] = ""; });
       setAnswers(initialAnswers);
 
-      if (practiceData.timerMinutes && practiceData.timerMinutes > 0 && practiceData.startedAt) {
+      // Timer: utamakan deadline server (mencegah manipulasi jam lokal).
+      if (practiceData.deadlineAt) {
+        const remaining = Math.floor((new Date(practiceData.deadlineAt).getTime() - Date.now()) / 1000);
+        if (remaining > 0) setTimeLeft(remaining);
+        else setTimeLeft(0);
+      } else if (practiceData.timerMinutes && practiceData.timerMinutes > 0 && practiceData.startedAt) {
         const elapsed = Math.floor((Date.now() - practiceData.startedAt) / 1000);
         const remaining = practiceData.timerMinutes * 60 - elapsed;
         if (remaining > 0) setTimeLeft(remaining);
@@ -110,8 +127,8 @@ export function PracticeRunner({ practiceId }: { practiceId: string }) {
       await goPost(`/api/student/me/practices/${practiceId}/submit`, { answers: answerArray });
       showSuccess("Jawaban berhasil dikirim!");
       router.replace(`/praktik?view=hasil&id=${practiceId}`);
-    } catch {
-      showError("Gagal mengirim jawaban");
+    } catch (e: any) {
+      showError(e?.message || "Gagal mengirim jawaban");
       setIsSubmitting(false);
     }
   }, [answers, isSubmitting, practiceId, router]);

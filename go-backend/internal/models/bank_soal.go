@@ -83,9 +83,14 @@ type QuestionSet struct {
 	Name             string     `json:"name"`
 	BankID           string     `json:"bankId"`
 	AcademicYear     *string    `json:"academicYear,omitempty"`
+	Mode             string     `json:"mode"`             // latihan | ujian
 	ShuffleQuestions  bool       `json:"shuffleQuestions"`
 	ShuffleOptions   bool       `json:"shuffleOptions"`
 	TimerMinutes     *int       `json:"timerMinutes,omitempty"`
+	MaxAttempts      *int       `json:"maxAttempts,omitempty"`
+	AvailableFrom    *time.Time `json:"availableFrom,omitempty"`
+	AvailableUntil   *time.Time `json:"availableUntil,omitempty"`
+	ResultVisible    bool       `json:"resultVisible"`
 	CreatedBy        string     `json:"createdBy"`
 	CreatedAt        *time.Time `json:"createdAt"`
 	UpdatedAt        *time.Time `json:"updatedAt"`
@@ -94,6 +99,20 @@ type QuestionSet struct {
 	// Joined fields
 	BankTitle    *string `json:"bankTitle,omitempty"`
 	ItemCount    int     `json:"itemCount,omitempty"`
+	AssignedClasses []ExamAssignment `json:"assignedClasses,omitempty"`
+}
+
+// ── Exam Assignment (penugasan paket ujian ke kelas) ──
+
+type ExamAssignment struct {
+	ID           string     `json:"id"`
+	SetID        string     `json:"setId"`
+	ClassID      string     `json:"classId"`
+	AssignedBy   string     `json:"assignedBy"`
+	CreatedAt    *time.Time `json:"createdAt,omitempty"`
+
+	// Joined fields
+	ClassName *string `json:"className,omitempty"`
 }
 
 // ── Question Set Item ──
@@ -131,6 +150,11 @@ type StudentPractice struct {
 	ShuffleQuestions *bool `json:"shuffleQuestions,omitempty"`
 	ShuffleOptions   *bool `json:"shuffleOptions,omitempty"`
 	TimerMinutes     *int  `json:"timerMinutes,omitempty"`
+
+	// Mode ujian
+	Mode         *string    `json:"mode,omitempty"`
+	DeadlineAt   *time.Time `json:"deadlineAt,omitempty"`
+	QuestionOrder string    `json:"questionOrder,omitempty"` // JSON array question_id
 }
 
 // ── Student Practice Answer ──
@@ -215,21 +239,36 @@ type CreateQuestionBankRequest struct {
 }
 
 type CreateQuestionSetRequest struct {
-	Name            string  `json:"name"`
-	BankID          string  `json:"bankId"`
-	AcademicYear    *string `json:"academicYear"`
+	Name            string   `json:"name"`
+	BankID          string   `json:"bankId"`
+	AcademicYear    *string  `json:"academicYear"`
+	Mode            string   `json:"mode"` // latihan | ujian (default latihan)
 	ShuffleQuestions bool    `json:"shuffleQuestions"`
-	ShuffleOptions  bool    `json:"shuffleOptions"`
-	TimerMinutes    *int    `json:"timerMinutes"`
+	ShuffleOptions  bool     `json:"shuffleOptions"`
+	TimerMinutes    *int     `json:"timerMinutes"`
+	MaxAttempts     *int     `json:"maxAttempts"`
+	AvailableFrom   *int64   `json:"availableFrom"`  // Unix ms
+	AvailableUntil  *int64   `json:"availableUntil"` // Unix ms
+	ResultVisible   *bool    `json:"resultVisible"`
 }
 
 type UpdateQuestionSetRequest struct {
 	Name            *string `json:"name"`
 	BankID          *string `json:"bankId"`
 	AcademicYear    *string `json:"academicYear"`
+	Mode            *string `json:"mode"`
 	ShuffleQuestions *bool  `json:"shuffleQuestions"`
 	ShuffleOptions  *bool   `json:"shuffleOptions"`
 	TimerMinutes    *int    `json:"timerMinutes"`
+	MaxAttempts     *int    `json:"maxAttempts"`
+	AvailableFrom   *int64  `json:"availableFrom"`
+	AvailableUntil  *int64  `json:"availableUntil"`
+	ResultVisible   *bool   `json:"resultVisible"`
+}
+
+// AssignClassesRequest menugaskan paket ujian ke satu/lebih kelas.
+type AssignClassesRequest struct {
+	ClassIDs []string `json:"classIds"`
 }
 
 type AddSetItemRequest struct {

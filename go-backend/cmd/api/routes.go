@@ -47,6 +47,7 @@ type Repositories struct {
 	Push           *repository.PushRepository
 	Parent         *repository.ParentRepository
 	BankSoal       *repository.BankSoalRepository
+	ExamAssignment *repository.ExamAssignmentRepository
 	Kurikulum      *repository.KurikulumRepository
 	Chat           *repository.ChatRepository
 	Skrining       *repository.SkriningRepository
@@ -801,7 +802,7 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	studentGroup.GET("/me/practices/:id/result", h.BankSoal.GetPracticeResult)
 
 	// Bank Soal: Siswa melihat paket soal
-	studentGroup.GET("/me/sets", h.BankSoal.ListSets)
+	studentGroup.GET("/me/sets", h.BankSoal.ListSetsForStudent)
 	studentGroup.GET("/me/sets/:id/items", h.BankSoal.ListSetItems)
 
 	// Ruang Tumbuh: siswa menjalankan game skrining dari sesi yang aktif.
@@ -883,6 +884,8 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	guruGroup.POST("/bank-soal/sets/:id/items/bulk", h.BankSoal.BulkAddSetItems)
 	guruGroup.DELETE("/bank-soal/sets/:id/items/:questionId", h.BankSoal.RemoveSetItem)
 	guruGroup.PUT("/bank-soal/sets/:id/items/reorder", h.BankSoal.ReorderSetItems)
+	guruGroup.PUT("/bank-soal/sets/:id/assignments", h.BankSoal.AssignClasses)
+	guruGroup.GET("/bank-soal/sets/:id/assignments", h.BankSoal.ListAssignments)
 
 	guruGroup.GET("/bank-soal/banks", h.BankSoal.ListBanks)
 	guruGroup.POST("/bank-soal/banks", h.BankSoal.CreateBank)

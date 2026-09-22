@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FileStack, Plus, Trash2, Eye, Pencil, ChevronUp, ChevronDown, Search } from "lucide-react";
+import { FileStack, Plus, Trash2, Eye, Pencil, ChevronUp, ChevronDown, Search, Users } from "lucide-react";
 import { goGet, goPost, goPut, goDelete } from "@/lib/api-client";
 import { showSuccess, showError } from "@/lib/toast";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
@@ -39,12 +39,29 @@ interface QuestionSet {
   name: string;
   bankId: string;
   academicYear?: string;
+  mode: string;
   shuffleQuestions: boolean;
   shuffleOptions: boolean;
   timerMinutes?: number;
+  maxAttempts?: number;
+  availableFrom?: string;
+  availableUntil?: string;
+  resultVisible: boolean;
   bankTitle?: string;
   itemCount?: number;
   createdAt?: number;
+  assignedClasses?: ExamAssignment[];
+}
+
+interface ExamAssignment {
+  id: string;
+  classId: string;
+  className?: string;
+}
+
+interface ClassItem {
+  id: string;
+  name: string;
 }
 
 interface SetItem {
@@ -78,6 +95,15 @@ const TYPE_LABELS: Record<string, string> = {
   essay: "Esai",
 };
 
+// toLocalInput mengubah ISO string dari backend ke format datetime-local (waktu lokal).
+function toLocalInput(iso?: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export default function TabPaket() {
   const { settings } = useSchoolSettings();
   const [sets, setSets] = useState<QuestionSet[]>([]);
@@ -89,7 +115,12 @@ export default function TabPaket() {
   const [formData, setFormData] = useState({
     name: "",
     bankId: "",
+    mode: "latihan",
     timerMinutes: "",
+    maxAttempts: "",
+    availableFrom: "",
+    availableUntil: "",
+    resultVisible: true,
     shuffleQuestions: false,
     shuffleOptions: false,
   });
@@ -106,10 +137,23 @@ export default function TabPaket() {
   const [editingSet, setEditingSet] = useState<QuestionSet | null>(null);
   const [editForm, setEditForm] = useState({
     name: "",
+    mode: "latihan",
     timerMinutes: "",
+    maxAttempts: "",
+    availableFrom: "",
+    availableUntil: "",
+    resultVisible: true,
     shuffleQuestions: false,
     shuffleOptions: false,
   });
+
+  // Kelas (untuk penugasan ujian)
+  const [classes, setClasses] = useState<ClassItem[]>([]);
+
+  // Dialog tugaskan kelas
+  const [assigningSet, setAssigningSet] = useState<QuestionSet | null>(null);
+  const [assignSelected, setAssignSelected] = useState<Set<string>>(new Set());
+  const [isAssignSaving, setIsAssignSaving] = useState(false);
 
   const fetchSets = useCallback(async () => {
     setIsLoading(true);
@@ -130,8 +174,16 @@ export default function TabPaket() {
     } catch { /* silent */ }
   };
 
+  const fetchClasses = async () => {
+    try {
+      const res: any = await goGet("/api/academic/classes");
+      setClasses(res?.data || res || []);
+    } catch { /* silent */ }
+  };
+
   useEffect(() => {
     fetchBanks();
+    fetchClasses();
   }, []);
 
   useEffect(() => {
@@ -148,12 +200,17 @@ export default function TabPaket() {
       const body: any = {
         name: formData.name,
         bankId: formData.bankId,
+        mode: formData.mode,
+        resultVisible: formData.resultVisible,
         shuffleQuestions: formData.shuffleQuestions,
         shuffleOptions: formData.shuffleOptions,
         academicYear: settings?.current_academic_year || undefined,
       };
-      if (formData.timerMinutes) {
-        body.timerMinutes = parseInt(formData.timerMinutes);
+      if (formData.timerMinutes) body.timerMinutes = parseInt(formData.timerMinutes);
+      if (formData.maxAttempts) body.maxAttempts = parseInt(formData.maxAttempts);
+      if (formData.mode === "ujian") {
+        if (formData.availableFrom) body.availableFrom = new Date(formData.availableFrom).getTime();
+        if (formData.availableUntil) body.availableUntil = new Date(formData.availableUntil).getTime();
       }
 
       await goPost("/api/bank-soal/sets", body);
@@ -267,7 +324,12 @@ export default function TabPaket() {
     setEditingSet(set);
     setEditForm({
       name: set.name,
+      mode: set.mode || "latihan",
       timerMinutes: set.timerMinutes ? String(set.timerMinutes) : "",
+      maxAttempts: set.maxAttempts ? String(set.maxAttempts) : "",
+      availableFrom: toLocalInput(set.availableFrom),
+      availableUntil: toLocalInput(set.availableUntil),
+      resultVisible: set.resultVisible !== false,
       shuffleQuestions: set.shuffleQuestions,
       shuffleOptions: set.shuffleOptions,
     });
@@ -279,8 +341,13 @@ export default function TabPaket() {
       showError("Nama paket wajib diisi");
       return;
     }
-    const body: any = { name: editForm.name.trim() };
-    if (editForm.timerMinutes) body.timerMinutes = parseInt(editForm.timerMinutes);
+    const body: any = { name: editForm.name.trim(), mode: editForm.mode, resultVisible: editForm.resultVisible };
+    body.timerMinutes = editForm.timerMinutes ? parseInt(editForm.timerMinutes) : 0;
+    body.maxAttempts = editForm.maxAttempts ? parseInt(editForm.maxAttempts) : 0;
+    if (editForm.mode === "ujian") {
+      body.availableFrom = editForm.availableFrom ? new Date(editForm.availableFrom).getTime() : 0;
+      body.availableUntil = editForm.availableUntil ? new Date(editForm.availableUntil).getTime() : 0;
+    }
     body.shuffleQuestions = editForm.shuffleQuestions;
     body.shuffleOptions = editForm.shuffleOptions;
     try {
@@ -293,11 +360,53 @@ export default function TabPaket() {
     }
   };
 
+  // ── Tugaskan kelas ───────────────────────────────────────
+  const openAssign = async (set: QuestionSet) => {
+    setAssigningSet(set);
+    setAssignSelected(new Set());
+    try {
+      const res: any = await goGet(`/api/bank-soal/sets/${set.id}/assignments`);
+      const assigned = (res?.data || []) as ExamAssignment[];
+      setAssignSelected(new Set(assigned.map((a) => a.classId)));
+    } catch { /* silent */ }
+  };
+
+  const toggleAssign = (classId: string) => {
+    setAssignSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(classId)) next.delete(classId);
+      else next.add(classId);
+      return next;
+    });
+  };
+
+  const handleAssignSave = async () => {
+    if (!assigningSet) return;
+    setIsAssignSaving(true);
+    try {
+      await goPut(`/api/bank-soal/sets/${assigningSet.id}/assignments`, {
+        classIds: [...assignSelected],
+      });
+      showSuccess("Penugasan kelas disimpan");
+      setAssigningSet(null);
+      fetchSets();
+    } catch {
+      showError("Gagal menyimpan penugasan");
+    } finally {
+      setIsAssignSaving(false);
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       name: "",
       bankId: "",
+      mode: "latihan",
       timerMinutes: "",
+      maxAttempts: "",
+      availableFrom: "",
+      availableUntil: "",
+      resultVisible: true,
       shuffleQuestions: false,
       shuffleOptions: false,
     });
@@ -361,6 +470,22 @@ export default function TabPaket() {
                 </div>
 
                 <div className="flex flex-wrap gap-2 text-xs">
+                  {set.mode === "ujian" ? (
+                    <Badge className="bg-red-100 text-red-700">Ujian</Badge>
+                  ) : (
+                    <Badge className="bg-emerald-100 text-emerald-700">Latihan</Badge>
+                  )}
+                  {set.mode === "ujian" && set.assignedClasses && set.assignedClasses.length > 0 && (
+                    <Badge className="bg-sky-100 text-sky-700">
+                      {set.assignedClasses.length} kelas
+                    </Badge>
+                  )}
+                  {set.mode === "ujian" && !set.resultVisible && (
+                    <Badge className="bg-zinc-200 text-zinc-700">Hasil disembunyikan</Badge>
+                  )}
+                  {set.maxAttempts ? (
+                    <Badge className="bg-orange-100 text-orange-700">Maks {set.maxAttempts}x</Badge>
+                  ) : null}
                   {set.shuffleQuestions && (
                     <Badge className="bg-purple-100 text-purple-700">Acak Soal</Badge>
                   )}
@@ -382,6 +507,16 @@ export default function TabPaket() {
                     <Eye className="h-4 w-4 mr-1" />
                     Kelola Soal
                   </Button>
+                  {set.mode === "ujian" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openAssign(set)}
+                      title="Tugaskan ke kelas"
+                    >
+                      <Users className="h-4 w-4" />
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="icon"
@@ -439,6 +574,19 @@ export default function TabPaket() {
             </div>
 
             <div className="space-y-2">
+              <Label>Mode Paket</Label>
+              <Select value={formData.mode} onValueChange={(v) => setFormData({ ...formData, mode: v })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="latihan">Latihan (bebas untuk semua siswa)</SelectItem>
+                  <SelectItem value="ujian">Ujian (ditugaskan ke kelas, terjadwal)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
               <Label>Batas Waktu (Menit, Opsional)</Label>
               <Input
                 type="number"
@@ -448,6 +596,49 @@ export default function TabPaket() {
                 placeholder="Kosongkan untuk tanpa batas waktu"
               />
             </div>
+
+            {formData.mode === "ujian" && (
+              <>
+                <div className="space-y-2">
+                  <Label>Maks Percobaan (Opsional)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={formData.maxAttempts}
+                    onChange={(e) => setFormData({ ...formData, maxAttempts: e.target.value })}
+                    placeholder="Kosongkan untuk tak terbatas"
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label>Mulai (Opsional)</Label>
+                    <Input
+                      type="datetime-local"
+                      value={formData.availableFrom}
+                      onChange={(e) => setFormData({ ...formData, availableFrom: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Selesai (Opsional)</Label>
+                    <Input
+                      type="datetime-local"
+                      value={formData.availableUntil}
+                      onChange={(e) => setFormData({ ...formData, availableUntil: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Tampilkan Hasil ke Siswa</p>
+                    <p className="text-xs text-muted-foreground">Jika nonaktif, siswa tidak melihat skor</p>
+                  </div>
+                  <Switch
+                    checked={formData.resultVisible}
+                    onCheckedChange={(v) => setFormData({ ...formData, resultVisible: v })}
+                  />
+                </div>
+              </>
+            )}
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -611,6 +802,45 @@ export default function TabPaket() {
         </DialogContent>
       </Dialog>
 
+      {/* Dialog Tugaskan Kelas */}
+      <Dialog open={!!assigningSet} onOpenChange={(open) => { if (!open) setAssigningSet(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Tugaskan Ujian ke Kelas</DialogTitle>
+            <DialogDescription>
+              Pilih kelas yang boleh mengerjakan &quot;{assigningSet?.name}&quot;. Hanya siswa di kelas terpilih yang dapat mengakses.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2 max-h-72 overflow-y-auto">
+            {classes.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-3 text-center">Belum ada kelas</p>
+            ) : (
+              classes.map((c) => {
+                const checked = assignSelected.has(c.id);
+                return (
+                  <div
+                    key={c.id}
+                    className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-colors ${
+                      checked ? "bg-blue-50 dark:bg-blue-950/20 border-blue-300" : "hover:bg-slate-50 dark:hover:bg-zinc-900"
+                    }`}
+                    onClick={() => toggleAssign(c.id)}
+                  >
+                    <Checkbox checked={checked} />
+                    <span className="text-sm">Kelas {c.name}</span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAssigningSet(null)}>Batal</Button>
+            <Button onClick={handleAssignSave} disabled={isAssignSaving}>
+              {isAssignSaving ? "Menyimpan..." : "Simpan Penugasan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Dialog Edit Paket */}
       <Dialog open={!!editingSet} onOpenChange={(open) => { if (!open) setEditingSet(null); }}>
         <DialogContent>
@@ -618,7 +848,7 @@ export default function TabPaket() {
             <DialogTitle>Edit Paket Soal</DialogTitle>
             <DialogDescription>Ubah nama dan pengaturan paket</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+            <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label>Nama Paket *</Label>
               <Input
@@ -626,6 +856,18 @@ export default function TabPaket() {
                 onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                 placeholder="Nama paket"
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Mode Paket</Label>
+              <Select value={editForm.mode} onValueChange={(v) => setEditForm({ ...editForm, mode: v })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="latihan">Latihan</SelectItem>
+                  <SelectItem value="ujian">Ujian</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Batas Waktu (Menit, Opsional)</Label>
@@ -637,6 +879,48 @@ export default function TabPaket() {
                 placeholder="Kosongkan untuk tanpa batas waktu"
               />
             </div>
+            {editForm.mode === "ujian" && (
+              <>
+                <div className="space-y-2">
+                  <Label>Maks Percobaan (Opsional)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={editForm.maxAttempts}
+                    onChange={(e) => setEditForm({ ...editForm, maxAttempts: e.target.value })}
+                    placeholder="Kosongkan untuk tak terbatas"
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label>Mulai (Opsional)</Label>
+                    <Input
+                      type="datetime-local"
+                      value={editForm.availableFrom}
+                      onChange={(e) => setEditForm({ ...editForm, availableFrom: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Selesai (Opsional)</Label>
+                    <Input
+                      type="datetime-local"
+                      value={editForm.availableUntil}
+                      onChange={(e) => setEditForm({ ...editForm, availableUntil: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Tampilkan Hasil ke Siswa</p>
+                    <p className="text-xs text-muted-foreground">Jika nonaktif, siswa tidak melihat skor</p>
+                  </div>
+                  <Switch
+                    checked={editForm.resultVisible}
+                    onCheckedChange={(v) => setEditForm({ ...editForm, resultVisible: v })}
+                  />
+                </div>
+              </>
+            )}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div>

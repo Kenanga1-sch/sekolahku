@@ -103,6 +103,7 @@ export function PracticeResult({ practiceId }: { practiceId: string }) {
   const [practice, setPractice] = useState<Practice | null>(null);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hiddenMessage, setHiddenMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchResult = async () => {
@@ -116,9 +117,15 @@ export function PracticeResult({ practiceId }: { practiceId: string }) {
         }
         setPractice(data.practice || null);
         setAnswers(data.answers || []);
-      } catch {
-        showError("Gagal memuat hasil praktik");
-        router.push("/praktik");
+      } catch (e: any) {
+        const msg = e?.message || "";
+        // 403 "hasil belum dibuka" -> tampilkan pesan, jangan redirect.
+        if (msg.toLowerCase().includes("hasil ujian belum dibuka")) {
+          setHiddenMessage(msg);
+        } else {
+          showError(msg || "Gagal memuat hasil praktik");
+          router.push("/praktik");
+        }
       } finally {
         setIsLoading(false);
       }
@@ -127,6 +134,24 @@ export function PracticeResult({ practiceId }: { practiceId: string }) {
   }, [practiceId, router]);
 
   if (isLoading) return <div className="space-y-4"><Skeleton className="h-12 w-full" /><Skeleton className="h-64 w-full" /></div>;
+
+  if (hiddenMessage) {
+    return (
+      <div className="space-y-4">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground space-y-2">
+            <Clock className="h-10 w-10 opacity-50" />
+            <p className="text-sm font-medium">Hasil belum tersedia</p>
+            <p className="text-xs">{hiddenMessage}</p>
+            <Button variant="outline" className="mt-2" onClick={() => router.push("/praktik")}>
+              <ArrowLeft className="h-4 w-4 mr-1" /> Kembali
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (!practice) return null;
 
   const pendingEssays = answers.filter((a) => a.isCorrect === null);
