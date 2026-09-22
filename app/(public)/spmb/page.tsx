@@ -62,7 +62,7 @@ const services = [
   {
     title: "Cara Mendaftar",
     desc: "Orang tua membawa dokumen lengkap dan datang langsung ke sekolah; data diisikan oleh panitia.",
-    href: "/spmb/cara-mendaftar",
+    href: "#persyaratan",
     icon: UserPlus,
   },
   {
@@ -193,12 +193,10 @@ export default function SPMBLandingPage() {
           </Reveal>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-            {services.map((service, i) => (
-              <Reveal key={service.title} delay={i * 0.05}>
-                <Link
-                  href={service.href}
-                  className="group flex items-start gap-4 p-5 rounded-2xl bg-public-bg border border-public-border shadow-sm hover:border-[#065F46]/30 hover:shadow-md transition-all active:scale-[0.98] h-full"
-                >
+            {services.map((service, i) => {
+              const cardClass = "group flex items-start gap-4 p-5 rounded-2xl bg-public-bg border border-public-border shadow-sm hover:border-[#065F46]/30 hover:shadow-md transition-all active:scale-[0.98] h-full";
+              const inner = (
+                <>
                   <div className="h-11 w-11 shrink-0 rounded-xl bg-[#A7F3D0] text-[#065F46] flex items-center justify-center group-hover:bg-[#065F46] group-hover:text-white transition-colors">
                     <service.icon className="h-5 w-5" />
                   </div>
@@ -207,9 +205,18 @@ export default function SPMBLandingPage() {
                     <p className="text-xs text-[#4b6b4b] mt-1 leading-relaxed">{service.desc}</p>
                   </div>
                   <ArrowRight className="h-4 w-4 text-[#4b6b4b] shrink-0 mt-1 group-hover:translate-x-1 group-hover:text-[#065F46] transition-all" />
-                </Link>
-              </Reveal>
-            ))}
+                </>
+              );
+              return (
+                <Reveal key={service.title} delay={i * 0.05}>
+                  {service.href.startsWith("#") ? (
+                    <a href={service.href} className={cardClass}>{inner}</a>
+                  ) : (
+                    <Link href={service.href} className={cardClass}>{inner}</Link>
+                  )}
+                </Reveal>
+              );
+            })}
           </div>
         </div>
       </section>
