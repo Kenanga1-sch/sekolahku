@@ -886,6 +886,7 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	guruGroup.PUT("/bank-soal/sets/:id/items/reorder", h.BankSoal.ReorderSetItems)
 	guruGroup.PUT("/bank-soal/sets/:id/assignments", h.BankSoal.AssignClasses)
 	guruGroup.GET("/bank-soal/sets/:id/assignments", h.BankSoal.ListAssignments)
+	guruGroup.GET("/bank-soal/sets/:id/analytics", h.BankSoal.GetSetAnalytics)
 
 	guruGroup.GET("/bank-soal/banks", h.BankSoal.ListBanks)
 	guruGroup.POST("/bank-soal/banks", h.BankSoal.CreateBank)

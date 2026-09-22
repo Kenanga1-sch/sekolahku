@@ -63,13 +63,15 @@ type Question struct {
 	Type          string     `json:"type"` // pg_single, pg_multi, true_false, fill_blank, matching, pair_match, essay
 	Content       string     `json:"content"`
 	MediaURL      *string    `json:"mediaUrl,omitempty"`
-	MediaType     *string    `json:"mediaType,omitempty"` // image, video
+	MediaType     *string    `json:"mediaType,omitempty"` // image, video, audio
 	Options       *string    `json:"options,omitempty"`   // JSON string of []QuestionOption
 	CorrectAnswer *string    `json:"correctAnswer,omitempty"`
 	Explanation   *string    `json:"explanation,omitempty"`
 	Points        int        `json:"points"`
 	OrderNumber   int        `json:"orderNumber"`
 	Difficulty    string     `json:"difficulty"` // easy, medium, hard
+	BloomLevel    *string    `json:"bloomLevel,omitempty"` // remember..create
+	Tags          []string   `json:"tags,omitempty"`
 	CreatedBy     string     `json:"createdBy"`
 	CreatedAt     *time.Time `json:"createdAt"`
 	UpdatedAt     *time.Time `json:"updatedAt"`
@@ -203,29 +205,33 @@ type UpdateBabRequest struct {
 }
 
 type CreateQuestionRequest struct {
-	BankID        string  `json:"bankId"`
-	Type          string  `json:"type"`
-	Content       string  `json:"content"`
-	MediaURL      *string `json:"mediaUrl"`
-	MediaType     *string `json:"mediaType"`
-	Options       *string `json:"options"`
-	CorrectAnswer *string `json:"correctAnswer"`
-	Explanation   *string `json:"explanation"`
-	Points        int     `json:"points"`
-	Difficulty    string  `json:"difficulty"`
-	CreatedBy     string  `json:"-"`
+	BankID        string   `json:"bankId"`
+	Type          string   `json:"type"`
+	Content       string   `json:"content"`
+	MediaURL      *string  `json:"mediaUrl"`
+	MediaType     *string  `json:"mediaType"`
+	Options       *string  `json:"options"`
+	CorrectAnswer *string  `json:"correctAnswer"`
+	Explanation   *string  `json:"explanation"`
+	Points        int      `json:"points"`
+	Difficulty    string   `json:"difficulty"`
+	BloomLevel    *string  `json:"bloomLevel"`
+	Tags          []string `json:"tags"`
+	CreatedBy     string   `json:"-"`
 }
 
 type UpdateQuestionRequest struct {
-	Type          *string `json:"type"`
-	Content       *string `json:"content"`
-	MediaURL      *string `json:"mediaUrl"`
-	MediaType     *string `json:"mediaType"`
-	Options       *string `json:"options"`
-	CorrectAnswer *string `json:"correctAnswer"`
-	Explanation   *string `json:"explanation"`
-	Points        *int    `json:"points"`
-	Difficulty    *string `json:"difficulty"`
+	Type          *string  `json:"type"`
+	Content       *string  `json:"content"`
+	MediaURL      *string  `json:"mediaUrl"`
+	MediaType     *string  `json:"mediaType"`
+	Options       *string  `json:"options"`
+	CorrectAnswer *string  `json:"correctAnswer"`
+	Explanation   *string  `json:"explanation"`
+	Points        *int     `json:"points"`
+	Difficulty    *string  `json:"difficulty"`
+	BloomLevel    *string  `json:"bloomLevel"`
+	Tags          []string `json:"tags"`
 }
 
 type CreateQuestionBankRequest struct {
@@ -304,4 +310,42 @@ type PracticeListResponse struct {
 	Data       []StudentPractice `json:"data"`
 	Total      int               `json:"total"`
 	TotalPages int               `json:"totalPages"`
+}
+
+// ── Analitik Paket Soal ──
+
+// SetAnalytics merangkum performa sebuah paket.
+type SetAnalytics struct {
+	SetID           string  `json:"setId"`
+	SetName         string  `json:"setName"`
+	AttemptCount    int     `json:"attemptCount"`    // jumlah sesi selesai
+	StudentCount    int     `json:"studentCount"`    // jumlah siswa unik
+	AverageScore    float64 `json:"averageScore"`    // rata-rata total_score
+	AverageMax      float64 `json:"averageMax"`      // rata-rata max_score
+	AveragePercent  float64 `json:"averagePercent"`  // rata-rata persentase
+	HighestPercent  float64 `json:"highestPercent"`
+	LowestPercent   float64 `json:"lowestPercent"`
+	PassRate        float64 `json:"passRate"`        // % siswa dengan skor >= 70
+	PendingEssays   int     `json:"pendingEssays"`   // jawaban esai belum dikoreksi
+	ScoreBuckets    []ScoreBucket `json:"scoreBuckets"`
+	Items           []ItemAnalysis `json:"items"`
+}
+
+// ScoreBucket adalah distribusi nilai untuk histogram.
+type ScoreBucket struct {
+	Label string `json:"label"` // "0-59", "60-69", dst.
+	Count int    `json:"count"`
+}
+
+// ItemAnalysis menganalisis satu soal dalam sebuah paket.
+type ItemAnalysis struct {
+	QuestionID     string  `json:"questionId"`
+	Content        string  `json:"content"`
+	Type           string  `json:"type"`
+	Difficulty     string  `json:"difficulty"`
+	BloomLevel     *string `json:"bloomLevel,omitempty"`
+	TotalAnswered  int     `json:"totalAnswered"`  // berapa kali dijawab
+	CorrectCount   int     `json:"correctCount"`
+	CorrectRate    float64 `json:"correctRate"`    // 0..100
+	Flag           string  `json:"flag"`           // too_easy | too_hard | ok | insufficient_data
 }

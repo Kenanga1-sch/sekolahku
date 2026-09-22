@@ -37,17 +37,29 @@ interface QuestionData {
   type: string;
   content: string;
   mediaUrl?: string;
+  mediaType?: string;
   options?: string;
   correctAnswer?: string;
   explanation?: string;
   points: number;
   difficulty: string;
+  bloomLevel?: string;
+  tags?: string[];
 }
 
 const difficulties = [
   { value: "easy", label: "Mudah" },
   { value: "medium", label: "Sedang" },
   { value: "hard", label: "Sulit" },
+];
+
+const bloomLevels = [
+  { value: "remember", label: "Mengingat (C1)" },
+  { value: "understand", label: "Memahami (C2)" },
+  { value: "apply", label: "Menerapkan (C3)" },
+  { value: "analyze", label: "Menganalisis (C4)" },
+  { value: "evaluate", label: "Menilai (C5)" },
+  { value: "create", label: "Mencipta (C6)" },
 ];
 
 interface QuestionEditorProps {
@@ -71,9 +83,13 @@ export default function QuestionEditor({
   const [explanation, setExplanation] = useState(initialData?.explanation || "");
   const [points, setPoints] = useState(String(initialData?.points || 1));
   const [difficulty, setDifficulty] = useState(initialData?.difficulty || "medium");
+  const [bloomLevel, setBloomLevel] = useState(initialData?.bloomLevel || "__none__");
+  const [tags, setTags] = useState<string[]>(initialData?.tags || []);
+  const [tagInput, setTagInput] = useState("");
   const [showAnswers, setShowAnswers] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [mediaUrl, setMediaUrl] = useState(initialData?.mediaUrl || "");
+  const [mediaType, setMediaType] = useState(initialData?.mediaType || "");
 
   // State per-tipe
   const [choices, setChoices] = useState<Choice[]>([
@@ -95,7 +111,10 @@ export default function QuestionEditor({
     setExplanation(initialData.explanation || "");
     setPoints(String(initialData.points));
     setDifficulty(initialData.difficulty);
+    setBloomLevel(initialData.bloomLevel || "__none__");
+    setTags(initialData.tags || []);
     setMediaUrl(initialData.mediaUrl || "");
+    setMediaType(initialData.mediaType || "");
 
     if (initialData.options) {
       // Matching/pair_match: options = array pasangan {id,left,right,rightId}
@@ -215,8 +234,12 @@ export default function QuestionEditor({
       // UpdateQuestion hanya menulis saat pointer non-nil, jadi null diabaikan
       // dan penghapusan gambar tidak akan tersimpan. "" → pointer non-nil.
       mediaUrl: mediaUrl || "",
-      mediaType: mediaUrl ? "image" : "",
+      mediaType: mediaUrl ? (mediaType || "image") : "",
+      // Tags selalu dikirim (array kosong = hapus semua).
+      tags,
     };
+    // Bloom: kirim "" untuk menghapus, nilai valid untuk menyetel.
+    body.bloomLevel = bloomLevel === "__none__" ? "" : bloomLevel;
     if (explanation.trim()) body.explanation = explanation;
 
     if (type === "pg_single" || type === "pg_multi" || type === "true_false") {
@@ -384,8 +407,9 @@ export default function QuestionEditor({
             <CardContent>
               <MediaUploader
                 value={mediaUrl}
-                onChange={(url) => setMediaUrl(url || "")}
+                onChange={(url, type) => { setMediaUrl(url || ""); setMediaType(type || ""); }}
                 disabled={isSaving}
+                allow="all"
               />
             </CardContent>
           </Card>
@@ -459,6 +483,70 @@ export default function QuestionEditor({
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Level Kognitif (Taksonomi Bloom)</Label>
+                <Select value={bloomLevel} onValueChange={setBloomLevel}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Belum ditentukan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Belum ditentukan</SelectItem>
+                    {bloomLevels.map((b) => (
+                      <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Tag</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const t = tagInput.trim();
+                        if (t && !tags.includes(t)) setTags([...tags, t]);
+                        setTagInput("");
+                      }
+                    }}
+                    placeholder="Ketik tag lalu Enter (mis. hots, uts)"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      const t = tagInput.trim();
+                      if (t && !tags.includes(t)) setTags([...tags, t]);
+                      setTagInput("");
+                    }}
+                  >
+                    Tambah
+                  </Button>
+                </div>
+                {tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {tags.map((t) => (
+                      <span
+                        key={t}
+                        className="inline-flex items-center gap-1 text-xs bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 px-2 py-0.5 rounded"
+                      >
+                        {t}
+                        <button
+                          type="button"
+                          onClick={() => setTags(tags.filter((x) => x !== t))}
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

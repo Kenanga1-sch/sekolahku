@@ -18,6 +18,7 @@ interface Question {
   type: string;
   content: string;
   mediaUrl?: string;
+  mediaType?: string;
   options?: string;
   points: number;
   difficulty: string;
@@ -221,7 +222,15 @@ export function PracticeRunner({ practiceId }: { practiceId: string }) {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {currentQuestion.mediaUrl && <img src={currentQuestion.mediaUrl} alt="Lampiran" className="max-w-full max-h-64 rounded-lg object-contain" />}
+            {currentQuestion.mediaUrl && (
+              currentQuestion.mediaType === "audio" ? (
+                <audio controls src={currentQuestion.mediaUrl} className="w-full max-w-md" />
+              ) : currentQuestion.mediaType === "video" ? (
+                <video controls src={currentQuestion.mediaUrl} className="max-w-full max-h-72 rounded-lg" />
+              ) : (
+                <img src={currentQuestion.mediaUrl} alt="Lampiran" className="max-w-full max-h-64 rounded-lg object-contain" />
+              )
+            )}
             <div className="text-sm leading-relaxed whitespace-pre-wrap">{currentQuestion.content}</div>
 
             <QuestionInput

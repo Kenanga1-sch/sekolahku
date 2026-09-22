@@ -17,6 +17,8 @@ interface QuestionData {
   explanation?: string;
   points: number;
   difficulty: string;
+  bloomLevel?: string;
+  tags?: string[];
 }
 
 function EditQuestionContent() {

@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -14,9 +15,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { HelpCircle, Plus, Pencil, Trash2, ArrowRight } from "lucide-react";
-import { goGet, goDelete } from "@/lib/api-client";
+import { HelpCircle, Plus, Pencil, Trash2, ArrowRight, Tag } from "lucide-react";
+import { goGet, goDelete, goPost } from "@/lib/api-client";
 import { showSuccess, showError } from "@/lib/toast";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface QuestionBank {
   id: string;
@@ -43,6 +45,8 @@ interface Question {
   correctAnswer?: string;
   points: number;
   difficulty: string;
+  bloomLevel?: string;
+  tags?: string[];
 }
 
 const questionTypes = [
@@ -59,6 +63,15 @@ const difficulties = [
   { value: "easy", label: "Mudah", color: "bg-green-100 text-green-700" },
   { value: "medium", label: "Sedang", color: "bg-amber-100 text-amber-700" },
   { value: "hard", label: "Sulit", color: "bg-red-100 text-red-700" },
+];
+
+const bloomLevels = [
+  { value: "remember", label: "Mengingat (C1)" },
+  { value: "understand", label: "Memahami (C2)" },
+  { value: "apply", label: "Menerapkan (C3)" },
+  { value: "analyze", label: "Menganalisis (C4)" },
+  { value: "evaluate", label: "Menilai (C5)" },
+  { value: "create", label: "Mencipta (C6)" },
 ];
 
 const typeColors: Record<string, string> = {
@@ -92,6 +105,10 @@ export default function TabSoal() {
   const [isLoading, setIsLoading] = useState(true);
   const [filterBank, setFilterBank] = useState("");
   const [filterType, setFilterType] = useState("");
+  const [filterBloom, setFilterBloom] = useState("");
+  const [filterTag, setFilterTag] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   const fetchBanks = async () => {
     try {
@@ -106,6 +123,8 @@ export default function TabSoal() {
       const params = new URLSearchParams();
       if (filterBank && filterBank !== "all") params.append("bankId", filterBank);
       if (filterType && filterType !== "all") params.append("type", filterType);
+      if (filterBloom && filterBloom !== "all") params.append("bloomLevel", filterBloom);
+      if (filterTag.trim()) params.append("tag", filterTag.trim());
       params.append("limit", String(limit));
       params.append("page", String(page));
 
@@ -117,7 +136,7 @@ export default function TabSoal() {
     } finally {
       setIsLoading(false);
     }
-  }, [filterBank, filterType, page]);
+  }, [filterBank, filterType, filterBloom, filterTag, page]);
 
   useEffect(() => {
     fetchBanks();
@@ -130,7 +149,7 @@ export default function TabSoal() {
   // Reset ke halaman 1 saat filter berubah.
   useEffect(() => {
     setPage(1);
-  }, [filterBank, filterType]);
+  }, [filterBank, filterType, filterBloom, filterTag]);
 
   const handleDelete = async (id: string) => {
     if (!confirm("Yakin ingin menghapus soal ini?")) return;
@@ -140,6 +159,38 @@ export default function TabSoal() {
       fetchQuestions();
     } catch {
       showError("Gagal menghapus soal");
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelected((prev) => {
+      if (prev.size === questions.length) return new Set();
+      return new Set(questions.map((q) => q.id));
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(`Hapus ${selected.size} soal terpilih?`)) return;
+    setIsBulkDeleting(true);
+    try {
+      await goPost("/api/bank-soal/questions/bulk-delete", { ids: [...selected] });
+      showSuccess(`${selected.size} soal dihapus`);
+      setSelected(new Set());
+      fetchQuestions();
+    } catch {
+      showError("Gagal menghapus soal terpilih");
+    } finally {
+      setIsBulkDeleting(false);
     }
   };
 
@@ -212,6 +263,47 @@ export default function TabSoal() {
               ))}
             </SelectContent>
           </Select>
+          <Select value={filterBloom} onValueChange={setFilterBloom}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue placeholder="Semua Level Bloom" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Semua Level Bloom</SelectItem>
+              {bloomLevels.map((b) => (
+                <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            value={filterTag}
+            onChange={(e) => setFilterTag(e.target.value)}
+            placeholder="Filter tag..."
+            className="w-full sm:w-[160px]"
+          />
+        </div>
+      )}
+
+      {/* Bulk action bar */}
+      {questions.length > 0 && (
+        <div className="flex items-center justify-between gap-3 px-1">
+          <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+            <Checkbox
+              checked={selected.size === questions.length && questions.length > 0}
+              onCheckedChange={toggleSelectAll}
+            />
+            Pilih semua di halaman ini
+          </label>
+          {selected.size > 0 && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleBulkDelete}
+              disabled={isBulkDeleting}
+            >
+              <Trash2 className="h-4 w-4 mr-1" />
+              {isBulkDeleting ? "Menghapus..." : `Hapus ${selected.size} soal`}
+            </Button>
+          )}
         </div>
       )}
 
@@ -244,7 +336,12 @@ export default function TabSoal() {
         <div className="space-y-2">
           {questions.map((q) => (
             <Card key={q.id} className="hover:border-blue-300 transition-colors">
-              <CardContent className="flex items-start gap-4 p-4">
+              <CardContent className="flex items-start gap-3 p-4">
+                <Checkbox
+                  checked={selected.has(q.id)}
+                  onCheckedChange={() => toggleSelect(q.id)}
+                  className="mt-1 shrink-0"
+                />
                 {q.mediaUrl ? (
                   <div className="shrink-0 w-16 h-16 rounded overflow-hidden bg-slate-100 dark:bg-zinc-800">
                     <img
@@ -263,6 +360,11 @@ export default function TabSoal() {
                     <Badge variant="outline" className={difficulties.find(d => d.value === q.difficulty)?.color}>
                       {difficulties.find(d => d.value === q.difficulty)?.label}
                     </Badge>
+                    {q.bloomLevel && (
+                      <Badge variant="outline" className="bg-cyan-50 text-cyan-700">
+                        {bloomLevels.find(b => b.value === q.bloomLevel)?.label || q.bloomLevel}
+                      </Badge>
+                    )}
                     <span className="text-xs text-muted-foreground">{q.points} poin</span>
                   </div>
                   <Link
@@ -271,6 +373,16 @@ export default function TabSoal() {
                   >
                     <p className="text-sm line-clamp-2">{q.content}</p>
                   </Link>
+                  {q.tags && q.tags.length > 0 && (
+                    <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                      <Tag className="h-3 w-3 text-muted-foreground" />
+                      {q.tags.map((t) => (
+                        <span key={t} className="text-[10px] bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 px-1.5 py-0.5 rounded">
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <Button

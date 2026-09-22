@@ -282,8 +282,10 @@ func (h *BankSoalHandler) ListQuestions(c echo.Context) error {
 	bankID := c.QueryParam("bankId")
 	qType := c.QueryParam("type")
 	difficulty := c.QueryParam("difficulty")
+	bloomLevel := c.QueryParam("bloomLevel")
+	tag := c.QueryParam("tag")
 
-	questions, total, err := h.Repo.ListQuestions(bankID, qType, difficulty, page, limit)
+	questions, total, err := h.Repo.ListQuestions(bankID, qType, difficulty, bloomLevel, tag, page, limit)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
 			"success": false,
@@ -548,6 +550,22 @@ func (h *BankSoalHandler) ListSetsForStudent(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
 		"data":    data,
+	})
+}
+
+// GetSetAnalytics mengembalikan analitik performa paket.
+func (h *BankSoalHandler) GetSetAnalytics(c echo.Context) error {
+	setID := c.Param("id")
+	analytics, err := h.Repo.GetSetAnalytics(setID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			"success": false,
+			"error":   "Gagal memuat analitik",
+		})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data":    analytics,
 	})
 }
 

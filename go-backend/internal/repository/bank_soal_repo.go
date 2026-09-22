@@ -433,7 +433,7 @@ func (r *BankSoalRepository) CountQuestionsInBank(bankID string) (int, error) {
 // QUESTIONS
 // ══════════════════════════════════════════════════════════
 
-func (r *BankSoalRepository) ListQuestions(bankID, qType, difficulty string, page, limit int) ([]models.Question, int, error) {
+func (r *BankSoalRepository) ListQuestions(bankID, qType, difficulty, bloomLevel, tag string, page, limit int) ([]models.Question, int, error) {
 	where := []string{"q.deleted_at IS NULL"}
 	args := []interface{}{}
 
@@ -449,6 +449,14 @@ func (r *BankSoalRepository) ListQuestions(bankID, qType, difficulty string, pag
 		where = append(where, "q.difficulty = ?")
 		args = append(args, difficulty)
 	}
+	if bloomLevel != "" {
+		where = append(where, "q.bloom_level = ?")
+		args = append(args, bloomLevel)
+	}
+	if tag != "" {
+		where = append(where, "EXISTS (SELECT 1 FROM question_tags qt WHERE qt.question_id = q.id AND qt.tag = ?)")
+		args = append(args, tag)
+	}
 
 	whereClause := strings.Join(where, " AND ")
 
@@ -460,8 +468,8 @@ func (r *BankSoalRepository) ListQuestions(bankID, qType, difficulty string, pag
 
 	offset := (page - 1) * limit
 	query := fmt.Sprintf(`
-		SELECT id, bank_id, type, content, media_url, media_type, options, correct_answer,
-		       explanation, points, order_number, difficulty, created_by, created_at, updated_at
+		SELECT q.id, q.bank_id, q.type, q.content, q.media_url, q.media_type, q.options, q.correct_answer,
+		       q.explanation, q.points, q.order_number, q.difficulty, q.bloom_level, q.created_by, q.created_at, q.updated_at
 		FROM questions q
 		WHERE %s
 		ORDER BY q.order_number ASC, q.created_at DESC
@@ -476,20 +484,90 @@ func (r *BankSoalRepository) ListQuestions(bankID, qType, difficulty string, pag
 	defer rows.Close()
 
 	var questions []models.Question
+	var ids []string
 	for rows.Next() {
 		var q models.Question
 		var createdAt, updatedAt sql.NullInt64
 		err := rows.Scan(&q.ID, &q.BankID, &q.Type, &q.Content, &q.MediaURL, &q.MediaType,
 			&q.Options, &q.CorrectAnswer, &q.Explanation, &q.Points, &q.OrderNumber,
-			&q.Difficulty, &q.CreatedBy, &createdAt, &updatedAt)
+			&q.Difficulty, &q.BloomLevel, &q.CreatedBy, &createdAt, &updatedAt)
 		if err != nil {
 			return nil, 0, err
 		}
 		q.CreatedAt = SafeTime(createdAt)
 		q.UpdatedAt = SafeTime(updatedAt)
 		questions = append(questions, q)
+		ids = append(ids, q.ID)
+	}
+	rows.Close()
+
+	// Lampirkan tag sekaligus (hindari N+1).
+	tagMap := r.loadTagsForQuestions(ids)
+	for i := range questions {
+		if tags, ok := tagMap[questions[i].ID]; ok {
+			questions[i].Tags = tags
+		}
 	}
 	return questions, total, nil
+}
+
+// loadTagsForQuestions memuat semua tag untuk daftar id soal.
+func (r *BankSoalRepository) loadTagsForQuestions(questionIDs []string) map[string][]string {
+	out := map[string][]string{}
+	if len(questionIDs) == 0 {
+		return out
+	}
+	ph := make([]string, len(questionIDs))
+	args := make([]interface{}, len(questionIDs))
+	for i, id := range questionIDs {
+		ph[i] = "?"
+		args[i] = id
+	}
+	rows, err := r.DB.Query(
+		"SELECT question_id, tag FROM question_tags WHERE question_id IN ("+strings.Join(ph, ",")+") ORDER BY tag ASC",
+		args...,
+	)
+	if err != nil {
+		return out
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var qid, tag string
+		if err := rows.Scan(&qid, &tag); err != nil {
+			continue
+		}
+		out[qid] = append(out[qid], tag)
+	}
+	return out
+}
+
+// replaceQuestionTags mengganti seluruh tag sebuah soal.
+func (r *BankSoalRepository) replaceQuestionTags(qID string, tags []string) error {
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec("DELETE FROM question_tags WHERE question_id = ?", qID); err != nil {
+		return err
+	}
+	now := nowMs()
+	seen := map[string]bool{}
+	for _, tag := range tags {
+		t := strings.TrimSpace(tag)
+		if t == "" || seen[t] {
+			continue
+		}
+		seen[t] = true
+		if _, err := tx.Exec(
+			"INSERT INTO question_tags (id, question_id, tag, created_at) VALUES (?, ?, ?, ?)",
+			r.genID(), qID, t, now,
+		); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func (r *BankSoalRepository) GetQuestion(id string) (*models.Question, error) {
@@ -497,16 +575,19 @@ func (r *BankSoalRepository) GetQuestion(id string) (*models.Question, error) {
 	var createdAt, updatedAt sql.NullInt64
 	err := r.DB.QueryRow(`
 		SELECT id, bank_id, type, content, media_url, media_type, options, correct_answer,
-		       explanation, points, order_number, difficulty, created_by, created_at, updated_at
+		       explanation, points, order_number, difficulty, bloom_level, created_by, created_at, updated_at
 		FROM questions WHERE id = ? AND deleted_at IS NULL
 	`, id).Scan(&q.ID, &q.BankID, &q.Type, &q.Content, &q.MediaURL, &q.MediaType,
 		&q.Options, &q.CorrectAnswer, &q.Explanation, &q.Points, &q.OrderNumber,
-		&q.Difficulty, &q.CreatedBy, &createdAt, &updatedAt)
+		&q.Difficulty, &q.BloomLevel, &q.CreatedBy, &createdAt, &updatedAt)
 	if err != nil {
 		return nil, err
 	}
 	q.CreatedAt = SafeTime(createdAt)
 	q.UpdatedAt = SafeTime(updatedAt)
+	if tags, ok := r.loadTagsForQuestions([]string{q.ID})[q.ID]; ok {
+		q.Tags = tags
+	}
 	return &q, nil
 }
 
@@ -519,13 +600,18 @@ func (r *BankSoalRepository) CreateQuestion(req *models.CreateQuestionRequest) (
 	_ = r.DB.QueryRow("SELECT COALESCE(MAX(order_number), 0) FROM questions WHERE bank_id = ? AND deleted_at IS NULL", req.BankID).Scan(&maxOrder)
 
 	_, err := r.DB.Exec(`
-		INSERT INTO questions (id, bank_id, type, content, media_url, media_type, options, correct_answer, explanation, points, order_number, difficulty, created_by, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO questions (id, bank_id, type, content, media_url, media_type, options, correct_answer, explanation, points, order_number, difficulty, bloom_level, created_by, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, id, req.BankID, req.Type, req.Content, req.MediaURL, req.MediaType,
 		req.Options, req.CorrectAnswer, req.Explanation, req.Points, maxOrder+1,
-		req.Difficulty, req.CreatedBy, now, now)
+		req.Difficulty, req.BloomLevel, req.CreatedBy, now, now)
 	if err != nil {
 		return nil, err
+	}
+	if len(req.Tags) > 0 {
+		if err := r.replaceQuestionTags(id, req.Tags); err != nil {
+			return nil, err
+		}
 	}
 	return r.GetQuestion(id)
 }
@@ -570,11 +656,22 @@ func (r *BankSoalRepository) UpdateQuestion(id string, req *models.UpdateQuestio
 		sets = append(sets, "difficulty = ?")
 		args = append(args, *req.Difficulty)
 	}
+	if req.BloomLevel != nil {
+		sets = append(sets, "bloom_level = ?")
+		args = append(args, *req.BloomLevel)
+	}
 
 	args = append(args, id)
 	_, err := r.DB.Exec("UPDATE questions SET "+strings.Join(sets, ", ")+" WHERE id = ? AND deleted_at IS NULL", args...)
 	if err != nil {
 		return nil, err
+	}
+	// Tags: hanya diganti bila field dikirim (non-nil). Selalu non-nil dari JSON array kosong?
+	// req.Tags nil = tidak diubah; [] = hapus semua.
+	if req.Tags != nil {
+		if err := r.replaceQuestionTags(id, req.Tags); err != nil {
+			return nil, err
+		}
 	}
 	return r.GetQuestion(id)
 }
@@ -1326,6 +1423,126 @@ func (r *BankSoalRepository) GradeAnswer(practiceID, questionID string, isCorrec
 	}
 
 	return tx.Commit()
+}
+
+// ══════════════════════════════════════════════════════════
+// ANALITIK
+// ══════════════════════════════════════════════════════════
+
+// GetSetAnalytics merangkum performa paket + analisis per soal.
+func (r *BankSoalRepository) GetSetAnalytics(setID string) (*models.SetAnalytics, error) {
+	an := &models.SetAnalytics{SetID: setID, ScoreBuckets: []models.ScoreBucket{}, Items: []models.ItemAnalysis{}}
+
+	// Nama paket.
+	_ = r.DB.QueryRow("SELECT name FROM question_sets WHERE id = ?", setID).Scan(&an.SetName)
+
+	// Ringkasan sesi selesai.
+	var avgScore, avgMax sql.NullFloat64
+	_ = r.DB.QueryRow(`
+		SELECT COUNT(*), COUNT(DISTINCT student_id), AVG(total_score), AVG(max_score)
+		FROM student_practices WHERE set_id = ? AND is_completed = 1
+	`, setID).Scan(&an.AttemptCount, &an.StudentCount, &avgScore, &avgMax)
+	an.AverageScore = avgScore.Float64
+	an.AverageMax = avgMax.Float64
+	if an.AverageMax > 0 {
+		an.AveragePercent = an.AverageScore / an.AverageMax * 100
+	}
+
+	// Nilai tertinggi/terendah + pass rate (>=70%) + esai menunggu koreksi.
+	var highest, lowest sql.NullFloat64
+	var passCount int
+	_ = r.DB.QueryRow(`
+		SELECT MAX(CASE WHEN max_score > 0 THEN total_score/max_score*100 END),
+		       MIN(CASE WHEN max_score > 0 THEN total_score/max_score*100 END),
+		       SUM(CASE WHEN max_score > 0 AND total_score/max_score >= 0.7 THEN 1 ELSE 0 END)
+		FROM student_practices WHERE set_id = ? AND is_completed = 1
+	`, setID).Scan(&highest, &lowest, &passCount)
+	an.HighestPercent = highest.Float64
+	an.LowestPercent = lowest.Float64
+	if an.AttemptCount > 0 {
+		an.PassRate = float64(passCount) / float64(an.AttemptCount) * 100
+	}
+
+	_ = r.DB.QueryRow(`
+		SELECT COUNT(*) FROM student_practice_answers spa
+		JOIN student_practices sp ON spa.practice_id = sp.id
+		WHERE sp.set_id = ? AND spa.is_correct IS NULL
+	`, setID).Scan(&an.PendingEssays)
+
+	// Distribusi nilai (histogram).
+	buckets := []struct {
+		label      string
+		lo, hi     float64
+	}{
+		{"0-59", 0, 60}, {"60-69", 60, 70}, {"70-79", 70, 80}, {"80-89", 80, 90}, {"90-100", 90, 100.001},
+	}
+	rows, err := r.DB.Query(`
+		SELECT CASE WHEN max_score > 0 THEN total_score/max_score*100 ELSE 0 END AS pct
+		FROM student_practices WHERE set_id = ? AND is_completed = 1
+	`, setID)
+	if err == nil {
+		var pcts []float64
+		for rows.Next() {
+			var p float64
+			if err := rows.Scan(&p); err == nil {
+				pcts = append(pcts, p)
+			}
+		}
+		rows.Close()
+		for _, b := range buckets {
+			count := 0
+			for _, p := range pcts {
+				if p >= b.lo && p < b.hi {
+					count++
+				}
+			}
+			an.ScoreBuckets = append(an.ScoreBuckets, models.ScoreBucket{Label: b.label, Count: count})
+		}
+	}
+
+	// Analisis per soal.
+	itemRows, err := r.DB.Query(`
+		SELECT q.id, q.content, q.type, q.difficulty, q.bloom_level,
+		       COUNT(spa.id) AS total_answered,
+		       COALESCE(SUM(CASE WHEN spa.is_correct = 1 THEN 1 ELSE 0 END), 0) AS correct_count
+		FROM question_set_items qi
+		JOIN questions q ON qi.question_id = q.id
+		LEFT JOIN student_practice_answers spa ON spa.question_id = q.id
+		LEFT JOIN student_practices sp ON spa.practice_id = sp.id AND sp.set_id = qi.set_id
+		WHERE qi.set_id = ? AND q.deleted_at IS NULL
+		GROUP BY q.id
+		ORDER BY qi.order_number ASC
+	`, setID)
+	if err != nil {
+		return nil, err
+	}
+	defer itemRows.Close()
+
+	for itemRows.Next() {
+		var it models.ItemAnalysis
+		var total, correct sql.NullInt64
+		if err := itemRows.Scan(&it.QuestionID, &it.Content, &it.Type, &it.Difficulty, &it.BloomLevel, &total, &correct); err != nil {
+			return nil, err
+		}
+		it.TotalAnswered = int(total.Int64)
+		it.CorrectCount = int(correct.Int64)
+		if it.TotalAnswered > 0 {
+			it.CorrectRate = float64(it.CorrectCount) / float64(it.TotalAnswered) * 100
+		}
+		switch {
+		case it.TotalAnswered < 5:
+			it.Flag = "insufficient_data"
+		case it.CorrectRate >= 90:
+			it.Flag = "too_easy"
+		case it.CorrectRate <= 30:
+			it.Flag = "too_hard"
+		default:
+			it.Flag = "ok"
+		}
+		an.Items = append(an.Items, it)
+	}
+
+	return an, nil
 }
 
 // ══════════════════════════════════════════════════════════

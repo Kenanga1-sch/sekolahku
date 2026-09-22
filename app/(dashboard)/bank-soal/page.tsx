@@ -1,7 +1,7 @@
 "use client";
 
 import React, { Suspense, useState, useEffect } from "react";
-import { BookOpen, Layers, HelpCircle, FileStack, Printer, FolderOpen, ClipboardCheck } from "lucide-react";
+import { BookOpen, Layers, HelpCircle, FileStack, Printer, FolderOpen, ClipboardCheck, BarChart3 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const TabBab = React.lazy(() => import("./tab-bab"));
@@ -10,6 +10,7 @@ const TabSoal = React.lazy(() => import("./tab-soal"));
 const TabPaket = React.lazy(() => import("./tab-paket"));
 const TabCetak = React.lazy(() => import("./tab-cetak"));
 const TabPenilaian = React.lazy(() => import("./tab-penilaian"));
+const TabAnalitik = React.lazy(() => import("./tab-analitik"));
 
 const tabs = [
   { id: "bab", label: "Bab / Chapter", icon: Layers },
@@ -18,6 +19,7 @@ const tabs = [
   { id: "paket", label: "Paket Soal", icon: FileStack },
   { id: "cetak", label: "Cetak Soal", icon: Printer },
   { id: "penilaian", label: "Penilaian", icon: ClipboardCheck },
+  { id: "analitik", label: "Analitik", icon: BarChart3 },
 ];
 
 function TabSkeleton() {
@@ -83,6 +85,7 @@ export default function BankSoalPage() {
         {activeTab === "paket" && <TabPaket />}
         {activeTab === "cetak" && <TabCetak />}
         {activeTab === "penilaian" && <TabPenilaian />}
+        {activeTab === "analitik" && <TabAnalitik />}
       </Suspense>
     </div>
   );
