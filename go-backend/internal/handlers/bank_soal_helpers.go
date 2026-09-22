@@ -27,7 +27,7 @@ type questionPayload struct {
 //
 // Output disesuaikan per tipe:
 //   - pg_single     -> correctAnswer = text pilihan benar
-//   - pg_multi      -> correctAnswer = JSON ["1","3"] (id pilihan benar)
+//   - pg_multi      -> correctAnswer = JSON ["teks1","teks2"] (teks pilihan benar)
 //   - true_false    -> correctAnswer = "Benar"/"Salah"
 //   - fill_blank    -> correctAnswer = JSON ["jawaban1","jawaban2"]
 //   - matching      -> correctAnswer = JSON {"leftId":"rightId"}
@@ -73,14 +73,16 @@ func buildQuestionPayload(req *models.CreateQuestionRequest) questionPayload {
 			}
 		}
 	case "pg_multi":
-		ids := []string{}
+		// Simpan array TEKS pilihan benar (bukan ID) agar konsisten dengan
+		// jawaban yang dikirim siswa & grader. Lihat bank_soal_grading.go.
+		texts := []string{}
 		for _, o := range options {
 			if o.IsCorrect {
-				ids = append(ids, o.ID)
+				texts = append(texts, o.Text)
 			}
 		}
-		if len(ids) > 0 {
-			b, _ := json.Marshal(ids)
+		if len(texts) > 0 {
+			b, _ := json.Marshal(texts)
 			correct = string(b)
 		}
 	case "true_false":

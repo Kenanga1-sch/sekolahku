@@ -37,6 +37,7 @@ type Repositories struct {
 	Public         *repository.PublicRepository
 	PublicLibrary  *repository.PublicLibraryRepository
 	Booking        *repository.LibraryBookingRepository
+	StickerPreset  *repository.LibraryStickerPresetRepository
 	FAQ            *repository.FAQRepository
 	Contact        *repository.ContactRepository
 	Sync           *repository.SyncRepository
@@ -78,6 +79,7 @@ type AllHandlers struct {
 	Public         *handlers.PublicHandler
 	PublicLibrary  *handlers.PublicLibraryHandler
 	Booking        *handlers.BookingHandler
+	StickerPreset  *handlers.StickerPresetHandler
 	FAQ            *handlers.FAQHandler
 	Contact        *handlers.ContactHandler
 	Upload         *handlers.UploadHandler
@@ -529,6 +531,12 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	adminGroup.GET("/library/qr-generator", h.Library.GetQRCodeBatches)
 	adminGroup.POST("/library/qr-generator", h.Library.GenerateQRCodeBatch)
 
+	// Preset tata letak stiker QR (hanya admin).
+	adminGroup.GET("/library/sticker-presets", h.StickerPreset.GetStickerPresets)
+	adminGroup.POST("/library/sticker-presets", h.StickerPreset.CreateStickerPreset)
+	adminGroup.PUT("/library/sticker-presets/:id", h.StickerPreset.UpdateStickerPreset)
+	adminGroup.DELETE("/library/sticker-presets/:id", h.StickerPreset.DeleteStickerPreset)
+
 	// Kiosk (dibuka dari HP guru yang sudah login; ikut role guru+)
 	guruGroup.POST("/kiosk/scan-complete", h.Library.KioskScanComplete)
 	guruGroup.POST("/kiosk/scan", h.Library.KioskScan)
@@ -853,6 +861,7 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	// Bank Soal
 	guruGroup.GET("/bank-soal/bab", h.BankSoal.ListBabs)
 	guruGroup.POST("/bank-soal/bab", h.BankSoal.CreateBab)
+	guruGroup.PUT("/bank-soal/bab/reorder", h.BankSoal.ReorderBabs)
 	guruGroup.GET("/bank-soal/bab/:id", h.BankSoal.GetBab)
 	guruGroup.PUT("/bank-soal/bab/:id", h.BankSoal.UpdateBab)
 	guruGroup.DELETE("/bank-soal/bab/:id", h.BankSoal.DeleteBab)

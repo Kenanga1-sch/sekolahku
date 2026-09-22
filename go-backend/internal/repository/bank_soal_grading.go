@@ -23,16 +23,17 @@ func gradeAnswer(questionType, correctAnswer, studentAnswer string) bool {
 		return strings.EqualFold(student, strings.TrimSpace(correctAnswer))
 
 	case "pg_multi":
-		// correctAnswer = JSON array id pilihan, mis. ["1","3"]
-		var correctIDs []string
-		if err := json.Unmarshal([]byte(correctAnswer), &correctIDs); err != nil {
+		// correctAnswer = JSON array TEKS pilihan benar, mis. ["Jakarta","Bandung"].
+		// Siswa juga mengirim array teks. Bandingkan sebagai himpunan (case-insensitive, trimmed).
+		var correctTexts []string
+		if err := json.Unmarshal([]byte(correctAnswer), &correctTexts); err != nil {
 			return false
 		}
-		var studentIDs []string
-		if err := json.Unmarshal([]byte(student), &studentIDs); err != nil {
+		var studentTexts []string
+		if err := json.Unmarshal([]byte(student), &studentTexts); err != nil {
 			return false
 		}
-		return stringSetEqual(correctIDs, studentIDs)
+		return stringSetEqualFold(correctTexts, studentTexts)
 
 	case "true_false":
 		return strings.EqualFold(student, strings.TrimSpace(correctAnswer))
@@ -90,6 +91,25 @@ func stringSetEqual(a, b []string) bool {
 	for _, v := range b {
 		counts[v]--
 		if counts[v] < 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// stringSetEqualFold membandingkan dua slice string sebagai himpunan,
+// mengabaikan perbedaan huruf besar/kecil dan spasi di ujung.
+func stringSetEqualFold(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	counts := map[string]int{}
+	for _, v := range a {
+		counts[strings.ToLower(strings.TrimSpace(v))]++
+	}
+	for _, v := range b {
+		counts[strings.ToLower(strings.TrimSpace(v))]--
+		if counts[strings.ToLower(strings.TrimSpace(v))] < 0 {
 			return false
 		}
 	}

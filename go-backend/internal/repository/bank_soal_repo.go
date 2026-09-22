@@ -160,10 +160,18 @@ func (r *BankSoalRepository) CreateBab(req *models.CreateBabRequest, createdBy s
 	id := r.genID()
 	now := nowMs()
 
+	// order_number = lanjutkan urutan terakhir pada subject yang sama,
+	// supaya bab baru muncul di bawah (drag reorder mengubahnya nanti).
+	var nextOrder int
+	_ = r.DB.QueryRow(
+		"SELECT COALESCE(MAX(order_number), 0) + 1 FROM bab WHERE subject_id = ? AND deleted_at IS NULL",
+		req.SubjectID,
+	).Scan(&nextOrder)
+
 	_, err := r.DB.Exec(`
 		INSERT INTO bab (id, subject_id, class_id, kurikulum_id, semester, title, description, order_number, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, id, req.SubjectID, req.ClassID, req.KurikulumID, req.Semester, req.Title, req.Description, 0, now, now)
+	`, id, req.SubjectID, req.ClassID, req.KurikulumID, req.Semester, req.Title, req.Description, nextOrder, now, now)
 	if err != nil {
 		return nil, err
 	}
@@ -210,6 +218,29 @@ func (r *BankSoalRepository) UpdateBab(id string, req *models.UpdateBabRequest) 
 func (r *BankSoalRepository) DeleteBab(id string) error {
 	_, err := r.DB.Exec("UPDATE bab SET deleted_at = ? WHERE id = ?", nowMs(), id)
 	return err
+}
+
+// ReorderBabs menyimpan urutan bab sesuai daftar id yang diberikan.
+func (r *BankSoalRepository) ReorderBabs(orderedIDs []string) error {
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare("UPDATE bab SET order_number = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	now := nowMs()
+	for i, id := range orderedIDs {
+		if _, err := stmt.Exec(i+1, now, id); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 // ══════════════════════════════════════════════════════════
@@ -787,10 +818,24 @@ func (r *BankSoalRepository) RemoveSetItem(setID, questionID string) error {
 }
 
 func (r *BankSoalRepository) ReorderSetItems(setID string, orderedIDs []string) error {
-	for i, qID := range orderedIDs {
-		_, _ = r.DB.Exec("UPDATE question_set_items SET order_number = ? WHERE set_id = ? AND question_id = ?", i+1, setID, qID)
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return err
 	}
-	return nil
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare("UPDATE question_set_items SET order_number = ? WHERE set_id = ? AND question_id = ?")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for i, qID := range orderedIDs {
+		if _, err := stmt.Exec(i+1, setID, qID); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 // ══════════════════════════════════════════════════════════

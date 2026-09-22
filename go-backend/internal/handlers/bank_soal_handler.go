@@ -139,6 +139,34 @@ func (h *BankSoalHandler) DeleteBab(c echo.Context) error {
 	})
 }
 
+func (h *BankSoalHandler) ReorderBabs(c echo.Context) error {
+	var req struct {
+		OrderedIDs []string `json:"orderedIds"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   "Data tidak valid",
+		})
+	}
+	if len(req.OrderedIDs) == 0 {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   "Daftar urutan bab kosong",
+		})
+	}
+	if err := h.Repo.ReorderBabs(req.OrderedIDs); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			"success": false,
+			"error":   "Gagal mengubah urutan bab",
+		})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Urutan bab berhasil diperbarui",
+	})
+}
+
 // ══════════════════════════════════════════════════════════
 // QUESTION BANK
 // ══════════════════════════════════════════════════════════
@@ -634,8 +662,11 @@ func (h *BankSoalHandler) RemoveSetItem(c echo.Context) error {
 
 func (h *BankSoalHandler) ReorderSetItems(c echo.Context) error {
 	setID := c.Param("id")
+	// Frontend mengirim `questionIds`; `orderedIds` dipertahankan agar
+	// klien lama tetap kompatibel.
 	var req struct {
-		OrderedIDs []string `json:"orderedIds"`
+		QuestionIDs []string `json:"questionIds"`
+		OrderedIDs  []string `json:"orderedIds"`
 	}
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{
@@ -644,7 +675,18 @@ func (h *BankSoalHandler) ReorderSetItems(c echo.Context) error {
 		})
 	}
 
-	if err := h.Repo.ReorderSetItems(setID, req.OrderedIDs); err != nil {
+	ids := req.QuestionIDs
+	if len(ids) == 0 {
+		ids = req.OrderedIDs
+	}
+	if len(ids) == 0 {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   "Daftar urutan soal kosong",
+		})
+	}
+
+	if err := h.Repo.ReorderSetItems(setID, ids); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
 			"success": false,
 			"error":   "Gagal mengubah urutan soal",

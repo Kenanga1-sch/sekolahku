@@ -84,6 +84,9 @@ export default function TabBab() {
     description: "",
   });
 
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [isReordering, setIsReordering] = useState(false);
+
   const fetchBabs = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -176,6 +179,36 @@ export default function TabBab() {
     }
   };
 
+  // Reorder: pindahkan dragId ke posisi dropId, lalu simpan urutan baru.
+  const handleDrop = async (dropId: string) => {
+    if (!dragId || dragId === dropId) {
+      setDragId(null);
+      return;
+    }
+    const from = babs.findIndex((b) => b.id === dragId);
+    const to = babs.findIndex((b) => b.id === dropId);
+    if (from === -1 || to === -1) {
+      setDragId(null);
+      return;
+    }
+    const next = [...babs];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    setBabs(next);
+    setDragId(null);
+
+    setIsReordering(true);
+    try {
+      await goPut("/api/bank-soal/bab/reorder", { orderedIds: next.map((b) => b.id) });
+      showSuccess("Urutan bab disimpan");
+    } catch {
+      showError("Gagal menyimpan urutan bab");
+      fetchBabs();
+    } finally {
+      setIsReordering(false);
+    }
+  };
+
   const handleEdit = (bab: Bab) => {
     setEditingId(bab.id);
     setFormData({
@@ -201,7 +234,7 @@ export default function TabBab() {
         <div>
           <h2 className="text-lg font-bold">Daftar Bab / Chapter</h2>
           <p className="text-xs text-muted-foreground">
-            Kelompokkan soal berdasarkan mata pelajaran, kelas, dan bab
+            Kelompokkan soal berdasarkan mata pelajaran, kelas, dan bab. Seret kartu untuk mengubah urutan.
           </p>
         </div>
         <Button
@@ -269,9 +302,19 @@ export default function TabBab() {
       ) : (
         <div className="space-y-2">
           {babs.map((bab) => (
-            <Card key={bab.id} className="hover:border-blue-300 transition-colors">
+            <Card
+              key={bab.id}
+              draggable={!isReordering}
+              onDragStart={() => setDragId(bab.id)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => handleDrop(bab.id)}
+              onDragEnd={() => setDragId(null)}
+              className={`transition-colors ${
+                dragId === bab.id ? "opacity-50 border-blue-400" : "hover:border-blue-300"
+              }`}
+            >
               <CardContent className="flex items-center gap-4 p-4">
-                <GripVertical className="h-4 w-4 text-muted-foreground shrink-0" />
+                <GripVertical className="h-4 w-4 text-muted-foreground shrink-0 cursor-grab active:cursor-grabbing" />
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">{bab.title}</p>
                   <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground flex-wrap">
