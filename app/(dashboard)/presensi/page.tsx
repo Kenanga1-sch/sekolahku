@@ -1,258 +1,126 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import {
-  QrCode,
-  Users,
-  CheckCircle,
-  Clock,
-  CalendarDays,
-  TrendingUp,
-  ClipboardList,
-  AlertCircle,
-  ChevronRight,
-  Calendar,
-} from "lucide-react";
-import { format } from "date-fns";
-import { id as localeId } from "date-fns/locale";
-import { goGet } from "@/lib/api-client";
+/**
+ * Halaman Presensi — pembungkus tab.
+ *
+ * Tab: Ringkasan (dashboard harian), Pengajuan Izin, Laporan, Hari Libur.
+ * Deep-link via ?tab=. Halaman mandiri lama (/presensi/pengajuan, /laporan,
+ * /holidays) tetap ada dan merender komponen tab yang sama.
+ */
 
-interface Stats {
-  totalStudents: number;
-  stats: {
-    hadir: number;
-    sakit: number;
-    izin: number;
-    alpha: number;
-    belumAbsen: number;
-    persenKehadiran: number;
-  };
+import { useState, useEffect, Suspense, lazy } from "react";
+import { useSearchParams } from "next/navigation";
+import { ClipboardList, CalendarDays, FileText, Loader2, LayoutDashboard } from "lucide-react";
+
+const PresensiDashboardTab = lazy(() =>
+  import("./_components/presensi-dashboard-tab").then((m) => ({ default: m.PresensiDashboardTab }))
+);
+const PengajuanIzinTab = lazy(() =>
+  import("./_components/pengajuan-izin-tab").then((m) => ({ default: m.PengajuanIzinTab }))
+);
+const LaporanPresensiTab = lazy(() =>
+  import("./_components/laporan-presensi-tab").then((m) => ({ default: m.LaporanPresensiTab }))
+);
+const HariLiburTab = lazy(() =>
+  import("./_components/hari-libur-tab").then((m) => ({ default: m.HariLiburTab }))
+);
+
+type TabType = "ringkasan" | "pengajuan" | "laporan" | "libur";
+
+const TABS: { id: TabType; label: string; icon: any }[] = [
+  { id: "ringkasan", label: "Ringkasan", icon: LayoutDashboard },
+  { id: "pengajuan", label: "Pengajuan Izin", icon: CalendarDays },
+  { id: "laporan", label: "Laporan", icon: FileText },
+  { id: "libur", label: "Hari Libur", icon: CalendarDays },
+];
+
+function TabFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-[300px]">
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+    </div>
+  );
 }
 
-interface ClassItem {
-  id: string;
-  name: string;
-  teacherName?: string | null;
-}
+function PresensiTabsContent() {
+  const searchParams = useSearchParams();
+  const queryTab = searchParams.get("tab") as TabType | null;
 
-export default function PresensiDashboardPage() {
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [classes, setClasses] = useState<ClassItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isHoliday, setIsHoliday] = useState(false);
-  const [holidayReason, setHolidayReason] = useState("");
-
-  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const [activeTab, setActiveTab] = useState<TabType>("ringkasan");
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [statsData, classesData, holidayData]: [any, any, any] = await Promise.all([
-          goGet("/api/attendance/stats"),
-          goGet("/api/classes"),
-          goGet(`/api/attendance/holiday?date=${todayStr}`),
-        ]);
-
-        setStats(statsData?.data ?? statsData);
-        setClasses(classesData?.data ?? classesData ?? []);
-        setIsHoliday(holidayData?.isHoliday || false);
-        setHolidayReason(holidayData?.reason || "");
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [todayStr]);
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-10 w-32" />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-32" />
-          ))}
-        </div>
-        <Skeleton className="h-64" />
-      </div>
-    );
-  }
+    if (queryTab === "ringkasan" || queryTab === "pengajuan" || queryTab === "laporan" || queryTab === "libur") {
+      setActiveTab(queryTab);
+    }
+  }, [queryTab]);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
-            <ClipboardList className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-            Presensi Siswa Harian
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            {format(new Date(), "EEEE, d MMMM yyyy", { locale: localeId })}
-          </p>
+      {/* Tabs Navigation */}
+      <div className="relative">
+        <div className="flex overflow-x-auto whitespace-nowrap scrollbar-none bg-slate-100/60 dark:bg-zinc-900/40 p-1 rounded-xl gap-1.5 border border-slate-200/40 dark:border-zinc-800/40">
+          {TABS.map((t) => {
+            const Icon = t.icon;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setActiveTab(t.id)}
+                className={`shrink-0 py-1.5 sm:py-2 px-3 sm:px-4 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-1.5 cursor-pointer border ${
+                  activeTab === t.id
+                    ? "bg-white dark:bg-zinc-950 text-blue-600 dark:text-blue-400 shadow-sm border-slate-200/80 dark:border-zinc-800"
+                    : "text-muted-foreground hover:text-foreground hover:bg-slate-200/40 dark:hover:bg-zinc-900/30 border-transparent"
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                {t.label}
+              </button>
+            );
+          })}
         </div>
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-slate-100 dark:from-zinc-900 to-transparent sm:hidden" aria-hidden="true" />
       </div>
 
-      {isHoliday && (
-        <Card className="border-yellow-300 bg-yellow-50">
-          <CardContent className="py-4 flex items-center gap-3 text-yellow-800">
-            <AlertCircle className="h-6 w-6 flex-shrink-0" />
-            <div>
-              <p className="font-semibold">Hari Ini Libur</p>
-              <p className="text-sm">{holidayReason}. Presensi otomatis dinonaktifkan untuk hari ini.</p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <div className="pt-2">
+        {activeTab === "ringkasan" && (
+          <Suspense fallback={<TabFallback />}>
+            <PresensiDashboardTab />
+          </Suspense>
+        )}
+        {activeTab === "pengajuan" && (
+          <Suspense fallback={<TabFallback />}>
+            <PengajuanIzinTab hideHeader />
+          </Suspense>
+        )}
+        {activeTab === "laporan" && (
+          <Suspense fallback={<TabFallback />}>
+            <LaporanPresensiTab hideHeader />
+          </Suspense>
+        )}
+        {activeTab === "libur" && (
+          <Suspense fallback={<TabFallback />}>
+            <HariLiburTab hideHeader />
+          </Suspense>
+        )}
+      </div>
+    </div>
+  );
+}
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Siswa
-            </CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalStudents || 0}</div>
-            <p className="text-xs text-muted-foreground">siswa aktif</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-green-200 bg-green-50/50">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-green-700">
-              Hadir
-            </CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-700">
-              {stats?.stats.hadir || 0}
-            </div>
-            <p className="text-xs text-green-600">
-              {stats?.stats.persenKehadiran || 0}% kehadiran
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-yellow-200 bg-yellow-50/50">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-yellow-700">
-              Sakit/Izin
-            </CardTitle>
-            <AlertCircle className="h-4 w-4 text-yellow-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-700">
-              {(stats?.stats.sakit || 0) + (stats?.stats.izin || 0)}
-            </div>
-            <p className="text-xs text-yellow-600">
-              {stats?.stats.sakit || 0} sakit, {stats?.stats.izin || 0} izin
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-red-200 bg-red-50/50">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-red-700">
-              Belum Presensi
-            </CardTitle>
-            <Clock className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-700">
-              {stats?.stats.belumAbsen || 0}
-            </div>
-            <p className="text-xs text-red-600">siswa belum dipresensi</p>
-          </CardContent>
-        </Card>
+export default function PresensiPage() {
+  return (
+    <div className="p-4 sm:p-6 space-y-6">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-zinc-50 flex items-center gap-2.5">
+          <div className="p-1.5 sm:p-2 bg-blue-50 dark:bg-zinc-900 rounded-xl text-blue-600 dark:text-blue-400 border border-blue-100/30 dark:border-zinc-800 shrink-0">
+            <ClipboardList className="h-5 w-5 sm:h-6 sm:w-6" />
+          </div>
+          Presensi
+        </h1>
       </div>
 
-      {/* Class List for Attendance */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Pilih Kelas Hari Ini</CardTitle>
-            <CardDescription>
-              Klik kelas untuk membuka lembar absensi harian
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {classes.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <CalendarDays className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>Belum ada data rombel kelas</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {classes.map((cls) => (
-                  <Link
-                    key={cls.name || cls.id}
-                    href={`/presensi/sesi/detail?class=${encodeURIComponent(cls.name)}&date=${todayStr}`}
-                    className="block"
-                  >
-                    <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                          <Users className="h-5 w-5 text-primary" />
-                        </div>
-                        <div>
-                          <p className="font-medium">Kelas {cls.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {cls.teacherName || "Wali Kelas"}
-                          </p>
-                        </div>
-                      </div>
-                      <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Quick Actions */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Aksi Cepat</CardTitle>
-            <CardDescription>Menu navigasi presensi</CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-3">
-            <Link href="/kiosk-kelas">
-              <Button variant="outline" className="w-full h-20 flex-col gap-1">
-                <QrCode className="h-6 w-6" />
-                <span>Scan QR</span>
-              </Button>
-            </Link>
-            <Link href="/presensi/laporan">
-              <Button variant="outline" className="w-full h-20 flex-col gap-1">
-                <TrendingUp className="h-6 w-6" />
-                <span>Laporan Bulanan</span>
-              </Button>
-            </Link>
-            <Link href="/presensi/holidays">
-              <Button variant="outline" className="w-full h-20 flex-col gap-1">
-                <Calendar className="h-6 w-6" />
-                <span>Kelola Libur</span>
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
+      <Suspense fallback={<TabFallback />}>
+        <PresensiTabsContent />
+      </Suspense>
     </div>
   );
 }
