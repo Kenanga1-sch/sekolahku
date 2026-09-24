@@ -46,10 +46,19 @@ export default function ClientPage() {
     return <div className="p-8 text-center text-sm text-red-500 font-medium">Data surat tidak ditemukan.</div>;
   }
 
+  // Ukuran kertas & orientasi: utamakan query param (dikirim dari halaman
+  // cetak), lalu properti surat, fallback A4 portrait.
+  const paperParam = (searchParams.get("paper") || data.paperSize || "A4").toUpperCase();
+  const orientationParam = (searchParams.get("orientation") || data.orientation || "portrait").toLowerCase();
+  const paperCss = `${paperParam === "LEGAL" ? "legal" : paperParam === "F4" ? "215mm 330mm" : "A4"} ${orientationParam === "landscape" ? "landscape" : "portrait"}`;
+  const governanceLine = settings?.governance_name || "PEMERINTAH DAERAH";
+  const departmentLine = settings?.department_name || "DINAS PENDIDIKAN DAN KEBUDAYAAN";
+  const cityLine = settings?.school_city || "Indramayu";
+
   return (
     <div className="print-wrapper w-full bg-white text-black min-h-screen">
       <style dangerouslySetInnerHTML={{ __html: `
-        @page { size: A4 portrait; margin: 2cm; }
+        @page { size: ${paperCss}; margin: 2cm; }
         @media print {
           body { -webkit-print-color-adjust: exact; background: white !important; }
           .no-print { display: none !important; }
@@ -78,9 +87,9 @@ export default function ClientPage() {
           </div>
           <div className="flex-1 text-center px-4">
             <div className="text-lg uppercase tracking-wide">
-              {"PEMERINTAH KABUPATEN INDRAMAYU"}
+              {governanceLine}
               <br />
-              {"DINAS PENDIDIKAN DAN KEBUDAYAAN"}
+              {departmentLine}
             </div>
             <div className="text-xl font-bold uppercase tracking-wider mt-1">
               {settings?.school_name || siteConfig.school.name}
@@ -123,7 +132,7 @@ export default function ClientPage() {
           </div>
           <div className="text-right">
             <div>
-              {"Indramayu"}, {formatDate(data.dateOfLetter)}
+              {cityLine}, {formatDate(data.dateOfLetter)}
             </div>
           </div>
         </div>

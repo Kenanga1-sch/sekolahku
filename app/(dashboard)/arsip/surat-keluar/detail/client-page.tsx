@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ArrowLeft, Upload, FileText, CheckCircle2, AlertCircle, Save, Loader2, Printer, MapPin } from "lucide-react";
+import { ArrowLeft, Upload, FileText, CheckCircle2, AlertCircle, Save, Loader2, Printer, MapPin, Blocks } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +33,8 @@ interface SuratKeluarDetail {
     revisionNote?: string;
     htmlContent?: string;
     archiveLocation?: string | null;
+    layoutType?: string | null;
+    contentBlocks?: string | null;
 }
 
 export default function SuratKeluarDetailPage() {
@@ -142,6 +144,16 @@ export default function SuratKeluarDetailPage() {
                         </p>
                     </div>
                 </div>
+                {data.layoutType === "MODULAR" && data.contentBlocks && (
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 self-start"
+                        onClick={() => router.push(`/arsip/surat-keluar/buat-modular?edit=${data.id}`)}
+                    >
+                        <Blocks className="h-4 w-4" /> Edit Modular
+                    </Button>
+                )}
             </div>
 
             <div className="grid lg:grid-cols-2 gap-6 h-full min-h-0">

@@ -19,6 +19,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { DataTable, TablePagination } from "@/components/data-table";
 import {
     DropdownMenu,
@@ -52,6 +59,9 @@ export default function SuratMasukPage() {
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [downloadingBatch, setDownloadingBatch] = useState(false);
     const [actingId, setActingId] = useState<string | null>(null);
+    const [filterStatus, setFilterStatus] = useState<string>("");
+    const [filterDateFrom, setFilterDateFrom] = useState<string>("");
+    const [filterDateTo, setFilterDateTo] = useState<string>("");
 
     const handleStatusChange = async (id: string, status: "Selesai" | "Arsip") => {
         setActingId(id);
@@ -74,6 +84,9 @@ export default function SuratMasukPage() {
                 search,
                 perPage: "20"
             });
+            if (filterStatus) params.set("status", filterStatus);
+            if (filterDateFrom) params.set("dateFrom", filterDateFrom);
+            if (filterDateTo) params.set("dateTo", filterDateTo);
             const result: any = await goGet(`/api/arsip/surat-masuk?${params}`);
             const items = result.items || result.data?.items || result.data || [];
             setData(Array.isArray(items) ? items : []);
@@ -83,7 +96,7 @@ export default function SuratMasukPage() {
         } finally {
             setLoading(false);
         }
-    }, [page, search]);
+    }, [page, search, filterStatus, filterDateFrom, filterDateTo]);
 
     useEffect(() => {
         loadData();
@@ -262,15 +275,48 @@ export default function SuratMasukPage() {
                         className="pl-9"
                     />
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" className="gap-2">
-                        <Filter className="h-4 w-4" />
-                        Filter Status
-                    </Button>
-                    <Button variant="outline" className="gap-2">
-                        <Calendar className="h-4 w-4" />
-                        Tanggal
-                    </Button>
+                <div className="flex flex-wrap gap-2 items-center">
+                    <Select value={filterStatus || "all"} onValueChange={(v) => { setFilterStatus(v === "all" ? "" : v); setPage(1); }}>
+                        <SelectTrigger className="h-9 w-[170px] gap-2">
+                            <Filter className="h-4 w-4" />
+                            <SelectValue placeholder="Filter Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Semua Status</SelectItem>
+                            <SelectItem value="Menunggu Disposisi">Menunggu Disposisi</SelectItem>
+                            <SelectItem value="Selesai">Selesai</SelectItem>
+                            <SelectItem value="Arsip">Arsip</SelectItem>
+                            <SelectItem value="Dibuka Arsip">Dibuka Arsip</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <div className="flex items-center gap-1 rounded-md border px-2 h-9">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <input
+                            type="date"
+                            value={filterDateFrom}
+                            onChange={(e) => { setFilterDateFrom(e.target.value); setPage(1); }}
+                            className="h-7 bg-transparent text-xs outline-none"
+                            title="Dari tanggal"
+                        />
+                        <span className="text-muted-foreground text-xs">–</span>
+                        <input
+                            type="date"
+                            value={filterDateTo}
+                            onChange={(e) => { setFilterDateTo(e.target.value); setPage(1); }}
+                            className="h-7 bg-transparent text-xs outline-none"
+                            title="Sampai tanggal"
+                        />
+                    </div>
+                    {(filterStatus || filterDateFrom || filterDateTo) && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-9 text-xs"
+                            onClick={() => { setFilterStatus(""); setFilterDateFrom(""); setFilterDateTo(""); setPage(1); }}
+                        >
+                            Reset
+                        </Button>
+                    )}
                 </div>
             </div>
 

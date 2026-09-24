@@ -87,7 +87,10 @@ func setupEOfficeTestDB(t *testing.T) *sql.DB {
 			revision_note TEXT,
 			template_id TEXT,
 			html_content TEXT,
+			layout_type TEXT,
+			content_blocks TEXT,
 			archive_location TEXT,
+			cloud_file_id TEXT,
 			created_by TEXT,
 			created_at INTEGER,
 			updated_at INTEGER,
@@ -108,6 +111,7 @@ func setupEOfficeTestDB(t *testing.T) *sql.DB {
 			status TEXT DEFAULT 'Menunggu Disposisi' NOT NULL,
 			notes TEXT,
 			archive_location TEXT,
+			cloud_file_id TEXT,
 			created_at INTEGER,
 			updated_at INTEGER,
 			FOREIGN KEY (classification_code) REFERENCES klasifikasi_surat(code)
@@ -439,6 +443,56 @@ func TestUpdateKlasifikasiCascade(t *testing.T) {
 		if *l.ClassificationCode != newCode {
 			t.Fatalf("expected classification code cascaded to %s, got %s", newCode, *l.ClassificationCode)
 		}
+	}
+}
+
+func TestGetSuratMasukFilteredByStatusAndDate(t *testing.T) {
+	db := setupEOfficeTestDB(t)
+	defer db.Close()
+	repo := NewEOfficeRepository(db)
+
+	recv := time.Date(2026, time.June, 1, 8, 0, 0, 0, time.UTC)
+	// Dua surat dengan status & tanggal berbeda.
+	if _, err := repo.CreateSuratMasuk(models.SuratMasuk{
+		OriginalNumber: "001/A/VI/2026", Sender: "Dinas A", Subject: "Surat A",
+		DateOfLetter: "2026-06-01", ReceivedAt: &recv,
+	}); err != nil {
+		t.Fatalf("create A: %v", err)
+	}
+	if _, err := repo.CreateSuratMasuk(models.SuratMasuk{
+		OriginalNumber: "002/B/VII/2026", Sender: "Dinas B", Subject: "Surat B",
+		DateOfLetter: "2026-07-15", ReceivedAt: &recv,
+	}); err != nil {
+		t.Fatalf("create B: %v", err)
+	}
+
+	// Filter tanggal: hanya 2026-06-01.
+	items, total, err := repo.GetSuratMasukFiltered(1, 20, SuratMasukFilter{
+		DateFrom: "2026-06-01", DateTo: "2026-06-30",
+	})
+	if err != nil {
+		t.Fatalf("filter by date: %v", err)
+	}
+	if total != 1 || len(items) != 1 || items[0].OriginalNumber != "001/A/VI/2026" {
+		t.Fatalf("expected only June letter, got total=%d items=%d", total, len(items))
+	}
+
+	// Filter status: "Selesai" (belum ada) → 0.
+	_, total, err = repo.GetSuratMasukFiltered(1, 20, SuratMasukFilter{Status: "Selesai"})
+	if err != nil {
+		t.Fatalf("filter by status: %v", err)
+	}
+	if total != 0 {
+		t.Fatalf("expected 0 for status Selesai, got %d", total)
+	}
+
+	// Tanpa filter → 2.
+	_, total, err = repo.GetSuratMasukFiltered(1, 20, SuratMasukFilter{})
+	if err != nil {
+		t.Fatalf("no filter: %v", err)
+	}
+	if total != 2 {
+		t.Fatalf("expected 2 without filter, got %d", total)
 	}
 }
 

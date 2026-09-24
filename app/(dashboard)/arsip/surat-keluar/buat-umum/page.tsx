@@ -27,6 +27,7 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import { FontFamily } from "@tiptap/extension-font-family";
 import { Color } from "@tiptap/extension-color";
 import { EditorSidebar } from "@/components/letters/editor-sidebar";
+import { DeprecationBanner } from "@/components/letters/deprecation-banner";
 
 export default function BuatSuratUmumPage() {
   const router = useRouter();
@@ -123,6 +124,11 @@ export default function BuatSuratUmumPage() {
           </div>
         </div>
       </div>
+
+      <DeprecationBanner
+        title="Editor Surat Umum (bebas ketik) akan ditinggalkan"
+        description="Editor ini tidak mengetahui jenis surat dan tidak menerapkan aturan tipografi baku, sehingga hasil cetak bisa berbeda dari pratinjau. Gunakan Editor Surat Modular untuk surat berkop standar."
+      />
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white dark:bg-zinc-900 p-6 rounded-lg border border-zinc-200 dark:border-zinc-800">

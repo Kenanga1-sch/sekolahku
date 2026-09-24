@@ -29,9 +29,23 @@ type LetterTemplate struct {
 	UpdatedAt          *time.Time `json:"updatedAt"`
 }
 
+// LetterTemplateResponse merepresentasikan balasan daftar template.
 type LetterTemplateResponse struct {
 	Data  []LetterTemplate `json:"data"`
 	Total int              `json:"total"`
+}
+
+// LetterType — jenis surat yang dikelola (CRUD dari UI Admin).
+type LetterType struct {
+	ID             int    `json:"id"`
+	JenisSurat     string `json:"jenisSurat"`
+	KodeKlasifikasi string `json:"kodeKlasifikasi"`
+	Kategori       string `json:"kategori"`
+	FormatNomor    string `json:"formatNomor"`
+	IsActive       bool   `json:"isActive"`
+	Urut           int    `json:"urut"`
+	CreatedAt      int64  `json:"createdAt"`
+	UpdatedAt      int64  `json:"updatedAt"`
 }
 
 type NumberingRequest struct {
@@ -77,6 +91,7 @@ type SuratMasuk struct {
 	Status             string            `json:"status"`
 	Notes              *string           `json:"notes"`
 	ArchiveLocation    *string           `json:"archiveLocation"`
+	CloudFileID        *string           `json:"cloudFileId" db:"cloud_file_id"`
 	CreatedAt          *time.Time        `json:"createdAt"`
 	UpdatedAt          *time.Time        `json:"updatedAt"`
 	Dispositions       []Disposisi       `json:"dispositions,omitempty"`
@@ -100,7 +115,10 @@ type SuratKeluar struct {
 	RevisionNote       *string           `json:"revisionNote"`
 	TemplateID         *string           `json:"templateId"`
 	HtmlContent        *string           `json:"htmlContent"`
+	LayoutType         *string           `json:"layoutType"`
+	ContentBlocks      *string           `json:"contentBlocks"`
 	ArchiveLocation    *string           `json:"archiveLocation"`
+	CloudFileID        *string           `json:"cloudFileId" db:"cloud_file_id"`
 	CreatedBy          *string           `json:"createdBy"`
 	Creator            *User             `json:"creator,omitempty"`
 	CreatedAt          *time.Time        `json:"createdAt"`

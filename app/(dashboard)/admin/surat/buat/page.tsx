@@ -41,6 +41,7 @@ import { VariableForm } from "@/components/letters/generator/variable-form";
 import { PreviewStep } from "@/components/letters/generator/preview-step";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { DeprecationBanner } from "@/components/letters/deprecation-banner";
 
 const romanMonths = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
@@ -550,6 +551,11 @@ function LetterGeneratorContent() {
         </div>
       </div>
 
+      <DeprecationBanner
+        title="Wizard surat dari template DOCX akan ditinggalkan"
+        description="Jalur ini bergantung pada file DOCX dan tidak menerapkan standar tata naskah dinas. Untuk surat berkop standar, gunakan Editor Surat Modular."
+      />
+
       {/* Stepper Card */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
@@ -763,6 +769,13 @@ function LetterGeneratorContent() {
           submitting={submitting}
           mergeBatch={mergeBatch}
           setMergeBatch={setMergeBatch}
+          templateUrl={
+            creationMode === "GROUP" && selectedGroup
+              ? selectedGroup.items?.[0]?.template?.filePath
+              : selectedTemplate?.filePath
+          }
+          paperSize={selectedTemplate?.paperSize || "A4"}
+          orientation={selectedTemplate?.orientation || "portrait"}
         />
       )}
     </div>

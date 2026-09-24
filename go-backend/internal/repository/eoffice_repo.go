@@ -285,22 +285,126 @@ func (r *EOfficeRepository) DeleteKlasifikasi(code string) error {
 	return err
 }
 
+// ─────────────────────────────────────────────
+// Letter Types (jenis surat) — CRUD
+// ─────────────────────────────────────────────
+
+func (r *EOfficeRepository) GetLetterTypes(includeInactive bool) ([]models.LetterType, error) {
+	query := "SELECT id, jenis_surat, kode_klasifikasi, kategori, format_nomor, is_active, urut, created_at, updated_at FROM letter_types"
+	if !includeInactive {
+		query += " WHERE is_active = 1"
+	}
+	query += " ORDER BY urut ASC, id ASC"
+	rows, err := r.DB.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []models.LetterType
+	for rows.Next() {
+		var t models.LetterType
+		if err := rows.Scan(&t.ID, &t.JenisSurat, &t.KodeKlasifikasi, &t.Kategori, &t.FormatNomor, &t.IsActive, &t.Urut, &t.CreatedAt, &t.UpdatedAt); err != nil {
+			return nil, err
+		}
+		results = append(results, t)
+	}
+	if results == nil {
+		results = []models.LetterType{}
+	}
+	return results, nil
+}
+
+func (r *EOfficeRepository) CreateLetterType(t models.LetterType) (int, error) {
+	now := UnixMilli()
+	if t.ID == 0 {
+		var maxID sql.NullInt64
+		_ = r.DB.QueryRow("SELECT MAX(id) FROM letter_types").Scan(&maxID)
+		t.ID = int(maxID.Int64) + 1
+	}
+	format := t.FormatNomor
+	if format == "" {
+		format = "{nomor_urut}/{kode_klasifikasi}/{bulan_romawi}/{tahun}"
+	}
+	_, err := r.DB.Exec(`
+		INSERT INTO letter_types (id, jenis_surat, kode_klasifikasi, kategori, format_nomor, is_active, urut, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, t.ID, t.JenisSurat, t.KodeKlasifikasi, t.Kategori, format, t.IsActive, t.Urut, now, now)
+	if err != nil {
+		return 0, err
+	}
+	return t.ID, nil
+}
+
+func (r *EOfficeRepository) UpdateLetterType(id int, t models.LetterType) error {
+	now := UnixMilli()
+	_, err := r.DB.Exec(`
+		UPDATE letter_types
+		SET jenis_surat = ?, kode_klasifikasi = ?, kategori = ?, format_nomor = ?, is_active = ?, urut = ?, updated_at = ?
+		WHERE id = ?
+	`, t.JenisSurat, t.KodeKlasifikasi, t.Kategori, t.FormatNomor, t.IsActive, t.Urut, now, id)
+	return err
+}
+
+func (r *EOfficeRepository) DeleteLetterType(id int) error {
+	// Soft delete bila sudah dipakai surat keluar (berdasar kode klasifikasi).
+	var code string
+	_ = r.DB.QueryRow("SELECT kode_klasifikasi FROM letter_types WHERE id = ?", id).Scan(&code)
+	if code != "" {
+		var count int
+		_ = r.DB.QueryRow("SELECT COUNT(*) FROM surat_keluar WHERE classification_code = ?", code).Scan(&count)
+		if count > 0 {
+			_, err := r.DB.Exec("UPDATE letter_types SET is_active = 0, updated_at = ? WHERE id = ?", UnixMilli(), id)
+			return err
+		}
+	}
+	_, err := r.DB.Exec("DELETE FROM letter_types WHERE id = ?", id)
+	return err
+}
+
 // Archive - Surat Masuk
+// SuratMasukFilter berisi filter opsional untuk daftar surat masuk.
+type SuratMasukFilter struct {
+	Search string
+	// Status: nilai persis kolom status (mis. "Selesai", "Arsip"). Kosong = semua.
+	Status string
+	// DateFrom/DateTo: batas rentang berdasarkan tanggal surat (date_of_letter,
+	// format YYYY-MM-DD). Kosong = tanpa batas.
+	DateFrom string
+	DateTo   string
+}
+
 func (r *EOfficeRepository) GetSuratMasuk(page, limit int, search string) ([]models.SuratMasuk, int, error) {
+	return r.GetSuratMasukFiltered(page, limit, SuratMasukFilter{Search: search})
+}
+
+func (r *EOfficeRepository) GetSuratMasukFiltered(page, limit int, f SuratMasukFilter) ([]models.SuratMasuk, int, error) {
 	offset := (page - 1) * limit
 	query := `
 		SELECT s.id, s.agenda_number, s.original_number, s.sender, s.subject, s.date_of_letter, s.received_at, 
-		       s.classification_code, s.file_path, s.status, s.notes, s.archive_location, s.created_at,
+		       s.classification_code, s.file_path, s.status, s.notes, s.archive_location, s.cloud_file_id, s.created_at,
 		       k.code, k.name
 		FROM surat_masuk s
 		LEFT JOIN klasifikasi_surat k ON s.classification_code = k.code
 		WHERE 1=1
 	`
 	var args []interface{}
-	if search != "" {
+	if f.Search != "" {
 		query += " AND (s.agenda_number LIKE ? OR s.sender LIKE ? OR s.subject LIKE ?)"
-		pattern := "%" + search + "%"
+		pattern := "%" + f.Search + "%"
 		args = append(args, pattern, pattern, pattern)
+	}
+	if f.Status != "" {
+		query += " AND s.status = ?"
+		args = append(args, f.Status)
+	}
+	if f.DateFrom != "" {
+		query += " AND s.date_of_letter >= ?"
+		args = append(args, f.DateFrom)
+	}
+	if f.DateTo != "" {
+		query += " AND s.date_of_letter <= ?"
+		args = append(args, f.DateTo)
 	}
 
 	var total int
@@ -318,12 +422,12 @@ func (r *EOfficeRepository) GetSuratMasuk(page, limit int, search string) ([]mod
 	var results []models.SuratMasuk
 	for rows.Next() {
 		var s models.SuratMasuk
-		var cCode, cName, notes, archLoc sql.NullString
+		var cCode, cName, notes, archLoc, cloudID sql.NullString
 		var rAt, crAt sql.NullInt64
 
 		err := rows.Scan(
 			&s.ID, &s.AgendaNumber, &s.OriginalNumber, &s.Sender, &s.Subject, &s.DateOfLetter, &rAt,
-			&s.ClassificationCode, &s.FilePath, &s.Status, &notes, &archLoc, &crAt,
+			&s.ClassificationCode, &s.FilePath, &s.Status, &notes, &archLoc, &cloudID, &crAt,
 			&cCode, &cName,
 		)
 		if err != nil {
@@ -335,6 +439,9 @@ func (r *EOfficeRepository) GetSuratMasuk(page, limit int, search string) ([]mod
 		}
 		if archLoc.Valid {
 			s.ArchiveLocation = &archLoc.String
+		}
+		if cloudID.Valid {
+			s.CloudFileID = &cloudID.String
 		}
 		s.ReceivedAt = SafeTime(rAt)
 		s.CreatedAt = SafeTime(crAt)
@@ -393,9 +500,9 @@ func (r *EOfficeRepository) CreateSuratMasuk(s models.SuratMasuk) (string, error
 			s.AgendaNumber = fmt.Sprintf("SM-%d-%04d", received.Year(), count+1+attempt)
 
 			_, err := r.DB.Exec(`
-				INSERT INTO surat_masuk (id, agenda_number, original_number, sender, subject, date_of_letter, received_at, classification_code, file_path, status, notes, created_at, updated_at)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Menunggu Disposisi', ?, ?, ?)
-			`, id, s.AgendaNumber, s.OriginalNumber, s.Sender, s.Subject, s.DateOfLetter, rAt, s.ClassificationCode, s.FilePath, s.Notes, now, now)
+				INSERT INTO surat_masuk (id, agenda_number, original_number, sender, subject, date_of_letter, received_at, classification_code, file_path, status, notes, cloud_file_id, created_at, updated_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Menunggu Disposisi', ?, ?, ?, ?)
+			`, id, s.AgendaNumber, s.OriginalNumber, s.Sender, s.Subject, s.DateOfLetter, rAt, s.ClassificationCode, s.FilePath, s.Notes, s.CloudFileID, now, now)
 			if err == nil {
 				return id, nil
 			}
@@ -407,10 +514,10 @@ func (r *EOfficeRepository) CreateSuratMasuk(s models.SuratMasuk) (string, error
 	}
 
 	query := `
-		INSERT INTO surat_masuk (id, agenda_number, original_number, sender, subject, date_of_letter, received_at, classification_code, file_path, status, notes, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO surat_masuk (id, agenda_number, original_number, sender, subject, date_of_letter, received_at, classification_code, file_path, status, notes, cloud_file_id, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	_, err := r.DB.Exec(query, id, s.AgendaNumber, s.OriginalNumber, s.Sender, s.Subject, s.DateOfLetter, rAt, s.ClassificationCode, s.FilePath, "Menunggu Disposisi", s.Notes, now, now)
+	_, err := r.DB.Exec(query, id, s.AgendaNumber, s.OriginalNumber, s.Sender, s.Subject, s.DateOfLetter, rAt, s.ClassificationCode, s.FilePath, "Menunggu Disposisi", s.Notes, s.CloudFileID, now, now)
 	if err != nil {
 		return "", err
 	}
@@ -422,7 +529,7 @@ func (r *EOfficeRepository) GetSuratKeluar(page, limit int, search, statusFilter
 	offset := (page - 1) * limit
 	query := `
 		SELECT s.id, s.mail_number, s.recipient, s.subject, s.date_of_letter, s.classification_code, 
-		       s.file_path, s.final_file_path, s.status, s.agenda_number, s.verified_by, s.verified_at, s.digital_signature, s.revision_note, s.template_id, s.archive_location, s.created_by, s.created_at,
+		       s.file_path, s.final_file_path, s.status, s.agenda_number, s.verified_by, s.verified_at, s.digital_signature, s.revision_note, s.template_id, s.archive_location, s.cloud_file_id, s.created_by, s.created_at,
 		       k.code, k.name
 		FROM surat_keluar s
 		LEFT JOIN klasifikasi_surat k ON s.classification_code = k.code
@@ -454,13 +561,13 @@ func (r *EOfficeRepository) GetSuratKeluar(page, limit int, search, statusFilter
 	var results []models.SuratKeluar
 	for rows.Next() {
 		var s models.SuratKeluar
-		var cCode, cName, fPath, fnPath, cBy, agenda, vBy, ds, revNote, tplID, archLoc sql.NullString
+		var cCode, cName, fPath, fnPath, cBy, agenda, vBy, ds, revNote, tplID, archLoc, cloudID sql.NullString
 		var vAt sql.NullInt64
 		var crAt sql.NullInt64
 
 		err := rows.Scan(
 			&s.ID, &s.MailNumber, &s.Recipient, &s.Subject, &s.DateOfLetter, &s.ClassificationCode,
-			&fPath, &fnPath, &s.Status, &agenda, &vBy, &vAt, &ds, &revNote, &tplID, &archLoc, &cBy, &crAt,
+			&fPath, &fnPath, &s.Status, &agenda, &vBy, &vAt, &ds, &revNote, &tplID, &archLoc, &cloudID, &cBy, &crAt,
 			&cCode, &cName,
 		)
 		if err != nil {
@@ -475,6 +582,9 @@ func (r *EOfficeRepository) GetSuratKeluar(page, limit int, search, statusFilter
 		}
 		if archLoc.Valid {
 			s.ArchiveLocation = &archLoc.String
+		}
+		if cloudID.Valid {
+			s.CloudFileID = &cloudID.String
 		}
 		if cBy.Valid {
 			s.CreatedBy = &cBy.String
@@ -796,7 +906,6 @@ func extractSequenceNumber(mailNumber string, classCode string) int {
 	return 1
 }
 
-
 // CreateSuratKeluar creates a new outgoing letter
 func (r *EOfficeRepository) CreateSuratKeluar(s models.SuratKeluar) (string, string, error) {
 	if err := r.validateClassificationCode(s.ClassificationCode); err != nil {
@@ -849,9 +958,9 @@ func (r *EOfficeRepository) CreateSuratKeluar(s models.SuratKeluar) (string, str
 	defer tx.Rollback()
 
 	_, err = tx.Exec(`
-		INSERT INTO surat_keluar (id, mail_number, recipient, subject, date_of_letter, classification_code, file_path, status, html_content, created_by, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, s.ID, s.MailNumber, s.Recipient, s.Subject, s.DateOfLetter, s.ClassificationCode, s.FilePath, status, s.HtmlContent, s.CreatedBy, now, now)
+		INSERT INTO surat_keluar (id, mail_number, recipient, subject, date_of_letter, classification_code, file_path, status, html_content, layout_type, content_blocks, cloud_file_id, created_by, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, s.ID, s.MailNumber, s.Recipient, s.Subject, s.DateOfLetter, s.ClassificationCode, s.FilePath, status, s.HtmlContent, s.LayoutType, s.ContentBlocks, s.CloudFileID, s.CreatedBy, now, now)
 	if err != nil {
 		return "", "", err
 	}
@@ -873,17 +982,17 @@ func (r *EOfficeRepository) CreateSuratKeluar(s models.SuratKeluar) (string, str
 // GetSuratMasukByID returns a single incoming letter
 func (r *EOfficeRepository) GetSuratMasukByID(id string) (*models.SuratMasuk, error) {
 	var s models.SuratMasuk
-	var classCode, notes, archLoc, kCode, kName, kDesc sql.NullString
+	var classCode, notes, archLoc, cloudID, kCode, kName, kDesc sql.NullString
 	var recAt, crAt, upAt sql.NullInt64
 	err := r.DB.QueryRow(`
 		SELECT s.id, s.agenda_number, s.original_number, s.sender, s.subject, s.date_of_letter, s.received_at,
-		       s.classification_code, s.file_path, s.status, s.notes, s.archive_location, s.created_at, s.updated_at,
+		       s.classification_code, s.file_path, s.status, s.notes, s.archive_location, s.cloud_file_id, s.created_at, s.updated_at,
 		       k.code, k.name, k.description
 		FROM surat_masuk s
 		LEFT JOIN klasifikasi_surat k ON s.classification_code = k.code
 		WHERE s.id = ?
 	`, id).Scan(&s.ID, &s.AgendaNumber, &s.OriginalNumber, &s.Sender, &s.Subject, &s.DateOfLetter, &recAt,
-		&classCode, &s.FilePath, &s.Status, &notes, &archLoc, &crAt, &upAt,
+		&classCode, &s.FilePath, &s.Status, &notes, &archLoc, &cloudID, &crAt, &upAt,
 		&kCode, &kName, &kDesc)
 	if err != nil {
 		return nil, err
@@ -896,6 +1005,9 @@ func (r *EOfficeRepository) GetSuratMasukByID(id string) (*models.SuratMasuk, er
 	}
 	if archLoc.Valid {
 		s.ArchiveLocation = &archLoc.String
+	}
+	if cloudID.Valid {
+		s.CloudFileID = &cloudID.String
 	}
 	s.ReceivedAt = SafeTime(recAt)
 	s.CreatedAt = SafeTime(crAt)
@@ -918,12 +1030,12 @@ func (r *EOfficeRepository) GetSuratMasukByID(id string) (*models.SuratMasuk, er
 func (r *EOfficeRepository) GetSuratKeluarByID(id string) (*models.SuratKeluar, error) {
 	var s models.SuratKeluar
 	var classCode, filePath, finalPath, createdBy, creatorName, creatorFullName, creatorRole, kCode, kName, kDesc sql.NullString
-	var agenda, vBy, ds, revNote, tplID, htmlContent, archLoc sql.NullString
+	var agenda, vBy, ds, revNote, tplID, htmlContent, archLoc, cloudID sql.NullString
 	var vAt sql.NullInt64
 	var crAt, upAt sql.NullInt64
 	err := r.DB.QueryRow(`
 		SELECT s.id, s.mail_number, s.recipient, s.subject, s.date_of_letter, s.classification_code,
-		       s.file_path, s.final_file_path, s.status, s.agenda_number, s.verified_by, s.verified_at, s.digital_signature, s.revision_note, s.template_id, s.html_content, s.archive_location, s.created_by, s.created_at, s.updated_at,
+		       s.file_path, s.final_file_path, s.status, s.agenda_number, s.verified_by, s.verified_at, s.digital_signature, s.revision_note, s.template_id, s.html_content, s.archive_location, s.cloud_file_id, s.created_by, s.created_at, s.updated_at,
 		       u.name, u.full_name, u.role,
 		       k.code, k.name, k.description
 		FROM surat_keluar s
@@ -931,7 +1043,7 @@ func (r *EOfficeRepository) GetSuratKeluarByID(id string) (*models.SuratKeluar, 
 		LEFT JOIN klasifikasi_surat k ON s.classification_code = k.code
 		WHERE s.id = ?
 	`, id).Scan(&s.ID, &s.MailNumber, &s.Recipient, &s.Subject, &s.DateOfLetter, &classCode,
-		&filePath, &finalPath, &s.Status, &agenda, &vBy, &vAt, &ds, &revNote, &tplID, &htmlContent, &archLoc, &createdBy, &crAt, &upAt,
+		&filePath, &finalPath, &s.Status, &agenda, &vBy, &vAt, &ds, &revNote, &tplID, &htmlContent, &archLoc, &cloudID, &createdBy, &crAt, &upAt,
 		&creatorName, &creatorFullName, &creatorRole,
 		&kCode, &kName, &kDesc)
 	if err != nil {
@@ -951,6 +1063,9 @@ func (r *EOfficeRepository) GetSuratKeluarByID(id string) (*models.SuratKeluar, 
 	}
 	if archLoc.Valid {
 		s.ArchiveLocation = &archLoc.String
+	}
+	if cloudID.Valid {
+		s.CloudFileID = &cloudID.String
 	}
 	if createdBy.Valid {
 		s.CreatedBy = &createdBy.String
@@ -1066,9 +1181,11 @@ func (r *EOfficeRepository) UpdateSuratKeluar(id string, s models.SuratKeluar) e
 	now := UnixMilli()
 	_, err := r.DB.Exec(`
 		UPDATE surat_keluar SET mail_number = ?, recipient = ?, subject = ?, date_of_letter = ?,
-			classification_code = ?, file_path = ?, final_file_path = ?, status = ?, html_content = ?, archive_location = ?, updated_at = ?
+			classification_code = ?, file_path = ?, final_file_path = ?, status = ?, html_content = ?, archive_location = ?,
+			layout_type = COALESCE(?, layout_type), content_blocks = COALESCE(?, content_blocks), updated_at = ?
 		WHERE id = ?
-	`, s.MailNumber, s.Recipient, s.Subject, s.DateOfLetter, s.ClassificationCode, s.FilePath, s.FinalFilePath, s.Status, s.HtmlContent, s.ArchiveLocation, now, id)
+	`, s.MailNumber, s.Recipient, s.Subject, s.DateOfLetter, s.ClassificationCode, s.FilePath, s.FinalFilePath, s.Status, s.HtmlContent, s.ArchiveLocation,
+		s.LayoutType, s.ContentBlocks, now, id)
 	return err
 }
 
@@ -1101,6 +1218,42 @@ func (r *EOfficeRepository) UpdateSuratMasukStatus(id string, status, archiveLoc
 	}
 	args = append(args, id)
 	res, err := r.DB.Exec("UPDATE surat_masuk SET "+strings.Join(sets, ", ")+" WHERE id = ?", args...)
+	if err != nil {
+		return err
+	}
+	if affected, _ := res.RowsAffected(); affected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+// SetSuratMasukFile mengubah file_path dan/atau cloud_file_id surat masuk
+// (dipakai bridge arsip dari DocStation agar berkas tersimpan + tertaut cloud).
+func (r *EOfficeRepository) SetSuratMasukFile(id string, filePath, cloudFileID *string) error {
+	sets := []string{"updated_at = ?"}
+	args := []interface{}{UnixMilli()}
+	if filePath != nil {
+		sets = append(sets, "file_path = ?")
+		args = append(args, *filePath)
+	}
+	if cloudFileID != nil {
+		sets = append(sets, "cloud_file_id = ?")
+		args = append(args, *cloudFileID)
+	}
+	args = append(args, id)
+	res, err := r.DB.Exec("UPDATE surat_masuk SET "+strings.Join(sets, ", ")+" WHERE id = ?", args...)
+	if err != nil {
+		return err
+	}
+	if affected, _ := res.RowsAffected(); affected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+// SetSuratKeluarCloudFile menautkan surat keluar ke berkas cloud.
+func (r *EOfficeRepository) SetSuratKeluarCloudFile(id, cloudFileID string) error {
+	res, err := r.DB.Exec("UPDATE surat_keluar SET cloud_file_id = ?, updated_at = ? WHERE id = ?", cloudFileID, UnixMilli(), id)
 	if err != nil {
 		return err
 	}

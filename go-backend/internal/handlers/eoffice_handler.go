@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -17,6 +18,9 @@ import (
 type EOfficeHandler struct {
 	Repo          *repository.EOfficeRepository
 	Notifications *repository.NotificationRepository
+	// Cloud dipakai untuk mengarsipkan hasil scan (DocStation) ke ruang arsip
+	// bersama Cloud Storage. Boleh nil (fitur arsip-cloud dilewati).
+	Cloud *CloudStorageHandler
 }
 
 func NewEOfficeHandler(repo *repository.EOfficeRepository, notifications *repository.NotificationRepository) *EOfficeHandler {
@@ -243,6 +247,64 @@ func (h *EOfficeHandler) UpdateKlasifikasi(c echo.Context) error {
 func (h *EOfficeHandler) DeleteKlasifikasi(c echo.Context) error {
 	code := c.Param("code")
 	if err := h.Repo.DeleteKlasifikasi(code); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})
+}
+
+// ============ Letter Types (jenis surat) ============
+
+func (h *EOfficeHandler) GetLetterTypes(c echo.Context) error {
+	includeInactive := c.QueryParam("include_inactive") == "true"
+	list, err := h.Repo.GetLetterTypes(includeInactive)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": list})
+}
+
+func (h *EOfficeHandler) CreateLetterType(c echo.Context) error {
+	var t models.LetterType
+	if err := c.Bind(&t); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
+	}
+	if t.JenisSurat == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Nama jenis surat wajib diisi"})
+	}
+	id, err := h.Repo.CreateLetterType(t)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+	t.ID = id
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": t})
+}
+
+func (h *EOfficeHandler) UpdateLetterType(c echo.Context) error {
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "ID tidak valid"})
+	}
+	var t models.LetterType
+	if err := c.Bind(&t); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
+	}
+	if t.JenisSurat == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Nama jenis surat wajib diisi"})
+	}
+	if err := h.Repo.UpdateLetterType(id, t); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": t})
+}
+
+func (h *EOfficeHandler) DeleteLetterType(c echo.Context) error {
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "ID tidak valid"})
+	}
+	if err := h.Repo.DeleteLetterType(id); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})

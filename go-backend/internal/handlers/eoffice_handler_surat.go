@@ -14,6 +14,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/sekolahku/go-backend/internal/models"
+	"github.com/sekolahku/go-backend/internal/repository"
 	"github.com/sekolahku/go-backend/internal/shared"
 )
 
@@ -29,8 +30,16 @@ func (h *EOfficeHandler) GetSuratMasuk(c echo.Context) error {
 		limit = 20
 	}
 	search := c.QueryParam("search")
+	status := strings.TrimSpace(c.QueryParam("status"))
+	dateFrom := strings.TrimSpace(c.QueryParam("dateFrom"))
+	dateTo := strings.TrimSpace(c.QueryParam("dateTo"))
 
-	items, total, err := h.Repo.GetSuratMasuk(page, limit, search)
+	items, total, err := h.Repo.GetSuratMasukFiltered(page, limit, repository.SuratMasukFilter{
+		Search:   search,
+		Status:   status,
+		DateFrom: dateFrom,
+		DateTo:   dateTo,
+	})
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
@@ -127,6 +136,129 @@ func (h *EOfficeHandler) GetSuratKeluarDetail(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Surat tidak ditemukan"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": s})
+}
+
+// ArchiveFromDocStation menjembatani hasil scan DocStation ke arsip persuratan:
+// simpan berkas ke disk, opsional tautkan ke ruang arsip Cloud Storage, lalu
+// buat baris surat masuk/keluar.
+func (h *EOfficeHandler) ArchiveFromDocStation(c echo.Context) error {
+	category := strings.TrimSpace(c.FormValue("category"))
+	if category != "surat-masuk" && category != "surat-keluar" {
+		category = "surat-masuk"
+	}
+
+	// 1) Simpan berkas ke disk arsip (selalu, sebagai fallback & path publik).
+	filePath, err := saveArsipPDF(c, category, true)
+	if err != nil {
+		return shared.BadRequest(c, "Berkas tidak valid")
+	}
+
+	// 2) Coba tautkan ke ruang arsip Cloud Storage (opsional — jangan gagalkan
+	//    arsip bila cloud mati; cukup simpan di disk saja).
+	var cloudFileID *string
+	if h.Cloud != nil && h.Cloud.Svc != nil && h.Cloud.Svc.Enabled() {
+		if file, ferr := c.FormFile("file"); ferr == nil {
+			folderPath := "Surat Masuk"
+			if category == "surat-keluar" {
+				folderPath = "Surat Keluar"
+			}
+			folderPath += "/" + time.Now().Format("2006/01")
+			if src, oerr := file.Open(); oerr == nil {
+				defer src.Close()
+				if cf, uerr := h.Cloud.Svc.ArchiveUpload(c.Request().Context(), folderPath, src, file); uerr == nil && cf != nil {
+					cloudFileID = &cf.ID
+				}
+			}
+		}
+	}
+
+	// 3) Tulis baris DB pada arsip persuratan.
+	if category == "surat-keluar" {
+		uid := shared.CurrentUserID(c)
+		s := models.SuratKeluar{
+			Recipient:          strings.TrimSpace(c.FormValue("recipient")),
+			Subject:            strings.TrimSpace(c.FormValue("subject")),
+			DateOfLetter:       strings.TrimSpace(c.FormValue("dateOfLetter")),
+			ClassificationCode: stringPtrIfNotEmpty(c.FormValue("classificationCode")),
+			FilePath:           &filePath,
+			CloudFileID:        cloudFileID,
+			Status:             "Draft",
+		}
+		if s.Recipient == "" || s.Subject == "" {
+			return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Tujuan dan perihal wajib diisi"})
+		}
+		if s.DateOfLetter == "" {
+			s.DateOfLetter = time.Now().Format("2006-01-02")
+		}
+		if uid != "" {
+			s.CreatedBy = &uid
+		}
+		id, mailNumber, cerr := h.Repo.CreateSuratKeluar(s)
+		if cerr != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal menyimpan arsip surat keluar"})
+		}
+		return c.JSON(http.StatusCreated, map[string]interface{}{
+			"success":     true,
+			"id":          id,
+			"mailNumber":  mailNumber,
+			"filePath":    filePath,
+			"cloudFileId": cloudFileID,
+		})
+	}
+
+	surat := models.SuratMasuk{
+		OriginalNumber:     strings.TrimSpace(c.FormValue("originalNumber")),
+		Sender:             strings.TrimSpace(c.FormValue("sender")),
+		Subject:            strings.TrimSpace(c.FormValue("subject")),
+		DateOfLetter:       strings.TrimSpace(c.FormValue("dateOfLetter")),
+		ReceivedAt:         shared.ParseDateOnly(c.FormValue("receivedAt")),
+		ClassificationCode: stringPtrIfNotEmpty(c.FormValue("classificationCode")),
+		FilePath:           filePath,
+		Notes:              stringPtrIfNotEmpty(c.FormValue("notes")),
+		CloudFileID:        cloudFileID,
+	}
+	if surat.OriginalNumber == "" || surat.Sender == "" || surat.Subject == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Nomor asli, pengirim, dan perihal wajib diisi"})
+	}
+	if surat.DateOfLetter == "" {
+		surat.DateOfLetter = time.Now().Format("2006-01-02")
+	}
+	id, cerr := h.Repo.CreateSuratMasuk(surat)
+	if cerr != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal menyimpan arsip surat masuk"})
+	}
+	if h.Notifications != nil {
+		_ = h.Notifications.NotifyRoles(models.Notification{
+			Type:      "info",
+			Category:  "eoffice",
+			Title:     "Surat masuk baru (scan)",
+			Message:   "Dari " + surat.Sender + ": " + surat.Subject,
+			TargetURL: StrPtr("/arsip/surat-masuk"),
+		}, "admin", "superadmin")
+	}
+	return c.JSON(http.StatusCreated, map[string]interface{}{
+		"success":     true,
+		"id":          id,
+		"filePath":    filePath,
+		"cloudFileId": cloudFileID,
+	})
+}
+
+// UploadArsipPDF menerima berkas PDF/gambar (dari editor modular atau scanner)
+// dan menyimpannya ke folder arsip. Mengembalikan path tersimpan.
+func (h *EOfficeHandler) UploadArsipPDF(c echo.Context) error {
+	category := strings.TrimSpace(c.FormValue("category"))
+	if category != "surat-masuk" && category != "surat-keluar" {
+		category = "surat-keluar"
+	}
+	path, err := saveArsipPDF(c, category, true)
+	if err != nil {
+		return shared.BadRequest(c, "Input tidak valid")
+	}
+	return c.JSON(http.StatusCreated, map[string]interface{}{
+		"success":  true,
+		"filePath": path,
+	})
 }
 
 func (h *EOfficeHandler) CreateSuratKeluar(c echo.Context) error {

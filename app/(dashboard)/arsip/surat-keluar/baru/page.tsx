@@ -7,7 +7,8 @@ import {
   Layers,
   RotateCcw,
   Printer,
-  ArrowLeft
+  ArrowLeft,
+  Blocks
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -94,6 +95,13 @@ export default function SuratKeluarBaruPage() {
 
       <Tabs defaultValue="tunggal" className="space-y-6">
         <TabsList>
+          <TabsTrigger value="modular" className="flex gap-2 items-center">
+            <Blocks className="h-4 w-4" />
+            Modular
+            <span className="ml-1 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+              Disarankan
+            </span>
+          </TabsTrigger>
           <TabsTrigger value="tunggal" className="flex gap-2 items-center">
             <FileText className="h-4 w-4" />
             Template Tunggal
@@ -101,12 +109,39 @@ export default function SuratKeluarBaruPage() {
           <TabsTrigger value="grup" className="flex gap-2 items-center">
             <Layers className="h-4 w-4" />
             Grup / Paket Surat
+            <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+              Lama
+            </span>
           </TabsTrigger>
           <TabsTrigger value="umum" className="flex gap-2 items-center">
             <FileText className="h-4 w-4" />
             Surat Umum
+            <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+              Lama
+            </span>
           </TabsTrigger>
         </TabsList>
+
+        {/* --- TABS CONTENT: MODULAR (BARU) --- */}
+        <TabsContent value="modular" className="space-y-4">
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-lg border border-blue-200 dark:border-blue-800 p-8 text-center space-y-4">
+            <div className="mx-auto w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center">
+              <Blocks className="h-6 w-6" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold">Editor Surat Modular</h3>
+              <p className="text-sm text-muted-foreground max-w-lg mx-auto mt-2">
+                Pilih jenis surat, sistem menerapkan standar baku tata naskah dinas
+                (font, margin, spasi) otomatis. Lalu rakit surat dari blok siap pakai:
+                kop, nomor/perihal, tujuan, isi, acara, penutup, tanda tangan, dan modul SK.
+                Pratinjau PDF langsung.
+              </p>
+            </div>
+            <Button onClick={() => router.push('/arsip/surat-keluar/buat-modular')} className="mt-4 bg-blue-600 hover:bg-blue-700">
+              Mulai Buat Surat Modular
+            </Button>
+          </div>
+        </TabsContent>
 
         {/* --- TABS CONTENT: SURAT UMUM --- */}
         <TabsContent value="umum" className="space-y-4">
