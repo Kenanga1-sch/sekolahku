@@ -1,0 +1,45 @@
+# ---------------------------------------------------------------------------
+# DocStation — Cloudflare Tunnel configuration (template)
+# ---------------------------------------------------------------------------
+# Gunakan berkas ini bila membuat tunnel MANUAL (bukan token otomatis).
+#
+# 1. Salin berkas berikut ke ~/.cloudflared/docstation.yml  (di server ini)
+# 2. Unduh file kredensial tunnel dari Cloudflare Zero Trust dashboard
+#    (Networks -> Tunnels -> <docstation> -> "Configuration" -> "Download")
+#    simpan ke ~/.cloudflared/<tunnel-UUID>.json
+# 3. Jalankan:
+#      sudo cloudflared tunnel --config ~/.cloudflared/docstation.yml run docstation
+#    atau pasang layanan otomatis:
+#      sudo cloudflared service install \
+#           --config ~/.cloudflared/docstation.yml \
+#           /etc/systemd/system/cloudflared-docstation.service
+
+tunnel: docstation
+credentials-file: /root/.cloudflared/<TUNNEL-UUID>.json   # ganti dengan UUID Anda
+
+# Log ke file (opsional, berguna debug)
+loglevel: info
+log-file: /var/log/cloudflared-docstation.log
+
+ingress:
+  # Arahkan seluruh lalu-lintas domain ke aplikasi DocStation (localhost:8000)
+  - hostname: docstation.example.com        # <-- ganti dengan domain Anda
+    service: http://localhost:8000
+  # Jika punya subdomain, gunakan:
+  # - hostname: app.docstation.example.com
+  #   service: http://localhost:8000
+
+  # Fallback (halaman 404) agar tunnel tetap hidup bila rute tidak cocok
+  - service: http_status:404
+
+# ---------------------------------------------------------------------------
+# CATATAN KEAMANAN
+# - Port 8000 sudah di-allow lewat UFW; tunnel Cloudflare membuka port 443
+#   (yang sudah di-allow). Anda tidak perlu membuka port tambahan.
+# - Aktifkan otentikasi operator sebelum mengekspos ke internet publik:
+#       edit /etc/default/docstation  ->  DOCSTATION_PASSWORD=<strong-password>
+#       sudo systemctl restart docstation
+# - DocStation hanya memproksikan scan/print ke printer LAN 192.168.10.131;
+#   proses gambar berat (OpenCV.js, PDF, enhancement) dijalankan di browser
+#   client, jadi beban pada server tetap ringan (<60 MB RSS).
+# ---------------------------------------------------------------------------

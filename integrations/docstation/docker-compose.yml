@@ -1,0 +1,16 @@
+version: "3.8"
+
+services:
+  docstation:
+    build: .
+    container_name: docstation
+    ports:
+      - "8000:8000"
+    environment:
+      - PRINTER_IP=192.168.1.100
+      - DOCSTATION_PASSWORD=
+      - DOCSTATION_SESSION_SECRET=change-me-secret
+      - DOCSTATION_SECURE_COOKIE=0
+      - DOCSTATION_MAX_PRINT_MB=50
+    restart: unless-stopped
+    network_mode: host

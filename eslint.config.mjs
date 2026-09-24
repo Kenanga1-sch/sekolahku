@@ -22,6 +22,9 @@ const eslintConfig = defineConfig([
     "test-results/**",
     "uploads/**",
     "public/uploads/**",
+    // Library pihak-ketiga (minified) yang di-vendor — bukan kode kita.
+    "public/docstation/vendor/**",
+    "public/**/*.min.js",
     "scratch/**",
     "*.log",
     "*.txt",
