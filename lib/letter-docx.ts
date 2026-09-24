@@ -463,9 +463,15 @@ function renderBlock(
           new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: `NIP. ${S(d.kiri_nip)}`, size })] })
         );
       }
-      const rightChildren: (Paragraph | ImageRun)[] = [
-        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: S(d.kanan_jabatan) || "Kepala Sekolah", size })] }),
-      ];
+      const rightChildren: (Paragraph | ImageRun)[] = [];
+      if (asString(d.layout) === "bertingkat") {
+        rightChildren.push(
+          new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: "Mengetahui,", size })] })
+        );
+      }
+      rightChildren.push(
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: S(d.kanan_jabatan) || "Kepala Sekolah", size })] })
+      );
       if (stamp) {
         rightChildren.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [stamp] }));
       } else {
@@ -481,6 +487,40 @@ function renderBlock(
           children: [new TextRun({ text: `NIP. ${S(d.kanan_nip) || school.principalNip}`, size })],
         })
       );
+
+      if (asString(d.layout) === "bertingkat") {
+        return [
+          // Row 1: Pihak 1 di kanan
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder, insideHorizontal: noBorder, insideVertical: noBorder },
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({ width: { size: 50, type: WidthType.PERCENTAGE }, children: [new Paragraph("")] }),
+                  new TableCell({ width: { size: 50, type: WidthType.PERCENTAGE }, children: leftChildren as Paragraph[] }),
+                ],
+              }),
+            ],
+          }),
+          new Paragraph(""),
+          // Row 2: Mengetahui di tengah
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder, insideHorizontal: noBorder, insideVertical: noBorder },
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({ width: { size: 25, type: WidthType.PERCENTAGE }, children: [new Paragraph("")] }),
+                  new TableCell({ width: { size: 50, type: WidthType.PERCENTAGE }, children: rightChildren as Paragraph[] }),
+                  new TableCell({ width: { size: 25, type: WidthType.PERCENTAGE }, children: [new Paragraph("")] }),
+                ],
+              }),
+            ],
+          }),
+        ];
+      }
+
       return [
         new Table({
           width: { size: 100, type: WidthType.PERCENTAGE },

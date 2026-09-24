@@ -312,15 +312,25 @@ export const LETTER_BLOCK_DEFINITIONS: LetterBlockDefinition[] = [
   {
     id: "tanda_tangan_ganda",
     label: "Tanda Tangan (ganda)",
-    description: "Dua pihak penanda tangan berdampingan (mis. pihak A & B).",
+    description: "Dua pihak penanda tangan (bersebelahan kiri-kanan atau bertingkat / mengetahui).",
     group: "tanda_tangan",
     fields: [
-      { key: "kiri_jabatan", label: "Jabatan Kiri", type: "text", placeholder: "Ketua Komite" },
-      { key: "kiri_nama", label: "Nama Kiri", type: "text", allowVariables: true },
-      { key: "kiri_nip", label: "NIP Kiri", type: "text" },
-      { key: "kanan_jabatan", label: "Jabatan Kanan", type: "text", defaultValue: "Kepala Sekolah" },
-      { key: "kanan_nama", label: "Nama Kanan", type: "text", allowVariables: true },
-      { key: "kanan_nip", label: "NIP Kanan", type: "text", allowVariables: true },
+      {
+        key: "layout",
+        label: "Tata Letak",
+        type: "select",
+        defaultValue: "bersebelahan",
+        options: [
+          { value: "bersebelahan", label: "Bersebelahan (Sejajar Kiri - Kanan)" },
+          { value: "bertingkat", label: "Bertingkat (Kiri di Atas, Kanan/Mengetahui di Bawah)" },
+        ],
+      },
+      { key: "kiri_jabatan", label: "Jabatan Kiri / Pihak I", type: "text", placeholder: "Ketua Komite" },
+      { key: "kiri_nama", label: "Nama Kiri / Pihak I", type: "text", allowVariables: true },
+      { key: "kiri_nip", label: "NIP Kiri / Pihak I", type: "text" },
+      { key: "kanan_jabatan", label: "Jabatan Kanan / Mengetahui", type: "text", defaultValue: "Kepala Sekolah" },
+      { key: "kanan_nama", label: "Nama Kanan / Mengetahui", type: "text", allowVariables: true },
+      { key: "kanan_nip", label: "NIP Kanan / Mengetahui", type: "text", allowVariables: true },
       { key: "show_stamp", label: "Stempel di Kanan", type: "select", defaultValue: "false", options: [
         { value: "false", label: "Tidak" },
         { value: "true", label: "Ya" },

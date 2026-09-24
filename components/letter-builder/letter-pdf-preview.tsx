@@ -1,7 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, AlertTriangle, RefreshCw, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Loader2, AlertTriangle, RefreshCw, ZoomIn, ZoomOut, Maximize2, Expand } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { generateLetterPdf, type LetterPdfInput } from "@/lib/letter-pdf";
 import {
@@ -50,6 +56,7 @@ export function LetterPdfPreview(props: Props) {
   const [numPages, setNumPages] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [renderNonce, setRenderNonce] = useState(0);
+  const [fullscreenOpen, setFullscreenOpen] = useState(false);
 
   const renderPages = useCallback(async (pdfDoc: PdfDocumentProxy) => {
     const container = containerRef.current;
@@ -221,10 +228,22 @@ export function LetterPdfPreview(props: Props) {
               setRenderNonce((n) => n + 1);
             }}
             disabled={loading || !!error}
-            aria-label="Pas ke layar dan muat ulang"
-            title="Muat ulang"
+            aria-label="Pas ke layar"
+            title="Reset Zoom (100%)"
           >
             <Maximize2 className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={() => setFullscreenOpen(true)}
+            disabled={loading || !!error}
+            aria-label="Buka pratinjau penuh"
+            title="Pratinjau Layar Penuh"
+          >
+            <Expand className="h-3.5 w-3.5" />
           </Button>
           <Button
             type="button"
@@ -257,6 +276,18 @@ export function LetterPdfPreview(props: Props) {
           className="h-full w-full flex-1 overflow-auto bg-slate-200 p-4 dark:bg-zinc-800/40"
         />
       )}
+
+      {/* Modal Fullscreen Preview */}
+      <Dialog open={fullscreenOpen} onOpenChange={setFullscreenOpen}>
+        <DialogContent className="flex h-[92vh] max-w-5xl flex-col p-4">
+          <DialogHeader className="border-b pb-2">
+            <DialogTitle className="text-base font-semibold">Pratinjau Layar Penuh Dokumen</DialogTitle>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-hidden rounded-md border bg-zinc-100 dark:bg-zinc-950">
+            <LetterPdfPreview {...props} />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

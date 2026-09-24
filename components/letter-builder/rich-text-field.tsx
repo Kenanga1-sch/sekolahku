@@ -14,6 +14,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Bold,
   Italic,
   Underline as UnderlineIcon,
@@ -25,9 +31,11 @@ import {
   Undo,
   Redo,
   Variable,
+  Maximize2,
+  Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { LETTER_VARIABLES } from "@/lib/config/letter-variables";
+import { VariablePickerPopover } from "@/components/letter-builder/variable-picker-popover";
 import { normalizeRichValue } from "@/lib/letter-richtext";
 
 interface Props {
@@ -127,58 +135,10 @@ function Toolbar({
       {allowVariables && (
         <>
           <Separator orientation="vertical" className="mx-0.5 h-5" />
-          <VariableMenu onPick={onInsertVar} />
+          <VariablePickerPopover onSelect={onInsertVar} />
         </>
       )}
     </div>
-  );
-}
-
-function VariableMenu({ onPick }: { onPick: (token: string) => void }) {
-  const groups = useMemo(() => Object.entries(LETTER_VARIABLES), []);
-  const [open, setOpen] = useState(false);
-
-  const insert = useCallback(
-    (token: string) => {
-      onPick(token);
-      setOpen(false);
-    },
-    [onPick]
-  );
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-7 gap-1 px-1.5 text-xs text-muted-foreground"
-          aria-label="Sisipkan variabel"
-        >
-          <Variable className="h-3.5 w-3.5" /> Variabel
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="max-h-56 w-64 overflow-y-auto p-1">
-        {groups.map(([group, items]) => (
-          <div key={group} className="mb-1">
-            <p className="px-1 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
-              {group}
-            </p>
-            {items.map((it) => (
-              <button
-                key={it.value}
-                type="button"
-                className="block w-full rounded px-1 py-0.5 text-left text-xs hover:bg-accent"
-                onClick={() => insert(it.value)}
-              >
-                {it.label}
-              </button>
-            ))}
-          </div>
-        ))}
-      </PopoverContent>
-    </Popover>
   );
 }
 
@@ -194,6 +154,7 @@ export function RichTextField({
   className,
 }: Props) {
   const normalized = useMemo(() => normalizeRichValue(value), [value]);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -207,7 +168,7 @@ export function RichTextField({
     editorProps: {
       attributes: {
         class: cn(
-          "prose prose-sm dark:prose-invert max-w-none min-h-[80px] p-2 focus:outline-none",
+          "prose prose-sm dark:prose-invert max-w-none min-h-[90px] p-2.5 focus:outline-none",
           "[&_ul]:list-disc [&_ul]:ml-4 [&_ol]:list-decimal [&_ol]:ml-4 [&_p]:my-1"
         ),
       },
@@ -234,9 +195,44 @@ export function RichTextField({
   );
 
   return (
-    <div className={cn("overflow-hidden rounded-md border", className)}>
-      <Toolbar editor={editor} allowVariables={allowVariables} onInsertVar={insertVar} />
-      <EditorContent editor={editor} />
-    </div>
+    <>
+      <div className={cn("relative overflow-hidden rounded-md border bg-card", className)}>
+        <div className="flex items-center justify-between border-b bg-muted/20 pr-1">
+          <Toolbar editor={editor} allowVariables={allowVariables} onInsertVar={insertVar} />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+            onClick={() => setModalOpen(true)}
+            title="Perbesar Editor Teks"
+            aria-label="Perbesar editor teks"
+          >
+            <Maximize2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+        <EditorContent editor={editor} />
+      </div>
+
+      {/* Modal Full Editor untuk kenyamanan menulis panjang */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="flex h-[85vh] max-w-4xl flex-col p-4">
+          <DialogHeader className="border-b pb-2">
+            <DialogTitle className="text-base font-semibold">Editor Teks Kaya (Mode Fokus)</DialogTitle>
+          </DialogHeader>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border bg-card">
+            <Toolbar editor={editor} allowVariables={allowVariables} onInsertVar={insertVar} />
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              <EditorContent editor={editor} className="min-h-[400px]" />
+            </div>
+          </div>
+          <div className="flex justify-end pt-2">
+            <Button size="sm" onClick={() => setModalOpen(false)}>
+              <Check className="mr-1.5 h-4 w-4" /> Selesai
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

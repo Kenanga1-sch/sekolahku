@@ -695,98 +695,6 @@ export default function BuatSuratModularPage() {
             </p>
           </div>
         </div>
-        {step === "rakit" && (
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={handleUndo}
-              disabled={undoStack.length === 0}
-              aria-label="Batal perubahan"
-              title="Undo (Batal perubahan)"
-            >
-              <Undo2 className="h-4 w-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={handleRedo}
-              disabled={redoStack.length === 0}
-              aria-label="Ulang perubahan"
-              title="Redo (Ulang perubahan)"
-            >
-              <Redo2 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setDataPickerOpen(true)}
-              title="Pilih data siswa/guru untuk variabel"
-            >
-              <Users className="h-4 w-4 sm:mr-1.5" />
-              <span className="hidden sm:inline">Pilih Data</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setDocSettingsOpen(true)}
-              title="Ukuran kertas & tata letak"
-            >
-              <Settings2 className="h-4 w-4 sm:mr-1.5" />
-              <span className="hidden sm:inline">Kertas</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setTemplateOpen(true)}
-              title="Simpan/muat template modular"
-            >
-              <LayoutTemplate className="h-4 w-4 sm:mr-1.5" />
-              <span className="hidden sm:inline">Template</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={handleExportJson}
-              aria-label="Ekspor file JSON dokumen"
-              title="Ekspor JSON"
-            >
-              <Download className="h-4 w-4" />
-            </Button>
-            <label className="cursor-pointer">
-              <input
-                type="file"
-                accept=".json"
-                className="hidden"
-                onChange={handleImportJson}
-              />
-              <div className="flex h-8 w-8 items-center justify-center rounded-md border bg-background hover:bg-accent hover:text-accent-foreground" title="Impor JSON">
-                <Upload className="h-4 w-4" />
-              </div>
-            </label>
-            <Button variant="outline" size="sm" onClick={handlePrint} title="Cetak">
-              <Printer className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Cetak</span>
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={generating} title="Unduh PDF">
-              {generating ? <Loader2 className="h-4 w-4 animate-spin sm:mr-2" /> : <FileText className="h-4 w-4 sm:mr-2" />}
-              <span className="hidden sm:inline">PDF</span>
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleDownloadDocx} disabled={generatingDocx} title="Unduh Word">
-              {generatingDocx ? <Loader2 className="h-4 w-4 animate-spin sm:mr-2" /> : <FileDown className="h-4 w-4 sm:mr-2" />}
-              <span className="hidden sm:inline">Word</span>
-            </Button>
-            <Button size="sm" onClick={handleSubmit} disabled={saving} title="Simpan">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin sm:mr-2" /> : <Save className="h-4 w-4 sm:mr-2" />}
-              <span className="hidden sm:inline">{isEditMode ? "Perbarui Surat" : "Simpan ke Arsip"}</span>
-            </Button>
-          </div>
-        )}
       </div>
 
       {loadingExisting && (
@@ -836,38 +744,142 @@ export default function BuatSuratModularPage() {
       {/* STEP 2: rakit blok + preview */}
       {step === "rakit" && standard && doc && (
         <>
-          {/* ───────── DESKTOP (lg+): Ribbon atas + Sidebar kolom + Pratinjau ───────── */}
-          <div className="hidden min-h-0 flex-1 flex-col gap-3 lg:flex">
-            {/* Ribbon: palet blok di atas (layaknya ribbon Word) */}
-            <div className="flex min-h-0 shrink-0 items-start gap-3 rounded-lg border bg-card p-2">
-              <div className="flex shrink-0 flex-col items-center justify-center gap-1 self-stretch border-r pr-3">
-                <Plus className="h-4 w-4 text-blue-600" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Tambah Blok
-                </span>
-              </div>
-              <div className="min-w-0 flex-1">
-                <BlockPalette blocks={activeBlocks} onAdd={handlePaletteAdd} layout="ribbon" />
-              </div>
-            </div>
+          {/* ───────── DESKTOP (lg+): Layout Mentok — Pratinjau Kiri & Menu Kanan ───────── */}
+          <div className="hidden min-h-0 flex-1 gap-3 lg:grid lg:grid-cols-[1fr_420px]">
+            {/* Kolom Kiri: Pratinjau PDF Mentok Atas - Bawah */}
+            <div className="min-h-0 flex-1">{previewPanel}</div>
 
-            {/* Bodi: sidebar kiri + pratinjau kanan */}
-            <div className="grid min-h-0 flex-1 grid-cols-[340px_1fr] gap-3 overflow-hidden">
-              <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border bg-card">
+            {/* Kolom Kanan: Seluruh Menu & Editor (Scrollable) */}
+            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
+              {/* Card 1: Bilah Aksi & Metadata */}
+              <div className="rounded-lg border bg-card p-3 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-1.5 border-b pb-2">
+                  <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={handleUndo}
+                      disabled={undoStack.length === 0}
+                      aria-label="Batal perubahan"
+                      title="Undo (Batal)"
+                    >
+                      <Undo2 className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={handleRedo}
+                      disabled={redoStack.length === 0}
+                      aria-label="Ulang perubahan"
+                      title="Redo (Ulang)"
+                    >
+                      <Redo2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDataPickerOpen(true)}
+                      title="Pilih data siswa/guru"
+                    >
+                      <Users className="h-3.5 w-3.5 mr-1" />
+                      Data
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDocSettingsOpen(true)}
+                      title="Ukuran kertas & tata letak"
+                    >
+                      <Settings2 className="h-3.5 w-3.5 mr-1" />
+                      Kertas
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setTemplateOpen(true)}
+                      title="Simpan/muat template"
+                    >
+                      <LayoutTemplate className="h-3.5 w-3.5 mr-1" />
+                      Template
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Form Metadata Tanggal & Nomor */}
                 {metaPanel}
-                <div className="min-h-0 flex-1">
-                  <LetterDocumentEditor
-                    ref={docEditorRef}
-                    document={doc}
-                    onChange={setDoc}
-                    variant="compact"
-                    onActiveBlocksChange={setActiveBlocks}
-                    activePageIdx={activePageIdx}
-                    onActivePageIdxChange={setActivePageIdx}
-                  />
+
+                {/* Tombol Ekspor/Cetak/Simpan Utama */}
+                <div className="flex flex-wrap items-center justify-between gap-1.5 border-t pt-2">
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={handleExportJson}
+                      aria-label="Ekspor file JSON"
+                      title="Ekspor JSON"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept=".json"
+                        className="hidden"
+                        onChange={handleImportJson}
+                      />
+                      <div className="flex h-8 w-8 items-center justify-center rounded-md border bg-background hover:bg-accent hover:text-accent-foreground" title="Impor JSON">
+                        <Upload className="h-3.5 w-3.5" />
+                      </div>
+                    </label>
+                    <Button variant="outline" size="sm" onClick={handlePrint} title="Cetak">
+                      <Printer className="h-3.5 w-3.5 mr-1" />
+                      Cetak
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={generating} title="PDF">
+                      {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <FileText className="h-3.5 w-3.5 mr-1" />}
+                      PDF
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleDownloadDocx} disabled={generatingDocx} title="Word">
+                      {generatingDocx ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <FileDown className="h-3.5 w-3.5 mr-1" />}
+                      Word
+                    </Button>
+                    <Button size="sm" onClick={handleSubmit} disabled={saving} className="bg-blue-600 hover:bg-blue-700 text-white" title="Simpan">
+                      {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+                      {isEditMode ? "Perbarui" : "Simpan"}
+                    </Button>
+                  </div>
                 </div>
               </div>
-              <div className="min-h-0">{previewPanel}</div>
+
+              {/* Card 2: Ribbon Palet Tambah Blok */}
+              <div className="rounded-lg border bg-card p-3">
+                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <Plus className="h-3.5 w-3.5 text-blue-600" /> Tambah Blok Modular
+                </p>
+                <BlockPalette blocks={activeBlocks} onAdd={handlePaletteAdd} layout="grid" />
+              </div>
+
+              {/* Card 3: Form Editor Blok & Susunan Halaman */}
+              <div className="flex min-h-[450px] flex-col rounded-lg border bg-card overflow-hidden">
+                <LetterDocumentEditor
+                  ref={docEditorRef}
+                  document={doc}
+                  onChange={setDoc}
+                  variant="compact"
+                  onActiveBlocksChange={setActiveBlocks}
+                  activePageIdx={activePageIdx}
+                  onActivePageIdxChange={setActivePageIdx}
+                />
+              </div>
             </div>
           </div>
 

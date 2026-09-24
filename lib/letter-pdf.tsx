@@ -454,6 +454,42 @@ function renderBlock(
         </View>
       );
     case "tanda_tangan_ganda":
+      if (asString(d.layout) === "bertingkat") {
+        return (
+          <View style={{ marginTop: 12 }} key={key}>
+            {/* Pihak I di kanan atas */}
+            <View style={{ flexDirection: "row", justifyContent: "flex-end", marginBottom: 16 }}>
+              <View style={styles.ttdBox}>
+                <Text>{S(d.kiri_jabatan)}</Text>
+                <View style={styles.ttdSpace} />
+                <Text style={{ fontWeight: "bold", textDecoration: "underline" }}>
+                  {S(d.kiri_nama)}
+                </Text>
+                {!isEmptyText(d.kiri_nip) && <Text>NIP. {S(d.kiri_nip)}</Text>}
+              </View>
+            </View>
+            {/* Mengetahui di bawah tengah */}
+            <View style={{ flexDirection: "row", justifyContent: "center" }}>
+              <View style={styles.ttdBox}>
+                <Text style={{ marginBottom: 2 }}>Mengetahui,</Text>
+                <Text>{S(d.kanan_jabatan) || school.principalName}</Text>
+                {asString(d.show_stamp) === "true" && school.stampUrl ? (
+                  // eslint-disable-next-line jsx-a11y/alt-text
+                  <Image src={school.stampUrl} style={styles.stamp} />
+                ) : (
+                  <View style={styles.ttdSpace} />
+                )}
+                <Text style={{ fontWeight: "bold", textDecoration: "underline" }}>
+                  {S(d.kanan_nama) || school.principalName}
+                </Text>
+                {(!isEmptyText(d.kanan_nip) || school.principalNip) && (
+                  <Text>NIP. {S(d.kanan_nip) || school.principalNip}</Text>
+                )}
+              </View>
+            </View>
+          </View>
+        );
+      }
       return (
         <View style={styles.ttdWrap} key={key}>
           <View style={styles.ttdBox}>

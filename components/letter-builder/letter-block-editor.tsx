@@ -33,9 +33,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import {
-  LETTER_VARIABLES,
-} from "@/lib/config/letter-variables";
+import { VariablePickerPopover } from "@/components/letter-builder/variable-picker-popover";
 import {
   createBlockInstance,
   findMissingRequired,
@@ -72,45 +70,12 @@ function BlockFieldInput({
   onValue: (v: string) => void;
 }) {
   const strVal = value === null || value === undefined ? "" : String(value);
-  const [showVars, setShowVars] = useState(false);
 
   const variablePicker = field.allowVariables && (
     <div className="mt-1">
-      <Popover open={showVars} onOpenChange={setShowVars}>
-        <PopoverTrigger asChild>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 gap-1 text-xs"
-            aria-label="Sisipkan variabel"
-          >
-            <Variable className="h-3 w-3" /> Variabel
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent align="start" className="max-h-60 w-64 overflow-y-auto p-1">
-          {Object.entries(LETTER_VARIABLES).map(([group, items]) => (
-            <div key={group} className="mb-1">
-              <p className="px-1 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
-                {group}
-              </p>
-              {items.map((it) => (
-                <button
-                  key={it.value}
-                  type="button"
-                  className="block w-full rounded px-1 py-0.5 text-left text-xs hover:bg-accent"
-                  onClick={() => {
-                    onValue(`${strVal}${strVal ? " " : ""}${it.value}`);
-                    setShowVars(false);
-                  }}
-                >
-                  {it.label}
-                </button>
-              ))}
-            </div>
-          ))}
-        </PopoverContent>
-      </Popover>
+      <VariablePickerPopover
+        onSelect={(token) => onValue(`${strVal}${strVal ? " " : ""}${token}`)}
+      />
     </div>
   );
 

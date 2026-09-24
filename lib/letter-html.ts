@@ -184,6 +184,16 @@ function renderBlock(
         </div>
       </div>`;
     case "tanda_tangan_ganda":
+      if (asString(d.layout) === "bertingkat") {
+        return `<div style="margin-top:16px">
+          <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+            <div class="ttd-box" style="float:none"><p>${S(d.kiri_jabatan)}</p><div class="ttd-space"></div><p><strong><u>${S(d.kiri_nama)}</u></strong></p>${!isEmptyText(d.kiri_nip) ? `<p>NIP. ${S(d.kiri_nip)}</p>` : ""}</div>
+          </div>
+          <div style="display:flex;justify-content:center">
+            <div class="ttd-box" style="float:none"><p style="margin-bottom:2px">Mengetahui,</p><p>${S(d.kanan_jabatan) || esc(school.principalName || "")}</p><div class="ttd-space"></div><p><strong><u>${S(d.kanan_nama) || esc(school.principalName || "")}</u></strong></p><p>NIP. ${S(d.kanan_nip) || esc(school.principalNip || "")}</p></div>
+          </div>
+        </div>`;
+      }
       return `<div class="ttd">
         <div class="ttd-box"><p>${S(d.kiri_jabatan)}</p><div class="ttd-space"></div><p><strong><u>${S(d.kiri_nama)}</u></strong></p>${!isEmptyText(d.kiri_nip) ? `<p>NIP. ${S(d.kiri_nip)}</p>` : ""}</div>
         <div class="ttd-box"><p>${S(d.kanan_jabatan)}</p><div class="ttd-space"></div><p><strong><u>${S(d.kanan_nama) || esc(school.principalName || "")}</u></strong></p><p>NIP. ${S(d.kanan_nip) || esc(school.principalNip || "")}</p></div>
