@@ -3,7 +3,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import {
   Trash2,
-  GripVertical,
   Copy,
   FilePlus2,
   Eye,
@@ -22,6 +21,7 @@ import {
   type LetterBlockInstance,
 } from "@/lib/config/letter-blocks";
 import { LetterBlockEditor } from "@/components/letter-builder/letter-block-editor";
+import { SortableList } from "@/components/letter-builder/sortable-list";
 
 interface Props {
   document: LetterDocumentData;
@@ -156,6 +156,14 @@ export const LetterDocumentEditor = forwardRef<LetterDocumentEditorHandle, Props
     setActivePageIdx(target);
   };
 
+  const reorderPages = (next: LetterPage[]) => {
+    updatePages(next);
+    // Jaga halaman aktif tetap menyorot halaman yang sama setelah urutan berubah.
+    const activeId = pages[safeIdx]?.id;
+    const newIdx = next.findIndex((p) => p.id === activeId);
+    if (newIdx >= 0) setActivePageIdx(newIdx);
+  };
+
   const setPageName = (idx: number, name: string) => {
     updatePages(pages.map((p, i) => (i === idx ? { ...p, name } : p)));
   };
@@ -184,20 +192,24 @@ export const LetterDocumentEditor = forwardRef<LetterDocumentEditorHandle, Props
             <FilePlus2 className="h-3.5 w-3.5" /> Halaman
           </Button>
         </div>
-        <div className="space-y-1">
-          {pages.map((p, idx) => (
+        <SortableList
+          items={pages}
+          getId={(p) => p.id}
+          onReorder={reorderPages}
+          ariaItemLabel={(p) => `Pindahkan halaman ${p.name}`}
+          renderItem={(p, idx, handle) => (
             <div
-              key={p.id}
               className={`flex items-center gap-1 rounded-md border px-1.5 py-1 ${
                 idx === safeIdx ? "border-blue-400 bg-blue-50 dark:bg-blue-950/30" : "bg-card"
               }`}
             >
-              <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              {handle}
               {renaming === p.id ? (
                 <input
                   ref={renameRef}
                   autoFocus
                   defaultValue={p.name}
+                  aria-label="Nama halaman"
                   className="min-w-0 flex-1 rounded border bg-background px-1 text-xs"
                   onBlur={(e) => {
                     setPageName(idx, e.target.value || p.name);
@@ -233,6 +245,7 @@ export const LetterDocumentEditor = forwardRef<LetterDocumentEditorHandle, Props
                   size="icon"
                   className="h-5 w-5"
                   onClick={() => toggleHeader(idx)}
+                  aria-label={p.useHeader ? "Matikan kop halaman" : "Pakai kop halaman"}
                   title={p.useHeader ? "Matikan kop" : "Pakai kop"}
                 >
                   {p.useHeader ? (
@@ -248,6 +261,7 @@ export const LetterDocumentEditor = forwardRef<LetterDocumentEditorHandle, Props
                   className="h-5 w-5"
                   onClick={() => movePage(idx, -1)}
                   disabled={idx === 0}
+                  aria-label="Pindahkan halaman ke atas"
                   title="Naik"
                 >
                   ↑
@@ -259,6 +273,7 @@ export const LetterDocumentEditor = forwardRef<LetterDocumentEditorHandle, Props
                   className="h-5 w-5"
                   onClick={() => movePage(idx, 1)}
                   disabled={idx === pages.length - 1}
+                  aria-label="Pindahkan halaman ke bawah"
                   title="Turun"
                 >
                   ↓
@@ -269,6 +284,7 @@ export const LetterDocumentEditor = forwardRef<LetterDocumentEditorHandle, Props
                   size="icon"
                   className="h-5 w-5"
                   onClick={() => duplicatePage(idx)}
+                  aria-label="Duplikat halaman"
                   title="Duplikat halaman"
                 >
                   <Copy className="h-3 w-3" />
@@ -280,14 +296,15 @@ export const LetterDocumentEditor = forwardRef<LetterDocumentEditorHandle, Props
                   className="h-5 w-5 text-red-600 hover:text-red-700"
                   onClick={() => removePage(idx)}
                   disabled={pages.length <= 1}
+                  aria-label="Hapus halaman"
                   title="Hapus halaman"
                 >
                   <Trash2 className="h-3 w-3" />
                 </Button>
               </div>
             </div>
-          ))}
-        </div>
+          )}
+        />
       </div>
 
       {/* Editor blok halaman aktif */}

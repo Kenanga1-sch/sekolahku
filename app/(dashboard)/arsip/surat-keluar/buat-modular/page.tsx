@@ -13,6 +13,8 @@ import {
   Plus,
   LayoutList,
   Eye,
+  RefreshCw,
+  LayoutTemplate,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +33,10 @@ import {
   type LetterDocumentEditorHandle,
 } from "@/components/letter-builder/letter-document-editor";
 import { BlockPalette } from "@/components/letter-builder/block-palette";
+import {
+  TemplatePickerDialog,
+  type ModularTemplate,
+} from "@/components/letter-builder/template-picker-dialog";
 import {
   createDocumentFromBlocks,
   migrateContentBlocksToDocument,
@@ -80,6 +86,7 @@ export default function BuatSuratModularPage() {
   const [generatingDocx, setGeneratingDocx] = useState(false);
   const [loadingExisting, setLoadingExisting] = useState(false);
   const [existingStatus, setExistingStatus] = useState<string>("");
+  const [templateOpen, setTemplateOpen] = useState(false);
 
   const [meta, setMeta] = useState({
     dateOfLetter: new Date().toISOString().split("T")[0],
@@ -97,6 +104,15 @@ export default function BuatSuratModularPage() {
   const [activeBlocks, setActiveBlocks] = useState<LetterBlockInstance[]>([]);
   /** Indeks halaman aktif yang dibagikan antar tampilan (desktop & mobile). */
   const [activePageIdx, setActivePageIdx] = useState(0);
+
+  // Satu sumber kebenaran: bila jumlah halaman menyusut (mis. hapus halaman),
+  // klem indeks agar kedua instance editor (desktop & mobile) tetap sinkron.
+  useEffect(() => {
+    const total = doc?.pages.length ?? 0;
+    if (total > 0 && activePageIdx > total - 1) {
+      setActivePageIdx(total - 1);
+    }
+  }, [doc?.pages.length, activePageIdx]);
 
   const pdfRef = useRef<LetterPdfInput | null>(null);
   const docEditorRef = useRef<LetterDocumentEditorHandle>(null);
@@ -202,6 +218,21 @@ export default function BuatSuratModularPage() {
     () => (selectedType ? getLetterStandard(selectedType.standardCategory) : null),
     [selectedType]
   );
+
+  /** Muat dokumen dari template modular tersimpan. */
+  const handleLoadTemplate = (tpl: ModularTemplate) => {
+    try {
+      const migrated = migrateContentBlocksToDocument(tpl.documentJson);
+      const ltId = migrated.letterTypeId ?? null;
+      const opt = ltId != null ? letterTypeOptions.find((o) => o.id === ltId) : undefined;
+      if (opt) setSelectedType(opt);
+      setDoc(migrated);
+      setStep("rakit");
+      toast.success(`Template "${tpl.name}" dimuat`);
+    } catch {
+      toast.error("Template tidak dapat dibaca");
+    }
+  };
 
   // Variabel terisi otomatis dari pengaturan + meta.
   const vars = useMemo<Record<string, string>>(() => {
@@ -410,8 +441,16 @@ export default function BuatSuratModularPage() {
               classificationCode: selectedType.kodeKlasifikasi,
               recipient: extractRecipient(doc) || "-",
             });
-          } catch {
-            // Nomor mungkin sudah dipakai; surat tetap tersimpan.
+          } catch (incErr) {
+            // Surat sudah tersimpan, tetapi pencatatan nomor gagal → beri tahu
+            // agar pengguna dapat mencoba lagi / memakai nomor manual.
+            toast.warning(
+              `Surat tersimpan, tetapi nomor urut gagal dicatat: ${
+                incErr instanceof Error ? incErr.message : "tidak diketahui"
+              }. Periksa agar nomor tidak terpakai ganda.`
+            );
+            router.push("/arsip/surat-keluar");
+            return;
           }
         }
         toast.success("Surat modular berhasil dibuat!");
@@ -458,17 +497,39 @@ export default function BuatSuratModularPage() {
             onChange={(e) => setManualNumber(e.target.value)}
           />
         ) : (
-          <div className="flex h-8 items-center rounded-md border bg-muted/40 px-2 text-sm">
-            {numbering.loading ? (
-              <span className="flex items-center gap-1 text-muted-foreground">
-                <Loader2 className="h-3 w-3 animate-spin" /> Menghitung…
-              </span>
-            ) : (
-              <span className="truncate font-mono text-xs" title={autoNumber}>
-                {autoNumber || "— (pilih jenis surat)"}
-              </span>
-            )}
+          <div className="flex items-center gap-1">
+            <div className="flex h-8 flex-1 items-center rounded-md border bg-muted/40 px-2 text-sm">
+              {numbering.loading ? (
+                <span className="flex items-center gap-1 text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Menghitung…
+                </span>
+              ) : (
+                <span className="truncate font-mono text-xs" title={autoNumber}>
+                  {autoNumber || "— (pilih jenis surat)"}
+                </span>
+              )}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              onClick={() => numbering.refresh()}
+              disabled={numbering.loading || !selectedType}
+              aria-label="Hitung ulang nomor surat"
+              title="Hitung ulang nomor"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${numbering.loading ? "animate-spin" : ""}`} />
+            </Button>
           </div>
+        )}
+        {!useManualNumber && selectedType && (
+          <p className="text-[10px] text-muted-foreground">
+            Urut ke-{numbering.sequence} • Format:{" "}
+            <span className="font-mono">
+              {selectedType.formatNomor || settings.letter_number_format || "—"}
+            </span>
+          </p>
         )}
       </div>
     </div>
@@ -477,9 +538,6 @@ export default function BuatSuratModularPage() {
   // Panel pratinjau PDF — dipakai di kolom kanan desktop & tab mobile.
   const previewPanel = standard && doc && (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border bg-zinc-100 dark:bg-zinc-950">
-      <div className="border-b bg-card px-3 py-2 text-xs font-medium text-muted-foreground">
-        Pratinjau (sesuai hasil cetak)
-      </div>
       <div className="min-h-0 flex-1">
         <PDFPreview standard={standard} document={doc} school={school} vars={vars} />
       </div>
@@ -508,6 +566,15 @@ export default function BuatSuratModularPage() {
         </div>
         {step === "rakit" && (
           <div className="flex flex-wrap gap-1.5 sm:gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setTemplateOpen(true)}
+              title="Simpan/muat template modular"
+            >
+              <LayoutTemplate className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Template</span>
+            </Button>
             <Button variant="outline" size="sm" onClick={handlePrint} title="Cetak">
               <Printer className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Cetak</span>
@@ -663,6 +730,22 @@ export default function BuatSuratModularPage() {
             </Tabs>
           </div>
         </>
+      )}
+
+      {doc && (
+        <TemplatePickerDialog
+          open={templateOpen}
+          onOpenChange={setTemplateOpen}
+          currentDocumentJson={serializeDocument({
+            ...doc,
+            letterTypeId: selectedType?.id ?? doc.letterTypeId,
+            jenisSurat: selectedType?.jenisSurat ?? doc.jenisSurat,
+            standardCategory: selectedType?.standardCategory ?? doc.standardCategory,
+          })}
+          defaultName={selectedType ? `Standar ${selectedType.jenisSurat}` : "Template Modular"}
+          category={selectedType?.kategori || "Umum"}
+          onLoad={handleLoadTemplate}
+        />
       )}
     </div>
   );

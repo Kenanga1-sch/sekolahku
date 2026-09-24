@@ -5,7 +5,6 @@ import {
   Trash2,
   ChevronUp,
   ChevronDown,
-  GripVertical,
   Eye,
   EyeOff,
   Variable,
@@ -23,6 +22,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Accordion,
   AccordionContent,
@@ -42,6 +46,7 @@ import {
 import { RichTextField } from "@/components/letter-builder/rich-text-field";
 import { TableField } from "@/components/letter-builder/table-field";
 import { BlockPalette } from "@/components/letter-builder/block-palette";
+import { SortableList } from "@/components/letter-builder/sortable-list";
 
 interface LetterBlockEditorProps {
   blocks: LetterBlockInstance[];
@@ -71,17 +76,19 @@ function BlockFieldInput({
 
   const variablePicker = field.allowVariables && (
     <div className="mt-1">
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="h-7 text-xs gap-1"
-        onClick={() => setShowVars((s) => !s)}
-      >
-        <Variable className="h-3 w-3" /> Variabel
-      </Button>
-      {showVars && (
-        <div className="mt-1 max-h-40 overflow-y-auto rounded border bg-popover p-1 shadow-md">
+      <Popover open={showVars} onOpenChange={setShowVars}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7 gap-1 text-xs"
+            aria-label="Sisipkan variabel"
+          >
+            <Variable className="h-3 w-3" /> Variabel
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="max-h-60 w-64 overflow-y-auto p-1">
           {Object.entries(LETTER_VARIABLES).map(([group, items]) => (
             <div key={group} className="mb-1">
               <p className="px-1 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
@@ -102,8 +109,8 @@ function BlockFieldInput({
               ))}
             </div>
           ))}
-        </div>
-      )}
+        </PopoverContent>
+      </Popover>
     </div>
   );
 
@@ -260,93 +267,102 @@ export function LetterBlockEditor({
         <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
           {pageName ? `Susunan — ${pageName}` : "Susunan Surat"} ({blocks.length})
         </p>
-        <div className="space-y-1">
-          {blocks.length === 0 && (
-            <p className="py-4 text-center text-xs text-muted-foreground">
-              Belum ada blok. Tambahkan dari daftar di bawah.
-            </p>
-          )}
-          {blocks.map((b, idx) => {
-            const def = getBlockDefinition(b.blockId);
-            if (!def) return null;
-            const hasError = missingRequired.has(b.instanceId);
-            return (
-              <div
-                key={b.instanceId}
-                className={`flex items-center gap-1 rounded-md border px-2 py-1.5 ${
-                  hasError ? "border-red-300 bg-red-50 dark:bg-red-950/20" : "bg-card"
-                }`}
-              >
-                <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate text-xs font-medium">
-                  {def.label}
-                </span>
-                {hasError && (
-                  <span title="Ada field wajib yang belum diisi">
-                    <AlertCircle className="h-3.5 w-3.5 shrink-0 text-red-600" />
+        {blocks.length === 0 ? (
+          <p className="py-4 text-center text-xs text-muted-foreground">
+            Belum ada blok. Tambahkan dari daftar di bawah.
+          </p>
+        ) : (
+          <SortableList
+            items={blocks}
+            getId={(b) => b.instanceId}
+            onReorder={onChange}
+            ariaItemLabel={(b) => `Pindahkan blok ${getBlockDefinition(b.blockId)?.label ?? ""}`}
+            renderItem={(b, idx, handle) => {
+              const def = getBlockDefinition(b.blockId);
+              if (!def) return null;
+              const hasError = missingRequired.has(b.instanceId);
+              return (
+                <div
+                  className={`flex items-center gap-1 rounded-md border px-2 py-1.5 ${
+                    hasError ? "border-red-300 bg-red-50 dark:bg-red-950/20" : "bg-card"
+                  }`}
+                >
+                  {handle}
+                  <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                    {def.label}
                   </span>
-                )}
-                <div className="flex shrink-0 items-center gap-0.5">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={() => updateBlock(b.instanceId, { enabled: !b.enabled })}
-                    title={b.enabled ? "Sembunyikan" : "Tampilkan"}
-                  >
-                    {b.enabled ? (
-                      <Eye className="h-3.5 w-3.5" />
-                    ) : (
-                      <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
-                    )}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    disabled={idx === 0}
-                    onClick={() => moveBlock(idx, -1)}
-                  >
-                    <ChevronUp className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    disabled={idx === blocks.length - 1}
-                    onClick={() => moveBlock(idx, 1)}
-                  >
-                    <ChevronDown className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={() => duplicateBlock(b.instanceId)}
-                    title="Duplikat blok"
-                  >
-                    <Copy className="h-3 w-3" />
-                  </Button>
-                  {!def.required && (
+                  {hasError && (
+                    <span title="Ada field wajib yang belum diisi">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0 text-red-600" />
+                    </span>
+                  )}
+                  <div className="flex shrink-0 items-center gap-0.5">
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 text-red-600 hover:text-red-700"
-                      onClick={() => removeBlock(b.instanceId)}
+                      className="h-6 w-6"
+                      onClick={() => updateBlock(b.instanceId, { enabled: !b.enabled })}
+                      aria-label={b.enabled ? "Sembunyikan blok" : "Tampilkan blok"}
+                      title={b.enabled ? "Sembunyikan" : "Tampilkan"}
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      {b.enabled ? (
+                        <Eye className="h-3.5 w-3.5" />
+                      ) : (
+                        <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                      )}
                     </Button>
-                  )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      disabled={idx === 0}
+                      onClick={() => moveBlock(idx, -1)}
+                      aria-label="Pindahkan blok ke atas"
+                    >
+                      <ChevronUp className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      disabled={idx === blocks.length - 1}
+                      onClick={() => moveBlock(idx, 1)}
+                      aria-label="Pindahkan blok ke bawah"
+                    >
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => duplicateBlock(b.instanceId)}
+                      aria-label="Duplikat blok"
+                      title="Duplikat blok"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                    {!def.required && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-red-600 hover:text-red-700"
+                        onClick={() => removeBlock(b.instanceId)}
+                        aria-label="Hapus blok"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            }}
+          />
+        )}
       </div>
 
       {/* Tambah blok — hanya di varian sidebar (mobile). Di desktop palet

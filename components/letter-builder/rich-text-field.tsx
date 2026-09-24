@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
@@ -8,6 +8,11 @@ import TextAlign from "@tiptap/extension-text-align";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Bold,
   Italic,
@@ -131,20 +136,30 @@ function Toolbar({
 
 function VariableMenu({ onPick }: { onPick: (token: string) => void }) {
   const groups = useMemo(() => Object.entries(LETTER_VARIABLES), []);
+  const [open, setOpen] = useState(false);
 
   const insert = useCallback(
     (token: string) => {
       onPick(token);
+      setOpen(false);
     },
     [onPick]
   );
 
   return (
-    <details className="group">
-      <summary className="flex h-7 cursor-pointer list-none items-center gap-1 rounded px-1.5 text-xs text-muted-foreground hover:bg-muted">
-        <Variable className="h-3.5 w-3.5" /> Variabel
-      </summary>
-      <div className="absolute left-0 z-50 mt-1 max-h-56 w-64 overflow-y-auto rounded border bg-popover p-1 shadow-md">
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-7 gap-1 px-1.5 text-xs text-muted-foreground"
+          aria-label="Sisipkan variabel"
+        >
+          <Variable className="h-3.5 w-3.5" /> Variabel
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="max-h-56 w-64 overflow-y-auto p-1">
         {groups.map(([group, items]) => (
           <div key={group} className="mb-1">
             <p className="px-1 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
@@ -162,8 +177,8 @@ function VariableMenu({ onPick }: { onPick: (token: string) => void }) {
             ))}
           </div>
         ))}
-      </div>
-    </details>
+      </PopoverContent>
+    </Popover>
   );
 }
 
