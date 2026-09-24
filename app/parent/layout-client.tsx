@@ -18,8 +18,7 @@ import { AccountAvatarMenu } from "@/components/ui/account-avatar-menu";
 import { goGet } from "@/lib/api-client";
 import { useStableViewportHeight } from "@/lib/hooks/use-viewport-height";
 
-// Urutan menentukan slot bottom nav mobile: 3 pertama mengisi slot link
-// (Beranda, Tabungan, Presensi), sisanya hanya tampil di bottom sheet FAB.
+// Daftar sumber lengkap (urutan di sini tidak menentukan tampilan).
 const NAV_ITEMS: BottomNavItem[] = [
   { href: "/parent", label: "Beranda", icon: Home, exact: true },
   { href: "/parent/tabungan", label: "Tabungan", icon: Wallet },
@@ -32,6 +31,18 @@ const NAV_ITEMS: BottomNavItem[] = [
   { href: "/parent/notifikasi", label: "Notifikasi", icon: Bell },
   { href: "/parent/profil", label: "Profil", icon: User },
 ];
+
+// Urutkan berdasar abjad label (Indonesia-aware). Dipakai untuk sidebar
+// desktop dan bottom sheet mobile ("Menu Navigasi") yang berbagi daftar sama.
+const byLabel = (a: BottomNavItem, b: BottomNavItem) =>
+  a.label.localeCompare(b.label, "id", { sensitivity: "base" });
+const NAV_ITEMS_SORTED: BottomNavItem[] = [...NAV_ITEMS].sort(byLabel);
+
+// Slot bottom nav mobile di-pin (3 pertama mengisi slot link; sisanya di sheet).
+const MOBILE_PINNED_HREFS = ["/parent", "/parent/tabungan", "/parent/presensi"];
+const NAV_ITEMS_MOBILE: BottomNavItem[] = MOBILE_PINNED_HREFS
+  .map((href) => NAV_ITEMS.find((item) => item.href === href))
+  .filter((item): item is BottomNavItem => Boolean(item));
 
 // Judul halaman di header mobile (pola sama dengan dashboard).
 const PAGE_TITLES: Record<string, string> = {
@@ -123,7 +134,7 @@ export default function ParentLayoutClient({ children }: { children: React.React
               </div>
 
               <div className="mt-6 md:mt-8 flex flex-col gap-2 flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
-                {NAV_ITEMS.map((item) => (
+                {NAV_ITEMS_SORTED.map((item) => (
                   <SidebarLink
                     key={item.href}
                     link={{
@@ -196,7 +207,7 @@ export default function ParentLayoutClient({ children }: { children: React.React
 
       {/* Bottom nav mobile: 3 slot link + FAB (buka bottom sheet) + avatar */}
       <div className="print:hidden">
-        <BottomNav items={NAV_ITEMS} onMenuClick={() => setOpen(true)} profileHref="/parent/profil" />
+        <BottomNav items={NAV_ITEMS_MOBILE} onMenuClick={() => setOpen(true)} profileHref="/parent/profil" />
       </div>
     </div>
   );

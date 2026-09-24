@@ -7,7 +7,6 @@ import { useRouter, usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
-  CalendarDays,
   GraduationCap,
   Bell,
   Home,
@@ -34,9 +33,9 @@ import {
   ChevronUp,
   Menu,
   Sprout,
-  BarChart3,
   Backpack,
-  ClipboardCheck,
+  Printer,
+  Cloud,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
@@ -90,6 +89,10 @@ const PAGE_TITLES: Record<string, string> = {
   "/arsip/laporan": "Laporan Arsip",
   "/arsip/pengaturan": "Pengaturan Arsip",
   "/arsip": "E-Arsip",
+  // DocStation
+  "/docstation": "DocStation",
+  // Cloud Storage
+  "/cloud-storage": "Cloud Storage",
   // Tabungan
   "/tabungan/riwayat": "Riwayat Transaksi",
   "/tabungan/siswa": "Tabungan Siswa",
@@ -103,6 +106,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/tabungan/scan": "Scan Tabungan",
   "/tabungan": "Tabungan",
   // Presensi
+  "/presensi/pengajuan": "Pengajuan Izin",
   "/presensi/laporan": "Laporan Presensi",
   "/presensi/scan": "Scan Presensi",
   "/presensi/holidays": "Hari Libur",
@@ -120,6 +124,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/siswa": "Manajemen Siswa",
   "/admin/master/gtk": "Direktori GTK",
   "/admin/akademik": "Akademik",
+  "/admin/surat/jenis": "Jenis Surat",
   "/admin/surat/template": "Template Surat",
   "/admin/surat": "Surat",
   "/admin/konten-informasi": "Pusat Informasi",
@@ -178,10 +183,10 @@ interface NavGroup {
 
 const ADMIN_ROLES: UserRole[] = ["admin", "superadmin"];
 const SYSTEM_ADMIN_ROLES: UserRole[] = ["admin", "superadmin"];
-// Panitia SPMB = role staff; admin/superadmin tetap bisa input pendaftar.
-const SPMB_ROLES: UserRole[] = ["admin", "superadmin", "staff"];
 const INVENTARIS_ROLES: UserRole[] = ["admin", "superadmin", "guru", "staff"];
 const GURU_ACCESS_ROLES: UserRole[] = ["admin", "superadmin", "guru"]; 
+const DOCSTATION_ROLES: UserRole[] = ["admin", "superadmin", "staff"];
+const CLOUDSTORAGE_ROLES: UserRole[] = ["admin", "superadmin", "staff", "guru"];
 const ALL_DASHBOARD_ROLES: UserRole[] = ["admin", "superadmin", "guru", "staff", "siswa"];
 const TABUNGAN_ROLES: UserRole[] = ["admin", "superadmin", "guru", "staff"];
 const SISWA_ROLES: UserRole[] = ["siswa"];
@@ -206,19 +211,16 @@ const navGroups: NavGroup[] = [
       { href: "/perpustakaan", label: "Perpustakaan", icon: Library, roles: ADMIN_ROLES },
       { href: "/inventaris", label: "Inventaris", icon: Package, roles: INVENTARIS_ROLES },
       { href: "/arsip", label: "E-Arsip", icon: FileText, roles: ADMIN_ROLES },
+      { href: "/docstation", label: "DocStation", icon: Printer, roles: DOCSTATION_ROLES },
+      { href: "/cloud-storage", label: "Cloud Storage", icon: Cloud, roles: CLOUDSTORAGE_ROLES },
     ],
   },
   {
     label: "Manajemen Siswa",
     items: [
-      { href: "/admin/siswa", label: "Manajemen Siswa", icon: Users, roles: ADMIN_ROLES },
-      { href: "/admin/siswa/spmb-tambah", label: "Input Pendaftar SPMB", icon: ClipboardCheck, roles: SPMB_ROLES },
+      { href: "/admin/siswa", label: "Manajemen Siswa", icon: Users, roles: GURU_ACCESS_ROLES },
       { href: "/bank-soal", label: "Bank Soal", icon: BookOpen, roles: GURU_ACCESS_ROLES },
-      { href: "/tugas", label: "Tugas & PR", icon: Backpack, roles: GURU_ACCESS_ROLES },
-      { href: "/ruang-tumbuh/guru", label: "Skrining Siswa", icon: Sprout, roles: GURU_ACCESS_ROLES },
-      { href: "/ruang-tumbuh/staff", label: "Agregat Skrining", icon: BarChart3, roles: ADMIN_ROLES },
       { href: "/presensi", label: "Presensi", icon: ClipboardList, roles: GURU_ACCESS_ROLES },
-      { href: "/presensi/pengajuan", label: "Pengajuan Izin", icon: CalendarDays, roles: GURU_ACCESS_ROLES },
       { href: "/tabungan", label: "Tabungan Siswa", icon: Wallet, roles: TABUNGAN_ROLES },
     ],
   },
@@ -265,7 +267,9 @@ function filterNavByRole(groups: NavGroup[], userRole?: UserRole): NavGroup[] {
           if (!hasAccess(item.roles)) return null;
           return item;
         })
-        .filter((item): item is NavItem => item !== null);
+        .filter((item): item is NavItem => item !== null)
+        // Urutkan menu navigasi berdasarkan abjad label (Indonesia-aware).
+        .sort((a, b) => a.label.localeCompare(b.label, "id", { sensitivity: "base" }));
 
       return {
         ...group,
