@@ -1,0 +1,23 @@
+# Abaikan artefak build & dependency di dalam folder integrations/.
+# Kode sumber yang disimpan sebaiknya bersih (hanya source), tanpa node_modules
+# / hasil build, supaya repo tidak membengkak.
+
+node_modules/
+dist/
+build/
+out/
+.next/
+coverage/
+*.log
+
+# Artefak bahasa lain (jika ada)
+__pycache__/
+*.pyc
+target/
+bin/
+obj/
+
+# Arsip/salinan yang tidak perlu dilacak
+*.zip
+*.tar.gz
+*.7z

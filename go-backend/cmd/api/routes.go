@@ -52,6 +52,7 @@ type Repositories struct {
 	Chat           *repository.ChatRepository
 	Skrining       *repository.SkriningRepository
 	Tugas          *repository.TugasRepository
+	CloudStorage   *repository.CloudStorageRepository
 }
 
 // AllHandlers holds all HTTP handler instances.
@@ -96,6 +97,8 @@ type AllHandlers struct {
 	Skrining       *handlers.SkriningHandler
 	Tugas          *handlers.TugasHandler
 	File           *handlers.FileHandler
+	DocStation     *handlers.DocStationHandler
+	CloudStorage   *handlers.CloudStorageHandler
 	// PushSvc dipakai handler lain (absen, tabungan, pengumuman) untuk
 	// mengirim push ke orang tua.
 	PushSvc *push.Service
@@ -227,7 +230,7 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	// respons hanya pada field aman (tanpa harga, catatan, user_id).
 	publicGroup.GET("/inventory/label", h.Inventory.GetPublicLabel)
 	publicGroup.POST("/sync/dapodik/students", h.Sync.SyncDapodikStudents)
-	
+
 	// Public Library Routes - no auth required, read-only with caching
 	publicGroup.GET("/library/books", h.PublicLibrary.GetBooks)
 	publicGroup.GET("/library/books/:id", h.PublicLibrary.GetBook)
@@ -545,7 +548,7 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	guruGroup.POST("/kiosk/attendance", h.Attendance.KioskRecordAttendance)
 	guruGroup.POST("/kiosk/savings-deposit", h.Savings.KioskDeposit)
 	guruGroup.GET("/kiosk/savings-lookup", h.Savings.GetSiswa)
-	
+
 	// Library Booking Routes (authenticated only - students, teachers, staff)
 	guruGroup.POST("/library/bookings", h.Booking.CreateBooking)
 	guruGroup.GET("/library/bookings", h.Booking.GetMyBookings)
@@ -592,6 +595,10 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	adminGroup.DELETE("/eoffice/klasifikasi/:code", h.EOffice.DeleteKlasifikasi)
 	adminGroup.POST("/eoffice/letter-numbering", h.EOffice.Numbering)
 	adminGroup.POST("/eoffice/letter-increment", h.EOffice.Increment)
+	adminGroup.GET("/eoffice/letter-types", h.EOffice.GetLetterTypes)
+	adminGroup.POST("/eoffice/letter-types", h.EOffice.CreateLetterType)
+	adminGroup.PUT("/eoffice/letter-types/:id", h.EOffice.UpdateLetterType)
+	adminGroup.DELETE("/eoffice/letter-types/:id", h.EOffice.DeleteLetterType)
 	adminGroup.GET("/eoffice/surat-masuk", h.EOffice.GetSuratMasuk)
 	adminGroup.POST("/eoffice/surat-masuk", h.EOffice.CreateSuratMasuk)
 	adminGroup.POST("/eoffice/surat-masuk/analyze-ai", h.EOffice.AIAnalyzeSuratMasuk)
@@ -621,6 +628,7 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	adminGroup.POST("/eoffice/surat-masuk/status", h.EOffice.UpdateSuratMasukStatus)
 	adminGroup.POST("/eoffice/disposisi/complete", h.EOffice.CompleteDisposisi)
 	adminGroup.POST("/eoffice/upload-docx", h.EOffice.UploadDocx)
+	adminGroup.POST("/eoffice/upload-arsip-pdf", h.EOffice.UploadArsipPDF)
 
 	// Arsip route aliases
 	adminGroup.GET("/arsip/stats", h.EOffice.GetArsipStats)
@@ -645,6 +653,7 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	adminGroup.PUT("/arsip/dokumen/:id", h.Document.Update)
 	adminGroup.DELETE("/arsip/dokumen/:id", h.Document.Delete)
 	adminGroup.GET("/arsip/daftar-1", h.EOffice.GetDaftar1Stats)
+	adminGroup.POST("/arsip/upload-pdf", h.EOffice.UploadArsipPDF)
 
 	guruGroup.GET("/kiosk/savings-lookup", h.Savings.GetSiswa)
 
@@ -839,6 +848,18 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	staffGroup.Use(authMiddleware.RoleMiddleware(authMiddleware.RoleSuperadmin, authMiddleware.RoleAdmin, authMiddleware.RoleStaff))
 	staffGroup.GET("/ruang-tumbuh/aggregate", h.Skrining.StaffAggregate)
 
+	// DocStation — scan (eSCL) & cetak (IPP/RAW) ke printer LAN, khusus staff.
+	// Server hanya proxy; pemrosesan gambar/PDF dilakukan di browser client.
+	// Session sudah dipastikan oleh JWTMiddleware + RoleMiddleware di atas.
+	staffGroup.GET("/docstation/session", h.DocStation.Session)
+	staffGroup.GET("/docstation/printers", h.DocStation.ListPrinters)
+	staffGroup.GET("/docstation/status", h.DocStation.PrinterStatus)
+	staffGroup.POST("/docstation/print", h.DocStation.PrintJob)
+	staffGroup.POST("/docstation/print/ipp", h.DocStation.PrintIPP)
+	staffGroup.POST("/docstation/save", h.DocStation.SaveDocument)
+	staffGroup.POST("/docstation/archive", h.EOffice.ArchiveFromDocStation)
+	staffGroup.Any("/docstation/escl/*", h.DocStation.ProxyESCL)
+
 	// SPMB — input data pendaftar oleh panitia/admin di sekolah.
 	// Sebelumnya /api/public/spmb/register (publik, ortu isi sendiri);
 	// kini wajib login + role staff/admin/superadmin.
@@ -916,4 +937,42 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	// Sebelumnya rute ini publik (hanya cek nomor registrasi); kini
 	// wajib login + role staff/admin/superadmin.
 	staffGroup.POST("/spmb/registrants/:id/upload", h.SPMB.UploadDocuments)
+
+	// Cloud Storage — penyimpanan pribadi per-user dengan backend Telegram
+	// Bot API lokal. Setiap user punya ruang sendiri (isolasi owner_id).
+	cloudGroup := auth.Group("")
+	cloudGroup.Use(authMiddleware.RoleMiddleware(authMiddleware.RoleSuperadmin, authMiddleware.RoleAdmin, authMiddleware.RoleStaff, authMiddleware.RoleGuru))
+	cloudGroup.GET("/cloud/config", h.CloudStorage.Config)
+	cloudGroup.GET("/cloud/usage", h.CloudStorage.Usage)
+	cloudGroup.GET("/cloud/files", h.CloudStorage.ListFiles)
+	cloudGroup.POST("/cloud/files", h.CloudStorage.Upload)
+	cloudGroup.GET("/cloud/files/:id", h.CloudStorage.GetFile)
+	cloudGroup.GET("/cloud/files/:id/download", h.CloudStorage.Download)
+	cloudGroup.GET("/cloud/files/:id/thumb", h.CloudStorage.Thumbnail)
+	cloudGroup.PUT("/cloud/files/:id", h.CloudStorage.Rename)
+	cloudGroup.DELETE("/cloud/files/:id", h.CloudStorage.Trash)
+	cloudGroup.POST("/cloud/files/copy", h.CloudStorage.Copy)
+	cloudGroup.POST("/cloud/files/move", h.CloudStorage.Move)
+	cloudGroup.POST("/cloud/files/zip", h.CloudStorage.Zip)
+	cloudGroup.POST("/cloud/files/reorder", h.CloudStorage.Reorder)
+	cloudGroup.POST("/cloud/notes", h.CloudStorage.CreateNote)
+	cloudGroup.PUT("/cloud/files/:id/content", h.CloudStorage.UpdateContent)
+	cloudGroup.POST("/cloud/files/:id/rotate", h.CloudStorage.Rotate)
+	cloudGroup.POST("/cloud/files/:id/star", h.CloudStorage.SetStar)
+	cloudGroup.POST("/cloud/folders", h.CloudStorage.CreateFolder)
+	cloudGroup.GET("/cloud/search", h.CloudStorage.Search)
+	cloudGroup.GET("/cloud/trash", h.CloudStorage.ListTrash)
+	cloudGroup.POST("/cloud/trash/restore-all", h.CloudStorage.RestoreAll)
+	cloudGroup.POST("/cloud/trash/:id/restore", h.CloudStorage.Restore)
+	cloudGroup.DELETE("/cloud/trash/:id", h.CloudStorage.PermanentDelete)
+	cloudGroup.DELETE("/cloud/trash", h.CloudStorage.EmptyTrash)
+	cloudGroup.POST("/cloud/files/:id/share", h.CloudStorage.CreateShare)
+	cloudGroup.DELETE("/cloud/files/:id/share", h.CloudStorage.RevokeShare)
+
+	// Share link publik (tanpa login): hanya file/folder bertoken, tidak bisa
+	// menelusuri folder pemilik.
+	server.GET("/api/cloud/s/:token", h.CloudStorage.ShareInfo)
+	server.GET("/api/cloud/s/:token/download", h.CloudStorage.DownloadShared)
+	server.GET("/api/cloud/s/:token/zip", h.CloudStorage.ShareZip)
+	server.GET("/api/cloud/s/:token/file/:id", h.CloudStorage.ShareDiskDownload)
 }

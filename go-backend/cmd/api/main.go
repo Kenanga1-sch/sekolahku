@@ -117,14 +117,36 @@ func main() {
 		Output: os.Stdout,
 	}))
 	server.Use(middleware.Recover())
-	server.Use(middleware.BodyLimit("60M"))
+	// Batas body global 60M. Upload Cloud Storage dikecualikan di sini karena
+	// bisa mencapai 2GB; handler-nya memasang MaxBytesReader sendiri sesuai
+	// CLOUDSTORAGE_MAX_UPLOAD_MB.
+	server.Use(middleware.BodyLimitWithConfig(middleware.BodyLimitConfig{
+		Limit: "60M",
+		Skipper: func(c echo.Context) bool {
+			return c.Request().Method == http.MethodPost && c.Path() == "/api/cloud/files"
+		},
+	}))
 	server.Use(middleware.GzipWithConfig(middleware.GzipConfig{
 		Level: 5,
 		// WebSocket handshake (HTTP 101) tidak boleh melewati gzip:
 		// 101 yang ditulis melalui gzip.Writer tersangkut di buffer dan
 		// handshake client tidak pernah selesai.
+		//
+		// Unduhan ZIP juga dilewati: isinya sudah terkompresi, dan menyalurkan
+		// arsip besar lewat gzip.Writer hanya menambah beban + buffering.
 		Skipper: func(c echo.Context) bool {
-			return strings.HasSuffix(c.Request().URL.Path, "/api/chat/ws")
+			path := c.Request().URL.Path
+			if strings.HasSuffix(path, "/api/chat/ws") {
+				return true
+			}
+			// Cloud Storage ZIP: /api/cloud/files/zip atau /api/cloud/s/<token>/zip
+			if path == "/api/cloud/files/zip" {
+				return true
+			}
+			if strings.HasPrefix(path, "/api/cloud/s/") && strings.HasSuffix(path, "/zip") {
+				return true
+			}
+			return false
 		},
 	}))
 	server.Use(authMiddleware.SecurityHeaders)
@@ -214,6 +236,7 @@ func main() {
 		Chat:           repository.NewChatRepository(db),
 		Skrining:       repository.NewSkriningRepository(db),
 		Tugas:          repository.NewTugasRepository(db),
+		CloudStorage:   repository.NewCloudStorageRepository(db),
 	}
 
 	// Aktifkan pemeriksaan status user pada setiap request terautentikasi,
@@ -270,6 +293,13 @@ func main() {
 	// in-app sudah tampil) — hub menjadi sumber kebenaran status terlihat.
 	parentNotify.Presence = chatHub
 
+	// Backup Telegram memakai bot & chat yang SAMA dengan Cloud Storage
+	// (CLOUDSTORAGE_BOT_TOKEN / CLOUDSTORAGE_CHAT_ID). Seed default di DB dan
+	// aktifkan secara bawaan bila kredensial tersedia.
+	if err := repos.TelegramBackup.EnsureDefaults(); err != nil {
+		log.Printf("[startup] Gagal menyiapkan default backup Telegram: %v", err)
+	}
+
 	// Background scheduler (perlu pushSvc supaya notifikasi otomatis ke ortu
 	// (alpha warning + daily digest) juga dapat muncul via Web Push).
 	cronScheduler := scheduler.NewScheduler(db, pushSvc)
@@ -297,7 +327,7 @@ func main() {
 		Announcement:   handlers.NewAnnouncementHandler(repos.Announcement, repos.Notification, parentNotify),
 		AuditLog:       handlers.NewAuditLogHandler(repos.AuditLog),
 		Notification:   handlers.NewNotificationHandler(repos.Notification),
-		TelegramBackup: handlers.NewTelegramBackupHandler(repos.TelegramBackup),
+		TelegramBackup: handlers.NewTelegramBackupHandler(repos.TelegramBackup, db),
 		User:           handlers.NewUserHandler(repos.User, repos.Student, repos.Employee, repos.AuditLog),
 		Dashboard:      handlers.NewDashboardHandler(repos.Dashboard),
 		Public:         handlers.NewPublicHandler(repos.Public),
@@ -318,8 +348,17 @@ func main() {
 		Skrining:       handlers.NewSkriningHandler(repos.Skrining, repos.Academic, repos.AuditLog, repos.Notification, db),
 		Tugas:          handlers.NewTugasHandler(repos.Tugas, repos.Academic, repos.AuditLog, repos.Notification, db),
 		File:           handlers.NewFileHandler(),
+		DocStation:     handlers.NewDocStationHandler(),
+		CloudStorage:   handlers.NewCloudStorageHandler(repos.CloudStorage),
 		PushSvc:        pushSvc,
 	}
+
+	// Pembersih thumbnail Cloud Storage berkala (harian).
+	h.CloudStorage.StartThumbCleaner()
+
+	// EOffice memakai Cloud Storage untuk mengarsipkan hasil scan ke ruang
+	// arsip bersama (opsional — lewati bila cloud tak dikonfigurasi).
+	h.EOffice.Cloud = h.CloudStorage
 
 	// Register routes
 	registerRoutes(server, h, repos)

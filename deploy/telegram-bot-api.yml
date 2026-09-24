@@ -1,0 +1,36 @@
+# Container Bot API Telegram lokal KHUSUS Cloud Storage Sekolahku.
+#
+# Terpisah dari bot API server bersama (port 8081) agar:
+#  - berjalan dalam mode --local (berkas disimpan di disk, tanpa batas 2GB)
+#  - berkas ditulis dengan owner uid 1000 agar dapat dibaca container
+#    sekolahku-prod (podman rootless: uid 0 container = uid 1000 host)
+#  - tidak mengganggu layanan lain yang memakai server 8081.
+#
+# Jalankan:  docker compose -f deploy/telegram-bot-api.yml up -d
+#
+# Catatan: direktori host (HOST_DATA_DIR) WAJIB dimiliki uid 1000:
+#   sudo mkdir -p /home/chitchat/telegram-api-data
+#   sudo chown -R 1000:1000 /home/chitchat/telegram-api-data
+# Direktori yang sama di-mount ke container sekolahku-prod pada
+# /app/telegram-data (lihat scripts/deploy.sh).
+
+services:
+  telegram-bot-api-cloud:
+    image: aiogram/telegram-bot-api:latest
+    container_name: sekolahku-telegram-api
+    restart: unless-stopped
+    # Lewati entrypoint image (yang hardcode --username telegram-bot-api) dan
+    # jalankan server sebagai uid 1000 agar berkas dapat dibaca podman rootless.
+    user: "1000:1000"
+    entrypoint: /usr/local/bin/telegram-bot-api
+    command: >-
+      --api-id=${TELEGRAM_API_ID}
+      --api-hash=${TELEGRAM_API_HASH}
+      --dir=/var/lib/telegram-bot-api
+      --temp-dir=/tmp/tg-school
+      --http-port=8086
+      --local
+    ports:
+      - "8086:8086"
+    volumes:
+      - ${HOST_DATA_DIR:-/home/chitchat/telegram-api-data}:/var/lib/telegram-bot-api
