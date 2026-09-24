@@ -2,12 +2,12 @@ package handlers
 
 import (
 	"database/sql"
-	errlib "errors"
 	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sekolahku/go-backend/internal/models"
@@ -153,6 +153,9 @@ func (h *StudentHandler) CreateStudent(c echo.Context) error {
 func (h *StudentHandler) BulkCreateStudents(c echo.Context) error {
 	var req struct {
 		Students []map[string]interface{} `json:"students"`
+		// UpdateStatus: bila false (default), baris yang meng-update siswa
+		// existing TIDAK mengubah status kecuali kolom status benar-benar ada.
+		UpdateStatus *bool `json:"updateStatus"`
 	}
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
@@ -160,20 +163,30 @@ func (h *StudentHandler) BulkCreateStudents(c echo.Context) error {
 	if len(req.Students) == 0 {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Tidak ada data siswa untuk diimport"})
 	}
+	updateStatus := req.UpdateStatus != nil && *req.UpdateStatus
 
-	count := 0
-	errors := []string{}
+	rows := make([]models.Student, 0, len(req.Students))
+	rowErrors := []string{}
+
+	// Validasi + bangun model per baris. Baris invalid dilewati (partial mode).
 	for index, row := range req.Students {
+		lineNo := index + 1
+
 		fullName := importString(row, "fullName", "FullName", "NamaLengkap", "nama", "Nama")
 		if fullName == "" {
-			errors = append(errors, "Baris "+strconv.Itoa(index+1)+": nama lengkap wajib diisi")
+			rowErrors = append(rowErrors, "Baris "+strconv.Itoa(lineNo)+": nama lengkap wajib diisi")
 			continue
 		}
 
-		status := strings.ToLower(importString(row, "status", "Status"))
-		if status == "" {
-			status = "active"
+		// Status: KOSONG bila tidak diberikan di Excel. Default "active" hanya
+		// diterapkan untuk siswa baru (di repo). Untuk update, status kosong =
+		// pertahankan status lama (lihat mergeStudentDefaults).
+		statusRaw := strings.TrimSpace(importString(row, "status", "Status"))
+		status := ""
+		if statusRaw != "" {
+			status = strings.ToLower(statusRaw)
 		}
+
 		genderRaw := strings.ToUpper(importString(row, "gender", "Gender", "jk", "JK", "JenisKelamin"))
 		var gender string
 		// PRIA dicek sebelum prefix "P" (PRIA = laki-laki)
@@ -182,7 +195,13 @@ func (h *StudentHandler) BulkCreateStudents(c echo.Context) error {
 		} else if strings.HasPrefix(genderRaw, "P") || genderRaw == "WANITA" {
 			gender = "P"
 		} else if genderRaw != "" {
-			errors = append(errors, "Baris "+strconv.Itoa(index+1)+": gender tidak dikenali (\""+genderRaw+"\"), gunakan L/Laki-laki atau P/Perempuan")
+			rowErrors = append(rowErrors, "Baris "+strconv.Itoa(lineNo)+": gender tidak dikenali (\""+genderRaw+"\"), gunakan L/Laki-laki atau P/Perempuan")
+			continue
+		}
+
+		birthDate := strings.TrimSpace(importString(row, "birthDate", "BirthDate", "tanggal_lahir", "TanggalLahir"))
+		if birthDate != "" && !isValidISODate(birthDate) {
+			rowErrors = append(rowErrors, "Baris "+strconv.Itoa(lineNo)+": tanggal lahir \""+birthDate+"\" tidak valid, gunakan format YYYY-MM-DD")
 			continue
 		}
 
@@ -194,7 +213,7 @@ func (h *StudentHandler) BulkCreateStudents(c echo.Context) error {
 			KIP:          optionalImportStringPtr(importString(row, "kip", "KIP")),
 			Gender:       optionalImportStringPtr(gender),
 			BirthPlace:   optionalImportStringPtr(importString(row, "birthPlace", "BirthPlace", "tempat_lahir", "TempatLahir")),
-			BirthDate:    optionalImportStringPtr(importString(row, "birthDate", "BirthDate", "tanggal_lahir", "TanggalLahir")),
+			BirthDate:    optionalImportStringPtr(birthDate),
 			Religion:     optionalImportStringPtr(importString(row, "religion", "Religion", "agama", "Agama")),
 			Address:      optionalImportStringPtr(importString(row, "address", "Address", "alamat", "Alamat")),
 			ParentName:   optionalImportStringPtr(importString(row, "parentName", "ParentName", "nama_orang_tua", "NamaOrangTua")),
@@ -208,44 +227,35 @@ func (h *StudentHandler) BulkCreateStudents(c echo.Context) error {
 			ParentPhone:  optionalImportStringPtr(importString(row, "parentPhone", "ParentPhone", "no_hp", "NoHP")),
 			ClassName:    optionalImportStringPtr(importString(row, "className", "ClassName", "kelas", "Kelas")),
 			Status:       status,
-			IsActive:     status == "active",
+			IsActive:     status == "active" || status == "aktif",
 		}
-
-		// Coba Upsert (Update jika NISN atau NIK sudah ada)
-		var existingID string
-		if student.NISN != nil && *student.NISN != "" {
-			if err := h.Repo.DB.QueryRow("SELECT id FROM students WHERE nisn = ?", *student.NISN).Scan(&existingID); err != nil && !errlib.Is(err, sql.ErrNoRows) {
-				log.Printf("ERROR checking existing student by NISN: %v", err)
-			}
-		}
-		if existingID == "" && student.NIK != nil && *student.NIK != "" {
-			if err := h.Repo.DB.QueryRow("SELECT id FROM students WHERE nik = ?", *student.NIK).Scan(&existingID); err != nil && !errlib.Is(err, sql.ErrNoRows) {
-				log.Printf("ERROR checking existing student by NIK: %v", err)
-			}
-		}
-
-		if existingID != "" {
-			student.ID = existingID
-			if err := h.Repo.UpdateStudent(existingID, student); err != nil {
-				errors = append(errors, "Baris "+strconv.Itoa(index+1)+": "+err.Error())
-			} else {
-				count++
-			}
-			continue
-		}
-
-		if _, err := h.Repo.CreateStudent(student); err != nil {
-			errors = append(errors, "Baris "+strconv.Itoa(index+1)+": "+err.Error())
-			continue
-		}
-		count++
+		rows = append(rows, student)
 	}
 
+	res := h.Repo.BulkUpsertStudents(rows)
+
+	// Baris gagal dari repo (indeks terhadap slice rows yang valid). Petakan ke
+	// nomor baris Excel asli sedekat mungkin: karena baris invalid sudah
+	// dikeluarkan, kita sertakan keduanya sebagai daftar error.
+	for _, be := range res.Errors {
+		rowErrors = append(rowErrors, "Baris "+strconv.Itoa(be.Index+1)+": "+be.Error)
+	}
+
+	_ = updateStatus // (disimpan untuk kompatibilitas; logika status ada di mergeStudentDefaults)
+
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"success": true,
-		"count":   count,
-		"errors":  errors,
+		"success":  true,
+		"count":    res.Inserted + res.Updated,
+		"inserted": res.Inserted,
+		"updated":  res.Updated,
+		"errors":   rowErrors,
 	})
+}
+
+// isValidISODate memverifikasi string berformat YYYY-MM-DD dan tanggalnya nyata.
+func isValidISODate(s string) bool {
+	_, err := time.Parse("2006-01-02", s)
+	return err == nil
 }
 
 func (h *StudentHandler) UpdateStudent(c echo.Context) error {

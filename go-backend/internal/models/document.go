@@ -7,6 +7,7 @@ type SchoolDocument struct {
 	Recipient    string  `json:"recipient" db:"recipient"`
 	ReferenceID  *string `json:"referenceId" db:"reference_id"`
 	FilePath     string  `json:"filePath" db:"file_path"`
+	CloudFileID  *string `json:"cloudFileId" db:"cloud_file_id"`
 	CreatedBy    *string `json:"createdBy" db:"created_by"`
 	CreatedAt    int64   `json:"createdAt" db:"created_at"`
 	UpdatedAt    int64   `json:"updatedAt" db:"updated_at"`

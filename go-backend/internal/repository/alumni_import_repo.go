@@ -3,11 +3,37 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+	"reflect"
+	"strings"
 	"time"
 
 	"github.com/nrednav/cuid2"
 	"github.com/sekolahku/go-backend/internal/models"
 )
+
+// nilifyEmptyStrings menormalkan semua field *string pada struct menjadi nil
+// bila nilainya string kosong / hanya spasi. Ini penting agar klausa
+// COALESCE(?, col) pada UPDATE benar-benar mempertahankan nilai lama: string
+// kosong non-NULL akan tetap ditulis (menimpa data) bila tidak dinormalkan.
+func nilifyEmptyStrings(dst interface{}) {
+	v := reflect.ValueOf(dst)
+	if v.Kind() != reflect.Ptr || v.IsNil() {
+		return
+	}
+	v = v.Elem()
+	if v.Kind() != reflect.Struct {
+		return
+	}
+	for i := 0; i < v.NumField(); i++ {
+		f := v.Field(i)
+		if f.Kind() == reflect.Ptr && f.Type().Elem().Kind() == reflect.String && !f.IsNil() {
+			s := f.Elem().String()
+			if strings.TrimSpace(s) == "" {
+				f.Set(reflect.Zero(f.Type()))
+			}
+		}
+	}
+}
 
 func (r *AlumniRepository) ImportBulkAlumni(alumniList []models.Alumni) (int, int, []string, error) {
 	tx, err := r.DB.Begin()
@@ -26,6 +52,10 @@ func (r *AlumniRepository) ImportBulkAlumni(alumniList []models.Alumni) (int, in
 			logs = append(logs, fmt.Sprintf("Baris %d: Nama Lengkap kosong, dilewati", idx+1))
 			continue
 		}
+
+		// Normalkan string kosong -> nil agar COALESCE() pada UPDATE benar-benar
+		// mempertahankan nilai lama (tidak tertimpa "").
+		nilifyEmptyStrings(&a)
 
 		var existingID string
 		var queryStr string
@@ -52,10 +82,8 @@ func (r *AlumniRepository) ImportBulkAlumni(alumniList []models.Alumni) (int, in
 		}
 
 		if existingID != "" {
+			// Status kosong = pertahankan status lama (jangan paksa aktif).
 			statusVal := a.Status
-			if statusVal == "" {
-				statusVal = "active"
-			}
 			_, err = tx.Exec(`
 				UPDATE alumni SET
 					nisn=COALESCE(?, nisn), nis=COALESCE(?, nis), full_name=?, gender=COALESCE(?, gender),
@@ -78,9 +106,9 @@ func (r *AlumniRepository) ImportBulkAlumni(alumniList []models.Alumni) (int, in
 					blood_type=COALESCE(?, blood_type), medical_notes=COALESCE(?, medical_notes),
 					special_needs=COALESCE(?, special_needs), current_occupation=COALESCE(?, current_occupation),
 					current_institution=COALESCE(?, current_institution), last_education_level=COALESCE(?, last_education_level),
-					status=?, updated_at=?,
+					status=COALESCE(NULLIF(?, ''), status), updated_at=?,
 					nickname=COALESCE(?, nickname), citizenship=COALESCE(?, citizenship),
-					sibling_kandung=?, sibling_tiri=?, sibling_angkat=?,
+					sibling_kandung=COALESCE(NULLIF(?, 0), sibling_kandung), sibling_tiri=COALESCE(NULLIF(?, 0), sibling_tiri), sibling_angkat=COALESCE(NULLIF(?, 0), sibling_angkat),
 					daily_language=COALESCE(?, daily_language), living_with=COALESCE(?, living_with),
 					guardian_education=COALESCE(?, guardian_education), previous_school_address=COALESCE(?, previous_school_address),
 					previous_school_cert_no=COALESCE(?, previous_school_cert_no), previous_school_cert_date=COALESCE(?, previous_school_cert_date),

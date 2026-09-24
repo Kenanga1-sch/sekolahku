@@ -1,16 +1,17 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DataTable, type Column } from "@/components/data-table";
 import { Loader2, FileSpreadsheet, AlertTriangle } from "lucide-react";
 import { showSuccess, showError, showWarning } from "@/lib/toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { goPost } from "@/lib/api-client";
+import { goPost, goGet } from "@/lib/api-client";
 
 interface StudentImportDialogProps {
     open: boolean;
@@ -90,8 +91,20 @@ function excelSerialToISO(serial: number): string {
 export function StudentImportDialog({ open, onOpenChange, onSuccess }: StudentImportDialogProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [previewData, setPreviewData] = useState<any[]>([]);
+    const [previewWarnings, setPreviewWarnings] = useState<string[]>([]);
     const [importErrors, setImportErrors] = useState<string[]>([]);
+    const [importSummary, setImportSummary] = useState<{ inserted: number; updated: number } | null>(null);
+    const [preserveStatus, setPreserveStatus] = useState(true);
     const [file, setFile] = useState<File | null>(null);
+    const [classes, setClasses] = useState<{ id: string; name: string }[]>([]);
+
+    // Muat daftar kelas nyata: dipakai untuk contoh template & validasi preview.
+    useEffect(() => {
+        if (!open) return;
+        goGet("/api/academic/classes")
+            .then((data: any) => setClasses(Array.isArray(data) ? data : []))
+            .catch(() => setClasses([]));
+    }, [open]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
@@ -99,6 +112,8 @@ export function StudentImportDialog({ open, onOpenChange, onSuccess }: StudentIm
 
         setFile(selectedFile);
         setImportErrors([]);
+        setPreviewWarnings([]);
+        setImportSummary(null);
         parseExcel(selectedFile);
     };
 
@@ -167,6 +182,41 @@ export function StudentImportDialog({ open, onOpenChange, onSuccess }: StudentIm
                 }
             });
 
+            // Peringatan dini: baris tanpa NISN/NIS berisiko terduplikasi karena
+            // pencocokan siswa existing memakai NISN/NIS (lalu NIK).
+            const noIdentity: string[] = [];
+            const noClass: string[] = [];
+            const unknownClass: string[] = [];
+            const validClassNames = new Set(classes.map((c) => c.name.trim().toLowerCase()));
+            mappedData.forEach((row: any, i: number) => {
+                const hasId = [row.nisn, row.nis].some((v) => String(v ?? "").trim() !== "");
+                if (!hasId) noIdentity.push(String(i + 2));
+                const cls = String(row.className ?? "").trim();
+                if (cls === "") {
+                    noClass.push(String(i + 2));
+                } else if (validClassNames.size > 0 && !validClassNames.has(cls.toLowerCase())) {
+                    // Hanya validasi bila daftar kelas berhasil dimuat.
+                    unknownClass.push(String(i + 2));
+                }
+            });
+            const warns: string[] = [];
+            if (noIdentity.length) {
+                warns.push(
+                    `${noIdentity.length} baris tanpa NISN/NIS (baris Excel: ${noIdentity.slice(0, 10).join(", ")}${noIdentity.length > 10 ? ", ..." : ""}) — baris ini berisiko dibuat ganda.`
+                );
+            }
+            if (noClass.length) {
+                warns.push(
+                    `${noClass.length} baris tanpa kolom kelas — siswa tidak akan masuk kelas mana pun.`
+                );
+            }
+            if (unknownClass.length) {
+                warns.push(
+                    `${unknownClass.length} baris memakai kelas yang tidak terdaftar (baris Excel: ${unknownClass.slice(0, 10).join(", ")}${unknownClass.length > 10 ? ", ..." : ""}) — kelas harus sama persis dengan daftar kelas. Baris ini akan GAGAL saat import.`
+                );
+            }
+            setPreviewWarnings(warns);
+
             setPreviewData(mappedData);
         };
         reader.readAsBinaryString(file);
@@ -177,19 +227,28 @@ export function StudentImportDialog({ open, onOpenChange, onSuccess }: StudentIm
 
         setIsLoading(true);
         try {
-            const result: any = await goPost("/api/master/students/bulk", { students: previewData });
+            const result: any = await goPost("/api/master/students/bulk", {
+                students: previewData,
+                updateStatus: !preserveStatus,
+            });
 
-            // Backend mengembalikan { count, errors[] } — tampilkan keduanya
+            // Backend mengembalikan { count, inserted, updated, errors[] }
             const rowErrors: string[] = result.errors ?? [];
+            const inserted: number = result.inserted ?? result.count ?? 0;
+            const updated: number = result.updated ?? 0;
             setImportErrors(rowErrors);
+            setImportSummary({ inserted, updated });
             onSuccess();
 
+            const total = inserted + updated;
             if (rowErrors.length === 0) {
-                showSuccess(`Berhasil import ${result.count} data siswa!`);
+                showSuccess(
+                    `Import berhasil: ${inserted} siswa baru, ${updated} siswa diperbarui.`
+                );
                 onOpenChange(false);
-            } else if (result.count > 0) {
+            } else if (total > 0) {
                 showWarning(
-                    `Import sebagian: ${result.count} berhasil, ${rowErrors.length} gagal`,
+                    `Import sebagian: ${inserted} baru + ${updated} diperbarui berhasil, ${rowErrors.length} gagal`,
                     "Lihat daftar baris yang gagal di bawah sebelum menutup dialog."
                 );
                 // Dialog tetap terbuka agar user bisa lihat baris yang gagal
@@ -208,53 +267,85 @@ export function StudentImportDialog({ open, onOpenChange, onSuccess }: StudentIm
 
     const downloadTemplate = async () => {
         const XLSX = await import("@e965/xlsx");
-        // Create dummy data
+
+        // Contoh kelas memakai kelas NYATA dari master (agar tidak langsung
+        // ditolak oleh validasi kelas). Bila daftar kelas gagal dimuat,
+        // biarkan kosong dan user wajib mengisi sesuai daftar kelas.
+        const class1 = classes[0]?.name ?? "";
+        const class2 = classes[1]?.name ?? classes[0]?.name ?? "";
+
+        // Header & contoh memakai istilah Indonesia (semua dikenali oleh
+        // pemetaan alias di parseExcel). Kolom: Nama wajib; sisanya opsional.
         const ws = XLSX.utils.json_to_sheet([
-            { 
-                fullName: "Budi Santoso", 
-                nis: "1001", 
-                nisn: "0012345678", 
-                nik: "3201234567890001", 
-                gender: "L", 
-                className: "1A", 
-                status: "active",
-                birthPlace: "Jakarta",
-                birthDate: "2015-05-20",
-                religion: "Islam",
-                address: "Jl. Merdeka No. 1",
-                fatherName: "Agus Santoso",
-                fatherNik: "3201000000000001",
-                motherName: "Siti Rahma",
-                motherNik: "3201000000000002",
-                guardianName: "",
-                guardianNik: "",
-                guardianJob: "",
-                parentPhone: "081234567890"
+            {
+                "Nama": "Budi Santoso",
+                "NIS": "1001",
+                "NISN": "0012345678",
+                "NIK": "3201234567890001",
+                "KIP": "",
+                "Jenis Kelamin": "L",
+                "Kelas": class1,
+                "Status": "active",
+                "Tempat Lahir": "Jakarta",
+                "Tanggal Lahir": "2015-05-20",
+                "Agama": "Islam",
+                "Alamat": "Jl. Merdeka No. 1",
+                "Nama Orang Tua": "Agus Santoso",
+                "Nama Ayah": "Agus Santoso",
+                "NIK Ayah": "3201000000000001",
+                "Nama Ibu": "Siti Rahma",
+                "NIK Ibu": "3201000000000002",
+                "Nama Wali": "",
+                "NIK Wali": "",
+                "Pekerjaan Wali": "",
+                "No HP": "081234567890",
             },
-            { 
-                fullName: "Siti Aminah", 
-                nis: "1002", 
-                nisn: "0012345679", 
-                nik: "3201234567890002", 
-                gender: "P", 
-                className: "1B", 
-                status: "active",
-                birthPlace: "Bandung",
-                birthDate: "2015-08-15",
-                religion: "Islam",
-                address: "Jl. Sudirman No. 5",
-                fatherName: "Bambang",
-                fatherNik: "3201000000000011",
-                motherName: "Ratna",
-                motherNik: "3201000000000012",
-                guardianName: "",
-                guardianNik: "",
-                guardianJob: "",
-                parentPhone: "081234567891"
+            {
+                "Nama": "Siti Aminah",
+                "NIS": "1002",
+                "NISN": "0012345679",
+                "NIK": "3201234567890002",
+                "KIP": "",
+                "Jenis Kelamin": "P",
+                "Kelas": class2,
+                "Status": "active",
+                "Tempat Lahir": "Bandung",
+                "Tanggal Lahir": "2015-08-15",
+                "Agama": "Islam",
+                "Alamat": "Jl. Sudirman No. 5",
+                "Nama Orang Tua": "Bambang",
+                "Nama Ayah": "Bambang",
+                "NIK Ayah": "3201000000000011",
+                "Nama Ibu": "Ratna",
+                "NIK Ibu": "3201000000000012",
+                "Nama Wali": "",
+                "NIK Wali": "",
+                "Pekerjaan Wali": "",
+                "No HP": "081234567891",
             },
         ]);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Template");
+
+        // Lembar keterangan: bantu operator memahami aturan pengisian.
+        const classList = classes.length ? classes.map((c) => c.name).join(", ") : "(muat daftar kelas dari menu Akademik)";
+        const noteRows = [
+            ["Petunjuk Pengisian Template Import Siswa"],
+            [""],
+            ["- Kolom \"Nama\" WAJIB diisi. Kolom lain opsional."],
+            ["- Kolom \"Kelas\" harus sama persis dengan salah satu nama kelas berikut:"],
+            ["  " + classList],
+            ["- Kolom \"Jenis Kelamin\": isi L (Laki-laki) atau P (Perempuan)."],
+            ["- Kolom \"Tanggal Lahir\": format YYYY-MM-DD (contoh: 2015-05-20)."],
+            ["- Kolom \"Status\": active / inactive (boleh dikosongkan)."],
+            ["- Siswa yang sudah ada (dicocokkan via NISN/NIS/NIK) akan DIPERBARUI."],
+            ["- Baris dengan nama kosong atau kelas tidak dikenal akan dilewati & dilaporkan."],
+            [""],
+            ["Hapus dua baris contoh (Budi Santoso & Siti Aminah) sebelum mengisi data asli."],
+        ];
+        const noteSheet = XLSX.utils.aoa_to_sheet(noteRows);
+        XLSX.utils.book_append_sheet(wb, noteSheet, "Petunjuk");
+
         XLSX.writeFile(wb, "Template_Import_Siswa.xlsx");
     };
 
@@ -286,7 +377,41 @@ export function StudentImportDialog({ open, onOpenChange, onSuccess }: StudentIm
                             </div>
                         </div>
                         {file && <p className="text-sm font-medium text-emerald-600">{file.name}</p>}
+                        {classes.length > 0 && (
+                            <p className="text-xs text-muted-foreground text-center max-w-lg">
+                                Kelas yang tersedia: <b>{classes.map((c) => c.name).join(", ")}</b>. Kolom Kelas harus
+                                sama persis dengan salah satu nama di atas.
+                            </p>
+                        )}
                     </div>
+
+                    <div className="flex items-start gap-3 rounded-lg border p-3 bg-muted/30">
+                        <Checkbox
+                            id="preserve-status"
+                            checked={preserveStatus}
+                            onCheckedChange={(v) => setPreserveStatus(v === true)}
+                        />
+                        <div className="grid gap-1">
+                            <Label htmlFor="preserve-status" className="cursor-pointer">
+                                Jangan ubah status siswa yang sudah ada
+                            </Label>
+                            <p className="text-xs text-muted-foreground">
+                                Bila dicentang, siswa yang sudah ada dan tidak mencantumkan kolom status tidak akan
+                                diubah status keaktifannya. Berguna agar siswa non-aktif tidak ikut aktif kembali.
+                            </p>
+                        </div>
+                    </div>
+
+                    {previewWarnings.length > 0 && (
+                        <div className="space-y-1 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                            {previewWarnings.map((w, i) => (
+                                <div key={i} className="flex items-start gap-2 text-sm text-amber-800">
+                                    <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                                    <span>{w}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
 
                     {previewData.length > 0 && (
                         <div className="space-y-2">
@@ -315,6 +440,11 @@ export function StudentImportDialog({ open, onOpenChange, onSuccess }: StudentIm
                                     }))}
                                 />
                             </div>
+                        </div>
+                    )}
+                    {importSummary && (
+                        <div className="text-sm rounded-lg border p-3 bg-emerald-50 text-emerald-800">
+                            Hasil import: <b>{importSummary.inserted}</b> siswa baru, <b>{importSummary.updated}</b> siswa diperbarui.
                         </div>
                     )}
                     {importErrors.length > 0 && (

@@ -61,7 +61,9 @@ func Ptr[T any](v T) *T {
 // AutoSyncStudentToSavingsAndLibrary ensures a student has savings & library
 // extension rows. With the single-source model, extension tables only hold
 // student_id + module-owned data — nothing to copy, nothing to drift.
-func AutoSyncStudentToSavingsAndLibrary(db *sql.DB, studentID string) error {
+// Menerima SyncQueryer (bukan hanya *sql.DB) agar bisa dijalankan di dalam
+// transaksi saat kebutuhan atomicitas per-siswa (mis. bulk import).
+func AutoSyncStudentToSavingsAndLibrary(db SyncQueryer, studentID string) error {
 	studentID = strings.TrimSpace(studentID)
 	if studentID == "" {
 		return nil

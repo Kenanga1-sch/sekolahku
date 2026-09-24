@@ -18,18 +18,18 @@ func NewDocumentRepository(db *sql.DB) *DocumentRepository {
 
 func (r *DocumentRepository) Create(doc models.SchoolDocument) error {
 	_, err := r.DB.Exec(`
-		INSERT INTO school_documents (id, document_type, title, recipient, reference_id, file_path, created_by, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, doc.ID, doc.DocumentType, doc.Title, doc.Recipient, doc.ReferenceID, doc.FilePath, doc.CreatedBy, doc.CreatedAt, doc.UpdatedAt)
+		INSERT INTO school_documents (id, document_type, title, recipient, reference_id, file_path, cloud_file_id, created_by, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, doc.ID, doc.DocumentType, doc.Title, doc.Recipient, doc.ReferenceID, doc.FilePath, doc.CloudFileID, doc.CreatedBy, doc.CreatedAt, doc.UpdatedAt)
 	return err
 }
 
 func (r *DocumentRepository) GetByID(id string) (*models.SchoolDocument, error) {
 	var doc models.SchoolDocument
 	err := r.DB.QueryRow(`
-		SELECT id, document_type, title, recipient, reference_id, file_path, created_by, created_at, updated_at
+		SELECT id, document_type, title, recipient, reference_id, file_path, cloud_file_id, created_by, created_at, updated_at
 		FROM school_documents WHERE id = ?
-	`, id).Scan(&doc.ID, &doc.DocumentType, &doc.Title, &doc.Recipient, &doc.ReferenceID, &doc.FilePath, &doc.CreatedBy, &doc.CreatedAt, &doc.UpdatedAt)
+	`, id).Scan(&doc.ID, &doc.DocumentType, &doc.Title, &doc.Recipient, &doc.ReferenceID, &doc.FilePath, &doc.CloudFileID, &doc.CreatedBy, &doc.CreatedAt, &doc.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}

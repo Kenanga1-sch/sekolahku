@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { goGet, goPost } from "@/lib/api-client";
 import { toast } from "sonner";
 import type { StudentItem } from "./types-mutasi";
@@ -102,14 +102,19 @@ export function DialogMutasiKeluar() {
 
           <div className="space-y-1.5">
             <Label>Pilih Siswa (Aktif) *</Label>
-            <Select value={form.studentId} onValueChange={(v) => setForm({...form, studentId: v})} required>
-              <SelectTrigger><SelectValue placeholder="Pilih Siswa"/></SelectTrigger>
-              <SelectContent>
-                {students.map((s: StudentItem) => (
-                  <SelectItem key={s.id} value={s.id}>{s.fullName} ({s.className})</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              items={students.map((s: StudentItem) => ({
+                value: s.id,
+                label: `${s.fullName}${s.className ? ` (${s.className})` : ""}${s.nis ? ` — ${s.nis}` : ""}`,
+              }))}
+              value={form.studentId}
+              onChange={(v) => setForm({ ...form, studentId: v })}
+              placeholder="Cari & pilih siswa..."
+              searchPlaceholder="Ketik nama / NIS / kelas..."
+              emptyMessage="Siswa tidak ditemukan."
+              className="w-full"
+            />
+            <p className="text-xs text-muted-foreground">Ketik untuk mencari nama atau NIS.</p>
           </div>
 
           <div className="space-y-1.5">
