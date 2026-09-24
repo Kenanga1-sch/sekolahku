@@ -25,6 +25,7 @@ import {
 } from "docx";
 import type { LetterBlockInstance } from "@/lib/config/letter-blocks";
 import type { LetterDocumentData } from "@/lib/config/letter-document";
+import { LETTER_PAPER_OPTIONS } from "@/lib/config/letter-document";
 import type { LetterStandard } from "@/lib/config/letter-standards";
 import {
   asString,
@@ -580,6 +581,103 @@ function renderBlock(
       out.push(...richToParagraphs(asString(d.isi), vars));
       return out;
     }
+    case "garis_pemisah": {
+      const t = (Number(asString(d.tebal)) || 1) * 4;
+      return [
+        new Paragraph({
+          border: { bottom: { color: "000000", style: BorderStyle.SINGLE, size: t, space: 1 } },
+          children: [],
+        }),
+      ];
+    }
+    case "dua_kolom": {
+      const ratio = asString(d.ratio) || "50:50";
+      const leftW = ratio === "40:60" ? 40 : ratio === "60:40" ? 60 : 50;
+      const left = richToParagraphs(asString(d.kiri), vars);
+      const right = richToParagraphs(asString(d.kanan), vars);
+      const noBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
+      return [
+        new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          borders: {
+            top: noBorder,
+            bottom: noBorder,
+            left: noBorder,
+            right: noBorder,
+            insideHorizontal: noBorder,
+            insideVertical: noBorder,
+          },
+          rows: [
+            new TableRow({
+              children: [
+                new TableCell({
+                  width: { size: leftW, type: WidthType.PERCENTAGE },
+                  children: left.length ? left : [new Paragraph("")],
+                }),
+                new TableCell({
+                  width: { size: 100 - leftW, type: WidthType.PERCENTAGE },
+                  children: right.length ? right : [new Paragraph("")],
+                }),
+              ],
+            }),
+          ],
+        }),
+      ];
+    }
+    case "daftar_centang": {
+      const out: Paragraph[] = [];
+      if (!isEmptyText(d.judul)) {
+        out.push(new Paragraph({ children: [new TextRun({ text: S(d.judul), bold: true, size })] }));
+      }
+      asString(d.daftar)
+        .split("\n")
+        .map((l) => S(l).trim())
+        .filter(Boolean)
+        .forEach((l) => {
+          out.push(
+            new Paragraph({
+              indent: { left: 360 },
+              children: [new TextRun({ text: `☐  ${l}`, size })],
+            })
+          );
+        });
+      return out;
+    }
+    case "tanda_tangan_basah": {
+      const url = asString(d.url);
+      if (!url) return [];
+      const width = Number(asString(d.lebar)) || 150;
+      const img = resolver(url, width, Math.round(width * 0.45));
+      const align =
+        asString(d.posisi) === "kiri"
+          ? AlignmentType.LEFT
+          : asString(d.posisi) === "tengah"
+            ? AlignmentType.CENTER
+            : AlignmentType.RIGHT;
+      if (!img) {
+        return [new Paragraph({ alignment: align, children: [new TextRun({ text: `[TTD: ${url}]`, size: size - 2 })] })];
+      }
+      return [new Paragraph({ alignment: align, children: [img] })];
+    }
+    case "barcode": {
+      const text = S(d.text);
+      if (!text) return [];
+      const out: Paragraph[] = [
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [new TextRun({ text, font: "Courier New", size: size + 6 })],
+        }),
+      ];
+      if (!isEmptyText(d.caption)) {
+        out.push(
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [new TextRun({ text: S(d.caption), size: size - 3 })],
+          })
+        );
+      }
+      return out;
+    }
     // qr_verifikasi & gambar: DOCX menyisipkan gambar via ImageRun.
     case "gambar":
     case "qr_verifikasi": {
@@ -724,11 +822,21 @@ export async function generateLetterDocx(input: LetterDocxInput): Promise<Blob> 
       });
   });
 
+  // Dimensi kertas dari pilihan dokumen (mm → twip), disesuaikan orientasi.
+  const paperOpt =
+    LETTER_PAPER_OPTIONS.find((o) => o.value === (document.paperSize ?? "A4")) ??
+    LETTER_PAPER_OPTIONS[0];
+  const [pw, ph] = paperOpt.mm;
+  const landscape = document.orientation === "landscape";
+  const pageWidth = mmToTwip(landscape ? ph : pw);
+  const pageHeight = mmToTwip(landscape ? pw : ph);
+
   const doc = new Document({
     sections: [
       {
         properties: {
           page: {
+            size: { width: pageWidth, height: pageHeight },
             margin: {
               top: mmToTwip(standard.margins.top),
               right: mmToTwip(standard.margins.right),

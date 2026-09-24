@@ -26,6 +26,7 @@ import {
 import type { Style } from "@react-pdf/types";
 import type { LetterBlockInstance } from "@/lib/config/letter-blocks";
 import type { LetterDocumentData, LetterPage } from "@/lib/config/letter-document";
+import { getPaperSizePt } from "@/lib/config/letter-document";
 import type { LetterStandard } from "@/lib/config/letter-standards";
 import {
   asString,
@@ -560,6 +561,72 @@ function renderBlock(
           {renderRich(asString(d.isi), ctx, `${key}-lamp`)}
         </View>
       );
+    case "garis_pemisah":
+      return (
+        <View
+          key={key}
+          style={{ borderBottomWidth: Number(asString(d.tebal)) || 1, borderBottomColor: "#000000", marginVertical: 8 }}
+        />
+      );
+    case "dua_kolom": {
+      const ratio = asString(d.ratio) || "50:50";
+      const leftW = ratio === "40:60" ? 40 : ratio === "60:40" ? 60 : 50;
+      const gap = 12;
+      const full = 100 - gap;
+      const leftPct = (leftW / 100) * full;
+      const rightPct = full - leftPct;
+      return (
+        <View key={key} style={{ flexDirection: "row", gap, marginBottom: 4 }}>
+          <View style={{ width: `${leftPct}%` }}>{renderRich(asString(d.kiri), ctx, `${key}-l`)}</View>
+          <View style={{ width: `${rightPct}%` }}>{renderRich(asString(d.kanan), ctx, `${key}-r`)}</View>
+        </View>
+      );
+    }
+    case "daftar_centang":
+      return (
+        <View key={key} style={{ marginVertical: 4 }}>
+          {!isEmptyText(d.judul) && <Text style={[styles.paragraf, { fontWeight: "bold" }]}>{S(d.judul)}</Text>}
+          {asString(d.daftar)
+            .split("\n")
+            .map((l) => S(l).trim())
+            .filter(Boolean)
+            .map((l, i) => (
+              <View style={styles.listRow} key={i}>
+                <Text style={[styles.listBullet, { width: 18 }]}>☐</Text>
+                <Text style={styles.listText}>{l}</Text>
+              </View>
+            ))}
+        </View>
+      );
+    case "tanda_tangan_basah":
+      return !isEmptyText(d.url) && d.url ? (
+        <View
+          key={key}
+          style={{ marginVertical: 6, alignItems: asString(d.posisi) === "kiri" ? "flex-start" : asString(d.posisi) === "tengah" ? "center" : "flex-end" }}
+        >
+          {/* eslint-disable-next-line jsx-a11y/alt-text */}
+          <Image
+            src={asString(d.url)}
+            style={{ width: Number(asString(d.lebar)) || 150, objectFit: "contain" }}
+          />
+        </View>
+      ) : null;
+    case "barcode":
+      return !isEmptyText(d.text) && d.text ? (
+        <View
+          key={key}
+          style={{ marginVertical: 6, alignItems: asString(d.posisi) === "kiri" ? "flex-start" : asString(d.posisi) === "tengah" ? "center" : "flex-end" }}
+        >
+          <Text style={{ fontFamily: "Courier", fontSize: ctx.standard.typography.fontSize + 6 }}>
+            {S(d.text)}
+          </Text>
+          {!isEmptyText(d.caption) && (
+            <Text style={{ fontSize: ctx.standard.typography.fontSize - 3, marginTop: 2 }}>
+              {S(d.caption)}
+            </Text>
+          )}
+        </View>
+      ) : null;
     case "page_break":
       // Blok pemisah halaman tidak dirender sebagai konten.
       return null;
@@ -644,12 +711,32 @@ function renderPage(
   page: LetterPage,
   ctx: BlockRenderCtx,
   index: number,
-  total: number
+  total: number,
+  paper: [number, number],
+  showFooter: boolean,
+  watermark: string
 ): React.ReactElement {
   // Halaman tanpa kop: lewati blok kop_surat (mis. halaman lampiran).
   const useHeader = page.useHeader !== false;
   return (
-    <Page size="A4" style={ctx.styles.page} key={page.id} wrap>
+    <Page size={paper} style={ctx.styles.page} key={page.id} wrap>
+      {watermark ? (
+        <Text
+          style={{
+            position: "absolute",
+            top: "40%",
+            left: 0,
+            right: 0,
+            textAlign: "center",
+            fontSize: 60,
+            color: "#e5e5e5",
+            transform: "rotate(-30deg)",
+          }}
+          fixed
+        >
+          {watermark}
+        </Text>
+      ) : null}
       {page.blocks
         .filter((b) => b.enabled && !(b.blockId === "kop_surat" && !useHeader))
         .map((inst) => (
@@ -657,13 +744,15 @@ function renderPage(
             {renderBlock(inst, ctx)}
           </React.Fragment>
         ))}
-      <Text
-        style={ctx.styles.footer}
-        render={({ pageNumber, totalPages }) =>
-          total > 1 ? `Halaman ${pageNumber} dari ${totalPages}` : ""
-        }
-        fixed
-      />
+      {showFooter ? (
+        <Text
+          style={ctx.styles.footer}
+          render={({ pageNumber, totalPages }) =>
+            total > 1 ? `Halaman ${pageNumber} dari ${totalPages}` : ""
+          }
+          fixed
+        />
+      ) : null}
     </Page>
   );
 }
@@ -673,10 +762,13 @@ export function LetterDocument({ standard, document, school, vars }: LetterPdfIn
   const ctx: BlockRenderCtx = { styles, school, vars, standard };
   const pages = document.pages.length > 0 ? document.pages : [{ id: "empty", name: "Surat", blocks: [], useHeader: true }];
   const total = pages.length;
+  const paper = getPaperSizePt(document.paperSize, document.orientation);
 
   return (
     <Document>
-      {pages.map((p, i) => renderPage(p, ctx, i, total))}
+      {pages.map((p, i) =>
+        renderPage(p, ctx, i, total, paper, document.showFooter !== false, document.watermark || "")
+      )}
     </Document>
   );
 }

@@ -8,6 +8,7 @@
 
 import type { LetterBlockInstance } from "@/lib/config/letter-blocks";
 import type { LetterDocumentData } from "@/lib/config/letter-document";
+import { getPaperCss } from "@/lib/config/letter-document";
 import type { LetterStandard } from "@/lib/config/letter-standards";
 import {
   asString,
@@ -82,7 +83,8 @@ function richToHtml(json: string, vars: Record<string, string>): string {
 function renderBlock(
   inst: LetterBlockInstance,
   vars: Record<string, string>,
-  school: LetterSchoolData
+  school: LetterSchoolData,
+  typography: LetterStandard["typography"]
 ): string {
   const d = inst.data;
   const S = (v: unknown) => esc(substitute(asString(v), vars));
@@ -213,6 +215,37 @@ function renderBlock(
         : "";
     case "daftar_lampiran":
       return `${!isEmptyText(d.judul) ? `<h3>${S(d.judul)}</h3>` : ""}<div class="justify">${richToHtml(asString(d.isi), vars)}</div>`;
+    case "garis_pemisah": {
+      const t = Number(asString(d.tebal)) || 1;
+      return `<hr style="border:0;border-top:${t}pt solid #000;margin:8pt 0"/>`;
+    }
+    case "dua_kolom": {
+      const ratio = asString(d.ratio) || "50:50";
+      const leftW = ratio === "40:60" ? 40 : ratio === "60:40" ? 60 : 50;
+      return `<div class="dua-kolom"><div style="flex:${leftW}">${richToHtml(asString(d.kiri), vars)}</div><div style="flex:${100 - leftW}">${richToHtml(asString(d.kanan), vars)}</div></div>`;
+    }
+    case "daftar_centang": {
+      const items = asString(d.daftar)
+        .split("\n")
+        .map((l) => S(l).trim())
+        .filter(Boolean)
+        .map((l) => `<p style="margin-left:18pt;text-indent:-18pt">&#9744; ${l}</p>`)
+        .join("");
+      return `<div style="margin:4pt 0">${!isEmptyText(d.judul) ? `<p><strong>${S(d.judul)}</strong></p>` : ""}${items}</div>`;
+    }
+    case "tanda_tangan_basah":
+      if (isEmptyText(d.url)) return "";
+      {
+        const align = asString(d.posisi) === "kiri" ? "left" : asString(d.posisi) === "tengah" ? "center" : "right";
+        const w = Number(asString(d.lebar)) || 150;
+        return `<div style="text-align:${align};margin:6pt 0"><img src="${S(d.url)}" alt="TTD" style="width:${w}px"/></div>`;
+      }
+    case "barcode":
+      if (isEmptyText(d.text)) return "";
+      {
+        const align = asString(d.posisi) === "kiri" ? "left" : asString(d.posisi) === "tengah" ? "center" : "right";
+        return `<div style="text-align:${align};margin:6pt 0"><div style="font-family:'Courier New',monospace;font-size:${typography.fontSize + 6}pt;letter-spacing:2px">${S(d.text)}</div>${!isEmptyText(d.caption) ? `<div style="font-size:${typography.fontSize - 3}pt">${S(d.caption)}</div>` : ""}</div>`;
+      }
     default:
       return "";
   }
@@ -249,14 +282,24 @@ export function generateLetterHtml(input: LetterHtmlInput): string {
   const { standard, document, school, vars } = input;
   const { margins, typography } = standard;
   const pages = document.pages.length > 0 ? document.pages : [];
+  const paperCss = getPaperCss(document.paperSize, document.orientation);
+  const watermark = (document.watermark || "").trim();
+  const showFooter = document.showFooter !== false;
   const body = pages
     .map((page, pi) => {
       const useHeader = page.useHeader !== false;
       const content = page.blocks
         .filter((b) => b.enabled && !(b.blockId === "kop_surat" && !useHeader))
-        .map((inst) => renderBlock(inst, vars, school))
+        .map((inst) => renderBlock(inst, vars, school, typography))
         .join("");
-      return `<section class="page"${pi > 0 ? ' style="page-break-before:always"' : ""}>${content}</section>`;
+      const wm = watermark
+        ? `<div class="watermark">${esc(watermark)}</div>`
+        : "";
+      const footer =
+        showFooter && pages.length > 1
+          ? `<div class="page-footer">Halaman ${pi + 1} dari ${pages.length}</div>`
+          : "";
+      return `<section class="page"${pi > 0 ? ' style="page-break-before:always"' : ""}>${wm}${content}${footer}</section>`;
     })
     .join("");
 
@@ -266,10 +309,13 @@ export function generateLetterHtml(input: LetterHtmlInput): string {
 <meta charset="utf-8"/>
 <title>Surat</title>
 <style>
-  @page { size: A4; margin: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm; }
+  @page { size: ${paperCss}; margin: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm; }
   * { box-sizing: border-box; }
   body { font-family: "${typography.fontFamily}", Arial, sans-serif; font-size: ${typography.fontSize}pt; line-height: ${typography.lineHeight}; color: #000; margin: 0; }
-  .page { padding: 0; }
+  .page { padding: 0; position: relative; }
+  .watermark { position: absolute; top: 40%; left: 0; right: 0; text-align: center; font-size: 60pt; color: #e5e5e5; transform: rotate(-30deg); z-index: -1; pointer-events: none; }
+  .page-footer { position: absolute; bottom: 0; left: 0; right: 0; text-align: center; font-size: ${typography.fontSize - 4}pt; color: #444444; }
+  .dua-kolom { display: flex; gap: 12pt; margin-bottom: 4pt; }
   p { margin: 0 0 ${typography.paragraphSpacing || 6}pt; }
   .justify p, .justify li { text-align: justify; }
   .right { text-align: right; }

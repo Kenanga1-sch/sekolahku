@@ -66,4 +66,18 @@ describe("findMissingRequired", () => {
     ]);
     expect(result.length).toBeGreaterThan(0);
   });
+
+  it("menciptakan blok baru (garis_pemisah, dua_kolom, daftar_centang, tanda_tangan_basah, barcode)", () => {
+    const bGaris = createBlockInstance("garis_pemisah");
+    const bDua = createBlockInstance("dua_kolom");
+    const bCentang = createBlockInstance("daftar_centang");
+    const bTtd = createBlockInstance("tanda_tangan_basah");
+    const bBc = createBlockInstance("barcode");
+
+    expect(bGaris).not.toBeNull();
+    expect(bDua).not.toBeNull();
+    expect(bCentang).not.toBeNull();
+    expect(bTtd).not.toBeNull();
+    expect(bBc).not.toBeNull();
+  });
 });

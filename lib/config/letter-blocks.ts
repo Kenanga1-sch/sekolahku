@@ -349,6 +349,7 @@ export const LETTER_BLOCK_DEFINITIONS: LetterBlockDefinition[] = [
     label: "Tembusan",
     description: "Daftar penerima tindasan/tembusan surat.",
     group: "meta",
+    defaultForCategories: ["dinas", "undangan"],
     fields: [
       { key: "judul", label: "Judul", type: "text", defaultValue: "Tembusan:" },
       {
@@ -395,6 +396,7 @@ export const LETTER_BLOCK_DEFINITIONS: LetterBlockDefinition[] = [
     description: "Blok lampiran (judul + isi kaya). Cocok untuk halaman lampiran terpisah.",
     group: "lampiran",
     repeatable: true,
+    defaultForCategories: ["berita_acara", "keuangan"],
     fields: [
       { key: "judul", label: "Judul Lampiran", type: "text", placeholder: "LAMPIRAN" },
       { key: "isi", label: "Isi Lampiran", type: "richtext", allowVariables: true },
@@ -407,6 +409,126 @@ export const LETTER_BLOCK_DEFINITIONS: LetterBlockDefinition[] = [
     group: "navigasi",
     repeatable: true,
     fields: [],
+  },
+  {
+    id: "garis_pemisah",
+    label: "Garis Pemisah",
+    description: "Garis horizontal memisah bagian surat.",
+    group: "navigasi",
+    repeatable: true,
+    fields: [
+      {
+        key: "tebal",
+        label: "Ketebalan (pt)",
+        type: "number",
+        defaultValue: 1,
+      },
+    ],
+  },
+  {
+    id: "dua_kolom",
+    label: "Dua Kolom",
+    description: "Teks dua kolom (kiri & kanan). Mendukung teks kaya.",
+    group: "isi",
+    repeatable: true,
+    fields: [
+      {
+        key: "kiri",
+        label: "Kolom Kiri",
+        type: "richtext",
+        allowVariables: true,
+      },
+      {
+        key: "kanan",
+        label: "Kolom Kanan",
+        type: "richtext",
+        allowVariables: true,
+      },
+      {
+        key: "ratio",
+        label: "Rasio Kolom",
+        type: "select",
+        defaultValue: "50:50",
+        options: [
+          { value: "50:50", label: "50 : 50 (seimbang)" },
+          { value: "40:60", label: "40 : 60" },
+          { value: "60:40", label: "60 : 40" },
+        ],
+      },
+    ],
+  },
+  {
+    id: "daftar_centang",
+    label: "Daftar Centang",
+    description: "Daftar pernyataan dengan kotak centang (untuk pernyataan).",
+    group: "isi",
+    repeatable: true,
+    fields: [
+      {
+        key: "judul",
+        label: "Judul (opsional)",
+        type: "text",
+        allowVariables: true,
+      },
+      {
+        key: "daftar",
+        label: "Item (satu per baris)",
+        type: "textarea",
+        placeholder: "Bersedia mengikuti seluruh kegiatan\nMematuhi tata tertib",
+      },
+    ],
+  },
+  {
+    id: "tanda_tangan_basah",
+    label: "Tanda Tangan Basah",
+    description: "Unggah gambar tanda tangan (stempel basah/TTE) untuk ditempelkan.",
+    group: "tanda_tangan",
+    repeatable: true,
+    fields: [
+      {
+        key: "url",
+        label: "URL Gambar TTD",
+        type: "text",
+        placeholder: "/uploads/... atau data: URL setelah unggah",
+      },
+      {
+        key: "lebar",
+        label: "Lebar (px, default 150)",
+        type: "number",
+      },
+      {
+        key: "posisi",
+        label: "Posisi",
+        type: "select",
+        defaultValue: "kanan",
+        options: [
+          { value: "kiri", label: "Kiri" },
+          { value: "tengah", label: "Tengah" },
+          { value: "kanan", label: "Kanan" },
+        ],
+      },
+    ],
+  },
+  {
+    id: "barcode",
+    label: "Barcode / Kode",
+    description: "Sisipkan barcode (kode 128) dari teks/nomor tertentu.",
+    group: "meta",
+    repeatable: true,
+    fields: [
+      {
+        key: "text",
+        label: "Teks/Kode Barcode",
+        type: "text",
+        placeholder: "mis. nomor surat",
+        allowVariables: true,
+      },
+      {
+        key: "caption",
+        label: "Keterangan (opsional)",
+        type: "text",
+      },
+    ],
   },
 ];
 

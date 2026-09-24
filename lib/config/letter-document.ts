@@ -35,6 +35,17 @@ export interface LetterPage {
   useHeader?: boolean;
 }
 
+/** Ukuran kertas yang didukung (mirror halaman cetak klasik). */
+export type LetterPaperSize = "A4" | "F4" | "LEGAL";
+export type LetterOrientation = "portrait" | "landscape";
+
+/** Opsi ukuran kertas untuk UI. */
+export const LETTER_PAPER_OPTIONS: { value: LetterPaperSize; label: string; mm: [number, number] }[] = [
+  { value: "A4", label: "A4 (210 × 297 mm)", mm: [210, 297] },
+  { value: "F4", label: "F4 / Folio (215 × 330 mm)", mm: [215, 330] },
+  { value: "LEGAL", label: "Legal (216 × 356 mm)", mm: [216, 356] },
+];
+
 /** Dokumen surat modular penuh. */
 export interface LetterDocumentData {
   /** Versi skema (untuk migrasi ke depan). */
@@ -42,6 +53,14 @@ export interface LetterDocumentData {
   letterTypeId: number | null;
   jenisSurat?: string;
   standardCategory?: string;
+  /** Ukuran kertas dokumen (default A4). */
+  paperSize?: LetterPaperSize;
+  /** Orientasi halaman (default portrait). */
+  orientation?: LetterOrientation;
+  /** Tampilkan nomor halaman di footer. */
+  showFooter?: boolean;
+  /** Teks watermark (opsional). */
+  watermark?: string;
   pages: LetterPage[];
 }
 
@@ -67,7 +86,13 @@ export function createPage(name = "Halaman Baru", blocks: LetterBlockInstance[] 
  */
 export function createDocumentFromBlocks(
   blockIds: string[],
-  meta?: { letterTypeId?: number | null; jenisSurat?: string; standardCategory?: string }
+  meta?: {
+    letterTypeId?: number | null;
+    jenisSurat?: string;
+    standardCategory?: string;
+    paperSize?: LetterPaperSize;
+    orientation?: LetterOrientation;
+  }
 ): LetterDocumentData {
   const category = meta?.standardCategory || "lainnya";
   const all = buildDefaultBlocksForCategory(blockIds, category);
@@ -77,6 +102,10 @@ export function createDocumentFromBlocks(
     letterTypeId: meta?.letterTypeId ?? null,
     jenisSurat: meta?.jenisSurat,
     standardCategory: meta?.standardCategory,
+    paperSize: meta?.paperSize ?? "A4",
+    orientation: meta?.orientation ?? "portrait",
+    showFooter: true,
+    watermark: "",
     pages,
   };
 }
@@ -124,6 +153,10 @@ export function migrateContentBlocksToDocument(
   const empty: LetterDocumentData = {
     schemaVersion: LETTER_DOCUMENT_SCHEMA_VERSION,
     letterTypeId: null,
+    paperSize: "A4",
+    orientation: "portrait",
+    showFooter: true,
+    watermark: "",
     pages: [createPage("Surat Utama", [])],
   };
   if (!raw) return empty;
@@ -137,6 +170,16 @@ export function migrateContentBlocksToDocument(
   if (!parsed || typeof parsed !== "object") return empty;
   const obj = parsed as Record<string, unknown>;
 
+  /** Ambil nilai paper size & orientasi yang valid. */
+  const paperSize =
+    obj.paperSize === "A4" || obj.paperSize === "F4" || obj.paperSize === "LEGAL"
+      ? (obj.paperSize as LetterPaperSize)
+      : "A4";
+  const orientation = obj.orientation === "landscape" ? "landscape" : "portrait";
+  const showFooter = obj.showFooter !== false;
+  const watermark =
+    typeof obj.watermark === "string" ? obj.watermark : "";
+
   // Struktur baru.
   if (Array.isArray(obj.pages)) {
     const pages = (obj.pages as unknown[])
@@ -148,6 +191,10 @@ export function migrateContentBlocksToDocument(
       jenisSurat: typeof obj.jenisSurat === "string" ? obj.jenisSurat : undefined,
       standardCategory:
         typeof obj.standardCategory === "string" ? obj.standardCategory : undefined,
+      paperSize,
+      orientation,
+      showFooter,
+      watermark,
       pages: pages.length > 0 ? pages : empty.pages,
     };
   }
@@ -164,6 +211,10 @@ export function migrateContentBlocksToDocument(
       jenisSurat: typeof obj.jenisSurat === "string" ? obj.jenisSurat : undefined,
       standardCategory:
         typeof obj.standardCategory === "string" ? obj.standardCategory : undefined,
+      paperSize,
+      orientation,
+      showFooter,
+      watermark,
       pages,
     };
   }
@@ -213,4 +264,36 @@ export function serializeDocument(doc: LetterDocumentData): string {
 /** Total blok di seluruh halaman (untuk penanda jumlah di UI). */
 export function countBlocks(doc: LetterDocumentData): number {
   return doc.pages.reduce((sum, p) => sum + p.blocks.length, 0);
+}
+
+/**
+ * Mengambil dimensi kertas dalam pt (1mm = 2.83465pt), disesuaikan orientasi.
+ * Memberikan [width, height] untuk renderer PDF (Page size) & CSS @page.
+ */
+export function getPaperSizePt(
+  paperSize: LetterPaperSize | undefined,
+  orientation: LetterOrientation | undefined
+): [number, number] {
+  const opt = LETTER_PAPER_OPTIONS.find((o) => o.value === (paperSize ?? "A4")) ??
+    LETTER_PAPER_OPTIONS[0];
+  const [w, h] = opt.mm;
+  // mm → pt.
+  const wPt = w * 2.83465;
+  const hPt = h * 2.83465;
+  return orientation === "landscape" ? [hPt, wPt] : [wPt, hPt];
+}
+
+/**
+ * Mengambil aturan CSS @page size untuk renderer HTML cetak.
+ * Contoh: "A4 portrait" atau "215mm 330mm landscape".
+ */
+export function getPaperCss(
+  paperSize: LetterPaperSize | undefined,
+  orientation: LetterOrientation | undefined
+): string {
+  const ps = paperSize ?? "A4";
+  const or = orientation === "landscape" ? "landscape" : "portrait";
+  if (ps === "LEGAL") return `legal ${or}`;
+  if (ps === "F4") return `215mm 330mm ${or}`;
+  return `A4 ${or}`;
 }

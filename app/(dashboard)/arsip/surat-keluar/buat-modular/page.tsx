@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
@@ -15,6 +15,12 @@ import {
   Eye,
   RefreshCw,
   LayoutTemplate,
+  Users,
+  Settings2,
+  Undo2,
+  Redo2,
+  Download,
+  Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +43,8 @@ import {
   TemplatePickerDialog,
   type ModularTemplate,
 } from "@/components/letter-builder/template-picker-dialog";
+import { DataPickerDialog } from "@/components/letter-builder/data-picker-dialog";
+import { DocumentSettingsDialog } from "@/components/letter-builder/document-settings-dialog";
 import {
   createDocumentFromBlocks,
   migrateContentBlocksToDocument,
@@ -87,6 +95,40 @@ export default function BuatSuratModularPage() {
   const [loadingExisting, setLoadingExisting] = useState(false);
   const [existingStatus, setExistingStatus] = useState<string>("");
   const [templateOpen, setTemplateOpen] = useState(false);
+  const [dataPickerOpen, setDataPickerOpen] = useState(false);
+  const [docSettingsOpen, setDocSettingsOpen] = useState(false);
+
+  /** Stack undo / redo dokumen. */
+  const [undoStack, setUndoStack] = useState<LetterDocumentData[]>([]);
+  const [redoStack, setRedoStack] = useState<LetterDocumentData[]>([]);
+
+  /** Wrapper setDoc dengan pendaftaran ke stack undo. */
+  const updateDocWithUndo = useCallback(
+    (next: LetterDocumentData) => {
+      if (doc) {
+        setUndoStack((prev) => [...prev.slice(-20), doc]);
+        setRedoStack([]);
+      }
+      setDoc(next);
+    },
+    [doc]
+  );
+
+  const handleUndo = () => {
+    if (undoStack.length === 0 || !doc) return;
+    const prev = undoStack[undoStack.length - 1];
+    setUndoStack((s) => s.slice(0, -1));
+    setRedoStack((s) => [...s, doc]);
+    setDoc(prev);
+  };
+
+  const handleRedo = () => {
+    if (redoStack.length === 0 || !doc) return;
+    const next = redoStack[redoStack.length - 1];
+    setRedoStack((s) => s.slice(0, -1));
+    setUndoStack((s) => [...s, doc]);
+    setDoc(next);
+  };
 
   const [meta, setMeta] = useState({
     dateOfLetter: new Date().toISOString().split("T")[0],
@@ -104,6 +146,67 @@ export default function BuatSuratModularPage() {
   const [activeBlocks, setActiveBlocks] = useState<LetterBlockInstance[]>([]);
   /** Indeks halaman aktif yang dibagikan antar tampilan (desktop & mobile). */
   const [activePageIdx, setActivePageIdx] = useState(0);
+  /** Variabel tambahan yang disuntikkan dari dialog pemilih data (siswa/guru). */
+  const [injectedVars, setInjectedVars] = useState<Record<string, string>>({});
+
+  /** Auto-save draft ke localStorage (hanya mode buat baru). */
+  useEffect(() => {
+    if (isEditMode || !doc || step !== "rakit") return;
+    const timer = setTimeout(() => {
+      try {
+        localStorage.setItem(
+          "sekolahku_letter_draft",
+          JSON.stringify({
+            doc,
+            meta,
+            selectedTypeId: selectedType?.id,
+            injectedVars,
+            savedAt: Date.now(),
+          })
+        );
+      } catch {
+        /* ignore */
+      }
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [doc, meta, selectedType, injectedVars, isEditMode, step]);
+
+  /** Ekspor dokumen sebagai file JSON. */
+  const handleExportJson = () => {
+    if (!doc) return;
+    const data = serializeDocument(doc);
+    const blob = new Blob([data], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Document-Modular-${perihal || "Surat"}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    toast.success("File JSON dokumen berhasil diunduh");
+  };
+
+  /** Impor dokumen dari file JSON. */
+  const handleImportJson = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const text = ev.target?.result as string;
+        const restored = migrateContentBlocksToDocument(text);
+        updateDocWithUndo(restored);
+        const ltId = restored.letterTypeId ?? null;
+        const opt = ltId != null ? letterTypeOptions.find((o) => o.id === ltId) : undefined;
+        if (opt) setSelectedType(opt);
+        setStep("rakit");
+        toast.success("Dokumen berhasil diimpor dari file JSON");
+      } catch {
+        toast.error("File JSON tidak valid");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
 
   // Satu sumber kebenaran: bila jumlah halaman menyusut (mis. hapus halaman),
   // klem indeks agar kedua instance editor (desktop & mobile) tetap sinkron.
@@ -222,16 +325,43 @@ export default function BuatSuratModularPage() {
   /** Muat dokumen dari template modular tersimpan. */
   const handleLoadTemplate = (tpl: ModularTemplate) => {
     try {
-      const migrated = migrateContentBlocksToDocument(tpl.documentJson);
-      const ltId = migrated.letterTypeId ?? null;
+      const restored = migrateContentBlocksToDocument(tpl.documentJson);
+      const ltId = restored.letterTypeId ?? null;
       const opt = ltId != null ? letterTypeOptions.find((o) => o.id === ltId) : undefined;
       if (opt) setSelectedType(opt);
-      setDoc(migrated);
+      updateDocWithUndo(restored);
       setStep("rakit");
       toast.success(`Template "${tpl.name}" dimuat`);
     } catch {
       toast.error("Template tidak dapat dibaca");
     }
+  };
+
+  /** Suntikkan variabel siswa/guru + perbarui penerima pada blok tujuan bila ada. */
+  const applyInjectedVars = (newVars: Record<string, string>, recipientName: string) => {
+    setInjectedVars((prev) => ({ ...prev, ...newVars }));
+    if (!doc) return;
+    const nextPages = doc.pages.map((p) => ({
+      ...p,
+      blocks: p.blocks.map((b) => {
+        if (b.blockId === "tujuan" && recipientName && (!b.data.kepada || b.data.kepada === "Orang Tua/Wali Murid")) {
+          return { ...b, data: { ...b.data, kepada: recipientName } };
+        }
+        if (b.blockId === "qr_verifikasi" && (!b.data.url || b.data.url === "")) {
+          const qrText = effectiveNumber || recipientName || "SURAT-VERIFIED";
+          return {
+            ...b,
+            data: {
+              ...b.data,
+              url: `/api/qr?text=${encodeURIComponent(qrText)}`,
+              caption: "Pindai untuk verifikasi surat",
+            },
+          };
+        }
+        return b;
+      }),
+    }));
+    updateDocWithUndo({ ...doc, pages: nextPages });
   };
 
   // Variabel terisi otomatis dari pengaturan + meta.
@@ -255,8 +385,9 @@ export default function BuatSuratModularPage() {
       nomor_surat: effectiveNumber || "",
       nomor_surat_otomatis: effectiveNumber || "",
       tahun_ajaran: settings.current_academic_year || "",
+      ...injectedVars,
     };
-  }, [school, meta, settings, effectiveNumber]);
+  }, [school, meta, settings, effectiveNumber, injectedVars]);
 
   // Label perihal untuk subject (dari semua halaman).
   const perihal = useMemo(() => {
@@ -565,16 +696,79 @@ export default function BuatSuratModularPage() {
           </div>
         </div>
         {step === "rakit" && (
-          <div className="flex flex-wrap gap-1.5 sm:gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={handleUndo}
+              disabled={undoStack.length === 0}
+              aria-label="Batal perubahan"
+              title="Undo (Batal perubahan)"
+            >
+              <Undo2 className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={handleRedo}
+              disabled={redoStack.length === 0}
+              aria-label="Ulang perubahan"
+              title="Redo (Ulang perubahan)"
+            >
+              <Redo2 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDataPickerOpen(true)}
+              title="Pilih data siswa/guru untuk variabel"
+            >
+              <Users className="h-4 w-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Pilih Data</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDocSettingsOpen(true)}
+              title="Ukuran kertas & tata letak"
+            >
+              <Settings2 className="h-4 w-4 sm:mr-1.5" />
+              <span className="hidden sm:inline">Kertas</span>
+            </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setTemplateOpen(true)}
               title="Simpan/muat template modular"
             >
-              <LayoutTemplate className="h-4 w-4 sm:mr-2" />
+              <LayoutTemplate className="h-4 w-4 sm:mr-1.5" />
               <span className="hidden sm:inline">Template</span>
             </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={handleExportJson}
+              aria-label="Ekspor file JSON dokumen"
+              title="Ekspor JSON"
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+            <label className="cursor-pointer">
+              <input
+                type="file"
+                accept=".json"
+                className="hidden"
+                onChange={handleImportJson}
+              />
+              <div className="flex h-8 w-8 items-center justify-center rounded-md border bg-background hover:bg-accent hover:text-accent-foreground" title="Impor JSON">
+                <Upload className="h-4 w-4" />
+              </div>
+            </label>
             <Button variant="outline" size="sm" onClick={handlePrint} title="Cetak">
               <Printer className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Cetak</span>
@@ -700,7 +894,7 @@ export default function BuatSuratModularPage() {
                     <LetterDocumentEditor
                       ref={mobileDocEditorRef}
                       document={doc}
-                      onChange={setDoc}
+                    onChange={updateDocWithUndo}
                       onActiveBlocksChange={setActiveBlocks}
                       activePageIdx={activePageIdx}
                       onActivePageIdxChange={setActivePageIdx}
@@ -733,19 +927,33 @@ export default function BuatSuratModularPage() {
       )}
 
       {doc && (
-        <TemplatePickerDialog
-          open={templateOpen}
-          onOpenChange={setTemplateOpen}
-          currentDocumentJson={serializeDocument({
-            ...doc,
-            letterTypeId: selectedType?.id ?? doc.letterTypeId,
-            jenisSurat: selectedType?.jenisSurat ?? doc.jenisSurat,
-            standardCategory: selectedType?.standardCategory ?? doc.standardCategory,
-          })}
-          defaultName={selectedType ? `Standar ${selectedType.jenisSurat}` : "Template Modular"}
-          category={selectedType?.kategori || "Umum"}
-          onLoad={handleLoadTemplate}
-        />
+        <>
+          <TemplatePickerDialog
+            open={templateOpen}
+            onOpenChange={setTemplateOpen}
+            currentDocumentJson={serializeDocument({
+              ...doc,
+              letterTypeId: selectedType?.id ?? doc.letterTypeId,
+              jenisSurat: selectedType?.jenisSurat ?? doc.jenisSurat,
+              standardCategory: selectedType?.standardCategory ?? doc.standardCategory,
+            })}
+            defaultName={selectedType ? `Standar ${selectedType.jenisSurat}` : "Template Modular"}
+            category={selectedType?.kategori || "Umum"}
+            onLoad={handleLoadTemplate}
+          />
+          <DataPickerDialog
+            open={dataPickerOpen}
+            onOpenChange={setDataPickerOpen}
+            onSelectStudent={applyInjectedVars}
+            onSelectTeacher={applyInjectedVars}
+          />
+          <DocumentSettingsDialog
+            open={docSettingsOpen}
+            onOpenChange={setDocSettingsOpen}
+            document={doc}
+            onChange={updateDocWithUndo}
+          />
+        </>
       )}
     </div>
   );
