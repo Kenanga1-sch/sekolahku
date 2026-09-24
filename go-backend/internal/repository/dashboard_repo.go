@@ -216,8 +216,15 @@ func (r *DashboardRepository) GetSystemHealth() (*models.SystemHealth, error) {
 	runtime.ReadMemStats(&m)
 	health.System.MemoryUsageMB = float64(m.Alloc) / (1024 * 1024)
 
-	// 3. Backup Info
+	// 3. Backup Info — tampilkan waktu backup Telegram terakhir bila ada.
 	health.Backup.LastBackup = nil
+	var lastBackupAt sql.NullInt64
+	if err := r.DB.QueryRow(`
+		SELECT last_backup_at FROM telegram_backup_settings WHERE id = 'default'
+	`).Scan(&lastBackupAt); err == nil && lastBackupAt.Valid && lastBackupAt.Int64 > 0 {
+		v := lastBackupAt.Int64
+		health.Backup.LastBackup = &v
+	}
 
 	return health, nil
 }

@@ -22,12 +22,14 @@ case "$MODE" in
     SERVICE="sekolahku-prod.service"
     PORT=8181
     ENV_FILE="/opt/sekolahku-prod/.env.prod"
+    TELEGRAM_DATA_DIR="/home/chitchat/telegram-api-data"
     ;;
   dev)
     DEPLOY_DIR="/opt/sekolahku-dev"
     SERVICE="sekolahku-dev.service"
     PORT=3001
     ENV_FILE="/opt/sekolahku-dev/.env.dev"
+    TELEGRAM_DATA_DIR="/home/chitchat/telegram-api-data"
     ;;
   *)
     echo "Usage: $0 {prod|dev}"
@@ -43,8 +45,18 @@ echo "╚═══════════════════════�
 mkdir -p "$DEPLOY_DIR"/{data,uploads,public/uploads,dist,backups}
 
 # ── Backup sebelum deploy (safety net) ────
+# Snapshot konsisten via sqlite3 .backup bila tersedia (menyertakan WAL).
 if [ -f "$DEPLOY_DIR/data/sekolahku.db" ]; then
-  cp "$DEPLOY_DIR/data/sekolahku.db" "$DEPLOY_DIR/backups/pre-deploy.$(date +%Y%m%d_%H%M%S).db"
+  PRE_DEPLOY_DB="$DEPLOY_DIR/backups/pre-deploy.$(date +%Y%m%d_%H%M%S).db"
+  if command -v sqlite3 >/dev/null 2>&1; then
+    sqlite3 "$DEPLOY_DIR/data/sekolahku.db" ".backup '$PRE_DEPLOY_DB'"
+  else
+    cp "$DEPLOY_DIR/data/sekolahku.db" "$PRE_DEPLOY_DB"
+  fi
+  # Rotasi: simpan hanya PRE_DEPLOY_KEEP snapshot terbaru agar tidak menumpuk.
+  PRE_DEPLOY_KEEP="${PRE_DEPLOY_KEEP:-7}"
+  ls -1t "$DEPLOY_DIR/backups"/pre-deploy.*.db 2>/dev/null \
+    | tail -n +$((PRE_DEPLOY_KEEP + 1)) | xargs -r rm -f
 fi
 
 # ── Copy artifacts hasil CI ───────────────
@@ -119,18 +131,22 @@ podman run -d --replace \
   -v "$DEPLOY_DIR/public/uploads:/app/public/uploads" \
   -v "$DEPLOY_DIR/uploads:/app/uploads" \
   -v "$DEPLOY_DIR/dist:/app/dist" \
+  $( [ -d "$TELEGRAM_DATA_DIR" ] && echo "-v $TELEGRAM_DATA_DIR:/app/telegram-data:ro" ) \
   "localhost/sekolahku-$MODE:latest"
 
-# ── HEALTH CHECK (max 30 detik) ───────────
-echo "▶ Health check (max 30s)..."
+# ── HEALTH CHECK (max 90 detik) ───────────
+# Startup menjalankan sinkronisasi awal (Buku Induk dll.) SEBELUM server HTTP
+# bind, sehingga pada data besar proses bisa >30 detik. Jendela 90 detik
+# memberi ruang agar deploy tidak salah dianggap gagal.
+echo "▶ Health check (max 90s)..."
 HEALTH_OK=0
-for i in $(seq 1 15); do
+for i in $(seq 1 45); do
   sleep 2
   if curl -sf "http://localhost:$PORT/api/health" >/dev/null 2>&1; then
     HEALTH_OK=1
     break
   fi
-  echo "  attempt $i/15 — belum sehat, tunggu..."
+  echo "  attempt $i/45 — belum sehat, tunggu..."
 done
 
 if [ "$HEALTH_OK" -ne 1 ]; then

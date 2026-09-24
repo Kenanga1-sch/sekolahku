@@ -3,6 +3,7 @@ package scheduler
 import (
 	"database/sql"
 	"log"
+	"os"
 	"strconv"
 	"time"
 
@@ -405,7 +406,11 @@ func (s *Scheduler) backupToTelegram() {
 		return
 	}
 
-	if !settings.IsEnabled {
+	// Backup aktif bila diaktifkan admin (is_enabled) ATAU kredensial Cloud
+	// Storage tersedia di ENV. Kredensial sudah di-fallback dari ENV di repo,
+	// sehingga memuat bot & chat yang sama dengan Cloud Storage.
+	envReady := os.Getenv("CLOUDSTORAGE_BOT_TOKEN") != "" && os.Getenv("CLOUDSTORAGE_CHAT_ID") != ""
+	if !settings.IsEnabled && !envReady {
 		log.Println("[CRON] Telegram backup is disabled, skipping")
 		return
 	}
@@ -416,9 +421,11 @@ func (s *Scheduler) backupToTelegram() {
 	}
 
 	log.Println("[CRON] Sending backup to Telegram...")
-	err = handlers.SendBackupToTelegram(settings.BotToken, settings.ChatID)
+	err = handlers.SendBackupToTelegram(settings.BotToken, settings.ChatID, s.db)
 	if err != nil {
 		log.Printf("[CRON] Failed to send backup to Telegram: %v", err)
+		// Beri tahu admin lewat chat yang sama agar kegagalan tidak senyap.
+		handlers.NotifyBackupFailure(settings.BotToken, settings.ChatID, err.Error())
 		return
 	}
 

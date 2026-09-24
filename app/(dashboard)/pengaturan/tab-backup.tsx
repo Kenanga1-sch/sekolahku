@@ -184,6 +184,7 @@ export default function TabBackup() {
                         </CardTitle>
                         <CardDescription className="text-xs">
                             Atur bot Telegram untuk menerima file backup database (SQLite) secara otomatis setiap hari pukul 02:00 WIB.
+                            Secara bawaan bot &amp; chat mengikuti konfigurasi <strong>Cloud Storage</strong> (isi sendiri hanya bila ingin memakai bot berbeda).
                         </CardDescription>
                         {!isLoading && (
                             <div className={`mt-1 inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${settings.encryptionEnabled ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"}`}>
