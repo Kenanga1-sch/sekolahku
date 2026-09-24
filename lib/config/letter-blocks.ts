@@ -497,3 +497,58 @@ export function buildDefaultBlocksForCategory(
     .filter((id) => !defaultBlockIds.includes(id));
   return buildDefaultBlocks([...defaultBlockIds, ...extras]);
 }
+
+/** Apakah nilai sebuah field dianggap kosong (teks / rich text / HTML). */
+export function isFieldValueEmpty(v: LetterBlockValue): boolean {
+  if (v === null || v === undefined) return true;
+  const s = String(v).trim();
+  if (!s) return true;
+  // Rich text JSON kadang hanya berisi paragraf kosong.
+  if (s.startsWith("{")) return !/"text"\s*:\s*"[^"]+"/.test(s);
+  // HTML tanpa teks.
+  if (/^<[^>]*>$/.test(s)) return true;
+  return s.replace(/<[^>]*>/g, "").trim() === "";
+}
+
+/** Satu masalah validasi: blok dengan field wajib yang masih kosong. */
+export interface MissingRequired {
+  instanceId: string;
+  blockId: string;
+  blockLabel: string;
+  fieldKey: string;
+  fieldLabel: string;
+}
+
+/**
+ * Memindai sebuah daftar blok dan mengembalikan field wajib yang masih kosong
+ * (hanya blok yang aktif). Dipakai bersama oleh editor (indikator merah) dan
+ * halaman simpan (memblokir simpan bila ada yang kosong).
+ */
+export function findMissingRequired(blocks: LetterBlockInstance[]): MissingRequired[] {
+  const out: MissingRequired[] = [];
+  for (const b of blocks) {
+    if (!b.enabled) continue;
+    const def = getBlockDefinition(b.blockId);
+    if (!def) continue;
+    for (const f of def.fields) {
+      if (!f.required) continue;
+      if (isFieldValueEmpty(b.data[f.key])) {
+        out.push({
+          instanceId: b.instanceId,
+          blockId: b.blockId,
+          blockLabel: def.label,
+          fieldKey: f.key,
+          fieldLabel: f.label,
+        });
+      }
+    }
+  }
+  return out;
+}
+
+/** Memindai seluruh halaman dokumen untuk field wajib yang kosong. */
+export function findMissingRequiredInDocument(
+  pages: { blocks: LetterBlockInstance[] }[]
+): MissingRequired[] {
+  return pages.flatMap((p) => findMissingRequired(p.blocks));
+}

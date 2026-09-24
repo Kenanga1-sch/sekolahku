@@ -33,6 +33,7 @@ import {
   tempatTanggal,
 } from "@/lib/letter-render-shared";
 import { parseRichText, type RichNode } from "@/lib/letter-richtext";
+import { loadImageBuffer, type LoadedImage } from "@/lib/letter-image";
 import type { LetterSchoolData } from "@/lib/letter-pdf";
 
 export interface LetterDocxInput {
@@ -46,6 +47,29 @@ export interface LetterDocxInput {
 /** Konversi mm → twip (1 mm = 56.6929 twip). docx memakai twip untuk margin. */
 function mmToTwip(mm: number): number {
   return Math.round(mm * 56.6929);
+}
+
+/**
+ * Resolver gambar: mengubah URL → ImageRun siap pakai. Diisi sebelum render
+ * (semua gambar di-preload) sehingga render blok tetap sinkron.
+ */
+type ImageResolver = (url: string, widthPx: number, heightPx?: number) => ImageRun | null;
+
+/** Membuat resolver gambar dari peta URL → buffer yang sudah dimuat. */
+function makeImageResolver(map: Map<string, LoadedImage>): ImageResolver {
+  return (url, widthPx, heightPx) => {
+    const img = map.get(url.trim());
+    if (!img) return null;
+    const type = img.contentType.includes("jpeg") || img.contentType.includes("jpg") ? "jpg" : "png";
+    return new ImageRun({
+      data: img.buffer,
+      transformation: {
+        width: widthPx,
+        height: heightPx ?? widthPx,
+      },
+      type: type === "jpg" ? "jpg" : "png",
+    });
+  };
 }
 
 type RunPatch = { bold?: boolean; italics?: boolean; underline?: boolean; strike?: boolean };
@@ -141,7 +165,9 @@ function renderBlock(
   inst: LetterBlockInstance,
   vars: Record<string, string>,
   school: LetterSchoolData,
-  fontSize: number
+  fontSize: number,
+  resolver: ImageResolver,
+  useHeader: boolean
 ): (Paragraph | Table)[] {
   const d = inst.data;
   const S = (v: unknown) => substitute(asString(v), vars);
@@ -149,22 +175,44 @@ function renderBlock(
 
   switch (inst.blockId) {
     case "kop_surat": {
+      if (!useHeader) return [];
       const variant = asString(d.variant) || "pemerintah";
       const showGov = variant === "pemerintah" || variant === "lengkap";
-      const out: Paragraph[] = [];
+      const doubleLine = variant === "lengkap" || variant === "garis_ganda";
+      const showLogoLeft =
+        variant === "pemerintah" || variant === "lengkap" || variant === "garis_ganda";
+      const showLogoRight = variant === "logo_kanan";
+      const logoUrl = school.logoUrl || "";
+      const logoLeft = showLogoLeft ? resolver(logoUrl, 60, 60) : null;
+      const logoRight = showLogoRight ? resolver(logoUrl, 60, 60) : null;
+
+      // Baris tengah kop (governance/department + nama + alamat + kontak).
+      const centerChildren: Paragraph[] = [];
       if (showGov) {
-        out.push(
+        centerChildren.push(
           new Paragraph({
             alignment: AlignmentType.CENTER,
-            children: [new TextRun({ text: (school.governanceLine || "PEMERINTAH DAERAH").toUpperCase(), bold: true, size: size + 2 })],
+            children: [
+              new TextRun({
+                text: (school.governanceLine || "PEMERINTAH DAERAH").toUpperCase(),
+                bold: true,
+                size: size + 2,
+              }),
+            ],
           }),
           new Paragraph({
             alignment: AlignmentType.CENTER,
-            children: [new TextRun({ text: (school.departmentLine || "DINAS PENDIDIKAN").toUpperCase(), bold: true, size: size + 2 })],
+            children: [
+              new TextRun({
+                text: (school.departmentLine || "DINAS PENDIDIKAN").toUpperCase(),
+                bold: true,
+                size: size + 2,
+              }),
+            ],
           })
         );
       }
-      out.push(
+      centerChildren.push(
         new Paragraph({
           alignment: AlignmentType.CENTER,
           children: [new TextRun({ text: school.schoolName, bold: true, size: size + 6 })],
@@ -182,20 +230,79 @@ function renderBlock(
         .filter(Boolean)
         .join(" | ");
       if (contact) {
-        out.push(
+        centerChildren.push(
           new Paragraph({
             alignment: AlignmentType.CENTER,
             children: [new TextRun({ text: contact, size: size - 4 })],
           })
         );
       }
-      // Garis kop.
+
+      const out: (Paragraph | Table)[] = [];
+      if (logoLeft || logoRight) {
+        // Kop dengan logo: tata 3 kolom (logo | tengah | logo) memakai tabel
+        // borderless agar logo serata vertikal dengan blok teks tengah.
+        const noBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
+        out.push(
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: {
+              top: noBorder,
+              bottom: noBorder,
+              left: noBorder,
+              right: noBorder,
+              insideHorizontal: noBorder,
+              insideVertical: noBorder,
+            },
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({
+                    width: { size: 15, type: WidthType.PERCENTAGE },
+                    children: [
+                      new Paragraph({
+                        alignment: AlignmentType.LEFT,
+                        children: logoLeft ? [logoLeft] : [],
+                      }),
+                    ],
+                  }),
+                  new TableCell({
+                    width: { size: 70, type: WidthType.PERCENTAGE },
+                    children: centerChildren,
+                  }),
+                  new TableCell({
+                    width: { size: 15, type: WidthType.PERCENTAGE },
+                    children: [
+                      new Paragraph({
+                        alignment: AlignmentType.RIGHT,
+                        children: logoRight ? [logoRight] : [],
+                      }),
+                    ],
+                  }),
+                ],
+              }),
+            ],
+          })
+        );
+      } else {
+        out.push(...centerChildren);
+      }
+
+      // Garis kop: tunggal (border bawah) atau ganda (dua paragraf bergaris).
       out.push(
         new Paragraph({
           border: { bottom: { color: "000000", style: BorderStyle.SINGLE, size: 12, space: 1 } },
           children: [],
         })
       );
+      if (doubleLine) {
+        out.push(
+          new Paragraph({
+            border: { bottom: { color: "000000", style: BorderStyle.SINGLE, size: 6, space: 1 } },
+            children: [],
+          })
+        );
+      }
       return out;
     }
     case "judul":
@@ -275,46 +382,170 @@ function renderBlock(
         }),
       ];
     case "tanda_tangan": {
-      const out: Paragraph[] = [];
-      out.push(new Paragraph({ text: "" }));
-      out.push(
+      const out: (Paragraph | Table)[] = [];
+      const stamp =
+        asString(d.show_stamp) === "true" && school.stampUrl
+          ? resolver(school.stampUrl, 90, 90)
+          : null;
+      const ttdChildren: (Paragraph | ImageRun)[] = [
         new Paragraph({
-          alignment: AlignmentType.RIGHT,
+          alignment: AlignmentType.CENTER,
           children: [new TextRun({ text: S(d.jabatan), size })],
-        })
-      );
-      for (let i = 0; i < 3; i++) out.push(new Paragraph({ text: "" }));
-      out.push(
+        }),
+      ];
+      if (stamp) {
+        ttdChildren.push(
+          new Paragraph({ alignment: AlignmentType.CENTER, children: [stamp] })
+        );
+      } else {
+        ttdChildren.push(new Paragraph({ text: "" }));
+        ttdChildren.push(new Paragraph({ text: "" }));
+        ttdChildren.push(new Paragraph({ text: "" }));
+      }
+      ttdChildren.push(
         new Paragraph({
-          alignment: AlignmentType.RIGHT,
+          alignment: AlignmentType.CENTER,
           children: [
             new TextRun({ text: S(d.nama) || school.principalName, bold: true, underline: {}, size }),
           ],
+        }),
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [new TextRun({ text: `NIP. ${S(d.nip) || school.principalNip}`, size })],
         })
       );
+      const noBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
       out.push(
-        new Paragraph({
-          alignment: AlignmentType.RIGHT,
-          children: [new TextRun({ text: `NIP. ${S(d.nip) || school.principalNip}`, size })],
+        new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          borders: {
+            top: noBorder,
+            bottom: noBorder,
+            left: noBorder,
+            right: noBorder,
+            insideHorizontal: noBorder,
+            insideVertical: noBorder,
+          },
+          rows: [
+            new TableRow({
+              children: [
+                new TableCell({ width: { size: 50, type: WidthType.PERCENTAGE }, children: [new Paragraph("")] }),
+                new TableCell({
+                  width: { size: 50, type: WidthType.PERCENTAGE },
+                  children: ttdChildren as Paragraph[],
+                }),
+              ],
+            }),
+          ],
         })
       );
       return out;
     }
-    case "tanda_tangan_ganda":
-      return [
-        new Paragraph({ children: [new TextRun({ text: `${S(d.kiri_jabatan)}\t\t\t${S(d.kanan_jabatan) || "Kepala Sekolah"}`, size })] }),
-        new Paragraph({ text: "" }),
-        new Paragraph({ text: "" }),
-        new Paragraph({ children: [new TextRun({ text: `${S(d.kiri_nama)}\t\t\t${S(d.kanan_nama) || school.principalName}`, bold: true, underline: {}, size })] }),
-        new Paragraph({ children: [new TextRun({ text: `${S(d.kiri_nip) ? `NIP. ${S(d.kiri_nip)}` : ""}\t\t\tNIP. ${S(d.kanan_nip) || school.principalNip}`, size })] }),
+    case "tanda_tangan_ganda": {
+      const noBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
+      const stamp =
+        asString(d.show_stamp) === "true" && school.stampUrl
+          ? resolver(school.stampUrl, 90, 90)
+          : null;
+      const leftChildren: (Paragraph | ImageRun)[] = [
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: S(d.kiri_jabatan), size })] }),
+        new Paragraph(""),
+        new Paragraph(""),
+        new Paragraph(""),
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [new TextRun({ text: S(d.kiri_nama), bold: true, underline: {}, size })],
+        }),
       ];
-    case "ttd_tiga":
-      return [
-        new Paragraph({ children: [new TextRun({ text: `${S(d.kiri_jabatan)}\t${S(d.tengah_jabatan)}\t${S(d.kanan_jabatan) || "Kepala Sekolah"}`, size })] }),
-        new Paragraph({ text: "" }),
-        new Paragraph({ text: "" }),
-        new Paragraph({ children: [new TextRun({ text: `${S(d.kiri_nama)}\t${S(d.tengah_nama)}\t${S(d.kanan_nama) || school.principalName}`, bold: true, underline: {}, size })] }),
+      if (!isEmptyText(d.kiri_nip)) {
+        leftChildren.push(
+          new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: `NIP. ${S(d.kiri_nip)}`, size })] })
+        );
+      }
+      const rightChildren: (Paragraph | ImageRun)[] = [
+        new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: S(d.kanan_jabatan) || "Kepala Sekolah", size })] }),
       ];
+      if (stamp) {
+        rightChildren.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [stamp] }));
+      } else {
+        rightChildren.push(new Paragraph(""), new Paragraph(""), new Paragraph(""));
+      }
+      rightChildren.push(
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [new TextRun({ text: S(d.kanan_nama) || school.principalName, bold: true, underline: {}, size })],
+        }),
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [new TextRun({ text: `NIP. ${S(d.kanan_nip) || school.principalNip}`, size })],
+        })
+      );
+      return [
+        new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          borders: {
+            top: noBorder,
+            bottom: noBorder,
+            left: noBorder,
+            right: noBorder,
+            insideHorizontal: noBorder,
+            insideVertical: noBorder,
+          },
+          rows: [
+            new TableRow({
+              children: [
+                new TableCell({ width: { size: 50, type: WidthType.PERCENTAGE }, children: leftChildren as Paragraph[] }),
+                new TableCell({ width: { size: 50, type: WidthType.PERCENTAGE }, children: rightChildren as Paragraph[] }),
+              ],
+            }),
+          ],
+        }),
+      ];
+    }
+    case "ttd_tiga": {
+      const noBorder = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
+      const cols: [string, string, string][] = [
+        [S(d.kiri_jabatan), S(d.kiri_nama), S(d.kiri_nip)],
+        [S(d.tengah_jabatan), S(d.tengah_nama), S(d.tengah_nip)],
+        [S(d.kanan_jabatan) || "Kepala Sekolah", S(d.kanan_nama) || school.principalName || "", S(d.kanan_nip) || school.principalNip || ""],
+      ];
+      return [
+        new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          borders: {
+            top: noBorder,
+            bottom: noBorder,
+            left: noBorder,
+            right: noBorder,
+            insideHorizontal: noBorder,
+            insideVertical: noBorder,
+          },
+          rows: [
+            new TableRow({
+              children: cols.map(
+                ([jab, nama, nip]) =>
+                  new TableCell({
+                    width: { size: 33, type: WidthType.PERCENTAGE },
+                    children: [
+                      new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: jab, size })] }),
+                      new Paragraph(""),
+                      new Paragraph(""),
+                      new Paragraph(""),
+                      new Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        children: [new TextRun({ text: nama, bold: true, underline: {}, size })],
+                      }),
+                      ...(nip
+                        ? [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: `NIP. ${nip}`, size })] })]
+                        : []),
+                    ],
+                  })
+              ),
+            }),
+          ],
+        }),
+      ];
+    }
     case "tembusan": {
       const out = [
         new Paragraph({
@@ -349,14 +580,32 @@ function renderBlock(
       out.push(...richToParagraphs(asString(d.isi), vars));
       return out;
     }
-    // qr_verifikasi & gambar: DOCX menyisipkan gambar bila berupa data URL.
+    // qr_verifikasi & gambar: DOCX menyisipkan gambar via ImageRun.
     case "gambar":
     case "qr_verifikasi": {
       const url = asString(d.url);
       const caption = S(d.caption);
+      const isQr = inst.blockId === "qr_verifikasi";
       const out: Paragraph[] = [];
-      if (url) out.push(new Paragraph({ children: [new TextRun({ text: `[Gambar: ${url}]`, size: size - 2 })] }));
-      if (caption) out.push(new Paragraph({ children: [new TextRun({ text: caption, size: size - 4 })] }));
+      if (url) {
+        const img = resolver(url, isQr ? 70 : 220, isQr ? 70 : undefined);
+        if (img) {
+          out.push(
+            new Paragraph({
+              alignment: isQr ? AlignmentType.LEFT : AlignmentType.CENTER,
+              children: [img],
+            })
+          );
+        } else {
+          // Fallback: gambar tak dapat dimuat (CSP / offline).
+          out.push(
+            new Paragraph({ children: [new TextRun({ text: `[Gambar: ${url}]`, size: size - 2 })] })
+          );
+        }
+      }
+      if (caption) {
+        out.push(new Paragraph({ children: [new TextRun({ text: caption, size: size - 4 })] }));
+      }
       return out;
     }
     default:
@@ -380,10 +629,22 @@ function renderTableDocx(inst: LetterBlockInstance, vars: Record<string, string>
   }
   if (columns.length === 0) return [];
 
+  const cellBorder = { style: BorderStyle.SINGLE, size: 4, color: "000000" };
+  const borders = {
+    top: cellBorder,
+    bottom: cellBorder,
+    left: cellBorder,
+    right: cellBorder,
+    insideHorizontal: cellBorder,
+    insideVertical: cellBorder,
+  };
+
   const headerRow = new TableRow({
     children: columns.map(
       (c) =>
         new TableCell({
+          borders,
+          shading: { fill: "EEEEEE" },
           children: [new Paragraph({ children: [new TextRun({ text: c.label, bold: true })] })],
         })
     ),
@@ -394,6 +655,7 @@ function renderTableDocx(inst: LetterBlockInstance, vars: Record<string, string>
         children: columns.map(
           (c, ci) =>
             new TableCell({
+              borders,
               children: [new Paragraph({ children: [new TextRun({ text: S(r[ci] || "") })] })],
             })
         ),
@@ -403,15 +665,49 @@ function renderTableDocx(inst: LetterBlockInstance, vars: Record<string, string>
   return [
     new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
+      borders,
       rows: [headerRow, ...bodyRows],
     }),
   ];
+}
+
+/**
+ * Mengumpulkan URL gambar yang dibutuhkan dokumen (logo, stempel, blok
+ * gambar/QR) lalu memuat semuanya sebelum render, agar render blok sinkron.
+ */
+async function collectImages(
+  document: LetterDocumentData,
+  school: LetterSchoolData
+): Promise<Map<string, LoadedImage>> {
+  const urls = new Set<string>();
+  if (school.logoUrl) urls.add(school.logoUrl);
+  if (school.stampUrl) urls.add(school.stampUrl);
+  for (const page of document.pages) {
+    for (const b of page.blocks) {
+      if (b.blockId === "gambar" || b.blockId === "qr_verifikasi") {
+        const url = asString(b.data.url);
+        if (url) urls.add(url);
+      }
+    }
+  }
+  const map = new Map<string, LoadedImage>();
+  await Promise.all(
+    [...urls].map(async (url) => {
+      const img = await loadImageBuffer(url);
+      if (img) map.set(url, img);
+    })
+  );
+  return map;
 }
 
 /** Menghasilkan Blob DOCX dari dokumen surat. */
 export async function generateLetterDocx(input: LetterDocxInput): Promise<Blob> {
   const { standard, document, school, vars } = input;
   const fontSize = standard.typography.fontSize;
+
+  // Preload gambar (logo/stempel/blok gambar) agar render sinkron.
+  const imageMap = await collectImages(document, school);
+  const resolver = makeImageResolver(imageMap);
 
   const children: (Paragraph | Table)[] = [];
   const pages = document.pages.length > 0 ? document.pages : [];
@@ -424,7 +720,7 @@ export async function generateLetterDocx(input: LetterDocxInput): Promise<Blob> 
     page.blocks
       .filter((b) => b.enabled)
       .forEach((inst) => {
-        children.push(...renderBlock(inst, vars, school, fontSize));
+        children.push(...renderBlock(inst, vars, school, fontSize, resolver, page.useHeader !== false));
       });
   });
 
@@ -449,5 +745,4 @@ export async function generateLetterDocx(input: LetterDocxInput): Promise<Blob> 
   return Packer.toBlob(doc);
 }
 
-// `ImageRun` diimpor untuk kelengkapan tipe (dipakai bila gambar diperluas).
 export { ImageRun };

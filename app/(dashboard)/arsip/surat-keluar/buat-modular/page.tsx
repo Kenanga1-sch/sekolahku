@@ -23,6 +23,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { goPost, goGet, goPatch } from "@/lib/api-client";
+import { getSchoolLogo } from "@/lib/school-logo";
 import { useSchoolSettings } from "@/lib/hooks/use-settings";
 import { useLetterNumbering } from "@/lib/hooks/use-letter-numbering";
 import {
@@ -38,6 +39,7 @@ import {
 } from "@/lib/config/letter-document";
 import { formatLetterNumber } from "@/lib/config/letter-number-format";
 import type { LetterBlockInstance } from "@/lib/config/letter-blocks";
+import { findMissingRequiredInDocument } from "@/lib/config/letter-blocks";
 import {
   getLetterStandard,
   type LetterCategory,
@@ -172,6 +174,9 @@ export default function BuatSuratModularPage() {
       phone: settings.school_phone || "",
       email: settings.school_email || "",
       website: settings.school_website || "",
+      logoUrl: getSchoolLogo(settings.school_logo),
+      governanceLine: settings.governance_name || "PEMERINTAH DAERAH",
+      departmentLine: settings.department_name || "DINAS PENDIDIKAN DAN KEBUDAYAAN",
       principalName: settings.principal_name || "",
       principalNip: settings.principal_nip || "",
       stampUrl: settings.school_stamp || "",
@@ -234,16 +239,19 @@ export default function BuatSuratModularPage() {
   }, [doc, meta.dateOfLetter]);
 
   // Sinkronkan input ke ref agar generator PDF bisa mengakses nilai terbaru.
-  pdfRef.current =
-    standard && doc
-      ? {
-          standard,
-          document: doc,
-          school,
-          vars,
-          fileName: `Surat-${perihal}`.replace(/\s+/g, "-"),
-        }
-      : null;
+  // Dilakukan di useEffect (bukan saat render) agar tidak melanggar aturan React.
+  useEffect(() => {
+    pdfRef.current =
+      standard && doc
+        ? {
+            standard,
+            document: doc,
+            school,
+            vars,
+            fileName: `Surat-${perihal}`.replace(/\s+/g, "-"),
+          }
+        : null;
+  }, [standard, doc, school, vars, perihal]);
 
   const handleDownloadPdf = async () => {
     if (!pdfRef.current) return;
@@ -324,6 +332,14 @@ export default function BuatSuratModularPage() {
     }
     if (!perihal || perihal === "Surat") {
       toast.error("Perihal surat wajib diisi (blok Nomor / Perihal / Lampiran)");
+      return;
+    }
+
+    // Blokir simpan bila masih ada field wajib yang kosong.
+    const missing = findMissingRequiredInDocument(doc.pages);
+    if (missing.length > 0) {
+      const names = Array.from(new Set(missing.map((m) => m.blockLabel))).join(", ");
+      toast.error(`Lengkapi dulu blok wajib: ${names}`);
       return;
     }
 

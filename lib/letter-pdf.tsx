@@ -24,11 +24,7 @@ import {
   pdf,
 } from "@react-pdf/renderer";
 import type { Style } from "@react-pdf/types";
-import type {
-  LetterBlockInstance,
-  LetterBlockDefinition,
-} from "@/lib/config/letter-blocks";
-import { getBlockDefinition } from "@/lib/config/letter-blocks";
+import type { LetterBlockInstance } from "@/lib/config/letter-blocks";
 import type { LetterDocumentData, LetterPage } from "@/lib/config/letter-document";
 import type { LetterStandard } from "@/lib/config/letter-standards";
 import {
@@ -650,21 +646,17 @@ function renderPage(
   index: number,
   total: number
 ): React.ReactElement {
+  // Halaman tanpa kop: lewati blok kop_surat (mis. halaman lampiran).
+  const useHeader = page.useHeader !== false;
   return (
     <Page size="A4" style={ctx.styles.page} key={page.id} wrap>
       {page.blocks
-        .filter((b) => b.enabled)
-        .map((inst) => {
-          const def: LetterBlockDefinition | undefined = getBlockDefinition(inst.blockId);
-          if (!def && inst.blockId !== "page_break") {
-            // Tetap coba render blok yang tak dikenal (hasil migrasi).
-          }
-          return (
-            <React.Fragment key={inst.instanceId}>
-              {renderBlock(inst, ctx)}
-            </React.Fragment>
-          );
-        })}
+        .filter((b) => b.enabled && !(b.blockId === "kop_surat" && !useHeader))
+        .map((inst) => (
+          <React.Fragment key={inst.instanceId}>
+            {renderBlock(inst, ctx)}
+          </React.Fragment>
+        ))}
       <Text
         style={ctx.styles.footer}
         render={({ pageNumber, totalPages }) =>

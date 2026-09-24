@@ -34,6 +34,7 @@ import {
 } from "@/lib/config/letter-variables";
 import {
   createBlockInstance,
+  findMissingRequired,
   getBlockDefinition,
   type LetterBlockInstance,
   type LetterBlockField,
@@ -53,18 +54,6 @@ interface LetterBlockEditorProps {
    *  - "compact": sembunyikan palet karena sudah dipindah ke ribbon atas (desktop).
    */
   variant?: "sidebar" | "compact";
-}
-
-/** Apakah nilai field dianggap kosong. */
-function isFieldEmpty(v: unknown): boolean {
-  if (v === null || v === undefined) return true;
-  const s = String(v).trim();
-  if (!s) return true;
-  // Rich text JSON kadang hanya berisi paragraf kosong.
-  if (s.startsWith("{")) return !/"text"\s*:\s*"[^"]+"/.test(s);
-  // HTML tanpa teks.
-  if (/^<[^>]*>$/.test(s)) return true;
-  return s.replace(/<[^>]*>/g, "").trim() === "";
 }
 
 /** Field editor dinamis berdasarkan definisi blok. */
@@ -215,15 +204,7 @@ export function LetterBlockEditor({
 }: LetterBlockEditorProps) {
   // Blok yang enabled namun ada field required yang kosong.
   const missingRequired = useMemo(() => {
-    const set = new Set<string>();
-    for (const b of blocks) {
-      if (!b.enabled) continue;
-      const def = getBlockDefinition(b.blockId);
-      if (!def) continue;
-      const missing = def.fields.some((f) => f.required && isFieldEmpty(b.data[f.key]));
-      if (missing) set.add(b.instanceId);
-    }
-    return set;
+    return new Set(findMissingRequired(blocks).map((m) => m.instanceId));
   }, [blocks]);
 
   const addBlock = (blockId: string) => {

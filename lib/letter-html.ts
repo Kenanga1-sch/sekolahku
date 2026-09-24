@@ -92,16 +92,28 @@ function renderBlock(
       const variant = asString(d.variant) || "pemerintah";
       const showGov = variant === "pemerintah" || variant === "lengkap";
       const doubleLine = variant === "lengkap" || variant === "garis_ganda";
+      const showLogoLeft =
+        variant === "pemerintah" || variant === "lengkap" || variant === "garis_ganda";
+      const showLogoRight = variant === "logo_kanan";
+      const logo = school.logoUrl;
+      const logoLeft = showLogoLeft && logo ? `<img class="kop-logo" src="${esc(logo)}" alt="Logo"/>` : "";
+      const logoRight = showLogoRight && logo ? `<img class="kop-logo" src="${esc(logo)}" alt="Logo"/>` : "";
       return `<div class="kop">
-        ${showGov ? `<div class="kop-line">${esc((school.governanceLine || "PEMERINTAH DAERAH").toUpperCase())}</div>
-        <div class="kop-line">${esc((school.departmentLine || "DINAS PENDIDIKAN").toUpperCase())}</div>` : ""}
-        <div class="kop-nama">${esc(school.schoolName)}</div>
-        <div class="kop-alamat">${esc(school.address)}</div>
-        <div class="kop-alamat">${esc(
-          [school.phone ? `Telp. ${school.phone}` : "", school.email, school.website]
-            .filter(Boolean)
-            .join(" | ")
-        )}</div>
+        <div class="kop-row">
+          ${logoLeft}
+          <div class="kop-center">
+            ${showGov ? `<div class="kop-line">${esc((school.governanceLine || "PEMERINTAH DAERAH").toUpperCase())}</div>
+            <div class="kop-line">${esc((school.departmentLine || "DINAS PENDIDIKAN").toUpperCase())}</div>` : ""}
+            <div class="kop-nama">${esc(school.schoolName)}</div>
+            <div class="kop-alamat">${esc(school.address)}</div>
+            <div class="kop-alamat">${esc(
+              [school.phone ? `Telp. ${school.phone}` : "", school.email, school.website]
+                .filter(Boolean)
+                .join(" | ")
+            )}</div>
+          </div>
+          ${logoRight}
+        </div>
         <div class="kop-garis${doubleLine ? " double" : ""}"></div>
       </div>`;
     }
@@ -239,8 +251,9 @@ export function generateLetterHtml(input: LetterHtmlInput): string {
   const pages = document.pages.length > 0 ? document.pages : [];
   const body = pages
     .map((page, pi) => {
+      const useHeader = page.useHeader !== false;
       const content = page.blocks
-        .filter((b) => b.enabled)
+        .filter((b) => b.enabled && !(b.blockId === "kop_surat" && !useHeader))
         .map((inst) => renderBlock(inst, vars, school))
         .join("");
       return `<section class="page"${pi > 0 ? ' style="page-break-before:always"' : ""}>${content}</section>`;
@@ -261,6 +274,9 @@ export function generateLetterHtml(input: LetterHtmlInput): string {
   .justify p, .justify li { text-align: justify; }
   .right { text-align: right; }
   .kop { text-align: center; border-bottom: 2px solid #000; padding-bottom: 4pt; margin-bottom: 12pt; }
+  .kop-row { display: flex; align-items: center; gap: 8pt; }
+  .kop-center { flex: 1; text-align: center; }
+  .kop-logo { width: 54pt; height: 54pt; object-fit: contain; flex-shrink: 0; }
   .kop-line { font-weight: bold; letter-spacing: 0.5px; }
   .kop-nama { font-weight: bold; font-size: ${typography.headerFontSize}pt; }
   .kop-alamat { font-size: ${typography.fontSize - 3}pt; }

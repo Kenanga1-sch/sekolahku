@@ -8,11 +8,6 @@
  * output yang konsisten.
  */
 
-import type {
-  LetterBlockData,
-  LetterBlockInstance,
-} from "@/lib/config/letter-blocks";
-
 /** Nama bulan Indonesia. */
 export const BULAN_INDO = [
   "Januari", "Februari", "Maret", "April", "Mei", "Juni",
@@ -71,19 +66,9 @@ export function isEmptyText(v: unknown): boolean {
   return s.replace(/<[^>]*>/g, "").trim() === "";
 }
 
-/** Membaca nilai field blok sebagai string. */
-export function fieldStr(data: LetterBlockData, key: string): string {
-  return asString(data[key]);
-}
-
 /** Menggabungkan tempat + tanggal menjadi "Indramayu, 17 Agustus 2025". */
 export function tempatTanggal(tempat: string, iso: string): string {
   const t = asString(tempat).trim();
   const d = iso ? formatTanggalIndo(iso) : "";
   return [t, d].filter(Boolean).join(", ");
-}
-
-/** Filter blok aktif pada satu halaman. */
-export function activeBlocks(blocks: LetterBlockInstance[]): LetterBlockInstance[] {
-  return blocks.filter((b) => b.enabled);
 }
