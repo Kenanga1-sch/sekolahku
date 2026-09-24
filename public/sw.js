@@ -122,6 +122,19 @@ self.addEventListener("message", (event) => {
 // { title, body, url, tag, icon, image, actions:[{action,title,icon,url}] }.
 // Wajib menampilkan notifikasi agar browser tidak menonaktifkan push
 // (aturan userVisibleOnly).
+//
+// CATATAN nada dering: Web Notification API TIDAK menyediakan opsi `sound`.
+// Bunyi notifikasi ditentukan sistem operasi dan tidak bisa dipaksa kustom
+// dari web (berlaku di semua PWA, Android maupun iOS). Yang BISA dikendalikan
+// adalah: pola getar (Android), pengulangan bunyi via renotify, dan durasi
+// tampil via requireInteraction. Karena itu nilai-nilai di bawah dioptimalkan
+// agar notifikasi terasa khas sekolah dan sulit terlewat.
+
+// Pola getar khas SDN 1 Kenanga: tiga getaran tegas (mirip bel sekolah),
+// berbeda dari getar notifikasi generik. iOS mengabaikan pola ini (memakai
+// getar sistem), Android memakainya apa adanya.
+const SEKOLAH_VIBRATE = [300, 120, 300, 120, 300];
+
 function openInWindow(url) {
   return clients
     .matchAll({ type: "window", includeUncontrolled: true })
@@ -156,13 +169,23 @@ self.addEventListener("push", (event) => {
     }
   }
   const title = data.title || "SDN 1 Kenanga";
+  // Tag: payload boleh mengirim tag sendiri (mis. untuk menggabungkan notif
+  // sejenis). Bila kosong, pakai tag default. Tag non-kosong WAJIB ada supaya
+  // `renotify` valid — kalau tidak, showNotification melempar TypeError.
+  const tag = data.tag || "sekolahku";
   const options = {
     body: data.body || "",
     icon: data.icon || "/icon-192.png",
     badge: "/icon-192.png",
-    tag: data.tag || undefined,
+    tag,
+    // renotify: bila notifikasi menimpa notifikasi lama bertag sama, tetap
+    // berbunyi + bergetar ulang (tanpa ini penimpaan terjadi senyap).
+    renotify: true,
+    // Biarkan tampil sampai pengguna berinteraksi — notifikasi penting sekolah
+    // (absen, izin, pengumuman) tidak boleh hilang sendiri sebelum dibaca.
+    requireInteraction: true,
     data: { url: baseUrl, actionUrls },
-    vibrate: [100, 50, 100],
+    vibrate: SEKOLAH_VIBRATE,
     // actions & image bersifat opsional; browser lama mengabaikannya.
     actions: (data.actions || []).map((a) => ({
       action: a.action,

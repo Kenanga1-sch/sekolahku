@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Bell, BellOff, BellRing, Loader2, Smartphone, Send, Download } from "lucide-react";
+import { Bell, BellOff, BellRing, Loader2, Smartphone, Send, Download, Music } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -109,6 +109,41 @@ export function PushToggle({ showTest = true }: PushToggleProps) {
           </div>
           <PwaInstallButton />
         </div>
+
+        {/* Panduan nada dering khusus */}
+        <details className="rounded-lg border bg-muted/30 px-3 py-2 text-sm">
+          <summary className="flex cursor-pointer items-center gap-2 font-medium">
+            <Music className="h-4 w-4 text-muted-foreground" />
+            Atur nada dering khusus untuk notifikasi sekolah
+          </summary>
+          <div className="mt-2 space-y-2 text-xs text-muted-foreground">
+            <p>
+              Notifikasi akan memakai <strong>pola getar khas</strong> dan berbunyi
+              setiap kali masuk. Nada deringnya mengikuti sistem — berikut cara
+              memilih nada khusus agar mudah dikenali:
+            </p>
+            <div>
+              <p className="font-medium text-foreground">Android (Chrome):</p>
+              <p>
+                Setelan → Aplikasi → Chrome → Notifikasi → cari kanal
+                &ldquo;Situs web sekolah&rdquo; / nama situs ini → <em>Nada dering</em> →
+                pilih suara khusus. Aktifkan juga <em>Getaran</em>.
+              </p>
+            </div>
+            <div>
+              <p className="font-medium text-foreground">iPhone / iPad:</p>
+              <p>
+                Setelan → Notifikasi → cari nama aplikasi ini → aktifkan
+                <em> Suara</em> &amp; <em>Getaran</em>. Pilihan nada terbatas
+                (mengikuti sistem iOS).
+              </p>
+            </div>
+            <p className="italic">
+              Catatan: aplikasi web tidak dapat memaksa nada dering tertentu —
+              bunyi diatur oleh sistem operasi perangkat.
+            </p>
+          </div>
+        </details>
 
         {loading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
