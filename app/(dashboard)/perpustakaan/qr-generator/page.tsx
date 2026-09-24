@@ -9,11 +9,12 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import QRCode from "qrcode";
 import { goGet, goPost } from "@/lib/api-client";
-import { Loader2, Download, RefreshCw, CheckSquare, Square, Archive, FolderArchive, ArrowLeft, FileText } from "lucide-react";
+import { Loader2, Download, RefreshCw, CheckSquare, Square, Archive, FolderArchive, ArrowLeft, FileText, Save, Pencil, Trash2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import JSZip from "jszip";
@@ -23,8 +24,18 @@ import {
     downloadQrStickerPdf,
     labelsPerSheet,
     STICKER_PRESETS,
+    PAPER_SIZES,
     type StickerLayout,
 } from "@/lib/library/qr-pdf";
+import {
+    listStickerPresets,
+    createStickerPreset,
+    updateStickerPreset,
+    deleteStickerPreset,
+    recordToLayout,
+    layoutToInput,
+    type StickerPresetRecord,
+} from "@/lib/library/sticker-presets";
 
 interface QrBatch {
     id: string;
@@ -63,6 +74,21 @@ export default function QRGeneratorPage() {
     const { settings } = useSchoolSettings();
     const schoolName = settings?.school_name || "";
 
+    // Kertas: default A4, bisa diganti (A3/F4/Letter/A5/kustom). Preset label mengikuti kertas.
+    const [paperId, setPaperId] = useState("a4");
+    const [customPaperWidth, setCustomPaperWidth] = useState(0);
+    const [customPaperHeight, setCustomPaperHeight] = useState(0);
+    
+    // Preset stiker kustom (dari backend) — dipakai di dropdown Preset.
+    const [savedPresets, setSavedPresets] = useState<StickerPresetRecord[]>([]);
+    const [isLoadingPresets, setIsLoadingPresets] = useState(false);
+
+    // Dialog simpan/edit preset kustom
+    const [presetDialogOpen, setPresetDialogOpen] = useState(false);
+    const [presetMode, setPresetMode] = useState<"save" | "edit" | null>(null);
+    const [presetEditId, setPresetEditId] = useState("");
+    const [presetName, setPresetName] = useState("");
+
     // Fetch history
     const fetchHistory = async () => {
         setIsLoadingHistory(true);
@@ -90,6 +116,113 @@ export default function QRGeneratorPage() {
             fetchHistory();
         }
     }, [activeTab]);
+
+    // Muat preset stiker tersimpan (dari server) sekali saat halaman dibuka.
+    const fetchPresets = async () => {
+        setIsLoadingPresets(true);
+        try {
+            const items = await listStickerPresets();
+            setSavedPresets(items);
+        } catch (error) {
+            console.error("Failed to fetch sticker presets", error);
+        } finally {
+            setIsLoadingPresets(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchPresets();
+    }, []);
+
+    // Terapkan ukuran kertas yang dipilih ke layout aktif.
+    const applyPaper = (id: string) => {
+        setPaperId(id);
+        const p = PAPER_SIZES.find((s) => s.id === id);
+        if (!p) return;
+        if (id === "custom") {
+            // Kertas kustom: pakai nilai input terakhir, atau mulai dari A4.
+            const w = customPaperWidth || 210;
+            const h = customPaperHeight || 297;
+            setCustomPaperWidth(w);
+            setCustomPaperHeight(h);
+            setLayout((prev) => ({ ...prev, paperWidth: w, paperHeight: h }));
+        } else {
+            setLayout((prev) => ({ ...prev, paperWidth: p.width, paperHeight: p.height }));
+        }
+    };
+
+    const applyCustomPaper = (w: number, h: number) => {
+        setCustomPaperWidth(w);
+        setCustomPaperHeight(h);
+        setLayout((prev) => ({ ...prev, paperWidth: w || 1, paperHeight: h || 1 }));
+    };
+
+    // Menerapkan preset tersimpan ke layout (termasuk kertasnya).
+    const applySavedPreset = (rec: StickerPresetRecord) => {
+        const l = recordToLayout(rec);
+        setPresetId(`saved:${rec.id}`);
+        setLayout(l);
+        // Selaraskan pilihan kertas bila cocok dengan salah satu ukuran baku.
+        const match = PAPER_SIZES.find(
+            (s) => s.id !== "custom" && s.width === l.paperWidth && s.height === l.paperHeight
+        );
+        if (match) {
+            setPaperId(match.id);
+        } else {
+            setPaperId("custom");
+            setCustomPaperWidth(l.paperWidth);
+            setCustomPaperHeight(l.paperHeight);
+        }
+    };
+
+    const openSavePresetDialog = () => {
+        setPresetMode("save");
+        setPresetEditId("");
+        setPresetName("");
+        setPresetDialogOpen(true);
+    };
+
+    const openEditPresetDialog = (rec: StickerPresetRecord) => {
+        setPresetMode("edit");
+        setPresetEditId(rec.id);
+        setPresetName(rec.name);
+        setPresetDialogOpen(true);
+    };
+
+    const handleDeletePreset = async (rec: StickerPresetRecord) => {
+        if (!confirm(`Hapus preset "${rec.name}"?`)) return;
+        try {
+            await deleteStickerPreset(rec.id);
+            toast.success("Preset dihapus");
+            if (presetId === `saved:${rec.id}`) setPresetId(STICKER_PRESETS[0].id);
+            fetchPresets();
+        } catch (error) {
+            toast.error("Gagal menghapus preset");
+        }
+    };
+
+    const handleSubmitPreset = async () => {
+        const name = presetName.trim();
+        if (!name) {
+            toast.error("Nama preset wajib diisi");
+            return;
+        }
+        const input = layoutToInput(name, layout);
+        try {
+            if (presetMode === "edit") {
+                await updateStickerPreset(presetEditId, input);
+                toast.success("Preset diperbarui");
+            } else {
+                await createStickerPreset(input);
+                toast.success("Preset disimpan");
+            }
+            setPresetDialogOpen(false);
+            await fetchPresets();
+        } catch (error: any) {
+            const msg = error?.response?.data?.error || "Gagal menyimpan preset";
+            toast.error(msg);
+        }
+    };
 
     // Generate Logic
     const handleGenerate = async () => {
@@ -219,10 +352,27 @@ export default function QRGeneratorPage() {
         }
     };
 
-    const handlePresetChange = (presetId: string) => {
-        setPresetId(presetId);
-        const p = STICKER_PRESETS.find((p) => p.id === presetId);
-        if (p) setLayout(p.layout);
+    const handlePresetChange = (id: string) => {
+        // Preset tersimpan (dari server) punya prefix "saved:".
+        if (id.startsWith("saved:")) {
+            const rec = savedPresets.find((r) => `saved:${r.id}` === id);
+            if (rec) applySavedPreset(rec);
+            return;
+        }
+        setPresetId(id);
+        if (id === "custom") {
+            // Ukuran label diatur manual; kertas tetap seperti pilihan sekarang.
+            const p = STICKER_PRESETS[0].layout;
+            setLayout((prev) => ({
+                ...p,
+                paperWidth: prev.paperWidth,
+                paperHeight: prev.paperHeight,
+            }));
+            return;
+        }
+        const p = STICKER_PRESETS.find((p) => p.id === id);
+        // Pertahankan ukuran kertas yang dipilih; hanya label yang berubah.
+        if (p) setLayout((prev) => ({ ...p.layout, paperWidth: prev.paperWidth, paperHeight: prev.paperHeight }));
     };
 
     // Reprint Logic (from History)
@@ -371,29 +521,103 @@ export default function QRGeneratorPage() {
                         <CardHeader>
                             <CardTitle>Ukuran Kertas Stiker (untuk PDF)</CardTitle>
                             <CardDescription>
-                                Pilih ukuran yang sudah tersedia, atau atur sendiri.
-                                Kisi dipusatkan otomatis di kertas A4.
+                                Pilih ukuran kertas dan preset label, atau atur sendiri.
+                                Kisi dipusatkan otomatis di kertas {layout.paperWidth}×{layout.paperHeight} mm.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
+                            {/* Kertas */}
                             <div className="grid gap-2">
-                                <Label>Preset</Label>
+                                <Label>Ukuran Kertas</Label>
+                                <select
+                                    className="w-full border rounded px-2 py-2 text-sm bg-background"
+                                    value={paperId}
+                                    onChange={(e) => applyPaper(e.target.value)}
+                                >
+                                    {PAPER_SIZES.map((s) => (
+                                        <option key={s.id} value={s.id}>{s.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {paperId === "custom" && (
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="grid gap-1">
+                                        <Label className="text-xs">Lebar Kertas (mm)</Label>
+                                        <Input type="number" step="0.1" value={customPaperWidth || ""}
+                                            onChange={(e) => applyCustomPaper(parseFloat(e.target.value) || 0, customPaperHeight)} />
+                                    </div>
+                                    <div className="grid gap-1">
+                                        <Label className="text-xs">Tinggi Kertas (mm)</Label>
+                                        <Input type="number" step="0.1" value={customPaperHeight || ""}
+                                            onChange={(e) => applyCustomPaper(customPaperWidth, parseFloat(e.target.value) || 0)} />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Preset label */}
+                            <div className="grid gap-2">
+                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                    <Label>Preset Label</Label>
+                                    <div className="flex gap-2">
+                                        <Button type="button" variant="outline" size="sm" onClick={openSavePresetDialog} className="h-8 gap-1">
+                                            <Save className="h-3.5 w-3.5" />
+                                            Simpan sebagai preset
+                                        </Button>
+                                    </div>
+                                </div>
                                 <select
                                     className="w-full border rounded px-2 py-2 text-sm bg-background"
                                     value={presetId}
                                     onChange={(e) => handlePresetChange(e.target.value)}
                                 >
-                                    {STICKER_PRESETS.map((p) => (
-                                        <option key={p.id} value={p.id}>{p.name}</option>
-                                    ))}
-                                    <option value="custom">Sesuaikan sendiri...</option>
+                                    <optgroup label="Preset Bawaan">
+                                        {STICKER_PRESETS.map((p) => (
+                                            <option key={p.id} value={p.id}>{p.name}</option>
+                                        ))}
+                                        <option value="custom">Sesuaikan sendiri...</option>
+                                    </optgroup>
+                                    {savedPresets.length > 0 && (
+                                        <optgroup label="Preset Saya">
+                                            {savedPresets.map((r) => (
+                                                <option key={r.id} value={`saved:${r.id}`}>
+                                                    {r.name} ({r.labelWidth}×{r.labelHeight} mm)
+                                                </option>
+                                            ))}
+                                        </optgroup>
+                                    )}
                                 </select>
                                 <p className="text-xs text-muted-foreground">
                                     {labelsPerSheet(layout)} label per lembar · kertas {layout.paperWidth}×{layout.paperHeight} mm
                                 </p>
                             </div>
 
-                            {presetId === "custom" && (
+                            {/* Daftar preset tersimpan dengan aksi edit/hapus */}
+                            {savedPresets.length > 0 && (
+                                <div className="rounded border divide-y">
+                                    {savedPresets.map((r) => (
+                                        <div key={r.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-medium truncate">{r.name}</p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {r.paperWidth}×{r.paperHeight} mm · label {r.labelWidth}×{r.labelHeight} mm
+                                                    {r.createdByName ? ` · oleh ${r.createdByName}` : ""}
+                                                </p>
+                                            </div>
+                                            <div className="flex gap-1 shrink-0">
+                                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8" title="Edit" onClick={() => openEditPresetDialog(r)}>
+                                                    <Pencil className="h-3.5 w-3.5" />
+                                                </Button>
+                                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" title="Hapus" onClick={() => handleDeletePreset(r)}>
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {(presetId === "custom" || savedPresets.some((r) => `saved:${r.id}` === presetId)) && (
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                     <div className="grid gap-1">
                                         <Label className="text-xs">Lebar Label (mm)</Label>
@@ -579,6 +803,42 @@ export default function QRGeneratorPage() {
                     </Card>
                 </TabsContent>
             </Tabs>
+
+            {/* Dialog simpan/edit preset stiker */}
+            <Dialog open={presetDialogOpen} onOpenChange={setPresetDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{presetMode === "edit" ? "Edit Preset" : "Simpan Preset"}</DialogTitle>
+                        <DialogDescription>
+                            Preset disimpan di server dan bisa dipakai oleh semua admin.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-2 py-2">
+                        <Label htmlFor="preset-name">Nama Preset</Label>
+                        <Input
+                            id="preset-name"
+                            value={presetName}
+                            onChange={(e) => setPresetName(e.target.value)}
+                            placeholder="mis. Stiker Tom&Jerry 24"
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    handleSubmitPreset();
+                                }
+                            }}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            Ukuran tersimpan: kertas {layout.paperWidth}×{layout.paperHeight} mm · label {layout.labelWidth}×{layout.labelHeight} mm
+                        </p>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setPresetDialogOpen(false)}>Batal</Button>
+                        <Button onClick={handleSubmitPreset} disabled={isLoadingPresets}>
+                            {presetMode === "edit" ? "Simpan Perubahan" : "Simpan"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

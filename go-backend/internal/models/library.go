@@ -17,23 +17,23 @@ type LibraryCatalog struct {
 
 // BookWithAvailability extends BookDetail with stock information for public display
 type BookWithAvailability struct {
-	ID             string              `json:"id"`
-	CatalogID      string              `json:"catalogId"`
-	Status         string              `json:"status"`
-	Location       string              `json:"location,omitempty"`
-	Condition      string              `json:"condition"`
-	CreatedAt      time.Time           `json:"createdAt"`
-	UpdatedAt      time.Time           `json:"updatedAt"`
-	Title          string              `json:"title"`
-	Author         string              `json:"author"`
-	ISBN           string              `json:"isbn"`
-	Publisher      string              `json:"publisher"`
-	Year           int                 `json:"year"`
-	Category       string              `json:"category"`
-	Description    string              `json:"description"`
-	Cover          string              `json:"cover"`
-	TotalExemplars int                 `json:"totalExemplars"` // Total copies in inventory
-	AvailableCount int                 `json:"availableCount"`   // How many are currently AVAILABLE
+	ID             string    `json:"id"`
+	CatalogID      string    `json:"catalogId"`
+	Status         string    `json:"status"`
+	Location       string    `json:"location,omitempty"`
+	Condition      string    `json:"condition"`
+	CreatedAt      time.Time `json:"createdAt"`
+	UpdatedAt      time.Time `json:"updatedAt"`
+	Title          string    `json:"title"`
+	Author         string    `json:"author"`
+	ISBN           string    `json:"isbn"`
+	Publisher      string    `json:"publisher"`
+	Year           int       `json:"year"`
+	Category       string    `json:"category"`
+	Description    string    `json:"description"`
+	Cover          string    `json:"cover"`
+	TotalExemplars int       `json:"totalExemplars"` // Total copies in inventory
+	AvailableCount int       `json:"availableCount"` // How many are currently AVAILABLE
 }
 
 type LibraryCatalogMini struct {
@@ -157,17 +157,17 @@ type BookDetail struct {
 }
 
 type LoanDetail struct {
-	ID         string            `json:"id"`
-	MemberID   string            `json:"memberId"`
-	ItemID     string            `json:"itemId"`
-	BorrowDate time.Time         `json:"borrowDate"`
-	DueDate    time.Time         `json:"dueDate"`
-	ReturnDate time.Time         `json:"returnDate,omitempty"`
-	IsReturned bool              `json:"isReturned"`
-	FineAmount int               `json:"fineAmount"`
-	FinePaid   bool              `json:"finePaid,omitempty"`
-	Member     *LoanMemberMini   `json:"member,omitempty"`
-	Item       *LoanItemMini     `json:"item,omitempty"`
+	ID         string          `json:"id"`
+	MemberID   string          `json:"memberId"`
+	ItemID     string          `json:"itemId"`
+	BorrowDate time.Time       `json:"borrowDate"`
+	DueDate    time.Time       `json:"dueDate"`
+	ReturnDate time.Time       `json:"returnDate,omitempty"`
+	IsReturned bool            `json:"isReturned"`
+	FineAmount int             `json:"fineAmount"`
+	FinePaid   bool            `json:"finePaid,omitempty"`
+	Member     *LoanMemberMini `json:"member,omitempty"`
+	Item       *LoanItemMini   `json:"item,omitempty"`
 }
 
 type LoanMemberMini struct {
@@ -265,6 +265,24 @@ type QRBatchItem struct {
 	CreatedAt     time.Time `json:"createdAt"`
 }
 
+// StickerPreset adalah tata letak stiker QR yang disimpan operator.
+// Semua ukuran dalam milimeter. Dibagi ke semua akun admin.
+type StickerPreset struct {
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	PaperWidth  float64 `json:"paperWidth"`
+	PaperHeight float64 `json:"paperHeight"`
+	LabelWidth  float64 `json:"labelWidth"`
+	LabelHeight float64 `json:"labelHeight"`
+	GapX        float64 `json:"gapX"`
+	GapY        float64 `json:"gapY"`
+	FontSize    float64 `json:"fontSize"`
+	// CreatedBy menyimpan users.id pembuat; CreatedByName hasil JOIN users.name
+	// untuk ditampilkan di UI.
+	CreatedBy     string `json:"createdBy,omitempty"`
+	CreatedByName string `json:"createdByName,omitempty"`
+}
+
 type LoanHistoryItem struct {
 	ID         string    `json:"id"`
 	ItemID     string    `json:"itemId"`
@@ -286,7 +304,7 @@ type CreateBookRequest struct {
 	Category    string `json:"category"`
 	Description string `json:"description"`
 	Cover       string `json:"cover"`
-	Copies      int    `json:"copies"` // Number of physical copies to create (default 1)
+	Copies      int    `json:"copies"`   // Number of physical copies to create (default 1)
 	Location    string `json:"location"` // Shelf location for new assets
 }
 
@@ -305,63 +323,63 @@ type UpdateBookRequest struct {
 
 // LibraryBooking represents a book reservation request
 type LibraryBooking struct {
-	ID           string             `json:"id"`
-	UserID       *string            `json:"userId,omitempty"`
-	MemberID     *string            `json:"memberId,omitempty"`
-	AssetID      string             `json:"assetId"`
-	CatalogID    string             `json:"catalogId"`
-	BorrowerName string             `json:"borrowerName"`
-	BorrowerEmail *string           `json:"borrowerEmail,omitempty"`
-	BorrowerPhone *string           `json:"borrowerPhone,omitempty"`
-	StudentClass *string            `json:"studentClass,omitempty"`
-	BorrowDate   time.Time          `json:"borrowDate"`
-	DueDate      time.Time          `json:"dueDate"`
-	ExpiresAt    *time.Time         `json:"expiresAt,omitempty"`
-	Status       BookingStatus      `json:"status"`
-	Notes        *string            `json:"notes,omitempty"`
-	CreatedAt    time.Time          `json:"createdAt"`
-	UpdatedAt    time.Time          `json:"updatedAt"`
-	
+	ID            string        `json:"id"`
+	UserID        *string       `json:"userId,omitempty"`
+	MemberID      *string       `json:"memberId,omitempty"`
+	AssetID       string        `json:"assetId"`
+	CatalogID     string        `json:"catalogId"`
+	BorrowerName  string        `json:"borrowerName"`
+	BorrowerEmail *string       `json:"borrowerEmail,omitempty"`
+	BorrowerPhone *string       `json:"borrowerPhone,omitempty"`
+	StudentClass  *string       `json:"studentClass,omitempty"`
+	BorrowDate    time.Time     `json:"borrowDate"`
+	DueDate       time.Time     `json:"dueDate"`
+	ExpiresAt     *time.Time    `json:"expiresAt,omitempty"`
+	Status        BookingStatus `json:"status"`
+	Notes         *string       `json:"notes,omitempty"`
+	CreatedAt     time.Time     `json:"createdAt"`
+	UpdatedAt     time.Time     `json:"updatedAt"`
+
 	// Expanded relations
 	Item         *LibraryAssetMini `json:"item,omitempty"`
 	BorrowerInfo *BorrowerInfo     `json:"borrowerInfo,omitempty"`
 }
 
 type LibraryAssetMini struct {
-	ID       string `json:"id"`
-	Title    string `json:"title"`
-	Cover    string `json:"cover"`
+	ID    string `json:"id"`
+	Title string `json:"title"`
+	Cover string `json:"cover"`
 }
 
 type BorrowerInfo struct {
-	Name       string  `json:"name"`
-	Email      *string `json:"email,omitempty"`
-	Phone      *string `json:"phone,omitempty"`
-	ClassName  *string `json:"className,omitempty"`
+	Name      string  `json:"name"`
+	Email     *string `json:"email,omitempty"`
+	Phone     *string `json:"phone,omitempty"`
+	ClassName *string `json:"className,omitempty"`
 }
 
 // BookingStatus enumeration for reservation states
 type BookingStatus string
 
 const (
-	BookingStatusPending    BookingStatus = "pending"     // Initial state, awaiting confirmation
-	BookingStatusConfirmed  BookingStatus = "confirmed"   // Librarian confirmed the booking
-	BookingStatusReady      BookingStatus = "ready"       // Book is prepared for pickup
-	BookingStatusCompleted  BookingStatus = "completed"   // Borrower picked up the book
-	BookingStatusCancelled  BookingStatus = "cancelled"   // Booking cancelled by user or admin
-	BookingStatusExpired    BookingStatus = "expired"     // Auto-expired due to no pickup
+	BookingStatusPending   BookingStatus = "pending"   // Initial state, awaiting confirmation
+	BookingStatusConfirmed BookingStatus = "confirmed" // Librarian confirmed the booking
+	BookingStatusReady     BookingStatus = "ready"     // Book is prepared for pickup
+	BookingStatusCompleted BookingStatus = "completed" // Borrower picked up the book
+	BookingStatusCancelled BookingStatus = "cancelled" // Booking cancelled by user or admin
+	BookingStatusExpired   BookingStatus = "expired"   // Auto-expired due to no pickup
 )
 
 // CreateBookingRequest represents input for creating a new booking
 type CreateBookingRequest struct {
-	AssetID      string `json:"assetId"`
-	BorrowDate   int64  `json:"borrowDate"` // Unix milliseconds
-	DueDate      int64  `json:"dueDate"`    // Unix milliseconds
-	BorrowerName string `json:"borrowerName"`
+	AssetID       string  `json:"assetId"`
+	BorrowDate    int64   `json:"borrowDate"` // Unix milliseconds
+	DueDate       int64   `json:"dueDate"`    // Unix milliseconds
+	BorrowerName  string  `json:"borrowerName"`
 	BorrowerEmail *string `json:"borrowerEmail,omitempty"`
 	BorrowerPhone *string `json:"borrowerPhone,omitempty"`
-	StudentClass *string `json:"studentClass,omitempty"`
-	Notes        *string `json:"notes,omitempty"`
+	StudentClass  *string `json:"studentClass,omitempty"`
+	Notes         *string `json:"notes,omitempty"`
 }
 
 // UpdateBookingStatusRequest for confirming/canceling bookings

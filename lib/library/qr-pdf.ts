@@ -38,6 +38,29 @@ export interface StickerPreset {
   layout: StickerLayout;
 }
 
+export interface PaperSize {
+  id: string;
+  name: string;
+  /** Lebar kertas (mm). 0 untuk opsi "kustom" — diisi manual di UI. */
+  width: number;
+  /** Tinggi kertas (mm). 0 untuk opsi "kustom". */
+  height: number;
+}
+
+/**
+ * Ukuran kertas yang didukung. Sebelumnya kertas dipatok A4 di semua preset;
+ * daftar ini memungkinkan memilih kertas lain. Ukuran baku yang lazim ada di
+ * Indonesia (A4/A3/F4/Letter/A5) plus opsi kustom.
+ */
+export const PAPER_SIZES: PaperSize[] = [
+  { id: "a4", name: "A4 (210 × 297 mm)", width: 210, height: 297 },
+  { id: "a3", name: "A3 (297 × 420 mm)", width: 297, height: 420 },
+  { id: "f4", name: "F4 / Folio (215 × 330 mm)", width: 215, height: 330 },
+  { id: "letter", name: "Letter (216 × 279 mm)", width: 216, height: 279 },
+  { id: "a5", name: "A5 (148 × 210 mm)", width: 148, height: 210 },
+  { id: "custom", name: "Kertas kustom...", width: 0, height: 0 },
+];
+
 // Ukuran dihitung dari kertas A4 (210 × 297 mm) supaya benar-benar muat:
 //   lebar = (210 - jarak*(kolom-1) - 2*margin) / kolom
 // Angka 52,5 mm untuk 40 label yang sempat disebut tidak muat — 4 × 52,5 mm
