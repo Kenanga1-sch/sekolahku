@@ -237,6 +237,7 @@ func main() {
 		Skrining:       repository.NewSkriningRepository(db),
 		Tugas:          repository.NewTugasRepository(db),
 		CloudStorage:   repository.NewCloudStorageRepository(db),
+		ReportTemplate: repository.NewReportTemplateRepository(db),
 	}
 
 	// Aktifkan pemeriksaan status user pada setiap request terautentikasi,
@@ -350,6 +351,7 @@ func main() {
 		File:           handlers.NewFileHandler(),
 		DocStation:     handlers.NewDocStationHandler(),
 		CloudStorage:   handlers.NewCloudStorageHandler(repos.CloudStorage),
+		ReportTemplate: handlers.NewReportTemplateHandler(repos.ReportTemplate),
 		PushSvc:        pushSvc,
 	}
 

@@ -53,6 +53,7 @@ type Repositories struct {
 	Skrining       *repository.SkriningRepository
 	Tugas          *repository.TugasRepository
 	CloudStorage   *repository.CloudStorageRepository
+	ReportTemplate *repository.ReportTemplateRepository
 }
 
 // AllHandlers holds all HTTP handler instances.
@@ -99,6 +100,7 @@ type AllHandlers struct {
 	File           *handlers.FileHandler
 	DocStation     *handlers.DocStationHandler
 	CloudStorage   *handlers.CloudStorageHandler
+	ReportTemplate *handlers.ReportTemplateHandler
 	// PushSvc dipakai handler lain (absen, tabungan, pengumuman) untuk
 	// mengirim push ke orang tua.
 	PushSvc *push.Service
@@ -866,6 +868,14 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	staffGroup.POST("/spmb/registrants", h.SPMB.Register)
 	// Tanggal referensi untuk kalkulasi usia di form input panitia.
 	staffGroup.GET("/spmb/reference-date", h.SPMB.GetReferenceDate)
+
+	// Report Templates (Report Builder)
+	auth.GET("/reports/templates", h.ReportTemplate.GetAll)
+	auth.GET("/reports/templates/:id", h.ReportTemplate.GetByID)
+	auth.GET("/reports/templates/code/:code", h.ReportTemplate.GetByCode)
+	adminGroup.POST("/reports/templates", h.ReportTemplate.Create)
+	adminGroup.PUT("/reports/templates/:id", h.ReportTemplate.Update)
+	adminGroup.DELETE("/reports/templates/:id", h.ReportTemplate.Delete)
 
 	// Modul Tugas & PR (guru → siswa), scoped ke kelas wali.
 	guruGroup.GET("/tugas", h.Tugas.ListTugas)
