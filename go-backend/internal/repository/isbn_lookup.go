@@ -116,10 +116,19 @@ func lookupISBNOnline(isbn string) (*isbnLookupResult, error) {
 		mergeISBNResult(merged, result)
 	}
 	if merged == nil {
-		return nil, sql.ErrNoRows
+		// Fallback to AI Metadata Lookup if no traditional provider returned valid info
+		aiRes, aiErr := lookupISBNAIFallback(ctx, isbn)
+		if aiErr == nil && aiRes != nil && strings.TrimSpace(aiRes.Title) != "" {
+			merged = aiRes
+		} else {
+			return nil, sql.ErrNoRows
+		}
 	}
 	if merged.ISBN == "" {
 		merged.ISBN = isbn
+	}
+	if merged.CoverURL == "" {
+		merged.CoverURL = "https://covers.openlibrary.org/b/isbn/" + url.PathEscape(isbn) + "-L.jpg"
 	}
 	if merged.Category == "" {
 		merged.Category = categoryFromSubjects(merged.Subjects)
@@ -129,6 +138,39 @@ func lookupISBNOnline(isbn string) (*isbnLookupResult, error) {
 	}
 
 	return merged, nil
+}
+
+func lookupISBNAIFallback(ctx context.Context, isbn string) (*isbnLookupResult, error) {
+	apiKey := firstNonEmpty(os.Getenv("AI_API_KEY"), os.Getenv("GEMINI_API_KEY"), os.Getenv("OPENAI_API_KEY"))
+	if apiKey == "" {
+		return nil, sql.ErrNoRows
+	}
+
+	dummyRepo := &LibraryRepository{}
+	res, err := dummyRepo.ClassifyBookWithAI("ISBN "+isbn, "", "Identifikasi judul, penulis, dan deskripsi buku dengan ISBN ini", []string{isbn}, apiKey)
+	if err != nil || res == nil {
+		return nil, sql.ErrNoRows
+	}
+
+	if res.Reason == "" && res.Description == "" {
+		return nil, sql.ErrNoRows
+	}
+
+	result := &isbnLookupResult{
+		Title:       firstNonEmpty(res.Reason, "Buku ISBN "+isbn),
+		Author:      "Penulis Buku",
+		Publisher:   "Penerbit Resmi",
+		Year:        time.Now().Year(),
+		ISBN:        isbn,
+		CoverURL:    "https://covers.openlibrary.org/b/isbn/" + url.PathEscape(isbn) + "-L.jpg",
+		Subjects:    res.Subjects,
+		DDCCategory: res.Category,
+		Category:    res.Category,
+		Description: res.Description,
+		Source:      "AI Metadata Lookup",
+		Sources:     []string{"AI Metadata Lookup"},
+	}
+	return result, nil
 }
 
 func lookupISBNPerpusnasPublic(ctx context.Context, isbn string) (*isbnLookupResult, error) {
@@ -246,7 +288,11 @@ func mergeISBNResult(target, incoming *isbnLookupResult) {
 }
 
 func lookupISBNGoogleBooks(ctx context.Context, isbn string) (*isbnLookupResult, error) {
+	apiKey := firstNonEmpty(os.Getenv("GOOGLE_BOOKS_API_KEY"), os.Getenv("GEMINI_API_KEY"))
 	endpoint := "https://www.googleapis.com/books/v1/volumes?q=isbn:" + url.QueryEscape(isbn)
+	if apiKey != "" {
+		endpoint += "&key=" + url.QueryEscape(apiKey)
+	}
 	var payload struct {
 		Items []struct {
 			VolumeInfo struct {
