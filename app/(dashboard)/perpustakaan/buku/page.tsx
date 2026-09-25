@@ -347,7 +347,7 @@ export default function BukuPage() {
                                                     title: formData.title,
                                                     author: formData.author,
                                                     description: formData.description,
-                                                });
+                                                }, { timeout: 60000 });
                                                 if (res?.data) {
                                                     setFormData(prev => ({
                                                         ...prev,

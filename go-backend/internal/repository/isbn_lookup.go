@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -116,8 +117,12 @@ func lookupISBNOnline(repo *LibraryRepository, isbn string) (*isbnLookupResult, 
 		mergeISBNResult(merged, result)
 	}
 	if merged == nil {
-		// Fallback to AI Metadata Lookup if no traditional provider returned valid info
-		aiRes, aiErr := lookupISBNAIFallback(ctx, repo, isbn)
+		// Fallback to AI Metadata Lookup if no traditional provider returned valid info.
+		// Pakai context terpisah dengan timeout lebih panjang: panggilan LLM bisa
+		// memakan 15-30 detik, jauh melebihi jendela provider tradisional.
+		aiCtx, aiCancel := context.WithTimeout(context.Background(), 35*time.Second)
+		defer aiCancel()
+		aiRes, aiErr := lookupISBNAIFallback(aiCtx, repo, isbn)
 		if aiErr == nil && aiRes != nil && strings.TrimSpace(aiRes.Title) != "" {
 			merged = aiRes
 		} else {
@@ -141,38 +146,64 @@ func lookupISBNOnline(repo *LibraryRepository, isbn string) (*isbnLookupResult, 
 }
 
 func lookupISBNAIFallback(ctx context.Context, repo *LibraryRepository, isbn string) (*isbnLookupResult, error) {
-	apiKey := firstNonEmpty(os.Getenv("AI_API_KEY"), os.Getenv("GEMINI_API_KEY"), os.Getenv("OPENAI_API_KEY"))
-	if apiKey == "" && (repo == nil || repo.DB == nil) {
-		return nil, sql.ErrNoRows
-	}
-
 	if repo == nil {
 		repo = &LibraryRepository{}
 	}
-	res, err := repo.ClassifyBookWithAI("ISBN "+isbn, "", "Identifikasi judul, penulis, dan deskripsi buku dengan ISBN ini", []string{isbn}, apiKey)
-	if err != nil || res == nil {
+
+	prompt := fmt.Sprintf(`Identifikasi buku dengan nomor ISBN berikut: %s
+Gunakan pengetahuanmu tentang data bibliografi. Balas HANYA JSON valid dengan skema:
+{
+  "found": true/false,
+  "title": "Judul lengkap buku",
+  "author": "Nama penulis",
+  "publisher": "Nama penerbit",
+  "year": 2017,
+  "category": "000_COMPUTER|100_PHILOSOPHY|200_RELIGION|300_SOCIAL|400_LANGUAGE|500_SCIENCE|600_TECHNOLOGY|700_ART|800_LITERATURE|900_HISTORY|UNSORTED",
+  "description": "Sinopsis singkat 2-3 kalimat dalam bahasa Indonesia",
+  "subjects": ["subjek1", "subjek2"]
+}
+Jika ISBN benar-benar tidak dikenali, set "found": false dan kosongkan field lainnya.`, isbn)
+
+	text, err := repo.GenerateAIText(ctx, prompt)
+	if err != nil {
 		return nil, sql.ErrNoRows
 	}
 
-	if res.Reason == "" && res.Description == "" {
+	var parsed struct {
+		Found       bool     `json:"found"`
+		Title       string   `json:"title"`
+		Author      string   `json:"author"`
+		Publisher   string   `json:"publisher"`
+		Year        int      `json:"year"`
+		Category    string   `json:"category"`
+		Description string   `json:"description"`
+		Subjects    []string `json:"subjects"`
+	}
+	if err := json.Unmarshal([]byte(text), &parsed); err != nil {
+		return nil, sql.ErrNoRows
+	}
+	if !parsed.Found || strings.TrimSpace(parsed.Title) == "" {
 		return nil, sql.ErrNoRows
 	}
 
-	result := &isbnLookupResult{
-		Title:       firstNonEmpty(res.Reason, "Buku ISBN "+isbn),
-		Author:      "Penulis Buku",
-		Publisher:   "Penerbit Resmi",
-		Year:        time.Now().Year(),
+	year := parsed.Year
+	if year == 0 {
+		year = time.Now().Year()
+	}
+	return &isbnLookupResult{
+		Title:       parsed.Title,
+		Author:      parsed.Author,
+		Publisher:   parsed.Publisher,
+		Year:        year,
 		ISBN:        isbn,
 		CoverURL:    "https://covers.openlibrary.org/b/isbn/" + url.PathEscape(isbn) + "-L.jpg",
-		Subjects:    res.Subjects,
-		DDCCategory: res.Category,
-		Category:    res.Category,
-		Description: res.Description,
+		Subjects:    parsed.Subjects,
+		DDCCategory: parsed.Category,
+		Category:    parsed.Category,
+		Description: parsed.Description,
 		Source:      "AI Metadata Lookup",
 		Sources:     []string{"AI Metadata Lookup"},
-	}
-	return result, nil
+	}, nil
 }
 
 func lookupISBNPerpusnasPublic(ctx context.Context, isbn string) (*isbnLookupResult, error) {
@@ -330,7 +361,12 @@ func lookupISBNGoogleBooks(ctx context.Context, isbn string) (*isbnLookupResult,
 	// Beberapa edisi Indonesia hanya terindeks pada pencarian angka polos.
 	info, ok := fetch("isbn:" + isbn)
 	if !ok {
-		info, ok = fetch(isbn)
+		plain, plainOK := fetch(isbn)
+		// Pencarian angka polos bisa mengembalikan buku yang sama sekali lain,
+		// jadi hanya diterima bila industryIdentifiers-nya benar cocok.
+		if plainOK && identifierMatchesISBN(plain.IndustryIdentifiers, isbn) {
+			info, ok = plain, true
+		}
 	}
 	if !ok || strings.TrimSpace(info.Title) == "" {
 		return nil, sql.ErrNoRows
@@ -655,6 +691,18 @@ func isbnFromIdentifiers(identifiers []struct {
 		}
 	}
 	return fallback
+}
+
+func identifierMatchesISBN(identifiers []struct {
+	Type       string `json:"type"`
+	Identifier string `json:"identifier"`
+}, isbn string) bool {
+	for _, item := range identifiers {
+		if normalizeISBN(item.Identifier) == isbn {
+			return true
+		}
+	}
+	return false
 }
 
 func categoryFromSubjects(subjects []string) string {

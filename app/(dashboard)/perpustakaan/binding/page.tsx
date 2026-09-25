@@ -72,7 +72,7 @@ export default function LibraryBindingPage() {
                 author,
                 description,
                 subjects,
-            });
+            }, { timeout: 60000 });
 
             if (!response.error) {
                 if (response.ai_enabled === false) {
@@ -150,7 +150,7 @@ export default function LibraryBindingPage() {
         setLoading(true);
         setLookupStatus('loading');
         try {
-            const response: any = await goGet(`/api/library/isbn/${encodeURIComponent(isbnToLookup)}`);
+            const response: any = await goGet(`/api/library/isbn/${encodeURIComponent(isbnToLookup)}`, { timeout: 60000 });
             if (!response.error) {
                 const data = response.data; // Unpack the actual book data
                 

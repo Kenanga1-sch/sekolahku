@@ -144,6 +144,160 @@ Aturan Tambahan:
 	return nil, fmt.Errorf("semua AI Provider yang dikonfigurasi gagal dipanggil")
 }
 
+// GenerateAIText mengirim prompt bebas ke provider AI yang aktif (DB lalu env)
+// dan mengembalikan teks mentah dari model pertama yang berhasil.
+func (r *LibraryRepository) GenerateAIText(ctx context.Context, prompt string) (string, error) {
+	if r != nil && r.DB != nil {
+		providerRepo := NewAIProviderRepository(r.DB)
+		if dbProviders, err := providerRepo.GetEnabledProviders(); err == nil {
+			for _, p := range dbProviders {
+				key := p.ResolveAPIKey()
+				if key == "" {
+					continue
+				}
+				if p.ProviderType == "gemini" {
+					if text, gErr := geminiGenerateText(ctx, prompt, key); gErr == nil && strings.TrimSpace(text) != "" {
+						return text, nil
+					}
+				} else {
+					baseURL := p.BaseURL
+					if baseURL == "" {
+						baseURL = "https://api.openai.com/v1"
+					}
+					modelName := p.ModelName
+					if modelName == "" {
+						modelName = "gpt-4o-mini"
+					}
+					if text, oErr := openAICompatibleGenerateText(ctx, prompt, key, baseURL, modelName); oErr == nil && strings.TrimSpace(text) != "" {
+						return text, nil
+					}
+				}
+			}
+		}
+	}
+
+	// Fallback ke env.
+	if gk := firstNonEmpty(os.Getenv("GEMINI_API_KEY")); gk != "" {
+		if text, err := geminiGenerateText(ctx, prompt, gk); err == nil && strings.TrimSpace(text) != "" {
+			return text, nil
+		}
+	}
+	if ok := os.Getenv("OPENAI_API_KEY"); ok != "" {
+		baseURL := firstNonEmpty(os.Getenv("AI_BASE_URL"), "https://api.openai.com/v1")
+		modelName := firstNonEmpty(os.Getenv("AI_MODEL_NAME"), "gpt-4o-mini")
+		if text, err := openAICompatibleGenerateText(ctx, prompt, ok, baseURL, modelName); err == nil && strings.TrimSpace(text) != "" {
+			return text, nil
+		}
+	}
+	return "", fmt.Errorf("tidak ada AI Provider yang berhasil")
+}
+
+func geminiGenerateText(ctx context.Context, prompt, apiKey string) (string, error) {
+	reqBody := geminiRequestBody{
+		Contents: []geminiContent{
+			{Parts: []geminiPart{{Text: prompt}}},
+		},
+		GenerationConfig: geminiGenConfig{
+			Temperature:      0.0,
+			TopP:             0.1,
+			ResponseMimeType: "application/json",
+		},
+	}
+	payloadBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", err
+	}
+	endpoint := "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + apiKey
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(payloadBytes))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		var errObj map[string]interface{}
+		_ = json.NewDecoder(resp.Body).Decode(&errObj)
+		return "", fmt.Errorf("Gemini error (%d): %v", resp.StatusCode, errObj)
+	}
+	var resPayload struct {
+		Candidates []struct {
+			Content struct {
+				Parts []struct {
+					Text string `json:"text"`
+				} `json:"parts"`
+			} `json:"content"`
+		} `json:"candidates"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&resPayload); err != nil {
+		return "", err
+	}
+	if len(resPayload.Candidates) == 0 || len(resPayload.Candidates[0].Content.Parts) == 0 {
+		return "", fmt.Errorf("empty Gemini response")
+	}
+	return resPayload.Candidates[0].Content.Parts[0].Text, nil
+}
+
+func openAICompatibleGenerateText(ctx context.Context, prompt, apiKey, baseURL, modelName string) (string, error) {
+	endpoint := strings.TrimRight(baseURL, "/") + "/chat/completions"
+	systemMsg := "Anda adalah asisten data bibliografi. Balas HANYA dengan JSON valid tanpa markdown codeblock."
+	reqBody := map[string]interface{}{
+		"model": modelName,
+		"messages": []map[string]string{
+			{"role": "system", "content": systemMsg},
+			{"role": "user", "content": prompt},
+		},
+		"temperature":     0.0,
+		"response_format": map[string]string{"type": "json_object"},
+	}
+	payloadBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(payloadBytes))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		var errObj map[string]interface{}
+		_ = json.NewDecoder(resp.Body).Decode(&errObj)
+		return "", fmt.Errorf("AI Provider error (%d): %v", resp.StatusCode, errObj)
+	}
+	var resPayload struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&resPayload); err != nil {
+		return "", err
+	}
+	if len(resPayload.Choices) == 0 {
+		return "", fmt.Errorf("empty AI choices response")
+	}
+	raw := strings.TrimSpace(resPayload.Choices[0].Message.Content)
+	raw = strings.TrimPrefix(raw, "```json")
+	raw = strings.TrimPrefix(raw, "```")
+	raw = strings.TrimSuffix(raw, "```")
+	return strings.TrimSpace(raw), nil
+}
+
+
 func classifyWithGemini(ctx context.Context, prompt, apiKey string) (*GeminiClassifyResult, error) {
 
 	reqBody := geminiRequestBody{
