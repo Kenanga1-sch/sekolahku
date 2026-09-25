@@ -66,6 +66,16 @@ type ISBNLookupResponse struct {
 	Description    string   `json:"description,omitempty"`
 }
 
+// BookSearchResponse adalah hasil pencarian kandidat buku berdasarkan judul
+// (agregasi Google Books & Open Library) dengan dukungan paginasi.
+type BookSearchResponse struct {
+	Results    []ISBNLookupResponse `json:"results"`
+	Page       int                  `json:"page"`
+	PerPage    int                  `json:"perPage"`
+	TotalItems int                  `json:"totalItems"`
+	HasMore    bool                 `json:"hasMore"`
+}
+
 // LibraryAsset represents a physical book/item
 type LibraryAsset struct {
 	ID        string     `json:"id"`

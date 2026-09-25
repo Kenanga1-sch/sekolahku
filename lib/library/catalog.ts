@@ -51,5 +51,36 @@ export async function downloadCoverImage(...args: any[]) {
 }
 
 export async function lookupISBN(isbn: string) {
-  return await goGet(`/api/library/isbn/${encodeURIComponent(isbn)}`);
+  return await goGet(`/api/library/isbn/${encodeURIComponent(isbn)}`, { timeout: 60000 });
+}
+
+export interface BookSearchCandidate {
+  id?: string;
+  title: string;
+  author: string;
+  publisher: string;
+  year: number;
+  isbn?: string;
+  cover?: string;
+  coverUrl?: string;
+  subjects?: string[];
+  ddcCategory?: string;
+  category?: string;
+  sources?: string[];
+  localFound?: boolean;
+  totalExemplars?: number;
+  description?: string;
+}
+
+export interface BookSearchResult {
+  results: BookSearchCandidate[];
+  page: number;
+  perPage: number;
+  totalItems: number;
+  hasMore: boolean;
+}
+
+export async function searchBooks(query: string, page = 1, perPage = 10): Promise<{ success: boolean; data: BookSearchResult }> {
+  const params = new URLSearchParams({ q: query, page: String(page), perPage: String(perPage) });
+  return await goGet(`/api/library/search?${params.toString()}`, { timeout: 60000 });
 }

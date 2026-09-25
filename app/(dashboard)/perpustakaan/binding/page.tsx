@@ -39,6 +39,7 @@ export default function LibraryBindingPage() {
     const [overrideCategory, setOverrideCategory] = useState<DDCCategory | null>(null);
     const [showISBNScanner, setShowISBNScanner] = useState(true);
     const [lookupStatus, setLookupStatus] = useState<'idle' | 'loading' | 'success' | 'not_found'>('idle');
+    const [lookupSources, setLookupSources] = useState<string[]>([]);
     const [catalog, setCatalog] = useState<CatalogData>({
         title: "",
         author: "",
@@ -57,6 +58,63 @@ export default function LibraryBindingPage() {
         subjects?: string[];
     } | null>(null);
     const [aiEnabled, setAiEnabled] = useState(true);
+
+    // Cari Judul (search by title)
+    const [searchMode, setSearchMode] = useState<'isbn' | 'title'>('isbn');
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchLoading, setSearchLoading] = useState(false);
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [searchPage, setSearchPage] = useState(1);
+    const [searchHasMore, setSearchHasMore] = useState(false);
+    const [searchTotal, setSearchTotal] = useState(0);
+    const [searchPerformed, setSearchPerformed] = useState(false);
+
+    const runBookSearch = async (query: string, page: number) => {
+        if (!query.trim()) return;
+        setSearchLoading(true);
+        try {
+            const params = new URLSearchParams({ q: query, page: String(page), perPage: "10" });
+            const res: any = await goGet(`/api/library/search?${params.toString()}`, { timeout: 60000 });
+            if (res?.data) {
+                setSearchResults(res.data.results || []);
+                setSearchHasMore(!!res.data.hasMore);
+                setSearchTotal(res.data.totalItems || 0);
+                setSearchPage(page);
+                setSearchPerformed(true);
+            } else {
+                setSearchResults([]);
+                setSearchHasMore(false);
+                setSearchPerformed(true);
+            }
+        } catch {
+            toast.error("Gagal mencari buku. Coba lagi.");
+        } finally {
+            setSearchLoading(false);
+        }
+    };
+
+    const applySearchResult = (item: any) => {
+        setCatalog({
+            title: item.title || "",
+            author: item.author || "",
+            publisher: item.publisher || "",
+            year: item.year || new Date().getFullYear(),
+            isbn: item.isbn || "",
+            coverUrl: item.cover || item.coverUrl,
+            subjects: item.subjects || [],
+            ddcCategory: item.ddcCategory || "UNSORTED",
+            localFound: item.localFound,
+            totalExemplars: item.totalExemplars,
+            description: item.description || "",
+        });
+        if (item.isbn) setIsbn(item.isbn);
+        const targetShelf = getShelfByDDC((item.ddcCategory as DDCCategory) || "UNSORTED");
+        setLocation(targetShelf);
+        setOverrideCategory(null);
+        setLookupStatus('success');
+        setLookupSources(Array.isArray(item.sources) ? item.sources : []);
+        toast.success(`Data "${item.title}" diterapkan.`);
+    };
 
     const triggerAIClassify = async (
         title: string,
@@ -185,15 +243,20 @@ export default function LibraryBindingPage() {
                     toast.success(`Data ditemukan di koleksi lokal! (${data.totalExemplars} exemplar sudah ada)`);
                 } else {
                     const sourceText = Array.isArray(data.sources) && data.sources.length > 0 ? ` (${data.sources.join(", ")})` : "";
-                    toast.success(`Data buku ditemukan secara online!${sourceText}`);
+                    toast.success(`Data buku ditemukan!${sourceText}`, {
+                        description: sourceText ? `Sumber: ${data.sources.join(", ")}` : undefined,
+                    });
                 }
+                // Simpan sumber agar bisa ditampilkan di UI
+                setLookupSources(Array.isArray(data.sources) ? data.sources : []);
                 // Automatically hide scanner to show results
                 setShowISBNScanner(false);
             } else {
                 setLookupStatus('not_found');
-                toast.info("Data buku tidak ditemukan di katalog online maupun lokal.", {
-                    description: "Periksa kembali ISBN, atau isi judul & penulis secara manual di bawah.",
-                    duration: 6000,
+                setLookupSources([]);
+                toast.info("ISBN tidak ditemukan di Google Books maupun Open Library.", {
+                    description: "Silakan isi Judul & Penulis manual, atau gunakan tab 'Cari Judul'.",
+                    duration: 7000,
                 });
                 setCatalog(prev => ({ 
                     ...prev, 
@@ -207,7 +270,7 @@ export default function LibraryBindingPage() {
             }
         } catch (error) {
             setLookupStatus('idle');
-            toast.error("Gagal menghubungi server catalog.");
+            toast.error("Gagal menghubungi server. Periksa koneksi lalu coba lagi.");
         } finally {
             setLoading(false);
         }
@@ -365,48 +428,195 @@ export default function LibraryBindingPage() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                                <Label className="text-sm font-medium">Scan/Input ISBN</Label>
-                                <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    className="h-8 text-xs gap-2"
-                                    onClick={() => setShowISBNScanner(!showISBNScanner)}
+                            {/* Mode: ISBN vs Cari Judul */}
+                            <div className="grid grid-cols-2 gap-1 p-1 bg-muted rounded-lg">
+                                <Button
+                                    type="button"
+                                    variant={searchMode === 'isbn' ? 'default' : 'ghost'}
+                                    size="sm"
+                                    className="h-8 text-xs"
+                                    onClick={() => setSearchMode('isbn')}
                                 >
-                                    {showISBNScanner ? <CameraOff className="h-3 w-3" /> : <Camera className="h-3 w-3" />}
-                                    {showISBNScanner ? "Matikan Kamera" : "Aktifkan Kamera"}
+                                    <QrCode className="h-3.5 w-3.5 mr-1" />
+                                    Scan / ISBN
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant={searchMode === 'title' ? 'default' : 'ghost'}
+                                    size="sm"
+                                    className="h-8 text-xs"
+                                    onClick={() => setSearchMode('title')}
+                                >
+                                    <Search className="h-3.5 w-3.5 mr-1" />
+                                    Cari Judul
                                 </Button>
                             </div>
 
-                            {showISBNScanner && (
-                                <div className="mb-4">
-                                    <QRScanner 
-                                        onScan={handleISBNScan} 
-                                        mirrored={true}
-                                        formats={["ean_13"]}
-                                        className="mx-auto" 
-                                    />
-                                    <p className="text-[10px] text-center text-muted-foreground mt-2">
-                                        Scan barcode ISBN 10/13 pada sampul belakang buku
-                                    </p>
-                                </div>
+                            {searchMode === 'isbn' ? (
+                                <>
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-sm font-medium">Scan/Input ISBN</Label>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-8 text-xs gap-2"
+                                            onClick={() => setShowISBNScanner(!showISBNScanner)}
+                                        >
+                                            {showISBNScanner ? <CameraOff className="h-3 w-3" /> : <Camera className="h-3 w-3" />}
+                                            {showISBNScanner ? "Matikan Kamera" : "Aktifkan Kamera"}
+                                        </Button>
+                                    </div>
+
+                                    {showISBNScanner && (
+                                        <div className="mb-4">
+                                            <QRScanner
+                                                onScan={handleISBNScan}
+                                                mirrored={true}
+                                                formats={["ean_13"]}
+                                                className="mx-auto"
+                                            />
+                                            <p className="text-[10px] text-center text-muted-foreground mt-2">
+                                                Scan barcode ISBN 10/13 pada sampul belakang buku
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    <div className="flex gap-2">
+                                        <div className="relative flex-1">
+                                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                            <Input
+                                                className="pl-8"
+                                                placeholder="Scan barcode ISBN..."
+                                                value={isbn}
+                                                onChange={(e) => setIsbn(e.target.value)}
+                                                onKeyDown={(e) => e.key === 'Enter' && handleISBNLookup()}
+                                            />
+                                        </div>
+                                        <Button variant="secondary" onClick={handleISBNLookup} disabled={loading || !isbn}>
+                                            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Cari"}
+                                        </Button>
+                                    </div>
+                                    <div className="text-xs text-muted-foreground bg-muted/50 rounded-md p-2.5 border">
+                                        <p className="font-medium mb-0.5">Tidak menemukan buku Indonesia?</p>
+                                        <p>Banyak buku lokal tidak terindeks ISBN di Google Books/Open Library. Gunakan tab <strong>Cari Judul</strong> sebagai alternatif.</p>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <Label className="text-sm font-medium">Cari Berdasarkan Judul</Label>
+                                    <div className="flex gap-2">
+                                        <div className="relative flex-1">
+                                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                            <Input
+                                                className="pl-8"
+                                                placeholder="Ketik judul buku, mis. 'Laut Bercerita'..."
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                onKeyDown={(e) => { if (e.key === 'Enter') { setSearchPage(1); runBookSearch(searchQuery, 1); } }}
+                                            />
+                                        </div>
+                                        <Button
+                                            variant="secondary"
+                                            onClick={() => { setSearchPage(1); runBookSearch(searchQuery, 1); }}
+                                            disabled={searchLoading || !searchQuery.trim()}
+                                        >
+                                            {searchLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Cari"}
+                                        </Button>
+                                    </div>
+
+                                    {searchLoading && (
+                                        <div className="flex items-center gap-2 text-xs text-muted-foreground py-3">
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            Mencari di Google Books & Open Library...
+                                        </div>
+                                    )}
+
+                                    {!searchLoading && searchPerformed && searchResults.length === 0 && (
+                                        <div className="text-xs text-muted-foreground bg-muted/50 rounded-md p-3 border">
+                                            Tidak ada hasil untuk &quot;{searchQuery}&quot;. Coba kata kunci lain.
+                                        </div>
+                                    )}
+
+                                    {searchResults.length > 0 && (
+                                        <div className="space-y-2">
+                                            <p className="text-xs text-muted-foreground">
+                                                Menampilkan halaman {searchPage} — {searchResults.length} hasil
+                                                {searchTotal > 0 ? ` dari ±${searchTotal}` : ""}. Pilih salah satu:
+                                            </p>
+                                            <div className="grid gap-2 max-h-[420px] overflow-y-auto pr-1">
+                                                {searchResults.map((item, idx) => (
+                                                    <button
+                                                        type="button"
+                                                        key={(item.isbn || item.title) + idx}
+                                                        onClick={() => applySearchResult(item)}
+                                                        className="flex gap-3 text-left p-2.5 rounded-lg border border-border hover:border-purple-400 hover:bg-purple-500/5 transition-colors"
+                                                    >
+                                                        <div className="w-12 h-16 rounded overflow-hidden bg-muted flex-shrink-0 flex items-center justify-center">
+                                                            {item.cover || item.coverUrl ? (
+                                                                <img
+                                                                    src={item.cover || item.coverUrl}
+                                                                    alt={item.title}
+                                                                    className="w-full h-full object-cover"
+                                                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                                                />
+                                                            ) : (
+                                                                <Book className="h-5 w-5 text-muted-foreground/40" />
+                                                            )}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-start gap-2">
+                                                                <p className="font-semibold text-sm line-clamp-2 flex-1">{item.title}</p>
+                                                                {item.localFound && (
+                                                                    <Badge className="bg-green-100 text-green-800 border-green-200 shrink-0 text-[10px]">
+                                                                        Lokal
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+                                                            <p className="text-xs text-muted-foreground line-clamp-1">
+                                                                {item.author || "Penulis tidak diketahui"}
+                                                                {item.year ? ` • ${item.year}` : ""}
+                                                            </p>
+                                                            {item.publisher && (
+                                                                <p className="text-[10px] text-muted-foreground line-clamp-1">{item.publisher}</p>
+                                                            )}
+                                                            {item.isbn && (
+                                                                <p className="text-[10px] text-muted-foreground font-mono">ISBN: {item.isbn}</p>
+                                                            )}
+                                                            {Array.isArray(item.sources) && item.sources.length > 0 && (
+                                                                <p className="text-[10px] text-purple-600 dark:text-purple-400 mt-0.5">
+                                                                    Sumber: {item.sources.join(", ")}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
+
+                                            <div className="flex items-center justify-between pt-1">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-8 text-xs"
+                                                    disabled={searchPage <= 1 || searchLoading}
+                                                    onClick={() => runBookSearch(searchQuery, searchPage - 1)}
+                                                >
+                                                    Sebelumnya
+                                                </Button>
+                                                <span className="text-xs text-muted-foreground">Halaman {searchPage}</span>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-8 text-xs"
+                                                    disabled={!searchHasMore || searchLoading}
+                                                    onClick={() => runBookSearch(searchQuery, searchPage + 1)}
+                                                >
+                                                    Berikutnya
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
                             )}
-
-                            <div className="flex gap-2">
-                                <div className="relative flex-1">
-                                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                                    <Input
-                                        className="pl-8"
-                                        placeholder="Scan barcode ISBN..."
-                                        value={isbn}
-                                        onChange={(e) => setIsbn(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleISBNLookup()}
-                                    />
-                                </div>
-                                <Button variant="secondary" onClick={handleISBNLookup} disabled={loading || !isbn}>
-                                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Cari"}
-                                </Button>
-                            </div>
                         </div>
 
                         <div className="space-y-3 pt-4 border-t">
@@ -414,9 +624,18 @@ export default function LibraryBindingPage() {
                                 <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-3 rounded-md flex items-start gap-2 mb-2">
                                     <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5" />
                                     <div className="text-xs text-amber-800 dark:text-amber-300">
-                                        <p className="font-semibold">Data online tidak ditemukan</p>
-                                        <p>ISBN valid namun datanya tidak ada di server. Silakan isi **Judul** dan **Penulis** secara manual di bawah ini.</p>
+                                        <p className="font-semibold">ISBN tidak ada di Google Books & Open Library</p>
+                                        <p>Silakan isi <strong>Judul</strong> dan <strong>Penulis</strong> manual di bawah, atau gunakan tab <strong>Cari Judul</strong>.</p>
                                     </div>
+                                </div>
+                            )}
+
+                            {lookupStatus === 'success' && lookupSources.length > 0 && (
+                                <div className="text-[10px] text-muted-foreground flex items-center gap-1.5 mb-2">
+                                    <span className="font-medium">Sumber data:</span>
+                                    {lookupSources.map((s, i) => (
+                                        <Badge key={i} variant="outline" className="text-[10px] py-0 px-1.5">{s}</Badge>
+                                    ))}
                                 </div>
                             )}
 

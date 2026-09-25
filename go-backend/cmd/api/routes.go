@@ -517,6 +517,7 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	adminGroup.PUT("/library/books/:id", h.Library.UpdateBook)
 	adminGroup.DELETE("/library/books/:id", h.Library.DeleteBook)
 	adminGroup.GET("/library/isbn/:isbn", h.Library.LookupISBN)
+	adminGroup.GET("/library/search", h.Library.SearchBooks)
 	adminGroup.POST("/library/assets/bind", h.Library.BindAsset)
 	adminGroup.POST("/library/assets/swap", h.Library.SwapQR)
 	adminGroup.POST("/library/catalog/cover", h.Upload.LibraryCoverUpload)

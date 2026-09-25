@@ -124,6 +124,22 @@ func (h *LibraryHandler) LookupISBN(c echo.Context) error {
 	})
 }
 
+// SearchBooks mencari kandidat buku berdasarkan judul (Google Books + Open Library).
+func (h *LibraryHandler) SearchBooks(c echo.Context) error {
+	query := c.QueryParam("q")
+	page, _ := strconv.Atoi(c.QueryParam("page"))
+	perPage, _ := strconv.Atoi(c.QueryParam("perPage"))
+
+	result, err := h.Repo.SearchBooksByTitle(query, page, perPage)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data":    result,
+	})
+}
+
 func (h *LibraryHandler) GetBookByQRCode(c echo.Context) error {
 	item, err := h.Repo.GetAssetByCode(c.Param("code"))
 	if errors.Is(err, sql.ErrNoRows) {

@@ -145,24 +145,19 @@ func lookupISBNOnline(repo *LibraryRepository, isbn string) (*isbnLookupResult, 
 	return merged, nil
 }
 
+// lookupISBNAIFallback memakai AI HANYA untuk mengusulkan kandidat judul+penulis.
+// Setiap kandidat WAJIB diverifikasi ke Google Books/Open Library. AI tidak pernah
+// menjadi sumber metadata langsung — ini mencegah halusinasi data buku.
 func lookupISBNAIFallback(ctx context.Context, repo *LibraryRepository, isbn string) (*isbnLookupResult, error) {
 	if repo == nil {
 		repo = &LibraryRepository{}
 	}
 
-	prompt := fmt.Sprintf(`Identifikasi buku dengan nomor ISBN berikut: %s
-Gunakan pengetahuanmu tentang data bibliografi. Balas HANYA JSON valid dengan skema:
-{
-  "found": true/false,
-  "title": "Judul lengkap buku",
-  "author": "Nama penulis",
-  "publisher": "Nama penerbit",
-  "year": 2017,
-  "category": "000_COMPUTER|100_PHILOSOPHY|200_RELIGION|300_SOCIAL|400_LANGUAGE|500_SCIENCE|600_TECHNOLOGY|700_ART|800_LITERATURE|900_HISTORY|UNSORTED",
-  "description": "Sinopsis singkat 2-3 kalimat dalam bahasa Indonesia",
-  "subjects": ["subjek1", "subjek2"]
-}
-Jika ISBN benar-benar tidak dikenali, set "found": false dan kosongkan field lainnya.`, isbn)
+	prompt := fmt.Sprintf(`Sebutkan kemungkinan buku dengan nomor ISBN: %s
+Jika kamu mengenali ISBN ini, berikan hingga 3 kandidat judul buku beserta penulisnya.
+Balas HANYA JSON valid dengan skema:
+{"candidates":[{"title":"Judul Buku","author":"Nama Penulis"}]}
+Jika tidak mengenali sama sekali, balas {"candidates":[]}.`, isbn)
 
 	text, err := repo.GenerateAIText(ctx, prompt)
 	if err != nil {
@@ -170,40 +165,149 @@ Jika ISBN benar-benar tidak dikenali, set "found": false dan kosongkan field lai
 	}
 
 	var parsed struct {
-		Found       bool     `json:"found"`
-		Title       string   `json:"title"`
-		Author      string   `json:"author"`
-		Publisher   string   `json:"publisher"`
-		Year        int      `json:"year"`
-		Category    string   `json:"category"`
-		Description string   `json:"description"`
-		Subjects    []string `json:"subjects"`
+		Candidates []struct {
+			Title  string `json:"title"`
+			Author string `json:"author"`
+		} `json:"candidates"`
 	}
 	if err := json.Unmarshal([]byte(text), &parsed); err != nil {
 		return nil, sql.ErrNoRows
 	}
-	if !parsed.Found || strings.TrimSpace(parsed.Title) == "" {
+	if len(parsed.Candidates) == 0 {
 		return nil, sql.ErrNoRows
 	}
 
-	year := parsed.Year
-	if year == 0 {
-		year = time.Now().Year()
+	// Verifikasi setiap kandidat ke katalog nyata. Hanya kandidat yang cocok
+	// judul+penulis di Google Books/Open Library yang diterima.
+	for _, cand := range parsed.Candidates {
+		title := strings.TrimSpace(cand.Title)
+		if title == "" {
+			continue
+		}
+		verified := verifyCandidateOnline(ctx, title, cand.Author)
+		if verified != nil {
+			if verified.ISBN == "" {
+				verified.ISBN = isbn
+			}
+			verified.Sources = appendUnique(verified.Sources, "AI (terverifikasi: "+verified.Source+")")
+			verified.Source = "AI + " + verified.Source
+			return verified, nil
+		}
 	}
-	return &isbnLookupResult{
-		Title:       parsed.Title,
-		Author:      parsed.Author,
-		Publisher:   parsed.Publisher,
-		Year:        year,
-		ISBN:        isbn,
-		CoverURL:    "https://covers.openlibrary.org/b/isbn/" + url.PathEscape(isbn) + "-L.jpg",
-		Subjects:    parsed.Subjects,
-		DDCCategory: parsed.Category,
-		Category:    parsed.Category,
-		Description: parsed.Description,
-		Source:      "AI Metadata Lookup",
-		Sources:     []string{"AI Metadata Lookup"},
-	}, nil
+
+	return nil, sql.ErrNoRows
+}
+
+// verifyCandidateOnline mencari kandidat judul+penulis ke Google Books lalu
+// Open Library, lalu memastikan hasilnya benar-benar cocok (bukan sekadar item
+// pertama). Mengembalikan nil bila tak ada yang cocok.
+func verifyCandidateOnline(ctx context.Context, title, author string) *isbnLookupResult {
+	// Coba beberapa variasi query, dari paling presisi ke paling longgar.
+	queries := []string{}
+	if strings.TrimSpace(title) != "" {
+		queries = append(queries, "intitle:"+title)
+	}
+	if strings.TrimSpace(author) != "" {
+		queries = append(queries, title+" "+author)
+	}
+	queries = append(queries, title)
+
+	seenQuery := map[string]bool{}
+	for _, q := range queries {
+		q = strings.TrimSpace(q)
+		if q == "" || seenQuery[q] {
+			continue
+		}
+		seenQuery[q] = true
+
+		if candidates := searchGoogleBooks(ctx, q, 10); len(candidates) > 0 {
+			if match := bestCandidateMatch(title, author, candidates); match != nil {
+				match.Source = "Google Books"
+				match.Sources = []string{"Google Books"}
+				return match
+			}
+		}
+		if candidates := searchOpenLibrary(ctx, q, 10); len(candidates) > 0 {
+			if match := bestCandidateMatch(title, author, candidates); match != nil {
+				match.Source = "Open Library"
+				match.Sources = []string{"Open Library"}
+				return match
+			}
+		}
+	}
+	return nil
+}
+
+// bestCandidateMatch memilih kandidat pertama yang cocok judul (wajib) dan
+// penulis (bila diberikan). Bila author tidak diberikan, cukup cocok judul.
+func bestCandidateMatch(title, author string, candidates []*isbnLookupResult) *isbnLookupResult {
+	for _, c := range candidates {
+		if !titleMatches(title, c.Title) {
+			continue
+		}
+		if strings.TrimSpace(author) != "" && !authorMatches(author, c.Author) {
+			continue
+		}
+		return c
+	}
+	return nil
+}
+
+// titleMatches menilai kecocokan judul dengan toleransi: normalisasi huruf kecil,
+// buang tanda baca, dan cek substring dua arah untuk variasi subtitle.
+func titleMatches(a, b string) bool {
+	na := normalizeTitle(a)
+	nb := normalizeTitle(b)
+	if na == "" || nb == "" {
+		return false
+	}
+	if na == nb {
+		return true
+	}
+	if strings.Contains(na, nb) || strings.Contains(nb, na) {
+		return true
+	}
+	// Bandingkan kata-kata pertama bermakna (min 2 kata) untuk toleransi subtitle.
+	wa := strings.Fields(na)
+	wb := strings.Fields(nb)
+	if len(wa) >= 2 && len(wb) >= 2 {
+		if wa[0] == wb[0] && wa[1] == wb[1] {
+			return true
+		}
+	}
+	return false
+}
+
+func authorMatches(a, b string) bool {
+	na := normalizeTitle(a)
+	nb := normalizeTitle(b)
+	if na == "" || nb == "" {
+		return false
+	}
+	if strings.Contains(na, nb) || strings.Contains(nb, na) {
+		return true
+	}
+	// Cocokkan setidaknya satu nama kata (mis. "Leila Chudori" vs "Leila S. Chudori").
+	for _, token := range strings.Fields(na) {
+		if len(token) < 3 {
+			continue
+		}
+		if strings.Contains(nb, token) {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeTitle(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	var b strings.Builder
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == ' ' {
+			b.WriteRune(r)
+		}
+	}
+	return strings.Join(strings.Fields(b.String()), " ")
 }
 
 func lookupISBNPerpusnasPublic(ctx context.Context, isbn string) (*isbnLookupResult, error) {
@@ -389,6 +493,125 @@ func lookupISBNGoogleBooks(ctx context.Context, isbn string) (*isbnLookupResult,
 		Source:      "Google Books",
 	}
 	return result, nil
+}
+
+// searchGoogleBooks mencari banyak kandidat via Google Books (untuk fitur Cari
+// Judul & verifikasi kandidat AI). maxResults dibatasi 40 oleh API.
+func searchGoogleBooks(ctx context.Context, query string, maxResults int) []*isbnLookupResult {
+	apiKey := firstNonEmpty(os.Getenv("GOOGLE_BOOKS_API_KEY"))
+	if maxResults <= 0 || maxResults > 40 {
+		maxResults = 10
+	}
+	endpoint := "https://www.googleapis.com/books/v1/volumes?q=" + url.QueryEscape(query) + "&maxResults=" + strconv.Itoa(maxResults)
+	if apiKey != "" {
+		endpoint += "&key=" + url.QueryEscape(apiKey)
+	}
+
+	var payload struct {
+		Items []struct {
+			VolumeInfo struct {
+				Title               string   `json:"title"`
+				Subtitle            string   `json:"subtitle"`
+				Authors             []string `json:"authors"`
+				Publisher           string   `json:"publisher"`
+				PublishedDate       string   `json:"publishedDate"`
+				Description         string   `json:"description"`
+				Categories          []string `json:"categories"`
+				IndustryIdentifiers []struct {
+					Type       string `json:"type"`
+					Identifier string `json:"identifier"`
+				} `json:"industryIdentifiers"`
+				ImageLinks struct {
+					Thumbnail      string `json:"thumbnail"`
+					SmallThumbnail string `json:"smallThumbnail"`
+				} `json:"imageLinks"`
+			} `json:"volumeInfo"`
+		} `json:"items"`
+	}
+	if err := getJSON(ctx, endpoint, nil, &payload); err != nil {
+		return nil
+	}
+
+	results := make([]*isbnLookupResult, 0, len(payload.Items))
+	for _, item := range payload.Items {
+		info := item.VolumeInfo
+		title := strings.TrimSpace(info.Title)
+		if title == "" {
+			continue
+		}
+		if info.Subtitle != "" && !strings.Contains(title, info.Subtitle) {
+			title += ": " + info.Subtitle
+		}
+		isbn := isbnFromIdentifiers(info.IndustryIdentifiers, "")
+		results = append(results, &isbnLookupResult{
+			Title:       title,
+			Author:      strings.Join(info.Authors, ", "),
+			Publisher:   info.Publisher,
+			Year:        extractYear(info.PublishedDate),
+			ISBN:        isbn,
+			CoverURL:    preferHTTPS(firstNonEmpty(info.ImageLinks.Thumbnail, info.ImageLinks.SmallThumbnail)),
+			Subjects:    info.Categories,
+			Category:    firstString(info.Categories),
+			Description: info.Description,
+			Source:      "Google Books",
+			Sources:     []string{"Google Books"},
+		})
+	}
+	return results
+}
+
+// searchOpenLibrary mencari banyak kandidat judul via Open Library search API.
+func searchOpenLibrary(ctx context.Context, query string, maxResults int) []*isbnLookupResult {
+	if maxResults <= 0 {
+		maxResults = 10
+	}
+	endpoint := "https://openlibrary.org/search.json?q=" + url.QueryEscape(query) + "&limit=" + strconv.Itoa(maxResults)
+
+	var payload struct {
+		Docs []struct {
+			Title            string   `json:"title"`
+			AuthorName       []string `json:"author_name"`
+			Publisher        []string `json:"publisher"`
+			FirstPublishYear int      `json:"first_publish_year"`
+			ISBN             []string `json:"isbn"`
+			CoverI           int      `json:"cover_i"`
+		} `json:"docs"`
+	}
+	if err := getJSON(ctx, endpoint, nil, &payload); err != nil {
+		return nil
+	}
+
+	results := make([]*isbnLookupResult, 0, len(payload.Docs))
+	for _, doc := range payload.Docs {
+		title := strings.TrimSpace(doc.Title)
+		if title == "" {
+			continue
+		}
+		isbn := ""
+		if len(doc.ISBN) > 0 {
+			for _, candidate := range doc.ISBN {
+				if normalized := normalizeISBN(candidate); normalized != "" {
+					isbn = normalized
+					break
+				}
+			}
+		}
+		cover := ""
+		if doc.CoverI > 0 {
+			cover = fmt.Sprintf("https://covers.openlibrary.org/b/id/%d-L.jpg", doc.CoverI)
+		}
+		results = append(results, &isbnLookupResult{
+			Title:     title,
+			Author:    strings.Join(doc.AuthorName, ", "),
+			Publisher: firstString(doc.Publisher),
+			Year:      doc.FirstPublishYear,
+			ISBN:      isbn,
+			CoverURL:  cover,
+			Source:    "Open Library",
+			Sources:   []string{"Open Library"},
+		})
+	}
+	return results
 }
 
 func lookupISBNOpenLibrary(ctx context.Context, isbn string) (*isbnLookupResult, error) {
