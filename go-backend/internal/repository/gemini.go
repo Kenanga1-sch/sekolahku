@@ -94,38 +94,50 @@ Aturan Tambahan:
 - Tulis alasan klasifikasi (reason) yang ringkas dalam bahasa Indonesia.
 - Kembalikan daftar kata kunci/subjek yang relevan.`, title, authorText, description, subjects)
 
-	providerRepo := NewAIProviderRepository(r.DB)
-	dbProviders, err := providerRepo.GetEnabledProviders()
-	if err == nil && len(dbProviders) > 0 {
-		for _, p := range dbProviders {
-			key := p.ResolveAPIKey()
-			if key == "" {
-				continue
-			}
-			if p.ProviderType == "gemini" {
-				if res, gErr := classifyWithGemini(ctx, prompt, key); gErr == nil && res != nil {
-					return res, nil
+	// Load DB-configured providers only when a live DB connection is available.
+	// (Penting: fungsi ini juga dipanggil dari jalur ISBN fallback yang bisa
+	// memiliki receiver tanpa DB; jangan sampai nil-pointer panic.)
+	if r != nil && r.DB != nil {
+		providerRepo := NewAIProviderRepository(r.DB)
+		if dbProviders, err := providerRepo.GetEnabledProviders(); err == nil && len(dbProviders) > 0 {
+			for _, p := range dbProviders {
+				key := p.ResolveAPIKey()
+				if key == "" {
+					continue
 				}
-			} else {
-				// OpenAI, 9Router, OpenRouter, Custom OpenAI-compatible
-				baseURL := p.BaseURL
-				if baseURL == "" {
-					baseURL = "https://api.openai.com/v1"
-				}
-				modelName := p.ModelName
-				if modelName == "" {
-					modelName = "gpt-4o-mini"
-				}
-				if res, oErr := classifyWithOpenAICompatibleCustom(ctx, prompt, key, baseURL, modelName); oErr == nil && res != nil {
-					return res, nil
+				if p.ProviderType == "gemini" {
+					if res, gErr := classifyWithGemini(ctx, prompt, key); gErr == nil && res != nil {
+						return res, nil
+					}
+				} else {
+					// OpenAI, 9Router, OpenRouter, Custom OpenAI-compatible
+					baseURL := p.BaseURL
+					if baseURL == "" {
+						baseURL = "https://api.openai.com/v1"
+					}
+					modelName := p.ModelName
+					if modelName == "" {
+						modelName = "gpt-4o-mini"
+					}
+					if res, oErr := classifyWithOpenAICompatibleCustom(ctx, prompt, key, baseURL, modelName); oErr == nil && res != nil {
+						return res, nil
+					}
 				}
 			}
 		}
 	}
 
-	// Fallback to default Gemini API if available
+	// Fallback ke kunci environment default (Gemini / OpenAI-compatible) bila
+	// tidak ada provider DB yang berhasil.
 	if apiKey != "" {
 		if res, gErr := classifyWithGemini(ctx, prompt, apiKey); gErr == nil && res != nil {
+			return res, nil
+		}
+	}
+	if envKey := os.Getenv("OPENAI_API_KEY"); envKey != "" {
+		baseURL := firstNonEmpty(os.Getenv("AI_BASE_URL"), "https://api.openai.com/v1")
+		modelName := firstNonEmpty(os.Getenv("AI_MODEL_NAME"), "gpt-4o-mini")
+		if res, oErr := classifyWithOpenAICompatibleCustom(ctx, prompt, envKey, baseURL, modelName); oErr == nil && res != nil {
 			return res, nil
 		}
 	}

@@ -136,7 +136,7 @@ func (r *LibraryRepository) LookupISBN(isbn string) (*models.ISBNLookupResponse,
 		}
 
 		// Also try to query online in background or quick sync to enrich missing fields (cover, subjects, description)
-		ext, extErr := lookupISBNOnline(isbn)
+		ext, extErr := lookupISBNOnline(r, isbn)
 		if extErr == nil && ext != nil {
 			if res.Cover == "" && ext.CoverURL != "" {
 				res.Cover = ext.CoverURL
@@ -163,7 +163,7 @@ func (r *LibraryRepository) LookupISBN(isbn string) (*models.ISBNLookupResponse,
 		return res, nil
 	}
 
-	ext, extErr := lookupISBNOnline(isbn)
+	ext, extErr := lookupISBNOnline(r, isbn)
 	if extErr != nil || ext == nil {
 		return nil, sql.ErrNoRows
 	}

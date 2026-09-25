@@ -48,8 +48,8 @@ func normalizeISBN(value string) string {
 	return normalized
 }
 
-func lookupISBNOnline(isbn string) (*isbnLookupResult, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+func lookupISBNOnline(repo *LibraryRepository, isbn string) (*isbnLookupResult, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
 	defer cancel()
 
 	providers := []struct {
@@ -117,7 +117,7 @@ func lookupISBNOnline(isbn string) (*isbnLookupResult, error) {
 	}
 	if merged == nil {
 		// Fallback to AI Metadata Lookup if no traditional provider returned valid info
-		aiRes, aiErr := lookupISBNAIFallback(ctx, isbn)
+		aiRes, aiErr := lookupISBNAIFallback(ctx, repo, isbn)
 		if aiErr == nil && aiRes != nil && strings.TrimSpace(aiRes.Title) != "" {
 			merged = aiRes
 		} else {
@@ -140,14 +140,16 @@ func lookupISBNOnline(isbn string) (*isbnLookupResult, error) {
 	return merged, nil
 }
 
-func lookupISBNAIFallback(ctx context.Context, isbn string) (*isbnLookupResult, error) {
+func lookupISBNAIFallback(ctx context.Context, repo *LibraryRepository, isbn string) (*isbnLookupResult, error) {
 	apiKey := firstNonEmpty(os.Getenv("AI_API_KEY"), os.Getenv("GEMINI_API_KEY"), os.Getenv("OPENAI_API_KEY"))
-	if apiKey == "" {
+	if apiKey == "" && (repo == nil || repo.DB == nil) {
 		return nil, sql.ErrNoRows
 	}
 
-	dummyRepo := &LibraryRepository{}
-	res, err := dummyRepo.ClassifyBookWithAI("ISBN "+isbn, "", "Identifikasi judul, penulis, dan deskripsi buku dengan ISBN ini", []string{isbn}, apiKey)
+	if repo == nil {
+		repo = &LibraryRepository{}
+	}
+	res, err := repo.ClassifyBookWithAI("ISBN "+isbn, "", "Identifikasi judul, penulis, dan deskripsi buku dengan ISBN ini", []string{isbn}, apiKey)
 	if err != nil || res == nil {
 		return nil, sql.ErrNoRows
 	}
@@ -288,36 +290,52 @@ func mergeISBNResult(target, incoming *isbnLookupResult) {
 }
 
 func lookupISBNGoogleBooks(ctx context.Context, isbn string) (*isbnLookupResult, error) {
-	apiKey := firstNonEmpty(os.Getenv("GOOGLE_BOOKS_API_KEY"), os.Getenv("GEMINI_API_KEY"))
-	endpoint := "https://www.googleapis.com/books/v1/volumes?q=isbn:" + url.QueryEscape(isbn)
-	if apiKey != "" {
-		endpoint += "&key=" + url.QueryEscape(apiKey)
+	apiKey := firstNonEmpty(os.Getenv("GOOGLE_BOOKS_API_KEY"))
+
+	type gbVolumeInfo struct {
+		Title               string   `json:"title"`
+		Subtitle            string   `json:"subtitle"`
+		Authors             []string `json:"authors"`
+		Publisher           string   `json:"publisher"`
+		PublishedDate       string   `json:"publishedDate"`
+		Description         string   `json:"description"`
+		Categories          []string `json:"categories"`
+		IndustryIdentifiers []struct {
+			Type       string `json:"type"`
+			Identifier string `json:"identifier"`
+		} `json:"industryIdentifiers"`
+		ImageLinks struct {
+			Thumbnail      string `json:"thumbnail"`
+			SmallThumbnail string `json:"smallThumbnail"`
+		} `json:"imageLinks"`
 	}
-	var payload struct {
-		Items []struct {
-			VolumeInfo struct {
-				Title               string   `json:"title"`
-				Subtitle            string   `json:"subtitle"`
-				Authors             []string `json:"authors"`
-				Publisher           string   `json:"publisher"`
-				PublishedDate       string   `json:"publishedDate"`
-				Description         string   `json:"description"`
-				Categories          []string `json:"categories"`
-				IndustryIdentifiers []struct {
-					Type       string `json:"type"`
-					Identifier string `json:"identifier"`
-				} `json:"industryIdentifiers"`
-				ImageLinks struct {
-					Thumbnail      string `json:"thumbnail"`
-					SmallThumbnail string `json:"smallThumbnail"`
-				} `json:"imageLinks"`
-			} `json:"volumeInfo"`
-		} `json:"items"`
+
+	fetch := func(query string) (gbVolumeInfo, bool) {
+		endpoint := "https://www.googleapis.com/books/v1/volumes?q=" + url.QueryEscape(query)
+		if apiKey != "" {
+			endpoint += "&key=" + url.QueryEscape(apiKey)
+		}
+		var payload struct {
+			Items []struct {
+				VolumeInfo gbVolumeInfo `json:"volumeInfo"`
+			} `json:"items"`
+		}
+		if err := getJSON(ctx, endpoint, nil, &payload); err != nil || len(payload.Items) == 0 {
+			return gbVolumeInfo{}, false
+		}
+		return payload.Items[0].VolumeInfo, true
 	}
-	if err := getJSON(ctx, endpoint, nil, &payload); err != nil || len(payload.Items) == 0 {
-		return nil, err
+
+	// Tiered query: ISBN prefix dulu, lalu angka murni sebagai cadangan.
+	// Beberapa edisi Indonesia hanya terindeks pada pencarian angka polos.
+	info, ok := fetch("isbn:" + isbn)
+	if !ok {
+		info, ok = fetch(isbn)
 	}
-	info := payload.Items[0].VolumeInfo
+	if !ok || strings.TrimSpace(info.Title) == "" {
+		return nil, sql.ErrNoRows
+	}
+
 	title := strings.TrimSpace(info.Title)
 	if info.Subtitle != "" && !strings.Contains(title, info.Subtitle) {
 		title += ": " + info.Subtitle
