@@ -58,9 +58,9 @@ type geminiRequestBody struct {
 	GenerationConfig geminiGenConfig `json:"generationConfig"`
 }
 
-// ClassifyBookWithAI performs deterministic book classification with failover support across Gemini & OpenAI-compatible providers
+// ClassifyBookWithAI performs deterministic book classification with failover support across database-configured AI providers
 func (r *LibraryRepository) ClassifyBookWithAI(title, author, description string, subjects []string, apiKey string) (*GeminiClassifyResult, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
 	defer cancel()
 
 	authorText := author
@@ -94,32 +94,42 @@ Aturan Tambahan:
 - Tulis alasan klasifikasi (reason) yang ringkas dalam bahasa Indonesia.
 - Kembalikan daftar kata kunci/subjek yang relevan.`, title, authorText, description, subjects)
 
-	provider := strings.ToLower(firstNonEmpty(os.Getenv("AI_PROVIDER"), "gemini"))
-	if provider == "openai" || provider == "custom" || (os.Getenv("OPENAI_API_KEY") != "" && os.Getenv("GEMINI_API_KEY") == "") {
-		res, err := classifyWithOpenAICompatible(ctx, prompt, apiKey)
-		if err == nil {
-			return res, nil
-		}
-		// If custom/openai fails, fallback to gemini if key available
-		if os.Getenv("GEMINI_API_KEY") != "" {
-			return classifyWithGemini(ctx, prompt, os.Getenv("GEMINI_API_KEY"))
-		}
-		return nil, err
-	}
-
-	// Default: Try Gemini API first
-	res, err := classifyWithGemini(ctx, prompt, apiKey)
-	if err != nil {
-		// Fallback to OpenAI if key set
-		openAIKey := os.Getenv("OPENAI_API_KEY")
-		if openAIKey != "" {
-			if resOpenAI, errOpenAI := classifyWithOpenAICompatible(ctx, prompt, openAIKey); errOpenAI == nil {
-				return resOpenAI, nil
+	providerRepo := NewAIProviderRepository(r.DB)
+	dbProviders, err := providerRepo.GetEnabledProviders()
+	if err == nil && len(dbProviders) > 0 {
+		for _, p := range dbProviders {
+			key := p.ResolveAPIKey()
+			if key == "" {
+				continue
+			}
+			if p.ProviderType == "gemini" {
+				if res, gErr := classifyWithGemini(ctx, prompt, key); gErr == nil && res != nil {
+					return res, nil
+				}
+			} else {
+				// OpenAI, 9Router, OpenRouter, Custom OpenAI-compatible
+				baseURL := p.BaseURL
+				if baseURL == "" {
+					baseURL = "https://api.openai.com/v1"
+				}
+				modelName := p.ModelName
+				if modelName == "" {
+					modelName = "gpt-4o-mini"
+				}
+				if res, oErr := classifyWithOpenAICompatibleCustom(ctx, prompt, key, baseURL, modelName); oErr == nil && res != nil {
+					return res, nil
+				}
 			}
 		}
-		return nil, err
 	}
-	return res, nil
+
+	// Fallback to default Gemini API if available
+	if apiKey != "" {
+		if res, gErr := classifyWithGemini(ctx, prompt, apiKey); gErr == nil && res != nil {
+			return res, nil
+		}
+	}
+	return nil, fmt.Errorf("semua AI Provider yang dikonfigurasi gagal dipanggil")
 }
 
 func classifyWithGemini(ctx context.Context, prompt, apiKey string) (*GeminiClassifyResult, error) {
@@ -225,7 +235,10 @@ func classifyWithGemini(ctx context.Context, prompt, apiKey string) (*GeminiClas
 func classifyWithOpenAICompatible(ctx context.Context, prompt, apiKey string) (*GeminiClassifyResult, error) {
 	baseURL := firstNonEmpty(os.Getenv("AI_BASE_URL"), os.Getenv("OPENAI_BASE_URL"), "https://api.openai.com/v1")
 	modelName := firstNonEmpty(os.Getenv("AI_MODEL_NAME"), os.Getenv("OPENAI_MODEL_NAME"), "gpt-4o-mini")
+	return classifyWithOpenAICompatibleCustom(ctx, prompt, apiKey, baseURL, modelName)
+}
 
+func classifyWithOpenAICompatibleCustom(ctx context.Context, prompt, apiKey, baseURL, modelName string) (*GeminiClassifyResult, error) {
 	endpoint := strings.TrimRight(baseURL, "/") + "/chat/completions"
 
 	systemMsg := "Anda adalah pustakawan profesional. Balas HANYA dengan JSON valid tanpa format markdown codeblock ```json. Format JSON harus mengandung field: category (salah satu: 000_COMPUTER, 100_PHILOSOPHY, 200_RELIGION, 300_SOCIAL, 400_LANGUAGE, 500_SCIENCE, 600_TECHNOLOGY, 700_ART, 800_LITERATURE, 900_HISTORY, UNSORTED), shelf (salah satu: RAK-000, RAK-100, RAK-200, RAK-300, RAK-400, RAK-500, RAK-600, RAK-700, RAK-800, RAK-900, RAK-REF, RAK-NEW), reason (string), description (string), subjects (array string)."

@@ -12,6 +12,7 @@ import {
     ScanBarcode,
     Users,
     TrendingUp,
+    Sparkles,
 } from "lucide-react";
 
 const QUICK_ACTIONS = [
@@ -78,6 +79,14 @@ const QUICK_ACTIONS = [
         href: "/perpustakaan/laporan",
         color: "text-rose-500",
         bgColor: "bg-rose-500/10 hover:bg-rose-500/20",
+    },
+    {
+        title: "Provider AI",
+        description: "9Router & LLM",
+        icon: Sparkles,
+        href: "/admin/konfigurasi/provider-ai",
+        color: "text-purple-500",
+        bgColor: "bg-purple-500/10 hover:bg-purple-500/20",
     },
 ];
 
