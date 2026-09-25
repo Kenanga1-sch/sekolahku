@@ -84,7 +84,7 @@ const QUICK_ACTIONS = [
         title: "Provider AI",
         description: "9Router & LLM",
         icon: Sparkles,
-        href: "/admin/konfigurasi/provider-ai",
+        href: "/perpustakaan/provider-ai",
         color: "text-purple-500",
         bgColor: "bg-purple-500/10 hover:bg-purple-500/20",
     },
