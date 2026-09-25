@@ -82,10 +82,11 @@ export default function LibraryBindingPage() {
                     setAiEnabled(true);
                     setAiRecommendation(response.data);
                     
-                    // Auto-apply AI suggestions to form fields
+                    // Auto-apply AI suggestions to form fields if user hasn't manually set override
                     const rec = response.data;
-                    setOverrideCategory(rec.category);
-                    setLocation(rec.shelf);
+                    setAiRecommendation(rec);
+                    setOverrideCategory(prev => prev || rec.category);
+                    setLocation(prev => (prev === "RAK-NEW" || !prev) ? rec.shelf : prev);
                     
                     setCatalog(prev => {
                         const newCat = { ...prev };
@@ -476,8 +477,8 @@ export default function LibraryBindingPage() {
                                                     variant="outline" 
                                                     size="sm" 
                                                     className="h-7 px-2.5 text-xs border-purple-500/30 hover:border-purple-500/50 hover:bg-purple-500/10 text-purple-700 dark:text-purple-300 gap-1 font-semibold"
-                                                    disabled={aiLoading || !catalog.title?.trim() || !catalog.author?.trim()}
-                                                    onClick={() => triggerAIClassify(catalog.title, catalog.author, catalog.description || "", catalog.subjects || [])}
+                                                     disabled={aiLoading || !catalog.title?.trim()}
+                                                     onClick={() => triggerAIClassify(catalog.title, catalog.author, catalog.description || "", catalog.subjects || [])}
                                                 >
                                                     {aiLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
                                                     Tanya AI

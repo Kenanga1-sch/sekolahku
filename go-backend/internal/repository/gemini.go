@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 )
 
@@ -33,6 +35,8 @@ type geminiSchema struct {
 type geminiGenConfig struct {
 	ResponseMimeType string        `json:"responseMimeType"`
 	ResponseSchema   *geminiSchema `json:"responseSchema"`
+	Temperature      float64       `json:"temperature"`
+	TopP             float64       `json:"topP"`
 }
 
 type geminiInlineData struct {
@@ -54,9 +58,15 @@ type geminiRequestBody struct {
 	GenerationConfig geminiGenConfig `json:"generationConfig"`
 }
 
+// ClassifyBookWithAI performs deterministic book classification with failover support across Gemini & OpenAI-compatible providers
 func (r *LibraryRepository) ClassifyBookWithAI(title, author, description string, subjects []string, apiKey string) (*GeminiClassifyResult, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+
+	authorText := author
+	if strings.TrimSpace(authorText) == "" {
+		authorText = "(Penulis Tidak Diisi)"
+	}
 
 	prompt := fmt.Sprintf(`Anda adalah asisten pustakawan AI untuk aplikasi Sekolahku. Tugas Anda adalah mengklasifikasikan buku ke dalam kategori Dewey Decimal Classification (DDC) yang disederhanakan dan menyarankan lokasi rak fisik yang tepat.
 
@@ -80,9 +90,39 @@ Petunjuk Klasifikasi DDC & Rak Fisik:
 
 Aturan Tambahan:
 - Berikan deskripsi/sinopsis singkat buku dalam bahasa Indonesia (sekitar 2-3 kalimat) jika deskripsi sebelumnya kosong atau kurang lengkap.
-- Tentukan kategori DDC dan Rak dengan akurat.
-- Tulis alasan klasifikasi (reason) yang ringkas dalam bahasa Indonesia yang ramah.
-- Kembalikan daftar kata kunci/subjek yang relevan.`, title, author, description, subjects)
+- Tentukan kategori DDC dan Rak secara presisi dan konsisten.
+- Tulis alasan klasifikasi (reason) yang ringkas dalam bahasa Indonesia.
+- Kembalikan daftar kata kunci/subjek yang relevan.`, title, authorText, description, subjects)
+
+	provider := strings.ToLower(firstNonEmpty(os.Getenv("AI_PROVIDER"), "gemini"))
+	if provider == "openai" || provider == "custom" || (os.Getenv("OPENAI_API_KEY") != "" && os.Getenv("GEMINI_API_KEY") == "") {
+		res, err := classifyWithOpenAICompatible(ctx, prompt, apiKey)
+		if err == nil {
+			return res, nil
+		}
+		// If custom/openai fails, fallback to gemini if key available
+		if os.Getenv("GEMINI_API_KEY") != "" {
+			return classifyWithGemini(ctx, prompt, os.Getenv("GEMINI_API_KEY"))
+		}
+		return nil, err
+	}
+
+	// Default: Try Gemini API first
+	res, err := classifyWithGemini(ctx, prompt, apiKey)
+	if err != nil {
+		// Fallback to OpenAI if key set
+		openAIKey := os.Getenv("OPENAI_API_KEY")
+		if openAIKey != "" {
+			if resOpenAI, errOpenAI := classifyWithOpenAICompatible(ctx, prompt, openAIKey); errOpenAI == nil {
+				return resOpenAI, nil
+			}
+		}
+		return nil, err
+	}
+	return res, nil
+}
+
+func classifyWithGemini(ctx context.Context, prompt, apiKey string) (*GeminiClassifyResult, error) {
 
 	reqBody := geminiRequestBody{
 		Contents: []geminiContent{
@@ -93,6 +133,8 @@ Aturan Tambahan:
 			},
 		},
 		GenerationConfig: geminiGenConfig{
+			Temperature:      0.0,
+			TopP:             0.1,
 			ResponseMimeType: "application/json",
 			ResponseSchema: &geminiSchema{
 				Type: "OBJECT",
@@ -175,6 +217,78 @@ Aturan Tambahan:
 	var result GeminiClassifyResult
 	if err := json.Unmarshal([]byte(responseText), &result); err != nil {
 		return nil, fmt.Errorf("failed to parse Gemini output JSON: %w (raw output: %s)", err, responseText)
+	}
+
+	return &result, nil
+}
+
+func classifyWithOpenAICompatible(ctx context.Context, prompt, apiKey string) (*GeminiClassifyResult, error) {
+	baseURL := firstNonEmpty(os.Getenv("AI_BASE_URL"), os.Getenv("OPENAI_BASE_URL"), "https://api.openai.com/v1")
+	modelName := firstNonEmpty(os.Getenv("AI_MODEL_NAME"), os.Getenv("OPENAI_MODEL_NAME"), "gpt-4o-mini")
+
+	endpoint := strings.TrimRight(baseURL, "/") + "/chat/completions"
+
+	systemMsg := "Anda adalah pustakawan profesional. Balas HANYA dengan JSON valid tanpa format markdown codeblock ```json. Format JSON harus mengandung field: category (salah satu: 000_COMPUTER, 100_PHILOSOPHY, 200_RELIGION, 300_SOCIAL, 400_LANGUAGE, 500_SCIENCE, 600_TECHNOLOGY, 700_ART, 800_LITERATURE, 900_HISTORY, UNSORTED), shelf (salah satu: RAK-000, RAK-100, RAK-200, RAK-300, RAK-400, RAK-500, RAK-600, RAK-700, RAK-800, RAK-900, RAK-REF, RAK-NEW), reason (string), description (string), subjects (array string)."
+
+	reqBody := map[string]interface{}{
+		"model": modelName,
+		"messages": []map[string]string{
+			{"role": "system", "content": systemMsg},
+			{"role": "user", "content": prompt},
+		},
+		"temperature": 0.0,
+		"response_format": map[string]string{"type": "json_object"},
+	}
+
+	payloadBytes, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(payloadBytes))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		var errObj map[string]interface{}
+		_ = json.NewDecoder(resp.Body).Decode(&errObj)
+		return nil, fmt.Errorf("AI Provider error (%d): %v", resp.StatusCode, errObj)
+	}
+
+	var resPayload struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&resPayload); err != nil {
+		return nil, err
+	}
+
+	if len(resPayload.Choices) == 0 {
+		return nil, fmt.Errorf("empty AI choices response")
+	}
+
+	rawText := strings.TrimSpace(resPayload.Choices[0].Message.Content)
+	rawText = strings.TrimPrefix(rawText, "```json")
+	rawText = strings.TrimPrefix(rawText, "```")
+	rawText = strings.TrimSuffix(rawText, "```")
+	rawText = strings.TrimSpace(rawText)
+
+	var result GeminiClassifyResult
+	if err := json.Unmarshal([]byte(rawText), &result); err != nil {
+		return nil, fmt.Errorf("failed unmarshaling AI JSON response: %w", err)
 	}
 
 	return &result, nil

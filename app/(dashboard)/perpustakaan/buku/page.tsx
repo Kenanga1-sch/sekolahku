@@ -13,6 +13,7 @@ import {
     Loader2,
     ArrowLeft,
     Upload,
+    Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -330,7 +331,43 @@ export default function BukuPage() {
                             </div>
 
                             <div className="grid gap-2">
-                                <Label htmlFor="title">Judul *</Label>
+                                <div className="flex items-center justify-between">
+                                    <Label htmlFor="title">Judul *</Label>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 px-2.5 text-xs border-purple-500/30 hover:border-purple-500/50 hover:bg-purple-500/10 text-purple-700 dark:text-purple-300 gap-1 font-semibold"
+                                        disabled={loading || !formData.title?.trim()}
+                                        onClick={async () => {
+                                            if (!formData.title?.trim()) return;
+                                            setLoading(true);
+                                            try {
+                                                const res: any = await goPost("/api/library/catalog/ai-classify", {
+                                                    title: formData.title,
+                                                    author: formData.author,
+                                                    description: formData.description,
+                                                });
+                                                if (res?.data) {
+                                                    setFormData(prev => ({
+                                                        ...prev,
+                                                        category: res.data.category || prev.category,
+                                                        location: res.data.shelf || prev.location,
+                                                        description: prev.description || res.data.description || "",
+                                                    }));
+                                                    toast.success("Kategori & Rak otomatis disarankan oleh AI!");
+                                                }
+                                            } catch {
+                                                toast.error("Gagal mendapatkan saran AI");
+                                            } finally {
+                                                setLoading(false);
+                                            }
+                                        }}
+                                    >
+                                        <Sparkles className="h-3 w-3 text-purple-500" />
+                                        Saran AI
+                                    </Button>
+                                </div>
                                 <Input
                                     id="title"
                                     value={formData.title}

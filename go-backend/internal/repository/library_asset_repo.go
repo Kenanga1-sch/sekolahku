@@ -117,18 +117,50 @@ func (r *LibraryRepository) LookupISBN(isbn string) (*models.ISBNLookupResponse,
 	if err == nil {
 		var exemplars int
 		_ = r.DB.QueryRow("SELECT COUNT(*) FROM library_assets WHERE catalog_id = ?", cachedID).Scan(&exemplars)
-		return &models.ISBNLookupResponse{
-			ID:            cachedID,
-			Title:         title,
-			Author:        author,
-			Publisher:     pub,
-			Year:          yr,
-			Category:      cat,
-			Description:   desc,
-			Cover:         cover,
-			LocalFound:    true,
+
+		res := &models.ISBNLookupResponse{
+			ID:             cachedID,
+			Title:          title,
+			Author:         author,
+			Publisher:      pub,
+			Year:           yr,
+			ISBN:           isbn,
+			Category:       cat,
+			DDCCategory:    cat,
+			Description:    desc,
+			Cover:          cover,
+			CoverURL:       cover,
+			LocalFound:     true,
 			TotalExemplars: exemplars,
-		}, nil
+			Sources:        []string{"Katalog Lokal"},
+		}
+
+		// Also try to query online in background or quick sync to enrich missing fields (cover, subjects, description)
+		ext, extErr := lookupISBNOnline(isbn)
+		if extErr == nil && ext != nil {
+			if res.Cover == "" && ext.CoverURL != "" {
+				res.Cover = ext.CoverURL
+				res.CoverURL = ext.CoverURL
+			}
+			if res.Description == "" && ext.Description != "" {
+				res.Description = ext.Description
+			}
+			if len(ext.Subjects) > 0 {
+				res.Subjects = ext.Subjects
+			}
+			if ext.Source != "" {
+				res.Sources = append(res.Sources, ext.Source)
+			}
+			if len(ext.Sources) > 0 {
+				for _, s := range ext.Sources {
+					if s != "Katalog Lokal" {
+						res.Sources = append(res.Sources, s)
+					}
+				}
+			}
+		}
+
+		return res, nil
 	}
 
 	ext, extErr := lookupISBNOnline(isbn)
@@ -181,10 +213,15 @@ func (r *LibraryRepository) BindAsset(qrCode, location string, catalog models.Ca
 	now := UnixMilli()
 	catalogID := ""
 	if isbn != "" {
-		_ = tx.QueryRow("SELECT id FROM library_catalog WHERE isbn = ? LIMIT 1", isbn).Scan(&catalogID)
+		normalizedInputISBN := normalizeISBN(isbn)
+		if normalizedInputISBN != "" {
+			_ = tx.QueryRow("SELECT id FROM library_catalog WHERE isbn = ? OR isbn = ? LIMIT 1", isbn, normalizedInputISBN).Scan(&catalogID)
+		} else {
+			_ = tx.QueryRow("SELECT id FROM library_catalog WHERE isbn = ? LIMIT 1", isbn).Scan(&catalogID)
+		}
 	}
 	if catalogID == "" {
-		_ = tx.QueryRow("SELECT id FROM library_catalog WHERE LOWER(title) = LOWER(?) AND LOWER(author) = LOWER(?) LIMIT 1", title, catalog.Author).Scan(&catalogID)
+		_ = tx.QueryRow("SELECT id FROM library_catalog WHERE LOWER(TRIM(title)) = LOWER(TRIM(?)) LIMIT 1", title).Scan(&catalogID)
 	}
 
 	year := catalog.Year

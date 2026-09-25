@@ -250,12 +250,18 @@ func (h *LibraryHandler) AIClassify(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Payload tidak valid"})
 	}
 
-	apiKey := os.Getenv("GEMINI_API_KEY")
+	apiKey := os.Getenv("AI_API_KEY")
+	if apiKey == "" {
+		apiKey = os.Getenv("GEMINI_API_KEY")
+	}
+	if apiKey == "" {
+		apiKey = os.Getenv("OPENAI_API_KEY")
+	}
 	if apiKey == "" {
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"success":    true,
 			"ai_enabled": false,
-			"message":    "GEMINI_API_KEY tidak disetel di server",
+			"message":    "Kunci API AI (AI_API_KEY / GEMINI_API_KEY / OPENAI_API_KEY) tidak disetel di server",
 		})
 	}
 

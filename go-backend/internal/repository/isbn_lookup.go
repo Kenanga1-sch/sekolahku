@@ -41,7 +41,8 @@ func normalizeISBN(value string) string {
 		}
 	}
 	normalized := b.String()
-	if len(normalized) != 10 && len(normalized) != 13 {
+	// Clean string of length 9 to 13 (covering ISBN-10, ISBN-13 with edge padding)
+	if len(normalized) < 9 || len(normalized) > 13 {
 		return ""
 	}
 	return normalized
