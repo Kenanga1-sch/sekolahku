@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Download, Loader2, Save, CloudUpload, Folder, Archive } from "lucide-react";
 import { toast } from "sonner";
 
@@ -53,10 +53,12 @@ function downloadBlob(file: { name: string; bytes: Uint8Array; contentType: stri
 async function uploadToCloud(
   file: { name: string; bytes: Uint8Array; contentType: string },
   parentId: string | null,
+  onProgress?: (percent: number) => void,
+  signal?: AbortSignal,
 ) {
   const blob = new Blob([file.bytes as BlobPart], { type: file.contentType });
   const asFile = new File([blob], file.name, { type: file.contentType });
-  await uploadFileWithProgress(asFile, parentId, () => {});
+  await uploadFileWithProgress(asFile, parentId, onProgress ?? (() => {}), signal);
 }
 
 /**
@@ -76,6 +78,10 @@ export function SavePanel({
 }: SavePanelProps) {
   const [busy, setBusy] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [uploadPercent, setUploadPercent] = useState<number | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const onProgress = (percent: number) => setUploadPercent(percent);
 
   const handleSave = async () => {
     if (pages.length === 0) {
@@ -83,6 +89,9 @@ export function SavePanel({
       return;
     }
     setBusy(true);
+    setUploadPercent(null);
+    const aborter = new AbortController();
+    abortRef.current = aborter;
     try {
       const baseName = config.fileName || "Dokumen-Scan";
       if (config.format === "pdf") {
@@ -102,7 +111,7 @@ export function SavePanel({
           downloadBlob(file);
           toast.success("PDF berhasil diunduh");
         } else if (config.location === "cloud") {
-          await uploadToCloud(file, config.cloudParentId ?? null);
+          await uploadToCloud(file, config.cloudParentId ?? null, onProgress, aborter.signal);
           toast.success("PDF tersimpan di Cloud Storage");
         } else if (config.location === "arsip") {
           const meta = config.archive;
@@ -156,7 +165,7 @@ export function SavePanel({
         for (const file of done) downloadBlob(file);
         toast.success(`${done.length} berkas diunduh`);
       } else if (config.location === "cloud") {
-        for (const file of done) await uploadToCloud(file, config.cloudParentId ?? null);
+        for (const file of done) await uploadToCloud(file, config.cloudParentId ?? null, onProgress, aborter.signal);
         toast.success(`${done.length} berkas tersimpan di Cloud Storage`);
       } else {
         for (const file of done) await saveToServer(file);
@@ -165,6 +174,8 @@ export function SavePanel({
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Gagal menyimpan");
     } finally {
+      abortRef.current = null;
+      setUploadPercent(null);
       setBusy(false);
     }
   };
@@ -332,7 +343,7 @@ export function SavePanel({
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="arsip-date" className="mb-1.5 block text-xs font-bold uppercase tracking-wider">
                     Tanggal Surat
@@ -401,6 +412,28 @@ export function SavePanel({
             setPickerOpen(false);
           }}
         />
+      )}
+
+      {busy && uploadPercent !== null && (
+        <div className="space-y-1" role="status" aria-live="polite">
+          <div className="flex items-center justify-between text-xs font-bold text-muted-foreground">
+            <span>Mengunggah ke Cloud…</span>
+            <span>{uploadPercent}%</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-primary transition-all"
+              style={{ width: `${Math.min(100, Math.max(0, uploadPercent))}%` }}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => abortRef.current?.abort()}
+            className="text-xs font-bold text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          >
+            Batalkan unggahan
+          </button>
+        </div>
       )}
 
       <div className="flex items-center justify-between gap-3">

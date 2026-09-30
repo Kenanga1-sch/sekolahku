@@ -78,7 +78,8 @@ export async function applyImageDataToPage(
   canvas.height = height;
   const ctx = canvas.getContext("2d")!;
   ctx.putImageData(new ImageData(new Uint8ClampedArray(imageData), width, height), 0, 0);
-  const blob = await blobFromCanvas(canvas, "image/png");
+  // JPEG jauh lebih kecil dari PNG untuk foto dokumen; kualitas 0.92 menjaga teks tajam.
+  const blob = await blobFromCanvas(canvas, "image/jpeg", 0.92);
   await replacePageImage(page, blob);
   if (options.resetTransform) {
     page.rotation = 0;
@@ -97,7 +98,8 @@ export async function cropPage(
   state: EngineState,
   page: EnginePage,
   region: { x: number; y: number; width: number; height: number },
-  sourceMax = 3000,
+  // Samakan dengan render overlay (2200) agar koordinat crop 1:1.
+  sourceMax = 2200,
 ): Promise<void> {
   const temp = document.createElement("canvas");
   renderPageToCanvas(state, page, temp, { maxDimension: sourceMax });
@@ -135,9 +137,11 @@ export async function stitchPages(
   pages: EnginePage[],
   direction: "vertical" | "horizontal",
 ): Promise<EnginePage> {
+  // Batasi tiap lembar agar gabungan N halaman tak meledak (worker menolak >40MP).
+  const STITCH_MAX_DIMENSION = 1600;
   const canvases = pages.map((page) => {
     const canvas = document.createElement("canvas");
-    renderPageToCanvas(state, page, canvas, { maxDimension: 3000 });
+    renderPageToCanvas(state, page, canvas, { maxDimension: STITCH_MAX_DIMENSION });
     return canvas;
   });
 

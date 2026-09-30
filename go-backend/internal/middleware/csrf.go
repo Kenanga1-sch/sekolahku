@@ -196,6 +196,13 @@ func isAuthSensitivePath(path string) bool {
 		"/api/profile",
 		"/api/auth/change-password",
 		"/api/users/change-password",
+		// DocStation mutasi: kirim perintah ke printer LAN / simpan berkas.
+		// Frontend sudah mengirim X-CSRF-Token via mutationHeaders, jadi
+		// double-submit aman diaktifkan tanpa merusak alur.
+		"/api/docstation/print",
+		"/api/docstation/save",
+		"/api/docstation/archive",
+		"/api/docstation/escl",
 	}
 	for _, p := range authSensitive {
 		if strings.HasPrefix(path, p) {

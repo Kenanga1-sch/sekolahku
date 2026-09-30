@@ -5,8 +5,11 @@
 
 let cvStatus = 'loading'; // 'loading' | 'ready'
 
-const reply = (type, data = {}, transferables = []) => {
-    self.postMessage({ type, ...data }, transferables);
+// requestId dikembalikan apa adanya agar main thread dapat mengorelasikan hasil
+// dengan permintaan. Pesan tanpa id (mis. INITIALIZED) tidak pernah dianggap
+// sebagai hasil tugas.
+const reply = (type, data = {}, transferables = [], requestId) => {
+    self.postMessage({ type, requestId, ...data }, transferables);
 };
 
 // Beritahu main thread bahwa Pure JS Engine selalu SIAP 100%
@@ -34,7 +37,10 @@ function loadOpenCVFromUrl(url) {
 }
 
 self.onmessage = (event) => {
-    const { type, payload = {} } = event.data;
+    const { type, payload = {}, requestId } = event.data;
+    // Bungkus setiap hasil tugas dengan requestId asal permintaan.
+    const job = (resultType, data = {}, transferables = []) =>
+        reply(resultType, data, transferables, requestId);
 
     switch (type) {
         case 'INITIALIZE_OPENCV_URL': {
@@ -44,50 +50,46 @@ self.onmessage = (event) => {
             break;
         }
 
-        case 'STATUS_CHECK': {
-                fetch('/api/docstation/status')
-                .then((res) => res.json())
-                .then((data) => reply('STATUS_CHECK', { online: data.printer_port_9100 === 'online' }))
-                .catch(() => reply('STATUS_CHECK', { online: false }));
-            break;
-        }
-
         case 'DESKEW': {
             const { imageData, width, height } = payload;
             try {
                 if (typeof cv !== 'undefined' && cv.matFromImageData && cv.Mat) {
-                    const imgDataObj = { data: new Uint8ClampedArray(imageData), width, height };
-                    const src = cv.matFromImageData(imgDataObj);
-                    const gray = new cv.Mat();
-                    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-                    const edges = new cv.Mat();
-                    cv.Canny(gray, edges, 50, 150, 3, true);
-                    const lines = new cv.Mat();
-                    cv.HoughLinesP(edges, lines, 1, Math.PI / 180, 80, 30, 10);
+                    const mats = [];
+                    try {
+                        const imgDataObj = { data: new Uint8ClampedArray(imageData), width, height };
+                        const src = cv.matFromImageData(imgDataObj); mats.push(src);
+                        const gray = new cv.Mat(); mats.push(gray);
+                        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+                        const edges = new cv.Mat(); mats.push(edges);
+                        cv.Canny(gray, edges, 50, 150, 3, true);
+                        const lines = new cv.Mat(); mats.push(lines);
+                        cv.HoughLinesP(edges, lines, 1, Math.PI / 180, 80, 30, 10);
 
-                    let angle = 0;
-                    let count = 0;
-                    for (let index = 0; index < lines.rows; index += 1) {
-                        const x1 = lines.floatAt(index, 0);
-                        const y1 = lines.floatAt(index, 1);
-                        const x2 = lines.floatAt(index, 2);
-                        const y2 = lines.floatAt(index, 3);
-                        const lineAngle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
-                        if (Math.abs(lineAngle) < 45) {
-                            angle += lineAngle;
-                            count += 1;
+                        let angle = 0;
+                        let count = 0;
+                        for (let index = 0; index < lines.rows; index += 1) {
+                            const x1 = lines.floatAt(index, 0);
+                            const y1 = lines.floatAt(index, 1);
+                            const x2 = lines.floatAt(index, 2);
+                            const y2 = lines.floatAt(index, 3);
+                            const lineAngle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
+                            if (Math.abs(lineAngle) < 45) {
+                                angle += lineAngle;
+                                count += 1;
+                            }
                         }
+                        const medianAngle = count > 0 ? angle / count : 0;
+                        job('DESKEW_RESULT', { angle: medianAngle, note: 'opencv-cpp' });
+                    } finally {
+                        for (const m of mats) { try { m.delete(); } catch (e) { /* ignore */ } }
                     }
-                    const medianAngle = count > 0 ? angle / count : 0;
-                    src.delete(); gray.delete(); edges.delete(); lines.delete();
-                    reply('DESKEW_RESULT', { angle: medianAngle, note: 'opencv-cpp' });
                 } else {
                     const angle = computeDeskewAngle(imageData, width, height);
-                    reply('DESKEW_RESULT', { angle, note: 'pure-js-deskew' });
+                    job('DESKEW_RESULT', { angle, note: 'pure-js-deskew' });
                 }
             } catch (err) {
                 const angle = computeDeskewAngle(imageData, width, height);
-                reply('DESKEW_RESULT', { angle, note: 'pure-js-deskew' });
+                job('DESKEW_RESULT', { angle, note: 'pure-js-deskew' });
             }
             break;
         }
@@ -96,29 +98,33 @@ self.onmessage = (event) => {
             const { imageData, width, height } = payload;
             try {
                 if (typeof cv !== 'undefined' && cv.matFromImageData && cv.Mat) {
-                    const imgDataObj = { data: new Uint8ClampedArray(imageData), width, height };
-                    const src = cv.matFromImageData(imgDataObj);
-                    const gray = new cv.Mat();
-                    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-                    const bw = new cv.Mat();
-                    cv.threshold(gray, bw, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+                    const mats = [];
+                    try {
+                        const imgDataObj = { data: new Uint8ClampedArray(imageData), width, height };
+                        const src = cv.matFromImageData(imgDataObj); mats.push(src);
+                        const gray = new cv.Mat(); mats.push(gray);
+                        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+                        const bw = new cv.Mat(); mats.push(bw);
+                        cv.threshold(gray, bw, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
 
-                    const result = new cv.Mat();
-                    cv.cvtColor(bw, result, cv.COLOR_GRAY2BGRA);
-                    const outputData = new Uint8ClampedArray(result.data);
-                    const buffer = outputData.buffer.slice(0);
+                        const result = new cv.Mat(); mats.push(result);
+                        cv.cvtColor(bw, result, cv.COLOR_GRAY2BGRA);
+                        const outputData = new Uint8ClampedArray(result.data);
+                        const buffer = outputData.buffer.slice(0);
 
-                    src.delete(); gray.delete(); bw.delete(); result.delete();
-                    reply('ENHANCE_RESULT', { mode: 'bw', width, height, imageData: buffer, note: 'otsu-opencv-cpp' }, [buffer]);
+                        job('ENHANCE_RESULT', { mode: 'bw', width, height, imageData: buffer, note: 'otsu-opencv-cpp' }, [buffer]);
+                    } finally {
+                        for (const m of mats) { try { m.delete(); } catch (e) { /* ignore */ } }
+                    }
                 } else {
                     // Sauvola adaptive thresholding — jauh lebih baik untuk pencahayaan tidak merata
                     const buffer = sauvolaBinarizeBuffer(imageData, width, height);
-                    reply('ENHANCE_RESULT', { mode: 'bw', width, height, imageData: buffer, note: 'sauvola-pure-js' }, [buffer]);
+                    job('ENHANCE_RESULT', { mode: 'bw', width, height, imageData: buffer, note: 'sauvola-pure-js' }, [buffer]);
                 }
             } catch (err) {
                 console.warn('[DocStation Worker] Fallback to Pure JS Sauvola:', err);
                 const buffer = sauvolaBinarizeBuffer(imageData, width, height);
-                reply('ENHANCE_RESULT', { mode: 'bw', width, height, imageData: buffer, note: 'sauvola-pure-js' }, [buffer]);
+                job('ENHANCE_RESULT', { mode: 'bw', width, height, imageData: buffer, note: 'sauvola-pure-js' }, [buffer]);
             }
             break;
         }
@@ -128,10 +134,10 @@ self.onmessage = (event) => {
             try {
                 // MSRCR — multi-scale retinex (lebih baik dari block-normalization lama)
                 const buffer = msrcrEnhanceBuffer(imageData, width, height);
-                reply('ENHANCE_RESULT', { mode: 'bg', width, height, imageData: buffer, note: 'msrcr-pure-js' }, [buffer]);
+                job('ENHANCE_RESULT', { mode: 'bg', width, height, imageData: buffer, note: 'msrcr-pure-js' }, [buffer]);
             } catch (err) {
                 const buffer = normalizeBackgroundBuffer(imageData, width, height);
-                reply('ENHANCE_RESULT', { mode: 'bg', width, height, imageData: buffer, note: 'bg-normalize-pure-js' }, [buffer]);
+                job('ENHANCE_RESULT', { mode: 'bg', width, height, imageData: buffer, note: 'bg-normalize-pure-js' }, [buffer]);
             }
             break;
         }
@@ -140,9 +146,9 @@ self.onmessage = (event) => {
             const { imageData, width, height } = payload;
             try {
                 const buffer = medianFilter3x3Buffer(imageData, width, height);
-                reply('ENHANCE_RESULT', { mode: 'despeckle', width, height, imageData: buffer, note: 'median-pure-js' }, [buffer]);
+                job('ENHANCE_RESULT', { mode: 'despeckle', width, height, imageData: buffer, note: 'median-pure-js' }, [buffer]);
             } catch (err) {
-                reply('ENHANCE_RESULT', { mode: 'despeckle', error: err.message, note: 'error' });
+                job('ENHANCE_RESULT', { mode: 'despeckle', error: err.message, note: 'error' });
             }
             break;
         }
@@ -151,9 +157,9 @@ self.onmessage = (event) => {
             const { imageData, width, height } = payload;
             try {
                 const buffer = removePunchHolesBuffer(imageData, width, height);
-                reply('ENHANCE_RESULT', { mode: 'punch-hole', width, height, imageData: buffer, note: 'holes-removed-pure-js' }, [buffer]);
+                job('ENHANCE_RESULT', { mode: 'punch-hole', width, height, imageData: buffer, note: 'holes-removed-pure-js' }, [buffer]);
             } catch (err) {
-                reply('ENHANCE_RESULT', { mode: 'punch-hole', error: err.message, note: 'error' });
+                job('ENHANCE_RESULT', { mode: 'punch-hole', error: err.message, note: 'error' });
             }
             break;
         }
@@ -162,24 +168,28 @@ self.onmessage = (event) => {
             const { imageData, width, height, points, dstWidth, dstHeight } = payload;
             try {
                 if (typeof cv !== 'undefined' && cv.warpPerspective) {
-                    const src = cv.matFromImageData({ data: new Uint8ClampedArray(imageData), width, height });
-                    const dst = new cv.Mat();
-                    const dsize = new cv.Size(dstWidth, dstHeight);
-                    const srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, points);
-                    const dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, dstWidth, 0, dstWidth, dstHeight, 0, dstHeight]);
-                    const M = cv.getPerspectiveTransform(srcTri, dstTri);
-                    cv.warpPerspective(src, dst, M, dsize, cv.INTER_CUBIC, cv.BORDER_CONSTANT, new cv.Scalar(255, 255, 255, 255));
-                    const imgData = dst.data;
-                    const buffer = imgData.buffer.slice(0);
-                    src.delete(); dst.delete(); dsize.delete(); srcTri.delete(); dstTri.delete(); M.delete();
-                    reply('PERSPECTIVE_WARP_RESULT', { width: dstWidth, height: dstHeight, imageData: buffer, note: 'perspective-cv' }, [buffer]);
+                    const mats = [];
+                    try {
+                        const src = cv.matFromImageData({ data: new Uint8ClampedArray(imageData), width, height }); mats.push(src);
+                        const dst = new cv.Mat(); mats.push(dst);
+                        const dsize = new cv.Size(dstWidth, dstHeight); mats.push(dsize);
+                        const srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, points); mats.push(srcTri);
+                        const dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, dstWidth, 0, dstWidth, dstHeight, 0, dstHeight]); mats.push(dstTri);
+                        const M = cv.getPerspectiveTransform(srcTri, dstTri); mats.push(M);
+                        cv.warpPerspective(src, dst, M, dsize, cv.INTER_CUBIC, cv.BORDER_CONSTANT, new cv.Scalar(255, 255, 255, 255));
+                        const imgData = dst.data;
+                        const buffer = imgData.buffer.slice(0);
+                        job('PERSPECTIVE_WARP_RESULT', { width: dstWidth, height: dstHeight, imageData: buffer, note: 'perspective-cv' }, [buffer]);
+                    } finally {
+                        for (const m of mats) { try { m.delete(); } catch (e) { /* ignore */ } }
+                    }
                 } else {
                     const buffer = perspectiveWarpBilinearBuffer(imageData, width, height, points, dstWidth, dstHeight);
-                    reply('PERSPECTIVE_WARP_RESULT', { width: dstWidth, height: dstHeight, imageData: buffer, note: 'perspective-pure-js' }, [buffer]);
+                    job('PERSPECTIVE_WARP_RESULT', { width: dstWidth, height: dstHeight, imageData: buffer, note: 'perspective-pure-js' }, [buffer]);
                 }
             } catch (err) {
                 const buffer = perspectiveWarpBilinearBuffer(imageData, width, height, points, dstWidth, dstHeight);
-                reply('PERSPECTIVE_WARP_RESULT', { width: dstWidth, height: dstHeight, imageData: buffer, note: 'perspective-pure-js' }, [buffer]);
+                job('PERSPECTIVE_WARP_RESULT', { width: dstWidth, height: dstHeight, imageData: buffer, note: 'perspective-pure-js' }, [buffer]);
             }
             break;
         }
@@ -188,9 +198,9 @@ self.onmessage = (event) => {
             const { imageData, width, height, strength = 0.7 } = payload;
             try {
                 const buffer = whitenBackgroundBuffer(imageData, width, height, strength);
-                reply('ENHANCE_RESULT', { mode: 'white-bg', width, height, imageData: buffer, note: 'whiten-pure-js' }, [buffer]);
+                job('ENHANCE_RESULT', { mode: 'white-bg', width, height, imageData: buffer, note: 'whiten-pure-js' }, [buffer]);
             } catch (err) {
-                reply('ENHANCE_RESULT', { mode: 'white-bg', error: err.message, note: 'error' });
+                job('ENHANCE_RESULT', { mode: 'white-bg', error: err.message, note: 'error' });
             }
             break;
         }
@@ -199,9 +209,9 @@ self.onmessage = (event) => {
             const { imageData, width, height, strength = 0.8 } = payload;
             try {
                 const buffer = flattenIlluminationBuffer(imageData, width, height, strength);
-                reply('ENHANCE_RESULT', { mode: 'illumination', width, height, imageData: buffer, note: 'illum-flatten-pure-js' }, [buffer]);
+                job('ENHANCE_RESULT', { mode: 'illumination', width, height, imageData: buffer, note: 'illum-flatten-pure-js' }, [buffer]);
             } catch (err) {
-                reply('ENHANCE_RESULT', { mode: 'illumination', error: err.message, note: 'error' });
+                job('ENHANCE_RESULT', { mode: 'illumination', error: err.message, note: 'error' });
             }
             break;
         }
@@ -210,9 +220,9 @@ self.onmessage = (event) => {
             const { imageData, width, height } = payload;
             try {
                 const buffer = despeckleStrongBuffer(imageData, width, height);
-                reply('ENHANCE_RESULT', { mode: 'despeckle-strong', width, height, imageData: buffer, note: 'median5+cc-pure-js' }, [buffer]);
+                job('ENHANCE_RESULT', { mode: 'despeckle-strong', width, height, imageData: buffer, note: 'median5+cc-pure-js' }, [buffer]);
             } catch (err) {
-                reply('ENHANCE_RESULT', { mode: 'despeckle-strong', error: err.message, note: 'error' });
+                job('ENHANCE_RESULT', { mode: 'despeckle-strong', error: err.message, note: 'error' });
             }
             break;
         }
@@ -221,9 +231,9 @@ self.onmessage = (event) => {
             const { imageData, width, height } = payload;
             try {
                 const buffer = removeStrayMarksBuffer(imageData, width, height);
-                reply('ENHANCE_RESULT', { mode: 'stray-marks', width, height, imageData: buffer, note: 'stray-pure-js' }, [buffer]);
+                job('ENHANCE_RESULT', { mode: 'stray-marks', width, height, imageData: buffer, note: 'stray-pure-js' }, [buffer]);
             } catch (err) {
-                reply('ENHANCE_RESULT', { mode: 'stray-marks', error: err.message, note: 'error' });
+                job('ENHANCE_RESULT', { mode: 'stray-marks', error: err.message, note: 'error' });
             }
             break;
         }
@@ -232,9 +242,9 @@ self.onmessage = (event) => {
             const { imageData, width, height } = payload;
             try {
                 const buffer = removeAdfBorderBuffer(imageData, width, height);
-                reply('ENHANCE_RESULT', { mode: 'adf-border', width, height, imageData: buffer, note: 'border-pure-js' }, [buffer]);
+                job('ENHANCE_RESULT', { mode: 'adf-border', width, height, imageData: buffer, note: 'border-pure-js' }, [buffer]);
             } catch (err) {
-                reply('ENHANCE_RESULT', { mode: 'adf-border', error: err.message, note: 'error' });
+                job('ENHANCE_RESULT', { mode: 'adf-border', error: err.message, note: 'error' });
             }
             break;
         }
@@ -243,9 +253,9 @@ self.onmessage = (event) => {
             const { imageData, width, height, amount = 0.8, radius = 1 } = payload;
             try {
                 const buffer = unsharpMaskBuffer(imageData, width, height, amount, radius);
-                reply('ENHANCE_RESULT', { mode: 'sharpen', width, height, imageData: buffer, note: 'usm-pure-js' }, [buffer]);
+                job('ENHANCE_RESULT', { mode: 'sharpen', width, height, imageData: buffer, note: 'usm-pure-js' }, [buffer]);
             } catch (err) {
-                reply('ENHANCE_RESULT', { mode: 'sharpen', error: err.message, note: 'error' });
+                job('ENHANCE_RESULT', { mode: 'sharpen', error: err.message, note: 'error' });
             }
             break;
         }
@@ -276,9 +286,9 @@ self.onmessage = (event) => {
                     buffer = sauvolaBinarizeBuffer(buffer, w, h);
                 }
 
-                reply('ENHANCE_RESULT', { mode: 'auto-pipeline', width: w, height: h, imageData: buffer, note: 'auto-pipeline-pure-js' }, [buffer]);
+                job('ENHANCE_RESULT', { mode: 'auto-pipeline', width: w, height: h, imageData: buffer, note: 'auto-pipeline-pure-js' }, [buffer]);
             } catch (err) {
-                reply('ENHANCE_RESULT', { mode: 'auto-pipeline', error: err.message, note: 'error' });
+                job('ENHANCE_RESULT', { mode: 'auto-pipeline', error: err.message, note: 'error' });
             }
             break;
         }
@@ -287,54 +297,56 @@ self.onmessage = (event) => {
             const { imageData, width, height } = payload;
             try {
                 if (typeof cv !== 'undefined' && cv.matFromImageData && cv.findContours) {
-                    const src = cv.matFromImageData({ data: new Uint8ClampedArray(imageData), width, height });
-                    const gray = new cv.Mat();
-                    const blur = new cv.Mat();
-                    const edges = new cv.Mat();
-                    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-                    cv.GaussianBlur(gray, blur, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
-                    cv.Canny(blur, edges, 50, 150, 3, true);
-                    const kernel = cv.Mat.ones(5, 5, cv.CV_8U);
-                    cv.dilate(edges, edges, kernel);
-                    kernel.delete();
-                    const contours = new cv.MatVector();
-                    const hierarchy = new cv.Mat();
-                    cv.findContours(edges, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-                    let bestIndex = -1;
-                    let bestArea = 0;
-                    for (let i = 0; i < contours.size(); i++) {
-                        const c = contours.get(i);
-                        const area = cv.contourArea(c);
-                        if (area > bestArea) { bestArea = area; bestIndex = i; }
-                        c.delete();
-                    }
+                    const mats = [];
                     let points = null;
-                    if (bestIndex >= 0) {
-                        const c = contours.get(bestIndex);
-                        const peri = cv.arcLength(c, true);
-                        const approx = new cv.Mat();
-                        cv.approxPolyDP(c, approx, 0.02 * peri, true);
-                        if (approx.rows === 4) {
-                            const pts = [];
-                            for (let i = 0; i < 4; i++) {
-                                pts.push([approx.intAt(i, 0), approx.intAt(i, 1)]);
-                            }
-                            points = orderCorners(pts);
+                    try {
+                        const src = cv.matFromImageData({ data: new Uint8ClampedArray(imageData), width, height }); mats.push(src);
+                        const gray = new cv.Mat(); mats.push(gray);
+                        const blur = new cv.Mat(); mats.push(blur);
+                        const edges = new cv.Mat(); mats.push(edges);
+                        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+                        cv.GaussianBlur(gray, blur, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
+                        cv.Canny(blur, edges, 50, 150, 3, true);
+                        const kernel = cv.Mat.ones(5, 5, cv.CV_8U); mats.push(kernel);
+                        cv.dilate(edges, edges, kernel);
+                        const contours = new cv.MatVector(); mats.push(contours);
+                        const hierarchy = new cv.Mat(); mats.push(hierarchy);
+                        cv.findContours(edges, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+                        let bestIndex = -1;
+                        let bestArea = 0;
+                        for (let i = 0; i < contours.size(); i++) {
+                            const c = contours.get(i);
+                            const area = cv.contourArea(c);
+                            if (area > bestArea) { bestArea = area; bestIndex = i; }
+                            c.delete();
                         }
-                        approx.delete();
-                        c.delete();
+                        if (bestIndex >= 0) {
+                            const c = contours.get(bestIndex);
+                            const peri = cv.arcLength(c, true);
+                            const approx = new cv.Mat(); mats.push(approx);
+                            cv.approxPolyDP(c, approx, 0.02 * peri, true);
+                            if (approx.rows === 4) {
+                                const pts = [];
+                                for (let i = 0; i < 4; i++) {
+                                    pts.push([approx.intAt(i, 0), approx.intAt(i, 1)]);
+                                }
+                                points = orderCorners(pts);
+                            }
+                            c.delete();
+                        }
+                    } finally {
+                        for (const m of mats) { try { m.delete(); } catch (e) { /* ignore */ } }
                     }
-                    src.delete(); gray.delete(); blur.delete(); edges.delete(); contours.delete(); hierarchy.delete();
                     if (points) {
-                        reply('DETECT_PAPER_RESULT', { points, note: 'opencv-contour' });
+                        job('DETECT_PAPER_RESULT', { points, note: 'opencv-contour' });
                         break;
                     }
                 }
                 const points = detectPaperCornersPure(imageData, width, height);
-                reply('DETECT_PAPER_RESULT', { points, note: 'pure-js-bounds' });
+                job('DETECT_PAPER_RESULT', { points, note: 'pure-js-bounds' });
             } catch (err) {
                 const points = detectPaperCornersPure(imageData, width, height);
-                reply('DETECT_PAPER_RESULT', { points, note: 'pure-js-bounds' });
+                job('DETECT_PAPER_RESULT', { points, note: 'pure-js-bounds' });
             }
             break;
         }
@@ -343,9 +355,9 @@ self.onmessage = (event) => {
             const { imageData, width, height } = payload;
             try {
                 const result = detectBlankPure(imageData, width, height);
-                reply('DETECT_BLANK_RESULT', { blank: result.blank, inkRatio: result.inkRatio, note: 'pure-js' });
+                job('DETECT_BLANK_RESULT', { blank: result.blank, inkRatio: result.inkRatio, note: 'pure-js' });
             } catch (err) {
-                reply('DETECT_BLANK_RESULT', { blank: false, error: err.message });
+                job('DETECT_BLANK_RESULT', { blank: false, error: err.message });
             }
             break;
         }
@@ -354,7 +366,7 @@ self.onmessage = (event) => {
             try {
                 const { images, direction = 'vertical' } = payload;
                 if (!images || images.length < 2) {
-                    reply('STITCH_RESULT', { error: 'Butuh minimal 2 gambar', note: 'error' });
+                    job('STITCH_RESULT', { error: 'Butuh minimal 2 gambar', note: 'error' });
                     break;
                 }
                 const isVert = direction === 'vertical';
@@ -364,6 +376,14 @@ self.onmessage = (event) => {
                 const totalHeight = isVert
                     ? images.reduce((sum, img) => sum + img.height, 0)
                     : Math.max(...images.map((img) => img.height));
+
+                // Batas total piksel agar tak OOM (10 lembar 2600px ≈ 67MP → tolak).
+                if (!Number.isFinite(totalWidth) || !Number.isFinite(totalHeight) ||
+                    totalWidth < 1 || totalHeight < 1 ||
+                    totalWidth * totalHeight > 40_000_000) {
+                    job('STITCH_RESULT', { error: 'Gabungan terlalu besar — kurangi jumlah/resolusi halaman', note: 'error' });
+                    break;
+                }
 
                 const canvasData = new Uint8ClampedArray(totalWidth * totalHeight * 4);
                 canvasData.fill(255);
@@ -389,7 +409,7 @@ self.onmessage = (event) => {
                 }
 
                 const buffer = canvasData.buffer;
-                reply('STITCH_RESULT', {
+                job('STITCH_RESULT', {
                     width: totalWidth,
                     height: totalHeight,
                     imageData: buffer,
@@ -397,7 +417,7 @@ self.onmessage = (event) => {
                     note: 'stitched-pure-js'
                 }, [buffer]);
             } catch (err) {
-                reply('STITCH_RESULT', { error: err.message, note: 'error' });
+                job('STITCH_RESULT', { error: err.message, note: 'error' });
             }
             break;
         }
@@ -477,11 +497,14 @@ function sauvolaBinarizeBuffer(imageData, width, height) {
         gray[i] = Math.round(src[idx] * 0.299 + src[idx + 1] * 0.587 + src[idx + 2] * 0.114);
     }
 
-    // Integral images (sum & sum-of-squares) dengan boundary padding 1 baris/kolom
+    // Integral images (sum & sum-of-squares) dengan boundary padding 1 baris/kolom.
+    // Float32Array hemat 2× memori vs Float64 — cukup karena nilai piksel 0..255
+    // (presisi eksak sampai 2^24 ≈ 16,7 juta; jumlah integral maks ~6,7MP×65025
+    // ≈ 4,4e11 masih di bawah 2^53, aman dari pembulatan berarti untuk Sauvola).
     const iw = width + 1;
     const ih = height + 1;
-    const integralSum = new Float64Array(iw * ih);
-    const integralSq = new Float64Array(iw * ih);
+    const integralSum = new Float32Array(iw * ih);
+    const integralSq = new Float32Array(iw * ih);
     for (let y = 0; y < height; y++) {
         const rowBase = (y + 1) * iw;
         const prevBase = y * iw;
@@ -537,10 +560,11 @@ function sauvolaBinarizeBuffer(imageData, width, height) {
     return out.buffer;
 }
 
-// 1c. Fast Box Blur (3-pass ≈ Gaussian) untuk estimasi iluminasi MSRCR
+// 1c. Fast Box Blur (3-pass ≈ Gaussian) untuk estimasi iluminasi MSRCR.
+// Float32Array cukup (presisi ~7 digit, hemat 2× vs Float64).
 function boxBlurGrayBuffer(gray, width, height, radius) {
-    const temp = new Float64Array(width * height);
-    const out = new Float64Array(width * height);
+    const temp = new Float32Array(width * height);
+    const out = new Float32Array(width * height);
     const wsum = radius * 2 + 1;
 
     // Horizontal pass
@@ -575,11 +599,13 @@ function msrcrEnhanceBuffer(imageData, width, height) {
     const len = width * height;
     const out = new Uint8ClampedArray(len * 4);
 
-    // Konversi ke float per-channel [1..256] untuk log
-    const r = new Float64Array(len);
-    const g = new Float64Array(len);
-    const b = new Float64Array(len);
-    const grayF = new Float64Array(len);
+    // Konversi ke float per-channel [1..256] untuk log.
+    // Float32Array hemat 2× memori vs Float64 — log(1..256) ≈ 0..5,5 hanya
+    // butuh ~4 digit presisi yang Float32 sediakan (~7 digit).
+    const r = new Float32Array(len);
+    const g = new Float32Array(len);
+    const b = new Float32Array(len);
+    const grayF = new Float32Array(len);
     for (let i = 0; i < len; i++) {
         const idx = i * 4;
         r[i] = src[idx] + 1;
@@ -589,9 +615,9 @@ function msrcrEnhanceBuffer(imageData, width, height) {
     }
 
     const scales = [16, 40, 120];
-    const logR = new Float64Array(len);
-    const logG = new Float64Array(len);
-    const logB = new Float64Array(len);
+    const logR = new Float32Array(len);
+    const logG = new Float32Array(len);
+    const logB = new Float32Array(len);
 
     for (const s of scales) {
         const blur = boxBlurGrayBuffer(grayF, width, height, s);
@@ -921,7 +947,7 @@ function flattenIlluminationBuffer(imageData, width, height, strength = 0.8) {
     const out = new Uint8ClampedArray(src.length);
     const len = width * height;
 
-    const gray = new Float64Array(len);
+    const gray = new Float32Array(len);
     for (let i = 0; i < len; i++) {
         const idx = i * 4;
         gray[i] = (src[idx] + src[idx + 1] + src[idx + 2]) / 3;
@@ -1048,7 +1074,7 @@ function unsharpMaskBuffer(imageData, width, height, amount = 0.8, radius = 1) {
     const r = Math.max(1, Math.min(4, Math.round(radius)));
 
     for (let c = 0; c < 3; c++) {
-        const channel = new Float64Array(len);
+        const channel = new Float32Array(len);
         for (let i = 0; i < len; i++) channel[i] = src[i * 4 + c];
         const blur = boxBlurGrayBuffer(channel, width, height, r);
         for (let i = 0; i < len; i++) {

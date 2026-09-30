@@ -35,6 +35,30 @@ const CV_STATUS_LABEL: Record<string, string> = {
 };
 
 /**
+ * Menolak hasil worker yang bukan gambar valid. Menutup celah race lama di
+ * mana pesan INITIALIZED (tanpa imageData) lolos cek `result.error` lalu
+ * membuat `applyImageData(undefined)` meledak.
+ */
+function assertImageResult(
+  result: Record<string, unknown>,
+  label: string,
+): asserts result is { imageData: ArrayBuffer; width: number; height: number } {
+  const w = Number(result.width);
+  const h = Number(result.height);
+  if (
+    !(result.imageData instanceof ArrayBuffer) ||
+    result.imageData.byteLength === 0 ||
+    !Number.isFinite(w) ||
+    !Number.isFinite(h) ||
+    w < 1 ||
+    h < 1 ||
+    w * h > 40_000_000
+  ) {
+    throw new Error(`Hasil ${label} tidak valid — coba lagi`);
+  }
+}
+
+/**
  * Studio editor halaman: kanvas + toolbar + strip halaman. Menyatukan mesin
  * canvas, worker OpenCV (opsional), dan aksi pengeditan dari `useDocStation`.
  */
@@ -71,6 +95,22 @@ export function EditorStudio({ paperSize, customWidth, customHeight, onProceed, 
     [doc],
   );
 
+  // Resolusi kerja enhance: 2200 cukup untuk A4 tajam, hemat ~30% memori vs 2600.
+  // PDF ekspor tetap 2600 (di pdf.ts) agar hasil cetak maksimal.
+  const ENHANCE_MAX_DIMENSION = 2200;
+
+  /**
+   * Menyalin piksel kanvas ke buffer yang bisa ditransfer ke worker.
+   * Buffer dikirim sebagai Transferable (zero-copy) — menghemat satu salinan
+   * ~35MB per operasi pada 2600px.
+   */
+  const takeTransferable = (imageData: ImageData) => {
+    const src = imageData.data;
+    const copy = new Uint8ClampedArray(src.length);
+    copy.set(src);
+    return { buffer: copy.buffer, transfer: [copy.buffer] as Transferable[] };
+  };
+
   const runEnhance = useCallback(
     (mode: "bw" | "bg" | "despeckle" | "punch-hole") => {
       const page = doc.pages.find((p) => p.id === doc.activeId);
@@ -84,7 +124,7 @@ export function EditorStudio({ paperSize, customWidth, customHeight, onProceed, 
       withBusy(`Memproses ${labels[mode]}…`, async () => {
         const temp = document.createElement("canvas");
         const { renderPageToCanvas } = await import("@/lib/docstation/canvas");
-        renderPageToCanvas(engine, page, temp, { maxDimension: 2600 });
+        renderPageToCanvas(engine, page, temp, { maxDimension: ENHANCE_MAX_DIMENSION });
         const ctx = temp.getContext("2d")!;
         const imageData = ctx.getImageData(0, 0, temp.width, temp.height);
         const messageMap = {
@@ -93,14 +133,15 @@ export function EditorStudio({ paperSize, customWidth, customHeight, onProceed, 
           despeckle: "ENHANCE_DESPECKLE",
           "punch-hole": "ENHANCE_PUNCH_HOLE",
         } as const;
+        const { buffer, transfer } = takeTransferable(imageData);
         const result = await cv.run({
           type: messageMap[mode],
           payload: {
-            imageData: imageData.data.buffer.slice(0),
+            imageData: buffer,
             width: temp.width,
             height: temp.height,
           },
-          transfer: [],
+          transfer,
         });
         if (result.error) throw new Error(String(result.error));
         await doc.applyImageData(result.imageData, result.width, result.height, true);
@@ -136,11 +177,12 @@ export function EditorStudio({ paperSize, customWidth, customHeight, onProceed, 
       withBusy(`${labels[mode]}…`, async () => {
         const temp = document.createElement("canvas");
         const { renderPageToCanvas } = await import("@/lib/docstation/canvas");
-        renderPageToCanvas(engine, page, temp, { maxDimension: 2600 });
+        renderPageToCanvas(engine, page, temp, { maxDimension: ENHANCE_MAX_DIMENSION });
         const ctx = temp.getContext("2d")!;
         const imageData = ctx.getImageData(0, 0, temp.width, temp.height);
+        const { buffer, transfer } = takeTransferable(imageData);
         const payload: Record<string, unknown> = {
-          imageData: imageData.data.buffer.slice(0),
+          imageData: buffer,
           width: temp.width,
           height: temp.height,
         };
@@ -149,8 +191,9 @@ export function EditorStudio({ paperSize, customWidth, customHeight, onProceed, 
           payload.amount = strength;
           payload.radius = 1;
         }
-        const result = await cv.run({ type: messageMap[mode] as never, payload });
+        const result = await cv.run({ type: messageMap[mode] as never, payload, transfer });
         if (result.error) throw new Error(String(result.error));
+        assertImageResult(result, labels[mode]);
         await doc.applyImageData(result.imageData, result.width, result.height, true);
         toast.success(`${labels[mode]} selesai`);
       });
@@ -178,20 +221,23 @@ export function EditorStudio({ paperSize, customWidth, customHeight, onProceed, 
       if (!page) return;
       const temp = document.createElement("canvas");
       const { renderPageToCanvas } = await import("@/lib/docstation/canvas");
-      renderPageToCanvas(engine, page, temp, { maxDimension: 2600 });
+      renderPageToCanvas(engine, page, temp, { maxDimension: ENHANCE_MAX_DIMENSION });
       const ctx = temp.getContext("2d")!;
       const imageData = ctx.getImageData(0, 0, temp.width, temp.height);
+      const { buffer, transfer } = takeTransferable(imageData);
       const result = await cv.run({
         type: "AUTO_PIPELINE",
         payload: {
-          imageData: imageData.data.buffer.slice(0),
+          imageData: buffer,
           width: temp.width,
           height: temp.height,
           mode,
           strength: 0.75,
         },
+        transfer,
       });
       if (result.error) throw new Error(String(result.error));
+      assertImageResult(result, "Perbaikan otomatis");
       await doc.applyImageDataForPage(page, result.imageData, result.width, result.height);
     },
     [cv, doc, engine],
@@ -227,16 +273,21 @@ export function EditorStudio({ paperSize, customWidth, customHeight, onProceed, 
     withBusy("Auto-deskew…", async () => {
       const temp = document.createElement("canvas");
       const { renderPageToCanvas } = await import("@/lib/docstation/canvas");
-      renderPageToCanvas(engine, page, temp, { maxDimension: 2200 });
+      renderPageToCanvas(engine, page, temp, { maxDimension: ENHANCE_MAX_DIMENSION });
       const ctx = temp.getContext("2d")!;
       const imageData = ctx.getImageData(0, 0, temp.width, temp.height);
+      const { buffer, transfer } = takeTransferable(imageData);
       const result = await cv.run({
         type: "DESKEW",
-        payload: { imageData: imageData.data.buffer.slice(0), width: temp.width, height: temp.height },
+        payload: { imageData: buffer, width: temp.width, height: temp.height },
+        transfer,
       });
       const angle = Number(result.angle || 0);
+      if (result.error) throw new Error(String(result.error));
+      if (!Number.isFinite(angle) || Math.abs(angle) > 45) {
+        throw new Error("Hasil deskew tidak valid — coba lagi");
+      }
       page.fineRotation = (page.fineRotation || 0) - angle;
-      doc.setBusy(false);
       doc.selectPage(page.id);
       toast.success(`Auto-deskew selesai (${angle.toFixed(1)}°)`);
     });
@@ -248,39 +299,46 @@ export function EditorStudio({ paperSize, customWidth, customHeight, onProceed, 
     withBusy("Mendeteksi tepi kertas…", async () => {
       const temp = document.createElement("canvas");
       const { renderPageToCanvas } = await import("@/lib/docstation/canvas");
-      renderPageToCanvas(engine, page, temp, { maxDimension: 2200 });
+      renderPageToCanvas(engine, page, temp, { maxDimension: ENHANCE_MAX_DIMENSION });
       const ctx = temp.getContext("2d")!;
       const width = temp.width;
       const height = temp.height;
       const imageData = ctx.getImageData(0, 0, width, height);
 
       // 1. Deteksi 4 sudut kertas (OpenCV contour atau fallback pure-JS).
+      const { buffer: detectBuffer, transfer: detectTransfer } = takeTransferable(imageData);
       const detected = await cv.run({
         type: "DETECT_PAPER",
-        payload: { imageData: imageData.data.buffer.slice(0), width, height },
+        payload: { imageData: detectBuffer, width, height },
+        transfer: detectTransfer,
       });
       let corners: number[] =
         Array.isArray(detected?.points) && detected.points.length === 4
           ? detected.points.flat()
           : [];
-      if (corners.length !== 8) {
+      if (corners.length !== 8 || !corners.every((v) => Number.isFinite(v))) {
         const margin = Math.round(Math.min(width, height) * 0.03);
         corners = [margin, margin, width - margin, margin, width - margin, height - margin, margin, height - margin];
       }
 
       // 2. Warp perspektif ke 4 sudut terdeteksi.
+      // Ambil ulang piksel (buffer deteksi sudah ditransfer/neutered).
+      const fresh = ctx.getImageData(0, 0, width, height);
+      const { buffer: warpBuffer, transfer: warpTransfer } = takeTransferable(fresh);
       const result = await cv.run({
         type: "PERSPECTIVE_WARP",
         payload: {
-          imageData: imageData.data.buffer.slice(0),
+          imageData: warpBuffer,
           width,
           height,
           points: corners,
           dstWidth: width,
           dstHeight: height,
         },
+        transfer: warpTransfer,
       });
       if (result.error) throw new Error(String(result.error));
+      assertImageResult(result, "Auto crop");
       await doc.applyImageData(result.imageData, result.width, result.height, true);
       toast.success("Auto crop (deteksi tepi kertas) selesai");
     });
@@ -364,6 +422,8 @@ export function EditorStudio({ paperSize, customWidth, customHeight, onProceed, 
       const target = index + direction;
       if (index < 0 || target < 0 || target >= list.length) return;
       [list[index], list[target]] = [list[target], list[index]];
+      // Mutasi urutan langsung — sinkronkan state React agar strip akurat.
+      doc.syncOrder();
       doc.selectPage(id);
     },
     [doc, engine],
@@ -417,8 +477,12 @@ export function EditorStudio({ paperSize, customWidth, customHeight, onProceed, 
       />
 
       {doc.busy && (
-        <div className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-sm text-primary">
-          <Loader2 className="h-4 w-4 animate-spin" />
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-sm text-primary"
+        >
+          <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
           {doc.busyLabel || "Memproses…"}
         </div>
       )}
@@ -445,6 +509,7 @@ export function EditorStudio({ paperSize, customWidth, customHeight, onProceed, 
         cropMode={cropMode}
         cropRegion={cropRegion}
         zoom={zoom}
+        busy={doc.busy}
         onCropRegionChange={setCropRegion}
         onChanged={() => doc.selectPage(doc.activeId ?? "")}
       />

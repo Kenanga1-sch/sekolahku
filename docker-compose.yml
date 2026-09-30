@@ -19,6 +19,12 @@ services:
       EXTRA_ALLOWED_ORIGINS: ${EXTRA_ALLOWED_ORIGINS:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       TELEGRAM_API_URL: ${TELEGRAM_API_URL:-http://telegram-bot-api:8081}
+      # DocStation: printer LAN (lihat .env.production.example). Volume uploads
+      # sudah mencakup uploads/docstation (default DOCSTATION_UPLOAD_DIR).
+      DOCSTATION_PRINTERS: ${DOCSTATION_PRINTERS:-}
+      DOCSTATION_DEFAULT_PRINTER: ${DOCSTATION_DEFAULT_PRINTER:-}
+      DOCSTATION_SECURE_PRINTERS: ${DOCSTATION_SECURE_PRINTERS:-}
+      DOCSTATION_UPLOAD_DIR: ${DOCSTATION_UPLOAD_DIR:-uploads/docstation}
       # Password enkripsi backup Telegram (AES-256-GCM). Kosong = backup TANPA
       # enkripsi (PII siswa terkirim plain). WAJIB diisi di .env server.
       BACKUP_ZIP_PASSWORD: ${BACKUP_ZIP_PASSWORD:-}

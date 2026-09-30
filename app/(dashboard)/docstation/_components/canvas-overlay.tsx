@@ -23,6 +23,8 @@ interface CanvasOverlayProps {
   cropMode: boolean;
   cropRegion: { x: number; y: number; width: number; height: number } | null;
   zoom: number;
+  /** Kunci interaksi saat worker sedang memproses. */
+  busy?: boolean;
   onCropRegionChange: (region: { x: number; y: number; width: number; height: number }) => void;
   onChanged: () => void;
   onError?: (message: string) => void;
@@ -50,6 +52,7 @@ export const CanvasOverlay = forwardRef<CanvasOverlayHandle, CanvasOverlayProps>
       cropMode,
       cropRegion,
       zoom,
+      busy,
       onCropRegionChange,
       onChanged,
       onError,
@@ -140,7 +143,7 @@ export const CanvasOverlay = forwardRef<CanvasOverlayHandle, CanvasOverlayProps>
 
     const handlePointerDown = useCallback(
       (event: React.PointerEvent) => {
-        if (!page) return;
+        if (!page || busy) return;
         const point = toCanvasPoint(event);
 
         if (cropMode) {
@@ -167,7 +170,7 @@ export const CanvasOverlay = forwardRef<CanvasOverlayHandle, CanvasOverlayProps>
           overlayRef.current?.setPointerCapture(event.pointerId);
         }
       },
-      [brushColor, brushSize, cropMode, cropRegion, highlightColor, onCropRegionChange, page, toCanvasPoint, tool],
+      [busy, brushColor, brushSize, cropMode, cropRegion, highlightColor, onCropRegionChange, page, toCanvasPoint, tool],
     );
 
     const handlePointerMove = useCallback(
@@ -225,6 +228,51 @@ export const CanvasOverlay = forwardRef<CanvasOverlayHandle, CanvasOverlayProps>
       [onChanged, page, state],
     );
 
+    // Keyboard crop: panah memindahkan/meresize region tanpa pointer.
+    // Region dibuat tengah-bila belum ada agar keyboard-only bisa mulai crop.
+    const handleKeyDown = useCallback(
+      (event: React.KeyboardEvent) => {
+        if (!page || busy || !cropMode) return;
+        const step = event.shiftKey ? 20 : 5;
+        let region = cropRegion;
+        if (!region) {
+          const w = Math.round(baseSize.width * 0.5);
+          const h = Math.round(baseSize.height * 0.5);
+          region = {
+            x: Math.round((baseSize.width - w) / 2),
+            y: Math.round((baseSize.height - h) / 2),
+            width: w,
+            height: h,
+          };
+        }
+        let next = region;
+        switch (event.key) {
+          case "ArrowLeft":
+            next = { ...region, x: Math.max(0, region.x - step) };
+            break;
+          case "ArrowRight":
+            next = { ...region, x: Math.min(baseSize.width - region.width, region.x + step) };
+            break;
+          case "ArrowUp":
+            next = { ...region, y: Math.max(0, region.y - step) };
+            break;
+          case "ArrowDown":
+            next = { ...region, y: Math.min(baseSize.height - region.height, region.y + step) };
+            break;
+          case "Enter":
+            if (region.width >= 4 && region.height >= 4) {
+              onCropRegionChange(region);
+            }
+            return;
+          default:
+            return;
+        }
+        event.preventDefault();
+        onCropRegionChange(next);
+      },
+      [baseSize, busy, cropMode, cropRegion, onCropRegionChange, page],
+    );
+
     // Cursor mengikuti tool.
     const cursor =
       tool === "brush" || tool === "eraser" || tool === "highlighter"
@@ -246,30 +294,41 @@ export const CanvasOverlay = forwardRef<CanvasOverlayHandle, CanvasOverlayProps>
     return (
       <div
         ref={containerRef}
-        className="relative flex min-h-[420px] flex-1 items-center justify-center overflow-auto rounded-2xl border border-border bg-muted/30 p-3"
+        className="relative flex min-h-[420px] flex-1 items-start justify-center overflow-auto rounded-2xl border border-border bg-muted/30 p-3"
       >
         <div
           className="relative shadow-lg"
           style={{
-            transform: `scale(${zoom})`,
-            transformOrigin: "top center",
-            width: baseSize.width ? baseSize.width * displayScale : undefined,
-            height: baseSize.height ? baseSize.height * displayScale : undefined,
+            // Ukuran tata letak ikut zoom sehingga area scroll membesar dan
+            // gambar tak terpotong (transform scale saja tidak mempengaruhi
+            // ukuran scroll parent).
+            width: baseSize.width ? baseSize.width * displayScale * zoom : undefined,
+            height: baseSize.height ? baseSize.height * displayScale * zoom : undefined,
           }}
         >
           <canvas
             ref={canvasRef}
-            className="block h-auto w-full max-w-full rounded-sm bg-white"
+            aria-label={`Pratinjau halaman ${page.name}`}
+            role="img"
+            className="block h-auto w-full max-w-none rounded-sm bg-white"
             style={{ imageRendering: "auto" }}
           />
           <canvas
             ref={overlayRef}
-            className="absolute left-0 top-0 h-full w-full touch-none"
-            style={{ cursor }}
+            tabIndex={cropMode && !busy ? 0 : -1}
+            role="application"
+            aria-label={
+              cropMode
+                ? "Area crop — panah memindahkan, Shift+panah memperbesar, Enter menerapkan"
+                : "Kanvas anotasi"
+            }
+            className="absolute left-0 top-0 h-full w-full touch-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+            style={{ cursor, pointerEvents: busy ? "none" : undefined }}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerLeave={handlePointerUp}
+            onKeyDown={handleKeyDown}
           />
           {cropMode && crop && (
             <div

@@ -132,6 +132,7 @@ export function DocStationApp() {
                 title="Proses Pemindaian Dokumen"
                 status={doc.scanProgress?.message}
                 percent={doc.scanProgress?.percent}
+                onCancel={doc.cancelScan}
               />
             )}
             {step === 2 && !doc.scanning && (
@@ -142,7 +143,8 @@ export function DocStationApp() {
                 onScan={async () => {
                   try {
                     await doc.scan({ ...scanConfig, printerIp: scanPrinterIp });
-                    setStep(3);
+                    // Batal → tetap di langkah 2 (tanpa halaman baru tak ada lanjut).
+                    if (doc.stateRef.current.pages.length > 0) setStep(3);
                   } catch (err) {
                     toast.error(err instanceof Error ? err.message : "Gagal memindai dokumen");
                   }

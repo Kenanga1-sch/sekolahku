@@ -259,7 +259,14 @@ export function createImageFromBlob(
     const image = new Image();
     image.decoding = "async";
     image.onload = () => resolve({ image, url });
-    image.onerror = reject;
+    image.onerror = () => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {
+        /* ignore */
+      }
+      reject(new Error("Gagal memuat gambar"));
+    };
     image.src = url;
   });
 }

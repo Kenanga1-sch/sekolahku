@@ -90,10 +90,12 @@ function ToolButton({ icon, label, active, disabled, onClick }: ToolButtonProps)
       type="button"
       title={label}
       aria-label={label}
+      aria-pressed={active !== undefined ? active : undefined}
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "flex h-9 w-9 items-center justify-center rounded-lg border text-muted-foreground transition-colors",
+        // 40px ≈ target sentuh minimum yang nyaman di ponsel.
+        "flex h-10 w-10 items-center justify-center rounded-lg border text-muted-foreground transition-colors",
         active
           ? "border-primary bg-primary/10 text-primary"
           : "border-border bg-background hover:bg-muted hover:text-foreground",
@@ -187,7 +189,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
       </div>
 
       <Tabs defaultValue="transform" className="gap-2">
-        <TabsList className="h-8 w-full justify-start overflow-x-auto">
+        <TabsList aria-label="Grup alat editor" className="h-10 w-full justify-start overflow-x-auto">
           <TabsTrigger value="transform" className="gap-1 text-xs">
             <RotateCw className="h-3.5 w-3.5" /> Transform
           </TabsTrigger>
@@ -251,6 +253,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
           <div className="mt-2 flex items-center gap-2">
             <ToolLabel>Kekuatan pembersihan</ToolLabel>
             <Slider
+              aria-label="Kekuatan pembersihan"
               className="w-40"
               min={0}
               max={1}
@@ -272,6 +275,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
           <div className="mt-2 flex items-center gap-2">
             <ToolLabel>Kekuatan (unsharp mask)</ToolLabel>
             <Slider
+              aria-label="Kekuatan unsharp mask"
               className="w-40"
               min={0}
               max={3}
@@ -302,6 +306,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
               <Sun className="h-4 w-4 text-muted-foreground" />
               <ToolLabel>Terang</ToolLabel>
               <Slider
+                aria-label="Kecerahan"
                 className="flex-1"
                 min={-100}
                 max={100}
@@ -318,6 +323,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
               <Contrast className="h-4 w-4 text-muted-foreground" />
               <ToolLabel>Kontras</ToolLabel>
               <Slider
+                aria-label="Kontras"
                 className="flex-1"
                 min={-100}
                 max={100}
@@ -334,6 +340,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
               <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
               <ToolLabel>Gamma</ToolLabel>
               <Slider
+                aria-label="Gamma"
                 className="flex-1"
                 min={0.3}
                 max={2.5}
@@ -398,7 +405,8 @@ export function EditorToolbar(props: EditorToolbarProps) {
             <div className="flex items-center gap-2 pl-2">
               <ToolLabel>Ukuran</ToolLabel>
               <Slider
-                className="w-28"
+                aria-label="Ukuran kuas"
+                className="w-32"
                 min={4}
                 max={60}
                 step={1}
@@ -419,12 +427,14 @@ export function EditorToolbar(props: EditorToolbarProps) {
             <ToolButton icon={<GitMerge className={iconClass} />} label="Gabung (stitch)" disabled={!hasMultiplePages || busy} onClick={onStitch} />
             <ToolButton icon={<LayoutTemplate className={iconClass} />} label="Layout kartu ganda" disabled={!hasMultiplePages || busy} onClick={onCardLayout} />
             <div className="mx-1 h-6 w-px bg-border" />
-            <ToolButton icon={<ZoomOut className={iconClass} />} label="Perkecil" disabled={!hasPage} onClick={() => onZoomChange(Math.max(0.25, zoom - 0.15))} />
-            <ToolButton icon={<ZoomIn className={iconClass} />} label="Perbesar" disabled={!hasPage} onClick={() => onZoomChange(Math.min(3, zoom + 0.15))} />
+            <ToolButton icon={<ZoomOut className={iconClass} />} label="Perkecil" disabled={dis} onClick={() => onZoomChange(Math.max(0.25, zoom - 0.15))} />
+            <ToolButton icon={<ZoomIn className={iconClass} />} label="Perbesar" disabled={dis} onClick={() => onZoomChange(Math.min(3, zoom + 0.15))} />
             <button
               type="button"
+              disabled={dis}
               onClick={() => onZoomChange(1)}
-              className="rounded-lg border border-border px-2 py-1 text-xs font-semibold text-muted-foreground hover:bg-muted"
+              aria-label={`Reset zoom (saat ini ${Math.round(zoom * 100)} persen)`}
+              className="rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
             >
               {Math.round(zoom * 100)}%
             </button>

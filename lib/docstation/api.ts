@@ -71,11 +71,16 @@ export interface ScanRequest {
   source: "flatbed" | "adf";
   printerIp: string;
   onProgress?: (message: string, percent: number) => void;
+  /** Sinyal pembatalan — loop ADF berhenti di lembar berikutnya. */
+  signal?: AbortSignal;
 }
+
+/** Batas lembar ADF per sekali scan agar tak OOM di perangkat lemah. */
+export const ADF_MAX_PAGES = 50;
 
 /** Meminta pemindaian eSCL dan mengembalikan daftar blob gambar (per lembar). */
 export async function requestScan(req: ScanRequest): Promise<Blob[]> {
-  const { resolution, preset, paperSize, customWidth, customHeight, source, printerIp, onProgress } = req;
+  const { resolution, preset, paperSize, customWidth, customHeight, source, printerIp, onProgress, signal } = req;
   const colorMode = preset === "color" ? "RGB24" : preset === "gray" ? "Grayscale8" : "RGB24";
   const dim = esclDimensions(paperSize, resolution, customWidth, customHeight);
   const inputSource = source === "adf" ? "Adf" : "Platen";
@@ -100,6 +105,7 @@ export async function requestScan(req: ScanRequest): Promise<Blob[]> {
     credentials: "include",
     headers: mutationHeaders({ "Content-Type": "text/xml", "x-printer-ip": printerIp }),
     body: scanSettings,
+    signal,
   });
   if (!response.ok) {
     const errText = await response.text();
@@ -122,12 +128,14 @@ export async function requestScan(req: ScanRequest): Promise<Blob[]> {
   try {
     if (source === "adf") {
       let pageNum = 1;
-      while (true) {
+      while (pageNum <= ADF_MAX_PAGES) {
+        signal?.throwIfAborted();
         onProgress?.(`Memindai lembar ADF ke-${pageNum}…`, Math.min(90, 45 + pageNum * 10));
         const nextDocPath = `${jobPath.replace(/\/$/, "")}/NextDocument`;
         const docResp = await fetch(nextDocPath, {
           credentials: "include",
           headers: { "x-printer-ip": printerIp },
+          signal,
         });
         if (!docResp.ok) break;
         const blob = await docResp.blob();
@@ -142,6 +150,7 @@ export async function requestScan(req: ScanRequest): Promise<Blob[]> {
       const docResp = await fetch(nextDocPath, {
         credentials: "include",
         headers: { "x-printer-ip": printerIp },
+        signal,
       });
       if (!docResp.ok) {
         throw new Error((await docResp.text()) || "Gagal mengambil gambar hasil pemindaian");
@@ -210,7 +219,12 @@ export async function saveFileToServer(file: PrintableFile): Promise<void> {
     }),
     body: blob,
   });
-  if (!response.ok) throw new Error("Server menolak penyimpanan berkas");
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    // Backend Fase 3 menolak printer tak dikenal dengan 400 eksplisit —
+    // teruskan pesannya agar operator tahu harus pilih printer terdaftar.
+    throw new Error(body.error || body.detail || "Server menolak penyimpanan berkas");
+  }
 }
 
 export interface ArchiveUploadMeta {

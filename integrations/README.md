@@ -35,8 +35,12 @@ integrations/
 
 ## Status
 
-- [x] **docstation** — proxy scan (eSCL) & cetak (IPP/RAW) ke printer LAN.
-      Mesin dipindah ke `lib/docstation/` (React) + `go-backend/internal/handlers/docstation_handler.go`.
+- [x] **docstation** — SELESAI & LEGACY DIHAPUS. Runtime Python lama
+      (`server.py` dengan password default, `docker-compose.yml` port 8000,
+      `cloudflared` tunnel) dihapus karena sumber kebenaran kini:
+      `lib/docstation/` (React) + `go-backend/internal/handlers/docstation_handler.go`.
+      Spesifikasi arsitektur yang masih berlaku didokumentasikan ulang di
+      `docs/` (audit keamanan) — JANGAN deploy ulang runtime lama.
 - [x] **cloudstorage** — penyimpanan berkas pribadi per-user dengan backend
       Telegram Bot API lokal. Logika di-port ke `go-backend/internal/cloudstorage/`
       (Echo) + UI React di `app/(dashboard)/cloud-storage/`.

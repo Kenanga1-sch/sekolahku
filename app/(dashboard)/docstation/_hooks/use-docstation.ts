@@ -88,10 +88,14 @@ export interface UseDocStationResult {
   addImageBlobs: (blobs: Blob[], namePrefix?: string, options?: { skipBlank?: boolean }) => Promise<void>;
   /** Memindai dari printer sesuai konfigurasi. */
   scan: (config: ScanConfig) => Promise<void>;
+  /** Membatalkan pemindaian yang sedang berjalan (loop ADF berhenti). */
+  cancelScan: () => void;
   /** Menghapus satu halaman. */
   removePage: (id: string) => void;
   /** Memilih halaman aktif. */
   selectPage: (id: string) => void;
+  /** Meminta ulang sinkronisasi daftar halaman (mis. setelah mutasi urutan). */
+  syncOrder: () => void;
   /** Mengosongkan seluruh sesi. */
   resetSession: () => void;
   /** Mengirim daftar berkas ke printer. */
@@ -189,9 +193,13 @@ export function useDocStation(): UseDocStationResult {
     [syncPages],
   );
 
+  const scanAbortRef = useRef<AbortController | null>(null);
+
   const scan = useCallback(
     async (config: ScanConfig) => {
       if (scanning) return;
+      const aborter = new AbortController();
+      scanAbortRef.current = aborter;
       setScanning(true);
       setScanProgress({ message: "Menyiapkan pemindaian…", percent: 0 });
       try {
@@ -204,15 +212,25 @@ export function useDocStation(): UseDocStationResult {
           source: config.source,
           printerIp: config.printerIp,
           onProgress: (message, percent) => setScanProgress({ message, percent }),
+          signal: aborter.signal,
         });
         await addImageBlobs(blobs, "Scan", { skipBlank: config.skipBlank });
+      } catch (err) {
+        // Pembatalan oleh pengguna bukan error — lembar yang sudah masuk tetap dipakai.
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        throw err;
       } finally {
+        scanAbortRef.current = null;
         setScanning(false);
         setScanProgress(null);
       }
     },
     [addImageBlobs, scanning],
   );
+
+  const cancelScan = useCallback(() => {
+    scanAbortRef.current?.abort();
+  }, []);
 
   const removePage = useCallback(
     (id: string) => {
@@ -240,6 +258,10 @@ export function useDocStation(): UseDocStationResult {
     },
     [],
   );
+
+  const syncOrder = useCallback(() => {
+    syncPages();
+  }, [syncPages]);
 
   const resetSession = useCallback(() => {
     const engine = stateRef.current!;
@@ -388,8 +410,10 @@ export function useDocStation(): UseDocStationResult {
     busyLabel,
     addImageBlobs,
     scan,
+    cancelScan,
     removePage,
     selectPage,
+    syncOrder,
     resetSession,
     print,
     saveToServer,
