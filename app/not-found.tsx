@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Ghost, Home, ArrowLeft } from "lucide-react";
+import { Ghost, RefreshCw, ArrowLeft } from "lucide-react";
 import { AuroraBackground } from "@/components/ui/aurora-background";
 import { TypewriterEffect } from "@/components/ui/typewriter-effect";
 import { motion } from "framer-motion";
+import { goBackOrHome } from "@/lib/nav-fallback";
 
 export default function NotFound() {
   const words = [
@@ -38,19 +38,24 @@ export default function NotFound() {
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 w-full max-w-sm">
-          <Link href="/" className="w-full">
-            <Button className="w-full h-12 font-bold rounded-full shadow-[0px_1px_0px_0px_#ffffff40_inset,0px_-1px_0px_0px_#ffffff40_inset]" size="lg">
-              <Home className="mr-2 h-4 w-4" />
-              Kembali ke Beranda
-            </Button>
-          </Link>
-          
-          <Link href="#" onClick={() => window.history.back()} className="w-full">
-            <Button variant="outline" className="w-full h-12 rounded-full bg-white/5 border-white/10 hover:bg-white/10 hover:text-white" size="lg">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Kembali
-            </Button>
-          </Link>
+          <Button
+            onClick={() => window.location.reload()}
+            className="w-full h-12 font-bold rounded-full shadow-[0px_1px_0px_0px_#ffffff40_inset,0px_-1px_0px_0px_#ffffff40_inset]"
+            size="lg"
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Refresh
+          </Button>
+
+          <Button
+            onClick={() => goBackOrHome()}
+            variant="outline"
+            className="w-full h-12 rounded-full bg-white/5 border-white/10 hover:bg-white/10 hover:text-white"
+            size="lg"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Kembali
+          </Button>
         </div>
       </motion.div>
     </AuroraBackground>

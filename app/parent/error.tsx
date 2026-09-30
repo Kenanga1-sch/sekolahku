@@ -1,8 +1,8 @@
 "use client";
 
-import { AlertTriangle, RefreshCw, Home } from "lucide-react";
-import Link from "next/link";
+import { AlertTriangle, RefreshCw, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { goBackOrHome } from "@/lib/nav-fallback";
 
 export default function ParentError({
   error,
@@ -22,13 +22,11 @@ export default function ParentError({
       </p>
       <div className="flex gap-3">
         <Button onClick={reset} size="sm">
-          <RefreshCw className="mr-2 h-4 w-4" /> Coba Lagi
+          <RefreshCw className="mr-2 h-4 w-4" /> Refresh
         </Button>
-        <Link href="/parent">
-          <Button variant="outline" size="sm">
-            <Home className="mr-2 h-4 w-4" /> Beranda
-          </Button>
-        </Link>
+        <Button variant="outline" size="sm" onClick={() => goBackOrHome()}>
+          <ArrowLeft className="mr-2 h-4 w-4" /> Kembali
+        </Button>
       </div>
     </div>
   );

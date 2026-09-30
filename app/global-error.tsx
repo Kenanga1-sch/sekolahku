@@ -3,8 +3,8 @@
 import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, RefreshCw, Home } from "lucide-react";
-import Link from "next/link";
+import { AlertTriangle, RefreshCw, ArrowLeft } from "lucide-react";
+import { goBackOrHome } from "@/lib/nav-fallback";
 
 export default function GlobalError({
     error,
@@ -42,14 +42,12 @@ export default function GlobalError({
                         <div className="flex flex-col sm:flex-row gap-4 justify-center">
                             <Button onClick={reset} className="gap-2">
                                 <RefreshCw className="h-4 w-4" />
-                                Coba Lagi
+                                Refresh
                             </Button>
-                            <Link href="/">
-                                <Button variant="outline" className="gap-2">
-                                    <Home className="h-4 w-4" />
-                                    Ke Beranda
-                                </Button>
-                            </Link>
+                            <Button variant="outline" onClick={() => goBackOrHome()} className="gap-2">
+                                <ArrowLeft className="h-4 w-4" />
+                                Kembali
+                            </Button>
                         </div>
                     </div>
                 </div>

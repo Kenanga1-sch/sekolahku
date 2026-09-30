@@ -2,11 +2,11 @@
 
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, RefreshCw, Home, LogIn } from "lucide-react";
-import Link from "next/link";
+import { AlertTriangle, RefreshCw, ArrowLeft } from "lucide-react";
 import { AuroraBackground } from "@/components/ui/aurora-background";
 import { TypewriterEffect } from "@/components/ui/typewriter-effect";
 import { motion } from "framer-motion";
+import { goBackOrHome } from "@/lib/nav-fallback";
 
 export default function Error({
   error,
@@ -56,28 +56,30 @@ export default function Error({
         <div className="flex flex-col sm:flex-row gap-3 w-full justify-center">
           <Button
             onClick={() => {
-              window.location.reload();
+              // Coba pulihkan segmen yang gagal; bila masih gagal, muat ulang
+              // penuh sebagai jalan terakhir.
+              try {
+                reset();
+              } catch {
+                window.location.reload();
+              }
             }}
             className="w-full sm:w-auto h-12 px-8 font-bold bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg"
             size="lg"
           >
             <RefreshCw className="mr-2 h-4 w-4" />
-            Coba Lagi
+            Refresh
           </Button>
 
-          <Link href="/login" className="w-full sm:w-auto">
-              <Button variant="outline" className="w-full sm:w-auto h-12 px-8 rounded-full bg-white/5 border-white/10 hover:bg-white/10 hover:text-white text-white text-sm font-medium active:scale-[0.97] transition-transform">
-                <LogIn className="mr-2 h-4 w-4" />
-                Masuk
-              </Button>
-            </Link>
-
-          <Link href="/" className="w-full sm:w-auto">
-              <Button variant="outline" className="w-full sm:w-auto h-12 px-8 rounded-full bg-white/5 border-white/10 hover:bg-white/10 hover:text-white text-sm font-medium active:scale-[0.97] transition-transform">
-                <Home className="mr-2 h-4 w-4" />
-                Kembali ke Beranda
-              </Button>
-            </Link>
+          <Button
+            onClick={() => goBackOrHome()}
+            variant="outline"
+            className="w-full sm:w-auto h-12 px-8 rounded-full bg-white/5 border-white/10 hover:bg-white/10 hover:text-white text-white text-sm font-medium active:scale-[0.97] transition-transform"
+            size="lg"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Kembali
+          </Button>
         </div>
       </motion.div>
     </AuroraBackground>
