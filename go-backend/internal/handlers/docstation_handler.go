@@ -324,6 +324,82 @@ func copyESCLHeaders(dst, src http.Header) {
 	}
 }
 
+// Header respons printer yang BOLEH diteruskan ke klien (allowlist ketat).
+// Hanya header konten/penyamaran yang aman; sisanya diabaikan secara implisit.
+var docStationResponseHeaders = map[string]bool{
+	"content-type":        true,
+	"content-length":      true,
+	"content-disposition": true,
+	"cache-control":       true,
+}
+
+// docStationDeniedResponseHeaders adalah header yang DITOLAK secara eksplisit
+// meski (secara teori) sempat lolos. Printer LAN pihak ketiga tak boleh bisa
+// menanam cookie/sesi di domain kita, memicu redirect (Location), memaksa
+// dialog autentikasi (WWW-Authenticate), atau membocorkan versi Server-nya.
+var docStationDeniedResponseHeaders = map[string]bool{
+	"set-cookie":       true,
+	"set-cookie2":      true,
+	"location":         true,
+	"www-authenticate": true,
+	"server":           true,
+}
+
+// docStationHopByHopHeaders adalah header hop-by-hop (RFC 7230 §6.1) yang
+// TIDAK PERNAH boleh diteruskan antar-hop, termasuk ke klien.
+var docStationHopByHopHeaders = map[string]bool{
+	"connection":          true,
+	"keep-alive":          true,
+	"proxy-authenticate":  true,
+	"proxy-authorization": true,
+	"te":                  true,
+	"trailer":             true,
+	"transfer-encoding":   true,
+	"upgrade":             true,
+}
+
+// docStationSafeCustomHeader memfilter header kustom printer ("X-*") yang aman
+// untuk diteruskan. Selain header allowlist di atas, hanya header berawalan
+// "x-" yang lolos — dan tetap tunduk pada daftar tolak + hop-by-hop.
+func docStationSafeCustomHeader(lowerKey string) bool {
+	if !strings.HasPrefix(lowerKey, "x-") {
+		return false
+	}
+	// Hormati Connection: <header> — jangan teruskan header yang diisyaratkan
+	// hop-by-hop oleh peer.
+	return !docStationDeniedResponseHeaders[lowerKey] && !docStationHopByHopHeaders[lowerKey]
+}
+
+// copyPrinterResponseHeaders menyalin header respons printer ke klien memakai
+// ALLOWLIST ketat: hanya header konten yang aman (Content-Type, Content-Length,
+// Content-Disposition, Cache-Control) plus header kustom "X-*" yang aman.
+// Header sensitif (Set-Cookie/Set-Cookie2/Location/WWW-Authenticate/Server) dan
+// header hop-by-hop selalu ditolak, apa pun isinya.
+func copyPrinterResponseHeaders(dst, src http.Header) {
+	// Header apa pun yang disebut di Connection juga bersifat hop-by-hop.
+	connScoped := map[string]bool{}
+	for _, v := range src.Values("Connection") {
+		for _, f := range strings.Split(v, ",") {
+			if f = strings.TrimSpace(strings.ToLower(f)); f != "" {
+				connScoped[f] = true
+			}
+		}
+	}
+
+	for k, vals := range src {
+		lk := strings.ToLower(k)
+		if docStationDeniedResponseHeaders[lk] || docStationHopByHopHeaders[lk] || connScoped[lk] {
+			continue
+		}
+		if !docStationResponseHeaders[lk] && !docStationSafeCustomHeader(lk) {
+			continue
+		}
+		for _, v := range vals {
+			dst.Add(k, v)
+		}
+	}
+}
+
 // ProxyESCL mem-forward request eSCL ke printer.
 func (h *DocStationHandler) ProxyESCL(c echo.Context) error {
 	printerIP, secure, err := h.resolvePrinter(c)
@@ -403,16 +479,9 @@ func (h *DocStationHandler) ProxyESCL(c echo.Context) error {
 	}
 	defer resp.Body.Close()
 
-	// Salin header respons (kecuali hop-by-hop / encoding).
-	for k, vals := range resp.Header {
-		lk := strings.ToLower(k)
-		if lk == "content-encoding" || lk == "content-length" || lk == "transfer-encoding" || lk == "connection" {
-			continue
-		}
-		for _, v := range vals {
-			c.Response().Header().Add(k, v)
-		}
-	}
+	// Salin hanya header respons allowlist dari printer ke klien. Header sensitif
+	// (Set-Cookie/Location/WWW-Authenticate/Server) & hop-by-hop tak diteruskan.
+	copyPrinterResponseHeaders(c.Response().Header(), resp.Header)
 
 	// Rewrite Location → endpoint proxy internal agar klien melanjutkan di kita.
 	// Printer mengembalikan ".../ScanJobs/<id>" absolut atau relatif; ambil

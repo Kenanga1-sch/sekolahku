@@ -3,6 +3,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 import { WizardStepper } from "./wizard-stepper";
 import { ModePicker } from "./mode-picker";
 import { ScanConfigPanel } from "./scan-config-panel";
@@ -42,10 +53,15 @@ export function DocStationApp() {
   const [saveConfig, setSaveConfig] = useState<SaveConfig>(DEFAULT_SAVE_CONFIG);
   const [printFiles, setPrintFiles] = useState<File[]>([]);
   const [readyToPrint, setReadyToPrint] = useState(false);
+  // Menandai operasi cetak/simpan yang sedang berjalan di komponen ini.
+  const [processing, setProcessing] = useState(false);
 
   const { printers: enginePrinters, defaultPrinter } = usePrinterStatus();
   const doc = useDocStation();
   const cv = useOpenCV();
+
+  // Status sibuk gabungan: pindai, proses gambar (enhance/warp), atau cetak/simpan.
+  const busy = doc.scanning || doc.busy || processing;
 
   // Muat vendor PDF di latar agar ekspor siap saat diminta.
   useEffect(() => {
@@ -61,7 +77,18 @@ export function DocStationApp() {
   const scanPrinterIp = scanConfig.printerIp || defaultPrinter;
   const printPrinterIp = printConfig.printerIp || defaultPrinter;
 
-  const selectMode = useCallback(
+  /**
+   * Aksi tertunda yang menunggu konfirmasi pengguna saat status sibuk. Menyimpan
+   * niat (ganti mode / reset sesi) agar tidak menghapus pekerjaan yang berjalan.
+   */
+  const [pendingAction, setPendingAction] = useState<
+    { kind: "mode"; mode: DocStationMode } | { kind: "reset" } | null
+  >(null);
+
+  const confirmOpen = pendingAction !== null;
+
+  /** Menjalankan perpindahan mode setelah sesi aman untuk direset. */
+  const applyMode = useCallback(
     (m: DocStationMode) => {
       setMode(m);
       // Scan mulai dari konfigurasi (langkah 2); print dari unggah berkas (langkah 2).
@@ -73,12 +100,47 @@ export function DocStationApp() {
     [doc.resetSession],
   );
 
-  const reset = useCallback(() => {
+  /** Mengembalikan alur ke langkah 1 dan mengosongkan sesi. */
+  const applyReset = useCallback(() => {
     setMode(null);
     setStep(1);
     doc.resetSession();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc.resetSession]);
+
+  const selectMode = useCallback(
+    (m: DocStationMode) => {
+      // Saat sibuk, tunda perpindahan mode agar reset sesi tidak menghapus
+      // pekerjaan yang sedang berjalan — minta konfirmasi lebih dulu.
+      if (busy) {
+        setPendingAction({ kind: "mode", mode: m });
+        return;
+      }
+      applyMode(m);
+    },
+    [busy, applyMode],
+  );
+
+  const reset = useCallback(() => {
+    // Saat sibuk, minta konfirmasi sebelum menghapus sesi di tengah proses.
+    if (busy) {
+      setPendingAction({ kind: "reset" });
+      return;
+    }
+    applyReset();
+  }, [busy, applyReset]);
+
+  /** Melanjutkan aksi tertunda setelah pengguna mengonfirmasi. */
+  const confirmPendingAction = useCallback(() => {
+    const action = pendingAction;
+    setPendingAction(null);
+    if (!action) return;
+    if (action.kind === "mode") {
+      applyMode(action.mode);
+      return;
+    }
+    applyReset();
+  }, [pendingAction, applyMode, applyReset]);
 
   /** Menyiapkan halaman hasil editan menjadi berkas untuk dicetak. */
   const buildPrintFiles = useCallback(async () => {
@@ -222,6 +284,7 @@ export function DocStationApp() {
                   pageCount={readyToPrint ? doc.pages.length : printFiles.length}
                   onChange={(patch) => setPrintConfig((c) => ({ ...c, ...patch }))}
                   onPrint={async () => {
+                    setProcessing(true);
                     try {
                       if (readyToPrint && doc.pages.length > 0) {
                         const printable = await buildPrintFiles();
@@ -244,6 +307,8 @@ export function DocStationApp() {
                       toast.success(`${printable.length} pekerjaan cetak dikirim ke printer`);
                     } catch (err) {
                       toast.error(err instanceof Error ? err.message : "Gagal mencetak");
+                    } finally {
+                      setProcessing(false);
                     }
                   }}
                   onBack={() => setStep(2)}
@@ -253,6 +318,32 @@ export function DocStationApp() {
           </>
         )}
       </div>
+
+      <AlertDialog open={confirmOpen} onOpenChange={(open) => !open && setPendingAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Proses sedang berjalan</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingAction?.kind === "mode"
+                ? "Masih ada proses yang berjalan. Mengganti mode akan mereset sesi dan menghapus pekerjaan yang belum selesai. Lanjutkan?"
+                : "Masih ada proses yang berjalan. Mereset sesi akan menghapus pekerjaan yang belum selesai. Lanjutkan?"}
+              {doc.busyLabel ? ` (${doc.busyLabel})` : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Tunggu</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                // Batalkan pindai yang berjalan agar reset benar-benar bersih.
+                if (doc.scanning) doc.cancelScan();
+                confirmPendingAction();
+              }}
+            >
+              Ya, lanjutkan
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

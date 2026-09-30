@@ -2,12 +2,229 @@ package handlers
 
 import (
 	"bytes"
+	"encoding/json"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v4"
 )
+
+// docStationPNGHeader adalah magic bytes PNG valid — cukup agar
+// http.DetectContentType mengenalinya sebagai "image/png".
+var docStationPNGHeader = []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}
+
+// docStationJPEGHeader adalah magic bytes JPEG valid (SOI + marker).
+var docStationJPEGHeader = []byte{0xFF, 0xD8, 0xFF, 0xE0}
+
+// newDocStationSaveRequest membangun request SaveDocument: handler membaca body
+// mentah + nama berkas dari header X-Docstation-Filename (bukan multipart),
+// jadi helper menyetel header itu agar kontrak handler teruji apa adanya.
+func newDocStationSaveRequest(t *testing.T, filename string, body []byte) (*http.Request, string) {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, "/api/docstation/save", bytes.NewReader(body))
+	req.Header.Set("X-Docstation-Filename", filename)
+	req.Header.Set("Content-Type", "application/octet-stream")
+	return req, filename
+}
+
+// buildDocStationMultipart membangun multipart form dengan satu file "file" —
+// pola sama seperti buildArsipMultipart, disediakan untuk kelengkapan helper
+// multipart yang dipakai tes lain di repo.
+func buildDocStationMultipart(t *testing.T, fileBytes []byte, filename string) (*bytes.Buffer, string) {
+	t.Helper()
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	fw, err := w.CreateFormFile("file", filename)
+	if err != nil {
+		t.Fatalf("create form file: %v", err)
+	}
+	if _, err := fw.Write(fileBytes); err != nil {
+		t.Fatalf("write form file: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("close multipart writer: %v", err)
+	}
+	return &buf, w.FormDataContentType()
+}
+
+// decodeDocStationJSON mengurai body JSON respons ke map.
+func decodeDocStationJSON(t *testing.T, rec *httptest.ResponseRecorder) map[string]interface{} {
+	t.Helper()
+	var out map[string]interface{}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("respons bukan JSON valid: %v (body=%q)", err, rec.Body.String())
+	}
+	return out
+}
+
+// TestDocStationSaveDocumentRejectsBadExtension memastikan ekstensi yang tidak
+// diizinkan (mis. .exe) ditolak dengan 4xx sebelum body dibaca.
+func TestDocStationSaveDocumentRejectsBadExtension(t *testing.T) {
+	h := &DocStationHandler{}
+	e := echo.New()
+
+	req, _ := newDocStationSaveRequest(t, "virus.exe", []byte("MZ fake executable"))
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	if err := h.SaveDocument(c); err != nil {
+		t.Fatalf("handler error: %v", err)
+	}
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("want 400 untuk ekstensi .exe, got %d", rec.Code)
+	}
+	if rec.Code < 400 || rec.Code >= 500 {
+		t.Fatalf("want status 4xx, got %d", rec.Code)
+	}
+	body := decodeDocStationJSON(t, rec)
+	if ok, _ := body["success"].(bool); ok {
+		t.Errorf("success harus false, got true")
+	}
+}
+
+// TestDocStationSaveDocumentRejectsNonImageMIME memastikan berkas berisi teks
+// biasa (terdeteksi text/plain) ditolak meski ekstensinya .png.
+func TestDocStationSaveDocumentRejectsNonImageMIME(t *testing.T) {
+	h := &DocStationHandler{}
+	e := echo.New()
+
+	req, _ := newDocStationSaveRequest(t, "catatan.png", []byte("ini hanya teks biasa, bukan gambar"))
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	if err := h.SaveDocument(c); err != nil {
+		t.Fatalf("handler error: %v", err)
+	}
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("want 400 untuk MIME text/plain, got %d", rec.Code)
+	}
+	body := decodeDocStationJSON(t, rec)
+	if msg, _ := body["error"].(string); !strings.Contains(msg, "text/plain") {
+		t.Errorf("pesan error harus menyebut tipe terdeteksi, got %q", msg)
+	}
+}
+
+// TestDocStationSaveDocumentRejectsOversized memastikan berkas > 15MB ditolak
+// dengan 4xx (dicek setelah ekstensi lolos).
+func TestDocStationSaveDocumentRejectsOversized(t *testing.T) {
+	t.Setenv("DOCSTATION_UPLOAD_DIR", t.TempDir())
+	h := &DocStationHandler{}
+	e := echo.New()
+
+	// PNG valid sebagai awalan + padding sampai melewati batas 15MB.
+	big := make([]byte, docStationMaxBodyBytes+1)
+	copy(big, docStationPNGHeader)
+	req, _ := newDocStationSaveRequest(t, "besar.png", big)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	if err := h.SaveDocument(c); err != nil {
+		t.Fatalf("handler error: %v", err)
+	}
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("want 400 untuk berkas >15MB, got %d", rec.Code)
+	}
+	body := decodeDocStationJSON(t, rec)
+	if msg, _ := body["error"].(string); !strings.Contains(msg, "melebihi batas") {
+		t.Errorf("pesan error harus menyebut batas ukuran, got %q", msg)
+	}
+}
+
+// TestDocStationSaveDocumentAcceptsImage memastikan gambar PNG/JPEG sah
+// diterima, tersimpan di folder arsip, dan memakai nama berkas unik.
+func TestDocStationSaveDocumentAcceptsImage(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("DOCSTATION_UPLOAD_DIR", dir)
+	h := &DocStationHandler{}
+	e := echo.New()
+
+	cases := []struct {
+		name string
+		body []byte
+	}{
+		{"scan.png", append(append([]byte{}, docStationPNGHeader...), make([]byte, 64)...)},
+		{"scan.jpg", append(append([]byte{}, docStationJPEGHeader...), make([]byte, 64)...)},
+	}
+
+	seen := map[string]bool{}
+	for _, tc := range cases {
+		req, _ := newDocStationSaveRequest(t, tc.name, tc.body)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		if err := h.SaveDocument(c); err != nil {
+			t.Fatalf("%s: handler error: %v", tc.name, err)
+		}
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s: want 200, got %d (body=%s)", tc.name, rec.Code, rec.Body.String())
+		}
+		resp := decodeDocStationJSON(t, rec)
+		filename, _ := resp["filename"].(string)
+		if filename == "" {
+			t.Fatalf("%s: respons harus memuat filename", tc.name)
+		}
+		// Nama unik: berawalan timestamp nano ("<nano>-<nama>").
+		prefix, _, found := strings.Cut(filename, "-")
+		if !found || prefix == "" {
+			t.Errorf("%s: nama tersimpan harus berawalan timestamp, got %q", tc.name, filename)
+		}
+		if _, err := strconv.ParseInt(prefix, 10, 64); err != nil {
+			t.Errorf("%s: prefix nama bukan timestamp numerik: %q", tc.name, prefix)
+		}
+		if !strings.Contains(filename, tc.name) {
+			t.Errorf("%s: nama tersimpan harus memuat nama asli bersih, got %q", tc.name, filename)
+		}
+		if seen[filename] {
+			t.Errorf("%s: nama berkas tidak unik: %q", tc.name, filename)
+		}
+		seen[filename] = true
+
+		// Berkas benar-benar tertulis di folder arsip.
+		if _, err := os.Stat(filepath.Join(dir, filename)); err != nil {
+			t.Errorf("%s: berkas %q tidak tersimpan: %v", tc.name, filename, err)
+		}
+	}
+
+	// Dua berkas berbeda harus menghasilkan dua berkas di disk (nama unik).
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("read dir: %v", err)
+	}
+	if len(entries) != len(cases) {
+		t.Errorf("want %d berkas tersimpan, got %d", len(cases), len(entries))
+	}
+}
+
+// TestDocStationPrintJobRejectsUnknownPrinter memastikan PrintJob menolak
+// printer di luar daftar terdaftar dengan 400 tanpa mencoba koneksi jaringan.
+func TestDocStationPrintJobRejectsUnknownPrinter(t *testing.T) {
+	t.Setenv("DOCSTATION_PRINTERS", "10.1.1.1:Printer A")
+	t.Setenv("DOCSTATION_DEFAULT_PRINTER", "10.1.1.1")
+	h := NewDocStationHandler()
+	e := echo.New()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/docstation/print", bytes.NewReader(docStationJPEGHeader))
+	req.Header.Set("X-Printer-Ip", "10.0.0.99")
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	if err := h.PrintJob(c); err != nil {
+		t.Fatalf("handler error: %v", err)
+	}
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("want 400 untuk printer tak dikenal, got %d", rec.Code)
+	}
+	body := decodeDocStationJSON(t, rec)
+	if msg, _ := body["error"].(string); !strings.Contains(msg, "tidak terdaftar") {
+		t.Errorf("pesan error harus menyebut printer tidak terdaftar, got %q", msg)
+	}
+}
 
 func TestBuildIPPPrintJobHeader(t *testing.T) {
 	payload := []byte("%PDF-1.4 fake")

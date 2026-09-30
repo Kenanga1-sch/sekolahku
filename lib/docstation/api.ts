@@ -38,11 +38,14 @@ function esclDimensions(
   };
 }
 
-export async function fetchStatus(): Promise<{
+// ops signal dipakai polling status printer agar permintaan bisa dibatalkan
+// saat komponen unmount (tanpa ini, hasil yang sudah terlanjur jalan tetap
+// memanggil setState di komponen yang sudah dilepas).
+export async function fetchStatus(signal?: AbortSignal): Promise<{
   printers: PrinterInfo[];
   defaultPrinter: string;
 }> {
-  const res = await fetch(`${API_BASE}/status`, { credentials: "include" });
+  const res = await fetch(`${API_BASE}/status`, { credentials: "include", signal });
   if (!res.ok) throw new Error("Gagal memeriksa status printer");
   const data = await res.json();
   return {

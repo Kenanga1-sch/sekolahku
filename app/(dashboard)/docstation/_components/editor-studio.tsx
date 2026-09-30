@@ -71,6 +71,10 @@ export function EditorStudio({ paperSize, customWidth, customHeight, onProceed, 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [zoom, setZoom] = useState(1);
   const autoEnhancedRef = useRef(false);
+  // Penanda pembatalan untuk loop auto-enhance: dicek SETIAP iterasi agar tidak
+  // ada setBusy/toast/selectPage setelah unmount atau saat mode/gambar berubah.
+  const cancelledRef = useRef(false);
+  const autoEnhanceAbortRef = useRef<AbortController | null>(null);
 
   const engine = doc.stateRef.current;
   const activePage = doc.pages.find((p) => p.id === doc.activeId);
@@ -244,26 +248,50 @@ export function EditorStudio({ paperSize, customWidth, customHeight, onProceed, 
   );
 
   // Jalankan perbaikan otomatis ke semua halaman saat editor dibuka (opsional).
+  // AbortController + cancelledRef mencegah race condition saat unmount atau
+  // ketika mode/gambar berubah di tengah loop (loop bisa mencapai 50 halaman).
   useEffect(() => {
     if (!autoEnhanceOnLoad || autoEnhancedRef.current) return;
     if (doc.pages.length === 0) return;
     autoEnhancedRef.current = true;
+
+    const controller = new AbortController();
+    autoEnhanceAbortRef.current = controller;
+    cancelledRef.current = false;
+    const signal = controller.signal;
+
     (async () => {
       doc.setBusy(true, "Perbaikan otomatis semua halaman…");
       try {
         // Salin daftar id agar aman saat halaman diganti citranya.
         const ids = doc.stateRef.current.pages.map((p) => p.id);
         for (const id of ids) {
+          // Cek pembatalan SETIAP iterasi — berhenti sebelum kerja berikutnya.
+          if (cancelledRef.current || signal.aborted) return;
           await pipelinePage(id, "color");
         }
+        if (cancelledRef.current || signal.aborted) return;
         toast.success("Perbaikan otomatis selesai untuk semua halaman");
       } catch (err) {
+        // Setelah unmount/abort jangan tampilkan toast.
+        if (cancelledRef.current || signal.aborted) return;
         toast.error(err instanceof Error ? err.message : "Perbaikan otomatis gagal");
       } finally {
-        doc.setBusy(false);
-        doc.selectPage(doc.stateRef.current.activeId ?? "");
+        // Hanya sentuh state bila belum dibatalkan (komponen masih terpasang).
+        if (!cancelledRef.current && !signal.aborted) {
+          doc.setBusy(false);
+          doc.selectPage(doc.stateRef.current.activeId ?? "");
+        }
       }
     })();
+
+    return () => {
+      cancelledRef.current = true;
+      controller.abort();
+      if (autoEnhanceAbortRef.current === controller) {
+        autoEnhanceAbortRef.current = null;
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoEnhanceOnLoad, doc.pages.length]);
 
