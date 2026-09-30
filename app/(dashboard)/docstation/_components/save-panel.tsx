@@ -438,7 +438,7 @@ export function SavePanel({
 
       <div className="flex items-center justify-between gap-3">
         <Button variant="ghost" onClick={onBack} disabled={busy}>
-          Kembali
+          ← Kembali ke Edit
         </Button>
         <Button onClick={handleSave} disabled={busy} className="gap-2">
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : config.location === "download" ? <Download className="h-4 w-4" /> : config.location === "cloud" ? <CloudUpload className="h-4 w-4" /> : config.location === "arsip" ? <Archive className="h-4 w-4" /> : <Save className="h-4 w-4" />}

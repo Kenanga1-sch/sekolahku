@@ -4,10 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { createImageFromBlob } from "@/lib/docstation/canvas";
 import {
+  ADF_MAX_PAGES,
   requestScan,
   sendPrintFile,
   saveFileToServer,
   type PrintableFile,
+  type ScanOutcome,
 } from "@/lib/docstation/api";
 import {
   applyImageDataToPage,
@@ -72,6 +74,24 @@ function isProbablyBlank(image: HTMLImageElement): boolean {
   }
 }
 
+/**
+ * Menyusun pesan toast ringkas dari hasil pemindaian agar pemanggil (mis.
+ * `docstation-app`) dapat langsung memanggil `toast.success(outcome.message)`.
+ */
+function buildScanMessage(outcome: ScanOutcome): string {
+  if (outcome.aborted) {
+    return `Pemindaian dibatalkan; ${outcome.scanned} lembar sudah tersimpan`;
+  }
+  let message = `Berhasil memindai ${outcome.scanned} lembar`;
+  if (outcome.skippedBlank > 0) {
+    message += ` (${outcome.skippedBlank} dilewati kosong)`;
+  }
+  if (outcome.reachedLimit) {
+    message += `. Batas ${ADF_MAX_PAGES} lembar tercapai`;
+  }
+  return message;
+}
+
 export interface UseDocStationResult {
   /** Daftar halaman (ringkas, untuk dirender React). */
   pages: EnginePage[];
@@ -85,9 +105,13 @@ export interface UseDocStationResult {
   busy: boolean;
   busyLabel: string | null;
   /** Menambahkan gambar (hasil scan / unggahan) menjadi halaman baru. */
-  addImageBlobs: (blobs: Blob[], namePrefix?: string, options?: { skipBlank?: boolean }) => Promise<void>;
+  addImageBlobs: (
+    blobs: Blob[],
+    namePrefix?: string,
+    options?: { skipBlank?: boolean },
+  ) => Promise<{ added: number; skipped: number }>;
   /** Memindai dari printer sesuai konfigurasi. */
-  scan: (config: ScanConfig) => Promise<void>;
+  scan: (config: ScanConfig) => Promise<ScanOutcome>;
   /** Membatalkan pemindaian yang sedang berjalan (loop ADF berhenti). */
   cancelScan: () => void;
   /** Menghapus satu halaman. */
@@ -172,8 +196,14 @@ export function useDocStation(): UseDocStationResult {
   }, []);
 
   const addImageBlobs = useCallback(
-    async (blobs: Blob[], namePrefix = "Halaman", options: { skipBlank?: boolean } = {}) => {
+    async (
+      blobs: Blob[],
+      namePrefix = "Halaman",
+      options: { skipBlank?: boolean } = {},
+    ): Promise<{ added: number; skipped: number }> => {
       const engine = stateRef.current!;
+      let added = 0;
+      let skipped = 0;
       for (const blob of blobs) {
         const { image, url } = await createImageFromBlob(blob);
         if (options.skipBlank && isProbablyBlank(image)) {
@@ -182,13 +212,16 @@ export function useDocStation(): UseDocStationResult {
           } catch {
             /* ignore */
           }
+          skipped++;
           continue;
         }
         const page = createEnginePage(image, url, `${namePrefix} ${engine.pages.length + 1}`);
         engine.pages.push(page);
         engine.activeId = page.id;
+        added++;
       }
       syncPages();
+      return { added, skipped };
     },
     [syncPages],
   );
@@ -196,14 +229,17 @@ export function useDocStation(): UseDocStationResult {
   const scanAbortRef = useRef<AbortController | null>(null);
 
   const scan = useCallback(
-    async (config: ScanConfig) => {
-      if (scanning) return;
+    async (config: ScanConfig): Promise<ScanOutcome> => {
+      if (scanning) {
+        return { blobs: [], scanned: 0, skippedBlank: 0, reachedLimit: false, aborted: false };
+      }
       const aborter = new AbortController();
       scanAbortRef.current = aborter;
+      const pagesBefore = stateRef.current!.pages.length;
       setScanning(true);
       setScanProgress({ message: "Menyiapkan pemindaian…", percent: 0 });
       try {
-        const blobs = await requestScan({
+        const outcome = await requestScan({
           resolution: config.resolution,
           preset: config.preset,
           paperSize: config.paperSize,
@@ -214,10 +250,27 @@ export function useDocStation(): UseDocStationResult {
           onProgress: (message, percent) => setScanProgress({ message, percent }),
           signal: aborter.signal,
         });
-        await addImageBlobs(blobs, "Scan", { skipBlank: config.skipBlank });
+        const { added, skipped } = await addImageBlobs(outcome.blobs, "Scan", {
+          skipBlank: config.skipBlank,
+        });
+        const result: ScanOutcome = {
+          ...outcome,
+          scanned: added,
+          skippedBlank: skipped,
+        };
+        return { ...result, message: buildScanMessage(result) };
       } catch (err) {
         // Pembatalan oleh pengguna bukan error — lembar yang sudah masuk tetap dipakai.
-        if (err instanceof DOMException && err.name === "AbortError") return;
+        if (err instanceof DOMException && err.name === "AbortError") {
+          const aborted: ScanOutcome = {
+            blobs: [],
+            scanned: stateRef.current!.pages.length - pagesBefore,
+            skippedBlank: 0,
+            reachedLimit: false,
+            aborted: true,
+          };
+          return { ...aborted, message: buildScanMessage(aborted) };
+        }
         throw err;
       } finally {
         scanAbortRef.current = null;

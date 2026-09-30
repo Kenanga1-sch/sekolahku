@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, FileDown, Printer } from "lucide-react";
+import { Loader2, FileDown, Printer, ScanLine } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -20,10 +20,18 @@ interface EditorStudioProps {
   customWidth?: number;
   customHeight?: number;
   onProceed: () => void;
+  /** Membuka kembali langkah konfigurasi untuk memindai batch halaman baru. */
+  onRescan?: () => void;
   doc: ReturnType<typeof useDocStation>;
   cv: ReturnType<typeof useOpenCV>;
   /** Jalankan perbaikan otomatis untuk semua halaman saat editor dibuka. */
   autoEnhanceOnLoad?: boolean;
+  /**
+   * Ref penanda "auto-enhance sudah dijalankan". Diberikan dari parent agar
+   * tetap hidup lintas mount — EditorStudio di-unmount saat pindah step, jadi
+   * ref lokal akan ter-reset dan batch lama ter-enhance ulang.
+   */
+  autoEnhancedRef?: React.MutableRefObject<boolean>;
 }
 
 const CV_STATUS_LABEL: Record<string, string> = {
@@ -62,7 +70,7 @@ function assertImageResult(
  * Studio editor halaman: kanvas + toolbar + strip halaman. Menyatukan mesin
  * canvas, worker OpenCV (opsional), dan aksi pengeditan dari `useDocStation`.
  */
-export function EditorStudio({ paperSize, customWidth, customHeight, onProceed, doc, cv, autoEnhanceOnLoad }: EditorStudioProps) {
+export function EditorStudio({ paperSize, customWidth, customHeight, onProceed, onRescan, doc, cv, autoEnhanceOnLoad, autoEnhancedRef: autoEnhancedRefProp }: EditorStudioProps) {
   const overlayHandle = useRef<CanvasOverlayHandle>(null);
   const [tool, setTool] = useState<DocStationTool>("none");
   const [brushSize, setBrushSize] = useState(20);
@@ -70,7 +78,9 @@ export function EditorStudio({ paperSize, customWidth, customHeight, onProceed, 
   const [cropRegion, setCropRegion] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [zoom, setZoom] = useState(1);
-  const autoEnhancedRef = useRef(false);
+  // Ref lokal sebagai cadangan bila parent tidak menyediakan ref bersama.
+  const localAutoEnhancedRef = useRef(false);
+  const autoEnhancedRef = autoEnhancedRefProp ?? localAutoEnhancedRef;
   // Penanda pembatalan untuk loop auto-enhance: dicek SETIAP iterasi agar tidak
   // ada setBusy/toast/selectPage setelah unmount atau saat mode/gambar berubah.
   const cancelledRef = useRef(false);
@@ -548,6 +558,18 @@ export function EditorStudio({ paperSize, customWidth, customHeight, onProceed, 
           {selectedIds.size > 0 ? `${selectedIds.size} dipilih` : "tidak ada yang dipilih"}
         </div>
         <div className="flex items-center gap-2">
+          {onRescan && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onRescan}
+              disabled={doc.busy}
+              title="Pindai dan tambahkan halaman baru ke dokumen ini"
+            >
+              <ScanLine className="mr-1.5 h-4 w-4" />
+              Pindai lagi
+            </Button>
+          )}
           <Button type="button" variant="outline" onClick={handleExportPdf} disabled={doc.pages.length === 0 || doc.busy}>
             <FileDown className="mr-1.5 h-4 w-4" />
             Unduh PDF

@@ -81,8 +81,72 @@ export interface ScanRequest {
 /** Batas lembar ADF per sekali scan agar tak OOM di perangkat lemah. */
 export const ADF_MAX_PAGES = 50;
 
-/** Meminta pemindaian eSCL dan mengembalikan daftar blob gambar (per lembar). */
-export async function requestScan(req: ScanRequest): Promise<Blob[]> {
+/** Jeda minimum antar permintaan `NextDocument` pada loop ADF (ms). */
+export const MIN_NEXT_DOC_DELAY_MS = 300;
+/** Timeout total per halaman `NextDocument` (ms) agar tidak menggantung. */
+export const NEXT_DOC_TIMEOUT_MS = 30000;
+/** Jeda backoff saat device melaporkan sibuk (409/503), berurutan lalu diulang. */
+const NEXT_DOC_BACKOFF_MS = [500, 1000, 2000, 2000, 2000];
+
+/**
+ * Hasil satu kali pemindaian. `scanned` = jumlah lembar gambar yang berhasil
+ * diunduh, `skippedBlank` dihitung di lapisan hook (skip halaman kosong),
+ * `reachedLimit` menandai batas {ADF_MAX_PAGES} tercapai, `aborted` menandai
+ * pembatalan oleh pengguna.
+ */
+export interface ScanOutcome {
+  /** Blob gambar per lembar (dipertahankan demi kompatibilitas pemanggil lama). */
+  blobs: Blob[];
+  /** Jumlah lembar yang berhasil dipindai (untuk ADF = jumlah blob). */
+  scanned: number;
+  /** Jumlah halaman dilewati karena terdeteksi kosong. */
+  skippedBlank: number;
+  /** True bila loop berhenti karena mencapai {ADF_MAX_PAGES}. */
+  reachedLimit: boolean;
+  /** True bila pemindaian dibatalkan oleh pengguna. */
+  aborted: boolean;
+  /** Pesan ringkas siap-tampil untuk toast (mis. "Berhasil memindai 3 lembar"). */
+  message?: string;
+}
+
+/** Jeda sederhana yang bisa dibatalkan oleh sinyal abort. */
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+/**
+ * Klasifikasi status HTTP respons `NextDocument`:
+ * - "page"    → 200 ada lembar berikutnya
+ * - "end"     → 404 dokumen habis (akhir wajar, berhenti tanpa error)
+ * - "busy"    → 409/503 device sibuk (retry dengan backoff)
+ * - "retry"   → 5xx lain: retry terbatas lalu lempar error yang jelas
+ * - "fatal"   → 4xx tak terduga lain: langsung error (tidak diulang)
+ */
+type NextDocKind = "page" | "end" | "busy" | "retry" | "fatal";
+function classifyNextDocument(status: number): NextDocKind {
+  if (status === 200) return "page";
+  if (status === 404) return "end";
+  if (status === 409 || status === 503) return "busy";
+  if (status >= 500) return "retry";
+  return "fatal";
+}
+
+/** Meminta pemindaian eSCL dan mengembalikan hasil scan beserta statistiknya. */
+export async function requestScan(req: ScanRequest): Promise<ScanOutcome> {
   const { resolution, preset, paperSize, customWidth, customHeight, source, printerIp, onProgress, signal } = req;
   const colorMode = preset === "color" ? "RGB24" : preset === "gray" ? "Grayscale8" : "RGB24";
   const dim = esclDimensions(paperSize, resolution, customWidth, customHeight);
@@ -128,23 +192,112 @@ export async function requestScan(req: ScanRequest): Promise<Blob[]> {
   onProgress?.("Memindai berkas dari scanner…", 45);
 
   const blobs: Blob[] = [];
+  let reachedLimit = false;
+  let aborted = false;
+
+  /** Satu permintaan `NextDocument` dengan timeout per-halaman yang digabung abort pengguna. */
+  const fetchNextDocument = async (nextDocPath: string): Promise<Response> => {
+    const controller = new AbortController();
+    const onAbort = () => controller.abort();
+    signal?.addEventListener("abort", onAbort, { once: true });
+    const timeoutId = setTimeout(() => controller.abort(), NEXT_DOC_TIMEOUT_MS);
+    try {
+      return await fetch(nextDocPath, {
+        credentials: "include",
+        headers: { "x-printer-ip": printerIp },
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeoutId);
+      signal?.removeEventListener("abort", onAbort);
+    }
+  };
+
   try {
     if (source === "adf") {
       let pageNum = 1;
-      while (pageNum <= ADF_MAX_PAGES) {
-        signal?.throwIfAborted();
-        onProgress?.(`Memindai lembar ADF ke-${pageNum}…`, Math.min(90, 45 + pageNum * 10));
-        const nextDocPath = `${jobPath.replace(/\/$/, "")}/NextDocument`;
-        const docResp = await fetch(nextDocPath, {
-          credentials: "include",
-          headers: { "x-printer-ip": printerIp },
-          signal,
-        });
-        if (!docResp.ok) break;
-        const blob = await docResp.blob();
-        if (!blob || blob.size === 0) break;
-        blobs.push(blob);
-        pageNum++;
+      let busyRetries = 0;
+      // Pembatalan di tengah proses bukan error fatal: outcome parsial
+      // dikembalikan agar lembar yang sudah terunduh tetap tersimpan.
+      try {
+        while (pageNum <= ADF_MAX_PAGES) {
+          // Pembatalan diperlakukan sebagai hasil, bukan error (lembar tersimpan).
+          if (signal?.aborted) {
+            aborted = true;
+            break;
+          }
+          onProgress?.(`Memindai lembar ADF ke-${pageNum}…`, Math.min(90, 45 + pageNum * 10));
+          const nextDocPath = `${jobPath.replace(/\/$/, "")}/NextDocument`;
+
+          let docResp: Response;
+          try {
+            docResp = await fetchNextDocument(nextDocPath);
+          } catch {
+            if (signal?.aborted) {
+              aborted = true;
+              break;
+            }
+            // Timeout per-halaman → perlakukan seperti sibuk lalu retry terbatas.
+            if (busyRetries < NEXT_DOC_BACKOFF_MS.length) {
+              const delay = NEXT_DOC_BACKOFF_MS[busyRetries];
+              busyRetries++;
+              await sleep(delay, signal);
+              continue;
+            }
+            throw new Error(
+              `Timeout saat memindai lembar ke-${pageNum}; perangkat tidak merespons.`,
+            );
+          }
+
+          const kind = classifyNextDocument(docResp.status);
+          if (kind === "end") break; // 404 → akhir dokumen wajar, tanpa error.
+          if (kind === "busy") {
+            if (busyRetries >= NEXT_DOC_BACKOFF_MS.length) {
+              throw new Error(
+                `Printer sibuk saat memindai lembar ke-${pageNum} (status ${docResp.status}); pemindaian dihentikan.`,
+              );
+            }
+            const delay = NEXT_DOC_BACKOFF_MS[busyRetries];
+            busyRetries++;
+            await sleep(delay, signal);
+            continue;
+          }
+          if (kind === "retry") {
+            // 5xx tak terduga (selain 409/503): retry terbatas, lalu error eksplisit.
+            if (busyRetries < NEXT_DOC_BACKOFF_MS.length) {
+              const delay = NEXT_DOC_BACKOFF_MS[busyRetries];
+              busyRetries++;
+              await sleep(delay, signal);
+              continue;
+            }
+            throw new Error(
+              `Gagal memindai lembar ke-${pageNum}: printer membalas status ${docResp.status}.`,
+            );
+          }
+          if (kind === "fatal") {
+            // 4xx lain (400/403/…): kesalahan permanen, jangan diulang.
+            throw new Error(
+              `Gagal memindai lembar ke-${pageNum}: printer membalas status ${docResp.status}.`,
+            );
+          }
+
+          const blob = await docResp.blob();
+          if (!blob || blob.size === 0) break; // Tray kosong → akhir dokumen.
+          blobs.push(blob);
+          pageNum++;
+          busyRetries = 0;
+
+          // Jeda minimum antar permintaan agar device tidak menabrak "busy".
+          if (pageNum <= ADF_MAX_PAGES) await sleep(MIN_NEXT_DOC_DELAY_MS, signal);
+        }
+        if (pageNum > ADF_MAX_PAGES) reachedLimit = true;
+      } catch (err) {
+        // AbortError dari jeda/tombol batal → kembalikan hasil parsial.
+        if (err instanceof DOMException && err.name === "AbortError") {
+          aborted = true;
+        } else {
+          throw err;
+        }
       }
     } else {
       const nextDocPath = jobPath.endsWith("/NextDocument")
@@ -169,12 +322,21 @@ export async function requestScan(req: ScanRequest): Promise<Blob[]> {
     }).catch(() => {});
   }
 
-  if (blobs.length === 0) {
+  if (blobs.length === 0 && !aborted) {
     throw new Error("Tidak ada lembaran kertas yang terdeteksi di scanner");
   }
 
   onProgress?.("Selesai memproses hasil scan!", 100);
-  return blobs;
+  return {
+    blobs,
+    scanned: blobs.length,
+    skippedBlank: 0, // dihitung di lapisan hook saat skipBlank aktif
+    reachedLimit,
+    aborted,
+    message: aborted
+      ? `Pemindaian dibatalkan; ${blobs.length} lembar sudah tersimpan`
+      : undefined,
+  };
 }
 
 export interface PrintableFile {

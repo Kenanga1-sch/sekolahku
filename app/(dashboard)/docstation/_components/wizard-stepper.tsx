@@ -3,14 +3,19 @@
 import { Check } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import type { DocStationMode } from "../_components/types";
+import type { DocStationMode } from "./types";
 
 interface WizardStepperProps {
   mode: DocStationMode;
   step: number;
+  /**
+   * Menampilkan stepper dalam keadaan non-aktif (placeholder) tanpa progres.
+   * Dipakai pada layar pemilihan mode sebelum mode dipilih.
+   */
+  disabled?: boolean;
 }
 
-export function WizardStepper({ mode, step }: WizardStepperProps) {
+export function WizardStepper({ mode, step, disabled = false }: WizardStepperProps) {
   const steps =
     mode === "scan"
       ? [
@@ -28,12 +33,16 @@ export function WizardStepper({ mode, step }: WizardStepperProps) {
   return (
     <nav
       aria-label="Langkah wizard"
-      className="max-w-full overflow-x-auto rounded-full border border-border bg-muted/50 p-1.5"
+      aria-disabled={disabled || undefined}
+      className={cn(
+        "max-w-full overflow-x-auto rounded-full border border-border bg-muted/50 p-1.5",
+        disabled && "opacity-60",
+      )}
     >
       <ol className="flex w-max items-center gap-1.5 text-xs font-bold text-muted-foreground">
         {steps.map((s, idx) => {
-          const isActive = s.n === step;
-          const isPassed = s.n < step;
+          const isActive = !disabled && s.n === step;
+          const isPassed = !disabled && s.n < step;
           return (
             <li key={s.n} className="flex items-center gap-1.5">
               <div

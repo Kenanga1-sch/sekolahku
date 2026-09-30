@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -47,6 +47,12 @@ import {
 export function DocStationApp() {
   const [mode, setMode] = useState<DocStationMode | null>(null);
   const [step, setStep] = useState(1);
+  // Menandai bahwa user memulai batch pindai lanjutan (append) dari editor.
+  const [isRescanMode, setIsRescanMode] = useState(false);
+  // Penanda auto-enhance global: hidup di orkestrator agar TIDAK ter-reset saat
+  // EditorStudio di-unmount pada transisi step (mencegah batch lama di-enhance
+  // ulang setelah Pindai Lagi).
+  const autoEnhancedRef = useRef(false);
 
   const [scanConfig, setScanConfig] = useState<ScanConfig>(DEFAULT_SCAN_CONFIG);
   const [printConfig, setPrintConfig] = useState<PrintConfig>(DEFAULT_PRINT_CONFIG);
@@ -93,6 +99,8 @@ export function DocStationApp() {
       setMode(m);
       // Scan mulai dari konfigurasi (langkah 2); print dari unggah berkas (langkah 2).
       setStep(2);
+      setIsRescanMode(false);
+      autoEnhancedRef.current = false;
       setReadyToPrint(false);
       doc.resetSession();
     },
@@ -104,9 +112,20 @@ export function DocStationApp() {
   const applyReset = useCallback(() => {
     setMode(null);
     setStep(1);
+    setIsRescanMode(false);
+    autoEnhancedRef.current = false;
     doc.resetSession();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc.resetSession]);
+
+  /**
+   * Navigasi non-destruktif: hanya mengubah langkah wizard tanpa menyentuh
+   * sesi dokumen (`doc.resetSession`). Dipakai tombol "Kembali" antar langkah
+   * agar halaman & parameter yang sudah ada tetap utuh.
+   */
+  const goToStep = useCallback((n: number) => {
+    setStep(n);
+  }, []);
 
   const selectMode = useCallback(
     (m: DocStationMode) => {
@@ -129,6 +148,19 @@ export function DocStationApp() {
     }
     applyReset();
   }, [busy, applyReset]);
+
+  /**
+   * Membuka kembali langkah konfigurasi untuk memindai batch halaman baru.
+   * Non-destruktif: tidak memanggil `resetSession`, halaman lama dipertahankan
+   * dan hasil pindai baru akan di-append oleh `doc.scan()`.
+   */
+  const handleRescan = useCallback(() => {
+    // Saat editor sedang sibuk (auto-enhance batch berjalan) jangan tinggalkan
+    // step 3 — transisi akan meng-unmount EditorStudio dan meng-abort proses.
+    if (busy) return;
+    setIsRescanMode(true);
+    setStep(2);
+  }, [busy]);
 
   /** Melanjutkan aksi tertunda setelah pengguna mengonfirmasi. */
   const confirmPendingAction = useCallback(() => {
@@ -182,7 +214,11 @@ export function DocStationApp() {
         <PrinterStatusBadge printers={printers} />
       </div>
 
-      {mode && step > 1 && <WizardStepper mode={mode} step={step} />}
+      {mode ? (
+        <WizardStepper mode={mode} step={step} />
+      ) : (
+        <WizardStepper mode="scan" step={1} disabled />
+      )}
 
       <div className="flex flex-1 flex-col">
         {!mode && <ModePicker onSelect={selectMode} />}
@@ -203,15 +239,46 @@ export function DocStationApp() {
                 printers={printers}
                 onChange={(patch) => setScanConfig((c) => ({ ...c, ...patch }))}
                 onScan={async () => {
+                  const before = doc.stateRef.current.pages.length;
                   try {
-                    await doc.scan({ ...scanConfig, printerIp: scanPrinterIp });
-                    // Batal → tetap di langkah 2 (tanpa halaman baru tak ada lanjut).
-                    if (doc.stateRef.current.pages.length > 0) setStep(3);
+                    const outcome = await doc.scan({ ...scanConfig, printerIp: scanPrinterIp });
+                    const delta = doc.stateRef.current.pages.length - before;
+                    // Laporkan hasil nyata ("Berhasil memindai X lembar ..."),
+                    // termasuk saat dibatalkan di tengah jalan (lembar parsial).
+                    if (outcome.message && (delta > 0 || outcome.aborted)) {
+                      if (outcome.aborted) toast.info(outcome.message);
+                      else toast.success(outcome.message);
+                    }
+                    if (delta > 0) {
+                      // Ada halaman baru: lanjut ke editor (append ke batch lama).
+                      setIsRescanMode(false);
+                      setStep(3);
+                    } else if (isRescanMode && !outcome.aborted) {
+                      // Mode tambah halaman tapi tak ada yang masuk (mis. semua
+                      // lembar kosong ter-skip) — tetap di konfigurasi. Batal
+                      // sudah diumumkan lewat outcome.message, jangan diduplikasi.
+                      toast.info("Semua lembar kosong terlewat");
+                    }
+                    // Bukan rescan & tanpa halaman: tetap di langkah 2 (perilaku lama).
                   } catch (err) {
                     toast.error(err instanceof Error ? err.message : "Gagal memindai dokumen");
                   }
                 }}
-                onBack={reset}
+                onBack={() => {
+                  if (isRescanMode) {
+                    // Kembali ke editor dengan sesi utuh (tanpa reset).
+                    setIsRescanMode(false);
+                    setStep(3);
+                    return;
+                  }
+                  // Sesi awal tanpa halaman: keluar dari alur & kosongkan sesi.
+                  if (doc.stateRef.current.pages.length === 0) {
+                    reset();
+                    return;
+                  }
+                  // Sudah punya halaman: navigasi non-destruktif ke langkah Mode.
+                  goToStep(1);
+                }}
               />
             )}
             {step === 3 && (
@@ -220,9 +287,11 @@ export function DocStationApp() {
                 customWidth={scanConfig.customWidth}
                 customHeight={scanConfig.customHeight}
                 onProceed={() => setStep(4)}
+                onRescan={handleRescan}
                 doc={doc}
                 cv={cv}
                 autoEnhanceOnLoad={scanConfig.autoEnhance}
+                autoEnhancedRef={autoEnhancedRef}
               />
             )}
             {step === 4 && (
@@ -236,7 +305,7 @@ export function DocStationApp() {
                   engine={doc.stateRef.current}
                   saveToServer={doc.saveToServer}
                   onChange={(patch) => setSaveConfig((c) => ({ ...c, ...patch }))}
-                  onBack={() => setStep(3)}
+                  onBack={() => goToStep(3)}
                 />
                 <div className="mx-auto mt-4 flex w-full max-w-xl items-center justify-between gap-3">
                   <span className="text-xs text-muted-foreground">
@@ -268,7 +337,7 @@ export function DocStationApp() {
                 onAddFiles={(files) => setPrintFiles((prev) => [...prev, ...files])}
                 onRemoveFile={(name) => setPrintFiles((prev) => prev.filter((f) => f.name !== name))}
                 onNext={() => setStep(3)}
-                onBack={reset}
+                onBack={() => goToStep(1)}
               />
             )}
             {step === 3 && (
