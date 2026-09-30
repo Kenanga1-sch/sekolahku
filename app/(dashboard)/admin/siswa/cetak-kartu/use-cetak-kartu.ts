@@ -41,6 +41,9 @@ export function useCetakKartu() {
   const [showPhoto, setShowPhoto] = useState(true);
   const [showNIS, setShowNIS] = useState(true);
   const [showBackSide, setShowBackSide] = useState(true);
+  const [printMode, setPrintMode] = useState<"combined" | "duplex">("combined");
+  const [flipEdge, setFlipEdge] = useState<"long" | "short">("long");
+  const [backOffsetMm, setBackOffsetMm] = useState(11);
 
   // Download single card as image
   const downloadCard = useCallback(async (studentId: string, studentName: string) => {
@@ -124,6 +127,7 @@ export function useCetakKartu() {
   return {
     loading, downloading, cards, cardsPerRow, setCardsPerRow, cardType, setCardType,
     showPhoto, setShowPhoto, showNIS, setShowNIS, showBackSide, setShowBackSide,
+    printMode, setPrintMode, flipEdge, setFlipEdge, backOffsetMm, setBackOffsetMm,
     schoolName, schoolAddress, schoolLogo, printRef, cardRefs,
     downloadCard, downloadAllCards, handlePrint, setCardRef, router,
   };

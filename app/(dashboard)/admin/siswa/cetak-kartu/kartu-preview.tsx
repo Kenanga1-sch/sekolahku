@@ -15,17 +15,20 @@ interface PreviewProps {
   cardType: "pelajar" | "nisn" | "kip";
   showBackSide: boolean;
   forPrint?: boolean;
+  printSide?: "front" | "back" | "combined";
 }
 
-export function KartuPreview({ student, schoolName, schoolAddress, schoolLogo, showPhoto, showNIS, cardType, showBackSide, forPrint }: PreviewProps) {
+export function KartuPreview({ student, schoolName, schoolAddress, schoolLogo, showPhoto, showNIS, cardType, showBackSide, forPrint, printSide = "combined" }: PreviewProps) {
+  const showFront = printSide !== "back";
+  const showBack = showBackSide && printSide !== "front";
   return (
-    <div className="inline-flex gap-1.5">
-      {cardType === "pelajar" && <StudentCardFront student={student} schoolName={schoolName} schoolAddress={schoolAddress} schoolLogo={schoolLogo} showPhoto={showPhoto} showNIS={showNIS} forPrint={forPrint} />}
-      {cardType === "nisn" && <NISNCardFront student={student} schoolName={schoolName} schoolAddress={schoolAddress} showPhoto={showPhoto} forPrint={forPrint} />}
-      {cardType === "kip" && <KIPCardFront student={student} schoolName={schoolName} schoolAddress={schoolAddress} showPhoto={showPhoto} forPrint={forPrint} />}
-      {showBackSide && cardType === "pelajar" && <StudentCardBack student={student} schoolName={schoolName} schoolAddress={schoolAddress} forPrint={forPrint} />}
-      {showBackSide && cardType === "nisn" && <NISNCardBack student={student} schoolName={schoolName} schoolAddress={schoolAddress} forPrint={forPrint} />}
-      {showBackSide && cardType === "kip" && <KIPCardBack student={student} schoolName={schoolName} schoolAddress={schoolAddress} forPrint={forPrint} />}
+    <div className="inline-flex gap-1.5" style={forPrint ? { breakInside: "avoid", pageBreakInside: "avoid", height: "54mm", alignItems: "flex-start" } : undefined}>
+      {showFront && cardType === "pelajar" && <StudentCardFront student={student} schoolName={schoolName} schoolAddress={schoolAddress} schoolLogo={schoolLogo} showPhoto={showPhoto} showNIS={showNIS} forPrint={forPrint} />}
+      {showFront && cardType === "nisn" && <NISNCardFront student={student} schoolName={schoolName} schoolAddress={schoolAddress} showPhoto={showPhoto} forPrint={forPrint} />}
+      {showFront && cardType === "kip" && <KIPCardFront student={student} schoolName={schoolName} schoolAddress={schoolAddress} showPhoto={showPhoto} forPrint={forPrint} />}
+      {showBack && cardType === "pelajar" && <StudentCardBack student={student} schoolName={schoolName} schoolAddress={schoolAddress} forPrint={forPrint} />}
+      {showBack && cardType === "nisn" && <NISNCardBack student={student} schoolName={schoolName} schoolAddress={schoolAddress} forPrint={forPrint} />}
+      {showBack && cardType === "kip" && <KIPCardBack student={student} schoolName={schoolName} schoolAddress={schoolAddress} forPrint={forPrint} />}
     </div>
   );
 }
@@ -41,8 +44,8 @@ function StudentCardFront({ student, schoolName, schoolAddress, schoolLogo, show
   const academicYear = `${currentYear}/${currentYear + 1}`;
 
   return (
-    <div className="student-card relative overflow-hidden bg-white flex-shrink-0 text-slate-800" style={{ width: forPrint ? "85.6mm" : "380px", height: forPrint ? "54mm" : "240px", borderRadius: forPrint ? "2mm" : "10px", border: "1px solid #e2e8f0" }}>
-      <div className="relative px-3 py-2 flex items-center gap-2.5 overflow-hidden" style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)" }}>
+    <div className="student-card relative overflow-hidden bg-white flex-shrink-0 text-slate-800 flex flex-col" style={{ width: forPrint ? "85.6mm" : "380px", height: forPrint ? "54mm" : "240px", borderRadius: forPrint ? "2mm" : "10px", border: "1px solid #e2e8f0", breakInside: "avoid", pageBreakInside: "avoid" }}>
+      <div className="relative px-3 py-2 flex items-center gap-2.5 overflow-hidden flex-shrink-0" style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)" }}>
         <div className="absolute right-0 top-0 bottom-0 w-20" style={{ background: "linear-gradient(to left, #fbbf24, #f59e0b)", clipPath: "polygon(30% 0%, 100% 0%, 100% 100%, 0% 100%)" }} />
         <div className="absolute right-16 top-0 bottom-0 w-1" style={{ background: "rgba(255,255,255,0.15)" }} />
         <div className="relative h-12 w-12 flex items-center justify-center flex-shrink-0 overflow-hidden" style={{ background: schoolLogo ? "white" : "linear-gradient(135deg, rgba(251,191,36,0.2) 0%, rgba(245,158,11,0.1) 100%)", border: "1.5px solid rgba(251,191,36,0.4)", borderRadius: "8px" }}>
@@ -56,7 +59,7 @@ function StudentCardFront({ student, schoolName, schoolAddress, schoolLogo, show
           <span className="font-bold tracking-widest" style={{ fontSize: "7px", color: "#fbbf24" }}>KARTU PELAJAR</span>
         </div>
       </div>
-      <div className="flex flex-1" style={{ height: "calc(100% - 56px)" }}>
+      <div className="flex flex-1 min-h-0">
         <div className="flex-1 p-3 flex gap-3 relative overflow-hidden">
           <div className="absolute inset-0 opacity-[0.02] pointer-events-none" style={{ backgroundImage: "radial-gradient(circle at 2px 2px, #64748b 1px, transparent 0)", backgroundSize: "16px 16px" }} />
           <div className="absolute -right-6 -bottom-6 opacity-[0.03] pointer-events-none"><span style={{ fontSize: "72px", fontWeight: 800, color: "#0f172a" }}>SD</span></div>
@@ -97,7 +100,7 @@ function StudentCardFront({ student, schoolName, schoolAddress, schoolLogo, show
           </div>
         </div>
       </div>
-      <div className="flex items-center justify-between px-3" style={{ height: "18px", background: "linear-gradient(to right, #fbbf24, #f59e0b)" }}>
+      <div className="flex items-center justify-between px-3 flex-shrink-0" style={{ height: "18px", background: "linear-gradient(to right, #fbbf24, #f59e0b)" }}>
         <p className="font-semibold text-[7px] text-amber-950">Berlaku Tahun Ajaran {academicYear}</p>
         <p className="font-mono font-bold text-[7px] text-amber-950">ID: {student.id.slice(-6).toUpperCase()}</p>
       </div>
@@ -111,22 +114,22 @@ interface CardBackProps { student: StudentCard; schoolName: string; schoolAddres
 function StudentCardBack({ student, schoolName, schoolAddress, forPrint }: CardBackProps) {
     const rules = [`Kartu ini adalah identitas resmi peserta didik ${schoolName}.`, "Wajib dibawa saat berada di lingkungan sekolah.", "Jika hilang segera melapor ke pihak sekolah.", "Tidak boleh dipindahtangankan."];
   return (
-    <div className="student-card relative overflow-hidden bg-white flex-shrink-0 text-slate-800" style={{ width: forPrint ? "85.6mm" : "380px", height: forPrint ? "54mm" : "240px", borderRadius: forPrint ? "2mm" : "10px", border: "1px solid #e2e8f0" }}>
-      <div className="relative px-3 py-2 flex items-center justify-center overflow-hidden" style={{ height: "28px", background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)" }}>
+    <div className="student-card relative overflow-hidden bg-white flex-shrink-0 text-slate-800 flex flex-col" style={{ width: forPrint ? "85.6mm" : "380px", height: forPrint ? "54mm" : "240px", borderRadius: forPrint ? "2mm" : "10px", border: "1px solid #e2e8f0" }}>
+      <div className="relative px-3 py-2 flex items-center justify-center overflow-hidden flex-shrink-0" style={{ height: "28px", background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)" }}>
         <p className="text-white font-bold uppercase tracking-wider text-[8.5px]">{schoolName}</p>
       </div>
-      <div className="flex" style={{ height: "calc(100% - 28px - 18px)" }}>
+      <div className="flex flex-1 min-h-0">
         <div className="flex-1 p-2.5 flex flex-col justify-center border-r border-slate-100">
           <p className="uppercase tracking-widest font-bold mb-1 text-[7px] text-slate-400">Ketentuan Penggunaan</p>
           <ul className="space-y-0.5">{rules.map((rule, idx) => (<li key={idx} className="flex items-start gap-1 text-[7.5px] text-slate-600 leading-snug"><span className="text-amber-500 font-bold">•</span><span>{rule}</span></li>))}</ul>
           <div className="mt-2 pt-1 border-t border-dashed border-slate-100 text-[6.5px] text-slate-400">Harap kembalikan ke: {schoolAddress}</div>
         </div>
-        <div className="flex flex-col items-center justify-center px-4 bg-slate-50" style={{ width: "40%" }}>
-          <div className="border border-slate-200 p-1.5 bg-white rounded-lg"><QRCodeSVG value={`VALID: ${student.fullName} (${student.nisn || student.nis})`} size={70} level="M" /></div>
+<div className="flex flex-col items-center justify-center px-2 bg-slate-50" style={{ width: "50%" }}>
+           <div className="border border-slate-200 p-1.5 bg-white rounded-lg"><QRCodeSVG value={`VALID: ${student.fullName} (${student.nisn || student.nis})`} size={forPrint ? 112 : 150} level="H" /></div>
           <span className="text-[6px] uppercase tracking-widest font-bold text-slate-400 mt-1">VERIFIED</span>
         </div>
       </div>
-      <div className="flex items-center justify-center text-white text-[7px]" style={{ height: "18px", background: "linear-gradient(to right, #0f172a, #1e293b)" }}>
+      <div className="flex items-center justify-center text-white text-[7px] flex-shrink-0" style={{ height: "18px", background: "linear-gradient(to right, #0f172a, #1e293b)" }}>
         <span>SDN 1 KENANGA - BERBUAT NYATA UNTUK BANGSA</span>
       </div>
     </div>
@@ -142,7 +145,7 @@ function NISNCardFront({ student, schoolName, schoolAddress, showPhoto, forPrint
   );
 
   return (
-    <div className="student-card relative overflow-hidden bg-white flex-shrink-0 text-slate-800" style={{ width: forPrint ? "85.6mm" : "380px", height: forPrint ? "54mm" : "240px", borderRadius: forPrint ? "2mm" : "10px", border: "1px solid #c0d8f0" }}>
+    <div className="student-card relative overflow-hidden bg-white flex-shrink-0 text-slate-800 flex flex-col" style={{ width: forPrint ? "85.6mm" : "380px", height: forPrint ? "54mm" : "240px", borderRadius: forPrint ? "2mm" : "10px", border: "1px solid #c0d8f0" }}>
       <div className="absolute inset-0 pointer-events-none z-0">
         <svg viewBox="0 0 380 240" className="w-full h-full" preserveAspectRatio="none" fill="none">
           <rect width="380" height="240" fill="url(#bg-grad-nisn)"/>
@@ -155,7 +158,7 @@ function NISNCardFront({ student, schoolName, schoolAddress, showPhoto, forPrint
           </defs>
         </svg>
       </div>
-      <div className="relative z-10 px-3 py-1 flex items-center justify-between bg-white border-b-2 border-[#00a2e8] shadow-xs" style={{ height: "44px" }}>
+      <div className="relative z-10 px-3 py-1 flex items-center justify-between bg-white border-b-2 border-[#00a2e8] shadow-xs flex-shrink-0" style={{ height: "44px" }}>
         <div className="flex items-center gap-1.5">
           <div className="w-[30px] h-[30px] flex-shrink-0">
             <svg viewBox="0 0 100 100" className="w-full h-full" fill="none"><circle cx="50" cy="50" r="46" fill="#1b75bb" stroke="#ffffff" strokeWidth="2"/><circle cx="50" cy="50" r="38" fill="#ffffff"/><polygon points="50,22 76,42 66,74 34,74 24,42" fill="#1b75bb" stroke="#fbbf24" strokeWidth="1.5"/><path d="M50,26 L64,46 L58,46 L50,34 L42,46 L36,46 Z" fill="#ffffff"/><path d="M50,38 L62,56 L55,56 L50,47 L45,56 L38,56 Z" fill="#ffffff" opacity="0.9"/><path d="M50,20 C52,28 48,32 50,38 C52,32 48,28 50,20" fill="#ef4444"/><path d="M30,68 C40,64 50,68 50,68 C50,68 60,64 70,68 L70,74 C60,70 50,74 50,74 C50,74 40,70 30,74 Z" fill="#fbbf24"/><path d="M50,68 L50,74" stroke="#ffffff" strokeWidth="1"/><text x="50" y="85" fill="#1b75bb" fontSize="7" fontWeight="bold" textAnchor="middle">TUT WURI</text></svg>
@@ -170,7 +173,7 @@ function NISNCardFront({ student, schoolName, schoolAddress, showPhoto, forPrint
           <span className="text-[4.2px] font-bold text-[#58595b] tracking-wider mt-0.5 uppercase">Nomor Induk Siswa Nasional</span>
         </div>
       </div>
-      <div className="relative z-10 flex gap-3 px-3" style={{ height: "calc(100% - 44px - 34px)" }}>
+      <div className="relative z-10 flex gap-3 px-3 flex-1 min-h-0 pb-8">
         {showPhoto && (
           <div className="flex-shrink-0 relative mt-4">
             <div className="absolute -top-3.5 left-[16px] z-20 flex flex-col items-center">
@@ -262,13 +265,13 @@ interface KIPFrontProps { student: StudentCard; schoolName: string; schoolAddres
 function KIPCardFront({ student, schoolName, schoolAddress, showPhoto, forPrint }: KIPFrontProps) {
   const releaseYear = student.enrolledAt ? (student.enrolledAt > 3000 ? new Date(student.enrolledAt).getFullYear() : student.enrolledAt) : student.createdAt ? new Date(student.createdAt).getFullYear() : new Date().getFullYear();
   return (
-    <div className="student-card relative overflow-hidden bg-white flex-shrink-0 text-slate-800" style={{ width: forPrint ? "85.6mm" : "380px", height: forPrint ? "54mm" : "240px", borderRadius: forPrint ? "2mm" : "10px", border: "1px solid #1a082e" }}>
+    <div className="student-card relative overflow-hidden bg-white flex-shrink-0 text-slate-800 flex flex-col" style={{ width: forPrint ? "85.6mm" : "380px", height: forPrint ? "54mm" : "240px", borderRadius: forPrint ? "2mm" : "10px", border: "1px solid #1a082e" }}>
       <div className="absolute inset-0 pointer-events-none z-0 bg-white">
         <svg viewBox="0 0 400 150" className="absolute left-[5%] top-[25%] w-[90%] h-[60%] opacity-[0.07]" fill="#7c7c7c">
           <path d="M20,30 L60,60 L80,85 L70,95 L40,80 L10,45 Z" /><path d="M85,110 L150,115 L190,120 L190,125 L85,120 Z" /><path d="M110,50 L140,40 L160,55 L165,85 L145,95 L115,90 L105,75 Z" /><path d="M190,60 L215,60 L215,75 L200,75 L200,90 L220,95 L215,105 L185,100 L185,75 Z" /><path d="M310,75 L330,70 L360,75 L380,60 L390,75 L380,95 L340,105 L310,95 Z" /><circle cx="230" cy="65" r="4" /><circle cx="240" cy="80" r="3" /><circle cx="250" cy="95" r="3" /><path d="M200,123 L250,125 L280,125" stroke="#7c7c7c" strokeWidth="3" strokeLinecap="round" />
         </svg>
       </div>
-      <div className="relative z-10 px-3 py-2 flex items-center justify-between" style={{ background: "linear-gradient(90deg, #491a70 0%, #2d084d 100%)", height: "44px" }}>
+      <div className="relative z-10 px-3 py-2 flex items-center justify-between flex-shrink-0" style={{ background: "linear-gradient(90deg, #491a70 0%, #2d084d 100%)", height: "44px" }}>
         <div className="flex items-center gap-2">
           <div className="w-[30px] h-[30px] flex-shrink-0">
             <svg viewBox="0 0 100 100" className="w-full h-full" fill="none"><path d="M50,10 Q53,20 62,22 Q72,22 80,16 L76,28 Q84,33 86,45 L74,45 Q70,55 64,60 Q64,72 50,82 Q36,72 36,60 Q30,55 26,45 L14,45 Q16,33 24,28 L20,16 Q28,22 38,22 Q47,20 50,10 Z" fill="#d4af37"/><polygon points="50,38 60,43 58,58 42,58 40,43" fill="#d4af37" stroke="#ffffff" strokeWidth="0.8"/></svg>
@@ -279,7 +282,7 @@ function KIPCardFront({ student, schoolName, schoolAddress, showPhoto, forPrint 
           <svg viewBox="0 0 100 100" className="w-[26px] h-[26px]" fill="none"><polygon points="50,15 90,35 50,55 10,35" fill="#ffffff" stroke="#ffffff" strokeWidth="1"/><path d="M25,43 L25,65 Q50,78 75,65 L75,43" fill="#ffffff" stroke="#ffffff" strokeWidth="1"/><path d="M85,35 L85,60 C85,60 83,63 80,63 C77,63 75,60 75,60 L75,39" fill="#ffffff" stroke="#ffffff" strokeWidth="1"/></svg>
         </div>
       </div>
-      <div className="relative z-10 flex px-3 pt-2.5 pb-2" style={{ height: "calc(100% - 44px)" }}>
+      <div className="relative z-10 flex px-3 pt-2.5 pb-2 flex-1 min-h-0" style={{ height: "calc(100% - 44px)" }}>
         <div className="flex-1 flex flex-col justify-between pr-2 text-slate-800">
           <div className="grid gap-y-0.5 text-[#231f20] font-sans" style={{ gridTemplateColumns: "max-content 4px auto", fontSize: forPrint ? "2.1mm" : "9.2px", lineHeight: "1.2" }}>
             <div className="font-semibold text-slate-600">Nomor KIP</div><div className="text-slate-500">:</div><div className="font-bold text-slate-900 font-mono tracking-wider">{student.kip || "KIP-" + (student.nisn || student.id.slice(-8).toUpperCase())}</div>

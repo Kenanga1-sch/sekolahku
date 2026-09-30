@@ -481,14 +481,18 @@
     display: none !important;
   }
 
-  /* Dulu @page di sini memaksa "A4 landscape" untuk SEMUA halaman. Akibatnya
-     laporan inventaris yang minta portrait tercetak miring, dan setiap modul
-     harus menuliskan ulang @page-nya sendiri untuk melawan paksaan ini.
-     Kini tidak ada paksaan arah; tiap modul menentukan sendiri
-     (inventaris portrait, perpustakaan & buku-induk landscape). */
-  @page {
-    size: A4;
-    margin: 5mm;
+  /* Rantai wrapper dashboard (sidebar → content column → <main>) sering
+     membawa flex-1 / min-height / overflow / padding yang berbeda-beda saat
+     cetak, sehingga blok cetak tergeser dari margin @page dan margin antar
+     halaman jadi tidak konsisten. Modul cetak yang butuh aliran normal
+     (mis. buku-induk) sudah menetralkannya sendiri; ini jaring pengaman
+     untuk wrapper umum. Tidak menyentuh padding modul karena itu urusan
+     masing-masing modul. */
+  html, body { height: auto !important; overflow: visible !important; }
+  main,
+  main > div,
+  main > div > div {
+    min-height: 0 !important;
   }
 
   /* Tabel yang memakai komponen Table membawa min-w-max dan whitespace-nowrap
@@ -507,6 +511,15 @@
   }
   .print-table-container {
     overflow: visible !important;
+  }
+
+  /* Halaman kartu siswa (cetak kartu / duplex).
+     Margin kertas ditangani @page dari komponen, jadi di sini JANGAN
+     menimpa padding/margin halaman — cukup pastikan halaman tidak menumpuk
+     dan margin atas seragam. */
+  .card-print-page {
+    break-inside: avoid-page;
+    page-break-inside: avoid;
   }
 
   /* Force background colors on print */
