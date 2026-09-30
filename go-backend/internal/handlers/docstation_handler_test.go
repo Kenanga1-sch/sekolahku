@@ -424,3 +424,82 @@ func TestExtractJobURLsNested(t *testing.T) {
 		t.Errorf("nested urls = %v", urls)
 	}
 }
+
+// TestRememberLastScanJobMemakaiLocationRelatif memastikan URL job hasil
+// POST ScanJobs sukses dicatat dalam bentuk absolut sehingga nanti bisa
+// di-DELETE saat printer membalas 409 Conflict.
+func TestRememberLastScanJobMemakaiLocationRelatif(t *testing.T) {
+	const ip = "192.0.2.10"
+	t.Cleanup(func() {
+		docStationLastJobMu.Lock()
+		delete(docStationLastJob, ip)
+		docStationLastJobMu.Unlock()
+	})
+
+	rememberLastScanJob(ip, "https", "/eSCL/ScanJobs/abc-123")
+
+	docStationLastJobMu.Lock()
+	got := docStationLastJob[ip]
+	docStationLastJobMu.Unlock()
+
+	want := "https://192.0.2.10/eSCL/ScanJobs/abc-123"
+	if got != want {
+		t.Fatalf("job URL = %q, want %q", got, want)
+	}
+
+	// Location absolut (berisi skema) tidak boleh ditimpa.
+	rememberLastScanJob(ip, "http", "https://192.0.2.10/eSCL/ScanJobs/xyz")
+	docStationLastJobMu.Lock()
+	got = docStationLastJob[ip]
+	docStationLastJobMu.Unlock()
+	if got != "https://192.0.2.10/eSCL/ScanJobs/xyz" {
+		t.Fatalf("location absolut dirombak jadi %q", got)
+	}
+}
+
+// TestClearLastScanJobMenghapusJobMacet memastikan clearLastScanJob benar-benar
+// mengirim DELETE ke printer dan mengembalikan true bila job sudah bersih —
+// inilah mekanisme yang menggantikan clearStuckESCLJobs yang diblokir 405.
+func TestClearLastScanJobMenghapusJobMacet(t *testing.T) {
+	var deleted string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		deleted = r.URL.Path
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	h := &DocStationHandler{shortClient: srv.Client()}
+	const ip = "192.0.2.11"
+	docStationLastJobMu.Lock()
+	docStationLastJob[ip] = srv.URL + "/eSCL/ScanJobs/stuck-1"
+	docStationLastJobMu.Unlock()
+
+	if !h.clearLastScanJob(ip) {
+		t.Fatal("clearLastScanJob harus true saat DELETE diterima (204)")
+	}
+	if deleted != "/eSCL/ScanJobs/stuck-1" {
+		t.Errorf("DELETE dikirim ke %q, want /eSCL/ScanJobs/stuck-1", deleted)
+	}
+
+	// Catatan wajib terhapus: panggilan kedua tidak boleh mengirim DELETE lagi.
+	deleted = ""
+	if h.clearLastScanJob(ip) {
+		t.Error("clearLastScanJob kedua harus false (sudah tidak ada catatan)")
+	}
+	if deleted != "" {
+		t.Errorf("DELETE terkirim ulang ke %q", deleted)
+	}
+}
+
+// TestClearLastScanJobTanpaCatatan memastikan tidak ada DELETE asal-asalan
+// bila kita tidak pernah mencatat job untuk printer tersebut.
+func TestClearLastScanJobTanpaCatatan(t *testing.T) {
+	h := &DocStationHandler{shortClient: &http.Client{}}
+	if h.clearLastScanJob("192.0.2.12") {
+		t.Error("tanpa catatan harus false agar tidak menghapus job orang lain")
+	}
+}

@@ -430,6 +430,8 @@ func (h *DocStationHandler) ProxyESCL(c echo.Context) error {
 
 	var resp *http.Response
 	var lastErr error
+	usedScheme := "http"
+	retriedConflict := false
 	for _, scheme := range schemes {
 		url := fmt.Sprintf("%s://%s/eSCL/%s", scheme, printerIP, esclPath)
 		req, err := http.NewRequest(c.Request().Method, url, bytes.NewReader(body))
@@ -445,6 +447,31 @@ func (h *DocStationHandler) ProxyESCL(c echo.Context) error {
 		if err != nil {
 			lastErr = err
 			continue
+		}
+
+		// 409 Conflict pada ScanJobs = masih ada job lama yang menggantung.
+		// Firmware Canon/Epson menolak GET daftar job (405), jadi andalkan job
+		// terakhir yang pernah kita buat: hapus dulu, lalu ulangi POST sekali.
+		if res.StatusCode == http.StatusConflict && esclPath == "ScanJobs" &&
+			c.Request().Method == http.MethodPost && !retriedConflict {
+			retriedConflict = true
+			if h.clearLastScanJob(printerIP) {
+				_ = res.Body.Close()
+				time.Sleep(500 * time.Millisecond)
+				req2, err2 := http.NewRequest(c.Request().Method, url, bytes.NewReader(body))
+				if err2 != nil {
+					lastErr = err2
+					continue
+				}
+				copyESCLHeaders(req2.Header, c.Request().Header)
+				req2.URL.RawQuery = c.Request().URL.RawQuery
+				res2, err3 := h.httpClient.Do(req2)
+				if err3 != nil {
+					lastErr = err3
+					continue
+				}
+				res = res2
+			}
 		}
 
 		// Bila ScanJobs POST balas 503, bersihkan job macet lalu coba sekali lagi.
@@ -468,6 +495,7 @@ func (h *DocStationHandler) ProxyESCL(c echo.Context) error {
 			continue
 		}
 		resp = res
+		usedScheme = scheme
 		break
 	}
 
@@ -478,6 +506,25 @@ func (h *DocStationHandler) ProxyESCL(c echo.Context) error {
 		})
 	}
 	defer resp.Body.Close()
+
+	// 409 masih tersisa (tak ada job yang bisa kita hapus) → beri tahu pengguna
+	// dengan jelas. Meneruskan body kosong printer hanya menghasilkan pesan
+	// "menolak permintaan scan" yang tidak bisa ditindaklanjuti.
+	if resp.StatusCode == http.StatusConflict && esclPath == "ScanJobs" &&
+		c.Request().Method == http.MethodPost {
+		return c.JSON(http.StatusConflict, map[string]interface{}{
+			"success": false,
+			"error": "Printer masih memproses pekerjaan scan lain. Tunggu 10-30 detik lalu coba " +
+				"lagi; bila tetap gagal, cek printer (tutup/ADF/kertas) atau mulai ulang printer.",
+		})
+	}
+
+	// Catat job ScanJobs yang berhasil dibuat agar bisa dibersihkan pada
+	// percobaan berikutnya yang kena 409.
+	if esclPath == "ScanJobs" && c.Request().Method == http.MethodPost &&
+		resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		rememberLastScanJob(printerIP, usedScheme, resp.Header.Get("Location"))
+	}
 
 	// Salin hanya header respons allowlist dari printer ke klien. Header sensitif
 	// (Set-Cookie/Location/WWW-Authenticate/Server) & hop-by-hop tak diteruskan.
@@ -502,9 +549,14 @@ func (h *DocStationHandler) ProxyESCL(c echo.Context) error {
 	return c.Stream(resp.StatusCode, resp.Header.Get("Content-Type"), resp.Body)
 }
 
-// clearStuckESCLJobs menghapus sisa ScanJob agar printer kembali Idle.
-// Memakai shortClient 5 dtk (bukan 90 dtk) + mutex per-printer agar scan
-// bersamaan tak berlomba DELETE vs POST.
+// clearStuckESCLJobs mencoba menghapus sisa ScanJob via daftar job.
+//
+// CATATAN PEMBATASAN NYATA: firmware Canon G7000 dan Epson L6270 membalas
+// 405 Method Not Allowed untuk GET /eSCL/ScanJobs, sehingga fungsi ini
+// berhenti di "continue" dan tidak menghapus apa pun pada kedua printer
+// tersebut (hanya berguna pada firmware yang mengizinkan GET daftar job).
+// Pembersihan yang benar-benar bekerja dilakukan lewat clearLastScanJob,
+// yang memakai URL job yang pernah kita catat sendiri.
 func (h *DocStationHandler) clearStuckESCLJobs(printerIP string) {
 	lock := docStationPrinterLock(printerIP)
 	lock.Lock()
@@ -560,6 +612,61 @@ func docStationPrinterLock(ip string) *sync.Mutex {
 	l := &sync.Mutex{}
 	docStationLocks[ip] = l
 	return l
+}
+
+// docStationLastJob menyimpan URL ScanJob terakhir yang dibuat per printer
+// (abs printer, mis. https://192.168.10.140/eSCL/ScanJobs/<id>).
+//
+// Dibutuhkan karena firmware Canon/Epson MENOLAK GET /eSCL/ScanJobs (405),
+// sehingga clearStuckESCLJobs tidak pernah bisa menemukan daftar job macet
+// sendiri. Tanpa catatan ini, job yang menggantung (mis. browser ditutup di
+// tengah scan) membuat POST ScanJobs berikutnya selalu dibalas 409 Conflict.
+var (
+	docStationLastJobMu sync.Mutex
+	docStationLastJob   = map[string]string{}
+)
+
+// rememberLastScanJob mencatat URL job hasil POST ScanJobs sukses.
+// loc boleh absolut atau relatif (dipakai scheme saat ini).
+func rememberLastScanJob(printerIP, scheme, loc string) {
+	if loc == "" {
+		return
+	}
+	if !strings.HasPrefix(loc, "http") {
+		loc = fmt.Sprintf("%s://%s%s", scheme, printerIP, loc)
+	}
+	docStationLastJobMu.Lock()
+	defer docStationLastJobMu.Unlock()
+	docStationLastJob[printerIP] = loc
+}
+
+// clearLastScanJob menghapus job terakhir yang dicatat (bila masih ada) lalu
+// mengembalikan true bila job sudah pasti tidak ada lagi — dipanggil saat
+// printer membalas 409 Conflict agar POST bisa diulang sekali dengan printer
+// bersih. Memakai shortClient (5 dtk) supaya tak menahan permintaan lama.
+func (h *DocStationHandler) clearLastScanJob(printerIP string) bool {
+	docStationLastJobMu.Lock()
+	jobURL := docStationLastJob[printerIP]
+	delete(docStationLastJob, printerIP)
+	docStationLastJobMu.Unlock()
+	if jobURL == "" {
+		return false
+	}
+	req, err := http.NewRequest(http.MethodDelete, jobURL, nil)
+	if err != nil {
+		return false
+	}
+	res, err := h.shortClient.Do(req)
+	if err != nil {
+		return false
+	}
+	_ = res.Body.Close()
+	// Semua 2xx (200 OK / 204 No Content) = job terhapus; 404 = job sudah
+	// tidak ada lagi. Keduanya berarti printer bersih untuk POST ulang.
+	if res.StatusCode >= 200 && res.StatusCode < 300 {
+		return true
+	}
+	return res.StatusCode == http.StatusNotFound
 }
 
 // extractJobURLs mengambil isi elemen yang berakhiran JobUri/JobUrl dari XML.

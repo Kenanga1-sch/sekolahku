@@ -68,17 +68,17 @@ func IsPublicUploadPath(relPath string) bool {
 // ini, akses role-based sudah menutup celah anonim yang menjadi akar masalah
 // (semua file privat sebelumnya bisa dibaca siapa pun tanpa login).
 var folderRoleMatrix = map[string][]string{
-	"spmb":      {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff},
-	"arsip":     {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff},
-	"eoffice":   {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff},
-	"templates": {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff},
+	"spmb":       {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff},
+	"arsip":      {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff},
+	"eoffice":    {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff},
+	"templates":  {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff},
 	"inventory":  {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff},
 	"docstation": {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff},
 	"alumni":     {middleware.RoleSuperadmin, middleware.RoleAdmin},
-	"chat":      {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff, middleware.RoleGuru, middleware.RoleSiswa, middleware.RoleOrangtua},
-	"tugas":     {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff, middleware.RoleGuru, middleware.RoleSiswa, middleware.RoleOrangtua},
-	"profiles":  {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff, middleware.RoleGuru, middleware.RoleSiswa, middleware.RoleOrangtua},
-	"bank-soal": {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleGuru},
+	"chat":       {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff, middleware.RoleGuru, middleware.RoleSiswa, middleware.RoleOrangtua},
+	"tugas":      {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff, middleware.RoleGuru, middleware.RoleSiswa, middleware.RoleOrangtua},
+	"profiles":   {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff, middleware.RoleGuru, middleware.RoleSiswa, middleware.RoleOrangtua},
+	"bank-soal":  {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleGuru},
 }
 
 // ServeFile menangani GET /api/files/*.
