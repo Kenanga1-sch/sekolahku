@@ -16,14 +16,28 @@ func NewReportTemplateRepository(db *sql.DB) *ReportTemplateRepository {
 	return &ReportTemplateRepository{db: db}
 }
 
+const reportTemplateColumns = `id, code, name, category, module, description, paper_size, orientation, layout_json, is_default, created_at, updated_at`
+
+func scanReportTemplate(row interface {
+	Scan(dest ...interface{}) error
+}) (*models.ReportTemplate, error) {
+	var t models.ReportTemplate
+	var isDef int
+	if err := row.Scan(&t.ID, &t.Code, &t.Name, &t.Category, &t.Module, &t.Description, &t.PaperSize, &t.Orientation, &t.LayoutJSON, &isDef, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		return nil, err
+	}
+	t.IsDefault = isDef == 1
+	return &t, nil
+}
+
 func (r *ReportTemplateRepository) GetAll(category string) ([]models.ReportTemplate, error) {
-	query := `SELECT id, code, name, category, description, paper_size, orientation, layout_json, is_default, created_at, updated_at FROM report_templates`
+	query := `SELECT ` + reportTemplateColumns + ` FROM report_templates`
 	var args []interface{}
 	if category != "" {
 		query += ` WHERE category = ?`
 		args = append(args, category)
 	}
-	query += ` ORDER BY category ASC, is_default DESC, name ASC`
+	query += ` ORDER BY module ASC, category ASC, is_default DESC, name ASC`
 
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
@@ -33,50 +47,58 @@ func (r *ReportTemplateRepository) GetAll(category string) ([]models.ReportTempl
 
 	var list []models.ReportTemplate
 	for rows.Next() {
-		var t models.ReportTemplate
-		var isDef int
-		err := rows.Scan(&t.ID, &t.Code, &t.Name, &t.Category, &t.Description, &t.PaperSize, &t.Orientation, &t.LayoutJSON, &isDef, &t.CreatedAt, &t.UpdatedAt)
+		t, err := scanReportTemplate(rows)
 		if err != nil {
 			return nil, err
 		}
-		t.IsDefault = isDef == 1
-		list = append(list, t)
+		list = append(list, *t)
+	}
+	return list, nil
+}
+
+// GetByModule mengembalikan template yang diperuntukkan bagi modul tertentu,
+// diurutkan agar template default tampil lebih dulu.
+func (r *ReportTemplateRepository) GetByModule(module string) ([]models.ReportTemplate, error) {
+	query := `SELECT ` + reportTemplateColumns + ` FROM report_templates WHERE module = ? ORDER BY is_default DESC, name ASC`
+	rows, err := r.db.Query(query, module)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []models.ReportTemplate
+	for rows.Next() {
+		t, err := scanReportTemplate(rows)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, *t)
 	}
 	return list, nil
 }
 
 func (r *ReportTemplateRepository) GetByID(id int64) (*models.ReportTemplate, error) {
-	query := `SELECT id, code, name, category, description, paper_size, orientation, layout_json, is_default, created_at, updated_at FROM report_templates WHERE id = ?`
-	row := r.db.QueryRow(query, id)
-
-	var t models.ReportTemplate
-	var isDef int
-	err := row.Scan(&t.ID, &t.Code, &t.Name, &t.Category, &t.Description, &t.PaperSize, &t.Orientation, &t.LayoutJSON, &isDef, &t.CreatedAt, &t.UpdatedAt)
+	query := `SELECT ` + reportTemplateColumns + ` FROM report_templates WHERE id = ?`
+	t, err := scanReportTemplate(r.db.QueryRow(query, id))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, err
 	}
-	t.IsDefault = isDef == 1
-	return &t, nil
+	return t, nil
 }
 
 func (r *ReportTemplateRepository) GetByCode(code string) (*models.ReportTemplate, error) {
-	query := `SELECT id, code, name, category, description, paper_size, orientation, layout_json, is_default, created_at, updated_at FROM report_templates WHERE code = ?`
-	row := r.db.QueryRow(query, code)
-
-	var t models.ReportTemplate
-	var isDef int
-	err := row.Scan(&t.ID, &t.Code, &t.Name, &t.Category, &t.Description, &t.PaperSize, &t.Orientation, &t.LayoutJSON, &isDef, &t.CreatedAt, &t.UpdatedAt)
+	query := `SELECT ` + reportTemplateColumns + ` FROM report_templates WHERE code = ?`
+	t, err := scanReportTemplate(r.db.QueryRow(query, code))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
 		return nil, err
 	}
-	t.IsDefault = isDef == 1
-	return &t, nil
+	return t, nil
 }
 
 func (r *ReportTemplateRepository) Create(req *models.CreateReportTemplateRequest) (*models.ReportTemplate, error) {
@@ -85,9 +107,13 @@ func (r *ReportTemplateRepository) Create(req *models.CreateReportTemplateReques
 	if req.IsDefault {
 		isDefInt = 1
 	}
+	module := req.Module
+	if module == "" {
+		module = "umum"
+	}
 
-	query := `INSERT INTO report_templates (code, name, category, description, paper_size, orientation, layout_json, is_default, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	res, err := r.db.Exec(query, req.Code, req.Name, req.Category, req.Description, req.PaperSize, req.Orientation, req.LayoutJSON, isDefInt, now, now)
+	query := `INSERT INTO report_templates (code, name, category, module, description, paper_size, orientation, layout_json, is_default, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	res, err := r.db.Exec(query, req.Code, req.Name, req.Category, module, req.Description, req.PaperSize, req.Orientation, req.LayoutJSON, isDefInt, now, now)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create report template: %w", err)
 	}
@@ -102,9 +128,13 @@ func (r *ReportTemplateRepository) Update(id int64, req *models.UpdateReportTemp
 	if req.IsDefault {
 		isDefInt = 1
 	}
+	module := req.Module
+	if module == "" {
+		module = "umum"
+	}
 
-	query := `UPDATE report_templates SET name = ?, category = ?, description = ?, paper_size = ?, orientation = ?, layout_json = ?, is_default = ?, updated_at = ? WHERE id = ?`
-	_, err := r.db.Exec(query, req.Name, req.Category, req.Description, req.PaperSize, req.Orientation, req.LayoutJSON, isDefInt, now, id)
+	query := `UPDATE report_templates SET name = ?, category = ?, module = ?, description = ?, paper_size = ?, orientation = ?, layout_json = ?, is_default = ?, updated_at = ? WHERE id = ?`
+	_, err := r.db.Exec(query, req.Name, req.Category, module, req.Description, req.PaperSize, req.Orientation, req.LayoutJSON, isDefInt, now, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update report template: %w", err)
 	}

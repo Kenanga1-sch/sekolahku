@@ -51,6 +51,7 @@ import { Button } from "@/components/ui/button";
 import { PwaInstallButton } from "@/components/pwa-install-button";
 import { AccountAvatarMenu } from "@/components/ui/account-avatar-menu";
 import { useStableViewportHeight } from "@/lib/hooks/use-viewport-height";
+import { LayoutChromeProvider, useLayoutChrome } from "@/lib/contexts/layout-chrome-context";
 import dynamic from "next/dynamic";
 const NotificationPopover = dynamic(
   () => import("@/components/notification-popover").then((mod) => mod.NotificationPopover),
@@ -130,6 +131,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/konten-informasi": "Pusat Informasi",
   "/admin/halaman-depan": "Halaman Depan",
   "/admin/notifikasi": "Notifikasi",
+  "/admin/laporan-builder": "Laporan Builder",
+  "/admin/laporan-format": "Format Laporan",
   "/admin": "Administrasi",
   // Bank Soal
   "/bank-soal/soal/baru": "Buat Soal",
@@ -236,6 +239,12 @@ const navGroups: NavGroup[] = [
       { href: "/admin/konten-informasi", label: "Pusat Informasi", icon: Megaphone, roles: ADMIN_ROLES },
     ],
   },
+  {
+    label: "Laporan",
+    items: [
+      { href: "/admin/laporan-format", label: "Format Laporan", icon: FileText, roles: ADMIN_ROLES },
+    ],
+  },
 ];
 
 function filterNavByRole(groups: NavGroup[], userRole?: UserRole): NavGroup[] {
@@ -281,13 +290,25 @@ function filterNavByRole(groups: NavGroup[], userRole?: UserRole): NavGroup[] {
 
 
 
-export default function DashboardLayoutClient({
+export default function DashboardLayoutClient(props: {
+  children: React.ReactNode;
+  schoolSettings?: SchoolSettings;
+}) {
+  return (
+    <LayoutChromeProvider>
+      <DashboardLayoutChrome {...props} />
+    </LayoutChromeProvider>
+  );
+}
+
+function DashboardLayoutChrome({
   children,
   schoolSettings,
 }: {
   children: React.ReactNode;
   schoolSettings?: SchoolSettings;
 }) {
+  const { immersive } = useLayoutChrome();
   const { user, logout, isLoading: authLoading } = useAuthStore();
   const [mounted, setMounted] = useState(false);
   // Jaga --app-vh agar tinggi viewport stabil (fix room chat menyusut di
@@ -484,7 +505,10 @@ export default function DashboardLayoutClient({
       </div>
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           {/* Top Navigation Bar */}
-          <header className="print:hidden sticky top-0 md:static flex items-center justify-between gap-2 p-2.5 sm:p-3 md:p-4 w-full z-40 bg-gray-100/80 dark:bg-neutral-800/80 backdrop-blur-xl md:bg-transparent md:dark:bg-transparent border-b border-neutral-200/50 dark:border-neutral-700/50 md:border-0">
+          <header className={cn(
+            "print:hidden sticky top-0 md:static flex items-center justify-between gap-2 p-2.5 sm:p-3 md:p-4 w-full z-40 bg-gray-100/80 dark:bg-neutral-800/80 backdrop-blur-xl md:bg-transparent md:dark:bg-transparent border-b border-neutral-200/50 dark:border-neutral-700/50 md:border-0",
+            immersive && "hidden"
+          )}>
             {/* Left: Page Title (mobile only) */}
             <div className="flex items-center gap-3 md:hidden pl-2">
               <h1 className="text-lg font-bold text-neutral-800 dark:text-neutral-100 truncate">
@@ -521,13 +545,19 @@ export default function DashboardLayoutClient({
             </div>
           </header>
 
-          <main id="main-content" className="flex min-w-0 flex-1 flex-col gap-2 overflow-x-hidden px-3 pb-20 pt-2 sm:px-4 md:h-full md:overflow-y-auto md:rounded-tl-2xl md:px-5 md:pb-6 md:pt-4 lg:px-6 xl:px-8 print:h-auto print:overflow-visible [&>*]:w-full">
+          <main
+            id="main-content"
+            className={cn(
+              "flex min-w-0 flex-1 flex-col gap-2 overflow-x-hidden px-3 pb-20 pt-2 sm:px-4 md:h-full md:overflow-y-auto md:rounded-tl-2xl md:px-5 md:pb-6 md:pt-4 lg:px-6 xl:px-8 print:h-auto print:overflow-visible [&>*]:w-full",
+              immersive && "gap-0 p-0 md:rounded-none md:p-0"
+            )}
+          >
             <React.Fragment key={pathname}>{children}</React.Fragment>
          </main>
       </div>
 
       {/* Bottom Navigation - Mobile Only */}
-      <div className="print:hidden">
+      <div className={cn("print:hidden", immersive && "hidden")}>
         <BottomNav onMenuClick={() => handleSetOpen(true)} userRole={normalizedRaw} />
       </div>
     </div>

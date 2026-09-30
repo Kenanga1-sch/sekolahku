@@ -876,6 +876,7 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	auth.GET("/reports/templates", h.ReportTemplate.GetAll)
 	auth.GET("/reports/templates/:id", h.ReportTemplate.GetByID)
 	auth.GET("/reports/templates/code/:code", h.ReportTemplate.GetByCode)
+	auth.GET("/reports/templates/module/:module", h.ReportTemplate.GetByModule)
 	adminGroup.POST("/reports/templates", h.ReportTemplate.Create)
 	adminGroup.PUT("/reports/templates/:id", h.ReportTemplate.Update)
 	adminGroup.DELETE("/reports/templates/:id", h.ReportTemplate.Delete)

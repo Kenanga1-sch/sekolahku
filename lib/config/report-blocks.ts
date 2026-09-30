@@ -36,6 +36,15 @@ export interface ReportColumnConfig {
   align?: "left" | "center" | "right";
   format?: "text" | "number" | "rupiah" | "date" | "badge";
   autoSum?: boolean; // Tampilkan total/auto-sum di baris footer tabel
+  colSpan?: number; // Gabungkan sel ke kanan (merge cell)
+  rowSpan?: number; // Gabungkan sel ke bawah (merge cell)
+  hidden?: boolean; // Sembunyikan kolom dari tabel
+}
+
+export interface ReportTableSection {
+  id: string;
+  title: string; // Judul baris header grup (spanning seluruh kolom)
+  keys: string[]; // key kolom yang berada di bawah grup ini
 }
 
 export interface ReportKPIItemConfig {
@@ -52,7 +61,7 @@ export interface ReportBlockDefinition {
   fields: {
     key: string;
     label: string;
-    type: "text" | "textarea" | "select" | "number" | "columns_config" | "kpi_config";
+    type: "text" | "textarea" | "select" | "number" | "columns_config" | "kpi_config" | "sections_config";
     defaultValue?: any;
     options?: { value: string; label: string }[];
   }[];
@@ -121,6 +130,12 @@ export const REPORT_BLOCK_DEFINITIONS: ReportBlockDefinition[] = [
     group: "tabel",
     fields: [
       {
+        key: "title",
+        label: "Judul Tabel (opsional)",
+        type: "text",
+        defaultValue: "",
+      },
+      {
         key: "columns",
         label: "Konfigurasi Kolom Tabel",
         type: "columns_config",
@@ -128,6 +143,23 @@ export const REPORT_BLOCK_DEFINITIONS: ReportBlockDefinition[] = [
           { key: "no", label: "No", width: 30, align: "center", format: "text" },
           { key: "nama", label: "Nama", width: 150, align: "left", format: "text" },
           { key: "jumlah", label: "Jumlah", width: 100, align: "right", format: "rupiah", autoSum: true },
+        ],
+      },
+      {
+        key: "sections",
+        label: "Header Grup (Merge Cell)",
+        type: "sections_config",
+        defaultValue: [],
+      },
+      {
+        key: "showFooter",
+        label: "Tampilkan Baris TOTAL",
+        type: "select",
+        defaultValue: "auto",
+        options: [
+          { value: "auto", label: "Otomatis (bila ada Auto-Sum)" },
+          { value: "true", label: "Selalu" },
+          { value: "false", label: "Tidak" },
         ],
       },
     ],

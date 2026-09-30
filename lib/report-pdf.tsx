@@ -1,210 +1,92 @@
 /**
- * report-pdf.tsx — Client-side PDF Generator untuk Report Builder (@react-pdf/renderer).
+ * report-pdf.tsx — Client-side PDF Generator untuk Report Builder v3 (cell-based).
+ * Menerima ReportWorkbook bertipe sel; evaluasi dilakukan oleh report-engine-v3.
  */
 
 /* eslint-disable jsx-a11y/alt-text */
-import { Document, Page, Text, View, StyleSheet, Font, Image } from "@react-pdf/renderer";
-import type { ReportDocumentData } from "@/lib/config/report-document";
-import type { ReportColumnConfig, ReportKPIItemConfig } from "@/lib/config/report-blocks";
+import { Document, Page, Text, View, StyleSheet, Image, Svg, Line, Rect, Ellipse, Font } from "@react-pdf/renderer";
+import type {
+  ReportWorkbook,
+  ReportSheet,
+  SheetCell,
+  ReportMarginConfig,
+  ReportDensityConfig,
+} from "@/lib/config/report-sheet";
+import { cellKey, printedColWidthsPt, visibleColumnCount, printScaleOf } from "@/lib/config/report-sheet";
+import { conditionalStyleFor } from "@/lib/report-sheet-ops";
+import { pdfFontFamily as mapPdfFont, registerReportFonts } from "@/lib/report-fonts";
 import type { LetterSchoolData } from "@/lib/letter-pdf";
-import {
-  processReportTable,
-  processReportKPI,
-  formatCellValue,
-  formatRupiah,
-} from "@/lib/report-engine";
+import { evaluateSheet, type EvaluatedSheet, type EvaluateContext } from "@/lib/report-engine-v3";
+import { rowHeightPt, paperContentSizePt } from "@/lib/report-paginate";
+import type { Style } from "@react-pdf/types";
+
+// Daftarkan font tambahan (Arial/Bookman/Liberation) sekali saat modul dimuat.
+// Di browser, font dimuat dari /fonts/*; di Node (test/SSR), dari public/fonts/*.
+const fontBase = typeof process !== "undefined" && process.versions?.node && !process.env.NEXT_RUNTIME
+  ? "public/fonts"
+  : "/fonts";
+registerReportFonts(Font, fontBase);
 
 export interface ReportPdfInput {
-  document: ReportDocumentData;
+  workbook: ReportWorkbook;
   school: LetterSchoolData;
   dataset?: Record<string, any>[];
-  extraSummary?: Record<string, number | string>;
+  /** Dataset bernama untuk laporan multi-sumber (lembar memilih via `datasetName`). */
+  datasets?: Record<string, Record<string, any>[]>;
+  global?: Record<string, any>;
   fileName?: string;
+}
+
+const DEFAULT_MARGIN: ReportMarginConfig = { top: 36, bottom: 45, left: 40, right: 40 };
+const DEFAULT_TYPO: ReportDensityConfig = { baseFontSize: 11, tableFontSize: 11, lineHeight: 1.4, rowPadding: 4, blockGap: 8 };
+
+export function pdfFontFamily(cell: SheetCell): string {
+  return mapPdfFont(cell);
+}
+
+/** Variabel global default yang selalu tersedia (dari pengaturan sekolah). */
+export function schoolGlobalVars(school: LetterSchoolData): Record<string, any> {
+  return {
+    sekolah: {
+      schoolName: school.schoolName,
+      nama: school.schoolName,
+      npsn: school.npsn,
+      address: school.address,
+      alamat: school.address,
+      phone: school.phone,
+      email: school.email,
+      website: school.website,
+      logoUrl: school.logoUrl,
+      governanceLine: school.governanceLine,
+      departmentLine: school.departmentLine,
+    },
+    principal: {
+      nama: school.principalName,
+      name: school.principalName,
+      nip: school.principalNip,
+      stampUrl: school.stampUrl,
+    },
+    schoolName: school.schoolName,
+    schoolAddress: school.address,
+    schoolPhone: school.phone,
+    schoolEmail: school.email,
+  };
 }
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 36,
-    paddingBottom: 45,
-    paddingLeft: 40,
-    paddingRight: 40,
     fontFamily: "Helvetica",
-    fontSize: 9,
     color: "#1e293b",
-    lineHeight: 1.4,
   },
-  // Kop
-  kopWrapper: {
-    borderBottomWidth: 2,
-    borderBottomColor: "#0f172a",
-    paddingBottom: 6,
-    marginBottom: 12,
-  },
-  kopHeaderFlex: {
+  sheetRow: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    alignItems: "stretch",
   },
-  logo: {
-    width: 55,
-    height: 55,
-    objectFit: "contain",
+  cell: {
+    justifyContent: "flex-start",
   },
-  kopCenter: {
-    flex: 1,
-    textAlign: "center",
-    paddingHorizontal: 10,
-  },
-  govText: {
-    fontSize: 10,
-    fontFamily: "Helvetica-Bold",
-    textTransform: "uppercase",
-  },
-  deptText: {
-    fontSize: 11,
-    fontFamily: "Helvetica-Bold",
-    textTransform: "uppercase",
-  },
-  schoolText: {
-    fontSize: 13,
-    fontFamily: "Helvetica-Bold",
-    textTransform: "uppercase",
-    marginVertical: 1,
-  },
-  addressText: {
-    fontSize: 8,
-    color: "#334155",
-  },
-
-  // Header Judul & Filter
-  titleWrapper: {
-    textAlign: "center",
-    marginVertical: 10,
-  },
-  titleText: {
-    fontSize: 13,
-    fontFamily: "Helvetica-Bold",
-    textTransform: "uppercase",
-    marginBottom: 3,
-  },
-  subtitleText: {
-    fontSize: 9,
-    color: "#475569",
-  },
-  filterBox: {
-    backgroundColor: "#f8fafc",
-    padding: 6,
-    borderRadius: 3,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    marginBottom: 10,
-  },
-  filterText: {
-    fontSize: 8.5,
-    color: "#334155",
-  },
-
-  // Kartu Ringkasan KPI
-  kpiWrapper: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 12,
-  },
-  kpiCard: {
-    flex: 1,
-    minWidth: 100,
-    backgroundColor: "#f1f5f9",
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
-    padding: 8,
-    borderRadius: 4,
-  },
-  kpiLabel: {
-    fontSize: 7.5,
-    color: "#64748b",
-    textTransform: "uppercase",
-    fontFamily: "Helvetica-Bold",
-    marginBottom: 2,
-  },
-  kpiValue: {
-    fontSize: 12,
-    fontFamily: "Helvetica-Bold",
-    color: "#0f172a",
-  },
-
-  // Tabel Data Dinamis
-  table: {
-    width: "100%",
-    marginVertical: 8,
-    borderWidth: 1,
-    borderColor: "#94a3b8",
-  },
-  tableHeaderRow: {
-    flexDirection: "row",
-    backgroundColor: "#e2e8f0",
-    borderBottomWidth: 1.5,
-    borderBottomColor: "#475569",
-  },
-  tableRow: {
-    flexDirection: "row",
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#cbd5e1",
-    minHeight: 18,
-    alignItems: "center",
-  },
-  tableRowEven: {
-    backgroundColor: "#f8fafc",
-  },
-  tableFooterRow: {
-    flexDirection: "row",
-    backgroundColor: "#e2e8f0",
-    borderTopWidth: 1.5,
-    borderTopColor: "#0f172a",
-    minHeight: 20,
-    alignItems: "center",
-  },
-  th: {
-    fontSize: 8.5,
-    fontFamily: "Helvetica-Bold",
-    color: "#0f172a",
-    padding: 4,
-    borderRightWidth: 0.5,
-    borderRightColor: "#cbd5e1",
-  },
-  td: {
-    fontSize: 8,
-    padding: 4,
-    borderRightWidth: 0.5,
-    borderRightColor: "#e2e8f0",
-  },
-
-  // TTD
-  ttdWrap: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 20,
-  },
-  ttdBox: {
-    width: "40%",
-    alignItems: "center",
-    textAlign: "center",
-  },
-  ttdSpace: {
-    height: 45,
-  },
-  stamp: {
-    width: 65,
-    height: 65,
-    objectFit: "contain",
-  },
-
-  // Footer Nomor Halaman
   pageFooter: {
     position: "absolute",
-    bottom: 20,
-    left: 40,
-    right: 40,
     flexDirection: "row",
     justifyContent: "space-between",
     fontSize: 7.5,
@@ -215,237 +97,349 @@ const styles = StyleSheet.create({
   },
 });
 
-export function ReportPdfDocument({ document: doc, school, dataset = [], extraSummary }: ReportPdfInput) {
-  const paperSize = (doc.paperSize === "F4" ? "A4" : doc.paperSize) || "A4";
-  const orientation = doc.orientation || "portrait";
+/** Warna default border yang digambar user (hitam), berbeda dari garis bawaan. */
+const USER_BORDER_DEFAULT = "#000000";
+
+/**
+ * Ketebalan border user dalam pt. Grid merender 0.75px @96dpi = 0.5625pt;
+ * samakan agar ketebalan di layar & cetak identik.
+ */
+const USER_BORDER_WIDTH_PT = 0.75 * 0.75;
+
+function borderStyle(border: SheetCell["border"]): Record<string, any> {
+  if (!border || border === "none") return {};
+  // "all" dan "box" sama di tingkat sel: model sel tidak menyimpan konteks
+  // blok, jadi "box" (hanya sisi luar) diterapkan di ribbon sebagai border
+  // per-sisi. Preset tersimpan tetap dirender penuh agar template lama utuh.
+  if (border === "all" || border === "box") {
+    return {
+      borderTopWidth: USER_BORDER_WIDTH_PT,
+      borderBottomWidth: USER_BORDER_WIDTH_PT,
+      borderLeftWidth: USER_BORDER_WIDTH_PT,
+      borderRightWidth: USER_BORDER_WIDTH_PT,
+    };
+  }
+  return {};
+}
+
+/** Border per-sisi: menimpa preset `border` bila field eksplisit ada. */
+function cellBorderStyle(cell: SheetCell): Record<string, any> {
+  const base: Record<string, any> = borderStyle(cell.border);
+  // Border yang digambar user default hitam (bukan abu-abu tipis).
+  const color = cell.borderColor || USER_BORDER_DEFAULT;
+  const apply = (key: "borderTop" | "borderBottom" | "borderLeft" | "borderRight", widthKey: string) => {
+    const v = cell[key];
+    if (v === undefined) return;
+    base[widthKey] = v ? USER_BORDER_WIDTH_PT : 0;
+  };
+  apply("borderTop", "borderTopWidth");
+  apply("borderBottom", "borderBottomWidth");
+  apply("borderLeft", "borderLeftWidth");
+  apply("borderRight", "borderRightWidth");
+  if (Object.keys(base).length > 0) base.borderColor = color;
+  return base;
+}
+
+function renderSheet(sheet: ReportSheet, ev: EvaluatedSheet, wb: ReportWorkbook, school: LetterSchoolData, key: string) {
+  const typo = wb.typography || DEFAULT_TYPO;
+  const margin = wb.margin || DEFAULT_MARGIN;
+  const contentWidthPt = Math.max(
+    1,
+    paperContentSizePt(wb).contentWidthPt
+  );
+  // Skala cetak ("Scale to fit", persen). Hanya memengaruhi render, bukan
+  // model lebar kolom. Diterapkan ke geometri & font konten.
+  const pscale = printScaleOf(wb);
+  const wrapCtx = { contentWidthPt, typo };
+
+  // Lebar kolom untuk cetak (pt) — absolut px × 0.75 × skala cetak, TIDAK
+  // diregangkan. Kolom yang melewati tepi kanan dipotong (ala Print Area
+  // Excel) — apa yang didesain di grid = apa yang tercetak.
+  const widthsPt = printedColWidthsPt(sheet).map((w) => w * pscale);
+  const visibleColCount = visibleColumnCount(sheet, contentWidthPt / pscale);
+  const visibleCols = new Set<number>();
+  for (let c = 0; c < visibleColCount; c++) visibleCols.add(c);
+  // Koordinat sel selalu dihitung dari geometri absolut kolom. Jangan memakai
+  // jumlah kolom visible untuk menentukan pusat merge: itu menggeser pusat saat
+  // merge menyentuh batas area cetak.
+  const colStartPt: number[] = [];
+  const colEndPt: number[] = [];
+  {
+    let acc = 0;
+    for (let c = 0; c < sheet.cols; c++) {
+      colStartPt[c] = acc;
+      acc += widthsPt[c];
+      colEndPt[c] = acc;
+    }
+  }
+
+  // Tinggi baris: eksplisit bila ada, jika tidak mengikuti rumus bersama
+  // (report-paginate.rowHeightPt) agar editor & PDF tak pernah menyimpang.
+  const rowHeightFor = (inputR: number | undefined, fontSize: number): number => {
+    if (typeof inputR !== "number") {
+      return Math.ceil(fontSize * (typo.lineHeight || 1.4) + typo.rowPadding * 2 + 2) * pscale;
+    }
+    return rowHeightPt(sheet, inputR, fontSize, typo, wrapCtx) * pscale;
+  };
+
+  const cellFontSize = (inputCell: SheetCell): number =>
+    (inputCell.fontSize ?? typo.baseFontSize) * pscale;
+
+  /** Render satu baris output (atau baris header tetap) sebagai flex row. */
+  const renderRow = (r: number, fixed: boolean, keySuffix: string) => {
+    const inputR = ev.inputRowByOutput[r];
+    const firstCell = Array.from({ length: sheet.cols })
+      .map((_, c) => sheet.cells[cellKey(inputR ?? -1, c)])
+      .find(Boolean);
+    const baseFont = firstCell ? cellFontSize(firstCell) : typo.baseFontSize;
+    const rowHeight = rowHeightFor(inputR, baseFont);
+
+    // Kolom yang tertutup oleh colSpan sel di sebelah kirinya. Tanpa ini,
+    // sel kosong pengisi ikut dirender dan (karena lebar persen) berebut
+    // ruang dengan sel gabungan — akibatnya teks sel gabungan tak lagi
+    // berada di tengah. Kolom yang tertutup rowSpan memakai slot transparan
+    // (lihat bawah) agar kolom sesudahnya tidak bergeser ke kiri.
+    const colCovered = new Set<number>();
+    if (typeof inputR === "number") {
+      for (let c = 0; c < sheet.cols; c++) {
+        const cell = sheet.cells[cellKey(inputR, c)];
+        const span = cell?.colSpan ?? 1;
+        for (let cc = c + 1; cc < c + span && cc < sheet.cols; cc++) colCovered.add(cc);
+      }
+    }
+
+    return (
+      <View style={{ ...styles.sheetRow, width: contentWidthPt * pscale, flexShrink: 0 }} key={`row-${r}-${keySuffix}`} fixed={fixed || undefined}>
+        {Array.from({ length: sheet.cols }).map((_, c) => {
+          if (!visibleCols.has(c)) return null;
+          if (colCovered.has(c)) return null;
+          const key = cellKey(r, c);
+          // Sel tertutup rowSpan: slot transparan berlebar kolom & tinggi baris.
+          // Tanpa slot ini, sel sesudahnya bergeser ke kiri (flex tanpa kotak)
+          // dan tinggi baris ikut hilang pada merge lebar-penuh.
+          if (ev.occupied.has(key)) {
+            return <View key={`cell-${c}`} style={{ width: widthsPt[c], minWidth: widthsPt[c], flexShrink: 0, minHeight: rowHeight }} />;
+          }
+          const inputCell = typeof inputR === "number" ? sheet.cells[cellKey(inputR, c)] : undefined;
+          if (!inputCell) {
+                return <View key={`cell-${c}`} style={{ width: widthsPt[c], minWidth: widthsPt[c], flexShrink: 0, minHeight: rowHeight }} />;
+          }
+          const colSpan = inputCell.colSpan ?? 1;
+          const rowSpan = inputCell.rowSpan ?? 1;
+          // Lebar span adalah rentang absolut dari kolom pertama sampai kolom
+          // terakhir. Ini menjaga pusat alignment merge tetap sama dengan grid.
+          const spanEndCol = Math.min(sheet.cols - 1, c + colSpan - 1);
+          const startPt = colStartPt[c] ?? 0;
+          const endPt = colEndPt[spanEndCol] ?? startPt;
+          const spanWidth = Math.max(0, Math.min(endPt, contentWidthPt) - startPt);
+          const rv = ev.cellMap.get(key);
+          const text = rv ? rv.text : "";
+          const cond = conditionalStyleFor(sheet, r, c, text);
+          const pad = typo.rowPadding * pscale;
+          const font = cellFontSize(inputCell);
+          const cellVisual: Style = {
+            paddingVertical: pad,
+            paddingHorizontal: 3 * pscale,
+            paddingLeft: (inputCell.indent ? 3 + inputCell.indent : 3) * pscale,
+            backgroundColor: cond?.bg ?? inputCell.bg,
+            justifyContent:
+              inputCell.vertical === "middle" ? "center" : inputCell.vertical === "bottom" ? "flex-end" : "flex-start",
+            ...cellBorderStyle(inputCell),
+          };
+          const textNode = (
+            <Text
+              wrap={inputCell.wrap === true}
+              style={{
+                fontSize: font,
+                fontFamily: pdfFontFamily(inputCell),
+                textDecoration: inputCell.underline ? "underline" : "none",
+                textAlign: inputCell.align || "left",
+                color: cond?.color ?? inputCell.color,
+                flexShrink: inputCell.wrap ? 1 : undefined,
+                ...(inputCell.rotation ? { transform: `rotate(${inputCell.rotation}deg)` } : {}),
+              }}
+            >
+              {text}
+            </Text>
+          );
+
+          if (rowSpan > 1) {
+            // Merge vertikal: slot di aliran menjaga tinggi baris ini tetap
+            // natural (h0), sementara anchor dirender ABSOLUTE sehingga
+            // menjangkau baris di bawahnya tanpa mendorong baris-baris itu
+            // turun (sebelumnya minHeight = Σ membuat baris sesudahnya terdorong
+            // ke bawah dan tinggi total meleset dari rencana pagination).
+            let spanHeight = 0;
+            for (let rr = r; rr < r + rowSpan && rr < ev.outputRows; rr++) {
+              const irr = ev.inputRowByOutput[rr];
+              const f = Array.from({ length: sheet.cols })
+                .map((_, cc) => sheet.cells[cellKey(irr ?? -1, cc)])
+                .find(Boolean);
+              spanHeight += rowHeightFor(irr, f ? cellFontSize(f) : typo.baseFontSize);
+            }
+            return (
+              <View key={`cell-${c}`} style={{ width: spanWidth, minWidth: spanWidth, flexShrink: 0, minHeight: rowHeight }}>
+                <View style={{ position: "absolute", top: 0, left: 0, width: spanWidth, height: spanHeight, ...cellVisual }}>
+                  {textNode}
+                </View>
+              </View>
+            );
+          }
+
+          return (
+            <View
+              key={`cell-${c}`}
+              style={{
+                 width: spanWidth,
+                 minWidth: spanWidth,
+                 flexShrink: 0,
+                 minHeight: rowHeight,
+                ...cellVisual,
+              }}
+            >
+              {textNode}
+            </View>
+          );
+        })}
+      </View>
+    );
+  };
+
+  // Baris header yang diulang antar halaman (opsional): baris input tepat di
+  // atas baris zona ulang pertama. Cari output pertamanya untuk mengambil teks.
+  let fixedHeaderOutputRow = -1;
+  if (wb.headerRepeat && ev.repeatOutputRows.size > 0) {
+    const firstRepeatOutput = Math.min(...Array.from(ev.repeatOutputRows));
+    const headerInputR = (ev.inputRowByOutput[firstRepeatOutput] ?? 0) - 1;
+    if (headerInputR >= 0) {
+      const idx = ev.inputRowByOutput.indexOf(headerInputR);
+      if (idx >= 0) fixedHeaderOutputRow = idx;
+    }
+  }
 
   return (
-    <Document title={doc.reportName || "Laporan Laporan"}>
-      {doc.pages.map((p, pIdx) => (
-        <Page key={p.id || pIdx} size={paperSize} orientation={orientation} style={styles.page}>
-          {p.blocks.map((b) => {
-            if (!b.enabled) return null;
-            const d = b.data || {};
+    <Page
+      key={key}
+      size={wb.paperSize === "F4" ? ([609.45, 935.43] as [number, number]) : wb.paperSize === "LEGAL" ? "LEGAL" : "A4"}
+      orientation={wb.orientation || "portrait"}
+      wrap
+      style={{
+        ...styles.page,
+        fontSize: typo.baseFontSize,
+        lineHeight: typo.lineHeight,
+        paddingTop: margin.top,
+        paddingBottom: margin.bottom,
+        paddingLeft: margin.left,
+        paddingRight: margin.right,
+      }}
+    >
+      {/*
+        Header berulang: baris header dirender inline pada posisi naturalnya
+        (di bawah kop, halaman 1). Salinan berulang dibuat dengan `fixed`, tapi
+        HANYA untuk halaman >1 — `fixed` tanpa penjaga mengeluarkan header dari
+        aliran dan menempelkannya di puncak SETIAP halaman, sehingga menimpa kop
+        di halaman 1 (bug cetak saat dataset terisi). `render` di sini
+        menyembunyikan salinan fixed di halaman 1.
+        ponytail: header inline diasumsikan jatuh di halaman 1 (kop pendek).
+        Bila kop sangat panjang sehingga header jatuh ke halaman >1, salinan
+        fixed dapat menghasilkan header ganda. Perbaikan penuh = menyisipkan
+        baris header per halaman di report-paginate.
+      */}
+      {fixedHeaderOutputRow >= 0
+        ? (
+          <View fixed render={({ pageNumber }) => (pageNumber === 1 ? null : renderRow(fixedHeaderOutputRow, false, "fixed"))} />
+        )
+        : null}
 
-            switch (b.blockId) {
-              case "kop_laporan": {
-                if (p.useHeader === false) return null;
-                return (
-                  <View style={styles.kopWrapper} key={b.instanceId}>
-                    <View style={styles.kopHeaderFlex}>
-                      {school.logoUrl ? <Image src={school.logoUrl} style={styles.logo} /> : <View style={styles.logo} />}
-                      <View style={styles.kopCenter}>
-                        <Text style={styles.govText}>{school.governanceLine}</Text>
-                        <Text style={styles.deptText}>{school.departmentLine}</Text>
-                        <Text style={styles.schoolText}>{school.schoolName}</Text>
-                        <Text style={styles.addressText}>
-                          {school.address} • Telp: {school.phone || "-"} • Email: {school.email || "-"}
-                        </Text>
-                      </View>
-                      <View style={styles.logo} />
-                    </View>
-                  </View>
-                );
-              }
+      {Array.from({ length: ev.outputRows }).map((_, r) => {
+        return renderRow(r, false, "body");
+      })}
 
-              case "judul_laporan": {
-                return (
-                  <View style={styles.titleWrapper} key={b.instanceId}>
-                    <Text style={styles.titleText}>{String(d.judul || "LAPORAN")}</Text>
-                    {d.subjudul && <Text style={styles.subtitleText}>{String(d.subjudul)}</Text>}
-                  </View>
-                );
-              }
-
-              case "metadata_filter": {
-                if (!d.keterangan) return null;
-                return (
-                  <View style={styles.filterBox} key={b.instanceId}>
-                    <Text style={styles.filterText}>{String(d.keterangan)}</Text>
-                  </View>
-                );
-              }
-
-              case "ringkasan_kpi": {
-                const kpiConfig: ReportKPIItemConfig[] = Array.isArray(d.items) ? d.items : [];
-                const kpiRes = processReportKPI(kpiConfig, dataset, extraSummary);
-                if (kpiRes.items.length === 0) return null;
-
-                return (
-                  <View style={styles.kpiWrapper} key={b.instanceId}>
-                    {kpiRes.items.map((it, idx) => (
-                      <View style={styles.kpiCard} key={idx}>
-                        <Text style={styles.kpiLabel}>{it.label}</Text>
-                        <Text style={styles.kpiValue}>{it.value}</Text>
-                      </View>
-                    ))}
-                  </View>
-                );
-              }
-
-              case "tabel_laporan": {
-                const rawCols: ReportColumnConfig[] = Array.isArray(d.columns) ? d.columns : [];
-                const tableRes = processReportTable(rawCols, dataset);
-
-                // Hitung lebar total kolom untuk kalkulasi persentase
-                const totalConfigWidth = tableRes.columns.reduce((acc, c) => acc + (c.width || 100), 0);
-
-                return (
-                  <View style={styles.table} key={b.instanceId}>
-                    {/* Table Header */}
-                    <View style={styles.tableHeaderRow}>
-                      {tableRes.columns.map((c) => {
-                        const colWidthPct = `${((c.width || 100) / totalConfigWidth) * 100}%`;
-                        return (
-                          <Text
-                            key={c.key}
-                            style={[
-                              styles.th,
-                              {
-                                width: colWidthPct,
-                                textAlign: c.align || "left",
-                              },
-                            ]}
-                          >
-                            {c.label}
-                          </Text>
-                        );
-                      })}
-                    </View>
-
-                    {/* Table Rows */}
-                    {tableRes.rows.map((r, rIdx) => (
-                      <View
-                        key={rIdx}
-                        style={rIdx % 2 === 1 ? [styles.tableRow, styles.tableRowEven] : styles.tableRow}
-                      >
-                        {tableRes.columns.map((c) => {
-                          const colWidthPct = `${((c.width || 100) / totalConfigWidth) * 100}%`;
-                          const formattedVal = formatCellValue(r[c.key], c.format);
-                          return (
-                            <Text
-                              key={c.key}
-                              style={[
-                                styles.td,
-                                {
-                                  width: colWidthPct,
-                                  textAlign: c.align || "left",
-                                },
-                              ]}
-                            >
-                              {formattedVal}
-                            </Text>
-                          );
-                        })}
-                      </View>
-                    ))}
-
-                    {/* Table Footer / Auto-Sum Row */}
-                    {tableRes.hasAutoSum && (
-                      <View style={styles.tableFooterRow}>
-                        {tableRes.columns.map((c, cIdx) => {
-                          const colWidthPct = `${((c.width || 100) / totalConfigWidth) * 100}%`;
-                          let labelText = "";
-                          if (cIdx === 0) labelText = "TOTAL";
-                          else if (c.autoSum && tableRes.totals[c.key] !== null) {
-                            labelText =
-                              c.format === "rupiah"
-                                ? formatRupiah(tableRes.totals[c.key])
-                                : String(tableRes.totals[c.key]);
-                          }
-
-                          return (
-                            <Text
-                              key={c.key}
-                              style={[
-                                styles.th,
-                                {
-                                  width: colWidthPct,
-                                  textAlign: c.align || (cIdx === 0 ? "center" : "left"),
-                                  fontFamily: "Helvetica-Bold",
-                                },
-                              ]}
-                            >
-                              {labelText}
-                            </Text>
-                          );
-                        })}
-                      </View>
-                    )}
-                  </View>
-                );
-              }
-
-              case "catatan_penutup": {
-                if (!d.text) return null;
-                return (
-                  <View style={{ marginVertical: 6 }} key={b.instanceId}>
-                    <Text style={{ fontSize: 8, color: "#475569" }}>{String(d.text)}</Text>
-                  </View>
-                );
-              }
-
-              case "tanda_tangan": {
-                return (
-                  <View style={{ flexDirection: "row", justifyContent: "flex-end", marginTop: 20 }} key={b.instanceId}>
-                    <View style={styles.ttdBox}>
-                      <Text>{String(d.jabatan || "Kepala Sekolah")}</Text>
-                      {String(d.show_stamp) === "true" && school.stampUrl ? (
-                        <Image src={school.stampUrl} style={styles.stamp} />
-                      ) : (
-                        <View style={styles.ttdSpace} />
-                      )}
-                      <Text style={{ fontFamily: "Helvetica-Bold", textDecoration: "underline" }}>
-                        {String(d.nama) || school.principalName}
-                      </Text>
-                      {(d.nip || school.principalNip) && <Text>NIP. {String(d.nip) || school.principalNip}</Text>}
-                    </View>
-                  </View>
-                );
-              }
-
-              case "tanda_tangan_ganda": {
-                return (
-                  <View style={styles.ttdWrap} key={b.instanceId}>
-                    <View style={styles.ttdBox}>
-                      <Text>{String(d.kiri_jabatan || "Pihak I")}</Text>
-                      <View style={styles.ttdSpace} />
-                      <Text style={{ fontFamily: "Helvetica-Bold", textDecoration: "underline" }}>
-                        {String(d.kiri_nama || "-")}
-                      </Text>
-                      {d.kiri_nip && <Text>NIP. {String(d.kiri_nip)}</Text>}
-                    </View>
-                    <View style={styles.ttdBox}>
-                      <Text>{String(d.kanan_jabatan || "Kepala Sekolah")}</Text>
-                      {String(d.show_stamp) === "true" && school.stampUrl ? (
-                        <Image src={school.stampUrl} style={styles.stamp} />
-                      ) : (
-                        <View style={styles.ttdSpace} />
-                      )}
-                      <Text style={{ fontFamily: "Helvetica-Bold", textDecoration: "underline" }}>
-                        {String(d.kanan_nama) || school.principalName}
-                      </Text>
-                      {(d.kanan_nip || school.principalNip) && (
-                        <Text>NIP. {String(d.kanan_nip) || school.principalNip}</Text>
-                      )}
-                    </View>
-                  </View>
-                );
-              }
-
-              default:
-                return null;
-            }
-          })}
-
-          {doc.showFooter && (
-            <View style={styles.pageFooter} fixed>
-              <Text>{school.schoolName} — System Report</Text>
-              <Text render={({ pageNumber, totalPages }) => `Halaman ${pageNumber} dari ${totalPages}`} />
-            </View>
-          )}
-        </Page>
+      {(sheet.shapes || []).map((shape) => (
+        <View
+          key={shape.id}
+          fixed
+          style={{
+            position: "absolute",
+            top: margin.top + shape.y * pscale,
+            left: margin.left + shape.x * pscale,
+            width: Math.max(shape.width * pscale, 1),
+            height: Math.max(shape.height * pscale, 1),
+            ...(shape.rotation ? { transform: `rotate(${shape.rotation}deg)` } : {}),
+          }}
+        >
+          <Svg width={Math.max(shape.width * pscale, 1)} height={Math.max(shape.height * pscale, 1)}>
+            {shape.type === "line" ? (
+              <Line
+                x1={0}
+                y1={0}
+                x2={shape.width * pscale}
+                y2={shape.height * pscale}
+                stroke={shape.stroke || "#000000"}
+                strokeWidth={(shape.strokeWidth ?? 1) * pscale}
+              />
+            ) : shape.type === "rect" ? (
+              <Rect
+                x={0}
+                y={0}
+                width={Math.max(shape.width * pscale, 1)}
+                height={Math.max(shape.height * pscale, 1)}
+                fill={shape.fill || "none"}
+                stroke={shape.stroke || "#000000"}
+                strokeWidth={(shape.strokeWidth ?? 1) * pscale}
+              />
+            ) : (
+              <Ellipse
+                cx={Math.max(shape.width * pscale, 1) / 2}
+                cy={Math.max(shape.height * pscale, 1) / 2}
+                rx={Math.max(shape.width * pscale, 1) / 2}
+                ry={Math.max(shape.height * pscale, 1) / 2}
+                fill={shape.fill || "none"}
+                stroke={shape.stroke || "#000000"}
+                strokeWidth={(shape.strokeWidth ?? 1) * pscale}
+              />
+            )}
+          </Svg>
+        </View>
       ))}
+
+      {(sheet.images || []).map((img) => (
+        <View
+          key={img.id}
+          fixed
+          style={{
+            position: "absolute",
+            top: margin.top + img.y * pscale,
+            left: margin.left + img.x * pscale,
+            width: Math.max(img.width * pscale, 1),
+            height: Math.max(img.height * pscale, 1),
+            ...(img.rotation ? { transform: `rotate(${img.rotation}deg)` } : {}),
+          }}
+        >
+          <Image src={img.src} style={{ width: Math.max(img.width * pscale, 1), height: Math.max(img.height * pscale, 1), objectFit: "contain" }} />
+        </View>
+      ))}
+
+      {wb.showFooter && (
+        <View style={[styles.pageFooter, { bottom: 20, left: margin.left, right: margin.right }]} fixed>
+          <Text>{school.schoolName} — System Report</Text>
+          <Text render={({ pageNumber, totalPages }) => `Halaman ${pageNumber} dari ${totalPages}`} />
+        </View>
+      )}
+    </Page>
+  );
+}
+
+export function ReportPdfDocument({ workbook, school, dataset = [], datasets, global }: ReportPdfInput) {
+  const ctx: EvaluateContext = { dataset, datasets, global: { ...schoolGlobalVars(school), ...(global || {}) } };
+  const widthProps = { workbook, school };
+  void widthProps;
+  return (
+    <Document title={workbook.reportName || "Laporan"}>
+      {workbook.sheets.map((sheet, idx) => {
+        const ev = evaluateSheet(sheet, ctx);
+        return renderSheet(sheet, ev, workbook, school, sheet.id || `sheet-${idx}`);
+      })}
     </Document>
   );
 }

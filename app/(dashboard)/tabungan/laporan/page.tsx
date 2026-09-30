@@ -24,6 +24,7 @@ import {
 import Link from "next/link";
 import { showSuccess, showError } from "@/lib/toast";
 import { goGet } from "@/lib/api-client";
+import { renderModuleReport, downloadBlob } from "@/lib/report-template-runner";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { KopSurat } from "@/components/reports/kop-surat";
 import type { TabunganStats, TabunganTransaksiWithRelations, TabunganKelas } from "@/types/tabungan";
@@ -168,6 +169,44 @@ export default function TabunganLaporanPage() {
         showSuccess("Laporan berhasil diunduh");
     };
 
+    /**
+     * Cetak memakai format default modul Tabungan (diatur admin di halaman
+     * "Laporan & Format"). Bila modul belum punya format, cetak HTML biasa.
+     */
+    const handlePrintFormatted = async () => {
+        const dataset = transactions.map((t) => ({
+            tanggal: new Date(t.createdAt || "").toLocaleDateString("id-ID"),
+            siswa: t.siswa?.nama || "-",
+            kelas: t.siswa?.kelas?.nama || "-",
+            tipe: t.tipe,
+            nominal: t.nominal,
+            status: t.status,
+            petugas: (t as any).petugas || (t as any).createdBy || "-",
+        }));
+        const global = {
+            laporan: {
+                periode: periodLabels[period],
+                total_saldo: stats?.totalSaldo ?? 0,
+                total_setoran: periodStats.totalSetor,
+                total_penarikan: periodStats.totalTarik,
+                jumlah_siswa: stats?.totalSiswa ?? 0,
+            },
+        };
+        try {
+            const blob = await renderModuleReport({
+                module: "tabungan",
+                dataset,
+                global,
+                settings,
+                fileName: `Laporan Tabungan ${periodLabels[period]}`,
+                fallback: () => window.print(),
+            });
+            if (blob) downloadBlob(blob, `Laporan Tabungan ${periodLabels[period]}`);
+        } catch {
+            window.print();
+        }
+    };
+
     const periodLabels: Record<PeriodType, string> = {
         today: "Hari Ini",
         week: "Minggu Ini",
@@ -265,6 +304,10 @@ export default function TabunganLaporanPage() {
                     <Button variant="outline" onClick={() => window.print()} disabled={transactions.length === 0}>
                         <Printer className="h-4 w-4 mr-2" />
                         Cetak / PDF
+                    </Button>
+                    <Button variant="outline" onClick={handlePrintFormatted} disabled={transactions.length === 0}>
+                        <Printer className="h-4 w-4 mr-2" />
+                        Cetak Format
                     </Button>
                 </div>
             </div>

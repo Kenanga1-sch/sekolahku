@@ -1,13 +1,36 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sekolahku/go-backend/internal/models"
 	"github.com/sekolahku/go-backend/internal/repository"
 )
+
+// maxLayoutJSONBytes membatasi ukuran layout template yang disimpan. Cukup untuk
+// template kerja nyata (ratusan sel) namun menolak body raksasa yang bisa
+// membengkakkan DB / memori saat rendering di klien.
+const maxLayoutJSONBytes = 512 * 1024
+
+// validateLayoutJSON memastikan layout_json adalah JSON yang valid dan tidak
+// kosong sebelum disimpan. Mengembalikan pesan error yang aman untuk klien.
+func validateLayoutJSON(raw string) (string, bool) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", true // layout opsional: template boleh dibuat tanpa layout
+	}
+	if len(trimmed) > maxLayoutJSONBytes {
+		return "layoutJson terlalu besar", false
+	}
+	if !json.Valid([]byte(trimmed)) {
+		return "layoutJson bukan JSON yang valid", false
+	}
+	return "", true
+}
 
 type ReportTemplateHandler struct {
 	repo *repository.ReportTemplateRepository
@@ -61,6 +84,22 @@ func (h *ReportTemplateHandler) GetByID(c echo.Context) error {
 	})
 }
 
+// GetByModule mengembalikan daftar template untuk modul tertentu.
+func (h *ReportTemplateHandler) GetByModule(c echo.Context) error {
+	module := c.Param("module")
+	list, err := h.repo.GetByModule(module)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data":    list,
+	})
+}
+
 func (h *ReportTemplateHandler) GetByCode(c echo.Context) error {
 	code := c.Param("code")
 	tpl, err := h.repo.GetByCode(code)
@@ -99,6 +138,13 @@ func (h *ReportTemplateHandler) Create(c echo.Context) error {
 		})
 	}
 
+	if msg, ok := validateLayoutJSON(req.LayoutJSON); !ok {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   msg,
+		})
+	}
+
 	tpl, err := h.repo.Create(&req)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
@@ -127,6 +173,13 @@ func (h *ReportTemplateHandler) Update(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{
 			"success": false,
 			"error":   "Invalid request body",
+		})
+	}
+
+	if msg, ok := validateLayoutJSON(req.LayoutJSON); !ok {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   msg,
 		})
 	}
 

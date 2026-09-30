@@ -5,6 +5,7 @@ type ReportTemplate struct {
 	Code        string `json:"code" db:"code"`
 	Name        string `json:"name" db:"name"`
 	Category    string `json:"category" db:"category"`
+	Module      string `json:"module" db:"module"`
 	Description string `json:"description" db:"description"`
 	PaperSize   string `json:"paperSize" db:"paper_size"`
 	Orientation string `json:"orientation" db:"orientation"`
@@ -18,6 +19,7 @@ type CreateReportTemplateRequest struct {
 	Code        string `json:"code"`
 	Name        string `json:"name"`
 	Category    string `json:"category"`
+	Module      string `json:"module"`
 	Description string `json:"description"`
 	PaperSize   string `json:"paperSize"`
 	Orientation string `json:"orientation"`
@@ -28,6 +30,7 @@ type CreateReportTemplateRequest struct {
 type UpdateReportTemplateRequest struct {
 	Name        string `json:"name"`
 	Category    string `json:"category"`
+	Module      string `json:"module"`
 	Description string `json:"description"`
 	PaperSize   string `json:"paperSize"`
 	Orientation string `json:"orientation"`

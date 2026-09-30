@@ -21,6 +21,7 @@ import {
     unclassifiedTotal,
 } from "@/lib/inventory/report-data";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import { renderTemplatePdf, renderModuleReport, downloadBlob } from "@/lib/report-template-runner";
 import { formatCurrency } from "@/lib/utils";
 import type { InventoryAsset, InventoryOpname, InventoryStats } from "@/types/inventory";
 
@@ -42,6 +43,7 @@ export default function LaporanPage() {
     const [opnames, setOpnames] = useState<InventoryOpname[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedOpname, setSelectedOpname] = useState<string>("");
+    const [exportingPdf, setExportingPdf] = useState(false);
     // Pencarian hanya untuk layar; hasil cetak tetap memuat seluruh data.
     const [query, setQuery] = useState("");
 
@@ -91,6 +93,56 @@ export default function LaporanPage() {
 
     const totalAtkValue = atkItems.reduce((s, i) => s + (i.currentStock || 0) * (i.price || 0), 0);
     const selected = opnames.find((o) => o.id === selectedOpname) || opnames[0];
+
+    /**
+     * Ekspor stok habis pakai memakai format dari Studio Format Laporan.
+     * Prioritas: format default modul Inventaris (dapat diatur admin di halaman
+     * "Laporan & Format"), lalu template berkode RPT_INVENTARIS_HABIS_PAKAI.
+     * Bila keduanya tak ada / gagal, jatuh kembali ke cetak HTML (window.print).
+     */
+    async function handleExportAtkPdf() {
+        setExportingPdf(true);
+        try {
+            const dataset = atkItems.map((i) => ({
+                code: i.code || "-",
+                name: i.name,
+                category: i.category || "-",
+                currentStock: i.currentStock ?? 0,
+                minStock: i.minStock ?? 0,
+                unit: i.unit || "-",
+                price: i.price ?? 0,
+                nilai: (i.currentStock || 0) * (i.price || 0),
+                isLow: (i.currentStock || 0) <= (i.minStock || 0),
+            }));
+            const global = {
+                laporan: {
+                    periode: `Posisi per ${today()}`,
+                    total_jenis: atkItems.length,
+                    total_nilai: totalAtkValue,
+                },
+            };
+            let blob = await renderModuleReport({
+                module: "inventaris",
+                dataset,
+                global,
+                settings,
+                fileName: "Laporan Stok Barang Habis Pakai",
+            });
+            if (!blob) {
+                blob = await renderTemplatePdf({
+                    code: "RPT_INVENTARIS_HABIS_PAKAI",
+                    dataset,
+                    global,
+                    settings,
+                    fileName: "Laporan Stok Barang Habis Pakai",
+                    fallback: () => window.print(),
+                });
+            }
+            if (blob) downloadBlob(blob, "Laporan Stok Barang Habis Pakai");
+        } finally {
+            setExportingPdf(false);
+        }
+    }
 
     // Baris opname hanya menyimpan asset_id (kolom inventory_opname_items tidak
     // punya kolom nama), jadi nama barang digabung dari daftar aset agar berita
@@ -482,6 +534,13 @@ export default function LaporanPage() {
                     {/* ================= STOK HABIS PAKAI ================= */}
                     <TabsContent value="atk" className="space-y-4">
                         <Kop title="LAPORAN STOK BARANG HABIS PAKAI" subtitle={`Posisi per ${today()}`} />
+
+                        <div className="flex justify-end print:hidden">
+                            <Button size="sm" onClick={handleExportAtkPdf} disabled={exportingPdf}>
+                                <Printer className={`mr-2 h-4 w-4 ${exportingPdf ? "animate-pulse" : ""}`} />
+                                {exportingPdf ? "Menyiapkan PDF..." : "Ekspor PDF (Format Studio)"}
+                            </Button>
+                        </div>
 
                         <div className="grid gap-3 sm:grid-cols-2 print:hidden">
                             <Card>

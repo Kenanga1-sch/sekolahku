@@ -8,6 +8,16 @@ afterEach(() => {
   cleanup();
 });
 
+// jsdom tidak menyediakan ResizeObserver; dipakai komponen yang mengukur
+// lebar container (mis. SheetGrid). Stub minimal agar render tidak error.
+if (typeof globalThis.ResizeObserver === "undefined") {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver;
+}
+
 // Mock Next.js router
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
