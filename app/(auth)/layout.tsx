@@ -3,7 +3,9 @@
 import { GraduationCap, Quote, Home, Briefcase, Newspaper, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { motion } from "framer-motion";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import { AuroraBackground } from "@/components/ui/aurora-background";
 import { WavyBackground } from "@/components/ui/wavy-background";
 import { cn } from "@/lib/utils";
 
@@ -24,7 +26,7 @@ export default function AuthLayout({
   ];
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-2">
+    <div className="min-h-screen grid lg:grid-cols-2 bg-background">
       {/* Left Side - Visual & Branding */}
       <div className="hidden lg:flex relative flex-col justify-between bg-zinc-900 text-white overflow-hidden">
         <WavyBackground 
@@ -82,8 +84,22 @@ export default function AuthLayout({
       </div>
 
       {/* Right Side - Form */}
-      <div className="flex items-center justify-center p-6 sm:p-12 lg:p-16 bg-background relative pb-24 md:pb-16">
-        <div className="w-full max-w-[400px] space-y-6 mx-auto">
+      <AuroraBackground className="min-h-screen w-full p-6 sm:p-12 lg:p-16 pb-24 md:pb-16 bg-background">
+        {/* Ambient gradient / aurora sesuai tema (dark mode aware) */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 overflow-hidden [-webkit-mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_75%)] [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_75%)]"
+        >
+          <div className="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-primary/20 blur-3xl dark:bg-primary/25" />
+          <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-emerald-400/20 blur-3xl dark:bg-emerald-500/15" />
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          className="relative z-10 w-full max-w-[400px] space-y-6 mx-auto my-auto"
+        >
           {/* Mobile Logo */}
           <div className="lg:hidden flex justify-center mb-8">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary shadow-lg text-primary-foreground overflow-hidden">
@@ -101,9 +117,10 @@ export default function AuthLayout({
             </div>
           </div>
 
+          {/* Slot untuk konten card (login / lupa password) */}
           {children}
-        </div>
-      </div>
+        </motion.div>
+      </AuroraBackground>
       {/* Bottom Nav - Mobile Only */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-neutral-200 safe-area-pb">
         <div className="flex items-center justify-around py-2">

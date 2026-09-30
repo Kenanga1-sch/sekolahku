@@ -2,14 +2,37 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { CheckCircle2, Loader2, Search, UserPlus } from "lucide-react";
+import {
+  CheckCircle2,
+  KeyRound,
+  Loader2,
+  Phone,
+  Search,
+  ShieldCheck,
+  UserPlus,
+  Users,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Reveal } from "@/components/public/motion";
 import { registerParentAction, verifyStudentAction } from "@/actions/parent";
+
+const benefits = [
+  { icon: ShieldCheck, title: "Kehadiran Harian", desc: "Pantau presensi anak setiap hari secara langsung." },
+  { icon: KeyRound, title: "Tabungan Siswa", desc: "Lihat mutasi saldo tabungan anak secara transparan." },
+  { icon: Users, title: "Pengumuman & Izin", desc: "Terima pengumuman sekolah dan ajukan izin/sakit anak." },
+];
+
+const stepTitles: Record<1 | 2 | 3, string> = {
+  1: "Verifikasi Data Anak",
+  2: "Data Akun Orang Tua",
+  3: "Pendaftaran Selesai",
+};
 
 export default function DaftarOrtuPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -83,83 +106,250 @@ export default function DaftarOrtuPage() {
   };
 
   return (
-    <div className="min-h-[70dvh] flex items-start justify-center px-4 py-10 bg-public-bg">
-      <Card className="w-full max-w-md shadow-xl">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <UserPlus className="h-5 w-5 text-[#065F46]" /> Daftar Akun Orang Tua
-          </CardTitle>
-          <CardDescription>
-            Pantau kehadiran, tabungan, dan pengumuman anak dalam satu akun.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {step === 1 && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="nisn">NISN Anak</Label>
-                <Input id="nisn" inputMode="numeric" placeholder="10 digit NISN" value={nisn} onChange={(e) => setNisn(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="tgl">Tanggal Lahir Anak</Label>
-                <Input id="tgl" type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
-              </div>
-              <Button className="w-full" onClick={verify} disabled={busy}>
-                {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                Verifikasi Data
-              </Button>
-              <p className="text-xs text-center text-muted-foreground">
-                Sudah punya akun? <Link href="/login" className="underline font-medium">Masuk di sini</Link>
-              </p>
-            </div>
-          )}
+    <div className="relative min-h-[80dvh] flex items-start justify-center px-4 py-12 md:py-20 bg-public-bg overflow-hidden">
+      {/* Latar dekoratif ala halaman publik */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[#A7F3D0]/30 via-public-bg to-public-bg dark:from-[#065F46]/20 dark:via-transparent dark:to-transparent" />
+      <div className="absolute -top-24 -right-24 w-[40vw] h-[40vw] max-w-[440px] max-h-[440px] rounded-full bg-[#A7F3D0]/20 dark:bg-[#065F46]/20 blur-[80px] pointer-events-none" />
 
-          {step === 2 && (
-            <div className="space-y-4">
-              <div className="rounded-lg border border-green-200 bg-green-50 dark:border-green-900/40 dark:bg-green-950/20 px-4 py-3 text-sm text-green-800 dark:text-green-300">
-                Data ditemukan: <strong>{studentName}</strong>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="nama">Nama Anda</Label>
-                <Input id="nama" placeholder="Nama orang tua/wali" value={name} onChange={(e) => setName(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="hp">Nomor HP</Label>
-                <Input id="hp" inputMode="tel" placeholder="081234567890" value={phone} onChange={(e) => setPhone(e.target.value)} />
-                <p className="text-xs text-muted-foreground">Nomor ini menjadi nama pengguna saat masuk.</p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="pass">Password</Label>
-                <Input id="pass" type="password" placeholder="Minimal 6 karakter" value={password} onChange={(e) => setPassword(e.target.value)} />
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setStep(1)} disabled={busy}>Kembali</Button>
-                <Button className="flex-1" onClick={register} disabled={busy}>
-                  {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
-                  Buat Akun
-                </Button>
-              </div>
-            </div>
-          )}
+      <div className="relative z-10 w-full max-w-5xl grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
+        {/* Info pendaftaran — tetap informatif */}
+        <div className="lg:col-span-2 space-y-6 lg:pt-2">
+          <Reveal>
+            <Badge className="bg-[#065F46]/10 text-[#065F46] border-[#065F46]/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider dark:bg-[#A7F3D0]/10 dark:text-[#A7F3D0] dark:border-[#A7F3D0]/20">
+              Portal Orang Tua
+            </Badge>
+          </Reveal>
 
-          {step === 3 && (
-            <div className="space-y-4 text-center py-4">
-              <div className="mx-auto bg-green-100 p-3 rounded-full w-16 h-16 flex items-center justify-center">
-                <CheckCircle2 className="h-8 w-8 text-green-600" />
+          <Reveal delay={0.08}>
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-[#1a2e1a] dark:text-foreground leading-[1.15]">
+              Daftar Akun Orang Tua
+            </h1>
+          </Reveal>
+
+          <Reveal delay={0.16}>
+            <p className="text-base text-[#4b6b4b] dark:text-muted-foreground leading-relaxed max-w-[55ch]">
+              Hubungkan akun Anda dengan data anak di sekolah untuk memantau kehadiran, tabungan,
+              dan pengumuman dalam satu tempat. Proses hanya butuh NISN dan tanggal lahir anak.
+            </p>
+          </Reveal>
+
+          <Reveal delay={0.24}>
+            <ul className="space-y-3">
+              {benefits.map((b) => (
+                <li key={b.title} className="flex items-start gap-3 p-4 rounded-2xl bg-white/70 backdrop-blur-md border border-public-border shadow-sm dark:bg-white/5 dark:border-white/10">
+                  <div className="h-10 w-10 shrink-0 rounded-xl bg-[#A7F3D0] text-[#065F46] flex items-center justify-center dark:bg-[#065F46]/40 dark:text-[#A7F3D0]">
+                    <b.icon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-[#1a2e1a] text-sm dark:text-foreground">{b.title}</p>
+                    <p className="text-xs text-[#4b6b4b] mt-1 leading-relaxed dark:text-muted-foreground">{b.desc}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </Reveal>
+
+          <Reveal delay={0.32}>
+            <p className="text-xs text-[#4b6b4b] dark:text-muted-foreground">
+              Sudah punya akun?{" "}
+              <Link
+                href="/login"
+                aria-label="Masuk ke portal orang tua"
+                className="font-semibold text-[#065F46] underline underline-offset-4 hover:no-underline dark:text-[#A7F3D0]"
+              >
+                Masuk di sini
+              </Link>
+            </p>
+          </Reveal>
+        </div>
+
+        {/* Kartu glass berisi langkah pendaftaran */}
+        <Reveal delay={0.12} className="lg:col-span-3">
+          <div className="rounded-3xl bg-white/70 backdrop-blur-xl border border-white/60 shadow-xl shadow-[#065F46]/5 dark:bg-white/5 dark:border-white/10 dark:shadow-black/20 overflow-hidden">
+            <div className="px-6 pt-6 pb-4 border-b border-public-border/60 dark:border-white/10">
+              <div className="flex items-center gap-3">
+                <div className="h-11 w-11 shrink-0 rounded-xl bg-gradient-to-br from-[#065F46] to-[#047857] text-white flex items-center justify-center shadow-lg shadow-[#065F46]/25">
+                  <UserPlus className="h-5 w-5" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs font-medium uppercase tracking-wider text-[#4b6b4b] dark:text-muted-foreground">
+                    Langkah {step} dari 3
+                  </p>
+                  <h2 className="font-semibold text-[#1a2e1a] dark:text-foreground">{stepTitles[step]}</h2>
+                </div>
               </div>
-              <div>
-                <p className="font-semibold">Akun berhasil dibuat</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Masuk memakai nomor HP <strong>{phone}</strong> dan password yang Anda buat.
-                </p>
+
+              {/* Indikator progres */}
+              <div className="mt-4 flex items-center gap-2" aria-hidden="true">
+                {[1, 2, 3].map((s) => (
+                  <div
+                    key={s}
+                    className={`h-1.5 flex-1 rounded-full transition-colors ${
+                      s <= step ? "bg-[#065F46] dark:bg-[#A7F3D0]" : "bg-public-border dark:bg-white/10"
+                    }`}
+                  />
+                ))}
               </div>
-              <Button asChild className="w-full">
-                <Link href="/login">Masuk Sekarang</Link>
-              </Button>
             </div>
-          )}
-        </CardContent>
-      </Card>
+
+            <div className="px-6 py-6">
+              {step === 1 && (
+                <motion.div
+                  key="step-1"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="space-y-4"
+                >
+                  <div className="space-y-2">
+                    <Label htmlFor="nisn">NISN Anak</Label>
+                    <Input
+                      id="nisn"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      placeholder="Masukkan 10 digit NISN"
+                      value={nisn}
+                      onChange={(e) => setNisn(e.target.value)}
+                      aria-label="NISN anak"
+                      aria-describedby="nisn-help"
+                    />
+                    <p id="nisn-help" className="text-xs text-[#4b6b4b] dark:text-muted-foreground">
+                      NISN tertera pada kartu pelajar atau rapor anak.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="tgl">Tanggal Lahir Anak</Label>
+                    <Input
+                      id="tgl"
+                      type="date"
+                      autoComplete="bday"
+                      value={birthDate}
+                      onChange={(e) => setBirthDate(e.target.value)}
+                      aria-label="Tanggal lahir anak"
+                    />
+                  </div>
+                  <Button
+                    onClick={verify}
+                    disabled={busy}
+                    aria-label="Verifikasi data anak"
+                    className="w-full h-11 rounded-xl bg-gradient-to-r from-[#065F46] to-[#047857] text-white font-semibold shadow-lg shadow-[#065F46]/25 hover:shadow-[#065F46]/40 active:scale-[0.98] transition-all"
+                  >
+                    {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <Search className="mr-2 h-4 w-4" aria-hidden="true" />}
+                    Verifikasi Data
+                  </Button>
+                </motion.div>
+              )}
+
+              {step === 2 && (
+                <motion.div
+                  key="step-2"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="space-y-4"
+                >
+                  <div
+                    className="rounded-2xl border border-green-200 bg-green-50/80 backdrop-blur-sm dark:border-green-900/40 dark:bg-green-950/20 px-4 py-3 text-sm text-green-800 dark:text-green-300 flex items-center gap-2"
+                    role="status"
+                  >
+                    <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span>Data ditemukan: <strong>{studentName}</strong></span>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="nama">Nama Anda</Label>
+                    <Input
+                      id="nama"
+                      autoComplete="name"
+                      placeholder="Nama orang tua/wali"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      aria-label="Nama orang tua atau wali"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="hp">Nomor HP</Label>
+                    <Input
+                      id="hp"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      placeholder="081234567890"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      aria-label="Nomor HP orang tua"
+                      aria-describedby="hp-help"
+                    />
+                    <p id="hp-help" className="text-xs text-[#4b6b4b] dark:text-muted-foreground">
+                      Nomor ini menjadi nama pengguna saat masuk.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="pass">Password</Label>
+                    <Input
+                      id="pass"
+                      type="password"
+                      autoComplete="new-password"
+                      placeholder="Minimal 6 karakter"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      aria-label="Password akun"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setStep(1)}
+                      disabled={busy}
+                      aria-label="Kembali ke langkah verifikasi data anak"
+                      className="h-11 rounded-xl active:scale-[0.98] transition-all"
+                    >
+                      Kembali
+                    </Button>
+                    <Button
+                      onClick={register}
+                      disabled={busy}
+                      aria-label="Buat akun orang tua"
+                      className="flex-1 h-11 rounded-xl bg-gradient-to-r from-[#065F46] to-[#047857] text-white font-semibold shadow-lg shadow-[#065F46]/25 hover:shadow-[#065F46]/40 active:scale-[0.98] transition-all"
+                    >
+                      {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <UserPlus className="mr-2 h-4 w-4" aria-hidden="true" />}
+                      Buat Akun
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
+
+              {step === 3 && (
+                <motion.div
+                  key="step-3"
+                  initial={{ opacity: 0, scale: 0.97 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.35 }}
+                  className="space-y-4 text-center py-4"
+                  role="status"
+                >
+                  <div className="mx-auto bg-gradient-to-br from-[#A7F3D0] to-green-200 dark:from-[#065F46]/40 dark:to-green-900/30 p-4 rounded-full w-16 h-16 flex items-center justify-center">
+                    <CheckCircle2 className="h-8 w-8 text-[#065F46] dark:text-[#A7F3D0]" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-[#1a2e1a] dark:text-foreground">Akun berhasil dibuat</p>
+                    <p className="text-sm text-[#4b6b4b] dark:text-muted-foreground mt-1">
+                      Masuk memakai nomor HP <strong>{phone}</strong> dan password yang Anda buat.
+                    </p>
+                  </div>
+                  <Button
+                    asChild
+                    className="w-full h-11 rounded-xl bg-gradient-to-r from-[#065F46] to-[#047857] text-white font-semibold shadow-lg shadow-[#065F46]/25 hover:shadow-[#065F46]/40 active:scale-[0.98] transition-all"
+                  >
+                    <Link href="/login" aria-label="Masuk ke portal orang tua sekarang">
+                      <Phone className="mr-2 h-4 w-4" aria-hidden="true" />
+                      Masuk Sekarang
+                    </Link>
+                  </Button>
+                </motion.div>
+              )}
+            </div>
+          </div>
+        </Reveal>
+      </div>
     </div>
   );
 }
