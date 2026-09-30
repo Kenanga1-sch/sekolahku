@@ -193,34 +193,26 @@ export function DocStationApp() {
   }, [doc.stateRef, printConfig.paperSize, printConfig.customWidth, printConfig.customHeight]);
 
   return (
-    <div className="flex min-h-[70vh] flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-lg font-extrabold text-primary">
-            D
-          </div>
-          <div>
-            <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight text-foreground">
-              DocStation
-              <span className="rounded-full border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
-                Scan & Cetak
-              </span>
-            </h1>
-            <p className="text-xs text-muted-foreground">
-              Pusat operasional scan & cetak dokumen jaringan
-            </p>
-          </div>
+    // Tinggi dikunci (bukan min-h-[70vh]) agar area kerja TIDAK memanjang
+    // melewati bawah layar — konten panjang (mis. SavePanel) digulir di dalam
+    // sendiri, dan preview kanvas berhenti tepat di tepi bawah viewport.
+    // Padding sendiri diperlukan karena mode immersive menghapus padding `main`.
+    <div className="flex min-h-full flex-col gap-3 px-3 py-3 md:h-full md:min-h-0 md:px-4 md:py-4">
+      {/* Baris atas: langkah wizard (kiri) + status printer (kanan).
+          Header internal DocStation dihapus agar ruang maksimal; status printer
+          tetap terlihat di semua langkah. */}
+      <div className="flex shrink-0 items-center justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          {mode ? (
+            <WizardStepper mode={mode} step={step} />
+          ) : (
+            <WizardStepper mode="scan" step={1} disabled />
+          )}
         </div>
         <PrinterStatusBadge printers={printers} />
       </div>
 
-      {mode ? (
-        <WizardStepper mode={mode} step={step} />
-      ) : (
-        <WizardStepper mode="scan" step={1} disabled />
-      )}
-
-      <div className="flex flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         {!mode && <ModePicker onSelect={selectMode} />}
 
         {mode === "scan" && (

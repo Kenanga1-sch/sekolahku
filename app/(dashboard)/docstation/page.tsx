@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 
 import { loadPdfLib } from "@/lib/docstation/vendor-loader";
+import { useImmersiveLayout } from "@/lib/contexts/layout-chrome-context";
 import { DocStationApp } from "./_components/docstation-app";
 
 /**
@@ -13,6 +14,11 @@ import { DocStationApp } from "./_components/docstation-app";
  * sebelum pengguna memicu ekspor.
  */
 export default function DocStationPage() {
+  // Mode immersive (sama seperti laporan builder): sembunyikan topbar
+  // (pasang aplikasi, tema terang/gelap, notifikasi, avatar), padding main,
+  // dan bottom-nav mobile agar area kerja seluas mungkin.
+  useImmersiveLayout(true);
+
   useEffect(() => {
     // Muat awal, abaikan kegagalan (dipanggil ulang saat ekspor PDF bila perlu).
     loadPdfLib().catch(() => {});

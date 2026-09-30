@@ -48,7 +48,7 @@ export function PageStrip({
     <ul
       aria-label="Daftar halaman"
       className={cn(
-        "flex gap-2 rounded-2xl border border-border bg-card p-2",
+        "flex gap-1.5 rounded-2xl border border-border bg-card p-1.5",
         vertical
           ? // < lg tetap strip horizontal (hemat tinggi layar); >= lg berubah
             // jadi kolom thumbnail yang menggulir ke bawah.
@@ -64,72 +64,76 @@ export function PageStrip({
           <li
             key={page.id}
             className={cn(
-              "group relative flex-shrink-0 overflow-hidden rounded-xl border-2 transition-all",
+              "group relative flex flex-shrink-0 items-center gap-1.5 overflow-hidden rounded-xl border-2 p-1 transition-all",
               active ? "border-primary shadow-sm" : "border-transparent hover:border-border",
               busy && "opacity-60",
             )}
           >
-            <button
-              type="button"
-              aria-pressed={active}
-              aria-label={`Pilih halaman ${index + 1}: ${page.name}`}
-              disabled={busy}
-              onClick={() => onSelect(page.id)}
-              className="block"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={page.sourceUrl}
-                alt=""
-                className="h-24 w-20 bg-white object-cover"
-              />
-              <span className="absolute left-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                {index + 1}
-              </span>
-            </button>
-
-            <label
-              className="absolute right-1 top-1 flex h-6 w-6 cursor-pointer items-center justify-center rounded border border-white/70 bg-black/40"
-            >
-              <input
-                type="checkbox"
-                className="h-4 w-4 cursor-pointer accent-primary"
-                checked={selected}
-                aria-label={`Pilih halaman ${index + 1} untuk operasi multi`}
+            {/* Thumbnail 56x48 + nomor halaman. Kontrol TIDAK lagi menimpa
+                gambar — dulu 3 tombol (104px) dipaksa masuk ke lebar 80px
+                sehingga selalu terpotong `overflow-hidden`. Checkbox jadi
+                sibling (bukan di dalam tombol) agar klik-nya tak ikut
+                memilih halaman. */}
+            <div className="relative flex-shrink-0">
+              <button
+                type="button"
+                aria-pressed={active}
+                aria-label={`Pilih halaman ${index + 1}: ${page.name}`}
                 disabled={busy}
-                onChange={() => onToggleSelect(page.id)}
-              />
-            </label>
+                onClick={() => onSelect(page.id)}
+                className="block"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={page.sourceUrl}
+                  alt=""
+                  className="h-12 w-14 bg-white object-cover"
+                />
+                <span className="absolute left-0.5 top-0.5 rounded bg-black/60 px-1 text-[9px] font-bold leading-4 text-white">
+                  {index + 1}
+                </span>
+              </button>
+              <label className="absolute right-0.5 top-0.5 flex h-5 w-5 cursor-pointer items-center justify-center rounded border border-white/70 bg-black/40">
+                <input
+                  type="checkbox"
+                  className="h-3.5 w-3.5 cursor-pointer accent-primary"
+                  checked={selected}
+                  aria-label={`Pilih halaman ${index + 1} untuk operasi multi`}
+                  disabled={busy}
+                  onChange={() => onToggleSelect(page.id)}
+                />
+              </label>
+            </div>
 
-            {/* Kontrol selalu terlihat di sentuh; di desktop muncul saat
-                hover/fokus di dalam item. */}
-            <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-0.5 bg-black/50 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+            {/* Aksi di samping thumbnail: selalu terlihat (di sentuh maupun
+                desktop), punya ruang penuh, dan tak memakan tinggi baris. */}
+            <div className="flex flex-shrink-0 items-center">
               <button
                 type="button"
                 disabled={busy || index === 0}
                 onClick={() => onMove(page.id, -1)}
-                className="p-2 text-white/80 hover:text-white disabled:opacity-30"
+                className="p-1.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
                 aria-label={`Geser halaman ${index + 1} ke kiri`}
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-3.5 w-3.5" />
               </button>
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => onRemove(page.id)}
-                className="p-2 text-white/80 hover:text-red-400"
+                className="p-1.5 text-muted-foreground hover:text-destructive disabled:opacity-30"
                 aria-label={`Hapus halaman ${index + 1}`}
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-3.5 w-3.5" />
               </button>
               <button
                 type="button"
                 disabled={busy || index === pages.length - 1}
                 onClick={() => onMove(page.id, 1)}
-                className="p-2 text-white/80 hover:text-white disabled:opacity-30"
+                className="p-1.5 text-muted-foreground hover:text-foreground disabled:opacity-30"
                 aria-label={`Geser halaman ${index + 1} ke kanan`}
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-3.5 w-3.5" />
               </button>
             </div>
           </li>
