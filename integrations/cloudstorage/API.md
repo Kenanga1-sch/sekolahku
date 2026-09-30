@@ -1,219 +1,250 @@
 # API Reference: Personal Cloud Storage
 
-Base URL: `http://localhost:8080/api`
+> **Status dokumen (audit 2025):** File ini mendokumentasikan **dua** permukaan
+> API yang berbeda:
+>
+> 1. **API produksi Sekolahku** — `go-backend/internal/handlers/cloudstorage_handler.go`
+>    (Echo, prefix `/api/cloud/*`). **Inilah yang dipakai frontend.**
+> 2. **API standalone referensi** — aplikasi Fiber di folder ini
+>    (`internal/handler/handler.go`, prefix `/api/*`). Kode Go di folder ini
+>    **RUSAK** dan tidak dikompilasi; hanya dipakai sebagai referensi desain.
+>
+> Riwayat: dokumen versi sebelumnya mendeskripsikan API standalone (Fiber, prefix
+> `/api/files`) dan **tidak sinkron** dengan handler produksi. Lihat §7 untuk
+> tabel gap sinkronisasi. Rekomendasi: jadikan dokumen ini sumber tunggal untuk
+> API produksi, dan pisahkan referensi standalone ke lampiran bila masih dipakai.
 
-Semua request dan response dalam format JSON, kecuali upload dan download.
+Base URL produksi: `/api/cloud`
+Base URL standalone (referensi): `/api`
+
+Semua request/response JSON, kecuali upload (multipart), download, thumbnail,
+dan ZIP (binary stream).
 
 ---
 
-## 1. File & Folder Endpoints
+## 1. File & Folder Endpoints (PRODUKSI `/api/cloud/*`)
+
+Semua endpoint di bawah ini terautentikasi JWT Sekolahku + CSRF, dan dibatasi
+role **superadmin / admin / staff / guru**. Setiap operasi di-scope ke pemilik
+(`owner_id`); berkas milik user lain → `404`.
+
+### Config & Usage
+
+- **GET** `/config` → `{ "success": true, "enabled": bool, "max_upload_size": int }`
+  - `enabled` = false bila `CLOUDSTORAGE_BOT_TOKEN` / `CLOUDSTORAGE_CHAT_ID` kosong.
+- **GET** `/usage` → `{ "success": true, "used_bytes": int, "file_count": int }`
 
 ### List Files / Folders
 
 - **GET** `/files`
 - **Query Params:**
-  - `parent_id` (string, optional) - Jika kosong/null, berarti root folder.
-  - `limit` (int, optional, default 500, maks 1000) - Jumlah item per halaman.
-  - `offset` (int, optional, default 0) - Lewati N item pertama.
+  - `parent_id` (string, optional) — kosong / `root` = root folder.
+  - `sort` (string, optional) — `name` (default) | `size` | `date_desc` | `date_asc` | `manual`.
+  - `type` (string, optional) — `all` | `folder` | `image` | `video` | `audio` | `pdf` | `doc` | `other`.
+  - `starred` (bool-ish, optional) — `1` = hanya favorit.
+  - `view` (string, optional) — `starred` | `recent` | `large` (lintas folder; mengabaikan `parent_id`/`sort`).
+  - `limit` (int, optional, default 500, maks 1000).
+  - `offset` (int, optional, default 0).
 - **Response Headers:**
   - `X-Total-Count`: total item yang cocok.
-  - `X-Has-More`: `true`/`false` apakah masih ada halaman berikutnya.
-- **Response (`200 OK`):** Array file/folder pada halaman tersebut.
+  - `X-Has-More`: `true`/`false` (hanya pada listing folder biasa).
+- **Response (`200 OK`):** Array objek file/folder (lihat skema §5).
 
-```json
-[
-  {
-    "id": "uuid-hex",
-    "name": "Dokumen",
-    "parent_id": null,
-    "is_folder": true,
-    "file_id": null,
-    "mime_type": "",
-    "size": 0,
-    "created_at": 1712000000,
-    "updated_at": 1712000000,
-    "deleted_at": null,
-    "share_token": null
-  }
-]
-```
+### Upload File
 
-### Upload File (Satu atau Banyak)
+- **POST** `/files` (multipart/form-data)
+- **Form Data:** `file` (binary, satu file), `parent_id` (optional).
+- Batas ukuran per berkas: `CLOUDSTORAGE_MAX_UPLOAD_MB` (default 2048 MB).
+  Body dibatasi `MaxBytesReader` terpisah dari `BodyLimit` global 60 MB.
+- **Response (`200 OK`):** objek file tunggal.
+- **`503`** bila `enabled = false`; **`413`** bila melebihi batas;
+  **`502`** bila gagal ke Telegram.
 
-- **POST** `/files`
-- **Content-Type:** `multipart/form-data`
-- **Form Data:**
-  - `file` (binary) - bisa diulang untuk upload banyak file sekaligus
-  - `parent_id` (string, optional)
-- **Response (`200 OK`):**
-  - 1 file sukses: objek file tunggal
-  - Banyak file sukses: array objek file
-- **Partial success (`207 Multi-Status`):** jika sebagian file gagal, dikembalikan
-  `{ "files": [...], "errors": [{ "name": "...", "error": "..." }] }`. File yang
-  sudah berhasil tetap tersimpan; file lain tetap dicoba.
-- **Gagal semua (`500`):** `{ "error": "..." }`
+> **Perbedaan dengan standalone:** standalone mendukung upload **banyak berkas**
+> per request dan balasan `207 Multi-Status`; handler produksi hanya satu
+> `file` per request (klien mengirim berurutan).
 
 ### Get Detail File
 
 - **GET** `/files/:id`
-- **Response (`200 OK`):** Objek file dengan `id` tersebut.
 
-### Download File (proxy)
+### Download File (proxy, Range-aware)
 
-- **GET** `/files/:id/download`
-- **Response:** Binary stream file dengan header `Content-Disposition`.
-- Mendukung **HTTP Range request** (`Range: bytes=...`) — dipakai browser untuk
-  seek video/audio. Response `206 Partial Content` dengan header `Content-Range`
-  diteruskan langsung dari Telegram.
-- Endpoint ini juga dipakai frontend untuk preview inline (gambar/video/PDF), sehingga browser **tidak pernah** menerima URL Telegram yang memuat token bot.
+- **GET** `/files/:id/download?dl=1`
+  - `dl=1` → `Content-Disposition: attachment`; default `inline` (preview).
+- Mendukung **HTTP Range** (`Range: bytes=...`) → `206 Partial Content` +
+  `Content-Range`. Isi berkas dibaca **langsung dari disk** (mount Bot API lokal),
+  bukan via HTTP `/file/...` (lihat ARCHITECTURE §3).
 
 ### Thumbnail Gambar
 
-- **GET** `/files/:id/thumb`
-- **Response:** Gambar thumbnail JPEG/PNG berukuran maks. 400px untuk file gambar.
-- Dipakai frontend pada grid view; file non-gambar mengembalikan 404 dan frontend menampilkan ikon.
+- **GET** `/files/:id/thumb` — thumbnail untuk berkas gambar, `404` untuk lainnya.
 
-### Rename File/Folder
+### Rename
 
-- **PUT** `/files/:id`
-- **Body (`application/json`):**
-
-```json
-{
-  "name": "NewName.pdf"
-}
-```
-
-- **Response (`200 OK`):** Objek file yang sudah di-rename.
+- **PUT** `/files/:id` — body `{ "name": "Baru.pdf" }`.
 
 ### Move to Trash (Soft Delete)
 
-- **DELETE** `/files/:id`
-- **Response (`200 OK`):** `{ "status": "ok" }`
-- File masuk ke Trash (`deleted_at` diisi).
+- **DELETE** `/files/:id` → `{ "success": true }`.
 
-### Copy File/Folder (Rekursif)
+### Copy / Move / Reorder
 
-- **POST** `/files/copy`
-- **Body (`application/json`):**
+- **POST** `/files/copy` — `{ "ids": [...], "target_id": "id"|null }` (rekursif).
+- **POST** `/files/move` — `{ "ids": [...], "target_id": "id"|null }`.
+- **POST** `/files/reorder` — `{ "ids": [...] }` (urutan manual dalam folder;
+  hanya bermakna saat `sort=manual`).
 
-```json
-{
-  "ids": ["id-1", "id-2"],
-  "target_id": "id-destination"
-}
-```
+### Favorit (Star)
 
-- Copy folder dilakukan rekursif (isi di dalam folder ikut disalin).
-- Nama duplikat otomatis diberi suffix ` (1)`, ` (2)`, dst.
-- **Response (`200 OK`):** `{ "status": "ok" }`
+- **POST** `/files/:id/star` — `{ "starred": true|false }` → objek file.
 
-### Move (Cut-Paste)
+### Editor Teks / Catatan
 
-- **POST** `/files/move`
-- **Body (`application/json`):**
+- **POST** `/notes` — `{ "name", "content", "parent_id" }` → objek file baru.
+- **PUT** `/files/:id/content` — `{ "content": "..." }` (ganti isi berkas teks;
+  batas `MaxTextBytes` = 2 MiB).
 
-```json
-{
-  "ids": ["id-1", "id-2"],
-  "target_id": "id-destination"
-}
-```
+### Rotasi Gambar
 
-- **Response (`200 OK`):** `{ "status": "ok" }`
+- **POST** `/files/:id/rotate` — `{ "deg": 90|180|270 }` (hasil di-encode ulang JPEG).
+
+### Folder
+
+- **POST** `/folders` — `{ "name", "parent_id" }`.
+
+### ZIP Massal
+
+- **POST** `/files/zip` — `{ "ids": [...] }` → stream `application/zip`
+  (`Content-Disposition: attachment`). Route ini dikecualikan dari middleware
+  gzip; batas total `MaxZipBytes` = 4 GiB.
 
 ---
 
-## 2. Pencarian
-
-### Search Files
+## 2. Pencarian (Produksi)
 
 - **GET** `/search?q=keyword`
-- **Response:** Array file/folder yang cocok (nama mengandung keyword). Setiap
-  item menyertakan `path` (lokasi lengkap, mis. `Folder / Subfolder`) sehingga
-  frontend tidak perlu melakukan request tambahan untuk menampilkan lokasi.
+- Mengembalikan array file/folder milik owner yang namanya cocok (rekursif,
+  maks 200). Setiap item menyertakan `path` (mis. `Folder / Subfolder`).
 
 ---
 
-## 3. Share Links
+## 3. Share Links (Produksi)
 
-### Generate Share Link
+- **POST** `/files/:id/share` → `{ "success": true, "share_token": "..." }`
+  - Mendukung **berkas maupun folder** (`share_kind`).
+  - Masa berlaku `CLOUDSTORAGE_SHARE_EXPIRY_DAYS` (0 = tanpa kadaluarsa).
+- **DELETE** `/files/:id/share` → cabut token.
 
-- **POST** `/files/:id/share`
-- **Response (`200 OK`):**
+### Halaman & Download Publik (tanpa login)
+
+- **GET** `/api/cloud/s/:token` → metadata publik. Folder mengembalikan `entries`.
+- **GET** `/api/cloud/s/:token/download` → stream berkas tunggal (share file).
+- **GET** `/api/cloud/s/:token/file/:id` → sajikan berkas di dalam folder share.
+- **GET** `/api/cloud/s/:token/zip` → unduh seluruh isi folder share sebagai ZIP.
+
+> Halaman HTML publik dibaca di **`/s?t=<token>`** (halaman statis `out/s.html`
+> karena `output: "export"`). Dokumen lama menyebut `/s/:token` (route dinamis)
+> — itu **tidak berlaku** di produksi.
+
+---
+
+## 4. Trash (Produksi)
+
+- **GET** `/trash` → array item ter-soft-delete.
+- **POST** `/trash/:id/restore` → pulihkan satu item.
+- **POST** `/trash/restore-all` → pulihkan seluruh isi trash.
+- **DELETE** `/trash/:id` → hapus permanen (metadata + `deleteMessage` Telegram
+  bila referensi terakhir).
+- **DELETE** `/trash` → kosongkan trash.
+
+---
+
+## 5. Skema Objek File (Produksi)
+
+Cocok dengan `models.CloudFile` (`go-backend/internal/models/cloudstorage.go`):
 
 ```json
-{ "share_token": "random_secure_token" }
+{
+  "id": "cuid2",
+  "owner_id": "user-id",
+  "name": "Dokumen.pdf",
+  "path": "Folder / Subfolder/Dokumen.pdf",
+  "parent_id": null,
+  "is_folder": false,
+  "file_id": "telegram-file-id",
+  "message_id": 1234,
+  "mime_type": "application/pdf",
+  "size": 1048576,
+  "encrypted": false,
+  "created_at": 1712000000,
+  "updated_at": 1712000000,
+  "deleted_at": null,
+  "share_token": null,
+  "share_expires_at": null,
+  "is_starred": false,
+  "accessed_at": 1712000000,
+  "sort_order": 0,
+  "share_kind": "file"
+}
 ```
 
-- Masa berlaku link diatur `SHARE_EXPIRY_DAYS` (0 = tidak pernah). Link yang
-  sudah kedaluwarsa otomatis dicabut saat diakses.
-- Halaman publik dapat diakses di `/s/:token`.
-
-### Halaman Publik Share
-
-- **GET** `/s/:token`
-- **Response:** Halaman HTML publik untuk download file (tanpa login).
-
-### Download File Publik
-
-- **GET** `/s/:token/download`
-- **Response:** Binary stream file dari link share publik.
-
-### Revoke Share Link
-
-- **DELETE** `/files/:id/share`
-- **Response (`200 OK`):** `{ "status": "ok" }`
-- Token share dihapus, link publik tidak lagi valid.
+Catatan: `path` hanya diisi pada hasil `/search`; `share_kind` diisi pada item
+yang sedang dibagikan (`file` | `folder`).
 
 ---
 
-## 4. Trash
+## 6. API Standalone (Referensi, TIDAK DIPAKAI)
 
-### List Trash
+Aplikasi Fiber di folder ini memakai prefix `/api/*` dan bentuk berbeda. Daftar
+rute aktual (`cmd/server/main.go`): `GET /api/config`, `POST /api/login`,
+`GET|POST /api/files`, `POST /api/folders`, `GET /api/folders/all`,
+`GET /api/files/:id`, `GET /api/files/:id/download`, `GET /api/files/:id/thumb`,
+`PUT /api/files/:id`, `DELETE /api/files/:id`, `POST|DELETE /api/files/:id/share`,
+`POST /api/files/copy`, `POST /api/files/move`, `GET /api/search`,
+`GET /api/trash`, `POST /api/trash/restore-all`, `POST /api/trash/:id/restore`,
+`DELETE /api/trash`, `DELETE /api/trash/:id`, `GET /api/healthz`,
+`GET /s/:token/download`, `GET /login`.
 
-- **GET** `/trash`
-- **Response (`200 OK`):** Array file/folder yang sudah di-soft-delete.
-
-### Restore dari Trash
-
-- **POST** `/trash/:id/restore`
-- **Response (`200 OK`):** `{ "status": "ok" }`
-
-### Pulihkan Semua (Recovery)
-
-- **POST** `/trash/restore-all`
-- **Response (`200 OK`):** `{ "status": "ok" }`
-- Memulihkan seluruh isi trash, termasuk folder beserta isinya.
-
-### Hapus Permanen
-
-- **DELETE** `/trash/:id`
-- **Response (`200 OK`):** `{ "status": "ok" }`
-- Menghapus metadata dari database secara permanen, cascade ke seluruh isi folder, dan memanggil `deleteMessage` Telegram untuk setiap file agar file di server Telegram ikut terhapus (hanya jika itu referensi terakhir).
-
-### Kosongkan Trash (Empty Trash)
-
-- **DELETE** `/trash`
-- **Response (`200 OK`):** `{ "status": "ok" }`
-- Menghapus permanen seluruh isi trash sekaligus. File di Telegram hanya dihapus jika tidak ada referensi lain (mis. hasil copy) yang masih memakainya.
+Tabel endpoint di §7 PRD (versi lama) **tidak akurat** terhadap kode standalone
+maupun produksi; jangan dijadikan acuan.
 
 ---
 
-## 5. Frontend
+## 7. Tabel Gap Sinkronisasi API.md vs Handler Produksi
 
-Frontend statis (`index.html`, `css/style.css`, `js/app.js`) di-embed ke binary Go menggunakan `go:embed`. Semua route non-API (`/`, `/css/*`, `/js/*`) di-serve oleh handler statis dari embedded filesystem, sehingga cukup 1 binary.
+| #   | Item di dokumen lama                                                                                                                                           | Handler produksi (`cloudstorage_handler.go`)                                 | Status                                |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------- |
+| 1   | Prefix `/api/files`, `/api/trash`, `/api/share`, `/api/preview`                                                                                                | Semua di bawah `/api/cloud/*` (`/files`, `/trash`, `/files/:id/share`, dst.) | ❌ Tidak sinkron → diperbaiki di §1–4 |
+| 2   | `POST /api/files/upload`                                                                                                                                       | `POST /api/cloud/files` (multipart `file`)                                   | ❌ Tidak sinkron                      |
+| 3   | `PATCH /api/files/:id` (rename + pindah)                                                                                                                       | `PUT /api/cloud/files/:id` (rename saja); pindah lewat `/files/move`         | ❌ Tidak sinkron                      |
+| 4   | `GET /api/preview/:id`                                                                                                                                         | Tidak ada; preview memakai `/files/:id/download?dl=1` (inline)               | ❌ Tidak sinkron                      |
+| 5   | `POST /api/trash/restore`                                                                                                                                      | `POST /api/cloud/trash/:id/restore` + `/trash/restore-all`                   | ❌ Tidak sinkron                      |
+| 6   | Share: `POST                                                                                                                                                   | DELETE /api/share/:id`                                                       | `POST                                 | DELETE /api/cloud/files/:id/share` | ❌ Tidak sinkron |
+| 7   | Halaman share `/s/:token`                                                                                                                                      | `/s?t=<token>` (statis) + API `/api/cloud/s/:token/*`                        | ❌ Tidak sinkron                      |
+| 8   | Balasan `{ "status": "ok" }`                                                                                                                                   | `{ "success": true }`                                                        | ❌ Tidak sinkron                      |
+| 9   | Upload multi-file + `207`                                                                                                                                      | Upload satu file per request                                                 | ❌ Tidak sinkron (fitur standalone)   |
+| 10  | Tidak menyebut `sort`/`type`/`starred`/`view`                                                                                                                  | Didukung (`ListFiles`, `SetStar`, `Reorder`)                                 | ⚠️ Gap dokumentasi                    |
+| 11  | Tidak menyebut `/usage`, `/config.enabled`, `/notes`, `/folders`, `/files/zip`, `/files/:id/rotate`, `/files/:id/star`, `/files/:id/content`, `/files/reorder` | Semua ada di handler                                                         | ⚠️ Gap dokumentasi                    |
+| 12  | Header `X-Total-Count`/`X-Has-More`                                                                                                                            | Ada (`ListFiles`), hanya untuk listing folder                                | ✅ Sinkron                            |
+| 13  | Range / `206` streaming download                                                                                                                               | Ada (`streamFile`)                                                           | ✅ Sinkron                            |
+| 14  | Thumbnail `GET /files/:id/thumb`                                                                                                                               | Ada (`Thumbnail`)                                                            | ✅ Sinkron                            |
+
+**Kesimpulan §7:** ikatan endpoint lama **tidak sinkron** di 9 dari 14 baris
+yang dinilai (≈36% akurasi). Versi revisi §1–5 kini sinkron dengan handler
+produksi. Sisa gap: tidak ada dokumentasi OpenAPI/Swagger otomatis, dan skema
+JSON belum divalidasi terhadap `models.CloudFile` oleh CI.
 
 ---
 
-## 6. Catatan Keamanan & Utilitas
+## 8. Catatan Keamanan & Utilitas (Produksi)
 
-- **CSRF:** Semua request stateful (`POST/PUT/DELETE`) di `/api/*` yang membawa
-  header `Origin` hanya diterima jika origin tersebut sama dengan `Host` server
-  atau tercantum di `ALLOWED_ORIGINS` (dipisah koma). Request tanpa `Origin`
-  (mis. curl) tetap diterima.
-- **Backup:** Jalankan binary dengan flag `-backup <path>` untuk membuat snapshot
-  database yang konsisten tanpa menghentikan server:
-  ```bash
-  cloudstorage.exe -backup ./backup.db
-  ```
+- **Auth & CSRF:** JWT Sekolahku untuk `/api/cloud/*`; publik hanya
+  `/api/cloud/s/:token*`. CSRF ditangani middleware global Sekolahku (bukan
+  `ALLOWED_ORIGINS` standalone).
+- **Isolasi per-user:** semua query menyertakan `owner_id`; berkas pihak lain →
+  `404` (`repository.ErrCloudNotFound`).
+- **Bot token tidak bocor:** browser tidak pernah menerima URL Telegram;
+  semua baca/tulis melewati backend.
+- **Backup:** gunakan mekanisme backup Sekolahku (Telegram backup / SQLite
+  snapshot). Flag `-backup` **hanya** milik aplikasi standalone.

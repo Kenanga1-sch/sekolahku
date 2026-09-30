@@ -59,20 +59,27 @@ menghasilkan 404 (bukan 403) agar keberadaan berkas tidak bocor.
 
 ## Konfigurasi (env)
 
-| Variabel                         | Default                                | Keterangan                                      |
-| -------------------------------- | -------------------------------------- | ----------------------------------------------- |
-| `TELEGRAM_API_URL`               | `http://host.containers.internal:8086` | Base URL Bot API lokal (Cloud Storage)          |
-| `CLOUDSTORAGE_BOT_TOKEN`         | _(kosong)_                             | Token bot dari @BotFather                       |
-| `CLOUDSTORAGE_CHAT_ID`           | _(kosong)_                             | Chat/grup tujuan penyimpanan                    |
-| `CLOUDSTORAGE_MAX_UPLOAD_MB`     | `2048`                                 | Batas upload per berkas                         |
-| `CLOUDSTORAGE_THUMB_DIR`         | `./data/cloud-thumbs`                  | Cache thumbnail                                 |
-| `CLOUDSTORAGE_LOCAL_FILE_ROOT`   | `/app/telegram-data`                   | Mount berkas server lokal (baca langsung)       |
-| `CLOUDSTORAGE_REMOTE_PREFIX`     | `/var/lib/telegram-bot-api`            | Prefix path dari getFile (mode --local)         |
-| `CLOUDSTORAGE_ENCRYPTION_KEY`    | _(kosong)_                             | AES-256-GCM at-rest (64 hex). Nonaktif = kosong |
-| `CLOUDSTORAGE_SHARE_EXPIRY_DAYS` | `0`                                    | Umur tautan share (0 = tanpa kadaluarsa)        |
+| Variabel                         | Default                                    | Keterangan                                                                |
+| -------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------- |
+| `TELEGRAM_API_URL`               | `https://api.telegram.org` (fallback kode) | Base URL Bot API lokal (produksi: `http://host.containers.internal:8086`) |
+| `CLOUDSTORAGE_BOT_TOKEN`         | _(kosong)_                                 | Token bot dari @BotFather                                                 |
+| `CLOUDSTORAGE_CHAT_ID`           | _(kosong)_                                 | Chat/grup tujuan penyimpanan                                              |
+| `CLOUDSTORAGE_MAX_UPLOAD_MB`     | `2048`                                     | Batas upload per berkas                                                   |
+| `CLOUDSTORAGE_THUMB_DIR`         | _(kosong)_                                 | Cache thumbnail                                                           |
+| `CLOUDSTORAGE_LOCAL_FILE_ROOT`   | _(kosong)_                                 | Mount berkas server lokal (baca langsung)                                 |
+| `CLOUDSTORAGE_REMOTE_PREFIX`     | `/var/lib/telegram-bot-api`                | Prefix path dari getFile (mode --local)                                   |
+| `CLOUDSTORAGE_ENCRYPTION_KEY`    | _(kosong)_                                 | AES-256-GCM at-rest (64 hex). Nonaktif = kosong                           |
+| `CLOUDSTORAGE_SHARE_EXPIRY_DAYS` | `0`                                        | Umur tautan share (0 = tanpa kadaluarsa)                                  |
 
 Selama `CLOUDSTORAGE_BOT_TOKEN`/`CHAT_ID` kosong, fitur upload nonaktif namun
 halaman tetap dapat dibuka.
+
+> **Catatan env standalone (folder ini, TIDAK dipakai produksi):**
+> `HOST`, `PORT`, `TELEGRAM_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_API`,
+> `DB_PATH`, `AUTH_TOKEN`, `THUMB_CACHE_DIR`, `MAX_UPLOAD_SIZE`,
+> `ALLOWED_ORIGINS`, `SHARE_EXPIRY_DAYS`, `THUMB_CLEAN_HOURS`,
+> `ENCRYPTION_ENABLED`, `ENCRYPTION_KEY` — lihat `internal/config/config.go`.
+> Jangan tertukar dengan env produksi (nama berbeda: `CLOUDSTORAGE_*`).
 
 ## Endpoint
 
@@ -150,3 +157,58 @@ inline (gambar/video/audio/PDF), tombol unduh, dan daftar isi + tombol
 - **Enkripsi**: bila `CLOUDSTORAGE_ENCRYPTION_KEY` diisi, HTTP Range (seek
   video/PDF), thumbnail, dan rotasi tidak didukung karena GCM butuh dekripsi penuh.
 - **Bot API > 2GB**: perlu menjalankan `telegram-bot-api` dengan flag `--local`.
+- **Deployment & backup**: lihat SETUP.md.
+
+---
+
+## 11. Audit Kematangan Dokumentasi & Integrasi
+
+### 11.1 Tabel gap
+
+| #   | Area                         | Temuan                                                                                                                                                                                               | Bukti                                                 | Dampak                         | Status                                                |
+| --- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ------------------------------ | ----------------------------------------------------- |
+| 1   | `API.md` vs handler          | Prefix & bentuk endpoint tidak sinkron (dokumen: `/api/files`, `/api/share`, `/api/preview`, `/s/:token`; kode: `/api/cloud/*`, `/files/:id/share`, `/s?t=`). Balasan `status:ok` vs `success:true`. | API.md lama vs `routes.go`/`cloudstorage_handler.go`  | Klien/integrator salah panggil | Diperbaiki (API.md §1-5, §7)                          |
+| 2   | `API.md` vs handler          | Endpoint tak terdokumentasi: `usage`, `notes`, `folders`, `files/zip`, `rotate`, `star`, `content`, `reorder`, `view/sort/type`.                                                                     | handler + routes                                      | Fitur tak terpakai             | Diperbaiki                                            |
+| 3   | Model Go                     | `models.CloudFile` vs `model.File`: beda `owner_id` (ada/tidak), `is_starred` vs `is_favorite`, `sort_order`, `share_kind`, nullability `accessed_at`.                                               | `models/cloudstorage.go` vs `internal/model/model.go` | Breaking untuk klien bersama   | Didokumentasikan (PRD §5.b)                           |
+| 4   | Skema DB                     | PRD lama tabel `files` tanpa `owner_id`, `message_id`, `encrypted`, `is_starred`, `accessed_at`, `sort_order`, `share_kind`, `share_expires_at`; tabel `settings` tak dipakai.                       | PRD §5 lama vs `cloudstorage_repo.go`                 | Migrasi salah                  | Diperbaiki (PRD §5)                                   |
+| 5   | Integrasi service vs handler | Tidak ada kode bersama (shared lib), kontrak API bersama, atau skema DB bersama; framework beda (Fiber vs Echo).                                                                                     | ARCHITECTURE §6                                       | Duplikasi/divergensi           | Didokumentasikan (ARCHITECTURE §6)                    |
+| 6   | Deployment                   | ARCHITECTURE lama hanya menyebut "1 binary"; produksi multi-kontainer (backend + Bot API + Next static).                                                                                             | ARCHITECTURE §5.1                                     | Onboarding lambat              | Diperbaiki                                            |
+| 7   | Env                          | Env produksi (`CLOUDSTORAGE_*`) vs standalone (`TELEGRAM_*`, `AUTH_TOKEN`, dst.) tidak dibedakan.                                                                                                    | README vs `config.go`                                 | Salah konfigurasi              | Diperbaiki                                            |
+| 8   | Docstring kode               | Komentar `NewCloudStorageHandler` menyebut 5 env, melewatkan `TELEGRAM_API_URL` yang dibaca handler.                                                                                                 | `cloudstorage_handler.go`                             | Dokumen kode tak lengkap       | Dicatat (tidak diubah)                                |
+| 9   | Operasional                  | Monitoring, backup, rotasi/enkripsi, thumbcleaner belum didokumentasikan terpadu.                                                                                                                    | ARCHITECTURE §5.3                                     | Runbook kurang                 | Diperbaiki                                            |
+| 10  | `AGENTS.md`                  | Aturan menuntut vanilla JS + "Zero Comments" + Fiber, bertentangan dengan produksi (React + Echo).                                                                                                   | AGENTS.md vs kode produksi                            | Panduan menyesatkan            | Diperbaiki (AGENTS.md)                                |
+| 11  | `SETUP.md`                   | Panduan hanya untuk standalone (port 8081, `.env` lokal), bukan produksi.                                                                                                                            | SETUP.md lama                                         | Setup produksi tak dipandu     | Diperbaiki (SETUP.md)                                 |
+| 12  | Kontrak mesin                | Tidak ada OpenAPI/Swagger; skema JSON tidak divalidasi CI.                                                                                                                                           | seluruh repo                                          | Regresi API tak terdeteksi     | Rekomendasi                                           |
+| 13  | Klaim kadaluarsa             | single-user, `/s/:token`, flag `-backup` masih tercampur dengan produksi.                                                                                                                            | berbagai                                              | Kebingungan                    | Dokumen lama `-backup` dihapus dari §Catatan keamanan |
+
+### 11.2 Skor kematangan (1-5)
+
+| Dimensi                                       |    Skor     | Alasan                                                                  |
+| --------------------------------------------- | :---------: | ----------------------------------------------------------------------- |
+| Sinkronisasi API.md vs handler                |      4      | Setelah revisi sinkron; minus OpenAPI otomatis & validasi CI.           |
+| Keselarasan model Go (produksi vs standalone) |      2      | 4 field mismatch + nullability; tanpa kode/skema bersama.               |
+| Cakupan deployment/env/operasional            |      4      | Lengkap setelah revisi; monitoring masih tipis.                         |
+| Integrasi service standalone vs handler       |      2      | Hanya ide arsitektur; tanpa shared lib/kontrak/DB bersama.              |
+| Kelengkapan dokumentasi (missing docs)        |      3      | 6 dokumen ada & kini akurat; belum ada OpenAPI, runbook SRE, changelog. |
+| **Rata-rata keseluruhan**                     | **3.0 / 5** | Dokumentasi cukup matang & jujur; integrasi kode masih longgar.         |
+
+Sebelum revisi, skor sinkronisasi API & cakupan ops diperkirakan 1-2/5 karena
+dokumen mendeskripsikan sistem yang berbeda dari produksi.
+
+### 11.3 Rekomendasi
+
+1. **Sumber tunggal API:** jadikan API.md acuan API produksi (`/api/cloud/*`);
+   pindahkan deskripsi API standalone ke lampiran atau hapus.
+2. **Selaraskan model:** putuskan satu skema bersama. Minimal: ganti
+   `is_favorite` -> `is_starred` dan tambah `owner_id`/`sort_order`/`share_kind`
+   (atau tandai `model.File` murni historis). Bila standalone dibuang, hapus
+   `internal/model/model.go` agar tidak menyesatkan.
+3. **OpenAPI/Swagger** untuk `/api/cloud/*` + validasi skema di CI agar regresi
+   API tertangkap otomatis.
+4. **Sinkronkan docstring kode** dengan env yang benar-benar dibaca
+   (tambahkan `TELEGRAM_API_URL`, `CLOUDSTORAGE_REMOTE_PREFIX`).
+5. **Runbook operasional:** tambah dokumen monitoring/alerting, prosedur
+   backup-restore, dan penanganan `file_id` kadaluarsa.
+6. **Tandai jelas folder ini** sebagai arsip referensi (mis. `ARCHIVE.md` atau
+   pindah ke `integrations/cloudstorage-legacy/`) agar tidak dikira kode aktif.
+7. **Manual test** sesuai Acceptance Criteria PRD §11 di lingkungan produksi.

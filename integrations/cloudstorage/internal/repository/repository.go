@@ -120,6 +120,9 @@ func ensureUniqueNameIndex(db *sql.DB) error {
 	if err := rows.Close(); err != nil {
 		return err
 	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
 
 	for _, d := range dups {
 		ext := filepath.Ext(d.name)
@@ -133,14 +136,14 @@ func ensureUniqueNameIndex(db *sql.DB) error {
 			}
 			n++
 		}
-	_, err := r.db.Exec("UPDATE files SET name = ?, parent_id = ?, file_id = ?, message_id = ?, mime_type = ?, size = ?, updated_at = ?, is_favorite = ?, accessed_at = ?, share_token = ?, share_expires_at = ? WHERE id = ?",
-		f.Name, f.ParentID, f.FileID, f.MessageID, f.MimeType, f.Size, f.UpdatedAt, f.IsFavorite, f.AccessedAt, f.ShareToken, f.ShareExpiresAt, f.ID)
-	return err
+		if _, err := db.Exec("UPDATE files SET name = ? WHERE id = ?", candidate, d.id); err != nil {
 			return err
 		}
 		seen[d.parent+"\x00"+candidate] = true
 	}
 
+	_, err = db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_files_unique_name ON files(name, COALESCE(parent_id,'')) WHERE deleted_at IS NULL")
+	return err
 }
 
 // IsUniqueConstraint mengembalikan true jika error berasal dari pelanggaran
@@ -267,7 +270,7 @@ func (r *Repository) ListAllFolders() ([]model.File, error) {
 		}
 		folders = append(folders, *f)
 	}
-	return folders, nil
+	return folders, rows.Err()
 }
 
 func (r *Repository) listFiles(parentID *string, filter string) ([]model.File, error) {
@@ -291,7 +294,7 @@ func (r *Repository) listFiles(parentID *string, filter string) ([]model.File, e
 		}
 		files = append(files, *f)
 	}
-	return files, nil
+	return files, rows.Err()
 }
 
 func (r *Repository) ListFilesPage(parentID *string, limit, offset int) ([]model.File, error) {
@@ -315,7 +318,7 @@ func (r *Repository) ListFilesPage(parentID *string, limit, offset int) ([]model
 		}
 		files = append(files, *f)
 	}
-	return files, nil
+	return files, rows.Err()
 }
 
 func (r *Repository) CountFiles(parentID *string) (int, error) {
@@ -345,7 +348,143 @@ func (r *Repository) GetFileAny(id string) (*model.File, error) {
 	return scanFile(row)
 }
 
+func (r *Repository) GetFileByShareToken(token string) (*model.File, error) {
+	row := r.db.QueryRow("SELECT "+fileColumns+" FROM files WHERE share_token = ? AND deleted_at IS NULL", token)
+	return scanFile(row)
+}
+
 func (r *Repository) UpdateFile(f *model.File) error {
-	_, err := r.db.Exec("UPDATE files SET name = ?, parent_id = ?, file_id = ?, message_id = ?, mime_type = ?, size = ?, updated_at = ?, is_favorite = ?, accessed_at = ?, share_token = ?, share_expires_at = ? WHERE id = ?",
-	f.Name, f.ParentID, f.FileID, f.MessageID, f.MimeType, f.Size, f.UpdatedAt, f.IsFavorite, f.AccessedAt, f.ShareToken, f.ShareExpiresAt, f.ID)
+	_, err := r.db.Exec("UPDATE files SET name = ?, parent_id = ?, file_id = ?, message_id = ?, mime_type = ?, size = ?, updated_at = ?, share_token = ?, share_expires_at = ? WHERE id = ?",
+		f.Name, f.ParentID, f.FileID, f.MessageID, f.MimeType, f.Size, f.UpdatedAt, f.ShareToken, f.ShareExpiresAt, f.ID)
 	return err
+}
+
+func (r *Repository) SoftDelete(id string, ts int64) error {
+	_, err := r.db.Exec("UPDATE files SET deleted_at = ?, updated_at = ? WHERE id = ?", ts, ts, id)
+	return err
+}
+
+func (r *Repository) RestoreFile(id string) error {
+	_, err := r.db.Exec("UPDATE files SET deleted_at = NULL WHERE id = ?", id)
+	return err
+}
+
+func (r *Repository) PermanentDelete(id string) error {
+	_, err := r.db.Exec("DELETE FROM files WHERE id = ?", id)
+	return err
+}
+
+func (r *Repository) ListTrash() ([]model.File, error) {
+	rows, err := r.db.Query("SELECT " + fileColumns + " FROM files WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	files := []model.File{}
+	for rows.Next() {
+		f, err := scanFile(rows)
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, *f)
+	}
+	return files, rows.Err()
+}
+
+func (r *Repository) RevokeShareLink(id string) error {
+	_, err := r.db.Exec("UPDATE files SET share_token = NULL, share_expires_at = NULL WHERE id = ?", id)
+	return err
+}
+
+func (r *Repository) Search(query string) ([]model.File, error) {
+	pattern := "%" + strings.ToLower(query) + "%"
+	rows, err := r.db.Query("SELECT "+fileColumns+" FROM files WHERE deleted_at IS NULL AND LOWER(name) LIKE ? ORDER BY is_folder DESC, name ASC LIMIT 500", pattern)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	files := []model.File{}
+	for rows.Next() {
+		f, err := scanFile(rows)
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, *f)
+	}
+	return files, rows.Err()
+}
+
+// CountByFileID menghitung berapa baris (termasuk yang ada di trash) yang
+// mereferensikan file_id Telegram tertentu. Dipakai untuk menentukan apakah
+// pesan Telegram aman dihapus (tidak ada referensi lain).
+func (r *Repository) CountByFileID(fileID string) (int, error) {
+	var n int
+	err := r.db.QueryRow("SELECT COUNT(*) FROM files WHERE file_id = ?", fileID).Scan(&n)
+	return n, err
+}
+
+// ListActiveFileIDs mengembalikan set file_id Telegram yang masih direferensikan
+// oleh file aktif (deleted_at IS NULL). Dipakai untuk mem-prune thumbnail cache.
+func (r *Repository) ListActiveFileIDs() (map[string]bool, error) {
+	rows, err := r.db.Query("SELECT file_id FROM files WHERE deleted_at IS NULL AND file_id IS NOT NULL")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ids := make(map[string]bool)
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids[id] = true
+	}
+	return ids, rows.Err()
+}
+
+// GetAllActivePaths membangun peta id -> path lengkap (mis. "Folder / Sub")
+// untuk seluruh file aktif. Dipakai endpoint pencarian agar frontend tidak
+// perlu request tambahan per item.
+func (r *Repository) GetAllActivePaths() (map[string]string, error) {
+	rows, err := r.db.Query("SELECT " + fileColumns + " FROM files WHERE deleted_at IS NULL")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	byID := make(map[string]*model.File)
+	for rows.Next() {
+		f, err := scanFile(rows)
+		if err != nil {
+			return nil, err
+		}
+		byID[f.ID] = f
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	paths := make(map[string]string, len(byID))
+	var resolve func(id string, depth int) string
+	resolve = func(id string, depth int) string {
+		f, ok := byID[id]
+		if !ok || depth > 100 {
+			return ""
+		}
+		if f.ParentID == nil {
+			return "My Drive"
+		}
+		parent := resolve(*f.ParentID, depth+1)
+		if parent == "" {
+			return "My Drive"
+		}
+		return parent + " / " + byID[*f.ParentID].Name
+	}
+	for id := range byID {
+		paths[id] = resolve(id, 0)
+	}
+	return paths, nil
+}

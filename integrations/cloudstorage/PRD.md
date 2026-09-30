@@ -1,242 +1,224 @@
 # PRD: Personal Cloud Storage Berbasis Telegram
 
+> **Status dokumen (audit 2025):** PRD ini awalnya ditulis untuk **prototipe
+> standalone** (single-user, Fiber, tabel `files`). Implementasi produksi di
+> Sekolahku jauh lebih kaya (multi-user, Echo, tabel `cloud_files`, +fitur ZIP,
+> catatan, rotasi, favorit, share folder). §5 (skema DB) dan §7 (API) di bagian
+> bawah **sudah dikoreksi** ke bentuk produksi, dengan catatan gap eksplisit.
+
+---
+
 ## 1. Ringkasan Produk
 
-Layanan cloud storage pribadi yang memanfaatkan **Telegram Bot API Server lokal** sebagai backend penyimpanan file, dengan tampilan yang sederhana dan familiar seperti Google Drive.
+Layanan cloud storage pribadi (per-user) yang memakai **Telegram Bot API Server
+lokal** sebagai backend penyimpanan, dengan UI mirip Google Drive, terintegrasi
+ke dalam aplikasi Sekolahku.
 
-|                     |                               |
-| ------------------- | ----------------------------- |
-| **Target Pengguna** | Pribadi (single user)         |
-| **Storage Backend** | Telegram Bot API lokal        |
-| **Tampilan**        | Familiar seperti Google Drive |
+|                     |                                                  |
+| ------------------- | ------------------------------------------------ |
+| **Target Pengguna** | Multi-user internal Sekolahku (admin/staff/guru) |
+| **Storage Backend** | Telegram Bot API lokal (container, port 8086)    |
+| **Tampilan**        | React Next.js, tema hijau Sekolahku              |
+| **Isolasi Data**    | Per-user via `owner_id` (bukan single-user)      |
+
+> **Koreksi:** versi awal menyatakan "Pribadi (single user)". Produksi adalah
+> **multi-user dengan isolasi owner_id** — non-tujuan "tidak multi-user" di §2.2
+> lama **sudah tidak berlaku**.
 
 ---
 
 ## 2. Tujuan & Non-Tujuan
 
-### 2.1 Tujuan
+### 2.1 Tujuan (berlaku)
 
-- Mendapatkan penyimpanan file besar & gratis memanfaatkan Telegram.
-- UI yang ringan, cepat, dan familier seperti Google Drive.
-- Copy-paste file yang sangat mudah dan seamless (mirip interaksi di file manager desktop).
-- Aplikasi ringan (single binary, tanpa build step frontend).
+- Penyimpanan berkas besar & murah memanfaatkan Telegram.
+- UI familia seperti Google Drive, terintegrasi tema Sekolahku.
+- Operasi file-manager (copy/cut/paste, rename, trash, restore).
+- Isolasi ruang per-user (privasi antar pengguna).
+- Fitur tambahan produksi: ZIP massal, editor teks/catatan, rotasi gambar,
+  favorit, view lintas folder (Favorit/Terbaru/Ukuran besar), share folder.
 
-### 2.2 Non-Tujuan (MVP)
+### 2.2 Non-Tujuan (diperbarui)
 
-- Tidak mendukung multi-user / autentikasi beragam.
-- Tidak mendukung sinkronisasi folder lokal (auto-sync).
-- Tidak ada sharing publik lintas pengguna Telegram (hanya share link dengan token).
+- Tidak ada sinkronisasi folder lokal (auto-sync).
+- Tidak ada sharing lintas-pengguna Telegram selain link token.
+- Tidak ada versi berkas (versioning) / riwayat revisi.
+- ~~Tidak multi-user~~ → **batal**: produksi multi-user.
 
 ---
 
 ## 3. Arsitektur
 
 ```
-┌──────────────────┐
-│  Browser (Web)   │  HTML + vanilla JS + CSS
-└────────┬─────────┘
-         │ HTTP (REST API)
-┌────────▼─────────┐
-│  Go Backend      │  Fiber/Echo, single binary, embed static
-│  - File metadata │  (SQLite)
-│  - API handler   │
-└────────┬─────────┘
-         │ HTTP (local, port 8081)
-┌────────▼─────────┐
-│  Telegram Bot    │  telegram-bot-api (server lokal, tanpa limit 50MB)
-│  API Server      │
-└──────────────────┘
+Browser (React: /cloud-storage, /s?t=<token>)
+   │  JWT Sekolahku + CSRF
+   ▼
+go-backend (Echo)  ── metadata ── SQLite (cloud_files)
+   │  HTTP upload (host:8086, --local)
+   ▼
+Telegram Bot API lokal
+   └─ menyimpan berkas + dibaca langsung dari disk (mount)
 ```
 
-### Komponen
-
-1. **Go Backend** (Fiber/Echo) — REST API + serve frontend statis (embed).
-2. **SQLite** — metadata file & folder (tanpa menyimpan blok file).
-3. **Telegram Bot API Server lokal** — menyimpan file sebenarnya, menerima upload hingga 2GB (4GB utk akun Premium), tanpa rate limit publik.
-4. **Frontend** — HTML + vanilla JS + CSS, tampilan bergaya Google Drive.
+Komponen: (1) go-backend Echo, (2) SQLite `cloud_files`, (3) Bot API lokal,
+(4) frontend React Sekolahku. Detail teknis ada di ARCHITECTURE §2.
 
 ---
 
-## 4. Tech Stack
+## 4. Tech Stack (Produksi)
 
-| Layer       | Teknologi                         | Alasan                                         |
-| ----------- | --------------------------------- | ---------------------------------------------- |
-| Backend     | Go + Fiber/Echo                   | Single binary, ringan, concurrency tinggi      |
-| Frontend    | HTML + vanilla JS + CSS           | Paling ringan, tanpa bundler/build step        |
-| Database    | SQLite                            | Metadata ringan, file tunggal, tanpa server DB |
-| Storage     | Telegram Bot API lokal            | Gratis, besar, terenkripsi via TLS lokal       |
-| Share Token | Token acak (SHA-256 dari file_id) | Share link sederhana tanpa auth                |
+| Layer    | Teknologi                            |
+| -------- | ------------------------------------ |
+| Backend  | Go + Echo v4 (bukan Fiber)           |
+| Frontend | React / Next.js (`output: "export"`) |
+| Database | SQLite (tabel `cloud_files`)         |
+| Storage  | Telegram Bot API lokal (port 8086)   |
+| Enkripsi | AES-256-GCM at-rest (opsional)       |
 
----
-
-## 5. Skema Database (SQLite)
-
-### Tabel `files`
-
-| Kolom       | Tipe           | Keterangan                         |
-| ----------- | -------------- | ---------------------------------- |
-| id          | TEXT (UUID)    | Primary key                        |
-| name        | TEXT           | Nama file/folder                   |
-| parent_id   | TEXT (NULL)    | Parent folder id, NULL = root      |
-| is_folder   | INTEGER        | 1 = folder, 0 = file               |
-| file_id     | TEXT           | Telegram file_id (NULL utk folder) |
-| mime_type   | TEXT           | MIME type                          |
-| size        | INTEGER        | Ukuran dalam bytes                 |
-| created_at  | INTEGER        | Unix timestamp                     |
-| updated_at  | INTEGER        | Unix timestamp                     |
-| deleted_at  | INTEGER (NULL) | Soft delete / trash                |
-| share_token | TEXT (NULL)    | Token unik utk share link          |
-
-**Index:** `parent_id`, `name`, `deleted_at`, `share_token`
-
-### Tabel `settings`
-
-| Kolom | Tipe | Keterangan        |
-| ----- | ---- | ----------------- |
-| key   | TEXT | PRIMARY KEY       |
-| value | TEXT | Nilai konfigurasi |
+> **Koreksi:** dokumen lama menyebut "Fiber/Echo" dan "vanilla JS". Produksi
+> memakai **Echo** + **React**.
 
 ---
 
-## 6. Fitur MVP
+## 5. Skema Database (Produksi) — tabel `cloud_files`
 
-### 6.1 Navigasi Folder
+Berbeda dari tabel `files` versi lama. Kolom aktual (lihat
+`repository/cloudstorage_repo.go` daftar `cloudFileColumns`):
 
-- List file & folder dalam direktori saat ini.
-- Breadcrumb + tombol "Naik satu level" (mirip Google Drive).
-- Baris per file: ikon (berdasarkan MIME), nama, tanggal, ukuran, tombol aksi.
+| Kolom              | Tipe           | Keterangan                     |
+| ------------------ | -------------- | ------------------------------ |
+| `id`               | TEXT (cuid2)   | Primary key                    |
+| `owner_id`         | TEXT           | **Pemilik (isolasi per-user)** |
+| `name`             | TEXT           | Nama file/folder               |
+| `parent_id`        | TEXT (NULL)    | Folder induk, NULL = root      |
+| `is_folder`        | INTEGER        | 1 = folder                     |
+| `file_id`          | TEXT (NULL)    | Telegram file_id               |
+| `message_id`       | INTEGER (NULL) | Telegram message_id            |
+| `mime_type`        | TEXT           | MIME type                      |
+| `size`             | INTEGER        | Ukuran bytes                   |
+| `encrypted`        | INTEGER        | 1 = terenkripsi at-rest        |
+| `created_at`       | INTEGER        | Unix ts                        |
+| `updated_at`       | INTEGER        | Unix ts                        |
+| `deleted_at`       | INTEGER (NULL) | Soft delete / trash            |
+| `share_token`      | TEXT (NULL)    | Token share                    |
+| `share_expires_at` | INTEGER (NULL) | Kadaluarsa share               |
+| `is_starred`       | INTEGER        | Favorit                        |
+| `accessed_at`      | INTEGER (NULL) | Akses terakhir                 |
+| `sort_order`       | INTEGER        | Urutan manual                  |
+| `share_kind`       | TEXT (NULL)    | `file` \| `folder`             |
 
-### 6.2 Upload & Download
+**Gap vs PRD lama:** tabel lama `files` tanpa `owner_id`, `message_id`,
+`encrypted`, `is_starred`, `accessed_at`, `sort_order`, `share_kind`,
+`share_expires_at`. Tabel `settings` di PRD lama tidak dipakai di produksi.
 
-- Upload file melalui drag-and-drop dan tombol upload.
-- Upload di-forward ke Telegram Bot API lokal (mendukung file s.d. 2GB/4GB).
-- Download file via endpoint yang meng-stream dari Telegram ke browser.
-- Indikator progres upload/download.
+### 5.b Gap Model: `models.CloudFile` vs `model.File` (standalone)
 
-### 6.3 Copy-Paste Seamless (Prioritas Tinggi)
+| Field               | Produksi `models.CloudFile`     | Standalone `model.File`           | Match                   |
+| ------------------- | ------------------------------- | --------------------------------- | ----------------------- |
+| ID                  | `ID string`                     | `ID string`                       | ✅                      |
+| Owner               | `OwnerID string`                | _(tidak ada)_                     | ❌                      |
+| Name                | `Name string`                   | `Name string`                     | ✅                      |
+| Path                | `Path string`                   | `Path string`                     | ✅                      |
+| ParentID            | `*string`                       | `*string`                         | ✅                      |
+| IsFolder            | `bool`                          | `bool`                            | ✅                      |
+| Favorit             | `IsStarred bool` (`is_starred`) | `IsFavorite bool` (`is_favorite`) | ❌ nama & tag JSON beda |
+| FileID/MsgID        | `*string` / `*int64`            | `*string` / `*int64`              | ✅                      |
+| MimeType/Size       | `string` / `int64`              | `string` / `int64`                | ✅                      |
+| Encrypted           | `bool`                          | `bool`                            | ✅                      |
+| CreatedAt/UpdatedAt | `int64`                         | `int64`                           | ✅                      |
+| AccessedAt          | `*int64` (nullable)             | `int64` (non-pointer)             | ❌ nullability beda     |
+| DeletedAt           | `*int64`                        | `*int64`                          | ✅                      |
+| ShareToken/Exp      | `*string` / `*int64`            | `*string` / `*int64`              | ✅                      |
+| SortOrder           | `int64`                         | _(tidak ada)_                     | ❌                      |
+| ShareKind           | `*string`                       | _(tidak ada)_                     | ❌                      |
 
-- **Shortcut**: `Ctrl+C` / `Ctrl+V`, `Ctrl+X` / `Ctrl+V` (cut & paste).
-- **Kontekstual**: klik kanan → Copy / Cut / Paste (menu konteks bergaya Drive).
-- **Clipboard visual**: paste ke folder mana pun, termasuk root; menunjukkan status "Menyalin..." dengan animasi.
-- Copy folder = copy seluruh isi secara rekursif.
-- Cut + paste = pindah (update `parent_id`).
-- Nama duplikat otomatis diberi suffix ` (1)`, ` (2)`, dst. — tidak menimpa.
-- Paste langsung berhasil = operasi asynchronous, tidak perlu refresh halaman.
-
-### 6.4 Rename
-
-- Klik dua kali nama / ikon pensil.
-- Enter untuk konfirmasi, Esc untuk batal.
-
-### 6.5 Delete & Trash
-
-- Delete file/folder → masuk ke Trash (`deleted_at`).
-- Trash bisa di-restore atau dihapus permanen.
-- Hapus permanen = hapus metadata + panggil `deleteMessage` di Telegram.
-
-### 6.6 Search
-
-- Cari file/folder berdasarkan nama (dari root, rekursif).
-- Hasil dikelompokkan dengan path lokasi file.
-
-### 6.7 Preview
-
-- **Gambar**: tampil inline di panel preview (mendukung zoom).
-- **Video & Audio**: pemutar inline.
-- **PDF/Dokumen**: tampil dalam `<iframe>`/object.
-- **Lainnya**: tampilkan ikon + metadata (nama, ukuran, tipe).
-
-### 6.8 Share Link
-
-- Setiap file memiliki tombol "Share" → menghasilkan link unik bertoken.
-- Link menampilkan halaman publik sederhana (download/preview tanpa akses ke folder lain).
-- Bisa revoke (hapus token).
-
-### 6.9 Responsive & Tampilan Drive
-
-- Layout grid/list toggle.
-- Tema terang/gelap otomatis mengikuti sistem.
-- Mobile-friendly (gesture swipe ke atas untuk upload).
+**Kesimpulan:** 4 field mismatch/tidak ada (`owner_id`, `is_favorite` vs
+`is_starred`, `sort_order`, `share_kind`) + perbedaan nullability `accessed_at`.
+Field JSON `is_favorite` vs `is_starred` adalah **breaking** untuk klien yang
+memakai kedua API sekaligus.
 
 ---
 
-## 7. API Endpoint
+## 6. Fitur (Produksi)
 
-| Method | Path                      | Fungsi                                 |
-| ------ | ------------------------- | -------------------------------------- |
-| GET    | `/api/files?parent_id=`   | List file/folder                       |
-| POST   | `/api/files/upload`       | Upload file (multipart)                |
-| GET    | `/api/files/:id/download` | Download file                          |
-| PATCH  | `/api/files/:id`          | Rename / pindah (parent_id)            |
-| DELETE | `/api/files/:id`          | Pindah ke trash                        |
-| POST   | `/api/files/copy`         | Copy file/folder (rekursif)            |
-| POST   | `/api/trash/restore`      | Restore dari trash                     |
-| DELETE | `/api/trash/:id`          | Hapus permanen                         |
-| GET    | `/api/search?q=`          | Pencarian rekursif                     |
-| GET    | `/api/preview/:id`        | Metadata utk preview                   |
-| POST   | `/api/share/:id`          | Generate share token                   |
-| DELETE | `/api/share/:id`          | Revoke share token                     |
-| GET    | `/s/:token`               | Halaman publik share                   |
-| GET    | `/api/config`             | Konfigurasi klien (upload limit, dll.) |
+- **Navigasi folder**, breadcrumb, grid/list, sortir, filter jenis.
+- **Upload** streaming (satu berkas/request), batas 2048 MB (konfigurable).
+- **Copy/Cut/Paste** rekursif, dedup nama ` (1)`.
+- **Rename/Move/Reorder** manual.
+- **Trash**: soft-delete, restore, restore-all, hapus permanen, empty.
+- **Search** rekursif dengan `path`.
+- **Favorit** + view lintas folder: Favorit / Terbaru / Ukuran besar.
+- **ZIP massal** & **share folder** (ZIP/entry listing).
+- **Editor teks/catatan** (batas 2 MiB) & **rotasi gambar**.
+- **Share link** (file/folder) dengan `share_expires_at`.
+- **Drag & drop**, seleksi area, dialog "Pindah/Salin ke…".
 
 ---
 
-## 8. Alur Copy-Paste Seamless
+## 7. API Endpoint (Produksi — koreksi ringkas)
 
-1. User pilih file/folder (click, atau `Ctrl+Click` multi-select).
-2. `Ctrl+C` / klik kanan → Copy → sistem simpan referensi id dalam **clipboard in-app** (JS).
-3. User navigasi ke folder tujuan (bisa folder mana pun, termasuk root).
-4. `Ctrl+V` / klik kanan → Paste:
-   - Jika sumber = **copy**: backend menduplikasi metadata baru + memanggil Telegram `copyMessage` (server-side copy, cepat, tanpa re-upload) → `parent_id` baru.
-   - Jika sumber = **cut**: update `parent_id` sumber ke folder tujuan (pindah, tanpa salin file).
-5. Tampilkan toast "Menyalin 3 item..." + animasi progres per item.
-6. Selesai → daftar file direfresh otomatis; item duplikat bernama `file (1).ext`.
-7. Folder copy dilakukan rekursif dengan BFS/DFS di backend, tetap menampilkan progres total.
+Selengkapnya di API.md §1–5. Ringkas:
 
-> **Catatan teknis**: Telegram `copyMessage` dapat menyalin file tanpa mengunggah ulang. Untuk file yang tidak bisa di-copy (document expiration), fallback ke re-upload via `sendDocument` dari file lokal sementara.
+| Method          | Path                                              | Fungsi                                      |
+| --------------- | ------------------------------------------------- | ------------------------------------------- |
+| GET             | `/api/cloud/config`, `/api/cloud/usage`           | Konfigurasi & pemakaian                     |
+| GET             | `/api/cloud/files`                                | List (sort/type/starred/view, limit/offset) |
+| POST            | `/api/cloud/files`                                | Upload (multipart)                          |
+| GET             | `/api/cloud/files/:id[/download\|/thumb]`         | Detail / unduh (Range) / thumbnail          |
+| PUT             | `/api/cloud/files/:id`                            | Rename                                      |
+| DELETE          | `/api/cloud/files/:id`                            | Trash                                       |
+| POST            | `/api/cloud/files/copy\|move\|zip\|reorder`       | Copy / move / ZIP / urutan                  |
+| PUT             | `/api/cloud/files/:id/content`                    | Ganti isi teks                              |
+| POST            | `/api/cloud/files/:id/rotate`                     | Rotasi gambar                               |
+| POST            | `/api/cloud/files/:id/star`                       | Favorit                                     |
+| POST            | `/api/cloud/folders`, `/api/cloud/notes`          | Buat folder / catatan                       |
+| GET             | `/api/cloud/search?q=`                            | Cari                                        |
+| GET/POST/DELETE | `/api/cloud/trash[...]`                           | Trash                                       |
+| POST/DELETE     | `/api/cloud/files/:id/share`                      | Share                                       |
+| GET             | `/api/cloud/s/:token[/download\|/file/:id\|/zip]` | Publik                                      |
+| GET             | `/s?t=<token>`                                    | Halaman share statis                        |
 
----
-
-## 9. Batasan & Asumsi
-
-- Telegram Bot API Server lokal berjalan di mesin yang sama / LAN (default port **8081**).
-- Bot token disimpan di environment variable / `.env` (tidak masuk ke repo).
-- API lokal diakses hanya dari localhost/LAN.
-- Maksimal ukuran file upload: **2GB** (default) / **4GB** (utk akun Premium).
-- Telegram dapat menghapus file yang tak diakses > beberapa bulan (`file_id` tidak lagi valid) — PRD mencatat ini sebagai risiko, mitigasi dengan `settings` timestamp akses terakhir.
-
----
-
-## 10. Non-Fungsional
-
-| Aspek           | Target                             |
-| --------------- | ---------------------------------- |
-| Performa        | List 10.000 file < 100ms           |
-| Copy 100 file   | Selesai < 10 detik                 |
-| Bundle frontend | < 100KB total                      |
-| Deployment      | 1 binary + 1 SQLite file + bot API |
-| Startup         | < 1 detik                          |
+**Gap:** tabel endpoint di PRD lama (versi standalone) **tidak akurat** dan
+sudah diganti di atas (lihat API.md §7 untuk detail baris-per-baris).
 
 ---
 
-## 11. Roadmap (Post-MVP)
+## 8. Batasan & Asumsi
 
-- Sinkronisasi folder lokal (watch folder → auto upload).
-- Enkripsi client-side sebelum upload (AES-256).
-- Album / foto grid view.
-- Dukungan beberapa bot token (multi-channel storage).
-- Koleksi/highlight (pin) folder.
-- Migrasi ke frontend framework bila kebutuhan tumbuh.
+- Bot API lokal berjalan di container terpisah (produksi: port 8086, `--local`).
+- Bot token & chat id hanya via env backend (tidak ke repo).
+- Maks upload 2 GB (konfigurable); >2 GB perlu Bot API `--local`.
+- Telegram dapat meng-expire `file_id` yang lama tak diakses.
 
 ---
 
-## 12. Acceptance Criteria MVP
+## 9. Non-Fungsional (Target)
 
-- [ ] Bisa upload file 100MB ke folder & download kembali dengan benar.
-- [ ] Copy-paste 100 file (termasuk folder bersarang) berhasil tanpa refresh.
-- [ ] Cut-paste memindahkan file tanpa duplikasi data di Telegram.
-- [ ] Search menemukan file di dalam folder bertingkat.
-- [ ] Preview gambar/video/PDF tampil inline.
-- [ ] Share link bisa dibuka tanpa login dan bisa di-revoke.
-- [ ] Trash bisa restore & hapus permanen.
-- [ ] Seluruh fitur berjalan dengan Telegram Bot API lokal di port 8081.
+| Aspek            | Target                               |
+| ---------------- | ------------------------------------ |
+| List 10.000 file | < 100ms                              |
+| Copy 100 file    | < 10 detik                           |
+| Deployment       | backend + container Bot API + SQLite |
+| Startup          | < 1 detik                            |
+
+---
+
+## 10. Roadmap (Post-MVP)
+
+- Sinkronisasi folder lokal, album/grid foto, multi-channel storage, pin folder,
+  versioning berkas, OpenAPI/Swagger otomatis untuk `/api/cloud/*`.
+
+---
+
+## 11. Acceptance Criteria (Produksi)
+
+- [ ] Upload & download berkas besar (≥100 MB) ke folder & kembali.
+- [ ] Copy-paste 100 file (folder bersarang) tanpa refresh.
+- [ ] Cut-paste memindah tanpa duplikasi data.
+- [ ] Search menemukan berkas bertingkat + `path`.
+- [ ] Preview gambar/video/PDF inline (Range-aware).
+- [ ] Share file **dan folder** bisa dibuka tanpa login & di-revoke.
+- [ ] Trash: restore, restore-all, hapus permanen, empty.
+- [ ] Isolasi per-user: berkas user lain tidak dapat diakses (404).
+- [ ] ZIP massal & ZIP folder share streaming.
+- [ ] Seluruh fitur jalan dengan Bot API lokal mode `--local`.
