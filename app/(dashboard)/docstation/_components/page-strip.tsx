@@ -14,6 +14,14 @@ interface PageStripProps {
   onRemove: (id: string) => void;
   onMove: (id: string, direction: -1 | 1) => void;
   busy?: boolean;
+  /**
+   * Susunan daftar thumbnail. "horizontal" (default) = strip yang menggulir
+   * ke samping. "vertical" = kolom thumbnail satu per baris yang menggulir ke
+   * bawah pada layar >= lg (kolom kiri editor); di layar kecil (< lg) otomatis
+   * kembali jadi strip horizontal agar tidak memakan tinggi layar. Ukuran
+   * thumbnail dan kontrol aksi overlay tidak berubah.
+   */
+  orientation?: "horizontal" | "vertical";
 }
 
 /**
@@ -30,13 +38,24 @@ export function PageStrip({
   onRemove,
   onMove,
   busy,
+  orientation = "horizontal",
 }: PageStripProps) {
   if (pages.length === 0) return null;
+
+  const vertical = orientation === "vertical";
 
   return (
     <ul
       aria-label="Daftar halaman"
-      className="flex items-center gap-2 overflow-x-auto rounded-2xl border border-border bg-card p-2"
+      className={cn(
+        "flex gap-2 rounded-2xl border border-border bg-card p-2",
+        vertical
+          ? // < lg tetap strip horizontal (hemat tinggi layar); >= lg berubah
+            // jadi kolom thumbnail yang menggulir ke bawah.
+            "items-center overflow-x-auto lg:h-full lg:flex-col lg:items-stretch lg:overflow-x-hidden lg:overflow-y-auto"
+          : // Selalu strip horizontal, persis seperti semula.
+            "items-center overflow-x-auto",
+      )}
     >
       {pages.map((page, index) => {
         const active = page.id === activeId;

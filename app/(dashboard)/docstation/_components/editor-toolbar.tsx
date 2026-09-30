@@ -154,26 +154,27 @@ export function EditorToolbar(props: EditorToolbarProps) {
 
   return (
     <div className="space-y-3 rounded-2xl border border-border bg-card p-3">
-      {/* Baris utama: Perbaiki Otomatis + mode cepat */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Baris utama: Perbaiki Otomatis + mode cepat. Di kolom kanan sempit
+          (≤ 320px) tombol disusun 2 kolom agar tidak memaksa lebar parent. */}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Button
           type="button"
           size="sm"
-          className="gap-1.5"
+          className="min-w-0 gap-1.5"
           disabled={dis}
           onClick={() => onAutoPipeline("color")}
           title="Auto-crop + bersihkan + pertajam (warna)"
         >
-          <Sparkles className="h-4 w-4" /> Perbaiki Otomatis
+          <Sparkles className="h-4 w-4 shrink-0" /> Perbaiki Otomatis
         </Button>
-        <Button type="button" size="sm" variant="outline" disabled={dis} onClick={() => onAutoPipeline("gray")} title="Perbaikan otomatis → Grayscale">
+        <Button type="button" size="sm" variant="outline" className="min-w-0" disabled={dis} onClick={() => onAutoPipeline("gray")} title="Perbaikan otomatis → Grayscale">
           Auto → Gray
         </Button>
-        <Button type="button" size="sm" variant="outline" disabled={dis} onClick={() => onAutoPipeline("bw")} title="Perbaikan otomatis → Hitam Putih">
+        <Button type="button" size="sm" variant="outline" className="min-w-0" disabled={dis} onClick={() => onAutoPipeline("bw")} title="Perbaikan otomatis → Hitam Putih">
           Auto → B&amp;W
         </Button>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex items-center gap-2 sm:justify-end">
           <span
             className={cn(
               "rounded-full border px-2 py-0.5 text-[10px] font-bold",
@@ -189,7 +190,9 @@ export function EditorToolbar(props: EditorToolbarProps) {
       </div>
 
       <Tabs defaultValue="transform" className="gap-2">
-        <TabsList aria-label="Grup alat editor" className="h-10 w-full justify-start overflow-x-auto">
+        {/* TabsList tidak lagi menggulir horizontal penuh: dibiarkan membungkus
+            (flex-wrap) agar semua tab muat di kolom kanan selebar 320px. */}
+        <TabsList aria-label="Grup alat editor" className="h-auto w-full flex-wrap justify-start gap-1">
           <TabsTrigger value="transform" className="gap-1 text-xs">
             <RotateCw className="h-3.5 w-3.5" /> Transform
           </TabsTrigger>
@@ -254,7 +257,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
             <ToolLabel>Kekuatan pembersihan</ToolLabel>
             <Slider
               aria-label="Kekuatan pembersihan"
-              className="w-40"
+              className="min-w-0 flex-1"
               min={0}
               max={1}
               step={0.05}
@@ -276,7 +279,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
             <ToolLabel>Kekuatan (unsharp mask)</ToolLabel>
             <Slider
               aria-label="Kekuatan unsharp mask"
-              className="w-40"
+              className="min-w-0 flex-1"
               min={0}
               max={3}
               step={0.1}
@@ -307,7 +310,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
               <ToolLabel>Terang</ToolLabel>
               <Slider
                 aria-label="Kecerahan"
-                className="flex-1"
+                className="min-w-0 flex-1"
                 min={-100}
                 max={100}
                 step={1}
@@ -324,7 +327,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
               <ToolLabel>Kontras</ToolLabel>
               <Slider
                 aria-label="Kontras"
-                className="flex-1"
+                className="min-w-0 flex-1"
                 min={-100}
                 max={100}
                 step={1}
@@ -341,7 +344,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
               <ToolLabel>Gamma</ToolLabel>
               <Slider
                 aria-label="Gamma"
-                className="flex-1"
+                className="min-w-0 flex-1"
                 min={0.3}
                 max={2.5}
                 step={0.05}
@@ -402,11 +405,11 @@ export function EditorToolbar(props: EditorToolbarProps) {
               onClick={() => onToolChange(activeTool === "highlighter" ? "none" : "highlighter")}
             />
             <ToolButton icon={<ClearIcon className={iconClass} />} label="Hapus anotasi" disabled={dis} onClick={onClearOverlays} />
-            <div className="flex items-center gap-2 pl-2">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
               <ToolLabel>Ukuran</ToolLabel>
               <Slider
                 aria-label="Ukuran kuas"
-                className="w-32"
+                className="min-w-0 flex-1"
                 min={4}
                 max={60}
                 step={1}

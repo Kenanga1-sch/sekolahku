@@ -11,6 +11,11 @@ export interface CanvasOverlayHandle {
   clearOverlays: () => void;
   /** Jumlah goresan pada halaman aktif. */
   overlayCount: () => number;
+  /**
+   * Memfokuskan elemen overlay secara programatik (mis. saat crop mode
+   * diaktifkan dari toolbar) agar handler panah/Enter langsung bekerja.
+   */
+  focusCanvas: () => void;
 }
 
 interface CanvasOverlayProps {
@@ -114,6 +119,17 @@ export const CanvasOverlay = forwardRef<CanvasOverlayHandle, CanvasOverlayProps>
       return () => window.removeEventListener("resize", onResize);
     }, [render]);
 
+    // Lebar kolom tengah bisa berubah tanpa event window (mis. perubahan layout
+    // grid). ResizeObserver menghitung ulang displayScale saat container
+    // mengecil/membesar agar gambar tidak terpotong atau terlalu kecil.
+    useEffect(() => {
+      const container = containerRef.current;
+      if (!container || typeof ResizeObserver === "undefined") return;
+      const observer = new ResizeObserver(() => render());
+      observer.observe(container);
+      return () => observer.disconnect();
+    }, [render]);
+
     useImperativeHandle(
       ref,
       () => ({
@@ -126,6 +142,9 @@ export const CanvasOverlay = forwardRef<CanvasOverlayHandle, CanvasOverlayProps>
           onChanged();
         },
         overlayCount: () => (page ? getOverlaysForPage(state, page.id).length : 0),
+        focusCanvas: () => {
+          overlayRef.current?.focus();
+        },
       }),
       [onChanged, page, state],
     );
@@ -283,7 +302,7 @@ export const CanvasOverlay = forwardRef<CanvasOverlayHandle, CanvasOverlayProps>
 
     if (!page) {
       return (
-        <div className="flex min-h-[420px] flex-1 items-center justify-center rounded-2xl border border-dashed border-border text-sm text-muted-foreground">
+        <div className="flex h-full min-h-0 flex-1 items-center justify-center rounded-2xl border border-dashed border-border text-sm text-muted-foreground">
           Pilih halaman untuk melihat pratinjau.
         </div>
       );
@@ -294,7 +313,7 @@ export const CanvasOverlay = forwardRef<CanvasOverlayHandle, CanvasOverlayProps>
     return (
       <div
         ref={containerRef}
-        className="relative flex min-h-[420px] flex-1 items-start justify-center overflow-auto rounded-2xl border border-border bg-muted/30 p-3"
+        className="relative flex h-full min-h-0 flex-1 items-start justify-center overflow-auto rounded-2xl border border-border bg-muted/30 p-3"
       >
         <div
           className="relative shadow-lg"

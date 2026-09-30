@@ -444,6 +444,14 @@ export function EditorStudio({ paperSize, customWidth, customHeight, onProceed, 
     });
   }, [doc.pages, engine, paperSize, customWidth, customHeight, withBusy]);
 
+  // Saat crop diaktifkan dari toolbar, fokus toolbar masih berada di tombol.
+  // Pindahkan fokus ke kanvas overlay agar handler panah/Enter langsung aktif
+  // tanpa user harus mengklik kanvas lebih dulu (lihat CanvasOverlay.focusCanvas).
+  useEffect(() => {
+    if (!cropMode) return;
+    overlayHandle.current?.focusCanvas();
+  }, [cropMode]);
+
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -467,119 +475,134 @@ export function EditorStudio({ paperSize, customWidth, customHeight, onProceed, 
     [doc, engine],
   );
 
+  // Satu struktur untuk semua ukuran layar: default satu kolom (bertumpuk),
+  // lalu pada >= lg berubah jadi grid tiga kolom (kiri strip, tengah kanvas,
+  // kanan toolbar + aksi). Ini menghindari mount ganda CanvasOverlay.
   return (
-    <div className="flex flex-1 flex-col gap-3">
-      <EditorToolbar
-        activeTool={tool}
-        brushSize={brushSize}
-        onToolChange={setTool}
-        onBrushSizeChange={setBrushSize}
-        onRotate={doc.rotateActive}
-        onFlip={doc.flipActive}
-        onResetEdits={doc.resetActiveEdits}
-        onCrop={() => {
-          setTool("none");
-          setCropMode((c) => !c);
-          if (!cropRegion) setCropRegion(null);
-        }}
-        onApplyCrop={handleApplyCrop}
-        onCancelCrop={() => {
-          setCropMode(false);
-          setCropRegion(null);
-        }}
-        cropMode={cropMode}
-        onClearOverlays={() => {
-          overlayHandle.current?.clearOverlays();
-          toast.success("Anotasi dihapus");
-        }}
-        onEnhance={runEnhance}
-        onAdvanced={runAdvanced}
-        onDeskew={runDeskew}
-        onAutoWarp={runAutoWarp}
-        onAutoPipeline={runAutoPipeline}
-        onStitch={handleStitch}
-        onCardLayout={handleCardLayout}
-        zoom={zoom}
-        onZoomChange={setZoom}
-        busy={doc.busy}
-        hasPage={Boolean(activePage)}
-        hasMultiplePages={doc.pages.length >= 2}
-        cvStatus={CV_STATUS_LABEL[cv.status] ? cv.status : "idle"}
-        adjustments={{
-          brightness: activePage?.brightness ?? 0,
-          contrast: activePage?.contrast ?? 0,
-          gamma: activePage?.gamma ?? 1,
-          grayscale: activePage?.grayscale ?? false,
-        }}
-        onAdjustmentsChange={doc.setActiveAdjustments}
-      />
+    <div className="grid flex-1 gap-3 min-h-0 lg:grid-cols-[240px_minmax(0,1fr)_320px]">
+      {/* KIRI — daftar halaman. Di >= lg jadi kolom thumbnail vertikal yang
+          menggulir (orientation="vertical" di PageStrip); di < lg tetap strip
+          horizontal persis seperti semula. */}
+      <aside className="min-w-0 min-h-0 overflow-y-auto">
+        <PageStrip
+          orientation="vertical"
+          pages={doc.pages}
+          activeId={doc.activeId}
+          selectedIds={selectedIds}
+          onSelect={doc.selectPage}
+          onToggleSelect={toggleSelect}
+          onRemove={doc.removePage}
+          onMove={movePage}
+          busy={doc.busy}
+        />
+      </aside>
 
-      {doc.busy && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-sm text-primary"
-        >
-          <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-          {doc.busyLabel || "Memproses…"}
-        </div>
-      )}
+      {/* TENGAH — banner sibuk + kanvas pratinjau (satu-satunya area scroll). */}
+      <main className="flex min-w-0 min-h-0 flex-col gap-3">
+        {doc.busy && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-sm text-primary"
+          >
+            <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+            {doc.busyLabel || "Memproses…"}
+          </div>
+        )}
 
-      <PageStrip
-        pages={doc.pages}
-        activeId={doc.activeId}
-        selectedIds={selectedIds}
-        onSelect={doc.selectPage}
-        onToggleSelect={toggleSelect}
-        onRemove={doc.removePage}
-        onMove={movePage}
-        busy={doc.busy}
-      />
+        <CanvasOverlay
+          ref={overlayHandle}
+          state={engine}
+          page={activePage}
+          tool={tool}
+          brushSize={brushSize}
+          brushColor={engine.brushColor}
+          highlightColor={engine.highlightColor}
+          cropMode={cropMode}
+          cropRegion={cropRegion}
+          zoom={zoom}
+          busy={doc.busy}
+          onCropRegionChange={setCropRegion}
+          onChanged={() => doc.selectPage(doc.activeId ?? "")}
+        />
+      </main>
 
-      <CanvasOverlay
-        ref={overlayHandle}
-        state={engine}
-        page={activePage}
-        tool={tool}
-        brushSize={brushSize}
-        brushColor={engine.brushColor}
-        highlightColor={engine.highlightColor}
-        cropMode={cropMode}
-        cropRegion={cropRegion}
-        zoom={zoom}
-        busy={doc.busy}
-        onCropRegionChange={setCropRegion}
-        onChanged={() => doc.selectPage(doc.activeId ?? "")}
-      />
+      {/* KANAN — toolbar edit + blok aksi (dipindah dari footer lama). */}
+      <aside className="min-w-0 min-h-0 space-y-3 overflow-y-auto">
+        <EditorToolbar
+          activeTool={tool}
+          brushSize={brushSize}
+          onToolChange={setTool}
+          onBrushSizeChange={setBrushSize}
+          onRotate={doc.rotateActive}
+          onFlip={doc.flipActive}
+          onResetEdits={doc.resetActiveEdits}
+          onCrop={() => {
+            setTool("none");
+            setCropMode((c) => !c);
+            if (!cropRegion) setCropRegion(null);
+          }}
+          onApplyCrop={handleApplyCrop}
+          onCancelCrop={() => {
+            setCropMode(false);
+            setCropRegion(null);
+          }}
+          cropMode={cropMode}
+          onClearOverlays={() => {
+            overlayHandle.current?.clearOverlays();
+            toast.success("Anotasi dihapus");
+          }}
+          onEnhance={runEnhance}
+          onAdvanced={runAdvanced}
+          onDeskew={runDeskew}
+          onAutoWarp={runAutoWarp}
+          onAutoPipeline={runAutoPipeline}
+          onStitch={handleStitch}
+          onCardLayout={handleCardLayout}
+          zoom={zoom}
+          onZoomChange={setZoom}
+          busy={doc.busy}
+          hasPage={Boolean(activePage)}
+          hasMultiplePages={doc.pages.length >= 2}
+          cvStatus={CV_STATUS_LABEL[cv.status] ? cv.status : "idle"}
+          adjustments={{
+            brightness: activePage?.brightness ?? 0,
+            contrast: activePage?.contrast ?? 0,
+            gamma: activePage?.gamma ?? 1,
+            grayscale: activePage?.grayscale ?? false,
+          }}
+          onAdjustmentsChange={doc.setActiveAdjustments}
+        />
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-3">
-        <div className="text-xs text-muted-foreground">
-          {doc.pages.length} halaman ·{" "}
-          {selectedIds.size > 0 ? `${selectedIds.size} dipilih` : "tidak ada yang dipilih"}
-        </div>
-        <div className="flex items-center gap-2">
-          {onRescan && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onRescan}
-              disabled={doc.busy}
-              title="Pindai dan tambahkan halaman baru ke dokumen ini"
-            >
-              <ScanLine className="mr-1.5 h-4 w-4" />
-              Pindai lagi
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-3">
+          <div className="text-xs text-muted-foreground">
+            {doc.pages.length} halaman ·{" "}
+            {selectedIds.size > 0 ? `${selectedIds.size} dipilih` : "tidak ada yang dipilih"}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {onRescan && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onRescan}
+                disabled={doc.busy}
+                title="Pindai dan tambahkan halaman baru ke dokumen ini"
+              >
+                <ScanLine className="mr-1.5 h-4 w-4" />
+                Pindai lagi
+              </Button>
+            )}
+            <Button type="button" variant="outline" onClick={handleExportPdf} disabled={doc.pages.length === 0 || doc.busy}>
+              <FileDown className="mr-1.5 h-4 w-4" />
+              Unduh PDF
             </Button>
-          )}
-          <Button type="button" variant="outline" onClick={handleExportPdf} disabled={doc.pages.length === 0 || doc.busy}>
-            <FileDown className="mr-1.5 h-4 w-4" />
-            Unduh PDF
-          </Button>
-          <Button type="button" onClick={onProceed} disabled={doc.pages.length === 0 || doc.busy}>
-            <Printer className="mr-1.5 h-4 w-4" />
-            Lanjut Cetak
-          </Button>
+            <Button type="button" onClick={onProceed} disabled={doc.pages.length === 0 || doc.busy}>
+              <Printer className="mr-1.5 h-4 w-4" />
+              Lanjut Cetak
+            </Button>
+          </div>
         </div>
-      </div>
+      </aside>
     </div>
   );
 }
