@@ -20,6 +20,7 @@ import {
   rotatePage,
   stitchPages,
 } from "@/lib/docstation/editor";
+import { fetchScannerCaps } from "@/lib/docstation/escl-caps";
 import {
   createEnginePage,
   createEngineState,
@@ -239,6 +240,10 @@ export function useDocStation(): UseDocStationResult {
       setScanning(true);
       setScanProgress({ message: "Menyiapkan pemindaian…", percent: 0 });
       try {
+        // Caps (DPI & batas area printer) diambil dari cache/sekali per sesi;
+        // bila gagal, scan tetap jalan tanpa clamp tambahan (printer sendiri
+        // juga melakukan clamp terhadap batas kacanya).
+        const caps = await fetchScannerCaps(config.printerIp, aborter.signal).catch(() => null);
         const outcome = await requestScan({
           resolution: config.resolution,
           preset: config.preset,
@@ -247,6 +252,7 @@ export function useDocStation(): UseDocStationResult {
           customHeight: config.customHeight,
           source: config.source,
           printerIp: config.printerIp,
+          caps,
           onProgress: (message, percent) => setScanProgress({ message, percent }),
           signal: aborter.signal,
         });

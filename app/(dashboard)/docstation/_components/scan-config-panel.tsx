@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import { ScanLine } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -13,6 +15,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  capsMaxMMLabel,
+  esclRegionUnits,
+  fetchScannerCaps,
+  regionExceedsCaps,
+  supportedResolutions,
+  type ScannerCaps,
+} from "@/lib/docstation/escl-caps";
 import {
   PAPER_SIZE_LABELS,
   PRESET_LABELS,
@@ -40,6 +50,46 @@ export function ScanConfigPanel({
   onScan,
   onBack,
 }: ScanConfigPanelProps) {
+  // Kemampuan printer (DPI didukung & batas area) — diambil saat printer
+  // dipilih; bila gagal, panel tetap memakai daftar statis. State menyimpan
+  // IP pemilik caps agar hasil lambat dari printer lama tidak terpakai.
+  const [capsState, setCapsState] = useState<{ ip: string; caps: ScannerCaps | null } | null>(null);
+  useEffect(() => {
+    if (!config.printerIp) return;
+    let cancelled = false;
+    const ac = new AbortController();
+    fetchScannerCaps(config.printerIp, ac.signal)
+      .then((c) => {
+        if (!cancelled) setCapsState({ ip: config.printerIp, caps: c });
+      })
+      .catch(() => {
+        if (!cancelled) setCapsState({ ip: config.printerIp, caps: null });
+      });
+    return () => {
+      cancelled = true;
+      ac.abort();
+    };
+  }, [config.printerIp]);
+
+  const caps = capsState && capsState.ip === config.printerIp ? capsState.caps : null;
+
+  const resolutionOptions = supportedResolutions(caps, config.source, RESOLUTION_OPTIONS);
+
+  // DPI yang tak didukung printer (mis. sisa sesi lama) → koreksi otomatis.
+  useEffect(() => {
+    if (caps && !resolutionOptions.includes(config.resolution)) {
+      onChange({
+        resolution: resolutionOptions.includes(300)
+          ? 300
+          : resolutionOptions[resolutionOptions.length - 1],
+      });
+    }
+  }, [caps, config.resolution, onChange, resolutionOptions]);
+
+  const region = esclRegionUnits(config.paperSize, config.customWidth, config.customHeight);
+  const oversize = regionExceedsCaps(region, caps, config.source);
+  const oversizeLabel = capsMaxMMLabel(caps, config.source);
+
   return (
     <section className="mx-auto w-full max-w-2xl space-y-6 py-4">
       <div className="space-y-1 text-center">
@@ -124,6 +174,13 @@ export function ScanConfigPanel({
           </div>
         )}
 
+        {oversize && (
+          <p className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs font-medium text-destructive sm:col-span-2">
+            {config.source === "adf" ? "Panjang kertas melebihi kapasitas ADF" : "Ukuran kertas melebihi area kaca"}{" "}
+            printer (maks {oversizeLabel}) — hasil scan akan dipotong printer.
+          </p>
+        )}
+
         <div>
           <Label className="mb-1.5 block text-xs font-bold uppercase tracking-wider">
             Sumber Masukan
@@ -178,7 +235,7 @@ export function ScanConfigPanel({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {RESOLUTION_OPTIONS.map((r) => (
+              {resolutionOptions.map((r) => (
                 <SelectItem key={r} value={String(r)}>
                   {r} DPI
                   {r === 300 ? " (Standar Arsip)" : ""}

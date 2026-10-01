@@ -5,8 +5,13 @@
 // `goFetch` (yang menyetel Content-Type JSON); namun tetap menyertakan cookie
 // sesi dan CSRF token agar konsisten dengan modul lain.
 
-import type { DocStationPrinterConfig, PrinterInfo } from "@/app/(dashboard)/docstation/_components/types";
-import { resolvePaperMM, type PaperSize } from "@/app/(dashboard)/docstation/_components/types";
+import type { DocStationPrinterConfig, PaperSize, PrinterInfo } from "@/app/(dashboard)/docstation/_components/types";
+import {
+  clampRegionToCaps,
+  esclRegionUnits,
+  type ScanSourceKind,
+  type ScannerCaps,
+} from "@/lib/docstation/escl-caps";
 
 const API_BASE = "/api/docstation";
 
@@ -21,21 +26,6 @@ function mutationHeaders(extra: Record<string, string> = {}): Record<string, str
   const csrf = getCSRFToken();
   if (csrf) headers["X-CSRF-Token"] = csrf;
   return headers;
-}
-
-// Mengubah ukuran kertas (mm) menjadi dimensi eSCL (piksel) pada DPI tertentu.
-const MM_PER_INCH = 25.4;
-function esclDimensions(
-  paperSize: PaperSize,
-  resolution: number,
-  customWidth?: number,
-  customHeight?: number,
-): { width: number; height: number } {
-  const [wmm, hmm] = resolvePaperMM(paperSize, customWidth, customHeight);
-  return {
-    width: Math.round((wmm / MM_PER_INCH) * resolution),
-    height: Math.round((hmm / MM_PER_INCH) * resolution),
-  };
 }
 
 // ops signal dipakai polling status printer agar permintaan bisa dibatalkan
@@ -71,8 +61,10 @@ export interface ScanRequest {
   paperSize: PaperSize;
   customWidth?: number;
   customHeight?: number;
-  source: "flatbed" | "adf";
+  source: ScanSourceKind;
   printerIp: string;
+  /** Kemampuan printer (opsional) — region di-clamp ke batas kaca/ADF. */
+  caps?: ScannerCaps | null;
   onProgress?: (message: string, percent: number) => void;
   /** Sinyal pembatalan — loop ADF berhenti di lembar berikutnya. */
   signal?: AbortSignal;
@@ -147,9 +139,11 @@ function classifyNextDocument(status: number): NextDocKind {
 
 /** Meminta pemindaian eSCL dan mengembalikan hasil scan beserta statistiknya. */
 export async function requestScan(req: ScanRequest): Promise<ScanOutcome> {
-  const { resolution, preset, paperSize, customWidth, customHeight, source, printerIp, onProgress, signal } = req;
+  const { resolution, preset, paperSize, customWidth, customHeight, source, printerIp, caps, onProgress, signal } = req;
   const colorMode = preset === "color" ? "RGB24" : preset === "gray" ? "Grayscale8" : "RGB24";
-  const dim = esclDimensions(paperSize, resolution, customWidth, customHeight);
+  // Region dalam satuan 1/300 inci (bukan piksel@DPI — lihat esclRegionUnits),
+  // di-clamp ke batas area printer bila caps diketahui.
+  const dim = clampRegionToCaps(esclRegionUnits(paperSize, customWidth, customHeight), caps, source);
   const inputSource = source === "adf" ? "Adf" : "Platen";
 
   const scanSettings =
@@ -158,6 +152,7 @@ export async function requestScan(req: ScanRequest): Promise<ScanOutcome> {
     `<pwg:ScanRegions xmlns:pwg="http://www.pwg.org/schemas/2010/12/sm"><pwg:ScanRegion>` +
     `<pwg:Height>${dim.height}</pwg:Height><pwg:Width>${dim.width}</pwg:Width>` +
     `<pwg:XOffset>0</pwg:XOffset><pwg:YOffset>0</pwg:YOffset>` +
+    `<pwg:ContentRegionUnits>escl:ThreeHundredthsOfInches</pwg:ContentRegionUnits>` +
     `</pwg:ScanRegion></pwg:ScanRegions>` +
     `<pwg:InputSource xmlns:pwg="http://www.pwg.org/schemas/2010/12/sm">${inputSource}</pwg:InputSource>` +
     `<scan:ColorMode>${colorMode}</scan:ColorMode>` +

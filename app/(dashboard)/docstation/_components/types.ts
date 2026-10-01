@@ -217,4 +217,7 @@ export const SOURCE_LABELS: Record<ScanSource, string> = {
   adf: "ADF (Auto Document Feeder)",
 };
 
-export const RESOLUTION_OPTIONS = [150, 200, 300, 400, 600];
+// 400 DPI sengaja tidak dicantumkan: tidak didukung Canon G7000
+// (75/100/150/200/300/600/1200) maupun Epson L6270 (100/200/300/600/1200);
+// pemilihan di panel selalu di-filter lagi terhadap ScannerCapabilities.
+export const RESOLUTION_OPTIONS = [150, 200, 300, 600];
