@@ -523,6 +523,11 @@ export function EditorStudio({ paperSize, customWidth, customHeight, onProceed, 
           zoom={zoom}
           busy={doc.busy}
           onCropRegionChange={setCropRegion}
+          onApplyCrop={handleApplyCrop}
+          onCancelCrop={() => {
+            setCropMode(false);
+            setCropRegion(null);
+          }}
           onChanged={() => doc.selectPage(doc.activeId ?? "")}
         />
       </main>

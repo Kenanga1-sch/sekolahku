@@ -31,6 +31,10 @@ interface CanvasOverlayProps {
   /** Kunci interaksi saat worker sedang memproses. */
   busy?: boolean;
   onCropRegionChange: (region: { x: number; y: number; width: number; height: number }) => void;
+  /** Terapkan crop (dipanggil Enter pada kanvas). */
+  onApplyCrop?: () => void;
+  /** Batalkan crop (dipanggil Escape pada kanvas). */
+  onCancelCrop?: () => void;
   onChanged: () => void;
   onError?: (message: string) => void;
 }
@@ -39,6 +43,13 @@ interface Point {
   x: number;
   y: number;
 }
+
+type CropRegion = { x: number; y: number; width: number; height: number };
+/** Arah handle tepi crop; "new" = gambar baru, "move" = geser seluruh region. */
+type CropDragMode = "new" | "move" | "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw" | null;
+
+/** Ukuran minimum region crop (koordinat kanvas render, maks 2200 px). */
+const MIN_CROP = 32;
 
 /**
  * Penampil kanvas halaman dengan overlay interaktif (brush/eraser/highlighter
@@ -59,6 +70,8 @@ export const CanvasOverlay = forwardRef<CanvasOverlayHandle, CanvasOverlayProps>
       zoom,
       busy,
       onCropRegionChange,
+      onApplyCrop,
+      onCancelCrop,
       onChanged,
       onError,
     },
@@ -69,8 +82,13 @@ export const CanvasOverlay = forwardRef<CanvasOverlayHandle, CanvasOverlayProps>
     const overlayRef = useRef<HTMLCanvasElement>(null);
     const drawingRef = useRef(false);
     const currentStrokeRef = useRef<OverlayStroke | null>(null);
-    const cropDragRef = useRef<{ start: Point; mode: "new" | "move" | null }>({
+    const cropDragRef = useRef<{
+      start: Point;
+      startRegion: CropRegion | null;
+      mode: CropDragMode;
+    }>({
       start: { x: 0, y: 0 },
+      startRegion: null,
       mode: null,
     });
 
@@ -168,9 +186,9 @@ export const CanvasOverlay = forwardRef<CanvasOverlayHandle, CanvasOverlayProps>
         if (cropMode) {
           const region = cropRegion;
           if (region && hitInside(point, region)) {
-            cropDragRef.current = { start: point, mode: "move" };
+            cropDragRef.current = { start: point, startRegion: region, mode: "move" };
           } else {
-            cropDragRef.current = { start: point, mode: "new" };
+            cropDragRef.current = { start: point, startRegion: null, mode: "new" };
             onCropRegionChange({ x: point.x, y: point.y, width: 0, height: 0 });
           }
           overlayRef.current?.setPointerCapture(event.pointerId);
@@ -192,31 +210,52 @@ export const CanvasOverlay = forwardRef<CanvasOverlayHandle, CanvasOverlayProps>
       [busy, brushColor, brushSize, cropMode, cropRegion, highlightColor, onCropRegionChange, page, toCanvasPoint, tool],
     );
 
+    // Ditarik dari handle tepi/sudut: kunci titik awal + snapshot region agar
+    // resize menghitung dari posisi awal (tanpa akumulasi geser).
+    const startCropDrag = useCallback(
+      (event: React.PointerEvent, mode: Exclude<CropDragMode, "new" | "move" | null>) => {
+        if (!page || busy || !cropMode || !cropRegion) return;
+        event.preventDefault();
+        const point = toCanvasPoint(event);
+        cropDragRef.current = { start: point, startRegion: cropRegion, mode };
+        overlayRef.current?.setPointerCapture(event.pointerId);
+      },
+      [busy, cropMode, cropRegion, page, toCanvasPoint],
+    );
+
     const handlePointerMove = useCallback(
       (event: React.PointerEvent) => {
         const point = toCanvasPoint(event);
 
         if (cropMode && cropDragRef.current.mode) {
-          const { start, mode } = cropDragRef.current;
+          const { start, mode, startRegion } = cropDragRef.current;
+          const dx = point.x - start.x;
+          const dy = point.y - start.y;
           if (mode === "new") {
             onCropRegionChange({
               x: Math.min(start.x, point.x),
               y: Math.min(start.y, point.y),
-              width: Math.abs(point.x - start.x),
-              height: Math.abs(point.y - start.y),
+              width: Math.abs(dx),
+              height: Math.abs(dy),
             });
-          } else if (mode === "move" && cropRegion) {
-            const dx = point.x - start.x;
-            const dy = point.y - start.y;
-            cropDragRef.current.start = point;
+          } else if (mode === "move" && startRegion) {
+            // Geser dari snapshot awal → tidak ada akumulasi drift.
             onCropRegionChange({
-              x: cropRegion.x + dx,
-              y: cropRegion.y + dy,
-              width: cropRegion.width,
-              height: cropRegion.height,
+              x: clamp(startRegion.x + dx, 0, Math.max(0, baseSize.width - startRegion.width)),
+              y: clamp(startRegion.y + dy, 0, Math.max(0, baseSize.height - startRegion.height)),
+              width: startRegion.width,
+              height: startRegion.height,
             });
+          } else if (startRegion && mode !== "move") {
+            onCropRegionChange(resizeRegion(startRegion, mode, dx, dy, baseSize));
           }
           return;
+        }
+
+        // Hover saat crop mode: kursor pindah bila di dalam region.
+        if (cropMode && overlayRef.current) {
+          overlayRef.current.style.cursor =
+            cropRegion && hitInside(point, cropRegion) ? "move" : "crosshair";
         }
 
         if (!drawingRef.current || !currentStrokeRef.current) return;
@@ -227,7 +266,7 @@ export const CanvasOverlay = forwardRef<CanvasOverlayHandle, CanvasOverlayProps>
         const ctx = overlay.getContext("2d")!;
         paintStroke(ctx, stroke, state);
       },
-      [cropMode, cropRegion, onCropRegionChange, state, toCanvasPoint],
+      [baseSize, cropMode, cropRegion, onCropRegionChange, state, toCanvasPoint],
     );
 
     const handlePointerUp = useCallback(
@@ -242,16 +281,21 @@ export const CanvasOverlay = forwardRef<CanvasOverlayHandle, CanvasOverlayProps>
           drawingRef.current = false;
           onChanged();
         }
-        cropDragRef.current.mode = null;
+        cropDragRef.current = { start: { x: 0, y: 0 }, startRegion: null, mode: null };
       },
       [onChanged, page, state],
     );
 
-    // Keyboard crop: panah memindahkan/meresize region tanpa pointer.
-    // Region dibuat tengah-bila belum ada agar keyboard-only bisa mulai crop.
+    // Keyboard crop: panah memindahkan, Shift+panah mengubah ukuran (lebar
+    // mengikuti panah kanan/kiri, tinggi mengikuti bawah/atas), Enter
+    // menerapkan, Escape membatalkan. Region dibuat tengah bila belum ada.
     const handleKeyDown = useCallback(
       (event: React.KeyboardEvent) => {
         if (!page || busy || !cropMode) return;
+        if (event.key === "Escape") {
+          onCancelCrop?.();
+          return;
+        }
         const step = event.shiftKey ? 20 : 5;
         let region = cropRegion;
         if (!region) {
@@ -267,20 +311,33 @@ export const CanvasOverlay = forwardRef<CanvasOverlayHandle, CanvasOverlayProps>
         let next = region;
         switch (event.key) {
           case "ArrowLeft":
-            next = { ...region, x: Math.max(0, region.x - step) };
+            next = event.shiftKey
+              ? { ...region, width: Math.max(MIN_CROP, region.width - step) }
+              : { ...region, x: Math.max(0, region.x - step) };
             break;
           case "ArrowRight":
-            next = { ...region, x: Math.min(baseSize.width - region.width, region.x + step) };
+            next = event.shiftKey
+              ? { ...region, width: Math.min(baseSize.width - region.x, region.width + step) }
+              : { ...region, x: Math.min(baseSize.width - region.width, region.x + step) };
             break;
           case "ArrowUp":
-            next = { ...region, y: Math.max(0, region.y - step) };
+            next = event.shiftKey
+              ? { ...region, height: Math.max(MIN_CROP, region.height - step) }
+              : { ...region, y: Math.max(0, region.y - step) };
             break;
           case "ArrowDown":
-            next = { ...region, y: Math.min(baseSize.height - region.height, region.y + step) };
+            next = event.shiftKey
+              ? { ...region, height: Math.min(baseSize.height - region.y, region.height + step) }
+              : { ...region, y: Math.min(baseSize.height - region.height, region.y + step) };
             break;
           case "Enter":
-            if (region.width >= 4 && region.height >= 4) {
+            // Enter pertama membuat area tengah; Enter berikutnya menerapkan.
+            if (!cropRegion) {
               onCropRegionChange(region);
+              return;
+            }
+            if (region.width >= 4 && region.height >= 4) {
+              onApplyCrop?.();
             }
             return;
           default:
@@ -289,7 +346,7 @@ export const CanvasOverlay = forwardRef<CanvasOverlayHandle, CanvasOverlayProps>
         event.preventDefault();
         onCropRegionChange(next);
       },
-      [baseSize, busy, cropMode, cropRegion, onCropRegionChange, page],
+      [baseSize, busy, cropMode, cropRegion, onApplyCrop, onCancelCrop, onCropRegionChange, page],
     );
 
     // Cursor mengikuti tool.
@@ -338,7 +395,7 @@ export const CanvasOverlay = forwardRef<CanvasOverlayHandle, CanvasOverlayProps>
             role="application"
             aria-label={
               cropMode
-                ? "Area crop — panah memindahkan, Shift+panah memperbesar, Enter menerapkan"
+                ? "Area crop — seret garis tepi/sudut untuk mengatur, panah memindahkan, Shift+panah mengubah ukuran, Enter menerapkan, Escape membatalkan"
                 : "Kanvas anotasi"
             }
             className="absolute left-0 top-0 h-full w-full touch-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
@@ -349,7 +406,12 @@ export const CanvasOverlay = forwardRef<CanvasOverlayHandle, CanvasOverlayProps>
             onPointerLeave={handlePointerUp}
             onKeyDown={handleKeyDown}
           />
-          {cropMode && crop && (
+          {cropMode && !crop && (
+            <div className="pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2 whitespace-nowrap rounded-full bg-black/75 px-3 py-1.5 text-[11px] font-medium text-white shadow-md">
+              Seret untuk membuat area · Enter untuk area tengah
+            </div>
+          )}
+          {cropMode && crop && baseSize.width > 0 && (
             <div
               className="pointer-events-none absolute border-2 border-primary bg-primary/10"
               style={{
@@ -357,8 +419,54 @@ export const CanvasOverlay = forwardRef<CanvasOverlayHandle, CanvasOverlayProps>
                 top: `${(crop.y / baseSize.height) * 100}%`,
                 width: `${(crop.width / baseSize.width) * 100}%`,
                 height: `${(crop.height / baseSize.height) * 100}%`,
+                // Redupkan area di luar crop agar batas terasa tegas.
+                boxShadow: "0 0 0 9999px rgba(0,0,0,0.45)",
               }}
-            />
+            >
+              {/* Garis tepi yang bisa ditarik (area lebar agar mudah ditangkap). */}
+              <div
+                className="pointer-events-auto absolute -top-2 left-5 right-5 h-3 cursor-ns-resize"
+                onPointerDown={(e) => startCropDrag(e, "n")}
+              />
+              <div
+                className="pointer-events-auto absolute -bottom-2 left-5 right-5 h-3 cursor-ns-resize"
+                onPointerDown={(e) => startCropDrag(e, "s")}
+              />
+              <div
+                className="pointer-events-auto absolute -left-2 top-5 bottom-5 w-3 cursor-ew-resize"
+                onPointerDown={(e) => startCropDrag(e, "w")}
+              />
+              <div
+                className="pointer-events-auto absolute -right-2 top-5 bottom-5 w-3 cursor-ew-resize"
+                onPointerDown={(e) => startCropDrag(e, "e")}
+              />
+              {/* Knot sudut sebagai pegangan visual. */}
+              <div
+                className="pointer-events-auto absolute -left-[7px] -top-[7px] h-3.5 w-3.5 cursor-nwse-resize rounded-[2px] border-2 border-primary bg-background shadow"
+                onPointerDown={(e) => startCropDrag(e, "nw")}
+              />
+              <div
+                className="pointer-events-auto absolute -right-[7px] -top-[7px] h-3.5 w-3.5 cursor-nesw-resize rounded-[2px] border-2 border-primary bg-background shadow"
+                onPointerDown={(e) => startCropDrag(e, "ne")}
+              />
+              <div
+                className="pointer-events-auto absolute -bottom-[7px] -left-[7px] h-3.5 w-3.5 cursor-nesw-resize rounded-[2px] border-2 border-primary bg-background shadow"
+                onPointerDown={(e) => startCropDrag(e, "sw")}
+              />
+              <div
+                className="pointer-events-auto absolute -bottom-[7px] -right-[7px] h-3.5 w-3.5 cursor-nwse-resize rounded-[2px] border-2 border-primary bg-background shadow"
+                onPointerDown={(e) => startCropDrag(e, "se")}
+              />
+              {/* Ukuran hasil crop pada resolusi asli halaman. */}
+              <span
+                title="Perkiraan ukuran hasil crop (piksel resolusi asli)"
+                className="pointer-events-none absolute -bottom-6 right-0 rounded bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-white shadow"
+              >
+                {Math.round((crop.width * (page.image.naturalWidth || baseSize.width)) / baseSize.width)}{" "}
+                ×{" "}
+                {Math.round((crop.height * (page.image.naturalHeight || baseSize.height)) / baseSize.height)} px
+              </span>
+            </div>
           )}
         </div>
         {onError ? null : null}
@@ -374,6 +482,40 @@ function hitInside(point: Point, region: { x: number; y: number; width: number; 
     point.y >= region.y &&
     point.y <= region.y + region.height
   );
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+/**
+ * Hitung ulang region dari snapshot awal + delta pointer untuk mode resize
+ * tepi/sudut. Sisi berlawanan tetap sebagai jangkar; hasil di-clamp ke
+ * [MIN_CROP, batas kanvas] agar region tidak terbalik atau keluar halaman.
+ */
+function resizeRegion(
+  start: CropRegion,
+  mode: "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw",
+  dx: number,
+  dy: number,
+  bounds: { width: number; height: number },
+): CropRegion {
+  let { x, y, width, height } = start;
+  const right = x + width;
+  const bottom = y + height;
+  if (mode.includes("e")) width = clamp(width + dx, MIN_CROP, Math.max(MIN_CROP, bounds.width - x));
+  if (mode.includes("s")) height = clamp(height + dy, MIN_CROP, Math.max(MIN_CROP, bounds.height - y));
+  if (mode.includes("w")) {
+    const nx = clamp(x + dx, 0, right - MIN_CROP);
+    x = nx;
+    width = right - nx;
+  }
+  if (mode.includes("n")) {
+    const ny = clamp(y + dy, 0, bottom - MIN_CROP);
+    y = ny;
+    height = bottom - ny;
+  }
+  return { x, y, width, height };
 }
 
 function paintStroke(ctx: CanvasRenderingContext2D, stroke: OverlayStroke, state: EngineState) {
