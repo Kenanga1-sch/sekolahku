@@ -113,29 +113,29 @@ function StudentCardFront({ student, schoolName, schoolAddress, schoolLogo, show
             <div className="grid gap-y-1 leading-tight">
               <div className="flex items-baseline justify-between gap-2">
                 <p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">NISN</p>
-                <p className="font-mono font-semibold text-[9px] text-slate-700">{student.nisn || "-"}</p>
+                <p className="font-mono font-semibold text-[8.5px] text-slate-700">{student.nisn || "-"}</p>
               </div>
               {showNIS && (
                 <div className="flex items-baseline justify-between gap-2">
                   <p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">NIS</p>
-                  <p className="font-mono text-[9px] text-slate-700">{student.nis || "-"}</p>
+                  <p className="font-mono text-[8.5px] text-slate-700">{student.nis || "-"}</p>
                 </div>
               )}
               <div className="flex items-baseline justify-between gap-2">
                 <p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">L / P</p>
-                <p className="text-[9px] text-slate-700">{student.gender === "L" ? "Laki-laki" : student.gender === "P" ? "Perempuan" : "-"}</p>
+                <p className="text-[8.5px] text-slate-700">{student.gender === "L" ? "Laki-laki" : student.gender === "P" ? "Perempuan" : "-"}</p>
               </div>
-              <div>
-                <p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">Tempat, Tanggal Lahir</p>
-                <p className="text-[8px] text-slate-700">{formatBirthInfo(student)}</p>
+              <div className="flex items-baseline justify-between gap-2">
+                <p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">TTL</p>
+                <p className="text-[8.5px] text-slate-700">{formatBirthInfo(student)}</p>
               </div>
             </div>
           </div>
         </div>
-        <div className="flex flex-col items-center justify-center relative" style={{ width: "34%", background: "linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)", borderLeft: "1px solid #e2e8f0" }}>
+        <div className="flex flex-col items-center justify-center relative" style={{ width: "30%", background: "linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)", borderLeft: "1px solid #e2e8f0" }}>
           <div className="absolute top-2 left-2 w-3 h-3 border-l border-t border-slate-300" />
           <div className="absolute bottom-2 right-2 w-3 h-3 border-r border-b border-slate-300" />
-          <div className="bg-white p-2 rounded-lg border border-slate-200"><QRCodeSVG value={student.qrCode} size={90} level="H" includeMargin={false} /></div>
+          <div className="bg-white p-2 rounded-lg border border-slate-200"><QRCodeSVG value={student.qrCode} size={forPrint ? 76 : 90} level="H" includeMargin={false} /></div>
           <div className="mt-1 text-center">
             <p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">Pindai</p>
             <p className="font-mono font-bold mt-0.5 px-2 py-0.5 rounded" style={{ fontSize: "7px", color: "#475569", background: "#e2e8f0" }}>{student.qrCode.slice(-8).toUpperCase()}</p>
