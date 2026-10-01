@@ -55,9 +55,6 @@ function StudentCardFront({ student, schoolName, schoolAddress, schoolLogo, show
           <h2 className="font-bold uppercase tracking-wider leading-tight" style={{ fontSize: "10px", color: "#fbbf24", textShadow: "0 1px 2px rgba(0,0,0,0.3)" }}>{schoolName}</h2>
           <p className="leading-[1.2] mt-0.5 pr-2" style={{ fontSize: "6.5px", color: "rgba(203,213,225,0.9)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{schoolAddress}</p>
         </div>
-        <div className="relative z-10 px-2.5 py-1 rounded-md flex-shrink-0" style={{ background: "rgba(15,23,42,0.6)", border: "1px solid rgba(251,191,36,0.3)", backdropFilter: "blur(4px)" }}>
-          <span className="font-bold tracking-widest" style={{ fontSize: "7px", color: "#fbbf24" }}>KARTU PELAJAR</span>
-        </div>
       </div>
       <div className="flex flex-1 min-h-0">
         <div className="flex-1 p-3 flex gap-3 relative overflow-hidden">
