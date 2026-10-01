@@ -3,15 +3,14 @@
 // LAN via lapisan murni DocStation (lib/docstation/api.ts) — tanpa membuka
 // halaman DocStation penuh.
 //
-// Hasil scan discrop manual (pilih rasio + zoom + geser) lalu dikirim ke
-// endpoint yang sudah ada: POST /api/library/catalog/cover (multipart `file` +
-// opsional `isbn`). Tidak ada perubahan backend.
+// Hasil scan discrop manual lewat bingkai 8-titik-handle (ScanCropFrame)
+// lalu dikirim ke endpoint yang sudah ada: POST /api/library/catalog/cover
+// (multipart `file` + opsional `isbn`). Tidak ada perubahan backend.
 
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
 
-import Cropper, { type Area, type Point } from "react-easy-crop";
 import { ScanLine, Upload } from "lucide-react";
 import { toast } from "sonner";
 
@@ -32,7 +31,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
 import type { PrinterInfo } from "@/app/(dashboard)/docstation/_components/types";
 import { RESOLUTION_OPTIONS } from "@/app/(dashboard)/docstation/_components/types";
 import { goPost } from "@/lib/api-client";
@@ -40,6 +38,12 @@ import { fetchPrinters, requestScan } from "@/lib/docstation/api";
 import { fetchScannerCaps, supportedResolutions } from "@/lib/docstation/escl-caps";
 import getCroppedImg from "@/lib/crop-image";
 import { cn, compressImage } from "@/lib/utils";
+
+import {
+  ScanCropFrame,
+  type NaturalArea,
+  type ScanCropFrameHandle,
+} from "./scan-crop-frame";
 
 /**
  * Resolusi scan sampul: DPI TERENDAH yang didukung printer terpilih
@@ -227,13 +231,6 @@ export interface CoverScanDialogProps {
   onCoverChange: (url: string) => void;
 }
 
-/** Rasio crop yang ditawarkan; 3:4 default — sama dengan kotak preview. */
-const CROP_RATIOS: { label: string; value: number }[] = [
-  { label: "3:4", value: 3 / 4 },
-  { label: "1:1", value: 1 },
-  { label: "2:3", value: 2 / 3 },
-];
-
 /** Dialog dua tahap: pilih printer → pindai → sesuaikan hasil (crop) → upload. */
 export function CoverScanDialog({ open, onOpenChange, isbn, onCoverChange }: CoverScanDialogProps) {
   const [printers, setPrinters] = useState<PrinterInfo[]>([]);
@@ -242,14 +239,12 @@ export function CoverScanDialog({ open, onOpenChange, isbn, onCoverChange }: Cov
   const [progress, setProgress] = useState<{ message: string; percent: number } | null>(null);
   const [step, setStep] = useState<"scan" | "crop">("scan");
   const [imageSrc, setImageSrc] = useState<string | null>(null);
-  const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
-  const [ratio, setRatio] = useState(CROP_RATIOS[0].value);
-  const [areaPixels, setAreaPixels] = useState<Area | null>(null);
+  const [areaPixels, setAreaPixels] = useState<NaturalArea | null>(null);
   const [saving, setSaving] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
   const scanUrlRef = useRef<string | null>(null);
+  const frameApiRef = useRef<ScanCropFrameHandle>(null);
 
   // Bebaskan objectURL hasil scan saat komponen dilepas.
   useEffect(() => {
@@ -285,8 +280,6 @@ export function CoverScanDialog({ open, onOpenChange, isbn, onCoverChange }: Cov
     }
     setImageSrc(null);
     setStep("scan");
-    setCrop({ x: 0, y: 0 });
-    setZoom(1);
     setAreaPixels(null);
     setProgress(null);
   };
@@ -329,8 +322,6 @@ export function CoverScanDialog({ open, onOpenChange, isbn, onCoverChange }: Cov
       const url = URL.createObjectURL(blob);
       scanUrlRef.current = url;
       setImageSrc(url);
-      setCrop({ x: 0, y: 0 });
-      setZoom(1);
       setAreaPixels(null);
       setStep("crop");
     } catch (error) {
@@ -412,58 +403,29 @@ export function CoverScanDialog({ open, onOpenChange, isbn, onCoverChange }: Cov
           <div className="space-y-3">
             <div className="relative h-72 w-full overflow-hidden rounded-md bg-black">
               {imageSrc && (
-                <Cropper
-                  image={imageSrc}
-                  crop={crop}
-                  zoom={zoom}
-                  aspect={ratio}
-                  onCropChange={setCrop}
-                  onZoomChange={setZoom}
-                  onCropComplete={(_, px) => setAreaPixels(px)}
+                <ScanCropFrame
+                  key={imageSrc}
+                  ref={frameApiRef}
+                  imageSrc={imageSrc}
+                  onAreaChange={setAreaPixels}
                 />
               )}
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-muted-foreground">Rasio</span>
-              <div className="flex gap-1">
-                {CROP_RATIOS.map((r) => (
-                  <button
-                    key={r.label}
-                    type="button"
-                    onClick={() => {
-                      setRatio(r.value);
-                      setAreaPixels(null);
-                    }}
-                    className={cn(
-                      "rounded-md border px-2 py-1 text-xs font-semibold transition-colors",
-                      ratio === r.value
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border text-muted-foreground hover:bg-muted",
-                    )}
-                  >
-                    {r.label}
-                  </button>
-                ))}
-              </div>
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-[11px] text-muted-foreground">
+                Bingkai sudah membingkai gambar. Tarik 8 titik di sudut/tepi untuk
+                memotong, seret di dalam bingkai untuk menggeser, atau seret di luar
+                untuk membuat bingkai baru.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 shrink-0 px-2 text-xs"
+                onClick={() => frameApiRef.current?.reset()}
+              >
+                Penuh
+              </Button>
             </div>
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-medium text-muted-foreground">Zoom</span>
-              <Slider
-                aria-label="Zoom crop"
-                className="min-w-0 flex-1"
-                value={[zoom]}
-                min={1}
-                max={3}
-                step={0.1}
-                onValueChange={(v) => setZoom(v[0])}
-              />
-              <span className="w-9 text-right text-xs tabular-nums text-muted-foreground">
-                {(zoom * 100).toFixed(0)}%
-              </span>
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              Geser gambar untuk mengatur bagian sampul yang ingin dipakai.
-            </p>
           </div>
         )}
 
