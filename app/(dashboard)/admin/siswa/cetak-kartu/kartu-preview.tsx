@@ -38,20 +38,32 @@ interface CardFrontProps {
   student: StudentCard; schoolName: string; schoolAddress: string; schoolLogo: string | null; showPhoto: boolean; showNIS: boolean; forPrint?: boolean;
 }
 
+/** "Indramayu, 17 Agustus 2014" — tanggal diurai tanpa geser zona waktu
+ *  (parsial YYYY-MM-DD diberi waktu lokal T00:00:00). */
+function formatBirthInfo(student: StudentCard): string {
+  let dateText = "";
+  const raw = student.birthDate?.split("T")[0];
+  if (raw) {
+    const d = new Date(`${raw}T00:00:00`);
+    if (!Number.isNaN(d.getTime())) {
+      dateText = d.toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" });
+    }
+  }
+  const place = student.birthPlace?.trim() || "";
+  if (place && dateText) return `${place}, ${dateText}`;
+  return dateText || place || "-";
+}
+
 function StudentCardFront({ student, schoolName, schoolAddress, schoolLogo, showPhoto, showNIS, forPrint }: CardFrontProps) {
   const initials = student.fullName.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
-  const currentYear = new Date().getFullYear();
-  const academicYear = `${currentYear}/${currentYear + 1}`;
 
   return (
     <div className="student-card relative overflow-hidden bg-white flex-shrink-0 text-slate-800 flex flex-col" style={{ width: forPrint ? "85.6mm" : "380px", height: forPrint ? "54mm" : "240px", borderRadius: forPrint ? "2mm" : "10px", border: "1px solid #e2e8f0", breakInside: "avoid", pageBreakInside: "avoid" }}>
       <div className="relative px-3 py-2 flex items-center gap-2.5 overflow-hidden flex-shrink-0" style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)" }}>
-        <div className="absolute right-0 top-0 bottom-0 w-20" style={{ background: "linear-gradient(to left, #fbbf24, #f59e0b)", clipPath: "polygon(30% 0%, 100% 0%, 100% 100%, 0% 100%)" }} />
-        <div className="absolute right-16 top-0 bottom-0 w-1" style={{ background: "rgba(255,255,255,0.15)" }} />
         <div className="relative h-12 w-12 flex items-center justify-center flex-shrink-0 overflow-hidden" style={{ background: schoolLogo ? "white" : "linear-gradient(135deg, rgba(251,191,36,0.2) 0%, rgba(245,158,11,0.1) 100%)", border: "1.5px solid rgba(251,191,36,0.4)", borderRadius: "8px" }}>
           {schoolLogo ? <NextImage src={schoolLogo} alt="Logo Sekolah" width={40} height={40} className="h-10 w-10 object-contain" /> : <span className="text-xs font-bold text-slate-300">SD</span>}
         </div>
-        <div className="relative flex-1 min-w-0 z-10">
+        <div className="relative flex-1 min-w-0 max-w-[200px] z-10">
           <h2 className="font-bold uppercase tracking-wider leading-tight" style={{ fontSize: "10px", color: "#fbbf24", textShadow: "0 1px 2px rgba(0,0,0,0.3)" }}>{schoolName}</h2>
           <p className="leading-[1.2] mt-0.5 pr-2" style={{ fontSize: "6.5px", color: "rgba(203,213,225,0.9)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{schoolAddress}</p>
         </div>
@@ -75,15 +87,18 @@ function StudentCardFront({ student, schoolName, schoolAddress, schoolLogo, show
             </div>
           )}
           <div className="flex-1 min-w-0 flex flex-col justify-center z-10">
-            <div className="mb-2">
+            <div className="mb-1">
               <p className="uppercase tracking-widest font-semibold mb-0.5 text-[6px] text-slate-400">Nama Lengkap</p>
               <h3 className="font-bold leading-tight text-slate-800" style={{ fontSize: "13px", letterSpacing: "0.3px", wordBreak: "break-word", lineHeight: "1.2" }}>{student.fullName}</h3>
             </div>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
               <div><p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">NISN</p><p className="font-mono font-semibold text-[9px] text-slate-700">{student.nisn || "-"}</p></div>
-              <div><p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">Kelas</p><p className="font-bold text-[10px] text-slate-700">{student.className || "-"}</p></div>
-              {showNIS && <div><p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">NIS</p><p className="font-mono text-[9px] text-slate-700">{student.nis || "-"}</p></div>}
               <div><p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">L / P</p><p className="text-[9px] text-slate-700">{student.gender === "L" ? "Laki-laki" : student.gender === "P" ? "Perempuan" : "-"}</p></div>
+              {showNIS && <div><p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">NIS</p><p className="font-mono text-[9px] text-slate-700">{student.nis || "-"}</p></div>}
+              <div className="col-span-2">
+                <p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">Tempat, Tgl Lahir</p>
+                <p className="text-[9px] text-slate-700">{formatBirthInfo(student)}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -98,8 +113,8 @@ function StudentCardFront({ student, schoolName, schoolAddress, schoolLogo, show
         </div>
       </div>
       <div className="flex items-center justify-between px-3 flex-shrink-0" style={{ height: "18px", background: "linear-gradient(to right, #fbbf24, #f59e0b)" }}>
-        <p className="font-semibold text-[7px] text-amber-950">Berlaku Tahun Ajaran {academicYear}</p>
-        <p className="font-mono font-bold text-[7px] text-amber-950">ID: {student.id.slice(-6).toUpperCase()}</p>
+        <p className="font-semibold text-[7px] text-amber-950">Berlaku hingga dinyatakan lulus</p>
+        <p className="font-mono font-bold text-[7px] text-amber-950">ID: {student.qrCode.slice(-8).toUpperCase()}</p>
       </div>
     </div>
   );
@@ -127,7 +142,7 @@ function StudentCardBack({ student, schoolName, schoolAddress, forPrint }: CardB
         </div>
       </div>
       <div className="flex items-center justify-center text-white text-[7px] flex-shrink-0" style={{ height: "18px", background: "linear-gradient(to right, #0f172a, #1e293b)" }}>
-        <span>SDN 1 KENANGA - BERBUAT NYATA UNTUK BANGSA</span>
+        <span>{schoolName} - AKSI</span>
       </div>
     </div>
   );
