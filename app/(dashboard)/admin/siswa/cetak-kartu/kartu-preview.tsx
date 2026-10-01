@@ -92,7 +92,7 @@ function StudentCardFront({ student, schoolName, schoolAddress, schoolLogo, show
             </div>
           )}
           <div className="flex-1 min-w-0 flex flex-col justify-center z-10">
-            <div className="mb-0.5">
+            <div className="mb-1">
               <p className="uppercase tracking-widest font-semibold leading-none text-[7px] text-slate-400">Nama Lengkap</p>
               <h3
                 className="font-bold text-slate-800"
