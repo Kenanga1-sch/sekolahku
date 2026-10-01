@@ -145,6 +145,39 @@ func TestExtractZipRejectsSymlinkEntry(t *testing.T) {
 	}
 }
 
+// TestBackupTempDirNotSystemTmp memastikan temp backup TIDAK memakai /tmp
+// sistem (tmpfs 64MB di container → "no space left on device" saat backup
+// ~37MB butuh ~2-3x ruang: zip + snapshot + .enc). Default: data/tmp.
+func TestBackupTempDirNotSystemTmp(t *testing.T) {
+	t.Setenv("BACKUP_TMP_DIR", "")
+	t.Chdir(t.TempDir()) // data/tmp mendarat di sandbox tes, bukan repo
+	dir := backupTempDir()
+	if dir == "" || dir == os.TempDir() || dir == "/tmp" {
+		t.Fatalf("backupTempDir tidak boleh /tmp sistem: got %q", dir)
+	}
+	if _, err := os.Stat(dir); err != nil {
+		t.Fatalf("backupTempDir tidak terbuat: %v", err)
+	}
+	f, err := os.CreateTemp(dir, "probe_*.tmp")
+	if err != nil {
+		t.Fatalf("tidak bisa tulis ke backupTempDir: %v", err)
+	}
+	f.Close()
+	os.Remove(f.Name())
+}
+
+// TestBackupTempDirEnvOverride memastikan BACKUP_TMP_DIR dihormati.
+func TestBackupTempDirEnvOverride(t *testing.T) {
+	custom := filepath.Join(t.TempDir(), "custom-tmp")
+	t.Setenv("BACKUP_TMP_DIR", custom)
+	if got := backupTempDir(); got != custom {
+		t.Fatalf("override env diabaikan: got %q, want %q", got, custom)
+	}
+	if _, err := os.Stat(custom); err != nil {
+		t.Fatalf("dir override tidak terbuat: %v", err)
+	}
+}
+
 // TestExtractZipFileModeNotWorldWritable memastikan file hasil ekstraksi
 // tidakworld-writable (sebelumnya memakai f.Mode() mentah + os.ModePerm).
 func TestExtractZipFileModeNotWorldWritable(t *testing.T) {

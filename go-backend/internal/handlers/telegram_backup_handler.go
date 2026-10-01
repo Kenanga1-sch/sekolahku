@@ -89,6 +89,22 @@ func (h *TelegramBackupHandler) TestBackup(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"message": "Backup berhasil dikirim ke Telegram"})
 }
 
+// backupTempDir adalah direktori file sementara untuk alur backup/restore.
+//
+// JANGAN pakai /tmp container: deploy.sh me-mount-nya sebagai tmpfs 64MB,
+// sementara backup butuh ~2-3x ukurannya serentak (zip + snapshot + .enc).
+// data/ adalah volume disk host (lega), jadi temp pindah ke data/tmp.
+// Bisa di-override via env BACKUP_TMP_DIR bila diperlukan.
+func backupTempDir() string {
+	if dir := os.Getenv("BACKUP_TMP_DIR"); dir != "" {
+		_ = os.MkdirAll(dir, 0o700)
+		return dir
+	}
+	dir := filepath.Join("data", "tmp")
+	_ = os.MkdirAll(dir, 0o700)
+	return dir
+}
+
 func (h *TelegramBackupHandler) RestoreBackup(c echo.Context) error {
 	// Parse multipart form
 	file, err := c.FormFile("backup_file")
@@ -102,8 +118,8 @@ func (h *TelegramBackupHandler) RestoreBackup(c echo.Context) error {
 	}
 	defer src.Close()
 
-	// Save to temp file
-	tempFile, err := os.CreateTemp("", "restore_*.zip")
+	// Save to temp file (di data/tmp, bukan /tmp container yang cuma 64MB).
+	tempFile, err := os.CreateTemp(backupTempDir(), "restore_*.zip")
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal membuat file temporary"})
 	}
@@ -217,7 +233,7 @@ func removeDatabaseSidecars() {
 // direktori sementara sebelum restore menimpanya. Memberi jaring pengaman
 // bila ekstraksi rusak.
 func createPreRestoreSnapshot() (string, error) {
-	snapDir, err := os.MkdirTemp("", "sekolahku_prerestore_*")
+	snapDir, err := os.MkdirTemp(backupTempDir(), "sekolahku_prerestore_*")
 	if err != nil {
 		return "", err
 	}
@@ -516,7 +532,8 @@ func NotifyBackupFailure(botToken, chatID, reason string) {
 // Snapshot ditulis dengan nama path "data/sekolahku.db" di dalam zip agar
 // tetap kompatibel dengan alur restore (extractZipSecurely → /app/data/...).
 func createBackupZip(db *sql.DB) (string, error) {
-	tempFile, err := os.CreateTemp("", "sekolahku_backup_*.zip")
+	// Temp di data/tmp (disk volume), bukan /tmp container (tmpfs 64MB).
+	tempFile, err := os.CreateTemp(backupTempDir(), "sekolahku_backup_*.zip")
 	if err != nil {
 		return "", err
 	}
@@ -525,7 +542,7 @@ func createBackupZip(db *sql.DB) (string, error) {
 	zipWriter := zip.NewWriter(tempFile)
 
 	// Dir bersih untuk DB snapshot sementara (dibuang setelah selesai).
-	snapDir, err := os.MkdirTemp("", "sekolahku_snap_*")
+	snapDir, err := os.MkdirTemp(backupTempDir(), "sekolahku_snap_*")
 	if err != nil {
 		zipWriter.Close()
 		tempFile.Close()
