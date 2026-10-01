@@ -3,17 +3,17 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { QRScanner } from "@/components/ui/qr-scanner";
+import { CoverField } from "@/components/library/cover-upload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Book, QrCode, Search, Check, Loader2, ArrowLeft, ArrowRight, Save, Plus, Camera, CameraOff, AlertCircle, Upload, X, Sparkles } from "lucide-react";
+import { Book, QrCode, Search, Check, Loader2, ArrowLeft, ArrowRight, Save, Plus, Camera, CameraOff, AlertCircle, X, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getDDCLabel, getAllDDCCategories, getShelfByDDC, getAllShelves, type DDCCategory } from "@/lib/library/ddc-mapping";
 import { goGet, goPost } from "@/lib/api-client";
-import { compressImage } from "@/lib/utils";
 
 interface CatalogData {
     title: string;
@@ -271,44 +271,6 @@ export default function LibraryBindingPage() {
         } catch (error) {
             setLookupStatus('idle');
             toast.error("Gagal menghubungi server. Periksa koneksi lalu coba lagi.");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleUploadCover = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        // Simple client-side validation
-        if (!file.type.startsWith("image/")) {
-            toast.error("File harus berupa gambar");
-            return;
-        }
-
-        setLoading(true);
-        let uploadFile = file;
-        try {
-            uploadFile = await compressImage(file, 600, 0.85);
-        } catch (error) {
-            console.error("Cover image compression failed:", error);
-        }
-
-        const formData = new FormData();
-        formData.append("file", uploadFile);
-        if (catalog.isbn) formData.append("isbn", catalog.isbn);
-        try {
-            const data: any = await goPost("/api/library/catalog/cover", formData);
-
-            if (!data.error) {
-                setCatalog({ ...catalog, coverUrl: data.url });
-                toast.success("Sampul berhasil diunggah!");
-            } else {
-                toast.error("Gagal mengunggah sampul.");
-            }
-        } catch (error) {
-            console.error("Upload error:", error);
-            toast.error("Terjadi kesalahan saat mengunggah.");
         } finally {
             setLoading(false);
         }
@@ -640,52 +602,15 @@ export default function LibraryBindingPage() {
                             )}
 
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                                {catalog.coverUrl ? (
-                                    <div className="md:col-span-1 space-y-2">
-                                        <div className="group relative aspect-[3/4] rounded-lg overflow-hidden border border-border shadow-sm bg-muted flex items-center justify-center">
-                                            <img 
-                                                src={catalog.coverUrl} 
-                                                alt="Cover" 
-                                                className="w-full h-full object-cover"
-                                                onError={(e) => {
-                                                    (e.target as HTMLImageElement).src = "/images/placeholder-book.png";
-                                                }}
-                                            />
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                                <Label htmlFor="cover-upload" className="cursor-pointer bg-white/10 hover:bg-white/20 p-2 rounded-full backdrop-blur-sm border border-white/20 text-white">
-                                                    <Upload className="h-5 w-5" />
-                                                </Label>
-                                            </div>
-                                        </div>
-                                        <p className="text-[10px] text-center text-muted-foreground italic">
-                                            Unduh otomatis aktif
-                                        </p>
-                                        <input 
-                                            type="file" 
-                                            id="cover-upload" 
-                                            className="hidden" 
-                                            accept="image/*"
-                                            onChange={handleUploadCover}
-                                        />
-                                    </div>
-                                ) : (
-                                    <div className="md:col-span-1 space-y-2">
-                                        <div className="aspect-[3/4] rounded-lg overflow-hidden border-2 border-dashed border-muted-foreground/20 bg-muted/50 flex flex-col items-center justify-center p-4 text-center group cursor-pointer hover:border-muted-foreground/40 transition-colors" onClick={() => document.getElementById('cover-upload')?.click()}>
-                                            <Upload className="h-8 w-8 text-muted-foreground/40 mb-2 group-hover:text-muted-foreground/60 transition-colors" />
-                                            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Upload Sampul</p>
-                                            <input 
-                                                type="file" 
-                                                id="cover-upload" 
-                                                className="hidden" 
-                                                accept="image/*"
-                                                onChange={handleUploadCover}
-                                            />
-                                        </div>
-                                        <p className="text-[10px] text-center text-muted-foreground italic">
-                                            Opsional
-                                        </p>
-                                    </div>
-                                )}
+                                <CoverField
+                                    coverUrl={catalog.coverUrl}
+                                    isbn={catalog.isbn}
+                                    onCoverChange={(url) => setCatalog((prev) => ({ ...prev, coverUrl: url }))}
+                                    size="fluid"
+                                    wrapperClassName="md:col-span-1 space-y-2"
+                                    caption={catalog.coverUrl ? "Unduh otomatis aktif" : "Opsional"}
+                                    onBusyChange={setLoading}
+                                />
                                 <div className="md:col-span-3 space-y-5">
                                     <div className="grid gap-3">
                                         <div className="flex items-center justify-between">

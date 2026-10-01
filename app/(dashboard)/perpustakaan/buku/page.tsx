@@ -12,11 +12,11 @@ import {
     Filter,
     Loader2,
     ArrowLeft,
-    Upload,
     Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { CoverField } from "@/components/library/cover-upload";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -47,7 +47,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { goPost } from "@/lib/api-client";
-import { compressImage } from "@/lib/utils";
 // Server imports removed
 import { showError, showSuccess } from "@/lib/toast";
 import { 
@@ -174,45 +173,6 @@ export default function BukuPage() {
         });
     };
 
-    const handleUploadCover = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        // Simple client-side validation
-        if (!file.type.startsWith("image/")) {
-            toast.error("File harus berupa gambar");
-            return;
-        }
-
-        setLoading(true);
-        let uploadFile = file;
-        try {
-            uploadFile = await compressImage(file, 600, 0.85);
-        } catch (error) {
-            console.error("Cover image compression failed:", error);
-        }
-
-        const payload = new FormData();
-        payload.append("file", uploadFile);
-        if (formData.isbn) payload.append("isbn", formData.isbn);
-
-        try {
-            const data: any = await goPost("/api/library/catalog/cover", payload);
-
-            if (!data.error && data.url) {
-                setFormData((prev) => ({ ...prev, coverUrl: data.url }));
-                toast.success("Sampul berhasil diunggah!");
-            } else {
-                toast.error("Gagal mengunggah sampul.");
-            }
-        } catch (error) {
-            console.error("Upload error:", error);
-            toast.error("Terjadi kesalahan saat mengunggah.");
-        } finally {
-            setLoading(false);
-        }
-    };
-    
     const openEditDialog = (item: LibraryItem) => {
         setEditingItem(item);
         // Fallback for legacy categories not in DDC list
@@ -290,42 +250,18 @@ export default function BukuPage() {
                         <div className="grid gap-4 py-4">
                             {/* Cover Upload Section */}
                             <div className="grid gap-2">
-                                <Label htmlFor="cover-upload">Sampul Buku</Label>
+                                <Label>Sampul Buku</Label>
                                 <div className="flex items-start gap-4">
-                                    {formData.coverUrl ? (
-                                        <div className="group relative w-24 aspect-[3/4] rounded-lg overflow-hidden border border-border shadow-sm bg-muted flex items-center justify-center flex-shrink-0">
-                                            <img
-                                                src={formData.coverUrl}
-                                                alt="Preview sampul"
-                                                className="w-full h-full object-cover"
-                                                onError={(e) => {
-                                                    (e.target as HTMLImageElement).src = "/images/placeholder-book.png";
-                                                }}
-                                            />
-                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                <Label htmlFor="cover-upload" className="cursor-pointer bg-white/10 hover:bg-white/20 p-2 rounded-full backdrop-blur-sm border border-white/20 text-white">
-                                                    <Upload className="h-4 w-4" />
-                                                </Label>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div
-                                            className="w-24 aspect-[3/4] rounded-lg overflow-hidden border-2 border-dashed border-muted-foreground/20 bg-muted/50 flex flex-col items-center justify-center p-2 text-center group cursor-pointer hover:border-muted-foreground/40 transition-colors flex-shrink-0"
-                                            onClick={() => document.getElementById("cover-upload")?.click()}
-                                        >
-                                            <Upload className="h-5 w-5 text-muted-foreground/40 mb-1 group-hover:text-muted-foreground/60 transition-colors" />
-                                            <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-wider">Upload Sampul</p>
-                                        </div>
-                                    )}
-                                    <input
-                                        type="file"
-                                        id="cover-upload"
-                                        className="hidden"
-                                        accept="image/*"
-                                        onChange={handleUploadCover}
+                                    <CoverField
+                                        coverUrl={formData.coverUrl}
+                                        isbn={formData.isbn}
+                                        onCoverChange={(url) => setFormData((prev) => ({ ...prev, coverUrl: url }))}
+                                        size="sm"
+                                        onBusyChange={setLoading}
                                     />
                                     <p className="text-xs text-muted-foreground mt-1">
-                                        Klik area sampul untuk mengunggah gambar (opsional).
+                                        Klik area sampul untuk mengunggah gambar, atau tekan ikon pindai
+                                        untuk scan langsung dari printer (opsional).
                                     </p>
                                 </div>
                             </div>
