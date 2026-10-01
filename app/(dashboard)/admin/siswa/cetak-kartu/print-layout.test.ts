@@ -1,0 +1,167 @@
+import { describe, it, expect, beforeEach } from "vitest";
+import {
+  buildPrintPages,
+  getOffset,
+  withOffset,
+  normalizeAdjust,
+  readAdjustStorage,
+  writeAdjustStorage,
+  DEFAULT_ADJUST,
+  ROWS_PER_PAGE,
+  type AdjustAll,
+} from "./print-layout";
+import type { StudentCard } from "./use-cetak-kartu";
+
+function makeCards(n: number): StudentCard[] {
+  return Array.from({ length: n }, (_, i) => ({
+    id: `S${String(i + 1).padStart(2, "0")}`,
+    fullName: `Siswa ${i + 1}`,
+    nisn: null,
+    nis: null,
+    kip: null,
+    className: "4A",
+    photo: null,
+    qrCode: `QR${i + 1}`,
+    gender: "L",
+    birthPlace: null,
+    birthDate: null,
+  }));
+}
+
+describe("buildPrintPages — mode duplex", () => {
+  it("16 kartu, 2 kolom → halaman berpasangan F1,B1,F2,B2 (ganjil depan, genap belakang)", () => {
+    const pages = buildPrintPages({ cards: makeCards(16), cardsPerRow: 2, mode: "duplex", showBackSide: true });
+    expect(pages).toHaveLength(4);
+    expect(pages.map((p) => p.cells[0].side)).toEqual(["front", "back", "front", "back"]);
+    // batch 1 = kartu 1-8 di halaman 1-2, batch 2 = kartu 9-16 di halaman 3-4
+    expect(pages[0].cells).toHaveLength(ROWS_PER_PAGE * 2);
+    expect(pages[0].cells[0].student.id).toBe("S01");
+    expect(pages[1].cells[0].student.id).toBe("S01");
+    expect(pages[2].cells[0].student.id).toBe("S09");
+    expect(pages[3].cells[0].student.id).toBe("S09");
+  });
+
+  it("halaman depan & belakang dalam satu batch memakai urutan siswa & kolom yang sama", () => {
+    const pages = buildPrintPages({ cards: makeCards(8), cardsPerRow: 2, mode: "duplex", showBackSide: true });
+    const front = pages[0];
+    const back = pages[1];
+    expect(front.cells.map((c) => c.student.id)).toEqual(back.cells.map((c) => c.student.id));
+    expect(front.cells.map((c) => c.col)).toEqual(back.cells.map((c) => c.col));
+    expect(front.cells.map((c) => c.col)).toEqual([0, 1, 0, 1, 0, 1, 0, 1]);
+  });
+
+  it("tanpa sisi belakang → hanya halaman depan", () => {
+    const pages = buildPrintPages({ cards: makeCards(16), cardsPerRow: 2, mode: "duplex", showBackSide: false });
+    expect(pages).toHaveLength(2);
+    expect(pages.every((p) => p.cells[0].side === "front")).toBe(true);
+  });
+
+  it("batch terakhir yang setengah penuh tetap menghasilkan 1 pasang halaman", () => {
+    const pages = buildPrintPages({ cards: makeCards(9), cardsPerRow: 2, mode: "duplex", showBackSide: true });
+    expect(pages).toHaveLength(4);
+    expect(pages[2].cells).toHaveLength(1);
+    expect(pages[3].cells).toHaveLength(1);
+  });
+});
+
+describe("buildPrintPages — mode gabungan", () => {
+  it("8 siswa, 2 kolom, dua sisi → 2 halaman; tiap sisi kartu sel sendiri, urutan f1,b1,f2,b2…", () => {
+    const pages = buildPrintPages({ cards: makeCards(8), cardsPerRow: 2, mode: "combined", showBackSide: true });
+    expect(pages).toHaveLength(2);
+    const first = pages[0];
+    expect(first.cells).toHaveLength(ROWS_PER_PAGE * 2);
+    expect(first.cells.map((c) => `${c.side}:${c.student.id}`)).toEqual([
+      "front:S01", "back:S01", "front:S02", "back:S02",
+      "front:S03", "back:S03", "front:S04", "back:S04",
+    ]);
+    // baris = pasangan depan|belakang satu siswa
+    expect(first.cells[0].side).toBe("front");
+    expect(first.cells[1].side).toBe("back");
+    expect(first.cells[1].student.id).toBe(first.cells[0].student.id);
+    // tiap sel kolomnya sendiri: 0,1,0,1…
+    expect(first.cells.map((c) => c.col)).toEqual([0, 1, 0, 1, 0, 1, 0, 1]);
+  });
+
+  it("tanpa sisi belakang → hanya sel depan, 8 siswa 2 kolom = 1 halaman penuh", () => {
+    const pages = buildPrintPages({ cards: makeCards(8), cardsPerRow: 2, mode: "combined", showBackSide: false });
+    expect(pages).toHaveLength(1);
+    expect(pages[0].cells.every((c) => c.side === "front")).toBe(true);
+  });
+
+  it("1 kartu per baris → pasangan depan+belakang menumpuk vertikal di kolom tunggal", () => {
+    const pages = buildPrintPages({ cards: makeCards(2), cardsPerRow: 1, mode: "combined", showBackSide: true });
+    expect(pages).toHaveLength(1);
+    expect(pages[0].cells.map((c) => c.col)).toEqual([0, 0, 0, 0]);
+    expect(pages[0].cells.map((c) => c.side)).toEqual(["front", "back", "front", "back"]);
+  });
+
+  it("tidak ada kartu → tidak ada halaman", () => {
+    expect(buildPrintPages({ cards: [], cardsPerRow: 2, mode: "combined", showBackSide: true })).toHaveLength(0);
+    expect(buildPrintPages({ cards: [], cardsPerRow: 2, mode: "duplex", showBackSide: true })).toHaveLength(0);
+  });
+});
+
+describe("kalibrasi offset", () => {
+  it("default duplex: depan x=-2, belakang x=11 (mempertahankan kalibrasi lama)", () => {
+    expect(getOffset(DEFAULT_ADJUST, "duplex", "front", 0)).toEqual({ x: -2, y: 0 });
+    expect(getOffset(DEFAULT_ADJUST, "duplex", "back", 1)).toEqual({ x: 11, y: 0 });
+  });
+
+  it("default gabungan: kedua sisi x=-2, terpisah dari duplex", () => {
+    expect(getOffset(DEFAULT_ADJUST, "combined", "front", 0)).toEqual({ x: -2, y: 0 });
+    expect(getOffset(DEFAULT_ADJUST, "combined", "back", 0)).toEqual({ x: -2, y: 0 });
+  });
+
+  it("mengubah mode duplex tidak mencemari mode gabungan", () => {
+    const next = withOffset(DEFAULT_ADJUST, "duplex", "back", 0, "x", 5);
+    expect(next.duplex.back[0]).toEqual({ x: 5, y: 0 });
+    expect(next.combined).toEqual(DEFAULT_ADJUST.combined);
+    expect(DEFAULT_ADJUST.duplex.back[0]).toEqual({ x: 11, y: 0 });
+  });
+
+  it("kolom di luar daftar jatuh ke kolom pertama, daftar kosong ke default mode itu", () => {
+    expect(getOffset(DEFAULT_ADJUST, "duplex", "front", 5)).toEqual({ x: -2, y: 0 });
+    const empty: AdjustAll = { duplex: { front: [], back: [] }, combined: { front: [], back: [] } };
+    expect(getOffset(empty, "duplex", "back", 0)).toEqual({ x: 11, y: 0 });
+    expect(getOffset(empty, "combined", "back", 0)).toEqual({ x: -2, y: 0 });
+  });
+
+  it("withOffset menambah kolom bila kurang dan tidak memutasi state lama", () => {
+    const next = withOffset(DEFAULT_ADJUST, "duplex", "back", 3, "y", -1.5);
+    expect(next.duplex.back).toHaveLength(4);
+    expect(next.duplex.back[3]).toEqual({ x: 11, y: -1.5 });
+    expect(DEFAULT_ADJUST.duplex.back).toHaveLength(2);
+    expect(next.duplex.front).toEqual(DEFAULT_ADJUST.duplex.front);
+  });
+
+  it("normalizeAdjust mengisi bagian yang hilang dengan default per mode", () => {
+    expect(normalizeAdjust(null)).toEqual(DEFAULT_ADJUST);
+    expect(normalizeAdjust({ duplex: { front: [{ x: 1, y: 2 }] } }).combined).toEqual(DEFAULT_ADJUST.combined);
+    expect(normalizeAdjust({ duplex: { front: "abc", back: [{ x: 1, y: 2 }] } }).duplex.front).toEqual(DEFAULT_ADJUST.duplex.front);
+    expect(normalizeAdjust({ duplex: { front: [{ x: Number.NaN, y: 0 }] } }).duplex.front).toEqual(DEFAULT_ADJUST.duplex.front);
+  });
+});
+
+describe("persistensi localStorage", () => {
+  beforeEach(() => window.localStorage.clear());
+
+  it("tulis lalu baca kembali (roundtrip)", () => {
+    const custom: AdjustAll = {
+      duplex: { front: [{ x: -1, y: 0.5 }, { x: -2, y: 0 }], back: [{ x: 9, y: 0 }, { x: 10, y: -1 }] },
+      combined: { front: [{ x: 0, y: 0 }], back: [{ x: 0, y: 1 }] },
+    };
+    writeAdjustStorage(custom);
+    expect(readAdjustStorage()).toEqual(custom);
+  });
+
+  it("baca tanpa data → null", () => {
+    expect(readAdjustStorage()).toBeNull();
+  });
+
+  it("data rusak → default mode masing-masing (tidak melempar)", () => {
+    window.localStorage.setItem("siswa-cetak-kartu-adjust", "{not-json");
+    expect(readAdjustStorage()).toBeNull();
+    window.localStorage.setItem("siswa-cetak-kartu-adjust", JSON.stringify({ duplex: 42 }));
+    expect(readAdjustStorage()).toEqual(DEFAULT_ADJUST);
+  });
+});

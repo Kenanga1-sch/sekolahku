@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Printer, FolderDown, RefreshCw, Settings2, ImageIcon } from "lucide-react";
+import { ArrowLeft, Printer, FolderDown, RefreshCw, Settings2, ImageIcon, Save, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,22 +10,26 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useCetakKartu } from "./use-cetak-kartu";
 import { KartuPreview } from "./kartu-preview";
+import { buildPrintPages, getOffset } from "./print-layout";
+
+const COLUMN_LABELS = ["kiri", "kanan"];
 
 export default function CetakKartuPage() {
   const {
     loading, downloading, cards, cardsPerRow, setCardsPerRow, cardType, setCardType,
     showPhoto, setShowPhoto, showNIS, setShowNIS, showBackSide, setShowBackSide,
-    printMode, setPrintMode, flipEdge, setFlipEdge, backOffsetMm, setBackOffsetMm,
+    printMode, setPrintMode, flipEdge, setFlipEdge,
+    adjust, setOffset, saveAdjust, resetAdjust,
     schoolName, schoolAddress, schoolLogo, printRef,
     downloadCard, downloadAllCards, handlePrint, setCardRef, router,
   } = useCetakKartu();
 
-  const cardsPerPage = Math.max(1, Number(cardsPerRow) * 4);
-  const cardBatches = Array.from({ length: Math.ceil(cards.length / cardsPerPage) }, (_, index) => cards.slice(index * cardsPerPage, (index + 1) * cardsPerPage));
-
   if (loading) {
     return <div className="flex items-center justify-center min-h-[60vh]"><RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
   }
+
+  const pages = buildPrintPages({ cards, cardsPerRow: Number(cardsPerRow), mode: printMode, showBackSide });
+  const columns = Array.from({ length: Math.max(1, Number(cardsPerRow)) }, (_, i) => i);
 
   return (
     <>
@@ -88,7 +93,6 @@ export default function CetakKartuPage() {
                   <SelectContent>
                     <SelectItem value="1">1 Kartu</SelectItem>
                     <SelectItem value="2">2 Kartu</SelectItem>
-                    <SelectItem value="3">3 Kartu</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -119,25 +123,59 @@ export default function CetakKartuPage() {
                   </Select>
                 </div>
               )}
-              {printMode === "duplex" && showBackSide && (
-                <div className="space-y-2 sm:col-span-2">
+              <div className="space-y-2 sm:col-span-2">
+                <div className="flex items-center justify-between gap-2">
                   <Label className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                    Penyesuaian Sisi Belakang (kalibrasi): {backOffsetMm}mm
+                    Penyesuaian Posisi (mm) · Mode {printMode === "duplex" ? "Duplex" : "Gabungan"}
                   </Label>
-                  <input
-                    type="range"
-                    min={0}
-                    max={40}
-                    step={0.5}
-                    value={backOffsetMm}
-                    onChange={(e) => setBackOffsetMm(Number(e.target.value))}
-                    className="w-full accent-blue-600"
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    Cetak uji, lalu geser sampai kartu belakang tepat di belakang kartu depan.
-                  </p>
+                  <div className="flex gap-1.5">
+                    <Button type="button" variant="outline" size="sm" className="gap-1 h-7 px-2 text-xs" onClick={resetAdjust}>
+                      <RotateCcw className="h-3 w-3" />Reset
+                    </Button>
+                    <Button type="button" size="sm" className="gap-1 h-7 px-2 text-xs" onClick={saveAdjust}>
+                      <Save className="h-3 w-3" />Simpan
+                    </Button>
+                  </div>
                 </div>
-              )}
+                <div className="rounded-lg border border-slate-200 dark:border-zinc-800 overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 text-slate-500 dark:text-zinc-400">
+                        <th className="px-2 py-1.5 text-left font-semibold">Sisi</th>
+                        {columns.map((col) => (
+                          <th key={col} className="px-2 py-1.5 text-left font-semibold">
+                            Kolom {columns.length > 1 ? COLUMN_LABELS[col] ?? col + 1 : ""}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(["front", "back"] as const)
+                        .filter((side) => side === "front" || showBackSide)
+                        .map((side) => (
+                          <tr key={side} className="border-b border-slate-200/70 dark:border-zinc-800/70 last:border-0">
+                            <td className="px-2 py-1.5 font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {side === "front" ? "Depan" : "Belakang"}
+                            </td>
+                            {columns.map((col) => (
+                              <td key={col} className="px-2 py-1.5">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-slate-400">X</span>
+                                  <MmInput value={getOffset(adjust, printMode, side, col).x} onCommit={(v) => setOffset(printMode, side, col, "x", v)} label={`${side === "front" ? "Depan" : "Belakang"} kolom ${col + 1} sumbu X`} />
+                                  <span className="text-slate-400">Y</span>
+                                  <MmInput value={getOffset(adjust, printMode, side, col).y} onCommit={(v) => setOffset(printMode, side, col, "y", v)} label={`${side === "front" ? "Depan" : "Belakang"} kolom ${col + 1} sumbu Y`} />
+                                </div>
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Cetak uji, ubah angka lalu cetak ulang. Klik <strong>Simpan</strong> agar nilai tersimpan di browser ini dan tidak berubah saat halaman dimuat ulang.
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -220,49 +258,70 @@ export default function CetakKartuPage() {
                 height: 54mm;
                 overflow: hidden;
               }
-              /* Geser seluruh isi halaman depan 2mm ke kiri (0,2 cm). Dipakai
-                 margin-left pada blok halaman, bukan transform — transform pada
-                 halaman yang dipecah break merusak pagination & margin halaman
-                 berikutnya. */
-              .card-print-page-front { margin-left: -2mm; }
-              /* Halaman belakang: geser isi kartu (bukan blok halaman) sebesar
-                 offset hasil kalibrasi. Saat dicetak long-edge, driver printer
-                 mencerminkan posisi, sehingga kartu belakang perlu digeser agar
-                 jatuh tepat di belakang kartu depan. transform tidak mengubah
-                 layout/lebar, jadi aman terhadap pagination & margin. */
-              .card-print-page-back > * { transform: translateX(${backOffsetMm}mm); }
+              /* Kalibrasi posisi (offset mm) dipasang inline per sel kartu
+                 (translate pada anak, bukan blok halaman) — transform pada
+                 blok halaman yang dipecah break merusak pagination & margin
+                 halaman berikutnya. Lihat print-layout.ts. */
             }
           `}</style>,
           document.head
         )}
         <div className="block">
-          {printMode === "duplex" ? (
-            <>
-              {cardBatches.map((batch, batchIndex) => (
-                <div key={`front-${batchIndex}`} className="card-print-page card-print-page-front" style={{ gridTemplateColumns: `repeat(${cardsPerRow}, minmax(0, 1fr))` }}>
-                  {batch.map((student) => <div key={student.id} className="flex break-inside-avoid page-break-inside-avoid"><KartuPreview student={student} schoolName={schoolName} schoolAddress={schoolAddress} schoolLogo={schoolLogo} showPhoto={showPhoto} showNIS={showNIS} cardType={cardType} showBackSide={showBackSide} printSide="front" forPrint /></div>)}
-                </div>
-              ))}
-              {showBackSide && cardBatches.map((batch, batchIndex) => (
-                <div key={`back-${batchIndex}`} className="card-print-page card-print-page-back" style={{ gridTemplateColumns: `repeat(${cardsPerRow}, minmax(0, 1fr))` }}>
-                  {batch.map((student) => <div key={student.id} className="flex break-inside-avoid page-break-inside-avoid"><KartuPreview student={student} schoolName={schoolName} schoolAddress={schoolAddress} schoolLogo={schoolLogo} showPhoto={showPhoto} showNIS={showNIS} cardType={cardType} showBackSide={showBackSide} printSide="back" forPrint /></div>)}
-                </div>
-              ))}
-            </>
-          ) : (
-            cards.reduce<(typeof cards)[]>((batches, card, index) => {
-              const current = Math.floor(index / cardsPerPage);
-              if (!batches[current]) batches[current] = [];
-              batches[current].push(card);
-              return batches;
-            }, []).map((batch, batchIndex) => (
-              <div key={`page-${batchIndex}`} className="card-print-page card-print-page-front" style={{ gridTemplateColumns: `repeat(${cardsPerRow}, minmax(0, 1fr))` }}>
-                {batch.map((student) => <div key={student.id} className="flex gap-1.5 break-inside-avoid page-break-inside-avoid"><KartuPreview student={student} schoolName={schoolName} schoolAddress={schoolAddress} schoolLogo={schoolLogo} showPhoto={showPhoto} showNIS={showNIS} cardType={cardType} showBackSide={showBackSide} forPrint /></div>)}
-              </div>
-            ))
-          )}
+          {pages.map((page) => (
+            <div key={page.key} className="card-print-page" style={{ gridTemplateColumns: `repeat(${cardsPerRow}, minmax(0, 1fr))` }}>
+              {page.cells.map((cell) => {
+                const offset = getOffset(adjust, printMode, cell.side, cell.col);
+                return (
+                  <div
+                    key={cell.key}
+                    className="flex break-inside-avoid page-break-inside-avoid"
+                    style={{ transform: `translate(${offset.x}mm, ${offset.y}mm)` }}
+                  >
+                    <KartuPreview student={cell.student} schoolName={schoolName} schoolAddress={schoolAddress} schoolLogo={schoolLogo} showPhoto={showPhoto} showNIS={showNIS} cardType={cardType} showBackSide={showBackSide} printSide={cell.side} forPrint />
+                  </div>
+                );
+              })}
+            </div>
+          ))}
         </div>
       </div>
     </>
+  );
+}
+
+/** Input nilai mm langsung (bukan slider). State teks terpisah agar angka
+ *  parsial seperti "-" atau "2," saat diketik tidak dipaksa balik ke nilai lama;
+ *  sinkronisasi dari luar (mis. tombol Reset) dilakukan saat render, bukan di
+ *  effect, mengikuti pola "adjusting state when props change" dari React. */
+function MmInput({ value, onCommit, label }: { value: number; onCommit: (v: number) => void; label: string }) {
+  const [raw, setRaw] = useState(String(value));
+  const [prevValue, setPrevValue] = useState(value);
+  if (value !== prevValue) {
+    setPrevValue(value);
+    setRaw(String(value));
+  }
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      aria-label={label}
+      value={raw}
+      onChange={(e) => {
+        setRaw(e.target.value);
+        const parsed = parseFloat(e.target.value);
+        if (!Number.isNaN(parsed)) onCommit(parsed);
+      }}
+      onBlur={() => {
+        const parsed = parseFloat(raw);
+        if (Number.isNaN(parsed)) {
+          setRaw(String(value));
+          onCommit(value);
+        } else if (parsed !== value) {
+          setRaw(String(parsed));
+          onCommit(parsed);
+        }
+      }}
+      className="w-16 h-7 px-1.5 text-xs font-mono rounded-md border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+    />
   );
 }

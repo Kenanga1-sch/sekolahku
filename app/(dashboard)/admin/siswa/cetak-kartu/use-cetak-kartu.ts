@@ -8,6 +8,14 @@ import { siteConfig } from "@/lib/config";
 import { getSchoolLogo } from "@/lib/school-logo";
 import { goPost } from "@/lib/api-client";
 import { showError } from "@/lib/toast";
+import {
+  DEFAULT_ADJUST,
+  readAdjustStorage,
+  writeAdjustStorage,
+  withOffset,
+  type AdjustAll,
+  type PrintMode,
+} from "./print-layout";
 
 export interface StudentCard {
   id: string;
@@ -43,7 +51,28 @@ export function useCetakKartu() {
   const [showBackSide, setShowBackSide] = useState(true);
   const [printMode, setPrintMode] = useState<"combined" | "duplex">("combined");
   const [flipEdge, setFlipEdge] = useState<"long" | "short">("long");
-  const [backOffsetMm, setBackOffsetMm] = useState(11);
+  // Kalibrasi posisi cetak (mm) per mode per sisi per kolom. Dimuat dari
+  // localStorage setelah mount agar tidak memicu hydration mismatch saat SSR.
+  const [adjust, setAdjust] = useState<AdjustAll>(DEFAULT_ADJUST);
+
+  useEffect(() => {
+    const saved = readAdjustStorage();
+    if (saved) setAdjust(saved);
+  }, []);
+
+  const setOffset = useCallback(
+    (mode: PrintMode, side: "front" | "back", col: number, axis: "x" | "y", value: number) => {
+      setAdjust((prev) => withOffset(prev, mode, side, col, axis, value));
+    },
+    []
+  );
+
+  const saveAdjust = useCallback(() => {
+    writeAdjustStorage(adjust);
+    toast.success("Pengaturan posisi disimpan");
+  }, [adjust]);
+
+  const resetAdjust = useCallback(() => setAdjust(DEFAULT_ADJUST), []);
 
   // Download single card as image
   const downloadCard = useCallback(async (studentId: string, studentName: string) => {
@@ -127,7 +156,8 @@ export function useCetakKartu() {
   return {
     loading, downloading, cards, cardsPerRow, setCardsPerRow, cardType, setCardType,
     showPhoto, setShowPhoto, showNIS, setShowNIS, showBackSide, setShowBackSide,
-    printMode, setPrintMode, flipEdge, setFlipEdge, backOffsetMm, setBackOffsetMm,
+    printMode, setPrintMode, flipEdge, setFlipEdge,
+    adjust, setOffset, saveAdjust, resetAdjust,
     schoolName, schoolAddress, schoolLogo, printRef, cardRefs,
     downloadCard, downloadAllCards, handlePrint, setCardRef, router,
   };
