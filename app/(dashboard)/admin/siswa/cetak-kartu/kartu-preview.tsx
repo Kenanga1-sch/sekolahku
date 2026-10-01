@@ -38,10 +38,9 @@ interface CardFrontProps {
   student: StudentCard; schoolName: string; schoolAddress: string; schoolLogo: string | null; showPhoto: boolean; showNIS: boolean; forPrint?: boolean;
 }
 
-/** "Indramayu, 17 Agu 2014" — tanggal diurai tanpa geser zona waktu
- *  (parsial YYYY-MM-DD diberi waktu lokal T00:00:00), bulan singkat agar
- *  muat di lebar kolom cetak; tempat lahir diubah ke proper case
- *  (INDRAMAYU → Indramayu) karena datanya sering tersimpan huruf kapital. */
+/** "Indramayu, 17 Agustus 2014" — bulan penuh (bukan singkat), tanggal
+ *  diurai tanpa geser zona waktu (parsial YYYY-MM-DD diberi waktu lokal
+ *  T00:00:00); tempat lahir di proper case (INDRAMAYU → Indramayu). */
 function properCase(value: string): string {
   return value.replace(/\p{L}+/gu, (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
 }
@@ -52,7 +51,7 @@ function formatBirthInfo(student: StudentCard): string {
   if (raw) {
     const d = new Date(`${raw}T00:00:00`);
     if (!Number.isNaN(d.getTime())) {
-      dateText = d.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
+      dateText = d.toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" });
     }
   }
   const place = student.birthPlace ? properCase(student.birthPlace.trim()) : "";
@@ -75,7 +74,7 @@ function StudentCardFront({ student, schoolName, schoolAddress, schoolLogo, show
         </div>
       </div>
       <div className="flex flex-1 min-h-0">
-        <div className="flex-1 p-3 flex gap-3 relative overflow-hidden">
+        <div className={`flex-1 ${forPrint ? "p-2" : "p-3"} flex gap-3 relative overflow-hidden`}>
           <div className="absolute inset-0 opacity-[0.02] pointer-events-none" style={{ backgroundImage: "radial-gradient(circle at 2px 2px, #64748b 1px, transparent 0)", backgroundSize: "16px 16px" }} />
           <div className="absolute -right-6 -bottom-6 opacity-[0.03] pointer-events-none"><span style={{ fontSize: "72px", fontWeight: 800, color: "#0f172a" }}>SD</span></div>
           {showPhoto && (
@@ -92,23 +91,48 @@ function StudentCardFront({ student, schoolName, schoolAddress, schoolLogo, show
               </div>
             </div>
           )}
-          <div className="flex-1 min-w-0 flex flex-col justify-start z-10">
-            <div className="mb-1">
-              <p className="uppercase tracking-widest font-semibold mb-0.5 text-[6px] text-slate-400">Nama Lengkap</p>
-              <h3 className="font-bold leading-tight text-slate-800" style={{ fontSize: "13px", letterSpacing: "0.3px", wordBreak: "break-word", lineHeight: "1.2" }}>{student.fullName}</h3>
+          <div className="flex-1 min-w-0 flex flex-col justify-center z-10">
+            <div className="mb-0.5">
+              <p className="uppercase tracking-widest font-semibold leading-none text-[6px] text-slate-400">Nama Lengkap</p>
+              <h3
+                className="font-bold text-slate-800"
+                style={{
+                  fontSize: "12px",
+                  letterSpacing: "0.3px",
+                  wordBreak: "break-word",
+                  lineHeight: "1.15",
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                }}
+              >
+                {student.fullName}
+              </h3>
             </div>
-            <div className="grid gap-y-0.5 leading-none">
-              <div><p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">NISN</p><p className="font-mono font-semibold text-[9px] text-slate-700">{student.nisn || "-"}</p></div>
-              {showNIS && <div><p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">NIS</p><p className="font-mono text-[9px] text-slate-700">{student.nis || "-"}</p></div>}
-              <div><p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">L / P</p><p className="text-[9px] text-slate-700">{student.gender === "L" ? "Laki-laki" : student.gender === "P" ? "Perempuan" : "-"}</p></div>
+            <div className="grid gap-y-1 leading-tight">
+              <div className="flex items-baseline justify-between gap-2">
+                <p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">NISN</p>
+                <p className="font-mono font-semibold text-[9px] text-slate-700">{student.nisn || "-"}</p>
+              </div>
+              {showNIS && (
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">NIS</p>
+                  <p className="font-mono text-[9px] text-slate-700">{student.nis || "-"}</p>
+                </div>
+              )}
+              <div className="flex items-baseline justify-between gap-2">
+                <p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">L / P</p>
+                <p className="text-[9px] text-slate-700">{student.gender === "L" ? "Laki-laki" : student.gender === "P" ? "Perempuan" : "-"}</p>
+              </div>
               <div>
-                <p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">Tempat, Tgl Lahir</p>
-                <p className="text-[9px] text-slate-700">{formatBirthInfo(student)}</p>
+                <p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">Tempat, Tanggal Lahir</p>
+                <p className="text-[8px] text-slate-700">{formatBirthInfo(student)}</p>
               </div>
             </div>
           </div>
         </div>
-        <div className="flex flex-col items-center justify-center relative" style={{ width: "38%", background: "linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)", borderLeft: "1px solid #e2e8f0" }}>
+        <div className="flex flex-col items-center justify-center relative" style={{ width: "34%", background: "linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)", borderLeft: "1px solid #e2e8f0" }}>
           <div className="absolute top-2 left-2 w-3 h-3 border-l border-t border-slate-300" />
           <div className="absolute bottom-2 right-2 w-3 h-3 border-r border-b border-slate-300" />
           <div className="bg-white p-2 rounded-lg border border-slate-200"><QRCodeSVG value={student.qrCode} size={90} level="H" includeMargin={false} /></div>
