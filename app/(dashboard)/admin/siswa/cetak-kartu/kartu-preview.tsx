@@ -69,31 +69,31 @@ function StudentCardFront({ student, schoolName, schoolAddress, schoolLogo, show
           {schoolLogo ? <NextImage src={schoolLogo} alt="Logo Sekolah" width={40} height={40} className="h-10 w-10 object-contain" /> : <span className="text-xs font-bold text-slate-300">SD</span>}
         </div>
         <div className="relative flex-1 min-w-0 max-w-[200px] z-10">
-          <h2 className="font-bold uppercase tracking-wider leading-tight" style={{ fontSize: "10px", color: "#fbbf24", textShadow: "0 1px 2px rgba(0,0,0,0.3)" }}>{schoolName}</h2>
-          <p className="leading-[1.2] mt-0.5 pr-2" style={{ fontSize: "6.5px", color: "rgba(203,213,225,0.9)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{schoolAddress}</p>
+          <h2 className="font-bold uppercase tracking-wider leading-tight" style={{ fontSize: "11px", color: "#fbbf24", textShadow: "0 1px 2px rgba(0,0,0,0.3)" }}>{schoolName}</h2>
+          <p className="leading-[1.2] mt-0.5 pr-2" style={{ fontSize: "7px", color: "rgba(203,213,225,0.9)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{schoolAddress}</p>
         </div>
       </div>
       <div className="flex flex-1 min-h-0">
-        <div className={`flex-1 ${forPrint ? "p-2" : "p-3"} flex gap-3 relative overflow-hidden`}>
+        <div className={`flex-1 ${forPrint ? "p-1.5" : "p-3"} flex ${forPrint ? "gap-2.5" : "gap-3"} relative overflow-hidden`}>
           <div className="absolute inset-0 opacity-[0.02] pointer-events-none" style={{ backgroundImage: "radial-gradient(circle at 2px 2px, #64748b 1px, transparent 0)", backgroundSize: "16px 16px" }} />
           <div className="absolute -right-6 -bottom-6 opacity-[0.03] pointer-events-none"><span style={{ fontSize: "72px", fontWeight: 800, color: "#0f172a" }}>SD</span></div>
           {showPhoto && (
             <div className="flex-shrink-0 relative">
-              <div className="relative" style={{ width: "60px", height: "78px", padding: "3px", background: "linear-gradient(135deg, #e2e8f0 0%, #f1f5f9 100%)", borderRadius: "4px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>
+              <div className="relative" style={{ width: forPrint ? "50px" : "60px", height: forPrint ? "65px" : "78px", padding: "3px", background: "linear-gradient(135deg, #e2e8f0 0%, #f1f5f9 100%)", borderRadius: "4px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>
                 <div className="absolute -top-0.5 -left-0.5 w-2 h-2 border-l-2 border-t-2 border-amber-400 rounded-tl" />
                 <div className="absolute -top-0.5 -right-0.5 w-2 h-2 border-r-2 border-t-2 border-amber-400 rounded-tr" />
                 <div className="absolute -bottom-0.5 -left-0.5 w-2 h-2 border-l-2 border-b-2 border-amber-400 rounded-bl" />
                 <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 border-r-2 border-b-2 border-amber-400 rounded-br" />
                 <div className="w-full h-full overflow-hidden rounded-sm bg-slate-50">
                   {student.photo ? <img src={resolveUploadUrl(student.photo)} alt={student.fullName} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = "none"; e.currentTarget.nextElementSibling?.classList.remove("hidden"); }} /> : null}
-                  <div className={`w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 ${student.photo ? "hidden" : ""}`}><span className="font-bold text-slate-400" style={{ fontSize: "18px" }}>{initials}</span></div>
+                  <div className={`w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 ${student.photo ? "hidden" : ""}`}><span className="font-bold text-slate-400" style={{ fontSize: forPrint ? "15px" : "18px" }}>{initials}</span></div>
                 </div>
               </div>
             </div>
           )}
           <div className="flex-1 min-w-0 flex flex-col justify-center z-10">
             <div className="mb-0.5">
-              <p className="uppercase tracking-widest font-semibold leading-none text-[6px] text-slate-400">Nama Lengkap</p>
+              <p className="uppercase tracking-widest font-semibold leading-none text-[7px] text-slate-400">Nama Lengkap</p>
               <h3
                 className="font-bold text-slate-800"
                 style={{
@@ -111,22 +111,22 @@ function StudentCardFront({ student, schoolName, schoolAddress, schoolLogo, show
               </h3>
             </div>
             <div className="grid gap-y-1 leading-tight" style={{ gridTemplateColumns: "max-content 4px auto" }}>
-              <p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">NISN</p>
-              <p className="text-[6px] text-slate-500">:</p>
-              <p className="font-mono font-semibold text-[8px] text-slate-700">{student.nisn || "-"}</p>
+              <p className="uppercase tracking-widest font-semibold text-[7px] text-slate-400">NISN</p>
+              <p className="text-[7px] text-slate-500">:</p>
+              <p className="font-mono font-semibold text-[9px] text-slate-700">{student.nisn || "-"}</p>
               {showNIS && (
                 <>
-                  <p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">NIS</p>
-                  <p className="text-[6px] text-slate-500">:</p>
-                  <p className="font-mono text-[8px] text-slate-700">{student.nis || "-"}</p>
+                  <p className="uppercase tracking-widest font-semibold text-[7px] text-slate-400">NIS</p>
+                  <p className="text-[7px] text-slate-500">:</p>
+                  <p className="font-mono text-[9px] text-slate-700">{student.nis || "-"}</p>
                 </>
               )}
-              <p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">L/P</p>
-              <p className="text-[6px] text-slate-500">:</p>
-              <p className="text-[8px] text-slate-700">{student.gender === "L" ? "Laki-laki" : student.gender === "P" ? "Perempuan" : "-"}</p>
-              <p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">TTL</p>
-              <p className="text-[6px] text-slate-500">:</p>
-              <p className="text-[8px] text-slate-700">{formatBirthInfo(student)}</p>
+              <p className="uppercase tracking-widest font-semibold text-[7px] text-slate-400">L/P</p>
+              <p className="text-[7px] text-slate-500">:</p>
+              <p className="text-[9px] text-slate-700">{student.gender === "L" ? "Laki-laki" : student.gender === "P" ? "Perempuan" : "-"}</p>
+              <p className="uppercase tracking-widest font-semibold text-[7px] text-slate-400">TTL</p>
+              <p className="text-[7px] text-slate-500">:</p>
+              <p className="text-[9px] text-slate-700">{formatBirthInfo(student)}</p>
             </div>
           </div>
         </div>
@@ -135,14 +135,14 @@ function StudentCardFront({ student, schoolName, schoolAddress, schoolLogo, show
           <div className="absolute bottom-2 right-2 w-3 h-3 border-r border-b border-slate-300" />
           <div className="bg-white p-2 rounded-lg border border-slate-200"><QRCodeSVG value={student.qrCode} size={forPrint ? 72 : 90} level="H" includeMargin={false} /></div>
           <div className="mt-1 text-center">
-            <p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">Pindai</p>
-            <p className="font-mono font-bold mt-0.5 px-2 py-0.5 rounded" style={{ fontSize: "7px", color: "#475569", background: "#e2e8f0" }}>{student.qrCode.slice(-8).toUpperCase()}</p>
+            <p className="uppercase tracking-widest font-semibold text-[7px] text-slate-400">Pindai</p>
+            <p className="font-mono font-bold mt-0.5 px-2 py-0.5 rounded" style={{ fontSize: "7.5px", color: "#475569", background: "#e2e8f0" }}>{student.qrCode.slice(-8).toUpperCase()}</p>
           </div>
         </div>
       </div>
       <div className="flex items-center justify-between px-3 flex-shrink-0" style={{ height: "18px", background: "linear-gradient(to right, #fbbf24, #f59e0b)" }}>
-        <p className="font-semibold text-[7px] text-amber-950">Berlaku hingga dinyatakan lulus</p>
-        <p className="font-mono font-bold text-[7px] text-amber-950">ID: {student.qrCode.slice(-8).toUpperCase()}</p>
+        <p className="font-semibold text-[8px] text-amber-950">Berlaku hingga dinyatakan lulus</p>
+        <p className="font-mono font-bold text-[8px] text-amber-950">ID: {student.qrCode.slice(-8).toUpperCase()}</p>
       </div>
     </div>
   );
@@ -156,20 +156,25 @@ function StudentCardBack({ student, schoolName, schoolAddress, forPrint }: CardB
   return (
     <div className="student-card relative overflow-hidden bg-white flex-shrink-0 text-slate-800 flex flex-col" style={{ width: forPrint ? "85.6mm" : "380px", height: forPrint ? "54mm" : "240px", borderRadius: forPrint ? "2mm" : "10px", border: "1px solid #e2e8f0" }}>
       <div className="relative px-3 py-2 flex items-center justify-center overflow-hidden flex-shrink-0" style={{ height: "28px", background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)" }}>
-        <p className="text-white font-bold uppercase tracking-wider text-[8.5px]">{schoolName}</p>
+        <p className="text-white font-bold uppercase tracking-wider text-[9px]">{schoolName}</p>
       </div>
       <div className="flex flex-1 min-h-0">
-        <div className="flex-1 p-2.5 flex flex-col justify-center border-r border-slate-100">
-          <p className="uppercase tracking-widest font-bold mb-1 text-[7px] text-slate-400">Ketentuan Penggunaan</p>
-          <ul className="space-y-0.5">{rules.map((rule, idx) => (<li key={idx} className="flex items-start gap-1 text-[7.5px] text-slate-600 leading-snug"><span className="text-amber-500 font-bold">•</span><span>{rule}</span></li>))}</ul>
-          <div className="mt-2 pt-1 border-t border-dashed border-slate-100 text-[6.5px] text-slate-400">Harap kembalikan ke: {schoolAddress}</div>
+        <div className="flex-1 p-2 flex flex-col justify-center border-r border-slate-100">
+          <p className="uppercase tracking-widest font-bold mb-0.5 text-[7.5px] text-slate-400">Ketentuan Penggunaan</p>
+          <ul className="space-y-0.5">{rules.map((rule, idx) => (<li key={idx} className="flex items-start gap-1 text-[8px] text-slate-600 leading-snug"><span className="text-amber-500 font-bold">•</span><span>{rule}</span></li>))}</ul>
+          <div
+            className="mt-1 pt-1 border-t border-dashed border-slate-100 text-[7px] text-slate-400"
+            style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
+          >
+            Harap kembalikan ke: {schoolAddress}
+          </div>
         </div>
-<div className="flex flex-col items-center justify-center px-2 bg-slate-50" style={{ width: "50%" }}>
+<div className="flex flex-col items-center justify-center px-2 bg-slate-50" style={{ width: "45%" }}>
            <div className="border border-slate-200 p-1.5 bg-white rounded-lg"><QRCodeSVG value={`VALID: ${student.fullName} (${student.nisn || student.nis})`} size={forPrint ? 112 : 150} level="H" /></div>
-          <span className="text-[6px] uppercase tracking-widest font-bold text-slate-400 mt-1">VERIFIED</span>
+          <span className="text-[6.5px] uppercase tracking-widest font-bold text-slate-400 mt-1">VERIFIED</span>
         </div>
       </div>
-      <div className="flex items-center justify-center text-white text-[7px] flex-shrink-0" style={{ height: "18px", background: "linear-gradient(to right, #0f172a, #1e293b)" }}>
+      <div className="flex items-center justify-center text-white text-[8px] flex-shrink-0" style={{ height: "18px", background: "linear-gradient(to right, #0f172a, #1e293b)" }}>
         <span>{schoolName} - AKSI</span>
       </div>
     </div>
