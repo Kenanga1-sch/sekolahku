@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Printer, FolderDown, RefreshCw, Settings2, ImageIcon, Save, RotateCcw } from "lucide-react";
+import { ArrowLeft, Printer, FolderDown, RefreshCw, Settings2, ImageIcon, Save, RotateCcw, Crosshair } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -68,115 +68,144 @@ export default function CetakKartuPage() {
             <CardTitle className="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-100">
               <Settings2 className="h-5 w-5 text-violet-500" />Pengaturan Cetak
             </CardTitle>
-            <CardDescription className="text-xs">Sesuaikan tipe kartu, tata letak, dan detail sebelum diunduh atau dicetak</CardDescription>
-          <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:bg-zinc-900 dark:text-zinc-400">
-            {cards.length} siswa · {printMode === "duplex" && showBackSide ? "mode duplex, halaman depan dan belakang" : showBackSide ? "sisi depan dan belakang" : "sisi depan saja"}{printMode === "duplex" && showBackSide ? ` · balik sisi ${flipEdge === "long" ? "panjang" : "pendek"}` : ""}
-          </div>
+            <CardDescription className="text-xs">Isi kartu dan tata letak lembar sebelum diunduh atau dicetak</CardDescription>
+            <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:bg-zinc-900 dark:text-zinc-400">
+              {cards.length} siswa · {printMode === "duplex" && showBackSide ? "mode duplex, halaman depan dan belakang" : showBackSide ? "sisi depan dan belakang" : "sisi depan saja"}{printMode === "duplex" && showBackSide ? ` · balik sisi ${flipEdge === "long" ? "panjang" : "pendek"}` : ""}
+            </div>
           </CardHeader>
           <CardContent className="pt-5">
-            <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-5 items-end">
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold text-slate-500 dark:text-slate-400">Tipe Kartu</Label>
-                <Select value={cardType} onValueChange={(v: any) => setCardType(v)}>
-                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pelajar">Kartu Pelajar</SelectItem>
-                    <SelectItem value="nisn">Kartu NISN</SelectItem>
-                    <SelectItem value="kip">Kartu KIP</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold text-slate-500 dark:text-slate-400">Kartu per Baris</Label>
-                <Select value={cardsPerRow} onValueChange={setCardsPerRow}>
-                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">1 Kartu</SelectItem>
-                    <SelectItem value="2">2 Kartu</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center gap-3 py-2"><Switch checked={showPhoto} onCheckedChange={setShowPhoto} id="showPhoto" /><Label htmlFor="showPhoto" className="cursor-pointer text-sm">Tampilkan Foto</Label></div>
-              {cardType === "pelajar" && (
-                <div className="flex items-center gap-3 py-2"><Switch checked={showNIS} onCheckedChange={setShowNIS} id="showNIS" /><Label htmlFor="showNIS" className="cursor-pointer text-sm">Tampilkan NIS</Label></div>
-              )}
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold text-slate-500 dark:text-slate-400">Mode Cetak</Label>
-                <Select value={printMode} onValueChange={(v) => setPrintMode(v as "combined" | "duplex")}>
-                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="combined">Gabungan</SelectItem>
-                    <SelectItem value="duplex">Duplex (depan-belakang)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center gap-3 py-2"><Switch checked={showBackSide} onCheckedChange={setShowBackSide} id="showBackSide" /><Label htmlFor="showBackSide" className="cursor-pointer text-sm">Tampilkan Sisi Belakang</Label></div>
-              {printMode === "duplex" && showBackSide && (
-                <div className="space-y-2">
-                  <Label className="text-xs font-semibold text-slate-500 dark:text-slate-400">Balik Kertas</Label>
-                  <Select value={flipEdge} onValueChange={(v) => setFlipEdge(v as "long" | "short")}>
+            <div className="grid gap-6 sm:grid-cols-2">
+              {/* Kolom kiri: isi kartu */}
+              <div className="space-y-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-zinc-500">Isi Kartu</p>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-500 dark:text-slate-400">Tipe Kartu</Label>
+                  <Select value={cardType} onValueChange={(v) => setCardType(v as "pelajar" | "nisn" | "kip")}>
                     <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="long">Sisi panjang</SelectItem>
-                      <SelectItem value="short">Sisi pendek</SelectItem>
+                      <SelectItem value="pelajar">Kartu Pelajar</SelectItem>
+                      <SelectItem value="nisn">Kartu NISN</SelectItem>
+                      <SelectItem value="kip">Kartu KIP</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-              )}
-              <div className="space-y-2 sm:col-span-2">
-                <div className="flex items-center justify-between gap-2">
-                  <Label className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                    Penyesuaian Posisi (mm) · Mode {printMode === "duplex" ? "Duplex" : "Gabungan"}
-                  </Label>
-                  <div className="flex gap-1.5">
-                    <Button type="button" variant="outline" size="sm" className="gap-1 h-7 px-2 text-xs" onClick={resetAdjust}>
-                      <RotateCcw className="h-3 w-3" />Reset
-                    </Button>
-                    <Button type="button" size="sm" className="gap-1 h-7 px-2 text-xs" onClick={saveAdjust}>
-                      <Save className="h-3 w-3" />Simpan
-                    </Button>
+                <div className="flex items-center justify-between rounded-lg border border-slate-200/70 px-3 py-2 dark:border-zinc-800/70">
+                  <Label htmlFor="showPhoto" className="cursor-pointer text-sm">Tampilkan Foto</Label>
+                  <Switch checked={showPhoto} onCheckedChange={setShowPhoto} id="showPhoto" />
+                </div>
+                {cardType === "pelajar" && (
+                  <div className="flex items-center justify-between rounded-lg border border-slate-200/70 px-3 py-2 dark:border-zinc-800/70">
+                    <Label htmlFor="showNIS" className="cursor-pointer text-sm">Tampilkan NIS</Label>
+                    <Switch checked={showNIS} onCheckedChange={setShowNIS} id="showNIS" />
                   </div>
+                )}
+                <div className="flex items-center justify-between rounded-lg border border-slate-200/70 px-3 py-2 dark:border-zinc-800/70">
+                  <Label htmlFor="showBackSide" className="cursor-pointer text-sm">Tampilkan Sisi Belakang</Label>
+                  <Switch checked={showBackSide} onCheckedChange={setShowBackSide} id="showBackSide" />
                 </div>
-                <div className="rounded-lg border border-slate-200 dark:border-zinc-800 overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 text-slate-500 dark:text-zinc-400">
-                        <th className="px-2 py-1.5 text-left font-semibold">Sisi</th>
-                        {columns.map((col) => (
-                          <th key={col} className="px-2 py-1.5 text-left font-semibold">
-                            Kolom {columns.length > 1 ? COLUMN_LABELS[col] ?? col + 1 : ""}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(["front", "back"] as const)
-                        .filter((side) => side === "front" || showBackSide)
-                        .map((side) => (
-                          <tr key={side} className="border-b border-slate-200/70 dark:border-zinc-800/70 last:border-0">
-                            <td className="px-2 py-1.5 font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                              {side === "front" ? "Depan" : "Belakang"}
-                            </td>
-                            {columns.map((col) => (
-                              <td key={col} className="px-2 py-1.5">
-                                <div className="flex items-center gap-1">
-                                  <span className="text-slate-400">X</span>
-                                  <MmInput value={getOffset(adjust, printMode, side, col).x} onCommit={(v) => setOffset(printMode, side, col, "x", v)} label={`${side === "front" ? "Depan" : "Belakang"} kolom ${col + 1} sumbu X`} />
-                                  <span className="text-slate-400">Y</span>
-                                  <MmInput value={getOffset(adjust, printMode, side, col).y} onCommit={(v) => setOffset(printMode, side, col, "y", v)} label={`${side === "front" ? "Depan" : "Belakang"} kolom ${col + 1} sumbu Y`} />
-                                </div>
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
+              </div>
+
+              {/* Kolom kanan: tata letak lembar */}
+              <div className="space-y-3 sm:border-l sm:border-slate-200 sm:pl-8 sm:dark:border-zinc-800">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-zinc-500">Tata Letak Lembar</p>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-500 dark:text-slate-400">Kartu per Baris</Label>
+                  <Select value={cardsPerRow} onValueChange={setCardsPerRow}>
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 Kartu</SelectItem>
+                      <SelectItem value="2">2 Kartu</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <p className="text-[11px] text-muted-foreground">
-                  Cetak uji, ubah angka lalu cetak ulang. Klik <strong>Simpan</strong> agar nilai tersimpan di browser ini dan tidak berubah saat halaman dimuat ulang.
-                </p>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-500 dark:text-slate-400">Mode Cetak</Label>
+                  <Select value={printMode} onValueChange={(v) => setPrintMode(v as "combined" | "duplex")}>
+                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="combined">Gabungan</SelectItem>
+                      <SelectItem value="duplex">Duplex (depan-belakang)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {printMode === "duplex" && showBackSide && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-slate-500 dark:text-slate-400">Balik Kertas</Label>
+                    <Select value={flipEdge} onValueChange={(v) => setFlipEdge(v as "long" | "short")}>
+                      <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="long">Sisi panjang</SelectItem>
+                        <SelectItem value="short">Sisi pendek</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Penyesuaian Posisi (kartu terpisah — kalibrasi printer) */}
+        <Card className="border-slate-200/80 shadow-sm">
+          <CardHeader className="pb-3 border-b">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="space-y-1">
+                <CardTitle className="flex items-center gap-2 text-lg font-bold text-slate-800 dark:text-slate-100">
+                  <Crosshair className="h-5 w-5 text-violet-500" />Penyesuaian Posisi (mm)
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Geser posisi kartu di kertas per sisi & kolom · Mode {printMode === "duplex" ? "Duplex" : "Gabungan"}
+                </CardDescription>
+              </div>
+              <div className="flex gap-1.5">
+                <Button type="button" variant="outline" size="sm" className="gap-1 h-8 px-2.5 text-xs" onClick={resetAdjust}>
+                  <RotateCcw className="h-3 w-3" />Reset
+                </Button>
+                <Button type="button" size="sm" className="gap-1 h-8 px-2.5 text-xs" onClick={saveAdjust}>
+                  <Save className="h-3 w-3" />Simpan
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-5 space-y-3">
+            <div className="rounded-lg border border-slate-200 dark:border-zinc-800 overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 text-slate-500 dark:text-zinc-400">
+                    <th className="px-2 py-1.5 text-left font-semibold">Sisi</th>
+                    {columns.map((col) => (
+                      <th key={col} className="px-2 py-1.5 text-left font-semibold">
+                        Kolom {columns.length > 1 ? COLUMN_LABELS[col] ?? col + 1 : ""}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(["front", "back"] as const)
+                    .filter((side) => side === "front" || showBackSide)
+                    .map((side) => (
+                      <tr key={side} className="border-b border-slate-200/70 dark:border-zinc-800/70 last:border-0">
+                        <td className="px-2 py-1.5 font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                          {side === "front" ? "Depan" : "Belakang"}
+                        </td>
+                        {columns.map((col) => (
+                          <td key={col} className="px-2 py-1.5">
+                            <div className="flex items-center gap-1">
+                              <span className="text-slate-400">X</span>
+                              <MmInput value={getOffset(adjust, printMode, side, col).x} onCommit={(v) => setOffset(printMode, side, col, "x", v)} label={`${side === "front" ? "Depan" : "Belakang"} kolom ${col + 1} sumbu X`} />
+                              <span className="text-slate-400">Y</span>
+                              <MmInput value={getOffset(adjust, printMode, side, col).y} onCommit={(v) => setOffset(printMode, side, col, "y", v)} label={`${side === "front" ? "Depan" : "Belakang"} kolom ${col + 1} sumbu Y`} />
+                            </div>
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Cetak uji, ubah angka lalu cetak ulang. Klik <strong>Simpan</strong> agar nilai tersimpan di browser ini dan tidak berubah saat halaman dimuat ulang.
+            </p>
           </CardContent>
         </Card>
 
