@@ -38,18 +38,24 @@ interface CardFrontProps {
   student: StudentCard; schoolName: string; schoolAddress: string; schoolLogo: string | null; showPhoto: boolean; showNIS: boolean; forPrint?: boolean;
 }
 
-/** "Indramayu, 17 Agustus 2014" — tanggal diurai tanpa geser zona waktu
- *  (parsial YYYY-MM-DD diberi waktu lokal T00:00:00). */
+/** "Indramayu, 17 Agu 2014" — tanggal diurai tanpa geser zona waktu
+ *  (parsial YYYY-MM-DD diberi waktu lokal T00:00:00), bulan singkat agar
+ *  muat di lebar kolom cetak; tempat lahir diubah ke proper case
+ *  (INDRAMAYU → Indramayu) karena datanya sering tersimpan huruf kapital. */
+function properCase(value: string): string {
+  return value.replace(/\p{L}+/gu, (word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase());
+}
+
 function formatBirthInfo(student: StudentCard): string {
   let dateText = "";
   const raw = student.birthDate?.split("T")[0];
   if (raw) {
     const d = new Date(`${raw}T00:00:00`);
     if (!Number.isNaN(d.getTime())) {
-      dateText = d.toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" });
+      dateText = d.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" });
     }
   }
-  const place = student.birthPlace?.trim() || "";
+  const place = student.birthPlace ? properCase(student.birthPlace.trim()) : "";
   if (place && dateText) return `${place}, ${dateText}`;
   return dateText || place || "-";
 }
@@ -86,16 +92,16 @@ function StudentCardFront({ student, schoolName, schoolAddress, schoolLogo, show
               </div>
             </div>
           )}
-          <div className="flex-1 min-w-0 flex flex-col justify-center z-10">
+          <div className="flex-1 min-w-0 flex flex-col justify-start z-10">
             <div className="mb-1">
               <p className="uppercase tracking-widest font-semibold mb-0.5 text-[6px] text-slate-400">Nama Lengkap</p>
               <h3 className="font-bold leading-tight text-slate-800" style={{ fontSize: "13px", letterSpacing: "0.3px", wordBreak: "break-word", lineHeight: "1.2" }}>{student.fullName}</h3>
             </div>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+            <div className="grid gap-y-0.5 leading-none">
               <div><p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">NISN</p><p className="font-mono font-semibold text-[9px] text-slate-700">{student.nisn || "-"}</p></div>
-              <div><p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">L / P</p><p className="text-[9px] text-slate-700">{student.gender === "L" ? "Laki-laki" : student.gender === "P" ? "Perempuan" : "-"}</p></div>
               {showNIS && <div><p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">NIS</p><p className="font-mono text-[9px] text-slate-700">{student.nis || "-"}</p></div>}
-              <div className="col-span-2">
+              <div><p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">L / P</p><p className="text-[9px] text-slate-700">{student.gender === "L" ? "Laki-laki" : student.gender === "P" ? "Perempuan" : "-"}</p></div>
+              <div>
                 <p className="uppercase tracking-widest font-semibold text-[6px] text-slate-400">Tempat, Tgl Lahir</p>
                 <p className="text-[9px] text-slate-700">{formatBirthInfo(student)}</p>
               </div>
@@ -206,7 +212,7 @@ function NISNCardFront({ student, schoolName, schoolAddress, showPhoto, forPrint
           <div className="grid gap-y-0.5 text-[#231f20]" style={{ gridTemplateColumns: "max-content 4px auto", fontSize: forPrint ? "2.2mm" : "9.5px", lineHeight: "1.25" }}>
             <div className="font-semibold text-slate-700">NISN</div><div className="text-slate-500">:</div><div className="font-bold text-[#1b75bb] font-mono tracking-wide">{student.nisn || "-"}</div>
             <div className="font-semibold text-slate-700">Nama</div><div className="text-slate-500">:</div><div className="font-bold truncate max-w-[170px] uppercase text-[9px]">{student.fullName}</div>
-            <div className="font-semibold text-slate-700">Tempat Lahir</div><div className="text-slate-500">:</div><div className="font-medium truncate max-w-[170px]">{student.birthPlace || "-"}</div>
+            <div className="font-semibold text-slate-700">Tempat Lahir</div><div className="text-slate-500">:</div><div className="font-medium truncate max-w-[170px]">{student.birthPlace ? properCase(student.birthPlace.trim()) : "-"}</div>
             <div className="font-semibold text-slate-700">Tanggal Lahir</div><div className="text-slate-500">:</div><div className="font-medium">{student.birthDate ? new Date(student.birthDate).toLocaleDateString("id-ID", {day: "2-digit", month: "long", year: "numeric"}) : "-"}</div>
 
 
