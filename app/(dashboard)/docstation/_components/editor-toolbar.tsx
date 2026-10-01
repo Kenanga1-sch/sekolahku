@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -116,6 +117,45 @@ function ToolLabel({ children }: { children: React.ReactNode }) {
 }
 
 const iconClass = "h-4 w-4";
+
+/** Tanda + untuk nilai positif agar angka penyesuaian enak dibaca. */
+const signed = (n: number) => (n > 0 ? `+${n}` : `${n}`);
+
+interface AdjustRowProps {
+  icon: React.ReactNode;
+  label: string;
+  ariaLabel: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  display: string;
+  disabled?: boolean;
+  onChange: (value: number) => void;
+}
+
+/** Satu baris slider penyesuaian — lebar penuh (panel kanan hanya ±296px). */
+function AdjustRow({ icon, label, ariaLabel, value, min, max, step, display, disabled, onChange }: AdjustRowProps) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="flex shrink-0 items-center gap-1">
+        <span className="text-muted-foreground">{icon}</span>
+        <ToolLabel>{label}</ToolLabel>
+      </span>
+      <Slider
+        aria-label={ariaLabel}
+        className="min-w-0 flex-1"
+        min={min}
+        max={max}
+        step={step}
+        value={[value]}
+        disabled={disabled}
+        onValueChange={(v) => onChange(v[0])}
+      />
+      <span className="w-9 shrink-0 text-right text-xs tabular-nums text-muted-foreground">{display}</span>
+    </div>
+  );
+}
 
 /** Toolbar editor halaman bergrup tab: transformasi, pembersihan, ketajaman,
  *  binarisasi, anotasi, multi-halaman, dan penyesuaian manual. */
@@ -302,72 +342,60 @@ export function EditorToolbar(props: EditorToolbarProps) {
           </p>
         </TabsContent>
 
-        {/* PENYESUAIAN MANUAL */}
+        {/* PENYESUAIAN MANUAL — satu baris per slider (bukan grid 3 kolom:
+            di panel kanan selebar ±296px kolom sempit membuat slider tak
+            terpakai; lebar mengikuti viewport, bukan lebar panel). */}
         <TabsContent value="adjust">
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-            <div className="flex items-center gap-2">
-              <Sun className="h-4 w-4 text-muted-foreground" />
-              <ToolLabel>Terang</ToolLabel>
-              <Slider
-                aria-label="Kecerahan"
-                className="min-w-0 flex-1"
-                min={-100}
-                max={100}
-                step={1}
-                value={[adjustments.brightness]}
-                disabled={dis}
-                onValueChange={(v) => onAdjustmentsChange({ brightness: v[0] })}
-              />
-              <span className="w-9 text-right text-xs tabular-nums text-muted-foreground">
-                {adjustments.brightness}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Contrast className="h-4 w-4 text-muted-foreground" />
-              <ToolLabel>Kontras</ToolLabel>
-              <Slider
-                aria-label="Kontras"
-                className="min-w-0 flex-1"
-                min={-100}
-                max={100}
-                step={1}
-                value={[adjustments.contrast]}
-                disabled={dis}
-                onValueChange={(v) => onAdjustmentsChange({ contrast: v[0] })}
-              />
-              <span className="w-9 text-right text-xs tabular-nums text-muted-foreground">
-                {adjustments.contrast}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
-              <ToolLabel>Gamma</ToolLabel>
-              <Slider
-                aria-label="Gamma"
-                className="min-w-0 flex-1"
-                min={0.3}
-                max={2.5}
-                step={0.05}
-                value={[adjustments.gamma]}
-                disabled={dis}
-                onValueChange={(v) => onAdjustmentsChange({ gamma: v[0] })}
-              />
-              <span className="w-9 text-right text-xs tabular-nums text-muted-foreground">
-                {adjustments.gamma.toFixed(2)}
-              </span>
-            </div>
+          <div className="space-y-2.5">
+            <AdjustRow
+              icon={<Sun className="h-4 w-4" />}
+              label="Terang"
+              ariaLabel="Kecerahan"
+              value={adjustments.brightness}
+              min={-100}
+              max={100}
+              step={1}
+              display={signed(adjustments.brightness)}
+              disabled={dis}
+              onChange={(brightness) => onAdjustmentsChange({ brightness })}
+            />
+            <AdjustRow
+              icon={<Contrast className="h-4 w-4" />}
+              label="Kontras"
+              ariaLabel="Kontras"
+              value={adjustments.contrast}
+              min={-100}
+              max={100}
+              step={1}
+              display={signed(adjustments.contrast)}
+              disabled={dis}
+              onChange={(contrast) => onAdjustmentsChange({ contrast })}
+            />
+            <AdjustRow
+              icon={<SlidersHorizontal className="h-4 w-4" />}
+              label="Gamma"
+              ariaLabel="Gamma"
+              value={adjustments.gamma}
+              min={0.3}
+              max={2.5}
+              step={0.05}
+              display={adjustments.gamma.toFixed(2)}
+              disabled={dis}
+              onChange={(gamma) => onAdjustmentsChange({ gamma })}
+            />
           </div>
-          <div className="mt-2 flex items-center gap-3">
-            <label className="flex cursor-pointer items-center gap-2 text-xs font-medium">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-input"
+          <div className="mt-3 flex items-center gap-3">
+            <span className="flex cursor-pointer items-center gap-2 text-xs font-medium">
+              <Checkbox
+                id="adjust-grayscale"
                 checked={adjustments.grayscale}
                 disabled={dis}
-                onChange={(e) => onAdjustmentsChange({ grayscale: e.target.checked })}
+                onCheckedChange={(v) => onAdjustmentsChange({ grayscale: v === true })}
               />
-              Grayscale
-            </label>
+              <label htmlFor="adjust-grayscale" className="cursor-pointer">
+                Grayscale
+              </label>
+            </span>
             <Button
               type="button"
               size="sm"
