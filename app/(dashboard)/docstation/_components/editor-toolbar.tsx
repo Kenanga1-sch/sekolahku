@@ -58,7 +58,8 @@ export interface EditorToolbarProps {
       | "despeckle-strong"
       | "stray-marks"
       | "adf-border"
-      | "sharpen",
+      | "sharpen"
+      | "binarize",
     strength: number,
   ) => void;
   onDeskew: () => void;
@@ -229,6 +230,19 @@ export function EditorToolbar(props: EditorToolbarProps) {
         </div>
       </div>
 
+      {/* Aksi crop selalu tampil (di luar tab) agar Terapkan/Batal tetap
+          terjangkau saat pengguna berpindah tab selama crop mode aktif. */}
+      {cropMode && (
+        <div className="flex items-center justify-end gap-2">
+          <Button type="button" size="sm" onClick={onApplyCrop} disabled={busy}>
+            Terapkan Crop
+          </Button>
+          <Button type="button" size="sm" variant="outline" onClick={onCancelCrop} disabled={busy}>
+            Batal
+          </Button>
+        </div>
+      )}
+
       <Tabs defaultValue="transform" className="gap-2">
         {/* TabsList tidak lagi menggulir horizontal penuh: dibiarkan membungkus
             (flex-wrap) agar semua tab muat di kolom kanan selebar 320px. */}
@@ -268,17 +282,6 @@ export function EditorToolbar(props: EditorToolbarProps) {
             <ToolButton icon={<Frame className={iconClass} />} label="Auto crop (deteksi tepi kertas)" disabled={dis} onClick={onAutoWarp} />
             <ToolButton icon={<ScanLine className={iconClass} />} label="Auto-deskew" disabled={dis} onClick={onDeskew} />
             <ToolButton icon={<Wand2 className={iconClass} />} label="Hapus strip tepi scan ADF" disabled={dis} onClick={() => onAdvanced("adf-border", 1)} />
-
-            {cropMode && (
-              <div className="ml-auto flex items-center gap-2">
-                <Button type="button" size="sm" onClick={onApplyCrop} disabled={busy}>
-                  Terapkan Crop
-                </Button>
-                <Button type="button" size="sm" variant="outline" onClick={onCancelCrop} disabled={busy}>
-                  Batal
-                </Button>
-              </div>
-            )}
           </div>
         </TabsContent>
 
@@ -334,7 +337,7 @@ export function EditorToolbar(props: EditorToolbarProps) {
         <TabsContent value="binarize">
           <div className="flex flex-wrap items-center gap-2">
             <ToolButton icon={<Sparkles className={iconClass} />} label="Magic B&W (adaptif Sauvola/Otsu)" disabled={dis} onClick={() => onEnhance("bw")} />
-            <ToolButton icon={<Contrast className={iconClass} />} label="Biner ambang (kontras tinggi)" disabled={dis} onClick={() => onAdvanced("sharpen", 0.6)} />
+            <ToolButton icon={<Contrast className={iconClass} />} label="Biner ambang (kontras tinggi)" disabled={dis} onClick={() => onAdvanced("binarize", 1)} />
           </div>
           <p className="mt-2 text-[11px] text-muted-foreground">
             Magic B&amp;W memakai Sauvola adaptif (fallback) atau Otsu (OpenCV) untuk

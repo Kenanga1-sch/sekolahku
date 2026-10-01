@@ -167,7 +167,14 @@ export function EditorStudio({ paperSize, customWidth, customHeight, onProceed, 
 
   const runAdvanced = useCallback(
     (
-      mode: "white-bg" | "illumination" | "despeckle-strong" | "stray-marks" | "adf-border" | "sharpen",
+      mode:
+        | "white-bg"
+        | "illumination"
+        | "despeckle-strong"
+        | "stray-marks"
+        | "adf-border"
+        | "sharpen"
+        | "binarize",
       strength: number,
     ) => {
       const page = doc.pages.find((p) => p.id === doc.activeId);
@@ -179,6 +186,7 @@ export function EditorStudio({ paperSize, customWidth, customHeight, onProceed, 
         "stray-marks": "Hapus bintik/guratan",
         "adf-border": "Hapus strip tepi ADF",
         sharpen: "Mempertajam",
+        binarize: "Biner ambang",
       };
       const messageMap: Record<string, string> = {
         "white-bg": "ENHANCE_WHITE_BG",
@@ -187,6 +195,7 @@ export function EditorStudio({ paperSize, customWidth, customHeight, onProceed, 
         "stray-marks": "REMOVE_STRAY_MARKS",
         "adf-border": "REMOVE_ADF_BORDER",
         sharpen: "SHARPEN_USM",
+        binarize: "BINARIZE",
       };
       withBusy(`${labels[mode]}…`, async () => {
         const temp = document.createElement("canvas");

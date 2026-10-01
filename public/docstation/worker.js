@@ -129,6 +129,20 @@ self.onmessage = (event) => {
             break;
         }
 
+        case 'BINARIZE': {
+            // Biner ambang GLOBAL (Otsu) — untuk scan berkontras tinggi & merata.
+            // Berbeda dengan ENHANCE_BW yang memakai Sauvola adaptif saat OpenCV
+            // tidak siap; hasil biner ini sengaja "keras" dan tegas.
+            const { imageData, width, height } = payload;
+            try {
+                const buffer = otsuBinarizeBuffer(imageData, width, height);
+                job('ENHANCE_RESULT', { mode: 'binarize', width, height, imageData: buffer, note: 'otsu-global-pure-js' }, [buffer]);
+            } catch (err) {
+                job('ENHANCE_RESULT', { mode: 'binarize', width, height, error: err.message, note: 'error' });
+            }
+            break;
+        }
+
         case 'ENHANCE_BG': {
             const { imageData, width, height } = payload;
             try {
@@ -474,7 +488,11 @@ function otsuBinarizeBuffer(imageData, width, height) {
 
     const out = new Uint8ClampedArray(len * 4);
     for (let i = 0; i < len; i++) {
-        const val = gray[i] < threshold ? 0 : 255;
+        // Otsu memilih ambang t dengan kelas gelap = [0..t] (inklusif, sesuai
+        // perhitungan variances di atas) — karena itu g == t harus masuk HITAM.
+        // Versi lama (g < t ? 0 : 255) membuat piksel di ambang jadi putih dan
+        // pada citra dua-kelas ekstrem menghasilkan putih semua.
+        const val = gray[i] > threshold ? 255 : 0;
         const idx = i * 4;
         out[idx] = val;
         out[idx + 1] = val;
