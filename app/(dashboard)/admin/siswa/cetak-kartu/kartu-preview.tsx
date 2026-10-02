@@ -170,7 +170,7 @@ function StudentCardBack({ student, schoolName, schoolAddress, forPrint }: CardB
           </div>
         </div>
 <div className="flex flex-col items-center justify-center px-2 bg-slate-50" style={{ width: "45%" }}>
-           <div className="border border-slate-200 p-1.5 bg-white rounded-lg"><QRCodeSVG value={`VALID: ${student.fullName} (${student.nisn || student.nis})`} size={forPrint ? 112 : 150} level="H" /></div>
+           <div className="border border-slate-200 p-1.5 bg-white rounded-lg"><QRCodeSVG value={student.qrCode} size={forPrint ? 112 : 150} level="H" /></div>
           <span className="text-[6.5px] uppercase tracking-widest font-bold text-slate-400 mt-1">VERIFIED</span>
         </div>
       </div>
