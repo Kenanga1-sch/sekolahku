@@ -109,7 +109,9 @@ export default function TabBackup() {
 
         setIsTesting(true);
         try {
-            await goPost("/api/settings/backup/telegram/test", {});
+            await goPost("/api/settings/backup/telegram/test", {}, {
+                timeout: 60 * 60 * 1000, // 1 jam untuk backup besar (~37MB+)
+            });
             toast.success("Backup berhasil dikirim ke Telegram!");
             
             // Perbarui waktu lastBackupAt
@@ -146,7 +148,7 @@ export default function TabBackup() {
             formData.append("backup_file", fileToRestore);
 
             const res: any = await goPost("/api/settings/backup/telegram/restore", formData, {
-                timeout: 5 * 60 * 1000,
+                timeout: 5 * 60 * 1000, // 5 menit untuk restore besar
                 skipRetry: true,
             });
             

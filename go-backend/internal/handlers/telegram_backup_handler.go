@@ -669,10 +669,18 @@ func createBackupZip(db *sql.DB) (string, error) {
 	}
 
 	// Isi direktori data/ selain .db (mis. cloud-thumbs), bila ada.
+	// PENTING: skip data/tmp agar backup TIDAK men-zip dirinya sendiri
+	// (self-referential zip growth). Bandingkan abs path juga sebagai pengaman.
+	zipAbs, _ := filepath.Abs(zipPath)
 	if entries, derr := os.ReadDir("data"); derr == nil {
 		for _, e := range entries {
 			if e.IsDir() {
 				p := filepath.Join("data", e.Name())
+				pAbs, _ := filepath.Abs(p)
+				// Skip temp dir dan diri sendiri.
+				if strings.Contains(pAbs, "/tmp") || (strings.HasPrefix(zipAbs, pAbs+"/") || zipAbs == pAbs) {
+					continue
+				}
 				if err := addPathToZip(p); err != nil {
 					zipWriter.Close()
 					tempFile.Close()
