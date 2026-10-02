@@ -134,8 +134,8 @@ export default function AuthLayout({
                 className={cn(
                   "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-colors active:scale-[0.95]",
                   isActive
-                    ? "text-[#065F46]"
-                    : "text-[#4b6b4b] hover:text-[#065F46]"
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-primary"
                 )}
               >
                 <Icon className={cn("h-5 w-5", isActive && "fill-current")} strokeWidth={isActive ? 2.5 : 2} />

@@ -79,7 +79,7 @@ function NewsDetailContent() {
     return (
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-12 text-center">
         <AlertTriangle className="mx-auto mb-4 h-12 w-12 text-amber-400" />
-        <h2 className="text-lg font-semibold text-[#1a2e1a]">
+        <h2 className="text-lg font-semibold text-foreground">
           {error || "Berita tidak ditemukan"}
         </h2>
         <Link
@@ -102,29 +102,29 @@ function NewsDetailContent() {
             </Badge>
           )}
           {item.published_at && (
-            <span className="flex items-center gap-1 text-xs text-[#4b6b4b]">
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <Calendar className="h-3 w-3" />
               {formatDate(item.published_at)}
             </span>
           )}
           {item.author && (
-            <span className="text-xs text-[#4b6b4b]">
+            <span className="text-xs text-muted-foreground">
               Oleh {escapeHTML(item.author)}
             </span>
           )}
         </div>
-        <h1 className="text-3xl font-bold tracking-tight text-[#1a2e1a]">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">
           {item.title}
         </h1>
         {item.excerpt && (
-          <p className="mt-3 text-lg text-[#4b6b4b]">{item.excerpt}</p>
+          <p className="mt-3 text-lg text-muted-foreground">{item.excerpt}</p>
         )}
       </header>
 
       {/* Konten rich-text disanitasi sebelum render — data berasal dari DB
           dan bisa jadi membawa payload dari editor. */}
       <div
-        className="prose prose-emerald max-w-none text-[#1a2e1a] prose-img:rounded-lg prose-a:text-emerald-700"
+        className="prose prose-emerald max-w-none text-foreground prose-img:rounded-lg prose-a:text-emerald-700"
         dangerouslySetInnerHTML={{ __html: sanitizeHTML(item.content ?? "") }}
       />
 
@@ -154,7 +154,7 @@ export default function BeritaDetailPage() {
         </Link>
         <Suspense
           fallback={
-            <div className="flex items-center gap-2 text-[#4b6b4b]">
+            <div className="flex items-center gap-2 text-muted-foreground">
               <Newspaper className="h-4 w-4 animate-pulse" />
               Memuat…
             </div>

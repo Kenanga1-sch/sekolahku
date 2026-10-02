@@ -62,13 +62,19 @@ export default function SchoolMap({
   if (!mounted) {
     return (
       <div className="h-full w-full flex items-center justify-center bg-muted">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#065F46] border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     );
   }
 
   const schoolPosition: [number, number] = [lat, lng];
   const radiusM = maxDistanceKm * 1000;
+  // Leaflet mengisi atribut SVG (stroke/fill) yang tidak me-resolve var() CSS —
+  // baca nilai terpakai dari --primary (mengikuti tema runtime bila ada).
+  const primaryColor = (() => {
+    const v = getComputedStyle(document.documentElement).getPropertyValue("--primary").trim();
+    return /^#[0-9a-fA-F]{6}$/.test(v) ? v : "#065F46";
+  })();
 
   return (
     <MapContainer
@@ -93,8 +99,8 @@ export default function SchoolMap({
           center={schoolPosition}
           radius={radiusM}
           pathOptions={{
-            color: "#065F46",
-            fillColor: "#065F46",
+            color: primaryColor,
+            fillColor: primaryColor,
             fillOpacity: 0.08,
             dashArray: "6, 8",
             weight: 2,
