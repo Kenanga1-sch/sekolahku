@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useCetakKartu } from "./use-cetak-kartu";
 import { KartuPreview } from "./kartu-preview";
-import { buildPrintPages, getOffset, parseMmValue } from "./print-layout";
+import { buildPrintPages, getOffset, parseMmValue, CARD_H_MM } from "./print-layout";
 
 const COLUMN_LABELS = ["kiri", "kanan"];
 
@@ -276,8 +276,8 @@ export default function CetakKartuPage() {
                 padding: 0;
                 margin: 0;
                 display: grid;
-                grid-template-rows: repeat(4, 54mm);
-                grid-auto-rows: 54mm;
+                grid-template-rows: repeat(4, ${CARD_H_MM}mm);
+                grid-auto-rows: ${CARD_H_MM}mm;
                 align-content: start;
                 gap: 6mm;
                 break-inside: avoid-page;
@@ -290,7 +290,7 @@ export default function CetakKartuPage() {
                 page-break-before: always;
               }
               .card-print-page > * {
-                height: 54mm;
+                height: ${CARD_H_MM}mm;
                 overflow: hidden;
               }
               /* Kalibrasi posisi (offset mm) dipasang inline per sel kartu

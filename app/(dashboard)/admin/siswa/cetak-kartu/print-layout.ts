@@ -16,6 +16,11 @@ import type { StudentCard } from "./use-cetak-kartu";
 
 export const ROWS_PER_PAGE = 4;
 
+/** Dimensi fisik kartu (mm, landscape) — sumber tunggal untuk CSS print di
+ *  page.tsx dan render kartu di kartu-preview.tsx. Plastik laminating 66×96 mm. */
+export const CARD_W_MM = 88;
+export const CARD_H_MM = 58;
+
 export interface PrintCell {
   key: string;
   student: StudentCard;
