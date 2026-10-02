@@ -47,6 +47,17 @@ const ReportPdfPreview = dynamic<ReportPdfInput>(
   { ssr: false, loading: () => <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Memuat pratinjau PDF laporan...</div> }
 );
 
+/**
+ * Workbook laporan + penanda `isDefault`. `ReportWorkbook` tak memuat kolom ini
+ * (workbook murni berisi desain), jadi bendera default dipegang bersama state
+ * workbook agar otomatis ikut tersimpan/terserialisasi saat save.
+ */
+type WorkbookWithDefault = ReportWorkbook & { isDefault?: boolean };
+
+function workbookIsDefault(wb: ReportWorkbook): boolean {
+  return (wb as WorkbookWithDefault).isDefault === true;
+}
+
 const DEFAULT_MOCK_DATASET = [
   { no: 1, nisn: "0051234501", nama: "Ahmad Fauzi", kelas: "8A", total_setoran: 500000, total_penarikan: 100000, saldo_akhir: 400000, status: "Aktif" },
   { no: 2, nisn: "0051234502", nama: "Budi Santoso", kelas: "8A", total_setoran: 750000, total_penarikan: 200000, saldo_akhir: 550000, status: "Aktif" },
@@ -169,7 +180,7 @@ export default function ReportBuilderPage() {
           const tpl = res.data;
           setSelectedTplId(String(tpl.id));
           const restored = applyTemplateMeta(deserializeWorkbook(tpl.layoutJson), tpl);
-          setWb(restored);
+          setWb({ ...restored, isDefault: tpl.isDefault === true } as WorkbookWithDefault);
           setActiveSheetIdx(0);
         }
       } catch {
@@ -365,7 +376,7 @@ export default function ReportBuilderPage() {
     if (!found) return;
     try {
       const restored = applyTemplateMeta(deserializeWorkbook(found.layoutJson), found);
-      updateWb(restored, { force: true });
+      updateWb({ ...restored, isDefault: found.isDefault === true } as WorkbookWithDefault, { force: true });
       setActiveSheetIdx(0);
       toast.success(`Template "${found.name}" dimuat`);
     } catch {
@@ -413,21 +424,35 @@ export default function ReportBuilderPage() {
         paperSize: wb.paperSize,
         orientation: wb.orientation,
         layoutJson: serializeWorkbook(wb),
-        isDefault: false,
+        isDefault: workbookIsDefault(wb),
       };
+      /** Pesan error 409 (kode duplikat) dipetakan ke pesan khusus. */
+      const duplicateMessage = "Kode template sudah dipakai";
       if (selectedTplId) {
-        const res: any = await goPut(`/api/reports/templates/${selectedTplId}`, payload);
-        if (res?.success) toast.success("Template laporan berhasil diperbarui!");
-        else toast.error(res?.error || "Gagal memperbarui template");
+        try {
+          const res: any = await goPut(`/api/reports/templates/${selectedTplId}`, payload);
+          if (res?.success) toast.success("Template laporan berhasil diperbarui!");
+          else toast.error(res?.error || "Gagal memperbarui template");
+        } catch (err) {
+          const status = (err as { status?: number })?.status;
+          if (status === 409) toast.error(duplicateMessage);
+          else toast.error(err instanceof Error ? err.message : "Gagal memperbarui template");
+        }
       } else {
-        const res: any = await goPost("/api/reports/templates", payload);
-        if (res?.success) {
-          toast.success("Template laporan baru berhasil disimpan!");
-          if (res.data?.id) setSelectedTplId(String(res.data.id));
-        } else toast.error(res?.error || "Gagal menyimpan template");
+        try {
+          const res: any = await goPost("/api/reports/templates", payload);
+          if (res?.success) {
+            toast.success("Template laporan baru berhasil disimpan!");
+            if (res.data?.id) setSelectedTplId(String(res.data.id));
+          } else toast.error(res?.error || "Gagal menyimpan template");
+        } catch (err) {
+          const status = (err as { status?: number })?.status;
+          if (status === 409) toast.error(duplicateMessage);
+          else toast.error(err instanceof Error ? err.message : "Gagal menyimpan template");
+        }
       }
-    } catch {
-      toast.error("Gagal menyimpan template ke server");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal menyimpan template");
     } finally {
       setSaving(false);
     }
@@ -641,6 +666,23 @@ export default function ReportBuilderPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      {/* Panel simpan: opsi default template (diikat ke `wb.isDefault`). */}
+      <div className="flex flex-wrap items-center gap-3 border-b bg-muted/30 px-3 py-1.5 text-xs">
+        <label className="flex cursor-pointer items-center gap-1.5">
+          <input
+            type="checkbox"
+            className="h-3.5 w-3.5"
+            checked={workbookIsDefault(wb)}
+            onChange={(e) => setWb((prev) => ({ ...prev, isDefault: e.target.checked }) as WorkbookWithDefault)}
+            title="Jadikan template ini default untuk modulnya"
+          />
+          Jadikan default
+          <span className="text-muted-foreground">(disimpan bersama template)</span>
+        </label>
+        <span className="text-muted-foreground">
+          {selectedTplId ? `Menyunting template #${selectedTplId}` : "Template baru"}
+        </span>
+      </div>
       <ReportRibbon
         wb={wb}
         currentCell={currentCell}

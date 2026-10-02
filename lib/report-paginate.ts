@@ -128,6 +128,13 @@ export interface PageBreakPlan {
   pageOfInputRow: Map<number, number>;
   /** Jumlah baris output per halaman. */
   rowsPerPage: number[];
+  /**
+   * Rentang baris OUTPUT tiap halaman (1-based). Dipakai renderer PDF untuk
+   * menggambar border horizontal eksplisit di batas halaman (baris pertama &
+   * terakhir halaman) sehingga garis tabel tidak hilang/dobel saat terpotong.
+   * Field ini opsional agar pemanggil lama tetap kompatibel.
+   */
+  pages?: PageRowRange[];
   /** Total halaman. */
   pageCount: number;
   contentWidthPt: number;
@@ -143,6 +150,22 @@ export interface PageBreakPlan {
   marginLeftPt: number;
   /** Tipografi efektif yang dipakai paginasi (untuk tinggi baris di editor). */
   typography: ReportDensityConfig;
+}
+
+/**
+ * Rentang baris OUTPUT yang dirender pada satu halaman fisik. `firstRowIndex`
+ * & `lastRowIndex` adalah indeks baris output (0-based, setelah ekspansi zona
+ * ulang); nilainya -1 bila halaman tidak memuat baris output (mis. lembar
+ * kosong). Baris header tetap (`headerRepeat`) tidak dihitung sebagai bagian
+ * dari rentang karena dirender sebagai salinan `fixed`, bukan baris aliran.
+ */
+export interface PageRowRange {
+  /** Nomor halaman (1-based). */
+  page: number;
+  /** Indeks baris OUTPUT pertama pada halaman ini (-1 bila tidak ada). */
+  firstRowIndex: number;
+  /** Indeks baris OUTPUT terakhir pada halaman ini (-1 bila tidak ada). */
+  lastRowIndex: number;
 }
 
 /**
@@ -180,11 +203,21 @@ export function computePageBreaks(
   const breakAfterInputRow = new Set<number>();
   const pageOfInputRow = new Map<number, number>();
   const rowsPerPage: number[] = [];
+  const pages: PageRowRange[] = [];
 
   let page = 1;
   let used = 0;
   let rowsOnPage = 0;
   let totalHeightPt = headerHeightPt;
+  // Metadata halaman berjalan: indeks baris OUTPUT pertama & terakhir.
+  let pageFirstRow = -1;
+  let pageLastRow = -1;
+
+  /** Tutup halaman berjalan dan simpan jumlah baris + rentang barisnya. */
+  const closePage = () => {
+    rowsPerPage.push(rowsOnPage);
+    pages.push({ page, firstRowIndex: pageFirstRow, lastRowIndex: pageLastRow });
+  };
 
   for (let r = 0; r < ev.outputRows; r++) {
     // Baris header tetap hanya dirender di halaman pertama; pada halaman
@@ -202,25 +235,30 @@ export function computePageBreaks(
       // Tutup halaman ini sebelum baris r.
       breakAfterOutputRow.add(r - 1);
       breakAfterInputRow.add(ev.inputRowByOutput[r - 1]);
-      rowsPerPage.push(rowsOnPage);
+      closePage();
       page++;
       used = 0;
       rowsOnPage = 0;
+      pageFirstRow = -1;
+      pageLastRow = -1;
     }
 
+    if (pageFirstRow < 0) pageFirstRow = r;
+    pageLastRow = r;
     pageOfInputRow.set(inputR, page);
     used += h;
     totalHeightPt += h;
     rowsOnPage++;
   }
 
-  if (rowsOnPage > 0 || rowsPerPage.length === 0) rowsPerPage.push(rowsOnPage);
+  if (rowsOnPage > 0 || rowsPerPage.length === 0) closePage();
 
   return {
     breakAfterOutputRow,
     breakAfterInputRow,
     pageOfInputRow,
     rowsPerPage,
+    pages,
     pageCount: rowsPerPage.length,
     contentWidthPt: size.contentWidthPt,
     contentHeightPt: size.contentHeightPt,

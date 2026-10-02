@@ -175,6 +175,35 @@ const ERROR_NA = "#N/A";
 const ERROR_CIRC = "#CIRC!";
 const ERROR_SYNTAX = "#ERR!";
 
+/**
+ * Definisi fungsi yang didukung engine, sebagai sumber tunggal.
+ * Dipakai untuk menyusun katalog formula di UI (report-variables), sehingga
+ * template selalu sinkron dengan fungsi yang benar-benar bisa dievaluasi.
+ */
+export interface EngineFunction {
+  /** Nama fungsi, mis. "SUM". */
+  name: string;
+  /** Contoh ekspresi sel yang siap disisipkan (placeholder A1 sebagai contoh). */
+  template: string;
+  /** Keterangan singkat yang tampil sebagai tooltip. */
+  hint: string;
+}
+
+export const ENGINE_FUNCTIONS: EngineFunction[] = [
+  { name: "SUM", template: "=SUM(A1:A1)", hint: "Jumlahkan rentang" },
+  { name: "AVG", template: "=AVG(A1:A1)", hint: "Rata-rata rentang" },
+  { name: "COUNT", template: "=COUNT(A1:A1)", hint: "Hitung banyak nilai dalam rentang" },
+  { name: "MIN", template: "=MIN(A1:A1)", hint: "Nilai terkecil" },
+  { name: "MAX", template: "=MAX(A1:A1)", hint: "Nilai terbesar" },
+  { name: "IF", template: "=IF(A1>0;A1;0)", hint: "Kondisi: jika benar → nilai 1, jika salah → nilai 2" },
+  { name: "CONCAT", template: '=CONCAT("A";"B")', hint: "Gabungkan teks" },
+  { name: "ROUND", template: "=ROUND(A1;2)", hint: "Bulatkan ke N desimal" },
+  { name: "UPPER", template: '=UPPER("abc")', hint: "Jadikan huruf besar" },
+  { name: "LOWER", template: '=LOWER("ABC")', hint: "Jadikan huruf kecil" },
+  { name: "TRIM", template: '=TRIM("  teks  ")', hint: "Pangkas spasi di ujung teks" },
+  { name: "COUNTA", template: "=COUNTA(A1:A1)", hint: "Hitung banyak sel terisi dalam rentang" },
+];
+
 /** Evaluasi ekspresi rumus terhadap lingkungan sel. */
 export function evalFormula(expr: string, env: FormulaEnv): string {
   try {
@@ -491,6 +520,7 @@ class ExprParser {
 
   private callFunction(name: string, args: Scalar[]): Scalar {
     const fn = name.toUpperCase();
+    // Catatan: daftar case di bawah harus sejalan dengan ENGINE_FUNCTIONS.
     switch (fn) {
       case "SUM":
         return args.reduce<number>((a, b) => a + toNum(b), 0);

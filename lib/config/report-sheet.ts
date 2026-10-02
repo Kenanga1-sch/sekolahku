@@ -21,7 +21,25 @@ export const REPORT_SHEET_SCHEMA_VERSION = 3;
 export type CellAlign = "left" | "center" | "right";
 export type CellVertical = "top" | "middle" | "bottom";
 export type CellFormat = "text" | "number" | "rupiah" | "date";
+/**
+ * Preset border sel.
+ *
+ * - `all`  = garis di keempat sisi sel.
+ * - `none` = tanpa garis.
+ * - `box`  = box = all border untuk saat ini. Model sel (SheetCell) tidak
+ *   menyimpan konteks blok, sehingga "hanya sisi luar blok" tak bisa dihitung
+ *   di renderer; preset ini dirender sama dengan `all`. Sisi luar blok tetap
+ *   bisa dibuat manual lewat border per-sisi (`borderTop` & kawan-kawan).
+ */
 export type CellBorder = "none" | "all" | "box";
+
+/**
+ * Ketebalan border sel (pt). Grid editor menggambar 0.75px @96dpi = 0.5625pt;
+ * nilainya dibulatkan ke 0.5pt agar garis di layar & cetak sama tebal dan
+ * tidak menghasilkan garis pecahan (hairline) yang tampak "berantakan" saat
+ * PDF dipotong antar halaman. Sumber kebenaran tunggal untuk PDF & pratinjau.
+ */
+export const BOARD_WIDTH_PT = 0.5;
 
 /**
  * Font yang tersedia untuk sel.

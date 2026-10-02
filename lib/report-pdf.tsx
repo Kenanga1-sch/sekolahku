@@ -12,12 +12,12 @@ import type {
   ReportMarginConfig,
   ReportDensityConfig,
 } from "@/lib/config/report-sheet";
-import { cellKey, printedColWidthsPt, visibleColumnCount, printScaleOf } from "@/lib/config/report-sheet";
+import { cellKey, printedColWidthsPt, visibleColumnCount, printScaleOf, BOARD_WIDTH_PT } from "@/lib/config/report-sheet";
 import { conditionalStyleFor } from "@/lib/report-sheet-ops";
 import { pdfFontFamily as mapPdfFont, registerReportFonts } from "@/lib/report-fonts";
 import type { LetterSchoolData } from "@/lib/letter-pdf";
 import { evaluateSheet, type EvaluatedSheet, type EvaluateContext } from "@/lib/report-engine-v3";
-import { rowHeightPt, paperContentSizePt } from "@/lib/report-paginate";
+import { rowHeightPt, paperContentSizePt, computePageBreaks } from "@/lib/report-paginate";
 import type { Style } from "@react-pdf/types";
 
 // Daftarkan font tambahan (Arial/Bookman/Liberation) sekali saat modul dimuat.
@@ -91,7 +91,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     fontSize: 7.5,
     color: "#94a3b8",
-    borderTopWidth: 0.5,
+    // Tebal garis footer disamakan dengan border user (BOARD_WIDTH_PT) agar
+    // semua garis horizontal pada dokumen setebal 0.5pt.
+    borderTopWidth: BOARD_WIDTH_PT,
     borderTopColor: "#e2e8f0",
     paddingTop: 4,
   },
@@ -101,16 +103,31 @@ const styles = StyleSheet.create({
 const USER_BORDER_DEFAULT = "#000000";
 
 /**
- * Ketebalan border user dalam pt. Grid merender 0.75px @96dpi = 0.5625pt;
- * samakan agar ketebalan di layar & cetak identik.
+ * Ketebalan border user dalam pt.
+ *
+ * Grid editor merender 0.75px @96dpi = 0.5625pt; nilainya dibulatkan ke
+ * `BOARD_WIDTH_PT` (0.5pt) agar ketebalan seragam di layar, pratinjau, dan
+ * cetak — garis pecahan (hairline) pada PDF membuat batas tabel tampak
+ * berantakan saat halaman terpotong. Konstanta didefinisikan di
+ * `lib/config/report-sheet` supaya semua konsumen memakai nilai yang sama.
+ *
+ * diekspor agar pratinjau (`report-pdf-preview`) dapat memakai nilai identik.
  */
-const USER_BORDER_WIDTH_PT = 0.75 * 0.75;
+export const USER_BORDER_WIDTH_PT = BOARD_WIDTH_PT;
+
+/**
+ * Warna garis horizontal eksplisit di batas halaman. Dipakai agar baris
+ * pertama/terakhir tiap halaman tetap punya garis penutup yang rapi saat tabel
+ * terpotong antar-halaman (sebelumnya garis sel terpotong/hilang).
+ */
+const PAGE_BORDER_COLOR = USER_BORDER_DEFAULT;
 
 function borderStyle(border: SheetCell["border"]): Record<string, any> {
   if (!border || border === "none") return {};
-  // "all" dan "box" sama di tingkat sel: model sel tidak menyimpan konteks
-  // blok, jadi "box" (hanya sisi luar) diterapkan di ribbon sebagai border
-  // per-sisi. Preset tersimpan tetap dirender penuh agar template lama utuh.
+  // box = all border untuk saat ini: model sel tidak menyimpan konteks blok,
+  // jadi "hanya sisi luar blok" tak bisa dihitung di renderer. Preset tersimpan
+  // tetap dirender penuh agar template lama utuh; sisi luar blok bisa dibuat
+  // lewat border per-sisi. Lihat `CellBorder` di lib/config/report-sheet.ts.
   if (border === "all" || border === "box") {
     return {
       borderTopWidth: USER_BORDER_WIDTH_PT,
@@ -140,7 +157,14 @@ function cellBorderStyle(cell: SheetCell): Record<string, any> {
   return base;
 }
 
-function renderSheet(sheet: ReportSheet, ev: EvaluatedSheet, wb: ReportWorkbook, school: LetterSchoolData, key: string) {
+function renderSheet(
+  sheet: ReportSheet,
+  ev: EvaluatedSheet,
+  wb: ReportWorkbook,
+  school: LetterSchoolData,
+  key: string,
+  ctx: EvaluateContext,
+) {
   const typo = wb.typography || DEFAULT_TYPO;
   const margin = wb.margin || DEFAULT_MARGIN;
   const contentWidthPt = Math.max(
@@ -156,9 +180,34 @@ function renderSheet(sheet: ReportSheet, ev: EvaluatedSheet, wb: ReportWorkbook,
   // diregangkan. Kolom yang melewati tepi kanan dipotong (ala Print Area
   // Excel) — apa yang didesain di grid = apa yang tercetak.
   const widthsPt = printedColWidthsPt(sheet).map((w) => w * pscale);
+  // Lebar konten dalam satuan lebar kolom (belum diskala) supaya kliping kolom
+  // di PDF konsisten dengan editor: `contentWidthPt / pscale` (bukan konstanta
+  // editor / lebar area kerja di layar).
   const visibleColCount = visibleColumnCount(sheet, contentWidthPt / pscale);
   const visibleCols = new Set<number>();
   for (let c = 0; c < visibleColCount; c++) visibleCols.add(c);
+  // Lebar total kolom yang benar-benar dirender (pt, sudah diskala) — batas
+  // gambar garis horizontal di batas halaman agar tidak melebihi tabel. Batas
+  // atasnya adalah lebar area cetak SEBENARNYA (`contentWidthPt`), bukan
+  // `contentWidthPt * pscale`: skala cetak sudah diterapkan pada `widthsPt`,
+  // sehingga mengalikan lagi akan memotong tabel lebih pendek dari aslinya
+  // saat printScale < 1 (dan membuat border batas halaman tak sepanjang tabel).
+  const tableWidthPt = Math.min(
+    contentWidthPt,
+    widthsPt.slice(0, visibleColCount).reduce((a, b) => a + b, 0),
+  );
+
+  // Rencana batas halaman yang identik dengan editor: baris pertama & terakhir
+  // tiap halaman. Dipakai untuk menggambar border horizontal eksplisit pada
+  // baris yang jatuh di batas halaman (garis sel sebelumnya terpotong).
+  const pagePlan = computePageBreaks(sheet, wb, ctx);
+  const firstRowOfPage = new Set<number>();
+  const lastRowOfPage = new Set<number>();
+  for (const info of pagePlan.pages || []) {
+    if (info.firstRowIndex >= 0) firstRowOfPage.add(info.firstRowIndex);
+    if (info.lastRowIndex >= 0) lastRowOfPage.add(info.lastRowIndex);
+  }
+  const lastOutputRow = ev.outputRows - 1;
   // Koordinat sel selalu dihitung dari geometri absolut kolom. Jangan memakai
   // jumlah kolom visible untuk menentukan pusat merge: itu menggeser pusat saat
   // merge menyentuh batas area cetak.
@@ -185,6 +234,31 @@ function renderSheet(sheet: ReportSheet, ev: EvaluatedSheet, wb: ReportWorkbook,
   const cellFontSize = (inputCell: SheetCell): number =>
     (inputCell.fontSize ?? typo.baseFontSize) * pscale;
 
+  /**
+   * Border horizontal eksplisit untuk baris yang jatuh di batas halaman.
+   *
+   * Baris pertama halaman (kecuali baris 0 dokumen) mendapat garis atas, baris
+   * terakhir halaman mendapat garis bawah. Tanpa ini, garis sel pada baris yang
+   * terpotong bisa hilang, sehingga batas tabel tampak berantakan.
+   *
+   * Hindari dobel: baris 0 halaman pertama tidak diberi garis atas (sudah
+   * jadi tepi atas tabel), dan baris terakhir dokumen tidak diberi garis bawah.
+   */
+  const pageBoundaryBorder = (r: number): Record<string, any> => {
+    const style: Record<string, any> = {};
+    let hasBorder = false;
+    if (r > 0 && firstRowOfPage.has(r)) {
+      style.borderTopWidth = USER_BORDER_WIDTH_PT;
+      hasBorder = true;
+    }
+    if (lastRowOfPage.has(r) && r < lastOutputRow) {
+      style.borderBottomWidth = USER_BORDER_WIDTH_PT;
+      hasBorder = true;
+    }
+    if (hasBorder) style.borderColor = PAGE_BORDER_COLOR;
+    return style;
+  };
+
   /** Render satu baris output (atau baris header tetap) sebagai flex row. */
   const renderRow = (r: number, fixed: boolean, keySuffix: string) => {
     const inputR = ev.inputRowByOutput[r];
@@ -209,7 +283,16 @@ function renderSheet(sheet: ReportSheet, ev: EvaluatedSheet, wb: ReportWorkbook,
     }
 
     return (
-      <View style={{ ...styles.sheetRow, width: contentWidthPt * pscale, flexShrink: 0 }} key={`row-${r}-${keySuffix}`} fixed={fixed || undefined}>
+      <View
+        style={{
+          ...styles.sheetRow,
+          width: tableWidthPt,
+          flexShrink: 0,
+          ...pageBoundaryBorder(r),
+        }}
+        key={`row-${r}-${keySuffix}`}
+        fixed={fixed || undefined}
+      >
         {Array.from({ length: sheet.cols }).map((_, c) => {
           if (!visibleCols.has(c)) return null;
           if (colCovered.has(c)) return null;
@@ -432,13 +515,11 @@ function renderSheet(sheet: ReportSheet, ev: EvaluatedSheet, wb: ReportWorkbook,
 
 export function ReportPdfDocument({ workbook, school, dataset = [], datasets, global }: ReportPdfInput) {
   const ctx: EvaluateContext = { dataset, datasets, global: { ...schoolGlobalVars(school), ...(global || {}) } };
-  const widthProps = { workbook, school };
-  void widthProps;
   return (
     <Document title={workbook.reportName || "Laporan"}>
       {workbook.sheets.map((sheet, idx) => {
         const ev = evaluateSheet(sheet, ctx);
-        return renderSheet(sheet, ev, workbook, school, sheet.id || `sheet-${idx}`);
+        return renderSheet(sheet, ev, workbook, school, sheet.id || `sheet-${idx}`, ctx);
       })}
     </Document>
   );

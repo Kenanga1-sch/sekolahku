@@ -9,8 +9,24 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { generateReportPdf, type ReportPdfInput } from "@/lib/report-pdf";
+import { generateReportPdf, USER_BORDER_WIDTH_PT, type ReportPdfInput } from "@/lib/report-pdf";
 import { loadPdfJs, type PdfDocumentProxy, type PdfRenderTask } from "@/lib/letter-pdf-vendor";
+
+/**
+ * Batas skala zoom pratinjau (faktor pengali viewport pdf.js). Nilai ini adalah
+ * satu-satunya "konstanta skala" yang dimiliki pratinjau; dijaga tetap sejajar
+ * dengan rentang zoom render PDF agar pratinjau tidak menampilkan resolusi yang
+ * menyimpang dari hasil cetak.
+ */
+export const PREVIEW_MAX_ZOOM = 1.5;
+
+/**
+ * Tebal garis batas halaman pada pratinjau, 1:1 dengan border PDF
+ * (`USER_BORDER_WIDTH_PT` = `BOARD_WIDTH_PT` = 0.5pt). Diimpor dari
+ * `lib/report-pdf` — bukan hardcode — supaya preview identik saat dirender ke
+ * PDF.
+ */
+export const PREVIEW_PAGE_BORDER_WIDTH = USER_BORDER_WIDTH_PT;
 
 type Props = ReportPdfInput;
 
@@ -62,7 +78,7 @@ function PdfCanvas({
         const page = await pdfDoc.getPage(pageNum);
         const baseViewport = page.getViewport({ scale: 1 });
         const availWidth = (container.clientWidth || 720) - 16;
-        const scale = Math.min((availWidth / baseViewport.width) * zoom, 1.5 * zoom);
+        const scale = Math.min((availWidth / baseViewport.width) * zoom, PREVIEW_MAX_ZOOM * zoom);
         const viewport = page.getViewport({ scale });
 
         const canvas = document.createElement("canvas");
@@ -71,6 +87,11 @@ function PdfCanvas({
         canvas.style.width = `${Math.floor(viewport.width)}px`;
         canvas.style.height = `${Math.floor(viewport.height)}px`;
         canvas.className = "mx-auto block rounded-sm bg-white shadow-md ring-1 ring-black/5";
+        // Garis batas halaman setebal border PDF (0.5pt) — memakai konstanta
+        // bersama agar pratinjau identik dengan hasil cetak.
+        canvas.style.borderWidth = `${PREVIEW_PAGE_BORDER_WIDTH}px`;
+        canvas.style.borderColor = "#cbd5e1";
+        canvas.style.borderStyle = "solid";
 
         const ctx = canvas.getContext("2d");
         if (!ctx) continue;

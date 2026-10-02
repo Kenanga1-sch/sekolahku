@@ -2,7 +2,10 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -13,23 +16,82 @@ import (
 
 // maxLayoutJSONBytes membatasi ukuran layout template yang disimpan. Cukup untuk
 // template kerja nyata (ratusan sel) namun menolak body raksasa yang bisa
-// membengkakkan DB / memori saat rendering di klien.
-const maxLayoutJSONBytes = 512 * 1024
+// membengkakkan DB / memori saat rendering di klien. Dinaikkan ke 2 MiB agar
+// template kompleks (multi-lembar, banyak sel) tetap bisa disimpan.
+const maxLayoutJSONBytes = 2 * 1024 * 1024
 
-// validateLayoutJSON memastikan layout_json adalah JSON yang valid dan tidak
-// kosong sebelum disimpan. Mengembalikan pesan error yang aman untuk klien.
+// cellKeyPattern mencocokkan kunci sel sparse map format "r,c" (0-indexed).
+var cellKeyPattern = regexp.MustCompile(`^(\d+),(\d+)$`)
+
+// layoutSheetShape mendeskripsikan bentuk minimal satu lembar pada schema v3
+// yang perlu divalidasi tanpa mendekode seluruh struktur sel.
+type layoutSheetShape struct {
+	Cols  int                        `json:"cols"`
+	Cells map[string]json.RawMessage `json:"cells"`
+}
+
+// layoutShape mendeskripsikan bentuk minimal layoutJson schema v3.
+type layoutShape struct {
+	SchemaVersion int                `json:"schemaVersion"`
+	Sheets        []layoutSheetShape `json:"sheets"`
+}
+
+// validateLayoutJSON memastikan layout_json adalah JSON yang valid, tidak
+// kosong, dan berbentuk schema v3 yang konsisten sebelum disimpan. Mengembalikan
+// pesan error yang aman untuk klien.
 func validateLayoutJSON(raw string) (string, bool) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
 		return "", true // layout opsional: template boleh dibuat tanpa layout
 	}
 	if len(trimmed) > maxLayoutJSONBytes {
-		return "layoutJson terlalu besar", false
+		return fmt.Sprintf("layoutJson terlalu besar (maks %d byte)", maxLayoutJSONBytes), false
 	}
 	if !json.Valid([]byte(trimmed)) {
 		return "layoutJson bukan JSON yang valid", false
 	}
+
+	var shape layoutShape
+	if err := json.Unmarshal([]byte(trimmed), &shape); err != nil {
+		return "layoutJson bukan objek schema v3 yang valid", false
+	}
+	if shape.SchemaVersion != 3 {
+		return fmt.Sprintf("schemaVersion harus 3 (ditemukan %d)", shape.SchemaVersion), false
+	}
+	if shape.Sheets == nil {
+		return "sheets harus berupa array", false
+	}
+	for i, sheet := range shape.Sheets {
+		if sheet.Cols < 1 {
+			return fmt.Sprintf("sheets[%d].cols tidak valid", i), false
+		}
+		for key := range sheet.Cells {
+			m := cellKeyPattern.FindStringSubmatch(key)
+			if m == nil {
+				return fmt.Sprintf("kunci sel '%s' tidak valid (harus format 'baris,kolom')", key), false
+			}
+			col, _ := strconv.Atoi(m[2])
+			if col < 0 || col >= sheet.Cols {
+				return fmt.Sprintf("kunci sel '%s' di luar batas kolom (cols=%d)", key, sheet.Cols), false
+			}
+		}
+	}
 	return "", true
+}
+
+// respondTemplateError memetakan error repo ke respons HTTP yang sesuai:
+// ErrDuplicateCode → 409 Conflict, selainnya → 500.
+func respondTemplateError(c echo.Context, err error, fallback string) error {
+	if errors.Is(err, repository.ErrDuplicateCode) {
+		return c.JSON(http.StatusConflict, map[string]interface{}{
+			"success": false,
+			"error":   "Kode template sudah dipakai",
+		})
+	}
+	return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+		"success": false,
+		"error":   fallback,
+	})
 }
 
 type ReportTemplateHandler struct {
@@ -147,10 +209,7 @@ func (h *ReportTemplateHandler) Create(c echo.Context) error {
 
 	tpl, err := h.repo.Create(&req)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
-			"success": false,
-			"error":   err.Error(),
-		})
+		return respondTemplateError(c, err, err.Error())
 	}
 
 	return c.JSON(http.StatusCreated, map[string]interface{}{
@@ -168,13 +227,20 @@ func (h *ReportTemplateHandler) Update(c echo.Context) error {
 		})
 	}
 
-	var req models.UpdateReportTemplateRequest
-	if err := c.Bind(&req); err != nil {
+	// `code` tidak ada pada UpdateReportTemplateRequest; gunakan struct lokal
+	// yang menambahkan field code agar perubahan kode persisten sekaligus
+	// menghindari binding body dua kali (body hanya bisa dibaca sekali).
+	var body struct {
+		models.UpdateReportTemplateRequest
+		Code string `json:"code"`
+	}
+	if err := c.Bind(&body); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{
 			"success": false,
 			"error":   "Invalid request body",
 		})
 	}
+	req := body.UpdateReportTemplateRequest
 
 	if msg, ok := validateLayoutJSON(req.LayoutJSON); !ok {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{
@@ -183,12 +249,9 @@ func (h *ReportTemplateHandler) Update(c echo.Context) error {
 		})
 	}
 
-	tpl, err := h.repo.Update(id, &req)
+	tpl, err := h.repo.Update(id, &req, body.Code)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
-			"success": false,
-			"error":   err.Error(),
-		})
+		return respondTemplateError(c, err, err.Error())
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{

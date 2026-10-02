@@ -13,8 +13,9 @@
  *   modul penyedia lalu disuplai pemanggil via `global`/`datasets`.
  */
 
-export type ReportVariableScope = "row" | "rekap";
+import { ENGINE_FUNCTIONS } from "./report-engine-v3";
 
+export type ReportVariableScope = "row" | "rekap";
 export interface ReportVariableField {
   /** Nama token tanpa kurung, mis. "nama" atau "laporan.total_nilai". */
   token: string;
@@ -358,6 +359,60 @@ export function findModuleByLabel(label: string | undefined): ReportVariableModu
   return REPORT_VARIABLE_MODULES.find(
     (m) => m.module === norm || m.label.toLowerCase() === norm,
   );
+}
+
+// ── Formula templates (sumber tunggal) ───────────────────────────────
+
+/** Satu entri template rumus yang bisa disisipkan dari ribbon. */
+export interface FormulaTemplate {
+  label: string;
+  expr: string;
+  hint: string;
+}
+
+/**
+ * Katalog template rumus, dibangun otomatis dari ENGINE_FUNCTIONS pada
+ * report-engine-v3. Dengan begitu, fungsi yang benar-benar didukung engine
+ * selalu tersedia di UI tanpa duplikasi daftar manual.
+ */
+export const FORMULA_TEMPLATES: FormulaTemplate[] = ENGINE_FUNCTIONS.map((fn) => ({
+  label: fn.name,
+  expr: fn.template,
+  hint: fn.hint,
+}));
+
+// ── Variabel global (umum) ───────────────────────────────────────────
+
+/** Sampel variabel global/skala yang lazim dipakai di semua modul. */
+export interface ReportVariableSample {
+  label: string;
+  token: string;
+  hint?: string;
+}
+
+export const GENERAL_VARS: ReportVariableSample[] = [
+  { label: "Nama Sekolah", token: "{{sekolah.schoolName}}", hint: "dari pengaturan sekolah" },
+  { label: "Alamat", token: "{{sekolah.address}}", hint: "dari pengaturan sekolah" },
+  { label: "Kepala Sekolah", token: "{{principal.nama}}", hint: "dari pengaturan sekolah" },
+  { label: "NIP Kepsek", token: "{{principal.nip}}", hint: "dari pengaturan sekolah" },
+  { label: "Periode", token: "{{laporan.periode}}", hint: "diisi pemanggil" },
+  { label: "Total Nominal", token: "{{laporan.total_nominal}}", hint: "diisi pemanggil" },
+];
+
+/**
+ * Sumber tunggal untuk katalog di ribbon: modul variabel, variabel global,
+ * dan template rumus. Dipakai agar UI selalu sinkron dengan katalog modul.
+ */
+export function listVars(): {
+  generalVars: ReportVariableSample[];
+  modules: ReportVariableModule[];
+  formulaTemplates: FormulaTemplate[];
+} {
+  return {
+    generalVars: GENERAL_VARS,
+    modules: REPORT_VARIABLE_MODULES,
+    formulaTemplates: FORMULA_TEMPLATES,
+  };
 }
 
 /** Semua token yang tersedia untuk sebuah modul (row + rekap). */

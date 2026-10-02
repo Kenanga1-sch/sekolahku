@@ -2,11 +2,31 @@ package repository
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/sekolahku/go-backend/internal/models"
 )
+
+// ErrDuplicateCode menandai pelanggaran constraint UNIQUE pada kolom `code`
+// (atau UNIQUE lain terkait) sehingga handler bisa memetakan ke HTTP 409.
+var ErrDuplicateCode = errors.New("kode template sudah dipakai")
+
+// isUniqueConstraintError mendeteksi error UNIQUE constraint dari driver.
+// SQLite (mattn/modernc) memakai pesan "UNIQUE constraint failed"; varian lain
+// (MySQL/Postgres) memakai frasa serupa — semuanya dicek agar portabel.
+func isUniqueConstraintError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "unique constraint failed") ||
+		strings.Contains(msg, "unique constraint") ||
+		strings.Contains(msg, "duplicate entry") ||
+		strings.Contains(msg, "duplicate key")
+}
 
 type ReportTemplateRepository struct {
 	db *sql.DB
@@ -115,6 +135,9 @@ func (r *ReportTemplateRepository) Create(req *models.CreateReportTemplateReques
 	query := `INSERT INTO report_templates (code, name, category, module, description, paper_size, orientation, layout_json, is_default, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	res, err := r.db.Exec(query, req.Code, req.Name, req.Category, module, req.Description, req.PaperSize, req.Orientation, req.LayoutJSON, isDefInt, now, now)
 	if err != nil {
+		if isUniqueConstraintError(err) {
+			return nil, ErrDuplicateCode
+		}
 		return nil, fmt.Errorf("failed to create report template: %w", err)
 	}
 
@@ -122,7 +145,10 @@ func (r *ReportTemplateRepository) Create(req *models.CreateReportTemplateReques
 	return r.GetByID(id)
 }
 
-func (r *ReportTemplateRepository) Update(id int64, req *models.UpdateReportTemplateRequest) (*models.ReportTemplate, error) {
+// Update menyimpan perubahan template. `code` diteruskan terpisah karena
+// struktur UpdateReportTemplateRequest tidak memuat kolom code; nilainya
+// diambil handler dari body request sehingga perubahan kode persisten.
+func (r *ReportTemplateRepository) Update(id int64, req *models.UpdateReportTemplateRequest, code string) (*models.ReportTemplate, error) {
 	now := time.Now().Unix()
 	isDefInt := 0
 	if req.IsDefault {
@@ -133,9 +159,12 @@ func (r *ReportTemplateRepository) Update(id int64, req *models.UpdateReportTemp
 		module = "umum"
 	}
 
-	query := `UPDATE report_templates SET name = ?, category = ?, module = ?, description = ?, paper_size = ?, orientation = ?, layout_json = ?, is_default = ?, updated_at = ? WHERE id = ?`
-	_, err := r.db.Exec(query, req.Name, req.Category, module, req.Description, req.PaperSize, req.Orientation, req.LayoutJSON, isDefInt, now, id)
+	query := `UPDATE report_templates SET code = ?, name = ?, category = ?, module = ?, description = ?, paper_size = ?, orientation = ?, layout_json = ?, is_default = ?, updated_at = ? WHERE id = ?`
+	_, err := r.db.Exec(query, code, req.Name, req.Category, module, req.Description, req.PaperSize, req.Orientation, req.LayoutJSON, isDefInt, now, id)
 	if err != nil {
+		if isUniqueConstraintError(err) {
+			return nil, ErrDuplicateCode
+		}
 		return nil, fmt.Errorf("failed to update report template: %w", err)
 	}
 
