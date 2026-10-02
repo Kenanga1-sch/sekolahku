@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { SchoolSettingsProvider } from "@/lib/contexts/school-settings-context";
+import ThemeInjector from "@/components/theme-injector";
 import { SWRProvider } from "@/components/providers/swr-provider";
 import { Toaster } from "@/components/ui/toaster";
 import { SkipToContent } from "@/components/accessibility";
@@ -200,7 +201,10 @@ export default function RootLayout({
           <ThemeProvider>
             <SWRProvider>
               <AuthProvider>
-                <SchoolSettingsProvider>{children}</SchoolSettingsProvider>
+                <SchoolSettingsProvider>
+                  <ThemeInjector />
+                  {children}
+                </SchoolSettingsProvider>
               </AuthProvider>
             </SWRProvider>
             <Toaster />

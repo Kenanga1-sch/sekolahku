@@ -79,6 +79,7 @@ export interface SchoolSettings extends BaseRecord {
   landing_description?: string;
   landing_texts?: string;
   landing_sections?: string;
+  brand_theme?: string;
 }
 
 // ==========================================

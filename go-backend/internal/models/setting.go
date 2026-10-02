@@ -38,6 +38,7 @@ type SchoolSettings struct {
 	LandingDescription        *string    `json:"landing_description"`
 	LandingTexts              *string    `json:"landing_texts"`
 	LandingSections           *string    `json:"landing_sections"`
+	BrandTheme                *string    `json:"brand_theme"`
 	CreatedAt                 *time.Time `json:"created_at"`
 	UpdatedAt                 *time.Time `json:"updated_at"`
 }

@@ -32,6 +32,7 @@ interface HomepageData {
     spmb_is_open?: boolean;
     landing_tagline?: string;
     landing_description?: string;
+    landing_texts?: string;
   };
   news?: Array<{
     id: string;
@@ -97,6 +98,19 @@ export default function PublicHomepage() {
   const studentCount = data?.stats?.studentCount ?? 0;
   const news = (data?.news ?? []).slice(0, 4);
 
+  // Teks hero yang diatur admin (Pengaturan → Landing Halaman).
+  let heroTexts: Record<string, string> = {};
+  try {
+    const parsed = data?.settings?.landing_texts ? JSON.parse(data.settings.landing_texts) : null;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) heroTexts = parsed;
+  } catch {
+    heroTexts = {};
+  }
+  const heroBadge = heroTexts.hero_badge
+    ? heroTexts.hero_badge.replace("{year}", academicYear)
+    : `Tahun Ajaran ${academicYear}`;
+  const heroCtaLabel = heroTexts.cta_primary_label || (spmbOpen ? "Daftar Sekarang" : "Info Pendaftaran");
+
   return (
     <div className="flex flex-col bg-public-bg">
       <section className="relative min-h-[90dvh] md:min-h-[85dvh] flex items-center overflow-hidden">
@@ -107,7 +121,7 @@ export default function PublicHomepage() {
           <div className="max-w-2xl space-y-6">
             <Reveal delay={0}>
               <Badge className="bg-[#065F46]/10 text-[#065F46] border-[#065F46]/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider">
-                Tahun Ajaran {academicYear}
+                {heroBadge}
               </Badge>
             </Reveal>
 
@@ -127,7 +141,7 @@ export default function PublicHomepage() {
               <div className="flex flex-wrap gap-3 pt-2">
                 <Link href="/spmb">
                   <Button className="bg-[#065F46] text-white hover:bg-[#047857] rounded-full px-6 h-11 text-sm font-medium active:scale-[0.97] transition-transform">
-                    {spmbOpen ? "Daftar Sekarang" : "Info Pendaftaran"}
+                    {heroCtaLabel}
                     <ArrowRight className="h-4 w-4 ml-1.5" />
                   </Button>
                 </Link>

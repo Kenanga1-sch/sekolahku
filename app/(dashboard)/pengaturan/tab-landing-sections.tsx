@@ -13,11 +13,83 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Home, BookOpen, Layers, Star, Settings, Palette } from "lucide-react";
+import { Plus, Trash2, Home, BookOpen, Layers, Star, Settings, Palette, Type, RotateCcw, Check } from "lucide-react";
+import {
+  DEFAULT_BRAND,
+  BRAND_KEYS,
+  RADIUS_OPTIONS,
+  parseBrandTheme,
+  isHex,
+  type BrandTheme,
+} from "@/lib/theme";
 
 interface TabLandingSectionsProps {
   settings: any;
-  setSettings: React.Dispatch<React.SetStateAction<any>>;
+  setSettings: (patch: any) => void | Promise<void>;
+}
+
+const BRAND_LABELS: Record<string, string> = {
+  primary: "Primer",
+  secondary: "Sekunder",
+  accent: "Aksen",
+  background: "Latar",
+  public_bg: "Latar Publik",
+  foreground: "Teks Utama",
+  muted_foreground: "Teks Redup",
+  border: "Border",
+};
+
+function safeParseJson(raw: unknown): Record<string, string> {
+  if (typeof raw !== "string" || raw.trim() === "") return {};
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Input warna: color-picker + teks hex (commit hanya saat hex valid). */
+function ColorField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (hex: string) => void;
+}) {
+  const [text, setText] = useState(value);
+  useEffect(() => setText(value), [value]);
+  return (
+    <div className="space-y-1">
+      <Label className="text-xs">{label}</Label>
+      <div className="flex items-center gap-2">
+        <input
+          type="color"
+          aria-label={label}
+          value={value}
+          onChange={(e) => {
+            setText(e.target.value);
+            onChange(e.target.value);
+          }}
+          className="h-8 w-9 cursor-pointer rounded-md border border-input bg-transparent p-0.5"
+        />
+        <Input
+          value={text}
+          maxLength={7}
+          spellCheck={false}
+          onChange={(e) => {
+            const v = e.target.value;
+            setText(v);
+            if (isHex(v)) onChange(v);
+          }}
+          onBlur={() => setText(value)}
+          className="h-8 font-mono text-xs"
+        />
+      </div>
+    </div>
+  );
 }
 
 const SECTION_CONFIGS = [
@@ -35,6 +107,75 @@ export default function TabLandingSections({ settings, setSettings }: TabLanding
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [formData, setFormData] = useState<any>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+
+  // ---- Tema warna (brand_theme) ----
+  const [themeDraft, setThemeDraft] = useState<BrandTheme>(() => parseBrandTheme(null));
+  const [themeDirty, setThemeDirty] = useState(false);
+  const [themeSaving, setThemeSaving] = useState(false);
+
+  useEffect(() => {
+    setThemeDraft(parseBrandTheme(settings?.brand_theme));
+    setThemeDirty(false);
+  }, [settings?.brand_theme]);
+
+  const patchTheme = (patch: Partial<BrandTheme>) => {
+    setThemeDraft((prev) => ({ ...prev, ...patch }));
+    setThemeDirty(true);
+  };
+
+  const saveTheme = async () => {
+    setThemeSaving(true);
+    try {
+      await setSettings({ brand_theme: JSON.stringify(themeDraft) });
+      setThemeDirty(false);
+    } catch (e) {
+      console.error("Gagal menyimpan tema", e);
+    } finally {
+      setThemeSaving(false);
+    }
+  };
+
+  // ---- Konten global (landing_tagline / landing_description / landing_texts) ----
+  const emptyContent = { tagline: "", description: "", heroBadge: "", ctaLabel: "" };
+  const [contentDraft, setContentDraft] = useState(emptyContent);
+  const [contentDirty, setContentDirty] = useState(false);
+  const [contentSaving, setContentSaving] = useState(false);
+
+  useEffect(() => {
+    const texts = safeParseJson(settings?.landing_texts);
+    setContentDraft({
+      tagline: settings?.landing_tagline || "",
+      description: settings?.landing_description || "",
+      heroBadge: texts.hero_badge || "",
+      ctaLabel: texts.cta_primary_label || "",
+    });
+    setContentDirty(false);
+  }, [settings?.landing_tagline, settings?.landing_description, settings?.landing_texts]);
+
+  const patchContent = (patch: Partial<typeof emptyContent>) => {
+    setContentDraft((prev) => ({ ...prev, ...patch }));
+    setContentDirty(true);
+  };
+
+  const saveContent = async () => {
+    setContentSaving(true);
+    try {
+      // Baca-merge penuh: kunci milik tab Visi & Misi harus ikut bertahan.
+      const texts = safeParseJson(settings?.landing_texts);
+      texts.hero_badge = contentDraft.heroBadge;
+      texts.cta_primary_label = contentDraft.ctaLabel;
+      await setSettings({
+        landing_tagline: contentDraft.tagline,
+        landing_description: contentDraft.description,
+        landing_texts: JSON.stringify(texts),
+      });
+      setContentDirty(false);
+    } catch (e) {
+      console.error("Gagal menyimpan konten global", e);
+    } finally {
+      setContentSaving(false);
+    }
+  };
 
   useEffect(() => {
     if (settings?.landing_sections) {
@@ -75,9 +216,178 @@ export default function TabLandingSections({ settings, setSettings }: TabLanding
         <Palette className="h-5 w-5 text-indigo-600" />
         <div>
           <p className="font-semibold text-sm">Atur Konten Halaman Depan</p>
-          <p className="text-xs text-muted-foreground">Kelola judul, deskripsi, tombol, dan kartu di tiap bagian landing page.</p>
+          <p className="text-xs text-muted-foreground">Kelola tema warna, teks global, judul, deskripsi, tombol, dan kartu di tiap bagian landing page.</p>
         </div>
       </div>
+
+      {/* ===== Kartu: Tema Warna ===== */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600">
+                <Palette className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Tema Warna</CardTitle>
+                <CardDescription className="text-xs">
+                  Warna berlaku untuk seluruh UI (publik & dashboard) setelah disimpan. Nilai kosong = warna default.
+                </CardDescription>
+              </div>
+            </div>
+            {themeDirty && (
+              <span className="text-[11px] font-medium text-amber-600 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded-full whitespace-nowrap">
+                Belum disimpan
+              </span>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Preview langsung dari nilai draft (belum tentu tersimpan) */}
+          <div className="rounded-lg border overflow-hidden">
+            <div className="px-3 py-2 text-xs font-semibold" style={{ background: themeDraft.primary, color: "#ffffff" }}>
+              Header · primer
+            </div>
+            <div className="p-3 flex flex-wrap items-center gap-2" style={{ background: themeDraft.background }}>
+              <span className="px-3 py-1.5 rounded-full text-xs font-medium" style={{ background: themeDraft.primary, color: "#ffffff" }}>
+                Tombol utama
+              </span>
+              <span className="px-3 py-1.5 rounded-full text-xs font-medium" style={{ background: themeDraft.secondary, color: themeDraft.primary }}>
+                Sekunder
+              </span>
+              <span className="text-xs font-medium" style={{ color: themeDraft.foreground }}>Teks</span>
+              <span className="text-xs" style={{ color: themeDraft.muted_foreground }}>Teks redup</span>
+              <span className="text-xs font-semibold" style={{ color: themeDraft.primary }}>Aksen</span>
+              <span
+                className="ml-auto text-[11px] px-2 py-1 rounded border"
+                style={{ background: "#ffffff", borderColor: themeDraft.border, color: themeDraft.foreground }}
+              >
+                Kartu
+              </span>
+            </div>
+            <div className="h-3" style={{ background: themeDraft.public_bg }} />
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {BRAND_KEYS.map((key) => (
+              <ColorField
+                key={key}
+                label={BRAND_LABELS[key] || key}
+                value={themeDraft[key]}
+                onChange={(hex) => patchTheme({ [key]: hex })}
+              />
+            ))}
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-xs">Radius Sudut</Label>
+            <div className="flex gap-2">
+              {RADIUS_OPTIONS.map((radius) => (
+                <button
+                  key={radius}
+                  type="button"
+                  onClick={() => patchTheme({ radius })}
+                  className={`px-3 h-8 text-xs font-medium rounded-md border transition-colors ${
+                    themeDraft.radius === radius
+                      ? "border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300"
+                      : "border-input hover:bg-muted"
+                  }`}
+                >
+                  {radius === "0.5rem" ? "Kecil" : radius === "0.75rem" ? "Sedang" : "Besar"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setThemeDraft({ ...DEFAULT_BRAND });
+                setThemeDirty(true);
+              }}
+            >
+              <RotateCcw className="h-3.5 w-3.5 mr-1" /> Reset Default
+            </Button>
+            <Button size="sm" onClick={saveTheme} disabled={!themeDirty || themeSaving}>
+              {themeSaving ? "Menyimpan…" : (<><Check className="h-3.5 w-3.5 mr-1" /> Simpan Tema</>)}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ===== Kartu: Konten Global ===== */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600">
+                <Type className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Konten Global</CardTitle>
+                <CardDescription className="text-xs">
+                  Teks yang tampil di beberapa halaman publik, termasuk hero halaman depan.
+                </CardDescription>
+              </div>
+            </div>
+            {contentDirty && (
+              <span className="text-[11px] font-medium text-amber-600 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded-full whitespace-nowrap">
+                Belum disimpan
+              </span>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div>
+            <Label className="text-xs">Tagline (landing)</Label>
+            <Input
+              value={contentDraft.tagline}
+              onChange={(e) => patchContent({ tagline: e.target.value })}
+              placeholder="Sekolah Unggul, Berkarakter, Berdaya Saing"
+            />
+          </div>
+          <div>
+            <Label className="text-xs">Deskripsi Hero (halaman depan)</Label>
+            <Textarea
+              value={contentDraft.description}
+              onChange={(e) => patchContent({ description: e.target.value })}
+              rows={2}
+              placeholder="Membangun generasi cerdas dan berkarakter…"
+            />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Label Badge Hero</Label>
+              <Input
+                value={contentDraft.heroBadge}
+                onChange={(e) => patchContent({ heroBadge: e.target.value })}
+                placeholder="Tahun Ajaran"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Kosongkan untuk teks default. Gunakan <code>{"{year}"}</code> untuk menyisipkan tahun ajaran.
+              </p>
+            </div>
+            <div>
+              <Label className="text-xs">Label Tombol Utama Hero</Label>
+              <Input
+                value={contentDraft.ctaLabel}
+                onChange={(e) => patchContent({ ctaLabel: e.target.value })}
+                placeholder="Daftar Sekarang"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Kosongkan untuk label otomatis (menyesuaikan status SPMB).
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end pt-1">
+            <Button size="sm" onClick={saveContent} disabled={!contentDirty || contentSaving}>
+              {contentSaving ? "Menyimpan…" : (<><Check className="h-3.5 w-3.5 mr-1" /> Simpan Konten</>)}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {SECTION_CONFIGS.map((config) => {

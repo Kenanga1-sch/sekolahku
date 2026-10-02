@@ -99,6 +99,7 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -190,6 +191,9 @@
   --border: #d1e7dd;
   --input: #d1e7dd;
   --ring: #065F46;
+  /* Versi statis hover-primary; akan dioverride oleh injeksi brand runtime
+     (lib/theme.ts) ketika admin menyimpan tema kustom. */
+  --primary-hover: #047857;
 
   --chart-1: #065F46;
   --chart-2: #059669;

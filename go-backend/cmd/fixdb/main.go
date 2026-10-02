@@ -50,6 +50,7 @@ func main() {
 		{Table: "school_settings", Name: "landing_tagline", SQLType: "TEXT"},
 		{Table: "school_settings", Name: "landing_description", SQLType: "TEXT"},
 		{Table: "school_settings", Name: "landing_texts", SQLType: "TEXT"},
+		{Table: "school_settings", Name: "brand_theme", SQLType: "TEXT"},
 
 		// students
 		{Table: "students", Name: "nik", SQLType: "TEXT"},

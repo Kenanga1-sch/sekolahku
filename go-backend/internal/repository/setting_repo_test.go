@@ -53,6 +53,7 @@ func setupSettingTestDB(t *testing.T) *sql.DB {
 			landing_description TEXT,
 			landing_texts TEXT,
 			landing_sections TEXT,
+			brand_theme TEXT,
 			created_at INTEGER,
 			updated_at INTEGER
 		);

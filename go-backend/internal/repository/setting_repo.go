@@ -38,6 +38,7 @@ func (r *SettingRepository) GetSettings() (*models.SchoolSettings, error) {
 		       school_curriculum, school_extracurriculars,
 		       governance_name, department_name,
 		       landing_tagline, landing_description, landing_texts, landing_sections,
+		       brand_theme,
 		       created_at, updated_at
 		FROM school_settings 
 		ORDER BY CASE WHEN id = 'default' THEN 0 ELSE 1 END LIMIT 1
@@ -48,6 +49,7 @@ func (r *SettingRepository) GetSettings() (*models.SchoolSettings, error) {
 	var historyTimeline, historyAchievements sql.NullString
 	var curriculum, extras, govName, deptName sql.NullString
 	var landingTagline, landingDesc, landingTexts, landingSections sql.NullString
+	var brandTheme sql.NullString
 	var lat, lng, dist sql.NullFloat64
 	var crAt, upAt sql.NullInt64
 
@@ -61,6 +63,7 @@ func (r *SettingRepository) GetSettings() (*models.SchoolSettings, error) {
 		&curriculum, &extras,
 		&govName, &deptName,
 		&landingTagline, &landingDesc, &landingTexts, &landingSections,
+		&brandTheme,
 		&crAt, &upAt,
 	)
 
@@ -160,6 +163,9 @@ func (r *SettingRepository) GetSettings() (*models.SchoolSettings, error) {
 	}
 	if landingSections.Valid {
 		s.LandingSections = &landingSections.String
+	}
+	if brandTheme.Valid {
+		s.BrandTheme = &brandTheme.String
 	}
 
 	cTime := ToTime(crAt)
@@ -272,6 +278,9 @@ func mergeSchoolSettingsPatch(next *models.SchoolSettings, existing *models.Scho
 	if next.LandingSections == nil {
 		next.LandingSections = existing.LandingSections
 	}
+	if next.BrandTheme == nil {
+		next.BrandTheme = existing.BrandTheme
+	}
 }
 
 func (r *SettingRepository) UpdateSettings(s models.SchoolSettings) (*models.SchoolSettings, error) {
@@ -301,8 +310,9 @@ func (r *SettingRepository) UpdateSettings(s models.SchoolSettings) (*models.Sch
 				school_curriculum, school_extracurriculars,
 				governance_name, department_name,
 				landing_tagline, landing_description, landing_texts, landing_sections,
+				brand_theme,
 				created_at, updated_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`, s.ID, s.SchoolName, s.SchoolNPSN, s.SchoolAddress, s.SchoolPhone, s.SchoolEmail,
 			s.SchoolWebsite, s.SchoolLogo, s.SchoolLat, s.SchoolLng, s.MaxDistanceKM,
 			s.SPMBIsOpen, s.CurrentAcademicYear, s.PrincipalName, s.PrincipalNIP, s.SchoolStamp,
@@ -313,6 +323,7 @@ func (r *SettingRepository) UpdateSettings(s models.SchoolSettings) (*models.Sch
 			s.SchoolCurriculum, s.SchoolExtracurriculars,
 			s.GovernanceName, s.DepartmentName,
 			s.LandingTagline, s.LandingDescription, s.LandingTexts, s.LandingSections,
+			s.BrandTheme,
 			now, now)
 	} else {
 		existing, getErr := r.GetSettings()
@@ -340,6 +351,7 @@ func (r *SettingRepository) UpdateSettings(s models.SchoolSettings) (*models.Sch
 				school_curriculum=?, school_extracurriculars=?,
 				governance_name=?, department_name=?,
 				landing_tagline=?, landing_description=?, landing_texts=?, landing_sections=?,
+				brand_theme=?,
 				updated_at=?
 			WHERE id=?
 		`, s.SchoolName, s.SchoolNPSN, s.SchoolAddress, s.SchoolPhone, s.SchoolEmail,
@@ -352,6 +364,7 @@ func (r *SettingRepository) UpdateSettings(s models.SchoolSettings) (*models.Sch
 			s.SchoolCurriculum, s.SchoolExtracurriculars,
 			s.GovernanceName, s.DepartmentName,
 			s.LandingTagline, s.LandingDescription, s.LandingTexts, s.LandingSections,
+			s.BrandTheme,
 			now, existingID)
 	}
 

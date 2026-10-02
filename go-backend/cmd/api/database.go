@@ -703,6 +703,7 @@ func RepairDatabase(db *sql.DB, logger echo.Logger) {
 		{Table: "school_settings", Name: "landing_description", SQLType: "TEXT"},
 		{Table: "school_settings", Name: "landing_texts", SQLType: "TEXT"},
 		{Table: "school_settings", Name: "landing_sections", SQLType: "TEXT"},
+		{Table: "school_settings", Name: "brand_theme", SQLType: "TEXT"},
 		{Table: "school_settings", Name: "principal_name", SQLType: "TEXT"},
 		{Table: "school_settings", Name: "principal_nip", SQLType: "TEXT"},
 		{Table: "school_settings", Name: "supervisor_name", SQLType: "TEXT"},
