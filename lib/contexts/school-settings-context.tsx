@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, ReactNode } from "react";
 import useSWR from "swr";
 import { goGet, goPost } from "@/lib/api-client";
+import { resolveSettingsPatch, type SettingsPatch } from "@/lib/resolve-settings-patch";
 import type { SchoolSettings } from "@/types";
 
 // Default fallback values
@@ -16,7 +17,7 @@ const DEFAULT_SETTINGS: Partial<SchoolSettings> = {
 interface SchoolSettingsContextType {
     settings: SchoolSettings | null;
     isLoading: boolean;
-    updateSettings: (patch: Partial<SchoolSettings>) => Promise<void>;
+    updateSettings: (patch: SettingsPatch) => Promise<void>;
 }
 
 interface SchoolSettingsResponse {
@@ -38,10 +39,14 @@ export function SchoolSettingsProvider({ children }: { children: ReactNode }) {
 
     const settings = (response?.success ? response.data : response?.data) ?? null;
 
-    const updateSettings = useCallback(async (patch: Partial<SchoolSettings>) => {
-        await goPost("/api/school-settings", { id: settings?.id, ...patch });
+    // Menerima objek patch ATAU function-updater ala useState (pola tab
+    // /pengaturan). Sebelumnya patch function di-spread menjadi {} sehingga
+    // payload hanya berisi {id} dan update backend jadi no-op.
+    const updateSettings = useCallback(async (patch: SettingsPatch) => {
+        const body = resolveSettingsPatch(patch, settings);
+        await goPost("/api/school-settings", { id: settings?.id, ...body });
         await mutate();
-    }, [mutate, settings?.id]);
+    }, [mutate, settings]);
 
     return (
         <SchoolSettingsContext.Provider value={{ settings, isLoading, updateSettings }}>
