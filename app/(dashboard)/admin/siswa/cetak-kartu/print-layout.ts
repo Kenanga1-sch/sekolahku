@@ -194,11 +194,90 @@ export function readAdjustStorage(): AdjustAll | null {
   }
 }
 
-export function writeAdjustStorage(adjust: AdjustAll): void {
+export function writeAdjustStorage(adjust: AdjustAll): boolean {
   try {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined") return false;
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizeAdjust(adjust)));
+    return true;
   } catch {
-    /* storage penuh/di-block — abaikan, nilai tetap hidup di state */
+    // Storage penuh/di-block — abaikan, nilai tetap hidup di state tetapi akan hilang saat reload.
+    return false;
   }
 }
+
+// ===================== Pengaturan tampilan (persist otomatis) =====================
+
+export interface CetakKartuSettings {
+  cardsPerRow: string;
+  cardType: "pelajar" | "nisn" | "kip";
+  showPhoto: boolean;
+  showNIS: boolean;
+  showBackSide: boolean;
+  printMode: PrintMode;
+  flipEdge: "long" | "short";
+}
+
+export const DEFAULT_CETAK_SETTINGS: CetakKartuSettings = {
+  cardsPerRow: "2",
+  cardType: "pelajar",
+  showPhoto: true,
+  showNIS: true,
+  showBackSide: true,
+  printMode: "combined",
+  flipEdge: "long",
+};
+
+const STORAGE_SETTINGS_KEY = "siswa-cetak-kartu-settings";
+
+function sanitizeSettings(value: unknown): CetakKartuSettings {
+  const d = DEFAULT_CETAK_SETTINGS;
+  const v = (value ?? {}) as Partial<CetakKartuSettings>;
+
+  return {
+    cardsPerRow: v.cardsPerRow === "1" || v.cardsPerRow === "2" ? v.cardsPerRow : d.cardsPerRow,
+    cardType: v.cardType === "pelajar" || v.cardType === "nisn" || v.cardType === "kip" ? v.cardType : d.cardType,
+    showPhoto: typeof v.showPhoto === "boolean" ? v.showPhoto : d.showPhoto,
+    showNIS: typeof v.showNIS === "boolean" ? v.showNIS : d.showNIS,
+    showBackSide: typeof v.showBackSide === "boolean" ? v.showBackSide : d.showBackSide,
+    printMode: v.printMode === "combined" || v.printMode === "duplex" ? v.printMode : d.printMode,
+    flipEdge: v.flipEdge === "short" ? "short" : "long",
+  };
+}
+
+export function readSettingsStorage(): CetakKartuSettings | null {
+  try {
+    if (typeof window === "undefined") return null;
+    const raw = window.localStorage.getItem(STORAGE_SETTINGS_KEY);
+    if (!raw) return null;
+    return sanitizeSettings(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
+
+export function writeSettingsStorage(settings: CetakKartuSettings): boolean {
+  try {
+    if (typeof window === "undefined") return false;
+    window.localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify(sanitizeSettings(settings)));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Bandingkan normalize(current) vs normalize(saved). True = ada perubahan belum tersimpan. */
+export function isAdjustDirty(current: AdjustAll, saved: AdjustAll): boolean {
+  return JSON.stringify(normalizeAdjust(current)) !== JSON.stringify(normalizeAdjust(saved));
+}
+
+/**
+ * Parse input nilai mm: dukung koma desimal ("2,75") ala keyboard Indonesia
+ * dan titik ("2.75"). Mengembalikan null bila bukan angka parsial yang valid.
+ */
+export function parseMmValue(raw: string): number | null {
+  const normalized = raw.trim().replace(",", ".");
+  if (normalized === "" || normalized === "-" || normalized === ".") return null;
+  const parsed = parseFloat(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+

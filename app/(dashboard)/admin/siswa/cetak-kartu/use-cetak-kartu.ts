@@ -10,8 +10,11 @@ import { goPost } from "@/lib/api-client";
 import { showError } from "@/lib/toast";
 import {
   DEFAULT_ADJUST,
+  isAdjustDirty,
   readAdjustStorage,
+  readSettingsStorage,
   writeAdjustStorage,
+  writeSettingsStorage,
   withOffset,
   type AdjustAll,
   type PrintMode,
@@ -54,11 +57,31 @@ export function useCetakKartu() {
   // Kalibrasi posisi cetak (mm) per mode per sisi per kolom. Dimuat dari
   // localStorage setelah mount agar tidak memicu hydration mismatch saat SSR.
   const [adjust, setAdjust] = useState<AdjustAll>(DEFAULT_ADJUST);
+  const [savedAdjust, setSavedAdjust] = useState<AdjustAll>(DEFAULT_ADJUST);
+  const [settingsHydrated, setSettingsHydrated] = useState(false);
 
   useEffect(() => {
     const saved = readAdjustStorage();
-    if (saved) setAdjust(saved);
+    if (saved) { setAdjust(saved); setSavedAdjust(saved); }
+    const s = readSettingsStorage();
+    if (s) {
+      setCardsPerRow(s.cardsPerRow);
+      setCardType(s.cardType);
+      setShowPhoto(s.showPhoto);
+      setShowNIS(s.showNIS);
+      setShowBackSide(s.showBackSide);
+      setPrintMode(s.printMode);
+      setFlipEdge(s.flipEdge);
+    }
+    setSettingsHydrated(true);
   }, []);
+
+  // Auto-persist pengaturan tampilan (mode/kolom dll) — selalu simpan saat berubah
+  // (tunggu hydrated agar tidak menimpa dengan default sebelum loading selesai).
+  useEffect(() => {
+    if (!settingsHydrated) return;
+    writeSettingsStorage({ cardsPerRow, cardType, showPhoto, showNIS, showBackSide, printMode, flipEdge });
+  }, [settingsHydrated, cardsPerRow, cardType, showPhoto, showNIS, showBackSide, printMode, flipEdge]);
 
   const setOffset = useCallback(
     (mode: PrintMode, side: "front" | "back", col: number, axis: "x" | "y", value: number) => {
@@ -68,11 +91,18 @@ export function useCetakKartu() {
   );
 
   const saveAdjust = useCallback(() => {
-    writeAdjustStorage(adjust);
-    toast.success("Pengaturan posisi disimpan");
+    const ok = writeAdjustStorage(adjust);
+    if (ok) {
+      setSavedAdjust(adjust);
+      toast.success("Pengaturan posisi disimpan");
+    } else {
+      toast.error("Gagal menyimpan — penyimpanan browser penuh atau diblokir");
+    }
   }, [adjust]);
 
   const resetAdjust = useCallback(() => setAdjust(DEFAULT_ADJUST), []);
+
+  const adjustDirty = isAdjustDirty(adjust, savedAdjust);
 
   // Download single card as image
   const downloadCard = useCallback(async (studentId: string, studentName: string) => {
@@ -157,7 +187,7 @@ export function useCetakKartu() {
     loading, downloading, cards, cardsPerRow, setCardsPerRow, cardType, setCardType,
     showPhoto, setShowPhoto, showNIS, setShowNIS, showBackSide, setShowBackSide,
     printMode, setPrintMode, flipEdge, setFlipEdge,
-    adjust, setOffset, saveAdjust, resetAdjust,
+    adjust, setOffset, saveAdjust, resetAdjust, adjustDirty,
     schoolName, schoolAddress, schoolLogo, printRef, cardRefs,
     downloadCard, downloadAllCards, handlePrint, setCardRef, router,
   };

@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useCetakKartu } from "./use-cetak-kartu";
 import { KartuPreview } from "./kartu-preview";
-import { buildPrintPages, getOffset } from "./print-layout";
+import { buildPrintPages, getOffset, parseMmValue } from "./print-layout";
 
 const COLUMN_LABELS = ["kiri", "kanan"];
 
@@ -19,7 +19,7 @@ export default function CetakKartuPage() {
     loading, downloading, cards, cardsPerRow, setCardsPerRow, cardType, setCardType,
     showPhoto, setShowPhoto, showNIS, setShowNIS, showBackSide, setShowBackSide,
     printMode, setPrintMode, flipEdge, setFlipEdge,
-    adjust, setOffset, saveAdjust, resetAdjust,
+    adjust, setOffset, saveAdjust, resetAdjust, adjustDirty,
     schoolName, schoolAddress, schoolLogo, printRef,
     downloadCard, downloadAllCards, handlePrint, setCardRef, router,
   } = useCetakKartu();
@@ -158,6 +158,12 @@ export default function CetakKartuPage() {
                 </CardDescription>
               </div>
               <div className="flex gap-1.5">
+                {adjustDirty && (
+                  <span className="flex items-center gap-1.5 h-8 px-2.5 rounded-md bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400 text-xs font-semibold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" aria-hidden />
+                    Belum disimpan
+                  </span>
+                )}
                 <Button type="button" variant="outline" size="sm" className="gap-1 h-8 px-2.5 text-xs" onClick={resetAdjust}>
                   <RotateCcw className="h-3 w-3" />Reset
                 </Button>
@@ -204,7 +210,7 @@ export default function CetakKartuPage() {
               </table>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Cetak uji, ubah angka lalu cetak ulang. Klik <strong>Simpan</strong> agar nilai tersimpan di browser ini dan tidak berubah saat halaman dimuat ulang.
+              Cetak uji, ubah angka lalu cetak ulang. Klik <strong>Simpan</strong> agar nilai tersimpan di browser ini dan tidak berubah saat halaman dimuat ulang — indikator <strong>Belum disimpan</strong> muncul bila ada perubahan yang belum disimpan.
             </p>
           </CardContent>
         </Card>
@@ -337,18 +343,14 @@ function MmInput({ value, onCommit, label }: { value: number; onCommit: (v: numb
       value={raw}
       onChange={(e) => {
         setRaw(e.target.value);
-        const parsed = parseFloat(e.target.value);
-        if (!Number.isNaN(parsed)) onCommit(parsed);
+        const parsed = parseMmValue(e.target.value);
+        if (parsed !== null) onCommit(parsed);
       }}
       onBlur={() => {
-        const parsed = parseFloat(raw);
-        if (Number.isNaN(parsed)) {
-          setRaw(String(value));
-          onCommit(value);
-        } else if (parsed !== value) {
-          setRaw(String(parsed));
-          onCommit(parsed);
-        }
+        const parsed = parseMmValue(raw);
+        const next = parsed ?? value;
+        setRaw(String(next));
+        if (next !== value) onCommit(next);
       }}
       className="w-16 h-7 px-1.5 text-xs font-mono rounded-md border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
     />

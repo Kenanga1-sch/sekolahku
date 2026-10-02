@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   buildPrintPages,
   getOffset,
@@ -8,6 +8,11 @@ import {
   writeAdjustStorage,
   DEFAULT_ADJUST,
   ROWS_PER_PAGE,
+  parseMmValue,
+  isAdjustDirty,
+  readSettingsStorage,
+  writeSettingsStorage,
+  DEFAULT_CETAK_SETTINGS,
   type AdjustAll,
 } from "./print-layout";
 import type { StudentCard } from "./use-cetak-kartu";
@@ -163,5 +168,97 @@ describe("persistensi localStorage", () => {
     expect(readAdjustStorage()).toBeNull();
     window.localStorage.setItem("siswa-cetak-kartu-adjust", JSON.stringify({ duplex: 42 }));
     expect(readAdjustStorage()).toEqual(DEFAULT_ADJUST);
+  });
+});
+
+describe("parseMmValue — koma & titik desimal", () => {
+  it("koma desimal diparse sebagai titik (keyboard Indonesia)", () => {
+    expect(parseMmValue("2,75")).toBe(2.75);
+    expect(parseMmValue("-3,5")).toBe(-3.5);
+    expect(parseMmValue("0,1")).toBe(0.1);
+  });
+
+  it("titik desimal tetap bekerja", () => {
+    expect(parseMmValue("2.75")).toBe(2.75);
+    expect(parseMmValue("-12.25")).toBe(-12.25);
+  });
+
+  it("bilangan bulat & negatif", () => {
+    expect(parseMmValue("0")).toBe(0);
+    expect(parseMmValue("-11")).toBe(-11);
+    expect(parseMmValue(" 5 ")).toBe(5);
+  });
+
+  it("parsial tidak valid → null (bukan NaN yang meng-commit)", () => {
+    expect(parseMmValue("")).toBeNull();
+    expect(parseMmValue("-")).toBeNull();
+    expect(parseMmValue(",")).toBeNull();
+    expect(parseMmValue(".")).toBeNull();
+    expect(parseMmValue("abc")).toBeNull();
+    expect(parseMmValue("2,abc")).toBe(2); // parseFloat berhenti di koma-invalid
+  });
+
+  it("koma di tengah angka ganda ditangani parseFloat standar", () => {
+    // "1,234,5" → normalisasi pertama koma saja → parseFloat stop → 1.234
+    expect(parseMmValue("1,234,5")).toBe(1.234);
+  });
+});
+
+describe("isAdjustDirty — indikator belum disimpan", () => {
+  it("nilai sama → tidak dirty", () => {
+    const a: AdjustAll = normalizeAdjust({ duplex: { front: [{ x: 5, y: 1 }] } });
+    expect(isAdjustDirty(a, a)).toBe(false);
+  });
+
+  it("nilai berbeda → dirty", () => {
+    const saved = DEFAULT_ADJUST;
+    const current = withOffset(DEFAULT_ADJUST, "combined", "front", 0, "x", 3);
+    expect(isAdjustDirty(current, saved)).toBe(true);
+  });
+
+  it("setelah save (current = saved) → tidak dirty lagi", () => {
+    const current = withOffset(DEFAULT_ADJUST, "duplex", "back", 1, "y", -2);
+    const saved = normalizeAdjust(current); // simulasi tersimpan
+    expect(isAdjustDirty(current, saved)).toBe(false);
+  });
+});
+
+describe("writeAdjustStorage — status keberhasilan (jujur)", () => {
+  beforeEach(() => window.localStorage.clear());
+
+  it("sukses → true", () => {
+    expect(writeAdjustStorage(DEFAULT_ADJUST)).toBe(true);
+  });
+
+  it("localStorage throw (quota/blokir) → false, TIDAK lolos diam-diam", () => {
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceededError");
+    });
+    expect(writeAdjustStorage(DEFAULT_ADJUST)).toBe(false);
+    spy.mockRestore();
+  });
+});
+
+describe("persistensi pengaturan tampilan (auto-save)", () => {
+  beforeEach(() => window.localStorage.clear());
+
+  it("roundtrip: tulis lalu baca kembali", () => {
+    const s = { ...DEFAULT_CETAK_SETTINGS, cardsPerRow: "1", printMode: "duplex" as const, showBackSide: false, flipEdge: "short" as const, cardType: "nisn" as const };
+    expect(writeSettingsStorage(s)).toBe(true);
+    expect(readSettingsStorage()).toEqual(s);
+  });
+
+  it("baca tanpa data → null", () => {
+    expect(readSettingsStorage()).toBeNull();
+  });
+
+  it("nilai tidak valid diganti default (sanitize)", () => {
+    window.localStorage.setItem("siswa-cetak-kartu-settings", JSON.stringify({ printMode: "nope", cardsPerRow: "9", cardType: "xxx", showPhoto: "yes" }));
+    expect(readSettingsStorage()).toEqual(DEFAULT_CETAK_SETTINGS);
+  });
+
+  it("data rusak → null (tidak melempar)", () => {
+    window.localStorage.setItem("siswa-cetak-kartu-settings", "{broken");
+    expect(readSettingsStorage()).toBeNull();
   });
 });
