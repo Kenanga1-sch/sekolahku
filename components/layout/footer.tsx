@@ -16,7 +16,7 @@ export default function Footer() {
   if (pathname?.startsWith("/kiosk")) return null;
 
   return (
-    <footer className="app-chrome bg-[#065F46] text-white/90 w-full">
+    <footer className="app-chrome bg-primary text-white/90 w-full">
       <div className="max-w-6xl mx-auto px-4 py-12 md:py-16">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-8">
           <div className="space-y-4">
@@ -37,10 +37,10 @@ export default function Footer() {
           <div className="space-y-4">
             <h3 className="font-semibold text-white text-sm uppercase tracking-wider">Tautan Cepat</h3>
             <div className="flex flex-col gap-2.5">
-              <Link href="/" className="text-sm text-white/70 hover:text-[#A7F3D0] transition-colors">Beranda</Link>
-              <Link href="/spmb" className="text-sm text-white/70 hover:text-[#A7F3D0] transition-colors">Pendaftaran Siswa Baru</Link>
-              <Link href="/layanan" className="text-sm text-white/70 hover:text-[#A7F3D0] transition-colors">Layanan</Link>
-              <Link href="/login" className="text-sm text-white/70 hover:text-[#A7F3D0] transition-colors">Masuk Dashboard</Link>
+              <Link href="/" className="text-sm text-white/70 hover:text-secondary transition-colors">Beranda</Link>
+              <Link href="/spmb" className="text-sm text-white/70 hover:text-secondary transition-colors">Pendaftaran Siswa Baru</Link>
+              <Link href="/layanan" className="text-sm text-white/70 hover:text-secondary transition-colors">Layanan</Link>
+              <Link href="/login" className="text-sm text-white/70 hover:text-secondary transition-colors">Masuk Dashboard</Link>
             </div>
           </div>
 
@@ -49,19 +49,19 @@ export default function Footer() {
             <div className="flex flex-col gap-3">
               {settings?.school_address && (
                 <div className="flex items-start gap-2.5 text-sm text-white/70">
-                  <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-[#A7F3D0]" />
+                  <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-secondary" />
                   <span>{settings.school_address}</span>
                 </div>
               )}
               {settings?.school_phone && (
                 <div className="flex items-center gap-2.5 text-sm text-white/70">
-                  <Phone className="h-4 w-4 shrink-0 text-[#A7F3D0]" />
+                  <Phone className="h-4 w-4 shrink-0 text-secondary" />
                   <span>{settings.school_phone}</span>
                 </div>
               )}
               {settings?.school_email && (
                 <div className="flex items-center gap-2.5 text-sm text-white/70">
-                  <Mail className="h-4 w-4 shrink-0 text-[#A7F3D0]" />
+                  <Mail className="h-4 w-4 shrink-0 text-secondary" />
                   <span>{settings.school_email}</span>
                 </div>
               )}

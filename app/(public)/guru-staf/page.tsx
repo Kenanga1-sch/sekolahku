@@ -49,10 +49,10 @@ export default function GuruStafPage() {
       <section className="py-12 md:py-20">
         <div className="max-w-6xl mx-auto px-4">
           <Reveal>
-            <h1 className="text-3xl md:text-4xl font-bold text-[#1a2e1a] mb-3">Guru &amp; Tenaga Kependidikan</h1>
+            <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3">Guru &amp; Tenaga Kependidikan</h1>
           </Reveal>
           <Reveal delay={0.08}>
-            <p className="text-[#4b6b4b] mb-10 max-w-[55ch]">
+            <p className="text-muted-foreground mb-10 max-w-[55ch]">
               Tim pendidik dan tenaga kependidikan yang mendedikasikan diri untuk pendidikan siswa kami.
             </p>
           </Reveal>
@@ -61,27 +61,27 @@ export default function GuruStafPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
               {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="rounded-2xl bg-white border border-public-border shadow-sm overflow-hidden animate-pulse">
-                  <div className="aspect-[4/5] bg-[#A7F3D0]/40" />
+                  <div className="aspect-[4/5] bg-secondary/40" />
                   <div className="p-5 space-y-3">
-                    <div className="h-4 w-3/4 bg-[#A7F3D0]/40 rounded mx-auto" />
-                    <div className="h-3 w-1/2 bg-[#A7F3D0]/30 rounded mx-auto" />
-                    <div className="h-10 w-full bg-[#A7F3D0]/20 rounded" />
+                    <div className="h-4 w-3/4 bg-secondary/40 rounded mx-auto" />
+                    <div className="h-3 w-1/2 bg-secondary/30 rounded mx-auto" />
+                    <div className="h-10 w-full bg-secondary/20 rounded" />
                   </div>
                 </div>
               ))}
             </div>
           ) : sorted.length === 0 ? (
             <div className="p-12 rounded-2xl bg-white border border-dashed border-public-border text-center">
-              <Users className="h-10 w-10 text-[#065F46]/30 mx-auto mb-4" />
-              <p className="text-[#4b6b4b]">Data guru dan staf akan segera tersedia.</p>
+              <Users className="h-10 w-10 text-primary/30 mx-auto mb-4" />
+              <p className="text-muted-foreground">Data guru dan staf akan segera tersedia.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
               {sorted.map((person, i) => (
                 <Reveal key={person.id} delay={Math.min(i * 0.04, 0.4)}>
-                  <div className="group flex flex-col rounded-2xl bg-white border border-public-border shadow-sm hover:border-[#065F46]/20 hover:shadow-md transition-all h-full overflow-hidden">
+                  <div className="group flex flex-col rounded-2xl bg-white border border-public-border shadow-sm hover:border-primary/20 hover:shadow-md transition-all h-full overflow-hidden">
                     {/* Foto 4:5 full-width — elemen dominan kartu */}
-                    <div className="relative aspect-[4/5] w-full overflow-hidden bg-[#A7F3D0]/50">
+                    <div className="relative aspect-[4/5] w-full overflow-hidden bg-secondary/50">
                       {person.photoUrl ? (
                         <Image
                           src={normalizePublicPath(person.photoUrl)}
@@ -91,28 +91,28 @@ export default function GuruStafPage() {
                           className="object-cover group-hover:scale-[1.03] transition-transform duration-300"
                         />
                       ) : (
-                        <div className="absolute inset-0 flex items-center justify-center text-[#065F46]/40">
+                        <div className="absolute inset-0 flex items-center justify-center text-primary/40">
                           <Users className="h-16 w-16" />
                         </div>
                       )}
                     </div>
                     <div className="flex flex-1 flex-col items-center text-center p-5 gap-1.5">
                       {person.category && (
-                        <Badge className="bg-[#A7F3D0]/50 text-[#065F46] border-0 text-[10px] font-medium order-first">
+                        <Badge className="bg-secondary/50 text-primary border-0 text-[10px] font-medium order-first">
                           {categoryLabel(person.category)}
                         </Badge>
                       )}
-                      <h2 className="text-base font-semibold text-[#1a2e1a] leading-snug">
+                      <h2 className="text-base font-semibold text-foreground leading-snug">
                         {person.name}
-                        {person.degree && <span className="text-[#4b6b4b] font-normal">, {person.degree}</span>}
+                        {person.degree && <span className="text-muted-foreground font-normal">, {person.degree}</span>}
                       </h2>
                       {person.position && (
-                        <p className="text-xs text-[#4b6b4b]">{person.position}</p>
+                        <p className="text-xs text-muted-foreground">{person.position}</p>
                       )}
                       {person.quote && (
                         <blockquote className="mt-3 flex flex-col items-center gap-1.5 pt-3 border-t border-public-border/60 w-full">
-                          <Quote className="h-3.5 w-3.5 text-[#065F46]/40 shrink-0" />
-                          <p className="italic text-[13px] leading-relaxed text-[#4b6b4b] line-clamp-4">
+                          <Quote className="h-3.5 w-3.5 text-primary/40 shrink-0" />
+                          <p className="italic text-[13px] leading-relaxed text-muted-foreground line-clamp-4">
                             {person.quote}
                           </p>
                         </blockquote>

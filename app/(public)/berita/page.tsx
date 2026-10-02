@@ -78,10 +78,10 @@ export default function BeritaPage() {
             <Newspaper className="h-4 w-4" />
             Berita Sekolah
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-[#1a2e1a] sm:text-4xl">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             Berita &amp; Pengumuman
           </h1>
-          <p className="mt-3 text-[#4b6b4b]">
+          <p className="mt-3 text-muted-foreground">
             Informasi terbaru dari {schoolName} {schoolAddress ? schoolAddress.split(",").slice(-2).join(",").trim() : ""}.
           </p>
         </header>
@@ -106,10 +106,10 @@ export default function BeritaPage() {
         {!loading && !error && news.length === 0 && (
           <div className="rounded-xl border border-public-border bg-white p-12 text-center shadow-sm">
             <Newspaper className="mx-auto mb-4 h-12 w-12 text-emerald-300" />
-            <h2 className="text-lg font-semibold text-[#1a2e1a]">
+            <h2 className="text-lg font-semibold text-foreground">
               Belum ada berita
             </h2>
-            <p className="mt-2 text-sm text-[#4b6b4b]">
+            <p className="mt-2 text-sm text-muted-foreground">
               Pengumuman dari sekolah akan tampil di halaman ini.
             </p>
           </div>
@@ -142,17 +142,17 @@ export default function BeritaPage() {
                         </Badge>
                       )}
                       {item.published_at && (
-                        <span className="flex items-center gap-1 text-xs text-[#4b6b4b]">
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Calendar className="h-3 w-3" />
                           {formatDate(item.published_at)}
                         </span>
                       )}
                     </div>
-                    <h2 className="text-lg font-semibold leading-snug text-[#1a2e1a]">
+                    <h2 className="text-lg font-semibold leading-snug text-foreground">
                       {item.title}
                     </h2>
                     {item.excerpt && (
-                      <p className="mt-1 line-clamp-2 text-sm text-[#4b6b4b]">
+                      <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
                         {item.excerpt}
                       </p>
                     )}

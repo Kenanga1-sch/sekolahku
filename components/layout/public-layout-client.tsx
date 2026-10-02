@@ -84,9 +84,9 @@ export default function PublicLayoutClient({
   if (pwaRedirect) return null;
 
   return (
-    <div className="flex flex-col bg-public-bg text-[#1a2e1a] w-full min-h-screen">
+    <div className="flex flex-col bg-public-bg text-foreground w-full min-h-screen">
       <header className="app-chrome hidden md:flex items-center justify-between px-6 py-4 sticky top-0 z-50 bg-public-bg/95 backdrop-blur-sm border-b border-public-border">
-        <Link href="/" className="flex items-center gap-2 font-bold text-lg text-[#065F46]">
+        <Link href="/" className="flex items-center gap-2 font-bold text-lg text-primary">
           {settings?.school_name || siteConfig.school.shortName}
         </Link>
         <nav className="flex items-center gap-1">
@@ -99,8 +99,8 @@ export default function PublicLayoutClient({
                   className={cn(
                     "rounded-full px-4 h-9 text-sm font-medium transition-transform active:scale-[0.97]",
                     isActive
-                      ? "bg-[#065F46] text-white hover:bg-[#065F46]"
-                      : "text-[#4b6b4b] hover:text-[#065F46] hover:bg-[#A7F3D0]/50"
+                      ? "bg-primary text-white hover:bg-primary"
+                      : "text-muted-foreground hover:text-primary hover:bg-secondary/50"
                   )}
                 >
                   {item.label}
@@ -115,16 +115,16 @@ export default function PublicLayoutClient({
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="flex items-center gap-2 pl-2 pr-3 py-1.5 h-auto rounded-full border border-public-border hover:bg-[#A7F3D0]/30 cursor-pointer active:scale-[0.97] transition-all"
+                  className="flex items-center gap-2 pl-2 pr-3 py-1.5 h-auto rounded-full border border-public-border hover:bg-secondary/30 cursor-pointer active:scale-[0.97] transition-all"
                 >
-                  <div className="h-7 w-7 rounded-full bg-[#A7F3D0] flex items-center justify-center overflow-hidden">
+                  <div className="h-7 w-7 rounded-full bg-secondary flex items-center justify-center overflow-hidden">
                     {user.image ? (
                       <Image src={user.image} alt={user.name || "User"} width={28} height={28} className="h-full w-full object-cover" />
                     ) : (
-                      <User className="h-4 w-4 text-[#065F46]" />
+                      <User className="h-4 w-4 text-primary" />
                     )}
                   </div>
-                  <span className="text-sm font-medium text-[#065F46]">{user.name}</span>
+                  <span className="text-sm font-medium text-primary">{user.name}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" side="bottom" className="w-56" sideOffset={8}>
@@ -151,7 +151,7 @@ export default function PublicLayoutClient({
             </DropdownMenu>
           ) : (
             <Link href="/login">
-              <Button className="rounded-full bg-[#065F46] text-white hover:bg-[#047857] px-5 h-9 text-sm font-medium active:scale-[0.97] transition-transform">
+              <Button className="rounded-full bg-primary text-white hover:bg-primary-hover px-5 h-9 text-sm font-medium active:scale-[0.97] transition-transform">
                 Masuk
               </Button>
             </Link>
@@ -177,8 +177,8 @@ export default function PublicLayoutClient({
                 className={cn(
                   "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-colors active:scale-[0.95]",
                   isActive
-                    ? "text-[#065F46]"
-                    : "text-[#4b6b4b] hover:text-[#065F46]"
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-primary"
                 )}
               >
                 <Icon className={cn("h-5 w-5", isActive && "fill-current")} strokeWidth={isActive ? 2.5 : 2} />
@@ -195,7 +195,7 @@ export default function PublicLayoutClient({
         <Link
           href="/login"
           aria-label="Masuk ke dashboard"
-          className="fixed right-4 bottom-20 z-50 md:hidden flex h-14 w-14 items-center justify-center rounded-full bg-[#065F46] text-white shadow-lg shadow-[#065F46]/40 ring-4 ring-white/60 backdrop-blur-sm active:scale-90 transition-transform"
+          className="fixed right-4 bottom-20 z-50 md:hidden flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white shadow-lg shadow-primary/40 ring-4 ring-white/60 backdrop-blur-sm active:scale-90 transition-transform"
         >
           <LogIn className="h-6 w-6" />
         </Link>

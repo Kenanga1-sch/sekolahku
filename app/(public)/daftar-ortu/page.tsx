@@ -108,26 +108,26 @@ export default function DaftarOrtuPage() {
   return (
     <div className="relative min-h-[80dvh] flex items-start justify-center px-4 py-12 md:py-20 bg-public-bg overflow-hidden">
       {/* Latar dekoratif ala halaman publik */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#A7F3D0]/30 via-public-bg to-public-bg dark:from-[#065F46]/20 dark:via-transparent dark:to-transparent" />
-      <div className="absolute -top-24 -right-24 w-[40vw] h-[40vw] max-w-[440px] max-h-[440px] rounded-full bg-[#A7F3D0]/20 dark:bg-[#065F46]/20 blur-[80px] pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-br from-secondary/30 via-public-bg to-public-bg dark:from-primary/20 dark:via-transparent dark:to-transparent" />
+      <div className="absolute -top-24 -right-24 w-[40vw] h-[40vw] max-w-[440px] max-h-[440px] rounded-full bg-secondary/20 dark:bg-primary/20 blur-[80px] pointer-events-none" />
 
       <div className="relative z-10 w-full max-w-5xl grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
         {/* Info pendaftaran — tetap informatif */}
         <div className="lg:col-span-2 space-y-6 lg:pt-2">
           <Reveal>
-            <Badge className="bg-[#065F46]/10 text-[#065F46] border-[#065F46]/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider dark:bg-[#A7F3D0]/10 dark:text-[#A7F3D0] dark:border-[#A7F3D0]/20">
+            <Badge className="bg-primary/10 text-primary border-primary/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider dark:bg-secondary/10 dark:text-secondary dark:border-secondary/20">
               Portal Orang Tua
             </Badge>
           </Reveal>
 
           <Reveal delay={0.08}>
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-[#1a2e1a] dark:text-foreground leading-[1.15]">
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground dark:text-foreground leading-[1.15]">
               Daftar Akun Orang Tua
             </h1>
           </Reveal>
 
           <Reveal delay={0.16}>
-            <p className="text-base text-[#4b6b4b] dark:text-muted-foreground leading-relaxed max-w-[55ch]">
+            <p className="text-base text-muted-foreground dark:text-muted-foreground leading-relaxed max-w-[55ch]">
               Hubungkan akun Anda dengan data anak di sekolah untuk memantau kehadiran, tabungan,
               dan pengumuman dalam satu tempat. Proses hanya butuh NISN dan tanggal lahir anak.
             </p>
@@ -137,12 +137,12 @@ export default function DaftarOrtuPage() {
             <ul className="space-y-3">
               {benefits.map((b) => (
                 <li key={b.title} className="flex items-start gap-3 p-4 rounded-2xl bg-white/70 backdrop-blur-md border border-public-border shadow-sm dark:bg-white/5 dark:border-white/10">
-                  <div className="h-10 w-10 shrink-0 rounded-xl bg-[#A7F3D0] text-[#065F46] flex items-center justify-center dark:bg-[#065F46]/40 dark:text-[#A7F3D0]">
+                  <div className="h-10 w-10 shrink-0 rounded-xl bg-secondary text-primary flex items-center justify-center dark:bg-primary/40 dark:text-secondary">
                     <b.icon className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="font-semibold text-[#1a2e1a] text-sm dark:text-foreground">{b.title}</p>
-                    <p className="text-xs text-[#4b6b4b] mt-1 leading-relaxed dark:text-muted-foreground">{b.desc}</p>
+                    <p className="font-semibold text-foreground text-sm dark:text-foreground">{b.title}</p>
+                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed dark:text-muted-foreground">{b.desc}</p>
                   </div>
                 </li>
               ))}
@@ -150,12 +150,12 @@ export default function DaftarOrtuPage() {
           </Reveal>
 
           <Reveal delay={0.32}>
-            <p className="text-xs text-[#4b6b4b] dark:text-muted-foreground">
+            <p className="text-xs text-muted-foreground dark:text-muted-foreground">
               Sudah punya akun?{" "}
               <Link
                 href="/login"
                 aria-label="Masuk ke portal orang tua"
-                className="font-semibold text-[#065F46] underline underline-offset-4 hover:no-underline dark:text-[#A7F3D0]"
+                className="font-semibold text-primary underline underline-offset-4 hover:no-underline dark:text-secondary"
               >
                 Masuk di sini
               </Link>
@@ -165,17 +165,17 @@ export default function DaftarOrtuPage() {
 
         {/* Kartu glass berisi langkah pendaftaran */}
         <Reveal delay={0.12} className="lg:col-span-3">
-          <div className="rounded-3xl bg-white/70 backdrop-blur-xl border border-white/60 shadow-xl shadow-[#065F46]/5 dark:bg-white/5 dark:border-white/10 dark:shadow-black/20 overflow-hidden">
+          <div className="rounded-3xl bg-white/70 backdrop-blur-xl border border-white/60 shadow-xl shadow-primary/5 dark:bg-white/5 dark:border-white/10 dark:shadow-black/20 overflow-hidden">
             <div className="px-6 pt-6 pb-4 border-b border-public-border/60 dark:border-white/10">
               <div className="flex items-center gap-3">
-                <div className="h-11 w-11 shrink-0 rounded-xl bg-gradient-to-br from-[#065F46] to-[#047857] text-white flex items-center justify-center shadow-lg shadow-[#065F46]/25">
+                <div className="h-11 w-11 shrink-0 rounded-xl bg-gradient-to-br from-primary to-primary-hover text-white flex items-center justify-center shadow-lg shadow-primary/25">
                   <UserPlus className="h-5 w-5" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-xs font-medium uppercase tracking-wider text-[#4b6b4b] dark:text-muted-foreground">
+                  <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground dark:text-muted-foreground">
                     Langkah {step} dari 3
                   </p>
-                  <h2 className="font-semibold text-[#1a2e1a] dark:text-foreground">{stepTitles[step]}</h2>
+                  <h2 className="font-semibold text-foreground dark:text-foreground">{stepTitles[step]}</h2>
                 </div>
               </div>
 
@@ -185,7 +185,7 @@ export default function DaftarOrtuPage() {
                   <div
                     key={s}
                     className={`h-1.5 flex-1 rounded-full transition-colors ${
-                      s <= step ? "bg-[#065F46] dark:bg-[#A7F3D0]" : "bg-public-border dark:bg-white/10"
+                      s <= step ? "bg-primary dark:bg-secondary" : "bg-public-border dark:bg-white/10"
                     }`}
                   />
                 ))}
@@ -213,7 +213,7 @@ export default function DaftarOrtuPage() {
                       aria-label="NISN anak"
                       aria-describedby="nisn-help"
                     />
-                    <p id="nisn-help" className="text-xs text-[#4b6b4b] dark:text-muted-foreground">
+                    <p id="nisn-help" className="text-xs text-muted-foreground dark:text-muted-foreground">
                       NISN tertera pada kartu pelajar atau rapor anak.
                     </p>
                   </div>
@@ -232,7 +232,7 @@ export default function DaftarOrtuPage() {
                     onClick={verify}
                     disabled={busy}
                     aria-label="Verifikasi data anak"
-                    className="w-full h-11 rounded-xl bg-gradient-to-r from-[#065F46] to-[#047857] text-white font-semibold shadow-lg shadow-[#065F46]/25 hover:shadow-[#065F46]/40 active:scale-[0.98] transition-all"
+                    className="w-full h-11 rounded-xl bg-gradient-to-r from-primary to-primary-hover text-white font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 active:scale-[0.98] transition-all"
                   >
                     {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <Search className="mr-2 h-4 w-4" aria-hidden="true" />}
                     Verifikasi Data
@@ -278,7 +278,7 @@ export default function DaftarOrtuPage() {
                       aria-label="Nomor HP orang tua"
                       aria-describedby="hp-help"
                     />
-                    <p id="hp-help" className="text-xs text-[#4b6b4b] dark:text-muted-foreground">
+                    <p id="hp-help" className="text-xs text-muted-foreground dark:text-muted-foreground">
                       Nomor ini menjadi nama pengguna saat masuk.
                     </p>
                   </div>
@@ -308,7 +308,7 @@ export default function DaftarOrtuPage() {
                       onClick={register}
                       disabled={busy}
                       aria-label="Buat akun orang tua"
-                      className="flex-1 h-11 rounded-xl bg-gradient-to-r from-[#065F46] to-[#047857] text-white font-semibold shadow-lg shadow-[#065F46]/25 hover:shadow-[#065F46]/40 active:scale-[0.98] transition-all"
+                      className="flex-1 h-11 rounded-xl bg-gradient-to-r from-primary to-primary-hover text-white font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 active:scale-[0.98] transition-all"
                     >
                       {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <UserPlus className="mr-2 h-4 w-4" aria-hidden="true" />}
                       Buat Akun
@@ -326,18 +326,18 @@ export default function DaftarOrtuPage() {
                   className="space-y-4 text-center py-4"
                   role="status"
                 >
-                  <div className="mx-auto bg-gradient-to-br from-[#A7F3D0] to-green-200 dark:from-[#065F46]/40 dark:to-green-900/30 p-4 rounded-full w-16 h-16 flex items-center justify-center">
-                    <CheckCircle2 className="h-8 w-8 text-[#065F46] dark:text-[#A7F3D0]" aria-hidden="true" />
+                  <div className="mx-auto bg-gradient-to-br from-secondary to-green-200 dark:from-primary/40 dark:to-green-900/30 p-4 rounded-full w-16 h-16 flex items-center justify-center">
+                    <CheckCircle2 className="h-8 w-8 text-primary dark:text-secondary" aria-hidden="true" />
                   </div>
                   <div>
-                    <p className="font-semibold text-[#1a2e1a] dark:text-foreground">Akun berhasil dibuat</p>
-                    <p className="text-sm text-[#4b6b4b] dark:text-muted-foreground mt-1">
+                    <p className="font-semibold text-foreground dark:text-foreground">Akun berhasil dibuat</p>
+                    <p className="text-sm text-muted-foreground dark:text-muted-foreground mt-1">
                       Masuk memakai nomor HP <strong>{phone}</strong> dan password yang Anda buat.
                     </p>
                   </div>
                   <Button
                     asChild
-                    className="w-full h-11 rounded-xl bg-gradient-to-r from-[#065F46] to-[#047857] text-white font-semibold shadow-lg shadow-[#065F46]/25 hover:shadow-[#065F46]/40 active:scale-[0.98] transition-all"
+                    className="w-full h-11 rounded-xl bg-gradient-to-r from-primary to-primary-hover text-white font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 active:scale-[0.98] transition-all"
                   >
                     <Link href="/login" aria-label="Masuk ke portal orang tua sekarang">
                       <Phone className="mr-2 h-4 w-4" aria-hidden="true" />

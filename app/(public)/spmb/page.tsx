@@ -98,25 +98,25 @@ export default function SPMBLandingPage() {
   return (
     <div className="flex flex-col bg-public-bg">
       <section className="relative min-h-[80dvh] flex items-center overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#A7F3D0]/30 via-public-bg to-public-bg" />
-        <div className="absolute bottom-0 left-0 w-[40vw] h-[40vw] max-w-[500px] max-h-[500px] rounded-full bg-[#A7F3D0]/20 blur-[80px] pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-br from-secondary/30 via-public-bg to-public-bg" />
+        <div className="absolute bottom-0 left-0 w-[40vw] h-[40vw] max-w-[500px] max-h-[500px] rounded-full bg-secondary/20 blur-[80px] pointer-events-none" />
 
         <div className="relative z-10 max-w-6xl mx-auto px-4 py-16 md:py-24 w-full">
           <div className="max-w-2xl space-y-6">
             <Reveal>
-              <Badge className="bg-[#065F46]/10 text-[#065F46] border-[#065F46]/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider">
+              <Badge className="bg-primary/10 text-primary border-primary/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider">
                 {isOpen ? "Pendaftaran Dibuka" : "Pendaftaran Ditutup"}
               </Badge>
             </Reveal>
 
             <Reveal delay={0.08}>
-              <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold tracking-tight text-[#1a2e1a] leading-[1.1]">
+              <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold tracking-tight text-foreground leading-[1.1]">
                 Penerimaan Siswa Baru
               </h1>
             </Reveal>
 
             <Reveal delay={0.16}>
-              <p className="text-base md:text-lg text-[#4b6b4b] leading-relaxed max-w-[55ch]">
+              <p className="text-base md:text-lg text-muted-foreground leading-relaxed max-w-[55ch]">
                 {period?.name || `SPMB ${siteConfig.academicYear.current}`} — Jalur Domisili untuk wilayah sekitar {schoolName}. {isOpen ? "Daftar sebelum kuota terisi." : "Pantau halaman ini untuk info periode berikutnya."}
               </p>
             </Reveal>
@@ -124,7 +124,7 @@ export default function SPMBLandingPage() {
             {isOpen && (
               <Reveal delay={0.24}>
                 <Link href="#persyaratan">
-                  <Button className="bg-[#065F46] text-white hover:bg-[#047857] rounded-full px-6 h-11 text-sm font-semibold active:scale-[0.97] transition-transform">
+                  <Button className="bg-primary text-white hover:bg-primary-hover rounded-full px-6 h-11 text-sm font-semibold active:scale-[0.97] transition-transform">
                     Cara Mendaftar
                     <ArrowRight className="h-4 w-4 ml-1.5" />
                   </Button>
@@ -147,11 +147,11 @@ export default function SPMBLandingPage() {
               ].map((item, i) => (
                 <Reveal key={item.label} delay={i * 0.06}>
                   <div className="p-5 rounded-2xl bg-public-bg border border-public-border shadow-sm">
-                    <div className="flex items-center gap-2 text-[#4b6b4b] mb-2">
+                    <div className="flex items-center gap-2 text-muted-foreground mb-2">
                       <item.icon className="h-4 w-4" />
                       <span className="text-xs font-medium uppercase tracking-wider">{item.label}</span>
                     </div>
-                    <p className="text-xl font-bold text-[#065F46]">{item.value}</p>
+                    <p className="text-xl font-bold text-primary">{item.value}</p>
                   </div>
                 </Reveal>
               ))}
@@ -163,19 +163,19 @@ export default function SPMBLandingPage() {
       <section className="py-16 md:py-20">
         <div className="max-w-6xl mx-auto px-4">
           <Reveal>
-            <h2 className="text-2xl md:text-3xl font-bold text-[#1a2e1a] mb-10">Alur Pendaftaran</h2>
+            <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-10">Alur Pendaftaran</h2>
           </Reveal>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
             {steps.map((step, i) => (
               <Reveal key={step.title} delay={i * 0.06}>
                 <div className="relative p-5 rounded-2xl bg-white border border-public-border shadow-sm h-full">
-                  <span className="absolute top-4 right-4 text-3xl font-bold text-[#A7F3D0]">{String(i + 1).padStart(2, "0")}</span>
-                  <div className="h-10 w-10 rounded-xl bg-[#065F46] text-white flex items-center justify-center mb-4">
+                  <span className="absolute top-4 right-4 text-3xl font-bold text-secondary">{String(i + 1).padStart(2, "0")}</span>
+                  <div className="h-10 w-10 rounded-xl bg-primary text-white flex items-center justify-center mb-4">
                     <step.icon className="h-5 w-5" />
                   </div>
-                  <h3 className="font-semibold text-[#1a2e1a] text-sm">{step.title}</h3>
-                  <p className="text-xs text-[#4b6b4b] mt-1.5 leading-relaxed">{step.desc}</p>
+                  <h3 className="font-semibold text-foreground text-sm">{step.title}</h3>
+                  <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{step.desc}</p>
                 </div>
               </Reveal>
             ))}
@@ -186,25 +186,25 @@ export default function SPMBLandingPage() {
       <section className="py-16 md:py-20 bg-white">
         <div className="max-w-6xl mx-auto px-4">
           <Reveal>
-            <h2 className="text-2xl md:text-3xl font-bold text-[#1a2e1a] mb-4">Layanan SPMB</h2>
+            <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4">Layanan SPMB</h2>
           </Reveal>
           <Reveal delay={0.08}>
-            <p className="text-[#4b6b4b] mb-10 max-w-[55ch]">Semua keperluan penerimaan siswa baru dalam satu tempat.</p>
+            <p className="text-muted-foreground mb-10 max-w-[55ch]">Semua keperluan penerimaan siswa baru dalam satu tempat.</p>
           </Reveal>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {services.map((service, i) => {
-              const cardClass = "group flex items-start gap-4 p-5 rounded-2xl bg-public-bg border border-public-border shadow-sm hover:border-[#065F46]/30 hover:shadow-md transition-all active:scale-[0.98] h-full";
+              const cardClass = "group flex items-start gap-4 p-5 rounded-2xl bg-public-bg border border-public-border shadow-sm hover:border-primary/30 hover:shadow-md transition-all active:scale-[0.98] h-full";
               const inner = (
                 <>
-                  <div className="h-11 w-11 shrink-0 rounded-xl bg-[#A7F3D0] text-[#065F46] flex items-center justify-center group-hover:bg-[#065F46] group-hover:text-white transition-colors">
+                  <div className="h-11 w-11 shrink-0 rounded-xl bg-secondary text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
                     <service.icon className="h-5 w-5" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-semibold text-[#1a2e1a] text-sm">{service.title}</h3>
-                    <p className="text-xs text-[#4b6b4b] mt-1 leading-relaxed">{service.desc}</p>
+                    <h3 className="font-semibold text-foreground text-sm">{service.title}</h3>
+                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{service.desc}</p>
                   </div>
-                  <ArrowRight className="h-4 w-4 text-[#4b6b4b] shrink-0 mt-1 group-hover:translate-x-1 group-hover:text-[#065F46] transition-all" />
+                  <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1 group-hover:translate-x-1 group-hover:text-primary transition-all" />
                 </>
               );
               return (
@@ -224,28 +224,28 @@ export default function SPMBLandingPage() {
       <section id="persyaratan" className="py-16 md:py-20 scroll-mt-20">
         <div className="max-w-6xl mx-auto px-4">
           <Reveal>
-            <h2 className="text-2xl md:text-3xl font-bold text-[#1a2e1a] mb-4">Syarat Dokumen & Cara Mendaftar</h2>
+            <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4">Syarat Dokumen & Cara Mendaftar</h2>
           </Reveal>
           <Reveal delay={0.08}>
-            <p className="text-[#4b6b4b] mb-10 max-w-[55ch]">Siapkan dokumen berikut dan bawa langsung ke sekolah. Data pendaftaran diisikan oleh panitia di lokasi.</p>
+            <p className="text-muted-foreground mb-10 max-w-[55ch]">Siapkan dokumen berikut dan bawa langsung ke sekolah. Data pendaftaran diisikan oleh panitia di lokasi.</p>
           </Reveal>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {requirements.map((req, i) => (
               <Reveal key={req} delay={i * 0.05}>
                 <div className="flex items-start gap-3 p-4 rounded-2xl bg-public-bg border border-public-border shadow-sm">
-                  <CheckCircle2 className="h-5 w-5 text-[#065F46] shrink-0 mt-0.5" />
-                  <span className="text-sm text-[#1a2e1a]">{req}</span>
+                  <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                  <span className="text-sm text-foreground">{req}</span>
                 </div>
               </Reveal>
             ))}
           </div>
 
           <Reveal delay={0.2}>
-            <div className="mt-8 p-5 rounded-2xl bg-[#A7F3D0]/30 border border-[#065F46]/20 flex items-start gap-3">
-              <MapPin className="h-5 w-5 text-[#065F46] shrink-0 mt-0.5" />
+            <div className="mt-8 p-5 rounded-2xl bg-secondary/30 border border-primary/20 flex items-start gap-3">
+              <MapPin className="h-5 w-5 text-primary shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold text-[#065F46] text-sm">Jalur Domisili</p>
-                <p className="text-sm text-[#4b6b4b] mt-1 leading-relaxed">
+                <p className="font-semibold text-primary text-sm">Jalur Domisili</p>
+                <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
                   Calon siswa harus berdomisili dalam radius {maxDistance} km dari sekolah. Lokasi rumah diverifikasi melalui peta saat pendaftaran.
                 </p>
               </div>
@@ -257,10 +257,10 @@ export default function SPMBLandingPage() {
       <section className="py-16 md:py-20 bg-white">
         <div className="max-w-6xl mx-auto px-4">
           <Reveal>
-            <h2 className="text-2xl md:text-3xl font-bold text-[#1a2e1a] mb-4">Wilayah Penerimaan</h2>
+            <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-4">Wilayah Penerimaan</h2>
           </Reveal>
           <Reveal delay={0.08}>
-            <p className="text-[#4b6b4b] mb-10 max-w-[55ch]">
+            <p className="text-muted-foreground mb-10 max-w-[55ch]">
               Peta berikut menampilkan zona penerimaan siswa baru Jalur Domisili berdasarkan jarak dari sekolah.
             </p>
           </Reveal>
@@ -281,33 +281,33 @@ export default function SPMBLandingPage() {
               <div className="flex flex-col gap-4 h-full">
                 <div className="p-5 rounded-2xl bg-public-bg border border-public-border shadow-sm flex-1">
                   <div className="flex items-center gap-2 mb-3">
-                    <MapPin className="h-4 w-4 text-[#065F46]" />
-                    <span className="text-xs font-medium uppercase tracking-wider text-[#4b6b4b]">Lokasi Sekolah</span>
+                    <MapPin className="h-4 w-4 text-primary" />
+                    <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Lokasi Sekolah</span>
                   </div>
-                  <h3 className="font-semibold text-[#1a2e1a]">{schoolName}</h3>
-                  <p className="text-sm text-[#4b6b4b] mt-1.5 leading-relaxed">{schoolAddress}</p>
+                  <h3 className="font-semibold text-foreground">{schoolName}</h3>
+                  <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{schoolAddress}</p>
 
                   <div className="mt-4 flex items-center gap-2">
-                    <Badge className="bg-[#065F46]/10 text-[#065F46] border-[#065F46]/20 px-3 py-1 text-xs font-semibold">
+                    <Badge className="bg-primary/10 text-primary border-primary/20 px-3 py-1 text-xs font-semibold">
                       Radius {maxDistance} km
                     </Badge>
-                    <Badge variant="outline" className="border-[#065F46]/20 text-[#4b6b4b] px-3 py-1 text-xs">
+                    <Badge variant="outline" className="border-primary/20 text-muted-foreground px-3 py-1 text-xs">
                       Jalur Domisili
                     </Badge>
                   </div>
                 </div>
 
-                <div className="p-5 rounded-2xl bg-[#A7F3D0]/30 border border-[#065F46]/20">
-                  <p className="text-sm text-[#1a2e1a] leading-relaxed">
+                <div className="p-5 rounded-2xl bg-secondary/30 border border-primary/20">
+                  <p className="text-sm text-foreground leading-relaxed">
                     Calon siswa Jalur Domisili harus berdomisili dalam radius{" "}
-                    <strong className="text-[#065F46]">{maxDistance} km</strong> dari sekolah (area lingkaran putus-putus
+                    <strong className="text-primary">{maxDistance} km</strong> dari sekolah (area lingkaran putus-putus
                     pada peta). Lokasi rumah ditandai pada peta saat mengisi formulir pendaftaran.
                   </p>
                   <a
                     href={`https://www.google.com/maps/search/?api=1&query=${schoolLat},${schoolLng}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#065F46] hover:underline"
+                    className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline"
                   >
                     <Navigation className="h-4 w-4" />
                     Lihat di Google Maps
@@ -322,7 +322,7 @@ export default function SPMBLandingPage() {
       <section className="py-16 md:py-20">
         <div className="max-w-6xl mx-auto px-4">
           <Reveal>
-            <div className="rounded-3xl bg-[#065F46] p-8 md:p-12 text-center text-white">
+            <div className="rounded-3xl bg-primary p-8 md:p-12 text-center text-white">
               <h2 className="text-2xl md:text-3xl font-bold mb-3">
                 {isOpen ? "Jangan Sampai Ketinggalan" : "Butuh Bantuan?"}
               </h2>
@@ -333,7 +333,7 @@ export default function SPMBLandingPage() {
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Link href="#persyaratan">
-                  <Button className="bg-white text-[#065F46] hover:bg-[#A7F3D0] rounded-full px-6 h-11 text-sm font-semibold active:scale-[0.97] transition-transform">
+                  <Button className="bg-white text-primary hover:bg-secondary rounded-full px-6 h-11 text-sm font-semibold active:scale-[0.97] transition-transform">
                     Cara Mendaftar
                   </Button>
                 </Link>
