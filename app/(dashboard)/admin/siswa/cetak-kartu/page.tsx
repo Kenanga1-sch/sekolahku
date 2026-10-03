@@ -28,7 +28,7 @@ export default function CetakKartuPage() {
     return <div className="flex items-center justify-center min-h-[60vh]"><RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
   }
 
-  const pages = buildPrintPages({ cards, cardsPerRow: Number(cardsPerRow), mode: printMode, showBackSide });
+  const pages = buildPrintPages({ cards, cardsPerRow: Number(cardsPerRow), mode: printMode, showBackSide, flipEdge });
   const columns = Array.from({ length: Math.max(1, Number(cardsPerRow)) }, (_, i) => i);
 
   return (
@@ -310,7 +310,14 @@ export default function CetakKartuPage() {
                   <div
                     key={cell.key}
                     className="flex break-inside-avoid page-break-inside-avoid"
-                    style={{ transform: `translate(${offset.x}mm, ${offset.y}mm)` }}
+                    style={{
+                      // Posisi fisik eksplisit: sisi belakang duplex dicerminkan
+                      // (lihat print-layout.ts) — auto-placement tak bisa menaruh
+                      // sel di slot hasil cermin.
+                      gridRow: cell.row + 1,
+                      gridColumn: cell.col + 1,
+                      transform: `translate(${offset.x}mm, ${offset.y}mm)`,
+                    }}
                   >
                     <KartuPreview student={cell.student} schoolName={schoolName} schoolAddress={schoolAddress} schoolLogo={schoolLogo} showPhoto={showPhoto} showNIS={showNIS} cardType={cardType} showBackSide={showBackSide} printSide={cell.side} forPrint />
                   </div>

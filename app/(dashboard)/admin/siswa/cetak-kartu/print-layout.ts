@@ -27,6 +27,8 @@ export interface PrintCell {
   side: "front" | "back";
   /** Indeks kolom pada baris halaman (0-based), menentukan offset kalibrasi. */
   col: number;
+  /** Baris fisik dalam grid A4 (0–3); dipakai agar cermin menempati slot fisiknya. */
+  row: number;
 }
 
 export interface PrintPage {
@@ -41,10 +43,11 @@ export interface BuildPrintPagesParams {
   cardsPerRow: number;
   mode: PrintMode;
   showBackSide: boolean;
+  flipEdge?: "long" | "short";
 }
 
 /** Susun daftar halaman cetak sesuai mode & jumlah kartu per baris. */
-export function buildPrintPages({ cards, cardsPerRow, mode, showBackSide }: BuildPrintPagesParams): PrintPage[] {
+export function buildPrintPages({ cards, cardsPerRow, mode, showBackSide, flipEdge = "long" }: BuildPrintPagesParams): PrintPage[] {
   const perRow = Math.max(1, Math.floor(cardsPerRow));
   const cellsPerPage = perRow * ROWS_PER_PAGE;
   const pages: PrintPage[] = [];
@@ -55,13 +58,26 @@ export function buildPrintPages({ cards, cardsPerRow, mode, showBackSide }: Buil
       const batch = cards.slice(start, start + studentsPerPage);
       pages.push({
         key: `front-${pages.length}`,
-        cells: batch.map((student, i) => ({ key: student.id, student, side: "front" as const, col: i % perRow })),
+        cells: batch.map((student, i) => ({ key: student.id, student, side: "front" as const, col: i % perRow, row: Math.floor(i / perRow) })),
       });
       if (showBackSide) {
-        pages.push({
-          key: `back-${pages.length}`,
-          cells: batch.map((student, i) => ({ key: student.id, student, side: "back" as const, col: i % perRow })),
-        });
+        // Pasangan fisik di sisi belakang harus mengikuti arah kertas dibalik:
+        // - flipEdge "long" (default, seperti membalik buku): kolom kiri depan
+        //   bersinggungan dengan kolom kanan belakang → tukar kolom tiap baris.
+        // - flipEdge "short" (seperti kalender): baris atas depan bersinggungan
+        //   dengan baris bawah belakang → balik urutan baris.
+        const rows = ROWS_PER_PAGE;
+        const cols = perRow;
+        const cells: PrintCell[] = [];
+        for (let targetIdx = 0; targetIdx < rows * cols; targetIdx++) {
+          const r = Math.floor(targetIdx / cols);
+          const c = targetIdx % cols;
+          const srcIdx = flipEdge === "long" ? r * cols + (cols - 1 - c) : (rows - 1 - r) * cols + c;
+          if (srcIdx >= batch.length) continue; // batch terakhir tak penuh → slot kosong dibiarkan
+          const student = batch[srcIdx];
+          cells.push({ key: `${student.id}-back`, student, side: "back", col: c, row: r });
+        }
+        pages.push({ key: `back-${pages.length}`, cells });
       }
     }
     return pages;
@@ -72,8 +88,8 @@ export function buildPrintPages({ cards, cardsPerRow, mode, showBackSide }: Buil
   // satu siswa — muat di A4 dan tinggal digunting per baris.
   const flat: PrintCell[] = [];
   for (const student of cards) {
-    flat.push({ key: `${student.id}-front`, student, side: "front", col: flat.length % perRow });
-    if (showBackSide) flat.push({ key: `${student.id}-back`, student, side: "back", col: flat.length % perRow });
+    flat.push({ key: `${student.id}-front`, student, side: "front", col: flat.length % perRow, row: Math.floor(flat.length / perRow) });
+    if (showBackSide) flat.push({ key: `${student.id}-back`, student, side: "back", col: flat.length % perRow, row: Math.floor(flat.length / perRow) });
   }
   for (let start = 0; start < flat.length; start += cellsPerPage) {
     pages.push({ key: `combined-${pages.length}`, cells: flat.slice(start, start + cellsPerPage) });

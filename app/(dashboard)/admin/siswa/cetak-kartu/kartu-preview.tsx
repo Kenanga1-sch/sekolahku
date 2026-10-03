@@ -165,7 +165,7 @@ function StudentCardBack({ student, schoolName, schoolAddress, forPrint }: CardB
           <ul className="space-y-0.5">{rules.map((rule, idx) => (<li key={idx} className="flex items-start gap-1 text-[8.5px] text-black leading-snug"><span className="text-amber-500 font-bold">•</span><span>{rule}</span></li>))}</ul>
           <div
             className="mt-1 pt-1 border-t border-dashed border-slate-100 text-[7.5px] text-black"
-            style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
+            style={{ display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden" }}
           >
             Harap kembalikan ke: {schoolAddress}
           </div>
