@@ -114,8 +114,14 @@ export default function PublicHomepage() {
   return (
     <div className="flex flex-col bg-public-bg">
       <section className="relative min-h-[90dvh] md:min-h-[85dvh] flex items-center overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-secondary/30 via-public-bg to-public-bg" />
-        <div className="absolute top-0 right-0 w-[50vw] h-[50vw] max-w-[600px] max-h-[600px] rounded-full bg-secondary/20 blur-[80px] pointer-events-none" />
+        {/* Mesh gradient layer (14s loop, reduced-motion guard) */}
+        <div className="absolute inset-0 mesh-hero opacity-60 pointer-events-none" />
+        {/* Pattern dots — depth nyata, bukan blur-blob */}
+        <div className="absolute inset-0 pattern-dots pointer-events-none" />
+        {/* Kontour garis diagonal (overlay sekunder) */}
+        <div className="absolute inset-0 pattern-contour pointer-events-none" />
+        {/* Blob blur tetap ada tapi lebih kecil untuk hint saja */}
+        <div className="absolute top-0 right-0 w-[50vw] h-[50vw] max-w-[600px] max-h-[600px] rounded-full bg-secondary/30 blur-[80px] pointer-events-none" />
 
         <div className="relative z-10 max-w-6xl mx-auto px-4 py-20 md:py-24 w-full">
           <div className="max-w-2xl space-y-6">
@@ -181,8 +187,10 @@ export default function PublicHomepage() {
               { label: "Program", value: "SPMB", icon: BookOpen },
             ].map((stat, i) => (
               <Reveal key={stat.label} delay={i * 0.06}>
-                <div className="flex flex-col items-center text-center p-6 rounded-2xl bg-public-bg border border-public-border shadow-sm">
-                  <div className="h-10 w-10 rounded-xl bg-primary text-white flex items-center justify-center mb-3">
+                <div className={`flex flex-col items-center text-center p-6 rounded-2xl bg-public-bg border border-public-border shadow-sm transition-all hover:shadow-md ${
+                  i === 3 ? "card-depth-3" : i === 1 ? "card-depth-2" : "card-depth-1"
+                }`}>
+                  <div className="h-10 w-10 rounded-xl bg-primary text-white flex items-center justify-center mb-3 shadow-sm">
                     <stat.icon className="h-5 w-5" />
                   </div>
                   <p className="text-2xl md:text-3xl font-bold text-primary">{stat.value}</p>
@@ -205,17 +213,20 @@ export default function PublicHomepage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {[
-              { title: "Perpustakaan", desc: "Jelajahi koleksi buku & cek ketersediaan secara real-time.", href: "/katalog-buku", icon: BookOpen },
-              { title: "Mutasi", desc: "Permohonan pindah masuk dan cek status permohonan.", href: "/layanan/mutasi", icon: ArrowRightLeft },
-              { title: "Kritik & Pengaduan", desc: "Sampaikan masukan atau laporkan perundungan, bisa anonim.", href: "/layanan/kritik-saran-pengaduan", icon: MessageSquareHeart },
+              { title: "Perpustakaan", desc: "Jelajahi koleksi buku & cek ketersediaan secara real-time.", href: "/katalog-buku", icon: BookOpen, wide: true },
+              { title: "Mutasi", desc: "Permohonan pindah masuk dan cek status permohonan.", href: "/layanan/mutasi", icon: ArrowRightLeft, wide: false },
+              { title: "Kritik & Pengaduan", desc: "Sampaikan masukan atau laporkan perundungan, bisa anonim.", href: "/layanan/kritik-saran-pengaduan", icon: MessageSquareHeart, wide: false },
             ].map((item, i) => (
               <Reveal key={item.title} delay={i * 0.05}>
-                <Link href={item.href} className="group flex items-start gap-4 p-5 rounded-2xl bg-white border border-public-border shadow-sm hover:border-primary/30 hover:shadow-md transition-all active:scale-[0.98]">
-                  <div className="h-10 w-10 shrink-0 rounded-xl bg-secondary text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
-                    <item.icon className="h-5 w-5" />
+                <Link href={item.href} className={`group flex items-start gap-4 p-5 rounded-2xl bg-white border border-public-border shadow-sm hover:border-primary/30 hover:shadow-md transition-all active:scale-[0.98] ${item.wide ? "sm:col-span-2" : ""}`}>
+                  <div className={`shrink-0 rounded-xl bg-secondary text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors ${item.wide ? "h-14 w-14 text-xl" : "h-10 w-10"}`}>
+                    <item.icon className={item.wide ? "h-7 w-7" : "h-5 w-5"} />
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground text-sm">{item.title}</h3>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-3">
+                      <h3 className="font-semibold text-foreground text-sm">{item.title}</h3>
+                      <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0 mt-0.5" />
+                    </div>
                     <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{item.desc}</p>
                   </div>
                 </Link>
@@ -226,8 +237,11 @@ export default function PublicHomepage() {
       </section>
 
       {spmbOpen && (
-        <section className="py-16 md:py-20 bg-primary text-white">
-          <div className="max-w-6xl mx-auto px-4">
+        <section className="relative py-16 md:py-20 bg-primary text-white overflow-hidden">
+          {/* Pattern overlay di atas bg-primary — hindari bg solid polos */}
+          <div className="absolute inset-0 pattern-dots opacity-30 pointer-events-none" />
+          <div className="absolute inset-0 pattern-contour opacity-40 pointer-events-none" />
+          <div className="relative max-w-6xl mx-auto px-4">
             <div className="grid md:grid-cols-2 gap-10 items-center">
               <Reveal>
                 <div className="space-y-5">
@@ -330,8 +344,8 @@ export default function PublicHomepage() {
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {gallery.map((item, i) => (
                 <Reveal key={item.id} delay={i * 0.06}>
-                  <div className="group relative aspect-[4/3] rounded-2xl overflow-hidden bg-secondary/20">
-                    <Image src={item.imageUrl} alt={item.title} fill sizes="(max-width: 768px) 50vw, 33vw" className="object-cover group-hover:scale-[1.04] transition-transform duration-300" />
+                  <div className={`group relative rounded-2xl overflow-hidden bg-secondary/20 ${i === 0 ? "aspect-[4/3] md:col-span-2 md:row-span-2" : "aspect-[4/3]"}`}>
+                    <Image src={item.imageUrl} alt={item.title} fill sizes={i === 0 ? "(max-width: 768px) 50vw, 66vw" : "(max-width: 768px) 50vw, 33vw"} className="object-cover group-hover:scale-[1.04] transition-transform duration-300" />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-end p-4">
                       <p className="text-white text-sm font-medium">{item.title}</p>
                     </div>
@@ -381,15 +395,19 @@ export default function PublicHomepage() {
       <section className="py-16 md:py-20">
         <div className="max-w-6xl mx-auto px-4">
           <Reveal>
-            <div className="rounded-3xl bg-primary p-8 md:p-12 text-center text-white">
-              <h2 className="text-2xl md:text-3xl font-bold mb-3">Siap Bergabung?</h2>
-              <p className="text-white/80 mb-8 max-w-md mx-auto">Daftarkan putra-putri Anda dan jadilah bagian dari keluarga besar {schoolName}.</p>
-              <Link href="/spmb">
-                <Button className="bg-white text-primary hover:bg-secondary rounded-full px-8 h-12 text-sm font-semibold active:scale-[0.97] transition-transform">
-                  Mulai Pendaftaran
-                  <ArrowRight className="h-4 w-4 ml-1.5" />
-                </Button>
-              </Link>
+            <div className="relative rounded-3xl bg-primary p-8 md:p-12 text-center text-white overflow-hidden">
+              <div className="absolute inset-0 pattern-dots opacity-25 pointer-events-none" />
+              <div className="absolute inset-0 pattern-contour opacity-30 pointer-events-none" />
+              <div className="relative">
+                <h2 className="text-2xl md:text-3xl font-bold mb-3">Siap Bergabung?</h2>
+                <p className="text-white/80 mb-8 max-w-md mx-auto">Daftarkan putra-putri Anda dan jadilah bagian dari keluarga besar {schoolName}.</p>
+                <Link href="/spmb">
+                  <Button className="bg-white text-primary hover:bg-secondary rounded-full px-8 h-12 text-sm font-semibold active:scale-[0.97] transition-transform">
+                    Mulai Pendaftaran
+                    <ArrowRight className="h-4 w-4 ml-1.5" />
+                  </Button>
+                </Link>
+              </div>
             </div>
           </Reveal>
         </div>

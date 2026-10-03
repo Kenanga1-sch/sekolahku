@@ -13,7 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Home, BookOpen, Layers, Star, Settings, Palette, Type, RotateCcw, Check } from "lucide-react";
+import { Plus, Trash2, Home, BookOpen, Layers, Star, Settings, Palette, Type, RotateCcw, Check, Bookmark } from "lucide-react";
 import {
   DEFAULT_BRAND,
   BRAND_KEYS,
@@ -22,6 +22,8 @@ import {
   isHex,
   type BrandTheme,
 } from "@/lib/theme";
+import { LOCAL_PRESETS, type ThemePreset } from "@/lib/theme-presets";
+import { goGet, goPost } from "@/lib/api-client";
 
 interface TabLandingSectionsProps {
   settings: any;
@@ -135,6 +137,58 @@ export default function TabLandingSections({ settings, setSettings }: TabLanding
     }
   };
 
+  // ---- Preset tema (saved_themes) ----
+  const [presets, setPresets] = useState<ThemePreset[]>(LOCAL_PRESETS);
+  const [presetName, setPresetName] = useState("");
+  const [showSavePreset, setShowSavePreset] = useState(false);
+  const [presetSaving, setPresetSaving] = useState(false);
+
+  const loadPresets = async () => {
+    try {
+      const res: any = await goGet("/api/theme-presets");
+      if (res?.success && Array.isArray(res.data) && res.data.length > 0) {
+        setPresets(res.data.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          description: p.description,
+          theme: typeof p.brandTheme === "string" ? JSON.parse(p.brandTheme) : p.brandTheme,
+        })));
+      }
+    } catch { /* fallback LOCAL_PRESETS */ }
+  };
+
+  useEffect(() => { loadPresets(); }, []);
+
+  /** Klik preset → isi draft (belum disimpan — preview langsung berubah). */
+  const applyPreset = (preset: ThemePreset) => {
+    setThemeDraft({ ...DEFAULT_BRAND, ...preset.theme });
+    setThemeDirty(true);
+  };
+
+  const saveAsPreset = async () => {
+    const name = presetName.trim();
+    if (!name) return;
+    setPresetSaving(true);
+    try {
+      const res: any = await goPost("/api/theme-presets", {
+        name,
+        description: "Preset kustom admin",
+        brandTheme: JSON.stringify(themeDraft),
+      });
+      if (res?.success && res.data) {
+        setPresets((prev) => [...prev, {
+          id: res.data.id,
+          name: res.data.name,
+          description: res.data.description,
+          theme: typeof res.data.brandTheme === "string" ? JSON.parse(res.data.brandTheme) : res.data.brandTheme,
+        }]);
+        setShowSavePreset(false);
+        setPresetName("");
+      }
+    } catch { /* diamkan — toast opsional */ }
+    finally { setPresetSaving(false); }
+  };
+
   // ---- Konten global (landing_tagline / landing_description / landing_texts) ----
   const emptyContent = { tagline: "", description: "", heroBadge: "", ctaLabel: "" };
   const [contentDraft, setContentDraft] = useState(emptyContent);
@@ -243,6 +297,55 @@ export default function TabLandingSections({ settings, setSettings }: TabLanding
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Strip preset — scrollable horizontal di mobile, wrap di desktop */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Preset Cepat</Label>
+            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]">
+              {presets.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => applyPreset(p)}
+                  title={p.description}
+                  className="group flex shrink-0 flex-col gap-1 rounded-lg border p-2 text-left transition-all hover:border-indigo-400 hover:shadow-sm"
+                >
+                  <div className="flex gap-1">
+                    {[p.theme.primary, p.theme.secondary, p.theme.accent, p.theme.background].map((c, i) => (
+                      <span key={i} className="h-4 w-4 rounded border border-black/10" style={{ background: c }} />
+                    ))}
+                  </div>
+                  <span className="text-[11px] font-medium leading-none whitespace-nowrap">{p.name}</span>
+                </button>
+              ))}
+              {/* Tombol simpan preset */}
+              {showSavePreset ? (
+                <div className="flex shrink-0 items-center gap-1 rounded-lg border border-indigo-400 p-1.5">
+                  <Input
+                    autoFocus
+                    value={presetName}
+                    onChange={(e) => setPresetName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") saveAsPreset(); if (e.key === "Escape") setShowSavePreset(false); }}
+                    placeholder="Nama preset"
+                    className="h-7 w-32 text-xs"
+                  />
+                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={saveAsPreset} disabled={presetSaving || !presetName.trim()}>
+                    <Check className="h-3.5 w-3.5 text-green-600" />
+                  </Button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowSavePreset(true)}
+                  className="flex h-[52px] shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-dashed px-3 text-muted-foreground transition-all hover:border-indigo-400 hover:text-indigo-600"
+                >
+                  <Bookmark className="h-4 w-4" />
+                  <span className="text-[11px] font-medium leading-none whitespace-nowrap">Simpan</span>
+                </button>
+              )}
+            </div>
+            <p className="text-[10px] text-muted-foreground">Klik preset untuk mengisi draft (lihat preview), lalu tekan <strong>Simpan Tema</strong> agar berlaku.</p>
+          </div>
+
           {/* Preview langsung dari nilai draft (belum tentu tersimpan) */}
           <div className="rounded-lg border overflow-hidden">
             <div className="px-3 py-2 text-xs font-semibold" style={{ background: themeDraft.primary, color: "#ffffff" }}>

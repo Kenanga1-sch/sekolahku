@@ -239,6 +239,7 @@ func main() {
 		CloudStorage:   repository.NewCloudStorageRepository(db),
 		ReportTemplate: repository.NewReportTemplateRepository(db),
 		AIProvider:     repository.NewAIProviderRepository(db),
+		ThemePreset:    repository.NewThemePresetRepository(db),
 	}
 
 	// Aktifkan pemeriksaan status user pada setiap request terautentikasi,
@@ -354,6 +355,7 @@ func main() {
 		CloudStorage:   handlers.NewCloudStorageHandler(repos.CloudStorage),
 		ReportTemplate: handlers.NewReportTemplateHandler(repos.ReportTemplate),
 		AIProvider:     handlers.NewAIProviderHandler(repos.AIProvider),
+		ThemePreset:    handlers.NewThemePresetHandler(repos.ThemePreset, repos.Setting, repos.AuditLog),
 		PushSvc:        pushSvc,
 	}
 

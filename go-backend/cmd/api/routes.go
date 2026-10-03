@@ -55,6 +55,7 @@ type Repositories struct {
 	CloudStorage   *repository.CloudStorageRepository
 	ReportTemplate *repository.ReportTemplateRepository
 	AIProvider     *repository.AIProviderRepository
+	ThemePreset    *repository.ThemePresetRepository
 }
 
 // AllHandlers holds all HTTP handler instances.
@@ -103,6 +104,7 @@ type AllHandlers struct {
 	CloudStorage   *handlers.CloudStorageHandler
 	ReportTemplate *handlers.ReportTemplateHandler
 	AIProvider     *handlers.AIProviderHandler
+	ThemePreset    *handlers.ThemePresetHandler
 	// PushSvc dipakai handler lain (absen, tabungan, pengumuman) untuk
 	// mengirim push ke orang tua.
 	PushSvc *push.Service
@@ -886,6 +888,13 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	adminGroup.POST("/ai-providers", h.AIProvider.Create)
 	adminGroup.PUT("/ai-providers/:id", h.AIProvider.Update)
 	adminGroup.DELETE("/ai-providers/:id", h.AIProvider.Delete)
+
+	// Theme Preset Management (Pengaturan → Landing → Tema Warna)
+	adminGroup.GET("/theme-presets", h.ThemePreset.GetAll)
+	adminGroup.POST("/theme-presets", h.ThemePreset.Create)
+	adminGroup.PUT("/theme-presets/:id", h.ThemePreset.Update)
+	adminGroup.DELETE("/theme-presets/:id", h.ThemePreset.Delete)
+	adminGroup.POST("/theme-presets/:id/apply", h.ThemePreset.Apply)
 
 	// Modul Tugas & PR (guru → siswa), scoped ke kelas wali.
 	guruGroup.GET("/tugas", h.Tugas.ListTugas)

@@ -165,100 +165,102 @@
 :root {
   --radius: 0.75rem;
 
-  --background: #FFF8E7;
-  --foreground: #1a2e1a;
+  /* Opsi A — Teal Classic aktif (palet resmi sekolah, #E2F4F0 → #1D8B94). */
+  --background: #E2F4F0;
+  --foreground: #04222B;
 
   --card: #ffffff;
-  --card-foreground: #1a2e1a;
+  --card-foreground: #04222B;
 
   --popover: #ffffff;
-  --popover-foreground: #1a2e1a;
+  --popover-foreground: #04222B;
 
-  --primary: #065F46;
+  --primary: #0A3D4A;
   --primary-foreground: #ffffff;
 
-  --secondary: #A7F3D0;
-  --secondary-foreground: #064E3B;
+  --secondary: #98D8D0;
+  --secondary-foreground: #04222B;
 
-  --muted: #f0fdf4;
-  --muted-foreground: #4b6b4b;
+  --muted: #D9F1EC;
+  --muted-foreground: #1D8B94;
 
-  --accent: #A7F3D0;
-  --accent-foreground: #064E3B;
+  --accent: #4FB8B4;
+  --accent-foreground: #04222B;
 
   --destructive: oklch(0.577 0.245 27.325);
 
-  --border: #d1e7dd;
-  --input: #d1e7dd;
-  --ring: #065F46;
+  --border: #10606F;
+  --input: #10606F;
+  --ring: #0A3D4A;
   /* Versi statis hover-primary; akan dioverride oleh injeksi brand runtime
      (lib/theme.ts) ketika admin menyimpan tema kustom. */
-  --primary-hover: #047857;
+  --primary-hover: #04222B;
 
-  --chart-1: #065F46;
-  --chart-2: #059669;
-  --chart-3: #A7F3D0;
-  --chart-4: #34d399;
-  --chart-5: #047857;
+  /* Palet chart dari palet teal monokromatik (gelap → terang). */
+  --chart-1: #0A3D4A;
+  --chart-2: #10606F;
+  --chart-3: #1D8B94;
+  --chart-4: #4FB8B4;
+  --chart-5: #98D8D0;
 
-  --sidebar: #FFF8E7;
-  --sidebar-foreground: #1a2e1a;
-  --sidebar-primary: #065F46;
+  --sidebar: #E2F4F0;
+  --sidebar-foreground: #04222B;
+  --sidebar-primary: #0A3D4A;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #A7F3D0;
-  --sidebar-accent-foreground: #064E3B;
-  --sidebar-border: #d1e7dd;
-  --sidebar-ring: #065F46;
+  --sidebar-accent: #98D8D0;
+  --sidebar-accent-foreground: #04222B;
+  --sidebar-border: #10606F;
+  --sidebar-ring: #0A3D4A;
 
-  /* Palet khusus halaman publik. Cream sengaja diperdalam (#F7EBD5)
-     agar section putih dan kartu putih terbaca berbeda (1.18:1 vs putih,
-     sebelumnya hanya 1.06:1). Border lebih tegas supaya kartu tak tenggelam. */
-  --public-bg: #F7EBD5;
-  --public-border: #bfd8c9;
+  /* Palet khusus halaman publik: mint (#E2F4F0), border tebal #0E5564 (mix border+primary). */
+  --public-bg: #E2F4F0;
+  --public-border: #0E5564;
 }
 
 .dark {
-  --background: #0c1f17;
-  --foreground: #ecfdf5;
+  /* Teal Night — surface gelap teal, text terang mint. */
+  --background: #04222B;
+  --foreground: #E2F4F0;
 
-  --card: #132e22;
-  --card-foreground: #ecfdf5;
+  --card: #0A3D4A;
+  --card-foreground: #E2F4F0;
 
-  --popover: #132e22;
-  --popover-foreground: #ecfdf5;
+  --popover: #0A3D4A;
+  --popover-foreground: #E2F4F0;
 
-  --primary: #34d399;
-  --primary-foreground: #064E3B;
+  /* Primary terang utk tombol/heading di atas dark surface. */
+  --primary: #4FB8B4;
+  --primary-foreground: #04222B;
 
-  --secondary: #064E3B;
-  --secondary-foreground: #ecfdf5;
+  --secondary: #0A3D4A;
+  --secondary-foreground: #98D8D0;
 
-  --muted: #1a3d2d;
-  --muted-foreground: #a7c4b5;
+  --muted: #10606F;
+  --muted-foreground: #98D8D0;
 
-  --accent: #064E3B;
-  --accent-foreground: #ecfdf5;
+  --accent: #0A3D4A;
+  --accent-foreground: #98D8D0;
 
   --destructive: oklch(0.6 0.2 25);
 
-  --border: #1e4d3a;
-  --input: #1e4d3a;
-  --ring: #34d399;
+  --border: #10606F;
+  --input: #10606F;
+  --ring: #4FB8B4;
 
-  --chart-1: #34d399;
-  --chart-2: #6ee7b7;
-  --chart-3: #059669;
-  --chart-4: #A7F3D0;
-  --chart-5: #047857;
+  --chart-1: #4FB8B4;
+  --chart-2: #1D8B94;
+  --chart-3: #10606F;
+  --chart-4: #98D8D0;
+  --chart-5: #0A3D4A;
 
-  --sidebar: #0c1f17;
-  --sidebar-foreground: #ecfdf5;
-  --sidebar-primary: #34d399;
-  --sidebar-primary-foreground: #064E3B;
-  --sidebar-accent: #064E3B;
-  --sidebar-accent-foreground: #ecfdf5;
-  --sidebar-border: #1e4d3a;
-  --sidebar-ring: #34d399;
+  --sidebar: #04222B;
+  --sidebar-foreground: #E2F4F0;
+  --sidebar-primary: #4FB8B4;
+  --sidebar-primary-foreground: #04222B;
+  --sidebar-accent: #0A3D4A;
+  --sidebar-accent-foreground: #98D8D0;
+  --sidebar-border: #10606F;
+  --sidebar-ring: #4FB8B4;
 }
 
 @layer base {
@@ -563,4 +565,60 @@
   .chat-fill {
     height: 100%;
   }
+}
+
+/* ============================================================
+ * Opsi A — Homepage visual (anti AI-slop, teal theme)
+ * Mesh gradient hero: 3 radial layers + pola geometris halus.
+ * GPU-friendly: hanya background-position (transform-based).
+ * ============================================================ */
+@keyframes mesh-shift {
+  from { background-position: 0% 0%, 100% 100%, 50% 50%; }
+  to   { background-position: 100% 100%, 0% 0%, 50% 50%; }
+}
+
+.mesh-hero {
+  background-image:
+    radial-gradient(at 0% 0%, hsla(185, 78%, 17%, 0.22) 0%, transparent 55%),
+    radial-gradient(at 100% 0%, hsla(174, 54%, 71%, 0.28) 0%, transparent 50%),
+    radial-gradient(at 50% 100%, hsla(177, 33%, 47%, 0.18) 0%, transparent 55%),
+    radial-gradient(at 85% 65%, hsla(174, 54%, 71%, 0.20) 0%, transparent 45%);
+  background-size: 200% 200%, 180% 180%, 220% 220%, 160% 160%;
+  animation: mesh-shift 14s ease-in-out infinite alternate;
+  will-change: background-position;
+}
+
+/* Pola geometris: grid titik tipis — depth layer nyata, bukan blur-blob */
+.pattern-dots {
+  background-image: radial-gradient(circle, rgba(10, 61, 74, 0.14) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/* Garis kontur diagonal lembut (overlay sekunder) */
+.pattern-contour {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 14px,
+    rgba(10, 61, 74, 0.035) 14px,
+    rgba(10, 61, 74, 0.035) 15px
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mesh-hero {
+    animation: none;
+    background-position: 0% 0%, 100% 0%, 50% 100%, 85% 65%;
+  }
+}
+
+/* Depth-tiered card: tiga tingkat shadow (bukan kartu identik flat) */
+.card-depth-1 {
+  box-shadow: 0 1px 2px rgba(4, 34, 43, 0.05), 0 4px 12px -4px rgba(4, 34, 43, 0.08);
+}
+.card-depth-2 {
+  box-shadow: 0 2px 4px rgba(4, 34, 43, 0.06), 0 8px 20px -6px rgba(4, 34, 43, 0.12);
+}
+.card-depth-3 {
+  box-shadow: 0 2px 4px rgba(4, 34, 43, 0.07), 0 12px 28px -8px rgba(4, 34, 43, 0.16);
 }

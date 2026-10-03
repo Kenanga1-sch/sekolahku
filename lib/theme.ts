@@ -43,16 +43,17 @@ export type BrandKey = (typeof BRAND_KEYS)[number];
 
 export const RADIUS_OPTIONS = ["0.5rem", "0.75rem", "1rem"] as const;
 
-/** Nilai default = salinan persis `:root` globals.css (reset = identik asli). */
+/** Nilai default = Teal Classic (rilis Opsi A — palet resmi sekolah).
+ *  Green Classic tersimpan sebagai preset di tabel saved_themes. */
 export const DEFAULT_BRAND: BrandTheme = {
-  primary: "#065F46",
-  secondary: "#A7F3D0",
-  accent: "#A7F3D0",
-  background: "#FFF8E7",
-  public_bg: "#F7EBD5",
-  foreground: "#1a2e1a",
-  muted_foreground: "#4b6b4b",
-  border: "#d1e7dd",
+  primary: "#0A3D4A",
+  secondary: "#98D8D0",
+  accent: "#4FB8B4",
+  background: "#E2F4F0",
+  public_bg: "#E2F4F0",
+  foreground: "#04222B",
+  muted_foreground: "#1D8B94",
+  border: "#10606F",
   radius: "0.75rem",
 };
 
