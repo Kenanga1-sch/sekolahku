@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Activity, Database, LayoutTemplate, Settings, Sparkles, Users } from "lucide-react";
+import { Activity, Bot, Database, LayoutTemplate, Settings, Sparkles, Users } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import TabUsers from "./tab-users";
@@ -12,6 +12,7 @@ import TabBackup from "./tab-backup";
 import TabProfil from "./tab-profil";
 import TabLandingSections from "./tab-landing-sections";
 import TabVisiMisi from "./tab-visi-misi";
+import TabAIProvider from "./tab-ai-provider";
 
 export default function PengaturanPage() {
     const router = useRouter();
@@ -49,7 +50,7 @@ export default function PengaturanPage() {
             </div>
 
             <Tabs defaultValue="profil" className="w-full">
-                <TabsList className="w-full max-w-full h-auto flex-nowrap rounded-xl bg-slate-100/80 dark:bg-zinc-900/80 border-slate-200/40 dark:border-zinc-800/40 p-1">
+                <TabsList className="w-full max-w-full h-auto flex-nowrap overflow-x-auto [scrollbar-width:thin] rounded-xl bg-slate-100/80 dark:bg-zinc-900/80 border-slate-200/40 dark:border-zinc-800/40 p-1">
                     <TabsTrigger value="profil" className="min-w-[140px] shrink-0 rounded-lg px-3 py-2 text-xs font-semibold">
                         <Settings className="h-4 w-4" />
                         Profil Sekolah
@@ -74,6 +75,10 @@ export default function PengaturanPage() {
                         <LayoutTemplate className="h-4 w-4" />
                         Landing Halaman
                     </TabsTrigger>
+                    <TabsTrigger value="ai-provider" className="min-w-[140px] shrink-0 rounded-lg px-3 py-2 text-xs font-semibold">
+                        <Bot className="h-4 w-4" />
+                        AI &amp; LLM
+                    </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="profil" className="pt-4">
@@ -93,6 +98,9 @@ export default function PengaturanPage() {
                 </TabsContent>
                 <TabsContent value="landing" className="pt-4">
                     <TabLandingSections settings={settings} setSettings={updateSettings} />
+                </TabsContent>
+                <TabsContent value="ai-provider" className="pt-4">
+                    <TabAIProvider />
                 </TabsContent>
             </Tabs>
         </div>
