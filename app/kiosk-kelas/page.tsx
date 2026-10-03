@@ -102,8 +102,8 @@ type KioskState =
 const SESSION_TIMEOUT = 10000; // 10 seconds
 const WELCOME_TIMEOUT = 3000; // 3 seconds for welcome screen
 const SUCCESS_TIMEOUT = 5000; // 5 seconds for success screen
-const SCAN_COOLDOWN = 3000; // 3 seconds between any scans
-const SAME_CODE_BLOCK_MS = 3000; // 3 seconds block for same QR code
+const SCAN_COOLDOWN = 1500; // deteksi-siap antar scan apa pun (turun dari 3000 agar alur massal lebih responsif)
+const SAME_CODE_BLOCK_MS = 3000; // kode sama ditiadakan s/d 3s (mencegah loop sebelum tombol tampil)
 
 // ==========================================
 // Main Component
@@ -114,7 +114,13 @@ type KioskMode = "library" | "attendance";
 type AttendanceState =
     | { type: "idle" }
     | { type: "scanning" }
-    | { type: "recorded"; student: any; balance: number; hasSavings: boolean }
+    | { 
+        type: "recorded"; 
+        student: any; 
+        balance: number; 
+        hasSavings: boolean;
+        notice?: string; // "sudah diabsen hari ini", dll (untuk case "already")
+      }
     | { type: "processing_deposit" }
     | { type: "success"; message: string }
     | { type: "error"; message: string };
@@ -262,7 +268,12 @@ export default function KioskPage() {
         if (attState.type === "scanning" || attState.type === "processing_deposit") return;
 
         const now = Date.now();
-        if (now - lastScanTime < SCAN_COOLDOWN) return;
+        if (now - lastScanTime < SCAN_COOLDOWN) {
+            // Feedback: scan terlalu cepat — buzz pendek agar operator tahu
+            // kartu terbaca tapi ditahan cooldown (bukan "tidak terbaca").
+            playSound("error");
+            return;
+        }
         setLastScanTime(now);
         setLastScannedCode(code);
         setLastCodeScanTime(now);
@@ -271,21 +282,45 @@ export default function KioskPage() {
         playSound("beep");
 
         try {
-            const attResult = await apiAttendanceScan(code);
+            // Presensi + lookup tabungan paralel (sebelumnya sekuen → latensi dobel)
+            const [attSettled, savSettled] = await Promise.allSettled([
+                apiAttendanceScan(code),
+                apiSavingsLookup(code),
+            ]);
 
-            // Try to lookup savings account (non-critical, may fail)
             let balance = 0;
             let hasSavings = false;
-            try {
-                const savResult = await apiSavingsLookup(code);
+            if (savSettled.status === "fulfilled") {
+                const savResult = savSettled.value;
                 if (savResult?.success && savResult?.data?.length > 0) {
                     balance = savResult.data[0].saldo_terakhir || 0;
                     hasSavings = true;
                 }
-            } catch { /* savings not found - OK */ }
+            }
+
+            if (attSettled.status === "rejected") {
+                setAttState({ type: "error", message: "Koneksi gagal" });
+                playSound("error");
+                setTimeout(() => setAttState({ type: "idle" }), 3000);
+                return;
+            }
+
+            const attResult = attSettled.value;
 
             if (attResult.success) {
                 setAttState({ type: "recorded", student: attResult.student, balance, hasSavings });
+                setAttNominal(0);
+                playSound("success");
+            } else if (attResult.student) {
+                // Kasus "sudah diabsen hari ini" (dan identitas valid): bukan error —
+                // tetap tampilkan identitas + form setor agar siswa bisa menabung.
+                setAttState({
+                    type: "recorded",
+                    student: attResult.student,
+                    balance,
+                    hasSavings,
+                    notice: attResult.error || "Sudah tercatat hari ini",
+                });
                 setAttNominal(0);
                 playSound("success");
             } else {
@@ -331,7 +366,12 @@ export default function KioskPage() {
 
         // General cooldown check (between any scans)
         const now = Date.now();
-        if (now - lastScanTime < SCAN_COOLDOWN) return;
+        if (now - lastScanTime < SCAN_COOLDOWN) {
+            // Feedback: scan terlalu cepat — buzz pendek agar operator tahu
+            // kartu terbaca tapi ditahan cooldown (bukan "tidak terbaca").
+            playSound("error");
+            return;
+        }
 
         // Same QR code blocking - if same code scanned within SAME_CODE_BLOCK_MS, ignore
         if (lastScannedCode === code && (now - lastCodeScanTime) < SAME_CODE_BLOCK_MS) {
@@ -627,6 +667,7 @@ export default function KioskPage() {
                                     <Scanner
                                         onScan={onScanResult}
                                         onError={handleScanError}
+                                        scanDelay={250}
                                         constraints={{ facingMode: cameraFacing }}
                                         styles={{
                                             container: { width: "100%", height: "100%" },
@@ -706,16 +747,18 @@ export default function KioskPage() {
 
                             {attState.type === "recorded" && (
                                 <div className="space-y-4">
-                                    <Card className="bg-emerald-500/20 backdrop-blur border-emerald-400/50">
+                                    <Card className={`${attState.notice ? "bg-amber-500/20 backdrop-blur border-amber-400/50" : "bg-emerald-500/20 backdrop-blur border-emerald-400/50"}`}>
                                         <CardContent className="p-4">
                                             <div className="flex items-center gap-3 mb-3">
-                                                <div className="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                                                    <User className="h-5 w-5 text-emerald-400" />
+                                                <div className={`h-10 w-10 rounded-full flex items-center justify-center ${attState.notice ? "bg-amber-500/20" : "bg-emerald-500/20"}`}>
+                                                    <User className={`h-5 w-5 ${attState.notice ? "text-amber-400" : "text-emerald-400"}`} />
                                                 </div>
                                                 <div>
-                                                    <Badge className="bg-emerald-500 text-white mb-1">Presensi Tercatat</Badge>
-                                                    <p className="text-white font-bold text-sm">{attState.student?.full_name || attState.student?.name || "Siswa"}</p>
-                                                    <p className="text-emerald-200 text-xs">{attState.student?.class_name || attState.student?.className || ""}</p>
+                                                    <Badge className={`${attState.notice ? "bg-amber-500" : "bg-emerald-500"} text-white mb-1`}>
+                                                        {attState.notice || "Presensi Tercatat"}
+                                                    </Badge>
+                                                    <p className="text-white font-bold text-sm">{attState.student?.fullName || attState.student?.full_name || attState.student?.name || "Siswa"}</p>
+                                                    <p className="text-emerald-200 text-xs">{attState.student?.className || attState.student?.class_name || ""}</p>
                                                 </div>
                                             </div>
                                             {attState.hasSavings && (
