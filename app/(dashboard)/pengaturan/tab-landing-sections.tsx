@@ -24,21 +24,34 @@ import {
 } from "@/lib/theme";
 import { LOCAL_PRESETS, type ThemePreset } from "@/lib/theme-presets";
 import { goGet, goPost } from "@/lib/api-client";
+import { toast } from "sonner";
 
 interface TabLandingSectionsProps {
   settings: any;
   setSettings: (patch: any) => void | Promise<void>;
 }
 
+/** Label intuitif (bukan istilah teknis) + hint pemakaian per warna. */
 const BRAND_LABELS: Record<string, string> = {
-  primary: "Primer",
-  secondary: "Sekunder",
-  accent: "Aksen",
-  background: "Latar",
-  public_bg: "Latar Publik",
-  foreground: "Teks Utama",
-  muted_foreground: "Teks Redup",
-  border: "Border",
+  primary: "Warna Utama",
+  secondary: "Warna Pendukung",
+  accent: "Sorotan",
+  background: "Latar Halaman",
+  public_bg: "Latar Halaman Publik",
+  foreground: "Warna Teks",
+  muted_foreground: "Teks Keterangan",
+  border: "Garis Pembatas",
+};
+
+const BRAND_HINTS: Record<string, string> = {
+  primary: "Tombol utama, judul, link",
+  secondary: "Badge & latar lembut",
+  accent: "Aksen kecil & penanda",
+  background: "Dasar seluruh dashboard",
+  public_bg: "Beranda & halaman pengunjung",
+  foreground: "Judul & isi utama",
+  muted_foreground: "Sub-judul & keterangan",
+  border: "Pemisah kartu & input",
 };
 
 function safeParseJson(raw: unknown): Record<string, string> {
@@ -54,10 +67,12 @@ function safeParseJson(raw: unknown): Record<string, string> {
 /** Input warna: color-picker + teks hex (commit hanya saat hex valid). */
 function ColorField({
   label,
+  hint,
   value,
   onChange,
 }: {
   label: string;
+  hint?: string;
   value: string;
   onChange: (hex: string) => void;
 }) {
@@ -66,6 +81,7 @@ function ColorField({
   return (
     <div className="space-y-1">
       <Label className="text-xs">{label}</Label>
+      {hint && <p className="text-[10px] text-muted-foreground leading-tight">{hint}</p>}
       <div className="flex items-center gap-2">
         <input
           type="color"
@@ -130,8 +146,11 @@ export default function TabLandingSections({ settings, setSettings }: TabLanding
     try {
       await setSettings({ brand_theme: JSON.stringify(themeDraft) });
       setThemeDirty(false);
-    } catch (e) {
-      console.error("Gagal menyimpan tema", e);
+      toast.success("Tema diterapkan ke seluruh situs", {
+        description: 'Ingin dipakai lagi nanti? Tekan "⭐ Simpan preset" di atas.',
+      });
+    } catch (e: any) {
+      toast.error("Gagal menyimpan tema", { description: e?.message });
     } finally {
       setThemeSaving(false);
     }
@@ -147,14 +166,20 @@ export default function TabLandingSections({ settings, setSettings }: TabLanding
     try {
       const res: any = await goGet("/api/theme-presets");
       if (res?.success && Array.isArray(res.data) && res.data.length > 0) {
-        setPresets(res.data.map((p: any) => ({
+        const fromApi: ThemePreset[] = res.data.map((p: any) => ({
           id: p.id,
           name: p.name,
           description: p.description,
           theme: typeof p.brandTheme === "string" ? JSON.parse(p.brandTheme) : p.brandTheme,
-        })));
+        }));
+        // Merge by-id: data API menang, preset lokal yang belum terdaftar dipertahankan
+        // (melindungi dari race load → save → reload yang menghapus preset baru).
+        setPresets((prev) => {
+          const apiIds = new Set(fromApi.map((p) => p.id));
+          return [...fromApi, ...prev.filter((p) => !apiIds.has(p.id))];
+        });
       }
-    } catch { /* fallback LOCAL_PRESETS */ }
+    } catch { /* fallback: state lokal tetap dipakai */ }
   };
 
   useEffect(() => { loadPresets(); }, []);
@@ -163,6 +188,9 @@ export default function TabLandingSections({ settings, setSettings }: TabLanding
   const applyPreset = (preset: ThemePreset) => {
     setThemeDraft({ ...DEFAULT_BRAND, ...preset.theme });
     setThemeDirty(true);
+    toast.info(`Preset "${preset.name}" dimuat ke preview`, {
+      description: "Tekan Simpan Tema agar berlaku untuk seluruh situs.",
+    });
   };
 
   const saveAsPreset = async () => {
@@ -176,17 +204,25 @@ export default function TabLandingSections({ settings, setSettings }: TabLanding
         brandTheme: JSON.stringify(themeDraft),
       });
       if (res?.success && res.data) {
-        setPresets((prev) => [...prev, {
-          id: res.data.id,
-          name: res.data.name,
-          description: res.data.description,
-          theme: typeof res.data.brandTheme === "string" ? JSON.parse(res.data.brandTheme) : res.data.brandTheme,
-        }]);
+        toast.success(`Preset "${name}" tersimpan`, {
+          description: "Muncul di daftar preset — ketuk untuk memuatnya kembali.",
+        });
         setShowSavePreset(false);
         setPresetName("");
+        await loadPresets(); // refresh dari server (merge by-id)
+      } else {
+        toast.error("Preset gagal disimpan", {
+          description: res?.error || "Respons server tidak valid.",
+        });
       }
-    } catch { /* diamkan — toast opsional */ }
-    finally { setPresetSaving(false); }
+    } catch (err: any) {
+      // Error tidak boleh diam — tampilkan pesan aslinya agar mudah didiagnosis.
+      toast.error("Preset gagal disimpan", {
+        description: err?.message || "Periksa koneksi lalu coba lagi.",
+      });
+    } finally {
+      setPresetSaving(false);
+    }
   };
 
   // ---- Konten global (landing_tagline / landing_description / landing_texts) ----
@@ -339,36 +375,77 @@ export default function TabLandingSections({ settings, setSettings }: TabLanding
                   className="flex h-[52px] shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-dashed px-3 text-muted-foreground transition-all hover:border-indigo-400 hover:text-indigo-600"
                 >
                   <Bookmark className="h-4 w-4" />
-                  <span className="text-[11px] font-medium leading-none whitespace-nowrap">Simpan</span>
+                  <span className="text-[11px] font-medium leading-none whitespace-nowrap">Simpan preset</span>
                 </button>
               )}
             </div>
-            <p className="text-[10px] text-muted-foreground">Klik preset untuk mengisi draft (lihat preview), lalu tekan <strong>Simpan Tema</strong> agar berlaku.</p>
+            <p className="text-[10px] text-muted-foreground">Ketuk preset untuk mengisi draft (preview di bawah langsung berubah), lalu tekan <strong>Simpan Tema</strong> agar berlaku. Tekan <strong>⭐ Simpan preset</strong> untuk menyimpan warna ini agar bisa dipakai ulang.</p>
           </div>
 
-          {/* Preview langsung dari nilai draft (belum tentu tersimpan) */}
-          <div className="rounded-lg border overflow-hidden">
-            <div className="px-3 py-2 text-xs font-semibold" style={{ background: themeDraft.primary, color: "#ffffff" }}>
-              Header · primer
+          {/* ===== Mini-mock preview: 3 region berlabel (mobile-first) ===== */}
+          <div className="space-y-2">
+            <Label className="text-xs">Contoh penerapan</Label>
+
+            {/* Region 1 — bilah atas */}
+            <div className="rounded-lg border overflow-hidden" style={{ background: themeDraft.public_bg, borderColor: themeDraft.border }}>
+              <div className="flex items-center justify-between gap-2 px-3 py-2">
+                <span className="text-[10px] font-semibold rounded-full px-2 py-0.5" style={{ background: "rgba(0,0,0,0.6)", color: "#fff" }}>① Bilah atas</span>
+                <span className="text-xs font-semibold truncate" style={{ color: themeDraft.foreground }}>Nama Sekolah</span>
+                <span className="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium" style={{ background: themeDraft.primary, color: "#ffffff" }}>
+                  Masuk
+                </span>
+              </div>
+              <div className="h-px" style={{ background: themeDraft.border }} />
             </div>
-            <div className="p-3 flex flex-wrap items-center gap-2" style={{ background: themeDraft.background }}>
-              <span className="px-3 py-1.5 rounded-full text-xs font-medium" style={{ background: themeDraft.primary, color: "#ffffff" }}>
-                Tombol utama
-              </span>
-              <span className="px-3 py-1.5 rounded-full text-xs font-medium" style={{ background: themeDraft.secondary, color: themeDraft.primary }}>
-                Sekunder
-              </span>
-              <span className="text-xs font-medium" style={{ color: themeDraft.foreground }}>Teks</span>
-              <span className="text-xs" style={{ color: themeDraft.muted_foreground }}>Teks redup</span>
-              <span className="text-xs font-semibold" style={{ color: themeDraft.primary }}>Aksen</span>
-              <span
-                className="ml-auto text-[11px] px-2 py-1 rounded border"
-                style={{ background: "#ffffff", borderColor: themeDraft.border, color: themeDraft.foreground }}
-              >
-                Kartu
+
+            {/* Region 2 — judul & paragraf */}
+            <div className="rounded-lg border overflow-hidden p-3" style={{ background: themeDraft.background, borderColor: themeDraft.border }}>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="text-[10px] font-semibold rounded-full px-2 py-0.5" style={{ background: "rgba(0,0,0,0.6)", color: "#fff" }}>② Judul &amp; paragraf</span>
+              </div>
+              <div className="mb-1.5 flex items-center gap-2">
+                <span className="rounded-full px-2 py-0.5 text-[9px] font-semibold" style={{ background: themeDraft.secondary, color: themeDraft.primary }}>
+                  Tahun Ajaran
+                </span>
+                <span className="text-sm font-bold truncate" style={{ color: themeDraft.foreground }}>Judul halaman</span>
+              </div>
+              <p className="text-[11px] leading-relaxed" style={{ color: themeDraft.muted_foreground }}>
+                Keterangan paragraf memakai teks keterangan…
+              </p>
+              <div className="flex gap-2 pt-2">
+                <span className="rounded-full px-3 py-1 text-[10px] font-medium" style={{ background: themeDraft.primary, color: "#ffffff" }}>
+                  Tombol utama
+                </span>
+                <span className="rounded-full px-3 py-1 text-[10px] font-medium" style={{ background: themeDraft.secondary, color: themeDraft.primary }}>
+                  Tombol pendukung
+                </span>
+              </div>
+            </div>
+
+            {/* Region 3 — kartu & badge */}
+            <div className="rounded-lg border overflow-hidden" style={{ background: themeDraft.background, borderColor: themeDraft.border }}>
+              <div className="flex items-center justify-between gap-2 px-3 py-2">
+                <span className="text-[10px] font-semibold rounded-full px-2 py-0.5" style={{ background: "rgba(0,0,0,0.6)", color: "#fff" }}>③ Kartu &amp; badge</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 px-3 pb-3">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="rounded-lg p-2" style={{ background: "#ffffff", borderColor: themeDraft.border, borderWidth: 1, borderStyle: "solid" }}>
+                    <div className="mb-1 inline-block rounded px-1.5 py-0.5 text-[9px] font-semibold" style={{ background: themeDraft.accent, color: themeDraft.foreground }}>
+                      Badge
+                    </div>
+                    <p className="text-[10px] font-semibold truncate" style={{ color: themeDraft.foreground }}>Judul kartu</p>
+                    <p className="text-[9px] truncate" style={{ color: themeDraft.muted_foreground }}>Keterangan kecil</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Baris bawah — demo public_bg penuh lebar */}
+            <div className="flex items-center justify-center rounded-lg py-1.5" style={{ background: themeDraft.public_bg }}>
+              <span className="text-[9px] font-medium rounded px-2 py-0.5" style={{ background: "rgba(0,0,0,0.6)", color: "#fff" }}>
+                Latar halaman publik
               </span>
             </div>
-            <div className="h-3" style={{ background: themeDraft.public_bg }} />
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -376,6 +453,7 @@ export default function TabLandingSections({ settings, setSettings }: TabLanding
               <ColorField
                 key={key}
                 label={BRAND_LABELS[key] || key}
+                hint={BRAND_HINTS[key]}
                 value={themeDraft[key]}
                 onChange={(hex) => patchTheme({ [key]: hex })}
               />
