@@ -51,14 +51,6 @@ export default function PerpustakaanClient({ initialStats, onRefresh }: Perpusta
             gradient: "from-blue-500 to-cyan-500",
         },
         {
-            title: "Tersedia",
-            value: initialStats?.availableBooks || 0,
-            icon: BookMarked,
-            color: "text-green-500",
-            bgColor: "bg-green-500/10",
-            gradient: "from-green-500 to-emerald-500",
-        },
-        {
             title: "Anggota",
             value: initialStats?.totalMembers || 0,
             icon: Users,

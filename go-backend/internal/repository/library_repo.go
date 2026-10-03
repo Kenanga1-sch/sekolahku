@@ -36,7 +36,7 @@ func (r *LibraryRepository) GetStats() (*models.LibraryStats, error) {
 	r.DB.QueryRow("SELECT COUNT(*) FROM library_loans WHERE is_returned=0").Scan(&stats.ActiveLoans)
 
 	var totalBooks int
-	r.DB.QueryRow("SELECT COUNT(*) FROM library_catalog").Scan(&totalBooks)
+	r.DB.QueryRow("SELECT COUNT(*) FROM library_assets").Scan(&totalBooks)
 	stats.TotalBooks = totalBooks
 
 	var overdueCount int
