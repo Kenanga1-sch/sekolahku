@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { goGet } from "@/lib/api-client";
+import { formatClassName } from "@/lib/class-utils";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { siteConfig } from "@/lib/config";
 import { escapeHTML } from "@/lib/security";
@@ -239,7 +240,7 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
       // data master, sehingga tidak boleh disisipkan mentah ke HTML.
       const rows = data?.records.map(r => [
         escapeHTML(r.date),
-        `Kelas ${escapeHTML(r.className)}`,
+        escapeHTML(formatClassName(r.className)),
         escapeHTML(r.studentName),
         escapeHTML(r.nis || r.nisn || '-'),
         escapeHTML(STATUS_LABELS[r.status]),
@@ -267,7 +268,7 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
           <div class="meta">
             ${escapeHTML(siteConfig.school.name)}<br>
             Periode: ${format(new Date(startDate), "d MMM yyyy", { locale: localeId })} - ${format(new Date(endDate), "d MMM yyyy", { locale: localeId })}<br>
-            Kelas: ${className === "all" ? "Semua Kelas" : `Kelas ${escapeHTML(className)}`}
+            Kelas: ${className === "all" ? "Semua Kelas" : escapeHTML(formatClassName(className))}
           </div>
           <table>
             <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
@@ -388,12 +389,13 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
   const handlePrint = () => window.print();
 
   const monthName = MONTHS[selectedMonth - 1];
-  const classNameBulanan = selectedClass === "all" ? "Semua Kelas" : `Kelas ${selectedClass}`;
+  const classNameBulanan = selectedClass === "all" ? "Semua Kelas" : formatClassName(selectedClass);
 
   const getWaliKelas = (clsName: string): string => {
     const normalized = clsName.replace(/^Kelas\s*/i, "").trim();
+    const formatted = formatClassName(normalized);
     const match = classes.find(
-      (c) => c.name === clsName || c.name === normalized || c.name === `Kelas ${normalized}`
+      (c) => c.name === clsName || c.name === normalized || formatClassName(c.name) === formatted
     );
     return match?.teacherName || "";
   };
@@ -532,7 +534,7 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
                     <SelectContent>
                       <SelectItem value="all">Semua Kelas</SelectItem>
                       {classes.map((cls) => (
-                        <SelectItem key={cls.name} value={cls.name}>Kelas {cls.name}</SelectItem>
+                        <SelectItem key={cls.name} value={cls.name}>{formatClassName(cls.name)}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -651,7 +653,7 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
                         render: (record) => (
                           <div>
                             <p className="font-medium">{record.studentName}</p>
-                            <p className="text-xs text-muted-foreground">Kelas {record.className} • {record.nis || record.nisn || "-"}</p>
+                            <p className="text-xs text-muted-foreground">{formatClassName(record.className)} • {record.nis || record.nisn || "-"}</p>
                           </div>
                         ),
                       },
@@ -659,7 +661,7 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
                         key: "className",
                         header: "Kelas",
                         card: "hidden",
-                        render: (record) => `Kelas ${record.className}`,
+                        render: (record) => formatClassName(record.className),
                       },
                       {
                         key: "status",
@@ -721,7 +723,7 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
                     <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Semua Kelas</SelectItem>
-                      {classes.map((c) => (<SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>))}
+                      {classes.map((c) => (<SelectItem key={c.name} value={c.name}>{formatClassName(c.name)}</SelectItem>))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -833,7 +835,7 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
               if (classMatrix.length === 0) return null;
               return (
                 <PrintPage key={cls} matrix={classMatrix} daysInMonth={daysInMonth}
-                  monthName={monthName} year={selectedYear} className={`Kelas ${cls}`}
+                  monthName={monthName} year={selectedYear} className={formatClassName(cls || "")}
                   onStudentClick={handleStudentClick}
                   principalName={principalName} principalNIP={principalNIP}
                   waliKelas={getWaliKelas(String(cls))}

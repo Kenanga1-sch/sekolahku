@@ -18,6 +18,7 @@ import {
   User,
 } from "lucide-react";
 import { goPost } from "@/lib/api-client";
+import { formatClassName } from "@/lib/class-utils";
 
 interface ScanResult {
   success: boolean;
@@ -236,7 +237,7 @@ export function QRScanner({ sessionId, onScanSuccess, onScanError }: QRScannerPr
                   <div className="mt-1">
                     <p className="font-semibold">{lastResult.student.fullName}</p>
                     <p className="text-sm text-muted-foreground">
-                      Kelas {lastResult.student.className}
+                      {formatClassName(lastResult.student.className)}
                     </p>
                   </div>
                 )}

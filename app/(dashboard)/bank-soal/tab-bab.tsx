@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Layers, Plus, Pencil, Trash2, GripVertical } from "lucide-react";
 import { goGet, goPost, goPut, goDelete } from "@/lib/api-client";
+import { formatClassName } from "@/lib/class-utils";
 import { showSuccess, showError } from "@/lib/toast";
 
 interface Bab {
@@ -278,7 +279,7 @@ export default function TabBab() {
           <SelectContent>
             <SelectItem value="all">Semua Kelas</SelectItem>
             {classes.map((c) => (
-              <SelectItem key={c.id} value={c.id}>Kelas {c.name}</SelectItem>
+              <SelectItem key={c.id} value={c.id}>{formatClassName(c.name)}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -328,7 +329,7 @@ export default function TabBab() {
                     </span>
                     {bab.className && (
                       <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded dark:bg-zinc-800 dark:text-zinc-400">
-                        Kelas {bab.className}
+                        {formatClassName(bab.className)}
                       </span>
                     )}
                     {bab.semester && (
@@ -387,7 +388,7 @@ export default function TabBab() {
                 <SelectContent>
                   <SelectItem value="__none__">Semua Kelas</SelectItem>
                   {classes.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>Kelas {c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>{formatClassName(c.name)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

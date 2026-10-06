@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { goPost } from "@/lib/api-client";
+import { formatClassName } from "@/lib/class-utils";
 import { getDDCLabel } from "@/lib/library/ddc-mapping";
 import type { LibraryMember, LibraryLoan } from "@/types/library";
 
@@ -911,7 +912,7 @@ export default function KioskPage() {
                                         <p className="text-xl font-bold text-green-400">{state.member.name}</p>
                                         {state.member.className && (
                                             <Badge className="bg-green-500/20 text-green-300 mt-2">
-                                                Kelas {state.member.className}
+                                                {formatClassName(state.member.className)}
                                             </Badge>
                                         )}
                                         <p className="text-blue-200 mt-4 text-xs">Scan kartu lagi untuk meminjam buku</p>

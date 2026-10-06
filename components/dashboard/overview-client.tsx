@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { formatClassName } from "@/lib/class-utils";
 import {
   Activity,
   AlertTriangle,
@@ -350,7 +351,7 @@ export function OverviewClient({
                   <tbody className="divide-y">
                     {studentsByClass.map((cls) => (
                       <tr key={cls.className} className="hover:bg-muted/30">
-                        <td className="px-4 py-2.5 font-medium">Kelas {cls.className}</td>
+                        <td className="px-4 py-2.5 font-medium">{formatClassName(cls.className || "")}</td>
                         <td className="px-4 py-2.5 text-center font-semibold">{cls.count}</td>
                       </tr>
                     ))}

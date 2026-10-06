@@ -24,6 +24,7 @@ import {
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { goGet } from "@/lib/api-client";
+import { formatClassName } from "@/lib/class-utils";
 
 interface Stats {
   totalStudents: number;
@@ -212,7 +213,7 @@ export function PresensiDashboardTab() {
                           <Users className="h-5 w-5 text-primary" />
                         </div>
                         <div>
-                          <p className="font-medium">Kelas {cls.name}</p>
+                          <p className="font-medium">{formatClassName(cls.name)}</p>
                           <p className="text-sm text-muted-foreground">
                             {cls.teacherName || "Wali Kelas"}
                           </p>

@@ -28,6 +28,7 @@ import {
   CalendarDays,
 } from "lucide-react";
 import { goGet, goPost } from "@/lib/api-client";
+import { formatClassName } from "@/lib/class-utils";
 import { resolveUploadUrl } from "@/lib/upload-url";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
@@ -153,7 +154,7 @@ export default function SesiDetailPage() {
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <CalendarDays className="h-6 w-6 text-primary" />
-              Kelas {className}
+              {formatClassName(className)}
             </h1>
             <p className="text-muted-foreground">
               {format(new Date(date), "EEEE, d MMMM yyyy", { locale: localeId })}
@@ -208,7 +209,7 @@ export default function SesiDetailPage() {
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <Users className="h-6 w-6 text-primary" />
-              Kelas {className}
+              {formatClassName(className)}
             </h1>
             <p className="text-muted-foreground">
               {format(new Date(date), "EEEE, d MMMM yyyy", { locale: localeId })}

@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { FileStack, Plus, Trash2, Eye, Pencil, ChevronUp, ChevronDown, Search, Users } from "lucide-react";
 import { goGet, goPost, goPut, goDelete } from "@/lib/api-client";
+import { formatClassName } from "@/lib/class-utils";
 import { showSuccess, showError } from "@/lib/toast";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 
@@ -826,7 +827,7 @@ export default function TabPaket() {
                     onClick={() => toggleAssign(c.id)}
                   >
                     <Checkbox checked={checked} />
-                    <span className="text-sm">Kelas {c.name}</span>
+                    <span className="text-sm">{formatClassName(c.name)}</span>
                   </div>
                 );
               })
