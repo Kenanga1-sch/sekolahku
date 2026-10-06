@@ -1,0 +1,62 @@
+import { describe, expect, it } from "vitest";
+import { unknownWordVariables, wordFilename } from "./template-word";
+import { resolveWordTemplate } from "./template-word";
+
+describe("unknownWordVariables", () => {
+  it("melaporkan token tanpa nilai", () => {
+    expect(
+      unknownWordVariables(["nama", "kelas", "tanggal"], { nama: "Andi", tanggal: "1 Okt" })
+    ).toEqual(["kelas"]);
+  });
+  it("nilai kosong dianggap tak terisi", () => {
+    expect(unknownWordVariables(["nama"], { nama: "" })).toEqual(["nama"]);
+  });
+  it("section loop diabaikan bila array tersedia", () => {
+    expect(unknownWordVariables(["siswa"], { siswa: [{ nama: "A" }] })).toEqual([]);
+  });
+  it("kosong bila semua terisi", () => {
+    expect(unknownWordVariables(["a", "b"], { a: 1, b: 2 })).toEqual([]);
+  });
+});
+
+describe("wordFilename", () => {
+  it("slug + .docx", () => {
+    expect(wordFilename("SK Kenaikan Kelas")).toBe("sk-kenaikan-kelas.docx");
+  });
+  it("tidak dobel ekstensi", () => {
+    expect(wordFilename("laporan.docx")).toBe("laporan-docx.docx");
+  });
+});
+
+describe("resolveWordTemplate", () => {
+  const okFetch = (data: unknown, status = 200) =>
+    (async () => ({
+      ok: status === 200,
+      status,
+      json: async () => data,
+    })) as unknown as typeof fetch;
+
+  it("menolak bila belum ada default (404)", async () => {
+    await expect(resolveWordTemplate("arsip", okFetch(null, 404))).rejects.toThrow("Belum ada template");
+  });
+
+  it("menolak template default yang bukan docx", async () => {
+    const f = okFetch({ success: true, data: { filePath: "templates/x.xlsx", kind: "xlsx" } });
+    await expect(resolveWordTemplate("tabungan", f)).rejects.toThrow("bukan Word");
+  });
+
+  it("menerima default docx", async () => {
+    const f = okFetch({
+      success: true,
+      data: { filePath: "templates/sk-v1.docx", kind: "docx", code: "RPT_SK", name: "SK" },
+    });
+    const res = await resolveWordTemplate("kepegawaian", f);
+    expect(res).toEqual({ url: "/templates/sk-v1.docx", code: "RPT_SK", name: "SK" });
+  });
+
+  it("menerima filePath docx tanpa kind (kompatibel lama)", async () => {
+    const f = okFetch({ success: true, data: { filePath: "templates/lama.docx", kind: "" } });
+    const res = await resolveWordTemplate("arsip", f);
+    expect(res.url).toBe("/templates/lama.docx");
+  });
+});

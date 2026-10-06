@@ -49,8 +49,18 @@ interface TemplateRow {
   orientation?: string;
   layoutJson?: string;
   filePath?: string;
+  kind?: "" | "xlsx" | "docx";
   isDefault?: boolean;
 }
+
+/** Template file-based (.xlsx/.docx) vs grid lama (layout_json). */
+const isFileBased = (t: TemplateRow) => !!t.filePath || t.kind === "xlsx" || t.kind === "docx";
+
+const kindBadge = (t: TemplateRow) => {
+  if (t.kind === "xlsx" || (!t.kind && t.filePath?.endsWith(".xlsx"))) return "Excel";
+  if (t.kind === "docx" || (!t.kind && t.filePath?.endsWith(".docx"))) return "Word";
+  return "Grid";
+};
 
 /** Modul yang bisa dipilih saat membuat format (di luar "umum"). */
 const SELECTABLE_MODULES = REPORT_VARIABLE_MODULES;
@@ -62,7 +72,7 @@ export default function LaporanFormatPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  const [form, setForm] = useState({ name: "", category: "Umum", module: "umum" });
+  const [form, setForm] = useState({ name: "", category: "Umum", module: "umum", kind: "xlsx" as "xlsx" | "docx" });
 
   const load = async () => {
     setLoading(true);
@@ -97,22 +107,48 @@ export default function LaporanFormatPage() {
 
   const moduleLabel = (module: string) => getVariableModule(module).label;
 
-  const handleCreate = () => {
+  /** Buat slot template file (.xlsx/.docx) — berkas diunggah setelahnya via tombol Upload. */
+  const handleCreate = async () => {
     if (!form.name.trim()) {
       toast.error("Nama format wajib diisi");
       return;
     }
-    const q = new URLSearchParams({
-      new: "1",
-      module: form.module,
+    const moduleKey = form.module || "umum";
+    const kind = form.kind;
+    const base = form.name.trim().toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "TEMPLATE";
+    const payload = {
+      code: `RPT_${base}_${Date.now().toString(36).toUpperCase()}`,
       name: form.name.trim(),
       category: form.category.trim() || "Umum",
-    });
+      module: moduleKey,
+      description: `Template ${kind === "xlsx" ? "Excel" : "Word"} — unggah berkas via tombol Upload.`,
+      paperSize: "A4",
+      orientation: kind === "xlsx" ? "landscape" : "portrait",
+      layoutJson: "",
+      filePath: "",
+      kind,
+      isDefault: false,
+    };
     setCreateOpen(false);
-    router.push(`/admin/laporan-builder?${q.toString()}`);
+    try {
+      const created: any = await goPost("/api/reports/templates", payload);
+      if (created?.success) {
+        toast.success("Slot template dibuat — unggah berkas .xlsx/.docx via tombol Upload");
+        void load();
+      } else {
+        toast.error(created?.error || "Gagal membuat slot template");
+      }
+    } catch {
+      toast.error("Gagal membuat slot template");
+    }
   };
 
   const handleOpen = (t: TemplateRow) => {
+    // Studio hanya untuk template grid lama; file-based dikelola via upload/unduh.
+    if (isFileBased(t)) {
+      handleDownloadTemplate(t);
+      return;
+    }
     router.push(`/admin/laporan-builder?id=${t.id}`);
   };
 
@@ -130,7 +166,9 @@ export default function LaporanFormatPage() {
         description: t.description || "",
         paperSize: t.paperSize || "A4",
         orientation: t.orientation || "portrait",
-        layoutJson: full.layoutJson || "{}",
+        layoutJson: full.layoutJson || "",
+        filePath: "",
+        kind: full.kind || "",
         isDefault: false,
       };
       const created: any = await goPost("/api/reports/templates", payload);
@@ -161,10 +199,15 @@ export default function LaporanFormatPage() {
 
   const [uploadingId, setUploadingId] = useState<string | null>(null);
 
-  /** Upload berkas .xlsx sebagai template file-based (validasi di server). */
-  const handleUploadXlsx = async (t: TemplateRow, file: File) => {
-    if (!file.name.toLowerCase().endsWith(".xlsx")) {
-      toast.error("Hanya berkas .xlsx yang didukung");
+  /** Upload berkas template (.xlsx rekap / .docx naratif; validasi di server). */
+  const handleUploadTemplate = async (t: TemplateRow, file: File) => {
+    const ext = file.name.toLowerCase().endsWith(".xlsx")
+      ? ".xlsx"
+      : file.name.toLowerCase().endsWith(".docx")
+        ? ".docx"
+        : "";
+    if (!ext) {
+      toast.error("Hanya berkas .xlsx/.docx yang didukung");
       return;
     }
     setUploadingId(String(t.id));
@@ -191,7 +234,7 @@ export default function LaporanFormatPage() {
     }
   };
 
-  const handleDownloadXlsx = (t: TemplateRow) => {
+  const handleDownloadTemplate = (t: TemplateRow) => {
     window.location.href = `${process.env.NEXT_PUBLIC_API_URL || ""}/api/reports/templates/${t.id}/file`;
   };
 
@@ -221,11 +264,12 @@ export default function LaporanFormatPage() {
             Format Laporan
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Kelola semua format laporan: buat format baru, hubungkan ke modul, dan buka di Studio Format.
+            Kelola format laporan per modul: template file (.xlsx rekap / .docx naratif)
+            diunggah–diunduh di sini; template grid lama dibuka di Studio Format.
           </p>
         </div>
         <Button className="gap-1.5" onClick={() => setCreateOpen(true)}>
-          <Plus className="h-4 w-4" /> Buat Format Baru
+          <Plus className="h-4 w-4" /> Buat Slot Template
         </Button>
       </div>
 
@@ -235,7 +279,7 @@ export default function LaporanFormatPage() {
         </div>
       ) : templates.length === 0 ? (
         <div className="rounded-xl border bg-card p-10 text-center text-sm text-muted-foreground">
-          Belum ada format laporan. Klik <b>Buat Format Baru</b> untuk memulai.
+          Belum ada format laporan. Klik <b>Buat Slot Template</b> untuk memulai.
         </div>
       ) : (
         <div className="space-y-4">
@@ -287,38 +331,50 @@ export default function LaporanFormatPage() {
                         {t.code} · {t.category} · {t.paperSize} {t.orientation}
                         {t.filePath ? ` · 📄 ${t.filePath}` : ""}
                       </div>
+                      <div className="mt-1 flex items-center gap-1">
+                        <Badge variant={isFileBased(t) ? "default" : "secondary"} className="text-[10px]">
+                          {kindBadge(t)}
+                        </Badge>
+                        {isFileBased(t) ? (
+                          <span className="text-[10px] text-muted-foreground">
+                            Template file — kelola via upload/unduh, bukan Studio
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                     <div className="flex items-center gap-1">
                       {t.filePath ? (
-                        <Button variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => handleDownloadXlsx(t)}>
-                          <Download className="h-3.5 w-3.5" /> .xlsx
+                        <Button variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => handleDownloadTemplate(t)}>
+                          <Download className="h-3.5 w-3.5" /> {kindBadge(t) === "Word" ? ".docx" : ".xlsx"}
                         </Button>
                       ) : null}
                       <label
                         className="inline-flex h-7 cursor-pointer items-center gap-1 rounded-md border border-input bg-background px-2 text-[11px] font-medium hover:bg-accent"
-                        title="Unggah template Excel (.xlsx) — menggantikan berkas saat ini"
+                        title="Unggah template (.xlsx rekap / .docx naratif) — menggantikan berkas saat ini"
                       >
                         {uploadingId === String(t.id) ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         ) : (
                           <Upload className="h-3.5 w-3.5" />
                         )}
-                        Excel
+                        Upload
                         <input
                           type="file"
-                          accept=".xlsx"
+                          accept=".xlsx,.docx"
                           className="hidden"
                           disabled={uploadingId === String(t.id)}
                           onChange={(e) => {
                             const f = e.target.files?.[0];
                             e.target.value = "";
-                            if (f) void handleUploadXlsx(t, f);
+                            if (f) void handleUploadTemplate(t, f);
                           }}
                         />
                       </label>
-                      <Button variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => handleOpen(t)}>
-                        <Pencil className="h-3.5 w-3.5" /> Buka
-                      </Button>
+                      {isFileBased(t) ? null : (
+                        <Button variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => handleOpen(t)}>
+                          <Pencil className="h-3.5 w-3.5" /> Buka
+                        </Button>
+                      )}
                       <Button variant="ghost" size="icon" className="h-7 w-7" title="Duplikat" onClick={() => handleDuplicate(t)}>
                         <Copy className="h-3.5 w-3.5" />
                       </Button>
@@ -353,9 +409,9 @@ export default function LaporanFormatPage() {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Buat Format Baru</DialogTitle>
+            <DialogTitle>Buat Slot Template</DialogTitle>
             <DialogDescription>
-              Tentukan nama, kategori, dan peruntukan modul. Tekan Enter untuk masuk ke kertas kerja.
+              Slot file-based: pilih jenis berkas, lalu unggah .xlsx/.docx via tombol Upload di daftar.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -380,6 +436,21 @@ export default function LaporanFormatPage() {
               />
             </div>
             <div>
+              <label className="mb-1 block text-xs font-medium">Jenis Template</label>
+              <Select value={form.kind} onValueChange={(v) => setForm((f) => ({ ...f, kind: v as "xlsx" | "docx" }))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="xlsx">Excel (.xlsx) — rekap / tabel</SelectItem>
+                  <SelectItem value="docx">Word (.docx) — naratif / surat</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Excel untuk rekap tabel (duplikasi baris + rumus hidup); Word untuk dokumen naratif (variabel + loop).
+              </p>
+            </div>
+            <div>
               <label className="mb-1 block text-xs font-medium">Peruntukan Modul</label>
               <Select value={form.module} onValueChange={(v) => setForm((f) => ({ ...f, module: v }))}>
                 <SelectTrigger>
@@ -394,7 +465,7 @@ export default function LaporanFormatPage() {
                 </SelectContent>
               </Select>
               <p className="mt-1 text-[10px] text-muted-foreground">
-                Modul menentukan variabel yang tampil lebih dulu, tapi kertas kerja tetap bisa memakai variabel modul lain.
+                Modul menentukan variabel yang tampil di panel Variabel untuk disalin ke template.
               </p>
             </div>
           </div>
@@ -403,7 +474,7 @@ export default function LaporanFormatPage() {
               Batal
             </Button>
             <Button onClick={handleCreate}>
-              Lanjut ke Kertas Kerja
+              Buat Slot
             </Button>
           </div>
         </DialogContent>

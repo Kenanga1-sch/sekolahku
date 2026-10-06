@@ -32,6 +32,7 @@ func openTemplateTestDB(t *testing.T) *sql.DB {
 			code TEXT UNIQUE, name TEXT, category TEXT, module TEXT,
 			description TEXT, paper_size TEXT, orientation TEXT,
 			layout_json TEXT, file_path TEXT NOT NULL DEFAULT '',
+			kind TEXT NOT NULL DEFAULT '',
 			is_default INTEGER DEFAULT 0,
 			created_at INTEGER, updated_at INTEGER
 		);
@@ -42,8 +43,32 @@ func openTemplateTestDB(t *testing.T) *sql.DB {
 	return db
 }
 
+// miniDOCX membuat arsip ZIP OOXML minimal berisi teks dokumen mentah.
+func miniDOCX(t *testing.T, texts ...string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	w := zip.NewWriter(&buf)
+	f, err := w.Create("word/document.xml")
+	if err != nil {
+		t.Fatalf("zip create: %v", err)
+	}
+	var sb strings.Builder
+	sb.WriteString(`<document><body>`)
+	for _, txt := range texts {
+		sb.WriteString(`<p><r><t>` + txt + `</t></r></p>`)
+	}
+	sb.WriteString(`</body></document>`)
+	if _, err := f.Write([]byte(sb.String())); err != nil {
+		t.Fatalf("zip write: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("zip close: %v", err)
+	}
+	return buf.Bytes()
+}
+
 // miniXLSX membuat arsip ZIP OOXML minimal berisi teks sel mentah.
-// Cukup untuk sniffXLSX + hasRowVariable (pemindaian string), tanpa exceljs.
+// Cukup untuk sniff + hasRowVariable (pemindaian XML), tanpa exceljs.
 func miniXLSX(t *testing.T, cellTexts ...string) []byte {
 	t.Helper()
 	var buf bytes.Buffer
@@ -232,8 +257,75 @@ func TestTemplateUploadValidation(t *testing.T) {
 	if !strings.HasPrefix(after.FilePath, "templates/") || !strings.HasSuffix(after.FilePath, ".xlsx") {
 		t.Fatalf("filePath tidak diperbarui: %q", after.FilePath)
 	}
+	if after.Kind != "xlsx" {
+		t.Fatalf("kind harus xlsx, got %q", after.Kind)
+	}
 	if _, err := os.Stat(filepath.Join(dir, "public", after.FilePath)); err != nil {
 		t.Fatalf("berkas tidak tersimpan: %v", err)
+	}
+}
+
+// TestTemplateUploadDOCX menguji jalur Word: .docx tanpa variabel ditolak,
+// .docx bervariabel diterima + kind menjadi docx.
+func TestTemplateUploadDOCX(t *testing.T) {
+	db := openTemplateTestDB(t)
+	defer db.Close()
+	repo := repository.NewReportTemplateRepository(db)
+	h := NewReportTemplateHandler(repo)
+
+	tpl, err := repo.Create(&models.CreateReportTemplateRequest{Code: "RPT_SK", Name: "SK", Module: "kepegawaian"})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	dir := t.TempDir()
+	old, _ := os.Getwd()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	defer func() { _ = os.Chdir(old) }()
+
+	upload := func(filename string, content []byte) (int, string) {
+		var buf bytes.Buffer
+		w := multipart.NewWriter(&buf)
+		fw, _ := w.CreateFormFile("file", filename)
+		_, _ = fw.Write(content)
+		_ = w.Close()
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodPost, "/", &buf)
+		req.Header.Set(echo.HeaderContentType, w.FormDataContentType())
+		rec := httptest.NewRecorder()
+		ctx := e.NewContext(req, rec)
+		ctx.SetParamNames("id")
+		ctx.SetParamValues(itoa(tpl.ID))
+		_ = h.UploadTemplateFile(ctx)
+		return rec.Code, rec.Body.String()
+	}
+
+	if code, _ := upload("polos.docx", miniDOCX(t, "Surat Keterangan")); code != http.StatusBadRequest {
+		t.Fatalf("docx tanpa variabel harus 400, got %d", code)
+	}
+
+	valid := miniDOCX(t, "Nama: {{nama}}", "Kelas: {{kelas}}")
+	code, body := upload("sk.docx", valid)
+	if code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", code, body)
+	}
+	after, _ := repo.GetByID(tpl.ID)
+	if after.Kind != "docx" {
+		t.Fatalf("kind harus docx, got %q", after.Kind)
+	}
+	if !strings.HasSuffix(after.FilePath, ".docx") {
+		t.Fatalf("filePath harus .docx: %q", after.FilePath)
+	}
+
+	// Kind manual yang tak dikenal dinormalisasi ke "" (grid lama).
+	updated, err := repo.Create(&models.CreateReportTemplateRequest{Code: "RPT_ODD", Name: "Odd", Kind: "pdf"})
+	if err != nil {
+		t.Fatalf("create odd: %v", err)
+	}
+	if updated.Kind != "" {
+		t.Fatalf("kind tak dikenal harus dinormalisasi, got %q", updated.Kind)
 	}
 }
 

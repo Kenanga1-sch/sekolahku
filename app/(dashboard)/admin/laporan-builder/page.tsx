@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { goGet, goPost, goPut } from "@/lib/api-client";
+import { goGet, goPost } from "@/lib/api-client";
 import { getSchoolLogo } from "@/lib/school-logo";
 import { resolveUploadUrl } from "@/lib/upload-url";
 import { useSchoolSettings } from "@/lib/hooks/use-settings";
@@ -81,7 +81,7 @@ export default function ReportBuilderPage() {
   const [dataset, setDataset] = useState<Record<string, any>[]>(DEFAULT_MOCK_DATASET);
   const [mockModalOpen, setMockModalOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [saving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [showPageBreaks, setShowPageBreaks] = useState(true);
   const [zoom, setZoom] = useState<number | null>(null);
@@ -409,53 +409,9 @@ export default function ReportBuilderPage() {
   };
 
   const handleSaveTemplate = async () => {
-    if (!wb.reportCode || !wb.reportName) {
-      toast.error("Kode & Nama Template wajib diisi");
-      return;
-    }
-    setSaving(true);
-    try {
-      const payload = {
-        code: wb.reportCode,
-        name: wb.reportName,
-        category: wb.category || "Umum",
-        module: wb.module || "umum",
-        description: `Template format ${wb.reportName}`,
-        paperSize: wb.paperSize,
-        orientation: wb.orientation,
-        layoutJson: serializeWorkbook(wb),
-        isDefault: workbookIsDefault(wb),
-      };
-      /** Pesan error 409 (kode duplikat) dipetakan ke pesan khusus. */
-      const duplicateMessage = "Kode template sudah dipakai";
-      if (selectedTplId) {
-        try {
-          const res: any = await goPut(`/api/reports/templates/${selectedTplId}`, payload);
-          if (res?.success) toast.success("Template laporan berhasil diperbarui!");
-          else toast.error(res?.error || "Gagal memperbarui template");
-        } catch (err) {
-          const status = (err as { status?: number })?.status;
-          if (status === 409) toast.error(duplicateMessage);
-          else toast.error(err instanceof Error ? err.message : "Gagal memperbarui template");
-        }
-      } else {
-        try {
-          const res: any = await goPost("/api/reports/templates", payload);
-          if (res?.success) {
-            toast.success("Template laporan baru berhasil disimpan!");
-            if (res.data?.id) setSelectedTplId(String(res.data.id));
-          } else toast.error(res?.error || "Gagal menyimpan template");
-        } catch (err) {
-          const status = (err as { status?: number })?.status;
-          if (status === 409) toast.error(duplicateMessage);
-          else toast.error(err instanceof Error ? err.message : "Gagal menyimpan template");
-        }
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal menyimpan template");
-    } finally {
-      setSaving(false);
-    }
+    toast.error("Studio Format dibekukan — kelola template via Admin → Format Laporan (upload .xlsx/.docx).", {
+      description: "Template grid lama tetap bisa dibaca modul yang belum migrasi.",
+    });
   };
 
   const handleExportJson = () => {
@@ -666,6 +622,13 @@ export default function ReportBuilderPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      {/* Studio Format dibekukan: template grid digantikan template file
+          (.xlsx/.docx) yang dikelola di Admin → Format Laporan. Editor di bawah
+          hanya untuk melihat; tombol simpan dinonaktifkan. */}
+      <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        <span className="font-semibold">Studio dibekukan.</span>
+        <span>Kelola template via Admin → Format Laporan (upload .xlsx/.docx).</span>
+      </div>
       {/* Panel simpan: opsi default template (diikat ke `wb.isDefault`). */}
       <div className="flex flex-wrap items-center gap-3 border-b bg-muted/30 px-3 py-1.5 text-xs">
         <label className="flex cursor-pointer items-center gap-1.5">

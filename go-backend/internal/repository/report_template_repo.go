@@ -36,14 +36,14 @@ func NewReportTemplateRepository(db *sql.DB) *ReportTemplateRepository {
 	return &ReportTemplateRepository{db: db}
 }
 
-const reportTemplateColumns = `id, code, name, category, module, description, paper_size, orientation, layout_json, file_path, is_default, created_at, updated_at`
+const reportTemplateColumns = `id, code, name, category, module, description, paper_size, orientation, layout_json, file_path, kind, is_default, created_at, updated_at`
 
 func scanReportTemplate(row interface {
 	Scan(dest ...interface{}) error
 }) (*models.ReportTemplate, error) {
 	var t models.ReportTemplate
 	var isDef int
-	if err := row.Scan(&t.ID, &t.Code, &t.Name, &t.Category, &t.Module, &t.Description, &t.PaperSize, &t.Orientation, &t.LayoutJSON, &t.FilePath, &isDef, &t.CreatedAt, &t.UpdatedAt); err != nil {
+	if err := row.Scan(&t.ID, &t.Code, &t.Name, &t.Category, &t.Module, &t.Description, &t.PaperSize, &t.Orientation, &t.LayoutJSON, &t.FilePath, &t.Kind, &isDef, &t.CreatedAt, &t.UpdatedAt); err != nil {
 		return nil, err
 	}
 	t.IsDefault = isDef == 1
@@ -132,8 +132,8 @@ func (r *ReportTemplateRepository) Create(req *models.CreateReportTemplateReques
 		module = "umum"
 	}
 
-	query := `INSERT INTO report_templates (code, name, category, module, description, paper_size, orientation, layout_json, file_path, is_default, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	res, err := r.db.Exec(query, req.Code, req.Name, req.Category, module, req.Description, req.PaperSize, req.Orientation, req.LayoutJSON, req.FilePath, isDefInt, now, now)
+	query := `INSERT INTO report_templates (code, name, category, module, description, paper_size, orientation, layout_json, file_path, kind, is_default, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	res, err := r.db.Exec(query, req.Code, req.Name, req.Category, module, req.Description, req.PaperSize, req.Orientation, req.LayoutJSON, req.FilePath, normalizeKind(req.Kind), isDefInt, now, now)
 	if err != nil {
 		if isUniqueConstraintError(err) {
 			return nil, ErrDuplicateCode
@@ -159,8 +159,8 @@ func (r *ReportTemplateRepository) Update(id int64, req *models.UpdateReportTemp
 		module = "umum"
 	}
 
-	query := `UPDATE report_templates SET code = ?, name = ?, category = ?, module = ?, description = ?, paper_size = ?, orientation = ?, layout_json = ?, file_path = ?, is_default = ?, updated_at = ? WHERE id = ?`
-	_, err := r.db.Exec(query, code, req.Name, req.Category, module, req.Description, req.PaperSize, req.Orientation, req.LayoutJSON, req.FilePath, isDefInt, now, id)
+	query := `UPDATE report_templates SET code = ?, name = ?, category = ?, module = ?, description = ?, paper_size = ?, orientation = ?, layout_json = ?, file_path = ?, kind = ?, is_default = ?, updated_at = ? WHERE id = ?`
+	_, err := r.db.Exec(query, code, req.Name, req.Category, module, req.Description, req.PaperSize, req.Orientation, req.LayoutJSON, req.FilePath, normalizeKind(req.Kind), isDefInt, now, id)
 	if err != nil {
 		if isUniqueConstraintError(err) {
 			return nil, ErrDuplicateCode
@@ -204,12 +204,32 @@ func (r *ReportTemplateRepository) GetDefaultModule(module string) (*models.Repo
 	return t, nil
 }
 
+// normalizeKind memetakan kind ke nilai yang diizinkan:
+// "xlsx", "docx", atau "" (template grid lama). Nilai lain → "".
+func normalizeKind(kind string) string {
+	switch kind {
+	case "xlsx", "docx":
+		return kind
+	default:
+		return ""
+	}
+}
+
 func (r *ReportTemplateRepository) Delete(id int64) error {
 	_, err := r.db.Exec(`DELETE FROM report_templates WHERE id = ?`, id)
 	return err
 }
 
-// UpdateFilePath memperbarui penunjuk berkas template (.xlsx).
+// UpdateKind memperbarui jenis berkas template ("xlsx"/"docx"/"").
+func (r *ReportTemplateRepository) UpdateKind(id int64, kind string) (*models.ReportTemplate, error) {
+	now := time.Now().Unix()
+	if _, err := r.db.Exec(`UPDATE report_templates SET kind = ?, updated_at = ? WHERE id = ?`, normalizeKind(kind), now, id); err != nil {
+		return nil, fmt.Errorf("failed to update template kind: %w", err)
+	}
+	return r.GetByID(id)
+}
+
+// UpdateFilePath memperbarui penunjuk berkas template (relatif templates/).
 func (r *ReportTemplateRepository) UpdateFilePath(id int64, rel string) (*models.ReportTemplate, error) {
 	now := time.Now().Unix()
 	if _, err := r.db.Exec(`UPDATE report_templates SET file_path = ?, updated_at = ? WHERE id = ?`, rel, now, id); err != nil {

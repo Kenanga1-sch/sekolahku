@@ -331,37 +331,43 @@ func (h *ReportTemplateHandler) Delete(c echo.Context) error {
 	})
 }
 
-// Batas berkas template Excel yang diunggah admin.
+// Batas berkas template yang diunggah admin (.xlsx rekap, .docx naratif).
 const (
-	templateXLSXMaxBytes = int64(5 << 20) // 5 MB
-	templateXLSXDir      = "templates"
+	templateFileMaxBytes = int64(5 << 20) // 5 MB
+	templateFileDir      = "templates"
 )
+
+// templateAllowedExt ekstensi template file yang diterima, dipetakan ke kind.
+var templateAllowedExt = map[string]string{
+	".xlsx": "xlsx",
+	".docx": "docx",
+}
 
 // templateFileRoots kandidat direktori penyimpanan berkas template,
 // mengikuti pola resolvePublicUploadsDir (dist hot-swap diutamakan).
 func templateFileRoots() []string {
 	return []string{
-		filepath.Join("public", templateXLSXDir),
-		filepath.Join("..", "public", templateXLSXDir),
+		filepath.Join("public", templateFileDir),
+		filepath.Join("..", "public", templateFileDir),
 	}
 }
 
 // resolveTemplateFile memastikan file_path aman (relatif, di dalam
-// direktori templates, berekstensi .xlsx) lalu mengembalikan path absolut
-// kandidat pertama yang ada (untuk baca) — sibling-nya untuk tulis.
+// direktori templates, berekstensi .xlsx/.docx) lalu mengembalikan path
+// absolut kandidat pertama yang ada (untuk baca) — sibling-nya untuk tulis.
 func resolveTemplateFile(rel string) (string, error) {
 	clean := filepath.Clean("/" + strings.TrimSpace(rel))
 	clean = strings.TrimPrefix(clean, "/")
 	if clean == "" || clean == "." {
 		return "", fmt.Errorf("file_path kosong")
 	}
-	if !strings.HasPrefix(clean, templateXLSXDir+"/") {
+	if !strings.HasPrefix(clean, templateFileDir+"/") {
 		return "", fmt.Errorf("file_path harus di dalam direktori templates/")
 	}
-	if strings.ToLower(filepath.Ext(clean)) != ".xlsx" {
-		return "", fmt.Errorf("hanya berkas .xlsx yang didukung")
+	if _, ok := templateAllowedExt[strings.ToLower(filepath.Ext(clean))]; !ok {
+		return "", fmt.Errorf("hanya berkas .xlsx/.docx yang didukung")
 	}
-	base := strings.TrimPrefix(clean, templateXLSXDir+"/")
+	base := strings.TrimPrefix(clean, templateFileDir+"/")
 	if base == "" || strings.Contains(base, "/") || strings.Contains(base, `\`) || strings.HasPrefix(base, ".") {
 		return "", fmt.Errorf("nama berkas tidak valid")
 	}
@@ -375,20 +381,43 @@ func resolveTemplateFile(rel string) (string, error) {
 	return filepath.Join(roots[0], base), nil
 }
 
-// sniffXLSX memastikan isi berkas benar-benar arsip ZIP OOXML (.xlsx),
-// bukan HTML/JS yang diganti ekstensi (stored XSS via unduhan).
-func sniffXLSX(data []byte) bool {
+// sniffOOXML memastikan isi berkas benar-benar arsip ZIP OOXML
+// (.xlsx/.docx), bukan HTML/JS yang diganti ekstensi (stored XSS via unduhan).
+func sniffOOXML(data []byte) bool {
 	if len(data) < 4 {
 		return false
 	}
 	return data[0] == 'P' && data[1] == 'K' && data[2] == 0x03 && data[3] == 0x04
 }
 
-// hasRowVariable memindai teks sel worksheet pertama untuk memastikan
-// template memiliki baris contoh bervariabel ({{no}}/{{nama}}/{{tgl_N}}).
-// Berkas dibuka sebagai arsip ZIP dan isi sheet + sharedStrings dibaca
-// (tanpa library tambahan) — teks di ZIP terkompresi sehingga pemindaian
-// mentah tidak bisa dipakai.
+// sniffXLSX alias lama (kompatibilitas internal).
+func sniffXLSX(data []byte) bool { return sniffOOXML(data) }
+
+// hasTemplateVariable memindai isi XML arsip OOXML untuk memastikan template
+// memiliki minimal 2 marker variabel {{...}} (skalar maupun baris).
+// Berkas dibuka sebagai arsip ZIP dan isi XML dibaca (tanpa library tambahan)
+// — teks di ZIP terkompresi sehingga pemindaian mentah tidak bisa dipakai.
+func hasTemplateVariable(data []byte) bool {
+	zr, err := zipOpen(data)
+	if err != nil {
+		return false
+	}
+	matches := 0
+	for _, m := range templateVariablePattern.FindAllString(zr, -1) {
+		_ = m
+		matches++
+		if matches >= 2 {
+			return true
+		}
+	}
+	return false
+}
+
+// templateVariablePattern mencocokkan token {{nama_variabel}} pada XML.
+var templateVariablePattern = regexp.MustCompile(`\{\{[A-Za-z0-9_.]+\}\}`)
+
+// hasRowVariable validasi lama khusus Excel presensi (kompatibilitas):
+// minimal 2 dari marker {{no}}/{{nama}}/{{tgl_}}.
 func hasRowVariable(data []byte) bool {
 	zr, err := zipOpen(data)
 	if err != nil {
@@ -460,11 +489,12 @@ func readUploadFile(fh *multipart.FileHeader, maxBytes int64) ([]byte, error) {
 	return data, nil
 }
 
-// UploadXLSX menerima berkas .xlsx dari admin, memvalidasinya (ZIP OOXML +
-// minimal 2 marker baris {{no}}/{{nama}}/{{tgl_}}), menyimpannya ke
-// public/templates/<slug>-<timestamp>.xlsx, lalu memperbarui file_path
-// template yang dimaksud.
-func (h *ReportTemplateHandler) UploadXLSX(c echo.Context) error {
+// UploadTemplateFile menerima berkas template (.xlsx rekap / .docx naratif)
+// dari admin, memvalidasinya (ZIP OOXML + minimal 2 variabel {{...}};
+// .xlsx presensi memakai validasi baris khusus), menyimpannya ke
+// public/templates/<slug>-<timestamp>.<ext>, lalu memperbarui file_path +
+// kind template yang dimaksud.
+func (h *ReportTemplateHandler) UploadTemplateFile(c echo.Context) error {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{
@@ -487,32 +517,39 @@ func (h *ReportTemplateHandler) UploadXLSX(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{
 			"success": false,
-			"error":   "Field file wajib diisi (.xlsx)",
+			"error":   "Field file wajib diisi (.xlsx/.docx)",
 		})
 	}
-	if strings.ToLower(filepath.Ext(fh.Filename)) != ".xlsx" {
+	kind, ok := templateAllowedExt[strings.ToLower(filepath.Ext(fh.Filename))]
+	if !ok {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{
 			"success": false,
-			"error":   "Hanya berkas .xlsx yang didukung",
+			"error":   "Hanya berkas .xlsx/.docx yang didukung",
 		})
 	}
-	data, err := readUploadFile(fh, templateXLSXMaxBytes)
+	data, err := readUploadFile(fh, templateFileMaxBytes)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{
 			"success": false,
 			"error":   err.Error(),
 		})
 	}
-	if !sniffXLSX(data) {
+	if !sniffOOXML(data) {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{
 			"success": false,
-			"error":   "Berkas bukan Excel valid (harus .xlsx asli)",
+			"error":   "Berkas bukan Office valid (harus .xlsx/.docx asli)",
 		})
 	}
-	if !hasRowVariable(data) {
+	if kind == "xlsx" && !hasRowVariable(data) {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{
 			"success": false,
-			"error":   "Template tidak memiliki baris contoh bervariabel (perlu {{no}}, {{nama}}, {{tgl_1}}…)",
+			"error":   "Template Excel tidak memiliki baris contoh bervariabel (perlu {{no}}, {{nama}}, {{tgl_1}}…)",
+		})
+	}
+	if kind == "docx" && !hasTemplateVariable(data) {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{
+			"success": false,
+			"error":   "Template Word tidak memiliki variabel (perlu minimal 2 token {{...}})",
 		})
 	}
 
@@ -526,8 +563,8 @@ func (h *ReportTemplateHandler) UploadXLSX(c echo.Context) error {
 	if slug == "" {
 		slug = "template"
 	}
-	filename := fmt.Sprintf("%s-%d.xlsx", slug, time.Now().Unix())
-	rel := templateXLSXDir + "/" + filename
+	filename := fmt.Sprintf("%s-%d.%s", slug, time.Now().Unix(), kind)
+	rel := templateFileDir + "/" + filename
 	abs, err := resolveTemplateFile(rel)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{
@@ -553,14 +590,25 @@ func (h *ReportTemplateHandler) UploadXLSX(c echo.Context) error {
 		_ = os.Remove(abs)
 		return respondTemplateError(c, err, err.Error())
 	}
+	// Sinkronkan kind dengan ekstensi yang diunggah.
+	if updated.Kind != kind {
+		if again, err := h.repo.UpdateKind(id, kind); err == nil {
+			updated = again
+		}
+	}
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
 		"data":    updated,
 	})
 }
 
-// DownloadFile menyajikan berkas template .xlsx agar admin bisa mengunduh,
-// mengedit di Excel, lalu mengunggah ulang.
+// UploadXLSX alias lama (kompatibilitas internal/test).
+func (h *ReportTemplateHandler) UploadXLSX(c echo.Context) error {
+	return h.UploadTemplateFile(c)
+}
+
+// DownloadFile menyajikan berkas template agar admin bisa mengunduh,
+// mengedit di Excel/Word, lalu mengunggah ulang.
 func (h *ReportTemplateHandler) DownloadFile(c echo.Context) error {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
