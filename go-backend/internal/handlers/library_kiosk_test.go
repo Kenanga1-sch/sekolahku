@@ -192,3 +192,86 @@ func TestKioskScanBookQRIdentifiesItem(t *testing.T) {
 		t.Fatalf("expected type=item for book QR, got %v", resp["type"])
 	}
 }
+
+func kioskTransaction(t *testing.T, h *LibraryHandler, body string) (int, map[string]interface{}) {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, "/api/kiosk/transaction", strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	ctx := echo.New().NewContext(req, rec)
+
+	_ = h.KioskTransaction(ctx)
+
+	var resp map[string]interface{}
+	_ = json.NewDecoder(rec.Body).Decode(&resp)
+	return rec.Code, resp
+}
+
+// TestKioskTransactionReturnByItem menguji pengembalian 1-request milik kiosk:
+// cari pinjaman aktif via item_id + kembalikan, lengkap dengan nama peminjam
+// untuk pesan sukses. Permintaan kedua harus melapor tidak ada pinjaman aktif
+// (bukan 500) supaya operator mendapat pesan yang jelas.
+func TestKioskTransactionReturnByItem(t *testing.T) {
+	db := setupKioskTestDB(t)
+	defer db.Close()
+	repo := repository.NewLibraryRepository(db)
+	h := NewLibraryHandler(repo, nil)
+
+	if _, err := db.Exec(`UPDATE library_assets SET status = 'BORROWED' WHERE id = 'asset-1'`); err != nil {
+		t.Fatalf("gagal menandai aset dipinjam: %v", err)
+	}
+	// due_date di tahun 2100 → tidak telat, fine_amount 0.
+	if _, err := db.Exec(`
+		INSERT INTO library_loans (id, member_id, item_id, borrow_date, due_date, is_returned, status, fine_amount, fine_paid, created_at, updated_at)
+		VALUES ('loan-1', 'lib_stu-1', 'asset-1', 1710000000000, 4102444800000, 0, 'borrowed', 0, 0, 1710000000000, 1710000000000)`); err != nil {
+		t.Fatalf("gagal seeding loan: %v", err)
+	}
+
+	code, resp := kioskTransaction(t, h, `{"type":"return-by-item","itemId":"asset-1"}`)
+	if code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %v", code, resp)
+	}
+	if resp["success"] != true {
+		t.Fatalf("expected success=true, got %v", resp)
+	}
+	data, ok := resp["data"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected data object, got %v", resp["data"])
+	}
+	if data["memberName"] != "Siswa Satu" {
+		t.Fatalf("expected memberName 'Siswa Satu', got %v", data["memberName"])
+	}
+	if data["title"] != "Buku Satu" {
+		t.Fatalf("expected title 'Buku Satu', got %v", data["title"])
+	}
+	if fine, _ := data["fineAmount"].(float64); fine != 0 {
+		t.Fatalf("expected fineAmount 0, got %v", data["fineAmount"])
+	}
+
+	var status string
+	if err := db.QueryRow(`SELECT status FROM library_assets WHERE id = 'asset-1'`).Scan(&status); err != nil {
+		t.Fatalf("gagal cek status aset: %v", err)
+	}
+	if status != "AVAILABLE" {
+		t.Fatalf("expected asset AVAILABLE after return, got %s", status)
+	}
+	var returned int
+	if err := db.QueryRow(`SELECT is_returned FROM library_loans WHERE id = 'loan-1'`).Scan(&returned); err != nil {
+		t.Fatalf("gagal cek loan: %v", err)
+	}
+	if returned != 1 {
+		t.Fatalf("expected loan is_returned=1, got %d", returned)
+	}
+
+	// Ulangi: pinjaman sudah tidak ada → success=false + pesan jelas (bukan 500).
+	code2, resp2 := kioskTransaction(t, h, `{"type":"return-by-item","itemId":"asset-1"}`)
+	if code2 != http.StatusOK {
+		t.Fatalf("expected 200 on repeat, got %d: %v", code2, resp2)
+	}
+	if resp2["success"] != false {
+		t.Fatalf("expected success=false on repeat, got %v", resp2)
+	}
+	if resp2["message"] != "Data peminjaman tidak ditemukan" {
+		t.Fatalf("unexpected message: %v", resp2["message"])
+	}
+}

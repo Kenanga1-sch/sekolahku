@@ -28,6 +28,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { goPost } from "@/lib/api-client";
 import { formatClassName } from "@/lib/class-utils";
+import { evaluateScan } from "@/lib/kiosk/scan-gate";
 import { getDDCLabel } from "@/lib/library/ddc-mapping";
 import type { LibraryMember, LibraryLoan } from "@/types/library";
 
@@ -60,8 +61,9 @@ async function apiReturnBook(loanId: string) {
     return goPost("/api/kiosk/transaction", { type: "return", loanId }, { skipRetry: true });
 }
 
-async function apiFindLoanByItemId(itemId: string) {
-    return goPost("/api/kiosk/scan", { code: itemId, type: "find-loan" }, { skipRetry: true });
+/** Pengembalian dalam 1 request: backend mencari pinjaman aktif via item_id. */
+async function apiReturnByItem(itemId: string) {
+    return goPost("/api/kiosk/transaction", { type: "return-by-item", itemId }, { skipRetry: true });
 }
 
 // ==========================================
@@ -90,11 +92,18 @@ async function apiSavingsDeposit(qrCode: string, nominal: number) {
 type KioskState =
     | { type: "idle" }
     | { type: "scanning" }
-    | { type: "welcome"; member: LibraryMember; isFirstVisit: boolean }
+    | { type: "welcome"; member: LibraryMember; loans: LibraryLoan[]; isFirstVisit: boolean }
     | { type: "borrow_mode"; member: LibraryMember; loans: LibraryLoan[] }
     | { type: "processing_borrow" }
     | { type: "success"; message: string; details?: string; subDetails?: string }
     | { type: "error"; message: string };
+
+/** Sesi pinjam aktif. Disimpan di ref agar tetap hidup saat kartu hasil tampil,
+ *  sehingga buku berikutnya langsung dipinjam tanpa harus scan kartu ulang. */
+type BorrowSession = { member: LibraryMember; loans: LibraryLoan[] };
+
+/** Kartu hasil (sukses/error) yang menimpa panel sampai scan berikutnya diterima. */
+type FlashState = { tone: "success" | "error"; message: string; details?: string; subDetails?: string };
 
 // ==========================================
 // Constants
@@ -102,9 +111,6 @@ type KioskState =
 
 const SESSION_TIMEOUT = 10000; // 10 seconds
 const WELCOME_TIMEOUT = 3000; // 3 seconds for welcome screen
-const SUCCESS_TIMEOUT = 5000; // 5 seconds for success screen
-const SCAN_COOLDOWN = 1500; // deteksi-siap antar scan apa pun (turun dari 3000 agar alur massal lebih responsif)
-const SAME_CODE_BLOCK_MS = 3000; // kode sama ditiadakan s/d 3s (mencegah loop sebelum tombol tampil)
 
 // ==========================================
 // Main Component
@@ -140,14 +146,18 @@ export default function KioskPage() {
         const stored = window.localStorage.getItem("kiosk-mirror-preview");
         return stored === null ? true : stored === "1";
     });
-    const [lastScanTime, setLastScanTime] = useState(0);
-    const [lastScannedCode, setLastScannedCode] = useState<string | null>(null);
-    const [lastCodeScanTime, setLastCodeScanTime] = useState(0);
+    const [flash, setFlash] = useState<FlashState | null>(null);
     const [cameraError, setCameraError] = useState<string | null>(null);
     const [isSecure] = useState(() => (typeof window === "undefined" ? true : window.isSecureContext));
     
     const sessionTimer = useRef<NodeJS.Timeout | null>(null);
     const countdownInterval = useRef<NodeJS.Timeout | null>(null);
+    // Ref, bukan state: guard scan harus sinkron antar frame kamera
+    // (state React bisa stale ketika deteksi datang beruntun).
+    const sessionRef = useRef<BorrowSession | null>(null);
+    const lastScannedCodeRef = useRef<string | null>(null);
+    const lastCodeScanTimeRef = useRef(0);
+    const processingRef = useRef(false);
 
     // ==========================================
     // Timer Management
@@ -175,6 +185,8 @@ export default function KioskPage() {
 
         sessionTimer.current = setTimeout(() => {
             clearTimers();
+            sessionRef.current = null;
+            setFlash(null);
             setState({ type: "idle" });
         }, duration);
     }, [clearTimers]);
@@ -190,24 +202,15 @@ export default function KioskPage() {
     useEffect(() => {
         if (state.type === "welcome" && state.isFirstVisit) {
             const timer = setTimeout(() => {
+                sessionRef.current = null;
+                setFlash(null);
                 setState({ type: "idle" });
             }, WELCOME_TIMEOUT);
             return () => clearTimeout(timer);
         }
     }, [state]);
 
-    // ==========================================
-    // Success Screen Auto-Return
-    // ==========================================
-    
-    useEffect(() => {
-        if (state.type === "success") {
-            const timer = setTimeout(() => {
-                setState({ type: "idle" });
-            }, SUCCESS_TIMEOUT);
-            return () => clearTimeout(timer);
-        }
-    }, [state]);
+    // Success screen persists until next scan is accepted (no auto-reset here).
 
     // ==========================================
     // Audio Feedback
@@ -266,18 +269,19 @@ export default function KioskPage() {
     // ==========================================
     
     const handleAttendanceScan = async (code: string) => {
-        if (attState.type === "scanning" || attState.type === "processing_deposit") return;
-
         const now = Date.now();
-        if (now - lastScanTime < SCAN_COOLDOWN) {
-            // Feedback: scan terlalu cepat — buzz pendek agar operator tahu
-            // kartu terbaca tapi ditahan cooldown (bukan "tidak terbaca").
-            playSound("error");
-            return;
-        }
-        setLastScanTime(now);
-        setLastScannedCode(code);
-        setLastCodeScanTime(now);
+        const reason = evaluateScan({
+            now,
+            inFlight: attState.type === "scanning" || attState.type === "processing_deposit",
+            code,
+            lastCode: lastScannedCodeRef.current,
+            lastCodeAt: lastCodeScanTimeRef.current,
+        });
+        // Semua penolakan diam-diam: tidak ada "bip error" untuk scan sah
+        // yang cuma kecepatan — operator jadi mengira tidak terbaca.
+        if (reason) return;
+        lastScannedCodeRef.current = code;
+        lastCodeScanTimeRef.current = now;
 
         setAttState({ type: "scanning" });
         playSound("beep");
@@ -338,7 +342,7 @@ export default function KioskPage() {
 
     const handleDeposit = async () => {
         if (attState.type !== "recorded" || attNominal < 1000) return;
-        const code = lastScannedCode;
+        const code = lastScannedCodeRef.current;
         if (!code) return;
 
         setAttState(prev => ({ ...prev, type: "processing_deposit" }));
@@ -354,38 +358,105 @@ export default function KioskPage() {
         }
     };
 
+    /**
+     * Alur pinjam/kembali untuk sesi yang sedang aktif (kartu sudah discan).
+     * Hasil tampil sebagai kartu `flash` sehingga sesi tetap terbuka — buku
+     * berikutnya tinggal discan tanpa harus scan kartu ulang.
+     */
+    const processBorrow = async (session: BorrowSession, item: any) => {
+        const { member, loans } = session;
+        const activeLoans = loans.filter(l => !l.isReturned);
+
+        // Buku milik sesi ini → kembalikan
+        const ownLoan = activeLoans.find(l => l.itemId === item.id);
+        if (ownLoan) {
+            await apiReturnBook(ownLoan.id);
+            const nextLoans = loans.map(l => (l.id === ownLoan.id ? { ...l, isReturned: true } : l));
+            session.loans = nextLoans;
+            setState({ type: "borrow_mode", member, loans: nextLoans });
+            setFlash({
+                tone: "success",
+                message: "Buku Dikembalikan!",
+                details: item.title,
+                subDetails: `Peminjam: ${member.name} · Pinjaman ${nextLoans.filter(l => !l.isReturned).length}/${member.maxBorrowLimit}`,
+            });
+            playSound("success");
+            startSessionTimer();
+            return;
+        }
+
+        if (item.status === "BORROWED") {
+            setFlash({ tone: "error", message: "Buku sedang dipinjam orang lain", details: item.title });
+            playSound("error");
+            startSessionTimer();
+            return;
+        }
+
+        if (activeLoans.length >= member.maxBorrowLimit) {
+            setFlash({
+                tone: "error",
+                message: `Batas pinjam tercapai (${member.maxBorrowLimit} buku)`,
+                details: item.title,
+            });
+            playSound("error");
+            startSessionTimer();
+            return;
+        }
+
+        setState({ type: "processing_borrow" });
+        try {
+            const res = await apiBorrowBook(member.id, item.id);
+            const newLoan = {
+                id: res?.data?.id || `tmp_${item.id}`,
+                itemId: res?.data?.itemId || item.id,
+                isReturned: false,
+            } as LibraryLoan;
+            const nextLoans = [...loans, newLoan];
+            session.loans = nextLoans;
+            setState({ type: "borrow_mode", member, loans: nextLoans });
+            setFlash({
+                tone: "success",
+                message: "Peminjaman Berhasil!",
+                details: item.title,
+                subDetails: `Peminjam: ${member.name} · Pinjaman ${nextLoans.filter(l => !l.isReturned).length}/${member.maxBorrowLimit}`,
+            });
+            playSound("success");
+            startSessionTimer();
+        } catch (error) {
+            console.error("Borrow error:", error);
+            setState({ type: "borrow_mode", member, loans });
+            setFlash({ tone: "error", message: "Gagal memproses peminjaman", details: item.title });
+            playSound("error");
+            startSessionTimer();
+        }
+    };
+
     const handleScan = async (code: string) => {
         if (mode === "attendance") {
             handleAttendanceScan(code);
             return;
         }
-
-        // Block scanning during certain states
-        if (state.type === "scanning" || state.type === "welcome" || state.type === "processing_borrow" || state.type === "success") {
-            return;
-        }
-
-        // General cooldown check (between any scans)
-        const now = Date.now();
-        if (now - lastScanTime < SCAN_COOLDOWN) {
-            // Feedback: scan terlalu cepat — buzz pendek agar operator tahu
-            // kartu terbaca tapi ditahan cooldown (bukan "tidak terbaca").
-            playSound("error");
-            return;
-        }
-
-        // Same QR code blocking - if same code scanned within SAME_CODE_BLOCK_MS, ignore
-        if (lastScannedCode === code && (now - lastCodeScanTime) < SAME_CODE_BLOCK_MS) {
-            return;
-        }
-
-        // Update timestamps
-        setLastScanTime(now);
-        setLastScannedCode(code);
-        setLastCodeScanTime(now);
-
         if (!code.trim()) return;
 
+        // Gerbang tunggal. Yang ditolak hanya: transaksi masih berjalan,
+        // kode identik dalam 3 detik, atau scan < 300 ms setelahnya —
+        // semuanya diam-diam. Layar sukses/sambutan TIDAK memblokir scan
+        // baru (sebelumnya memblokir 5 detik penuh tanpa suara).
+        const now = Date.now();
+        const reason = evaluateScan({
+            now,
+            inFlight: processingRef.current,
+            code,
+            lastCode: lastScannedCodeRef.current,
+            lastCodeAt: lastCodeScanTimeRef.current,
+        });
+        if (reason) return;
+        lastScannedCodeRef.current = code;
+        lastCodeScanTimeRef.current = now;
+        // Kartu hasil hilang begitu scan berikutnya diterima.
+        setFlash(null);
+
+        processingRef.current = true;
         setState({ type: "scanning" });
         playSound("beep");
 
@@ -405,21 +476,22 @@ export default function KioskPage() {
             // ==========================================
             if (result.type === "member" || result.type === "student") {
                 const member = result.data;
-                const { visitStatus, activeLoans } = result;
+                const loans: LibraryLoan[] = result.activeLoans || [];
 
-                // Check if another user is logged in - force logout
-                if (state.type === "borrow_mode" && state.member.id !== member.id) {
+                // Kartu orang lain → tutup sesi lama
+                if (sessionRef.current && sessionRef.current.member.id !== member.id) {
                     clearTimers();
                 }
+                // Sesi dibuka sejak kartu terbaca, sehingga buku yang discan
+                // saat layar "Selamat Datang" langsung dipinjamkan.
+                sessionRef.current = { member, loans };
 
-                // Visit and loans data are already included from optimized API
-                if (visitStatus.isFirstVisit) {
-                    // FIRST VISIT TODAY - Check-in only, stay standby
-                    setState({ type: "welcome", member, isFirstVisit: true });
+                if (result.visitStatus?.isFirstVisit) {
+                    // Kunjungan pertama hari ini → layar sambutan singkat
+                    setState({ type: "welcome", member, loans, isFirstVisit: true });
                     playSound("success");
                 } else {
-                    // ALREADY VISITED - Open borrow mode
-                    setState({ type: "borrow_mode", member, loans: activeLoans });
+                    setState({ type: "borrow_mode", member, loans });
                     playSound("success");
                     startSessionTimer();
                 }
@@ -432,108 +504,54 @@ export default function KioskPage() {
             if (result.type === "item") {
                 const item = result.data;
 
-                // -----------------------------------
-                // SCENARIO 1: BORROW MODE (User Logged In)
-                // -----------------------------------
-                // -----------------------------------
-                // SCENARIO 1: BORROW MODE (User Logged In)
-                // -----------------------------------
-                if (state.type === "borrow_mode") {
-                    const { member, loans } = state;
-
-                    // Check if this is user's own borrowed book - return it
-                    const ownLoan = loans.find(l => l.itemId === item.id && !l.isReturned);
-                    if (ownLoan) {
-                        await apiReturnBook(ownLoan.id);
-                        setState({
-                            type: "success",
-                            message: "Buku Dikembalikan!",
-                            details: item.title,
-                        });
-                        playSound("success");
-                        return;
-                    }
-
-                    // Check if book is borrowed by someone else
-                    if (item.status === "BORROWED") {
-                        setState({ type: "error", message: "Buku sedang dipinjam orang lain" });
-                        playSound("error");
-                        startSessionTimer();
-                        return;
-                    }
-
-                    // Check borrow limit
-                    const totalItems = loans.length;
-                    if (totalItems >= member.maxBorrowLimit) {
-                        setState({
-                            type: "error",
-                            message: `Batas pinjam tercapai (${member.maxBorrowLimit} buku)`,
-                        });
-                        playSound("error");
-                        startSessionTimer();
-                        return;
-                    }
-
-                    // INSTANT BORROW LOGIC
-                    setState({ type: "processing_borrow" });
-                    try {
-                        await apiBorrowBook(member.id, item.id);
-                        setState({
-                            type: "success",
-                            message: "Peminjaman Berhasil!",
-                            details: item.title,
-                            subDetails: `Peminjam: ${member.name}`,
-                        });
-                        playSound("success");
-                        // Auto-reset handled by success state useEffect
-                    } catch (error) {
-                         console.error("Borrow error:", error);
-                         setState({ type: "error", message: "Gagal memproses peminjaman" });
-                         playSound("error");
-                    }
+                // Sesi aktif (kartu sudah discan) → pinjam/kembali
+                const session = sessionRef.current;
+                if (session) {
+                    await processBorrow(session, item);
                     return;
                 }
 
-                // -----------------------------------
-                // SCENARIO 2: STANDBY MODE (No User) - RETURN
-                // -----------------------------------
-                if (state.type === "idle" || state.type === "error") {
-                    if (item.status === "BORROWED") {
-                        const loan = await apiFindLoanByItemId(item.id);
-                        if (loan) {
-                            await apiReturnBook(loan.id);
-                            const memberName = loan.member?.name || "Anggota";
-                            setState({
-                                type: "success",
-                                message: "Buku Dikembalikan!",
-                                details: item.title,
-                                subDetails: `Peminjam: ${memberName}`,
-                            });
-                            playSound("success");
-                        } else {
-                            setState({ type: "error", message: "Data peminjaman tidak ditemukan" });
-                            playSound("error");
-                        }
-                    } else {
-                        // SHELF GUIDE LOGIC: Show where the book should be placed
-                        const categoryLabel = getDDCLabel(item.category || "UNSORTED");
-                        setState({
-                            type: "success",
-                            message: "Informasi Rak Buku",
-                            details: item.title,
-                            subDetails: `Kategori: ${categoryLabel} | Lokasi: ${item.location || "-"}`,
-                        });
-                        playSound("success");
+                // STANDBY TANPA SESI → pengembalian cepat (1 request) / info rak
+                if (item.status === "BORROWED") {
+                    const res = await apiReturnByItem(item.id);
+                    if (!res?.success) {
+                        setState({ type: "error", message: res?.message || "Data peminjaman tidak ditemukan" });
+                        playSound("error");
+                        startSessionTimer(5000);
+                        return;
                     }
-                    startSessionTimer(5000);
+                    const memberName = res.memberName || "Anggota";
+                    const fine = Number(res.fineAmount || 0);
+                    setState({
+                        type: "success",
+                        message: "Buku Dikembalikan!",
+                        details: res.title || item.title,
+                        subDetails:
+                            fine > 0
+                                ? `Peminjam: ${memberName} · Denda Rp${fine.toLocaleString("id-ID")}`
+                                : `Peminjam: ${memberName}`,
+                    });
+                    playSound("success");
+                    // Tanpa timer: kartu bertahan sampai scan berikutnya.
                     return;
                 }
+
+                const categoryLabel = getDDCLabel(item.category || "UNSORTED");
+                setState({
+                    type: "success",
+                    message: "Informasi Rak Buku",
+                    details: item.title,
+                    subDetails: `Kategori: ${categoryLabel} | Lokasi: ${item.location || "-"}`,
+                });
+                playSound("success");
             }
         } catch (error) {
             console.error("Scan error:", error);
             setState({ type: "error", message: "Terjadi kesalahan sistem" });
             playSound("error");
             startSessionTimer(5000);
+        } finally {
+            processingRef.current = false;
         }
     };
 
@@ -549,6 +567,8 @@ export default function KioskPage() {
     
     const reset = () => {
         clearTimers();
+        sessionRef.current = null;
+        setFlash(null);
         setState({ type: "idle" });
     };
 
@@ -874,7 +894,7 @@ export default function KioskPage() {
                     )}
 
                     {/* ===== LIBRARY MODE STATES ===== */}
-                    {mode === "library" && state.type === "idle" && (
+                    {mode === "library" && state.type === "idle" && !flash && (
                         <Card className="bg-white/10 backdrop-blur border-white/20 h-full">
                             <CardContent className="p-6 flex flex-col items-center justify-center h-full min-h-[300px]">
                                 <div className="h-20 w-20 rounded-full bg-blue-500/20 flex items-center justify-center mb-4 animate-pulse">
@@ -888,7 +908,50 @@ export default function KioskPage() {
                         </Card>
                     )}
 
-                    {mode === "library" && (
+                    {/* Kartu hasil (flash): menimpa panel dan hilang begitu
+                        scan berikutnya diterima — tanpa jeda tunggu. */}
+                    {mode === "library" && flash && (
+                        <Card
+                            className={
+                                flash.tone === "error"
+                                    ? "bg-red-500/20 backdrop-blur border-red-400 h-full"
+                                    : "bg-green-500/20 backdrop-blur border-green-400 h-full"
+                            }
+                        >
+                            <CardContent className="p-6 flex flex-col items-center justify-center h-full min-h-[300px] text-center">
+                                <div
+                                    className={`h-16 w-16 rounded-full flex items-center justify-center mb-4 ${
+                                        flash.tone === "error" ? "bg-red-500" : "bg-green-500"
+                                    }`}
+                                >
+                                    {flash.tone === "error" ? (
+                                        <XCircle className="h-8 w-8 text-white" />
+                                    ) : (
+                                        <CheckCircle className="h-8 w-8 text-white" />
+                                    )}
+                                </div>
+                                <h2
+                                    className={`text-xl font-bold mb-1 ${
+                                        flash.tone === "error" ? "text-red-400" : "text-green-400"
+                                    }`}
+                                >
+                                    {flash.message}
+                                </h2>
+                                {flash.details && <p className="text-white text-center text-sm">{flash.details}</p>}
+                                {flash.subDetails && (
+                                    <p className="text-green-200 text-xs">{flash.subDetails}</p>
+                                )}
+                                <div className="mt-4 flex items-center gap-2">
+                                    <Button variant="outline" size="sm" className="border-white/20 text-white text-xs hover:bg-white/10" onClick={reset}>
+                                        <RefreshCw className="h-3 w-3 mr-1" /> Transaksi Baru
+                                    </Button>
+                                    <span className="text-blue-200 text-xs">atau langsung scan berikutnya</span>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {mode === "library" && !flash && (
                         <>
                             {/* SCANNING STATE */}
                             {state.type === "scanning" && (
@@ -915,7 +978,7 @@ export default function KioskPage() {
                                                 {formatClassName(state.member.className)}
                                             </Badge>
                                         )}
-                                        <p className="text-blue-200 mt-4 text-xs">Scan kartu lagi untuk meminjam buku</p>
+                                        <p className="text-blue-200 mt-4 text-xs">Scan buku untuk langsung meminjam</p>
                                     </CardContent>
                                 </Card>
                             )}
@@ -932,7 +995,7 @@ export default function KioskPage() {
                                                 <div>
                                                     <p className="text-white font-bold text-sm">{state.member.name}</p>
                                                     <p className="text-blue-200 text-xs">
-                                                        Pinjaman: {state.loans.length} / {state.member.maxBorrowLimit}
+                                                        Pinjaman: {state.loans.filter((l) => !l.isReturned).length} / {state.member.maxBorrowLimit}
                                                     </p>
                                                 </div>
                                             </div>
@@ -956,18 +1019,20 @@ export default function KioskPage() {
                                         </CardContent>
                                     </Card>
 
-                                    {state.loans.length > 0 && (
+                                    {state.loans.filter((l) => !l.isReturned).length > 0 && (
                                         <Card className="bg-white/5 backdrop-blur border-white/10">
                                             <CardContent className="p-3">
                                                 <p className="text-blue-200 text-xs mb-2">Pinjaman aktif (scan untuk kembalikan):</p>
                                                 <div className="flex flex-wrap gap-1">
-                                                    {state.loans.slice(0, 4).map((loan) => (
+                                                    {state.loans.filter((l) => !l.isReturned).slice(0, 4).map((loan) => (
                                                         <Badge key={loan.id} variant="outline" className="text-blue-300 border-blue-400/30 text-xs">
                                                             {loan.item?.title || "Buku"}
                                                         </Badge>
                                                     ))}
-                                                    {state.loans.length > 4 && (
-                                                        <Badge variant="outline" className="text-blue-300 text-xs">+{state.loans.length - 4}</Badge>
+                                                    {state.loans.filter((l) => !l.isReturned).length > 4 && (
+                                                        <Badge variant="outline" className="text-blue-300 text-xs">
+                                                            +{state.loans.filter((l) => !l.isReturned).length - 4}
+                                                        </Badge>
                                                     )}
                                                 </div>
                                             </CardContent>

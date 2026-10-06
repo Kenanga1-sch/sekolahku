@@ -182,6 +182,43 @@ func (h *LibraryHandler) KioskTransaction(c echo.Context) error {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 		}
 		return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": loan})
+	case "return-by-item":
+		// Pengembalian 1-round-trip untuk kiosk: cari pinjaman aktif lewat
+		// item_id lalu kembalikan dalam satu request. Sebelumnya frontend
+		// memanggil find-loan dulu (2 request berurutan) tiap buku.
+		if req.ItemID == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "ItemID wajib diisi"})
+		}
+		loan, err := h.Repo.FindActiveLoanByItemID(req.ItemID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return c.JSON(http.StatusOK, map[string]interface{}{
+				"success": false,
+				"message": "Data peminjaman tidak ditemukan",
+			})
+		}
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+		}
+		ret, err := h.Repo.ReturnItem(loan.ID)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+		}
+		memberName, title := "", ""
+		if loan.Member != nil {
+			memberName = loan.Member.Name
+		}
+		if loan.Item != nil {
+			title = loan.Item.Title
+		}
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"success": true,
+			"data": map[string]interface{}{
+				"loanId":     ret.ID,
+				"memberName": memberName,
+				"title":      title,
+				"fineAmount": ret.FineAmount,
+			},
+		})
 	default:
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Tipe transaksi tidak dikenal"})
 	}
