@@ -670,7 +670,6 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	guruGroup.POST("/attendance/manual", h.Attendance.RecordManual)
 	guruGroup.POST("/attendance/scan", h.Attendance.ScanQR)
 	guruGroup.GET("/attendance/report", h.Attendance.GetReport)
-	guruGroup.GET("/attendance/export", h.Attendance.ExportCSV)
 	guruGroup.GET("/attendance/student-summary/:studentId", h.Attendance.GetStudentSummary)
 	auth.GET("/attendance/holiday", h.Attendance.CheckHoliday)
 	adminGroup.GET("/school-holidays", h.Attendance.ListSchoolHolidays)

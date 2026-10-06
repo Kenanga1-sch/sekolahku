@@ -556,8 +556,13 @@ func (r *AttendanceRepository) GetAttendanceReport(startDate, endDate, className
 	end, _ := time.Parse("2006-01-02", endDate)
 	for d := start; !d.After(end); d = d.AddDate(0, 0, 1) {
 		dateStr := d.Format("2006-01-02")
-		isHoliday, _ := IsHoliday(dateStr)
-		if !isHoliday {
+		isHoliday, reason := IsHoliday(dateStr)
+		if isHoliday {
+			report.Holidays = append(report.Holidays, models.AttendanceReportHoliday{
+				Date:   dateStr,
+				Reason: reason,
+			})
+		} else {
 			effectiveDays++
 		}
 	}

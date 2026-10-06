@@ -1,0 +1,212 @@
+import { describe, expect, it } from "vitest";
+import {
+  excelFilename,
+  fillPresensiWorksheet,
+  isRowVariable,
+  rowValues,
+  scalarMap,
+  shiftFormulaRows,
+  substitute,
+  unknownVariables,
+} from "./presensi-excel";
+import type { DayColumn, MatrixRow } from "./presensi-report";
+
+type Cell = { value: unknown };
+type Row = {
+  getCell(c: number): Cell;
+  eachCell(o: { includeEmpty?: boolean }, cb: (cell: Cell, col: number) => void): void;
+};
+type Sheet = {
+  rowCount: number;
+  getRow(n: number): Row & { duplicateMarker?: boolean };
+  eachRow(cb: (row: Row, n: number) => void): void;
+  duplicateRow(n: number, count: number, insert: boolean): void;
+};
+
+function col(day: number, effective = true): DayColumn {
+  return {
+    day,
+    date: `2026-10-${String(day).padStart(2, "0")}`,
+    dow: day % 7,
+    letter: "S",
+    sunday: false,
+    holiday: !effective,
+    effective,
+  };
+}
+
+const rows: MatrixRow[] = [
+  {
+    studentId: "s1", studentName: "Andi", nis: "1001", className: "Kelas 1A",
+    dailyStatus: { 1: "H", 2: "S" }, totalHadir: 20, totalSakit: 1, totalIzin: 0, totalAlpha: 0,
+  },
+];
+
+function fakeSheet(cells: Record<string, unknown>): Sheet {
+  const grid = new Map<string, Cell>();
+  for (const [k, v] of Object.entries(cells)) grid.set(k, { value: v });
+  const api = {
+    rowCount: 10,
+    getRow(n: number): Row {
+      const rowApi: Row = {
+        getCell(c: number) {
+          const key = `${n},${c}`;
+          if (!grid.has(key)) grid.set(key, { value: null });
+          return grid.get(key)!;
+        },
+        eachCell(_o, cb) {
+          for (let c = 1; c <= 40; c++) cb(rowApi.getCell(c), c);
+        },
+      };
+      return rowApi;
+    },
+    eachRow(cb: (row: Row, n: number) => void) {
+      for (let n = 1; n <= 10; n++) cb(api.getRow(n), n);
+    },
+    duplicateRow(n: number) {
+      api.duplicatedFrom = n;
+    },
+    duplicatedFrom: 0 as number,
+  };
+  return api;
+}
+
+describe("substitute", () => {
+  it("mengganti variabel yang dikenal, membiarkan yang asing", () => {
+    expect(substitute("Kelas {{kelas}} {{typo_var}}", { kelas: "1A" })).toBe("Kelas 1A {{typo_var}}");
+  });
+  it("beberapa variabel dalam satu sel", () => {
+    expect(substitute("{{bulan}} {{tahun}}", { bulan: "Oktober", tahun: 2026 })).toBe("Oktober 2026");
+  });
+});
+
+describe("isRowVariable", () => {
+  it("mengenali variabel baris", () => {
+    expect(isRowVariable("{{no}}")).toBe(true);
+    expect(isRowVariable("{{nama}}")).toBe(true);
+    expect(isRowVariable("{{tgl_15}}")).toBe(true);
+    expect(isRowVariable("{{total_h}}")).toBe(true);
+    expect(isRowVariable("{{persen}}")).toBe(true);
+  });
+  it("menolak variabel skalar", () => {
+    expect(isRowVariable("{{kelas}}")).toBe(false);
+    expect(isRowVariable("{{bulan}}")).toBe(false);
+    expect(isRowVariable("Hadir")).toBe(false);
+  });
+});
+
+describe("scalarMap", () => {
+  it("memetakan semua skalar + default kosong", () => {
+    const m = scalarMap({
+      rows, columns: [col(1)], effectiveDays: 21,
+      scalars: { kelas: "Kelas 1A", bulan: "Oktober", tahun: 2026, tahunAjaran: "2026/2027", hariEfektif: 21 },
+    });
+    expect(m.kelas).toBe("Kelas 1A");
+    expect(m.tahun).toBe("2026");
+    expect(m.hari_efektif).toBe("21");
+    expect(m.wali_kelas_nama).toBe("");
+  });
+});
+
+describe("rowValues", () => {
+  it("mengisi identitas + status tanggal + rekap + persen", () => {
+    const v = rowValues(rows[0], 3, [col(1), col(2), col(3, false)], 21);
+    expect(v.no).toBe(3);
+    expect(v.nama).toBe("Andi");
+    expect(v.tgl_1).toBe("H");
+    expect(v.tgl_2).toBe("S");
+    expect(v.tgl_3).toBe("");
+    expect(v.total_h).toBe(20);
+    expect(v.persen).toBe(95.2);
+  });
+  it("persen kosong bila siswa tanpa catatan", () => {
+    const v = rowValues(
+      { ...rows[0], dailyStatus: {}, totalHadir: 0, totalSakit: 0, totalIzin: 0, totalAlpha: 0 },
+      1, [col(1)], 21
+    );
+    expect(v.persen).toBe("");
+  });
+});
+
+describe("shiftFormulaRows", () => {
+  it("menggeser referensi baris template saja", () => {
+    expect(shiftFormulaRows('=COUNTIF(D5:AH5,"H")', 5, 3)).toBe('=COUNTIF(D8:AH8,"H")');
+  });
+  it("tidak menyentuh referensi absolut dan baris lain", () => {
+    expect(shiftFormulaRows("=D5+$E$5+E6", 5, 2)).toBe("=D7+$E$5+E6");
+  });
+  it("delta 0 tidak mengubah", () => {
+    expect(shiftFormulaRows("=SUM(A5:A5)", 5, 0)).toBe("=SUM(A5:A5)");
+  });
+});
+
+describe("colLetter", () => {
+  it("konversi kolom", async () => {
+    const { colLetter } = await import("./presensi-excel");
+    expect(colLetter(1)).toBe("A");
+    expect(colLetter(28)).toBe("AB");
+    expect(colLetter(34)).toBe("AH");
+  });
+});
+
+describe("fillPresensiWorksheet", () => {
+  const input = {
+    rows,
+    columns: [col(1), col(2)],
+    effectiveDays: 21,
+    scalars: {
+      kelas: "Kelas 1A", bulan: "Oktober", tahun: 2026,
+      tahunAjaran: "2026/2027", hariEfektif: 21,
+    },
+  };
+  it("mengisi skalar + mereplikasi baris + menggeser formula", async () => {
+    const ws = fakeSheet({
+      "1,1": "Kelas {{kelas}}",
+      "4,1": "{{no}}", "4,2": "{{nama}}", "4,3": "{{tgl_1}}", "4,4": "{{tgl_2}}",
+      "4,5": "=COUNTIF(C4:D4,\"H\")",
+    });
+    const res = await fillPresensiWorksheet(ws, {
+      ...input,
+      rows: [
+        rows[0],
+        { ...rows[0], studentId: "s2", studentName: "Budi", dailyStatus: { 1: "A" }, totalHadir: 19, totalAlpha: 1 },
+      ],
+    });
+    expect(res.rowCount).toBe(2);
+    expect(ws.getRow(1).getCell(1).value).toBe("Kelas Kelas 1A");
+    expect(ws.getRow(4).getCell(2).value).toBe("Andi");
+    expect(ws.getRow(4).getCell(5).value).toEqual({ formula: 'COUNTIF(C4:D4,"H")' });
+    // Baris Jumlah otomatis di bawah blok data (2 siswa → baris 6)
+    expect(ws.getRow(6).getCell(2).value).toBe("Jumlah"); // label menimpa sisa duplikat
+    expect(ws.getRow(6).getCell(3).value).toEqual({ formula: 'COUNTIF(C4:C5,"H")' });
+    expect(ws.getRow(6).getCell(4).value).toEqual({ formula: 'COUNTIF(D4:D5,"H")' });
+  });
+
+  it("mengembalikan rowCount 0 bila template tanpa baris contoh", async () => {
+    const ws = fakeSheet({ "1,1": "Judul {{kelas}}" });
+    const res = await fillPresensiWorksheet(ws, input);
+    expect(res.rowCount).toBe(0);
+    expect(ws.getRow(1).getCell(1).value).toBe("Judul Kelas 1A");
+  });
+
+  it("melaporkan variabel salah ketik", async () => {
+    const ws = fakeSheet({ "1,1": "{{kellas}}", "4,1": "{{no}}" });
+    const res = await fillPresensiWorksheet(ws, input);
+    expect(res.unknown).toEqual(["kellas"]);
+  });
+});
+
+describe("unknownVariables", () => {
+  it("melaporkan variabel salah ketik", () => {
+    expect(unknownVariables(["{{kelas}}", "{{kellas}}", "{{tgl_32}}"])).toEqual(["kellas", "tgl_32"]);
+  });
+  it("kosong bila semua dikenal", () => {
+    expect(unknownVariables(["{{nama}} {{tgl_1}} {{total_h}}"])).toEqual([]);
+  });
+});
+
+describe("excelFilename", () => {
+  it("slug + periode", () => {
+    expect(excelFilename("Kelas 1A", 10, 2026)).toBe("daftar-hadir-kelas-1a-2026-10.xlsx");
+  });
+});

@@ -90,6 +90,14 @@ type AttendanceReportResponse struct {
 	Records       []AttendanceReportRecord `json:"records"`
 	Summary       AttendanceReportSummary  `json:"summary"`
 	EffectiveDays int                      `json:"effectiveDays"`
+	// Libur (Minggu + libur sekolah/nasional) di rentang laporan,
+	// dipakai frontend untuk menandai kolom tanggal non-efektif.
+	Holidays []AttendanceReportHoliday `json:"holidays,omitempty"`
+}
+
+type AttendanceReportHoliday struct {
+	Date   string `json:"date"`
+	Reason string `json:"reason"`
 }
 
 type StudentAttendanceSummary struct {

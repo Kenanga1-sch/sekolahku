@@ -1,8 +1,6 @@
 package handlers
 
 import (
-	"bytes"
-	"encoding/csv"
 	"net/http"
 	"strings"
 
@@ -231,43 +229,6 @@ func (h *AttendanceHandler) GetReport(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, report)
-}
-
-func (h *AttendanceHandler) ExportCSV(c echo.Context) error {
-	startDate := c.QueryParam("startDate")
-	endDate := c.QueryParam("endDate")
-	className := c.QueryParam("class")
-
-	if startDate == "" || endDate == "" {
-		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Tanggal harus diisi"})
-	}
-
-	report, err := h.Repo.GetAttendanceReport(startDate, endDate, className)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
-	}
-
-	var buf bytes.Buffer
-	writer := csv.NewWriter(&buf)
-	_ = writer.Write([]string{"Tanggal", "Kelas", "Nama Siswa", "NIS/NISN", "Status", "Waktu Check-In", "Metode"})
-	for _, r := range report.Records {
-		nis := ""
-		if r.NIS != nil {
-			nis = *r.NIS
-		} else if r.NISN != nil {
-			nis = *r.NISN
-		}
-		checkIn := "-"
-		if r.CheckInTime != nil {
-			checkIn = *r.CheckInTime
-		}
-		_ = writer.Write([]string{r.Date, r.ClassName, r.StudentName, nis, r.Status, checkIn, r.RecordMethod})
-	}
-	writer.Flush()
-
-	c.Response().Header().Set("Content-Type", "text/csv")
-	c.Response().Header().Set("Content-Disposition", "attachment; filename=laporan-presensi.csv")
-	return c.String(http.StatusOK, buf.String())
 }
 
 func (h *AttendanceHandler) GetStudentSummary(c echo.Context) error {
