@@ -30,6 +30,8 @@ import { recordedDays, studentPct } from "./presensi-report";
 
 export const PRESENSI_TEMPLATE_PATH = "/templates/daftar-hadir-bulanan-v1.xlsx";
 export const PRESENSI_TEMPLATE_VERSION = "v1";
+/** Modul template di tabel report_templates. */
+export const PRESENSI_TEMPLATE_MODULE = "presensi";
 
 export interface PresensiExcelScalars {
   sekolahNama?: string;
@@ -320,6 +322,41 @@ export function excelFilename(className: string, month: number, year: number): s
       .replace(/^-+|-+$/g, "")
       .toLowerCase() || "kelas";
   return `daftar-hadir-${slug}-${year}-${String(month).padStart(2, "0")}.xlsx`;
+}
+
+/**
+ * URL template Excel modul presensi, berlapis (fallback):
+ *   1. default modul dari /api/reports/templates/default/presensi (filePath),
+ *   2. bawaan PRESENSI_TEMPLATE_PATH,
+ *   3. null bila keduanya tak bisa diunduh → pemanggil fallback ke CSV.
+ *
+ * goGet di sini opsional: dipanggil dengan fetch polos agar fungsi ini
+ * tetap bisa dipakai tanpa dependensi api-client (diuji vitest).
+ */
+export async function resolvePresensiTemplateUrl(
+  fetchFn: typeof fetch = fetch,
+  apiBase = ""
+): Promise<{ url: string; fromDefault: boolean }> {
+  try {
+    const res = await fetchFn(`${apiBase}/api/reports/templates/default/presensi`, {
+      credentials: "include",
+    });
+    if (res.ok) {
+      const json = (await res.json().catch(() => null)) as {
+        success?: boolean;
+        data?: { filePath?: string };
+      } | null;
+      const fp = json?.data?.filePath?.trim();
+      if (json?.success && fp) {
+        const normalized = fp.startsWith("/") ? fp : `/${fp}`;
+        const check = await fetchFn(normalized, { method: "HEAD", credentials: "include" }).catch(() => null);
+        if (!check || check.ok) return { url: normalized, fromDefault: true };
+      }
+    }
+  } catch {
+    // Abaikan: lanjut ke bawaan.
+  }
+  return { url: PRESENSI_TEMPLATE_PATH, fromDefault: false };
 }
 
 /** Ringkasan untuk toast sukses: jumlah baris + variabel tak dikenal (bila ada). */

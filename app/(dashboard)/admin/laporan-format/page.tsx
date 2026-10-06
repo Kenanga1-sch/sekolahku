@@ -13,6 +13,9 @@ import {
   ChevronDown,
   ChevronRight,
   Braces,
+  Upload,
+  Download,
+  FileSpreadsheet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +47,8 @@ interface TemplateRow {
   description?: string;
   paperSize?: string;
   orientation?: string;
+  layoutJson?: string;
+  filePath?: string;
   isDefault?: boolean;
 }
 
@@ -142,20 +147,7 @@ export default function LaporanFormatPage() {
 
   const handleSetDefault = async (t: TemplateRow) => {
     try {
-      const res: any = await goGet(`/api/reports/templates/${t.id}`);
-      const full = res?.data;
-      if (!full) throw new Error("not found");
-      const payload = {
-        name: full.name,
-        category: full.category,
-        module: full.module || "umum",
-        description: full.description || "",
-        paperSize: full.paperSize || "A4",
-        orientation: full.orientation || "portrait",
-        layoutJson: full.layoutJson || "{}",
-        isDefault: true,
-      };
-      const updated: any = await goPut(`/api/reports/templates/${t.id}`, payload);
+      const updated: any = await goPut(`/api/reports/templates/${t.id}/default`, {});
       if (updated?.success) {
         toast.success("Dijadikan format default modul");
         void load();
@@ -165,6 +157,42 @@ export default function LaporanFormatPage() {
     } catch {
       toast.error("Gagal mengubah default");
     }
+  };
+
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+
+  /** Upload berkas .xlsx sebagai template file-based (validasi di server). */
+  const handleUploadXlsx = async (t: TemplateRow, file: File) => {
+    if (!file.name.toLowerCase().endsWith(".xlsx")) {
+      toast.error("Hanya berkas .xlsx yang didukung");
+      return;
+    }
+    setUploadingId(String(t.id));
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || ""}/api/reports/templates/${t.id}/file`,
+        { method: "POST", body: fd, credentials: "include" }
+      );
+      const json: any = await res.json().catch(() => null);
+      if (res.ok && json?.success) {
+        toast.success(`Template "${t.name}" diperbarui`, {
+          description: json?.data?.filePath || undefined,
+        });
+        void load();
+      } else {
+        toast.error(json?.error || "Gagal mengunggah template");
+      }
+    } catch {
+      toast.error("Gagal mengunggah template");
+    } finally {
+      setUploadingId(null);
+    }
+  };
+
+  const handleDownloadXlsx = (t: TemplateRow) => {
+    window.location.href = `${process.env.NEXT_PUBLIC_API_URL || ""}/api/reports/templates/${t.id}/file`;
   };
 
   const handleDelete = async (t: TemplateRow) => {
@@ -219,6 +247,11 @@ export default function LaporanFormatPage() {
                   <Badge variant="secondary" className="text-[10px]">
                     {rows.length} format
                   </Badge>
+                  {rows.some((r) => r.filePath) ? (
+                    <Badge variant="outline" className="gap-1 text-[10px]">
+                      <FileSpreadsheet className="h-3 w-3" /> Excel
+                    </Badge>
+                  ) : null}
                 </div>
                 <Button
                   variant="ghost"
@@ -252,9 +285,37 @@ export default function LaporanFormatPage() {
                       </div>
                       <div className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">
                         {t.code} · {t.category} · {t.paperSize} {t.orientation}
+                        {t.filePath ? ` · 📄 ${t.filePath}` : ""}
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
+                      {t.filePath ? (
+                        <Button variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => handleDownloadXlsx(t)}>
+                          <Download className="h-3.5 w-3.5" /> .xlsx
+                        </Button>
+                      ) : null}
+                      <label
+                        className="inline-flex h-7 cursor-pointer items-center gap-1 rounded-md border border-input bg-background px-2 text-[11px] font-medium hover:bg-accent"
+                        title="Unggah template Excel (.xlsx) — menggantikan berkas saat ini"
+                      >
+                        {uploadingId === String(t.id) ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Upload className="h-3.5 w-3.5" />
+                        )}
+                        Excel
+                        <input
+                          type="file"
+                          accept=".xlsx"
+                          className="hidden"
+                          disabled={uploadingId === String(t.id)}
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            e.target.value = "";
+                            if (f) void handleUploadXlsx(t, f);
+                          }}
+                        />
+                      </label>
                       <Button variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => handleOpen(t)}>
                         <Pencil className="h-3.5 w-3.5" /> Buka
                       </Button>

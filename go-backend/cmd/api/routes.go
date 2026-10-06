@@ -878,8 +878,12 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	auth.GET("/reports/templates/:id", h.ReportTemplate.GetByID)
 	auth.GET("/reports/templates/code/:code", h.ReportTemplate.GetByCode)
 	auth.GET("/reports/templates/module/:module", h.ReportTemplate.GetByModule)
+	auth.GET("/reports/templates/default/:module", h.ReportTemplate.GetDefaultModule)
+	auth.GET("/reports/templates/:id/file", h.ReportTemplate.DownloadFile)
 	adminGroup.POST("/reports/templates", h.ReportTemplate.Create)
 	adminGroup.PUT("/reports/templates/:id", h.ReportTemplate.Update)
+	adminGroup.PUT("/reports/templates/:id/default", h.ReportTemplate.SetDefault)
+	adminGroup.POST("/reports/templates/:id/file", h.ReportTemplate.UploadXLSX)
 	adminGroup.DELETE("/reports/templates/:id", h.ReportTemplate.Delete)
 
 	// AI Providers Management

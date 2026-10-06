@@ -10,9 +10,13 @@ type ReportTemplate struct {
 	PaperSize   string `json:"paperSize" db:"paper_size"`
 	Orientation string `json:"orientation" db:"orientation"`
 	LayoutJSON  string `json:"layoutJson" db:"layout_json"`
-	IsDefault   bool   `json:"isDefault" db:"is_default"`
-	CreatedAt   int64  `json:"createdAt" db:"created_at"`
-	UpdatedAt   int64  `json:"updatedAt" db:"updated_at"`
+	// FilePath menunjuk template file-based (.xlsx) relatif terhadap
+	// public/dist (mis. "templates/daftar-hadir-bulanan-v1.xlsx").
+	// Kosong = template grid (layout_json).
+	FilePath  string `json:"filePath" db:"file_path"`
+	IsDefault bool   `json:"isDefault" db:"is_default"`
+	CreatedAt int64  `json:"createdAt" db:"created_at"`
+	UpdatedAt int64  `json:"updatedAt" db:"updated_at"`
 }
 
 type CreateReportTemplateRequest struct {
@@ -24,6 +28,7 @@ type CreateReportTemplateRequest struct {
 	PaperSize   string `json:"paperSize"`
 	Orientation string `json:"orientation"`
 	LayoutJSON  string `json:"layoutJson"`
+	FilePath    string `json:"filePath"`
 	IsDefault   bool   `json:"isDefault"`
 }
 
@@ -35,5 +40,6 @@ type UpdateReportTemplateRequest struct {
 	PaperSize   string `json:"paperSize"`
 	Orientation string `json:"orientation"`
 	LayoutJSON  string `json:"layoutJson"`
+	FilePath    string `json:"filePath"`
 	IsDefault   bool   `json:"isDefault"`
 }

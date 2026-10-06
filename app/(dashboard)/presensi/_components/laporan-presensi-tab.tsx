@@ -319,23 +319,30 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
   const [exportingExcel, setExportingExcel] = useState(false);
 
   /**
-   * Unduh Excel berbasis template (public/templates/daftar-hadir-bulanan-v1.xlsx).
-   * Template berisi variabel {{...}}: skalar diganti info sekolah/kelas/periode,
-   * baris contoh {{no}}/{{nama}}/{{tgl_N}} direplikasi per siswa (rumus ikut
-   * menyesuaikan), lalu baris Jumlah + tanda tangan mengikuti di bawahnya.
-   * Bila template hilang/rusak → fallback ke CSV agar unduhan tetap jalan.
+   * Unduh Excel berbasis template. Sumber template berlapis:
+   *   1. default modul presensi (admin/laporan-format → tombol Default),
+   *   2. bawaan public/templates/daftar-hadir-bulanan-v1.xlsx,
+   *   3. CSV bila keduanya tak bisa diunduh.
+   * Template berisi variabel {{...}}: skalar diganti info sekolah/kelas/
+   * periode, baris contoh {{no}}/{{nama}}/{{tgl_N}} direplikasi per siswa
+   * (rumus ikut menyesuaikan), lalu baris Jumlah mengikuti di bawahnya.
    */
   const handleExportMonthlyExcel = async () => {
     if (exportingExcel || visibleMatrix.length === 0) return;
     setExportingExcel(true);
     const toastId = toast.loading("Menyiapkan file Excel…");
     try {
-      const [{ default: ExcelJS }, { fillPresensiWorksheet, excelFilename, PRESENSI_TEMPLATE_PATH }] =
+      const [{ default: ExcelJS }, excelLib] =
         await Promise.all([
           import("exceljs"),
           import("@/lib/presensi-excel"),
         ]);
-      const res = await fetch(PRESENSI_TEMPLATE_PATH);
+      const { fillPresensiWorksheet, excelFilename, resolvePresensiTemplateUrl } = excelLib;
+      const { url: templateUrl } = await resolvePresensiTemplateUrl(
+        fetch,
+        process.env.NEXT_PUBLIC_API_URL || ""
+      );
+      const res = await fetch(templateUrl);
       if (!res.ok) throw new Error("template-tidak-ditemukan");
       const buf = await res.arrayBuffer();
       const wb = new ExcelJS.Workbook();

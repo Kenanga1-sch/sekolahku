@@ -210,3 +210,32 @@ describe("excelFilename", () => {
     expect(excelFilename("Kelas 1A", 10, 2026)).toBe("daftar-hadir-kelas-1a-2026-10.xlsx");
   });
 });
+
+describe("resolvePresensiTemplateUrl", () => {
+  it("memakai default modul bila ada filePath", async () => {
+    const { resolvePresensiTemplateUrl, PRESENSI_TEMPLATE_PATH } = await import("./presensi-excel");
+    const fakeFetch = (async (url: string) => {
+      if (url.includes("/api/reports/templates/default/presensi")) {
+        return { ok: true, json: async () => ({ success: true, data: { filePath: "templates/custom-v2.xlsx" } }) };
+      }
+      return { ok: true };
+    }) as unknown as typeof fetch;
+    const res = await resolvePresensiTemplateUrl(fakeFetch);
+    expect(res).toEqual({ url: "/templates/custom-v2.xlsx", fromDefault: true });
+    expect(res.url).not.toBe(PRESENSI_TEMPLATE_PATH);
+  });
+
+  it("fallback ke bawaan bila belum ada default", async () => {
+    const { resolvePresensiTemplateUrl, PRESENSI_TEMPLATE_PATH } = await import("./presensi-excel");
+    const fakeFetch = (async () => ({ ok: false, json: async () => null })) as unknown as typeof fetch;
+    const res = await resolvePresensiTemplateUrl(fakeFetch);
+    expect(res).toEqual({ url: PRESENSI_TEMPLATE_PATH, fromDefault: false });
+  });
+
+  it("fallback ke bawaan bila API error", async () => {
+    const { resolvePresensiTemplateUrl, PRESENSI_TEMPLATE_PATH } = await import("./presensi-excel");
+    const fakeFetch = (async () => { throw new Error("offline"); }) as unknown as typeof fetch;
+    const res = await resolvePresensiTemplateUrl(fakeFetch);
+    expect(res).toEqual({ url: PRESENSI_TEMPLATE_PATH, fromDefault: false });
+  });
+});

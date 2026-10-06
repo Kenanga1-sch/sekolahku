@@ -36,14 +36,14 @@ func NewReportTemplateRepository(db *sql.DB) *ReportTemplateRepository {
 	return &ReportTemplateRepository{db: db}
 }
 
-const reportTemplateColumns = `id, code, name, category, module, description, paper_size, orientation, layout_json, is_default, created_at, updated_at`
+const reportTemplateColumns = `id, code, name, category, module, description, paper_size, orientation, layout_json, file_path, is_default, created_at, updated_at`
 
 func scanReportTemplate(row interface {
 	Scan(dest ...interface{}) error
 }) (*models.ReportTemplate, error) {
 	var t models.ReportTemplate
 	var isDef int
-	if err := row.Scan(&t.ID, &t.Code, &t.Name, &t.Category, &t.Module, &t.Description, &t.PaperSize, &t.Orientation, &t.LayoutJSON, &isDef, &t.CreatedAt, &t.UpdatedAt); err != nil {
+	if err := row.Scan(&t.ID, &t.Code, &t.Name, &t.Category, &t.Module, &t.Description, &t.PaperSize, &t.Orientation, &t.LayoutJSON, &t.FilePath, &isDef, &t.CreatedAt, &t.UpdatedAt); err != nil {
 		return nil, err
 	}
 	t.IsDefault = isDef == 1
@@ -132,8 +132,8 @@ func (r *ReportTemplateRepository) Create(req *models.CreateReportTemplateReques
 		module = "umum"
 	}
 
-	query := `INSERT INTO report_templates (code, name, category, module, description, paper_size, orientation, layout_json, is_default, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	res, err := r.db.Exec(query, req.Code, req.Name, req.Category, module, req.Description, req.PaperSize, req.Orientation, req.LayoutJSON, isDefInt, now, now)
+	query := `INSERT INTO report_templates (code, name, category, module, description, paper_size, orientation, layout_json, file_path, is_default, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	res, err := r.db.Exec(query, req.Code, req.Name, req.Category, module, req.Description, req.PaperSize, req.Orientation, req.LayoutJSON, req.FilePath, isDefInt, now, now)
 	if err != nil {
 		if isUniqueConstraintError(err) {
 			return nil, ErrDuplicateCode
@@ -159,8 +159,8 @@ func (r *ReportTemplateRepository) Update(id int64, req *models.UpdateReportTemp
 		module = "umum"
 	}
 
-	query := `UPDATE report_templates SET code = ?, name = ?, category = ?, module = ?, description = ?, paper_size = ?, orientation = ?, layout_json = ?, is_default = ?, updated_at = ? WHERE id = ?`
-	_, err := r.db.Exec(query, code, req.Name, req.Category, module, req.Description, req.PaperSize, req.Orientation, req.LayoutJSON, isDefInt, now, id)
+	query := `UPDATE report_templates SET code = ?, name = ?, category = ?, module = ?, description = ?, paper_size = ?, orientation = ?, layout_json = ?, file_path = ?, is_default = ?, updated_at = ? WHERE id = ?`
+	_, err := r.db.Exec(query, code, req.Name, req.Category, module, req.Description, req.PaperSize, req.Orientation, req.LayoutJSON, req.FilePath, isDefInt, now, id)
 	if err != nil {
 		if isUniqueConstraintError(err) {
 			return nil, ErrDuplicateCode
@@ -171,7 +171,49 @@ func (r *ReportTemplateRepository) Update(id int64, req *models.UpdateReportTemp
 	return r.GetByID(id)
 }
 
+// SetDefault menjadikan satu template sebagai default modulnya
+// (menonaktifkan default lain di modul yang sama) lalu mengembalikannya.
+func (r *ReportTemplateRepository) SetDefault(id int64) (*models.ReportTemplate, error) {
+	tpl, err := r.GetByID(id)
+	if err != nil {
+		return nil, err
+	}
+	if tpl == nil {
+		return nil, sql.ErrNoRows
+	}
+	now := time.Now().Unix()
+	if _, err := r.db.Exec(`UPDATE report_templates SET is_default = 0, updated_at = ? WHERE module = ? AND id <> ?`, now, tpl.Module, id); err != nil {
+		return nil, fmt.Errorf("failed to clear module default: %w", err)
+	}
+	if _, err := r.db.Exec(`UPDATE report_templates SET is_default = 1, updated_at = ? WHERE id = ?`, now, id); err != nil {
+		return nil, fmt.Errorf("failed to set default: %w", err)
+	}
+	return r.GetByID(id)
+}
+
+// GetDefaultModule mengembalikan template default sebuah modul (nil bila kosong).
+func (r *ReportTemplateRepository) GetDefaultModule(module string) (*models.ReportTemplate, error) {
+	query := `SELECT ` + reportTemplateColumns + ` FROM report_templates WHERE module = ? AND is_default = 1 ORDER BY id DESC LIMIT 1`
+	t, err := scanReportTemplate(r.db.QueryRow(query, module))
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return t, nil
+}
+
 func (r *ReportTemplateRepository) Delete(id int64) error {
 	_, err := r.db.Exec(`DELETE FROM report_templates WHERE id = ?`, id)
 	return err
+}
+
+// UpdateFilePath memperbarui penunjuk berkas template (.xlsx).
+func (r *ReportTemplateRepository) UpdateFilePath(id int64, rel string) (*models.ReportTemplate, error) {
+	now := time.Now().Unix()
+	if _, err := r.db.Exec(`UPDATE report_templates SET file_path = ?, updated_at = ? WHERE id = ?`, rel, now, id); err != nil {
+		return nil, fmt.Errorf("failed to update template file_path: %w", err)
+	}
+	return r.GetByID(id)
 }
