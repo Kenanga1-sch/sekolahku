@@ -272,7 +272,10 @@ export default function KioskPage() {
         const now = Date.now();
         const reason = evaluateScan({
             now,
-            inFlight: attState.type === "scanning" || attState.type === "processing_deposit",
+            inFlight:
+                processingRef.current ||
+                attState.type === "scanning" ||
+                attState.type === "processing_deposit",
             code,
             lastCode: lastScannedCodeRef.current,
             lastCodeAt: lastCodeScanTimeRef.current,
@@ -283,6 +286,7 @@ export default function KioskPage() {
         lastScannedCodeRef.current = code;
         lastCodeScanTimeRef.current = now;
 
+        processingRef.current = true;
         setAttState({ type: "scanning" });
         playSound("beep");
 
@@ -337,14 +341,18 @@ export default function KioskPage() {
             setAttState({ type: "error", message: "Koneksi gagal" });
             playSound("error");
             setTimeout(() => setAttState({ type: "idle" }), 3000);
+        } finally {
+            processingRef.current = false;
         }
     };
 
     const handleDeposit = async () => {
         if (attState.type !== "recorded" || attNominal < 1000) return;
+        if (processingRef.current) return;
         const code = lastScannedCodeRef.current;
         if (!code) return;
 
+        processingRef.current = true;
         setAttState(prev => ({ ...prev, type: "processing_deposit" }));
         try {
             await apiSavingsDeposit(code, attNominal);
@@ -355,6 +363,8 @@ export default function KioskPage() {
             setAttState({ type: "error", message: "Gagal mencatat setoran" });
             playSound("error");
             setTimeout(() => setAttState({ type: "idle" }), 3000);
+        } finally {
+            processingRef.current = false;
         }
     };
 
