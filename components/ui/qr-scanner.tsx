@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { CameraOff, RefreshCw, FlipHorizontal, SwitchCamera } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ const Scanner = dynamic(
 );
 
 import type { BarcodeFormat } from "barcode-detector";
+import type { IDetectedBarcode, TrackFunction } from "@yudiel/react-qr-scanner";
 
 type FacingMode = "user" | "environment";
 
@@ -23,6 +24,22 @@ interface QRScannerProps {
   className?: string;
   mirrored?: boolean;
   formats?: BarcodeFormat[];
+  /**
+   * Mode barcode (opt-in): aktifkan retry scan tiap 10ms (bukan 500ms),
+   * resolusi kamera lebih tinggi, kontrol zoom/torch, dan highlight deteksi
+   * di canvas. QR code memakai default (false) agar perilaku scanner QR
+   * tidak berubah sama sekali.
+   */
+  barcodeMode?: boolean;
+  /** Teks petunjuk di bawah preview. Default: teks untuk QR code. */
+  caption?: string;
+  /**
+   * Beep saat barcode terdeteksi (barcodeMode saja). QR mode tidak pernah
+   * dikontrol prop ini agar perilaku QR tetap apa adanya.
+   */
+  sound?: boolean;
+  /** Getar singkat saat barcode terdeteksi (barcodeMode saja). Default: true. */
+  vibrate?: boolean;
 }
 
 export function QRScanner({ 
@@ -32,6 +49,10 @@ export function QRScanner({
   className,
   mirrored = true, // Default to true for front camera natural feel
   formats,
+  barcodeMode = false,
+  caption,
+  sound,
+  vibrate = true,
 }: QRScannerProps) {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<FacingMode>("environment"); // Default to back camera for mobile-first scanning
@@ -55,10 +76,76 @@ export function QRScanner({
   // Auto-mirror logic: only mirror if it's front camera AND mirrored prop is true
   const isMirrored = facingMode === "user" && mirrored;
 
-  const handleScan = (result: { rawValue: string }[]) => {
-      if (result && result.length > 0) {
-          onScan(result[0].rawValue);
+  /**
+   * Tracker hanya dipakai di mode barcode. Dua manfaat:
+   * 1. Kehadirannya menurunkan retryDelay library dari 500ms ke 10ms —
+   *    sebelumnya decoder hanya mencoba 2x/detik, barcode kecil sering lolos.
+   * 2. Menggambar kotak highlight hijau + nilai terdeteksi di canvas overlay,
+   *    sebagai indikator visual bahwa kamera "melihat" barcode.
+   */
+  const trackBarcode = useCallback<TrackFunction>((detectedCodes, ctx) => {
+    if (!detectedCodes.length) return;
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    for (const code of detectedCodes) {
+      const { x, y, width, height } = code.boundingBox;
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#22c55e";
+      ctx.strokeRect(x, y, width, height);
+      if (code.rawValue) {
+        ctx.font = "bold 14px ui-monospace, monospace";
+        const textWidth = ctx.measureText(code.rawValue).width;
+        const labelX = Math.min(Math.max(x, 2), ctx.canvas.width - textWidth - 10);
+        const labelY = Math.max(y - 6, 18);
+        ctx.fillStyle = "#22c55e";
+        ctx.fillRect(labelX - 4, labelY - 14, textWidth + 8, 18);
+        ctx.fillStyle = "#052e16";
+        ctx.fillText(code.rawValue, labelX, labelY);
       }
+    }
+  }, []);
+
+  const scannerConstraints = barcodeMode
+    ? {
+        facingMode,
+        // Barcode kecil butuh piksel lebih banyak. min diturunkan dari 640 ke
+        // 320 supaya kamera HP lama/murah tidak ditolak (constraint min yang
+        // ketat mematikan kamera sepenuhnya, bukan sekadar menurunkan kualitas).
+        // ideal hanya preferensi — kamera tanpa dukungan tetap jalan pada
+        // resolusi terdekat yang tersedia.
+        width: { min: 320, ideal: 2560, max: 3840 },
+        height: { min: 320, ideal: 1440, max: 2160 },
+      }
+    : { facingMode };
+
+  // Tombol torch hanya dirender library bila capabilities kamera memilikinya,
+  // jadi aman diaktifkan untuk semua HP di barcodeMode.
+  const scannerComponents = barcodeMode
+    ? { onOff: true, tracker: trackBarcode, zoom: true, torch: true }
+    : { onOff: true };
+
+  const lastScanRef = useRef<string>("");
+  const lastScanAtRef = useRef(0);
+
+  const handleScan = (result: { rawValue: string }[]) => {
+      if (!result || result.length === 0) return;
+      // Jalur QR: persis seperti sebelumnya, tanpa debounce/getar apa pun.
+      if (!barcodeMode) {
+          onScan(result[0].rawValue);
+          return;
+      }
+      // Barcode: library sudah menahan duplikat selama kode yang sama masih
+      // terlihat, tapi saat kamera goyang kode lama bisa muncul-hilang sehingga
+      // onScan terpicu berulang dan membanjiri handler (mis. trigger lookup
+      // ISBN). Debounce nilai identik dalam 1.2 detik untuk meredam itu.
+      const value = result[0].rawValue;
+      const now = Date.now();
+      if (value === lastScanRef.current && now - lastScanAtRef.current < 1200) return;
+      lastScanRef.current = value;
+      lastScanAtRef.current = now;
+      if (vibrate && typeof navigator !== "undefined" && navigator.vibrate) {
+          navigator.vibrate(80);
+      }
+      onScan(value);
   };
 
   const handleError = (error: unknown) => {
@@ -104,7 +191,8 @@ export function QRScanner({
                 onScan={handleScan}
                 onError={handleError}
                 formats={formats}
-                constraints={{ facingMode }}
+                constraints={scannerConstraints}
+                sound={barcodeMode ? (sound ?? true) : undefined}
                 styles={{
                     container: { width: "100%", height: "100%" },
                     video: { 
@@ -114,9 +202,7 @@ export function QRScanner({
                         transform: isMirrored ? "scaleX(-1)" : "none",
                     },
                 }}
-                components={{
-                    onOff: true,
-                }}
+                components={scannerComponents}
             />
             {/* Camera Switch Floating Button */}
             <div className="absolute top-4 right-4 z-20">
@@ -156,7 +242,7 @@ export function QRScanner({
         )}
       </div>
        <p className="text-center text-sm text-muted-foreground mt-3">
-          Arahkan kamera ke QR Code pada kartu siswa
+          {caption ?? "Arahkan kamera ke QR Code pada kartu siswa"}
        </p>
     </div>
   );

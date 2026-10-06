@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { QRScanner } from "@/components/ui/qr-scanner";
 import { CoverField } from "@/components/library/cover-upload";
@@ -116,6 +116,13 @@ export default function LibraryBindingPage() {
         toast.success(`Data "${item.title}" diterapkan.`);
     };
 
+    // Cache hasil AI per judul+penulis (session) agar klik ulang instan & hemat token.
+    const aiCacheRef = useRef<Map<string, typeof aiRecommendation>>(new Map());
+    const aiInFlightRef = useRef(false);
+
+    const aiCacheKey = (title: string, author: string) =>
+        `${title.trim().toLowerCase()}::${author.trim().toLowerCase()}`;
+
     const triggerAIClassify = async (
         title: string,
         author: string,
@@ -123,29 +130,44 @@ export default function LibraryBindingPage() {
         subjects: string[] = []
     ) => {
         if (!title.trim()) return;
+        if (aiInFlightRef.current) return; // cegah klik ganda memicu 2 request
+        const key = aiCacheKey(title, author);
+        const cached = aiCacheRef.current.get(key);
+        if (cached) {
+            setAiRecommendation(cached);
+            setAiEnabled(true);
+            setOverrideCategory(prev => prev || cached!.category);
+            setLocation(prev => (prev === "RAK-NEW" || !prev) ? cached!.shelf : prev);
+            toast.info("Rekomendasi AI dari hasil sebelumnya diterapkan.");
+            return;
+        }
+        aiInFlightRef.current = true;
         setAiLoading(true);
         try {
+            // 25s: backend memberi provider utama 13s lalu fallback ~5s (total
+            // 18s) + jaringan; 60s membuat spinner terasa menggantung bila gagal.
             const response: any = await goPost("/api/library/catalog/ai-classify", {
                 title,
                 author,
                 description,
                 subjects,
-            }, { timeout: 60000 });
+            }, { timeout: 25000 });
 
             if (!response.error) {
                 if (response.ai_enabled === false) {
                     setAiEnabled(false);
                     setAiRecommendation(null);
+                    toast.info(response.message || "AI belum dikonfigurasi di server.");
                 } else {
                     setAiEnabled(true);
-                    setAiRecommendation(response.data);
-                    
-                    // Auto-apply AI suggestions to form fields if user hasn't manually set override
                     const rec = response.data;
                     setAiRecommendation(rec);
+                    aiCacheRef.current.set(key, rec);
+
+                    // Auto-apply AI suggestions to form fields if user hasn't manually set override
                     setOverrideCategory(prev => prev || rec.category);
                     setLocation(prev => (prev === "RAK-NEW" || !prev) ? rec.shelf : prev);
-                    
+
                     setCatalog(prev => {
                         const newCat = { ...prev };
                         if (rec.description && (!prev.description || prev.description.trim() === "")) {
@@ -156,15 +178,29 @@ export default function LibraryBindingPage() {
                         }
                         return newCat;
                     });
-                    
-                    toast.success("Rekomendasi AI otomatis diterapkan!");
+
+                    const secs = typeof response.elapsed_ms === "number" && response.elapsed_ms > 0
+                        ? `${(response.elapsed_ms / 1000).toFixed(1)}s`
+                        : null;
+                    toast.success(secs
+                        ? `Rekomendasi AI siap dalam ${secs}!`
+                        : "Rekomendasi AI otomatis diterapkan!");
                 }
             } else {
                 console.error("AI Classify failed:", response.error);
+                toast.error("AI tidak bisa merespons sekarang.", {
+                    description: "Isi kategori & rak manual, atau coba lagi beberapa detik lagi.",
+                    duration: 6000,
+                });
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed calling AI classification endpoint", error);
+            toast.error("Koneksi ke layanan AI gagal / timeout.", {
+                description: "Isi kategori & rak manual, atau coba lagi nanti.",
+                duration: 6000,
+            });
         } finally {
+            aiInFlightRef.current = false;
             setAiLoading(false);
         }
     };
@@ -193,10 +229,30 @@ export default function LibraryBindingPage() {
 
     // Step 2: ISBN Lookup
     const handleISBNScan = (code: string) => {
-        setIsbn(code);
-        toast.info(`ISBN Terdeteksi: ${code}`);
+        // Normalisasi hasil scan barcode:
+        // - buang spasi/pemisah dari hasil decode
+        // - buang add-on harga (EAN-13 + 5 digit) agar ISBN inti yang terbaca
+        // - konversi UPC-A buku lama (0 + ISBN-10 + check) menjadi ISBN-10
+        let raw = code.replace(/[^0-9Xx]/g, "").toUpperCase();
+        if (raw.length > 13 && (raw.startsWith("978") || raw.startsWith("979"))) {
+            raw = raw.slice(0, 13);
+        }
+        if (raw.length === 12 && raw.startsWith("0")) {
+            raw = raw.slice(1, 11);
+        }
+        const isIsbn13 = raw.length === 13 && /^97[89]/.test(raw);
+        const isIsbn10 = raw.length === 10 && /^[0-9]{9}[0-9X]$/.test(raw);
+        if (!isIsbn13 && !isIsbn10) {
+            toast.info(`Barcode terbaca (${code}), tetapi bukan ISBN.`, {
+                description: "Arahkan ke barcode ISBN 10/13 di sampul belakang, atau isi manual.",
+                duration: 5000,
+            });
+            return;
+        }
+        setIsbn(raw);
+        toast.info(`ISBN Terdeteksi: ${raw}`);
         // We need to pass the code directly because state update is async
-        triggerISBNLookup(code);
+        triggerISBNLookup(raw);
     };
 
     const handleISBNLookup = async () => {
@@ -434,12 +490,13 @@ export default function LibraryBindingPage() {
                                             <QRScanner
                                                 onScan={handleISBNScan}
                                                 mirrored={true}
-                                                formats={["ean_13"]}
+                                                barcodeMode={true}
+                                                sound={true}
+                                                vibrate={true}
+                                                formats={["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "code_93", "itf", "codabar", "data_matrix", "pdf417"]}
+                                                caption="Dekatkan 10–20 cm · tekan 🔦 bila gelap · pakai zoom untuk barcode kecil"
                                                 className="mx-auto"
                                             />
-                                            <p className="text-[10px] text-center text-muted-foreground mt-2">
-                                                Scan barcode ISBN 10/13 pada sampul belakang buku
-                                            </p>
                                         </div>
                                     )}
 
@@ -494,8 +551,10 @@ export default function LibraryBindingPage() {
                                     )}
 
                                     {!searchLoading && searchPerformed && searchResults.length === 0 && (
-                                        <div className="text-xs text-muted-foreground bg-muted/50 rounded-md p-3 border">
-                                            Tidak ada hasil untuk &quot;{searchQuery}&quot;. Coba kata kunci lain.
+                                        <div className="text-xs rounded-md p-3 border border-amber-200 bg-amber-50 text-amber-800">
+                                            <p className="font-medium mb-1">Tidak ada hasil untuk &quot;{searchQuery}&quot;</p>
+                                            <p>Coba kurangi kata kunci (mis. hanya judul saja), atau gunakan tab Scan/ISBN bila bukunya punya barcode.</p>
+                                            <p className="mt-1 opacity-80">Layanan katalog eksternal (Google Books/Open Library) kadang sedang penuh atau terganggu, sehingga sebagian buku tidak muncul.</p>
                                         </div>
                                     )}
 
@@ -625,7 +684,7 @@ export default function LibraryBindingPage() {
                                                      onClick={() => triggerAIClassify(catalog.title, catalog.author, catalog.description || "", catalog.subjects || [])}
                                                 >
                                                     {aiLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                                                    Tanya AI
+                                                    {aiLoading ? "Menganalisis…" : "Tanya AI"}
                                                 </Button>
                                             )}
                                         </div>

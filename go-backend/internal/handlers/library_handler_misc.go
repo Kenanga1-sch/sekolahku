@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/sekolahku/go-backend/internal/models"
@@ -250,29 +252,41 @@ func (h *LibraryHandler) AIClassify(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Payload tidak valid"})
 	}
 
-	apiKey := os.Getenv("AI_API_KEY")
-	if apiKey == "" {
-		apiKey = os.Getenv("GEMINI_API_KEY")
-	}
-	if apiKey == "" {
-		apiKey = os.Getenv("OPENAI_API_KEY")
-	}
-	if apiKey == "" {
-		return c.JSON(http.StatusOK, map[string]interface{}{
-			"success":    true,
-			"ai_enabled": false,
-			"message":    "Kunci API AI (AI_API_KEY / GEMINI_API_KEY / OPENAI_API_KEY) tidak disetel di server",
-		})
-	}
+	apiKey := firstNonEmptyEnv("AI_API_KEY", "GEMINI_API_KEY", "OPENAI_API_KEY")
 
+	startedAt := time.Now()
 	result, err := h.Repo.ClassifyBookWithAI(req.Title, req.Author, req.Description, req.Subjects, apiKey)
+	elapsed := time.Since(startedAt)
+
 	if err != nil {
-		c.Logger().Error("AI Classification failed:", err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+		// "Belum dikonfigurasi" bukan kegagalan: kasih tahu UI supaya tombol
+		// AI bisa disembunyikan, bukan menampilkan error 500 yang membingungkan.
+		if strings.Contains(err.Error(), "tidak ada AI provider") {
+			return c.JSON(http.StatusOK, map[string]interface{}{
+				"success":    true,
+				"ai_enabled": false,
+				"message":    "Belum ada provider AI aktif — atur di Pengaturan › AI & LLM",
+			})
+		}
+		c.Logger().Errorf("AI Classification gagal setelah %s: %v", elapsed.Round(time.Millisecond), err)
+		return c.JSON(http.StatusGatewayTimeout, map[string]string{
+			"error": "Layanan AI tidak merespons dalam batas waktu",
+		})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success":    true,
 		"ai_enabled": true,
 		"data":       result,
+		"elapsed_ms": elapsed.Milliseconds(),
 	})
+}
+
+// firstNonEmptyEnv mengembalikan nilai env pertama yang terisi dari daftar nama.
+func firstNonEmptyEnv(names ...string) string {
+	for _, name := range names {
+		if v := strings.TrimSpace(os.Getenv(name)); v != "" {
+			return v
+		}
+	}
+	return ""
 }

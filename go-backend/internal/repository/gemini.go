@@ -5,11 +5,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 )
+
+// aiHTTPClient dipakai ulang antar percobaan klasifikasi. Sebelumnya tiap
+// percobaan membuat http.Client baru sehingga selalu membuka koneksi/TLS baru
+// (tambahan ~100-300ms per percobaan). Transport default sudah keep-alive.
+var aiHTTPClient = &http.Client{Timeout: 20 * time.Second}
 
 type GeminiClassifyResult struct {
 	Category    string   `json:"category"`
@@ -58,11 +64,23 @@ type geminiRequestBody struct {
 	GenerationConfig geminiGenConfig `json:"generationConfig"`
 }
 
+// aiClassifyAttempt adalah satu percobaan klasifikasi terhadap satu provider.
+type aiClassifyAttempt struct {
+	label string
+	call  func(ctx context.Context) (*GeminiClassifyResult, error)
+}
+
+// Anggaran waktu klasifikasi. Sebelumnya SEMUA percobaan berbagi satu context
+// 12 detik: provider pertama yang lambat menghabiskan seluruh anggaran, sehingga
+// fallback tidak sempat jalan dan pengguna menunggu penuh lalu tetap gagal.
+// Latensi terukur 9router_server_dev: 7,6–16 detik; Gemini: ~1,6 detik.
+const (
+	aiClassifyTotalBudget  = 18 * time.Second
+	aiClassifyFirstAttempt = 13 * time.Second
+)
+
 // ClassifyBookWithAI performs deterministic book classification with failover support across database-configured AI providers
 func (r *LibraryRepository) ClassifyBookWithAI(title, author, description string, subjects []string, apiKey string) (*GeminiClassifyResult, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
-	defer cancel()
-
 	authorText := author
 	if strings.TrimSpace(authorText) == "" {
 		authorText = "(Penulis Tidak Diisi)"
@@ -94,54 +112,121 @@ Aturan Tambahan:
 - Tulis alasan klasifikasi (reason) yang ringkas dalam bahasa Indonesia.
 - Kembalikan daftar kata kunci/subjek yang relevan.`, title, authorText, description, subjects)
 
-	// Load DB-configured providers only when a live DB connection is available.
-	// (Penting: fungsi ini juga dipanggil dari jalur ISBN fallback yang bisa
-	// memiliki receiver tanpa DB; jangan sampai nil-pointer panic.)
+	attempts := r.buildClassifyAttempts(prompt, apiKey)
+	if len(attempts) == 0 {
+		return nil, fmt.Errorf("tidak ada AI provider yang dikonfigurasi")
+	}
+
+	// Anggaran total; tiap percobaan juga dibatasi sendiri sehingga provider
+	// pertama yang lambat tidak menghabiskan seluruh anggaran.
+	ctx, cancel := context.WithTimeout(context.Background(), aiClassifyTotalBudget)
+	defer cancel()
+
+	var failures []string
+	for i, attempt := range attempts {
+		// Batas waktu percobaan: percobaan pertama diberi porsi terbesar,
+		// sisanya memakai sisa anggaran total.
+		attemptBudget := 6 * time.Second
+		if i == 0 {
+			attemptBudget = aiClassifyFirstAttempt
+		}
+		if remaining := time.Until(deadlineOf(ctx)); remaining < attemptBudget {
+			if remaining <= time.Second {
+				break
+			}
+			attemptBudget = remaining
+		}
+		attemptCtx, attemptCancel := context.WithTimeout(ctx, attemptBudget)
+
+		startedAt := time.Now()
+		res, err := attempt.call(attemptCtx)
+		elapsed := time.Since(startedAt)
+		attemptCancel()
+
+		if err == nil && res != nil {
+			if elapsed > 500*time.Millisecond {
+				log.Printf("[AI classify] %s sukses dalam %s", attempt.label, elapsed.Round(time.Millisecond))
+			}
+			return res, nil
+		}
+		if err == nil {
+			err = fmt.Errorf("provider mengembalikan hasil kosong")
+		}
+		failures = append(failures, fmt.Sprintf("%s: %v", attempt.label, err))
+		log.Printf("[AI classify] %s gagal setelah %s: %v", attempt.label, elapsed.Round(time.Millisecond), err)
+	}
+
+	return nil, fmt.Errorf("semua AI Provider yang dikonfigurasi gagal dipanggil (%s)", strings.Join(failures, "; "))
+}
+
+// deadlineOf mengembalikan waktu batas dari context; tanpa batas dianggap masih
+// lama sehingga percobaan tetap memakai anggaran yang sudah ditentukan.
+func deadlineOf(ctx context.Context) time.Time {
+	d, ok := ctx.Deadline()
+	if !ok {
+		return time.Now().Add(aiClassifyTotalBudget)
+	}
+	return d
+}
+
+// buildClassifyAttempts menyusun daftar provider terurut: konfigurasi DB (urutan
+// prioritas) lebih dulu, lalu fallback environment. Tiap fungsi menutup kredensial
+// masing-masing sehingga gagal di satu provider tidak menggagalkan yang lain.
+func (r *LibraryRepository) buildClassifyAttempts(prompt, apiKey string) []aiClassifyAttempt {
+	attempts := make([]aiClassifyAttempt, 0, 4)
+
 	if r != nil && r.DB != nil {
 		providerRepo := NewAIProviderRepository(r.DB)
-		if dbProviders, err := providerRepo.GetEnabledProviders(); err == nil && len(dbProviders) > 0 {
+		if dbProviders, err := providerRepo.GetEnabledProviders(); err == nil {
 			for _, p := range dbProviders {
 				key := p.ResolveAPIKey()
 				if key == "" {
 					continue
 				}
+				p := p
 				if p.ProviderType == "gemini" {
-					if res, gErr := classifyWithGemini(ctx, prompt, key); gErr == nil && res != nil {
-						return res, nil
-					}
-				} else {
-					// OpenAI, 9Router, OpenRouter, Custom OpenAI-compatible
-					baseURL := p.BaseURL
-					if baseURL == "" {
-						baseURL = "https://api.openai.com/v1"
-					}
-					modelName := p.ModelName
-					if modelName == "" {
-						modelName = "gpt-4o-mini"
-					}
-					if res, oErr := classifyWithOpenAICompatibleCustom(ctx, prompt, key, baseURL, modelName); oErr == nil && res != nil {
-						return res, nil
-					}
+					attempts = append(attempts, aiClassifyAttempt{
+						label: "db:" + p.ID + "(gemini)",
+						call:  func(ctx context.Context) (*GeminiClassifyResult, error) { return classifyWithGemini(ctx, prompt, key) },
+					})
+					continue
 				}
+				baseURL := p.BaseURL
+				if baseURL == "" {
+					baseURL = "https://api.openai.com/v1"
+				}
+				modelName := p.ModelName
+				if modelName == "" {
+					modelName = "gpt-4o-mini"
+				}
+				attempts = append(attempts, aiClassifyAttempt{
+					label: "db:" + p.ID + "(" + modelName + ")",
+					call: func(ctx context.Context) (*GeminiClassifyResult, error) {
+						return classifyWithOpenAICompatibleCustom(ctx, prompt, key, baseURL, modelName)
+					},
+				})
 			}
 		}
 	}
 
-	// Fallback ke kunci environment default (Gemini / OpenAI-compatible) bila
-	// tidak ada provider DB yang berhasil.
 	if apiKey != "" {
-		if res, gErr := classifyWithGemini(ctx, prompt, apiKey); gErr == nil && res != nil {
-			return res, nil
-		}
+		attempts = append(attempts, aiClassifyAttempt{
+			label: "env:gemini",
+			call:  func(ctx context.Context) (*GeminiClassifyResult, error) { return classifyWithGemini(ctx, prompt, apiKey) },
+		})
 	}
 	if envKey := os.Getenv("OPENAI_API_KEY"); envKey != "" {
 		baseURL := firstNonEmpty(os.Getenv("AI_BASE_URL"), "https://api.openai.com/v1")
 		modelName := firstNonEmpty(os.Getenv("AI_MODEL_NAME"), "gpt-4o-mini")
-		if res, oErr := classifyWithOpenAICompatibleCustom(ctx, prompt, envKey, baseURL, modelName); oErr == nil && res != nil {
-			return res, nil
-		}
+		attempts = append(attempts, aiClassifyAttempt{
+			label: "env:openai(" + modelName + ")",
+			call: func(ctx context.Context) (*GeminiClassifyResult, error) {
+				return classifyWithOpenAICompatibleCustom(ctx, prompt, envKey, baseURL, modelName)
+			},
+		})
 	}
-	return nil, fmt.Errorf("semua AI Provider yang dikonfigurasi gagal dipanggil")
+
+	return attempts
 }
 
 // GenerateAIText mengirim prompt bebas ke provider AI yang aktif (DB lalu env)
@@ -214,7 +299,7 @@ func geminiGenerateText(ctx context.Context, prompt, apiKey string) (string, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := aiHTTPClient // dipakai ulang; batas waktu riil ada di ctx percobaan
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
@@ -266,7 +351,7 @@ func openAICompatibleGenerateText(ctx context.Context, prompt, apiKey, baseURL, 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := aiHTTPClient // dipakai ulang; batas waktu riil ada di ctx percobaan
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
@@ -353,7 +438,7 @@ func classifyWithGemini(ctx context.Context, prompt, apiKey string) (*GeminiClas
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 8 * time.Second}
+	client := aiHTTPClient // dipakai ulang; batas waktu riil ada di ctx percobaan
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request execution failed: %w", err)
@@ -431,7 +516,7 @@ func classifyWithOpenAICompatibleCustom(ctx context.Context, prompt, apiKey, bas
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := aiHTTPClient // dipakai ulang; batas waktu riil ada di ctx percobaan
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
