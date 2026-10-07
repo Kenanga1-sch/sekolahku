@@ -21,7 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ArrowLeft, Download, FileText, Loader2, Printer, ChevronLeft, ChevronRight, User, Calendar, Search, AlertTriangle, MoreHorizontal } from "lucide-react";
+import { ArrowLeft, Download, FileText, Loader2, Printer, ChevronLeft, ChevronRight, User, Calendar, Search, AlertTriangle } from "lucide-react";
 import { DataTable } from "@/components/data-table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -41,6 +41,7 @@ import {
   csvFilename,
   dowLetter,
   academicYearFor,
+  STATUS_LABELS_ID,
   type DayColumn,
   type HolidayInfo,
   type SortKey,
@@ -137,6 +138,8 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
   const bulananSeq = useRef(0);
 
   const [classes, setClasses] = useState<{ name: string; teacherName?: string | null }[]>([]);
+  // nama kelas → { nama wali (teacherName||waliUserName), nip wali } dari /api/academic/classes
+  const [waliMap, setWaliMap] = useState<Record<string, { name: string; nip: string }>>({});
   const [studentsList, setStudentsList] = useState<{ id: string; name?: string; fullName?: string; username?: string; nis?: string; nisn?: string; className?: string }[]>([]);
   const [principalName, setPrincipalName] = useState("");
   const [principalNIP, setPrincipalNIP] = useState("");
@@ -170,11 +173,29 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
     goGet("/api/classes")
       .then((response: any) => setClasses(response?.data || response || []))
       .catch(() => {});
+    // Info wali kelas (nama + NIP) — endpoint akademik khusus; /api/classes
+    // tidak pernah mengirim teacherName sehingga {{wali_kelas_nama}} selalu kosong.
+    goGet("/api/academic/classes")
+      .then((response: any) => {
+        const list: any[] = Array.isArray(response) ? response : response?.data || [];
+        const map: Record<string, { name: string; nip: string }> = {};
+        for (const c of list) {
+          if (!c?.name) continue;
+          map[c.name] = {
+            name: c.teacherName || c.waliUserName || "",
+            nip: c.waliNip || "",
+          };
+        }
+        setWaliMap(map);
+      })
+      .catch(() => {});
   }, []);
 
-  // Fetch school settings for principal name & NIP
+  // Fetch school settings for principal name & NIP.
+  // Pakai rute PUBLIC: /api/school-settings hanya superadmin/admin — guru kena
+  // 403 yang ditelan catch sehingga kepala sekolah selalu kosong di hasil export.
   useEffect(() => {
-    goGet("/api/school-settings")
+    goGet("/api/public/school-settings")
       .then((response: any) => {
         const s = response?.data || response || {};
         setPrincipalName(s.principal_name || s.principalName || "");
@@ -347,7 +368,7 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
           import("@/lib/presensi-excel"),
         ]);
       const { fillPresensiWorksheet, excelFilename, resolvePresensiTemplateUrl } = excelLib;
-      const { url: templateUrl } = await resolvePresensiTemplateUrl(
+      const { url: templateUrl, paperSize, orientation } = await resolvePresensiTemplateUrl(
         fetch,
         process.env.NEXT_PUBLIC_API_URL || ""
       );
@@ -366,6 +387,7 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
         ""
       ).trim();
       const waliKelas = selectedClass !== "all" ? getWaliKelas(selectedClass) : getWaliKelas(effectiveClassName);
+      const waliNip = selectedClass !== "all" ? getWaliNip(selectedClass) : getWaliNip(effectiveClassName);
       const { rowCount, unknown } = await fillPresensiWorksheet(ws, {
         rows: visibleMatrix,
         columns: visibleColumns,
@@ -377,7 +399,7 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
           kepalaSekolahNama: principalName,
           kepalaSekolahNip: principalNIP,
           waliKelasNama: waliKelas,
-          waliKelasNip: "",
+          waliKelasNip: waliNip,
           kelas: classNameBulanan,
           bulan: monthName,
           tahun: selectedYear,
@@ -386,6 +408,8 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
           tanggalCetak: format(new Date(), "d MMMM yyyy", { locale: localeId }),
           tempatTtd: signPlace,
         },
+        paperSize,
+        orientation,
       });
       if (rowCount === 0) throw new Error("template-tanpa-baris-contoh");
 
@@ -437,6 +461,95 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
     }
   };
 
+  const [exportingPdf, setExportingPdf] = useState(false);
+
+  /**
+   * Cetak/PDF berbasis template Excel terdaftar: isi template (sama persis
+   * dengan ekspor Excel — merge, warna status, blok merah libur, kop,
+   * tanda tangan) → render ke HTML → jendela cetak browser → "Save as PDF".
+   * Admin "Semua Kelas" → satu blok/halaman per kelas. Fallback: cetak
+   * lama (PrintPage) bila template tak termuat.
+   */
+  const handleCetakPdf = async () => {
+    if (exportingPdf || visibleMatrix.length === 0) return;
+    setExportingPdf(true);
+    const toastId = toast.loading("Menyiapkan cetak dari template…");
+    try {
+      const [{ default: ExcelJS }, excelLib, printLib] = await Promise.all([
+        import("exceljs"),
+        import("@/lib/presensi-excel"),
+        import("@/lib/worksheet-print"),
+      ]);
+      const { fillPresensiWorksheet, resolvePresensiTemplateUrl } = excelLib;
+      const { url: templateUrl, paperSize, orientation } = await resolvePresensiTemplateUrl(
+        fetch,
+        process.env.NEXT_PUBLIC_API_URL || ""
+      );
+      const res = await fetch(templateUrl, { credentials: "include" });
+      if (!res.ok) throw new Error("template-tidak-ditemukan");
+      const buf = await res.arrayBuffer();
+      const opts = {
+        paperSize: (paperSize || "A4").trim().toUpperCase(),
+        orientation: orientation || "landscape",
+      };
+
+      const signPlace = (
+        siteConfig.school.address.match(/Kab\.\s*([^,]+)/)?.[1] ||
+        siteConfig.school.address.match(/Kota\s+([^,]+)/)?.[1] ||
+        ""
+      ).trim();
+      const tanggalCetak = format(new Date(), "d MMMM yyyy", { locale: localeId });
+
+      const sections: string[] = [];
+      for (const g of renderGroups) {
+        const wb = new ExcelJS.Workbook();
+        await wb.xlsx.load(buf);
+        const ws = wb.getWorksheet("Daftar Hadir") || wb.worksheets[0];
+        if (!ws) throw new Error("template-tidak-valid");
+        const clsLabel = g.cls ? formatClassName(g.cls) : classNameBulanan;
+        const waliCls = g.cls || (selectedClass !== "all" ? selectedClass : effectiveClassName);
+        const { rowCount } = await fillPresensiWorksheet(ws as never, {
+          rows: g.rows,
+          columns: dayColumns,
+          effectiveDays,
+          scalars: {
+            sekolahNama: siteConfig.school.name,
+            sekolahAlamat: siteConfig.school.address,
+            sekolahTelepon: siteConfig.school.phone || "",
+            kepalaSekolahNama: principalName,
+            kepalaSekolahNip: principalNIP,
+            waliKelasNama: getWaliKelas(waliCls),
+            waliKelasNip: getWaliNip(waliCls),
+            kelas: clsLabel,
+            bulan: monthName,
+            tahun: selectedYear,
+            tahunAjaran: academicYearLabel,
+            hariEfektif: effectiveDays,
+            tanggalCetak,
+            tempatTtd: signPlace,
+          },
+          paperSize: opts.paperSize,
+          orientation: opts.orientation,
+        });
+        if (rowCount === 0) throw new Error("template-tanpa-baris-contoh");
+        sections.push(printLib.worksheetToHtml(ws as never));
+      }
+
+      printLib.openPrintWindow(
+        printLib.joinPageSections(sections),
+        `Daftar Hadir ${classNameBulanan} ${monthName} ${selectedYear}`,
+        opts
+      );
+      toast.success("Jendela cetak terbuka — pilih “Simpan sebagai PDF”", { id: toastId });
+    } catch (err) {
+      console.error("Cetak PDF error:", err);
+      toast.error("Template belum tersedia — memakai format cetak biasa", { id: toastId });
+      handlePrint();
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   const shiftMonth = (delta: number) => {
     const d = new Date(selectedYear, selectedMonth - 1 + delta, 1);
     setSelectedYear(d.getFullYear());
@@ -451,14 +564,24 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
       : "Semua Kelas";
   const academicYearLabel = academicYearFor(selectedMonth, selectedYear, siteConfig.academicYear.current);
 
-  const getWaliKelas = (clsName: string): string => {
+  /** Cari entri wali kelas (nama + NIP) untuk nama kelas apa pun formatnya. */
+  const findWali = (clsName: string): { name: string; nip: string } => {
+    if (!clsName) return { name: "", nip: "" };
     const normalized = clsName.replace(/^Kelas\s*/i, "").trim();
     const formatted = formatClassName(normalized);
+    const key = Object.keys(waliMap).find(
+      (k) => k === clsName || k === normalized || formatClassName(k) === formatted
+    );
+    if (key && (waliMap[key].name || waliMap[key].nip)) return waliMap[key];
+    // Fallback: field teacherName lama (bila ada).
     const match = classes.find(
       (c) => c.name === clsName || c.name === normalized || formatClassName(c.name) === formatted
     );
-    return match?.teacherName || "";
+    return { name: match?.teacherName || "", nip: "" };
   };
+
+  const getWaliKelas = (clsName: string): string => findWali(clsName).name;
+  const getWaliNip = (clsName: string): string => findWali(clsName).nip;
 
   // Pengelompokan cetak: admin "Semua Kelas" → satu halaman per kelas, selain itu satu halaman
   const renderGroups: { cls: string; rows: StudentMatrix[] }[] =
@@ -490,14 +613,13 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
 
       {/* ========== DAFTAR HADIR BULANAN ========== */}
       <div className="space-y-4" ref={printRef}>
-          {/* Filter & Actions */}
+          {/* Filter & Actions — 2 baris ringkas:
+              1) ‹ bulan-tahun › · kelas · Cetak▾   2) cari · urut */}
           <Card className="no-print">
-            <CardContent className="py-3 space-y-3">
-              {/* Baris 1: navigasi bulan, kelas, pencarian — mobile-first:
-                  tiap kontrol selebar layar di HP, sejajar di layar sedang+ */}
-              <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center md:gap-2">
-                <div className="flex items-center gap-1 justify-center md:justify-start">
-                  <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={() => shiftMonth(-1)} aria-label="Bulan sebelumnya">
+            <CardContent className="py-3 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={() => shiftMonth(-1)} aria-label="Bulan sebelumnya">
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
                   <Select
@@ -508,44 +630,61 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
                       setSelectedMonth(m);
                     }}
                   >
-                    <SelectTrigger className="h-8 w-[150px]"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-9 w-[150px]"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {monthYearOptions.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}
                     </SelectContent>
                   </Select>
-                  <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={() => shiftMonth(1)} aria-label="Bulan berikutnya">
+                  <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={() => shiftMonth(1)} aria-label="Bulan berikutnya">
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
                 {isAdmin && (
                   <Select value={selectedClass} onValueChange={setSelectedClass}>
-                    <SelectTrigger className="h-8 w-full md:w-[130px]"><SelectValue placeholder="Semua Kelas" /></SelectTrigger>
+                    <SelectTrigger className="h-9 flex-1 min-w-[120px] md:flex-none md:w-[140px]"><SelectValue placeholder="Semua Kelas" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Semua Kelas</SelectItem>
                       {classes.map((c) => (<SelectItem key={c.name} value={c.name}>{formatClassName(c.name)}</SelectItem>))}
                     </SelectContent>
                   </Select>
                 )}
-                <div className="relative w-full md:flex-1 md:min-w-[180px] md:max-w-xs">
+                {/* Satu tombol Cetak → pilihan Excel / PDF / CSV */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" className="h-9 ml-auto md:ml-auto" disabled={visibleMatrix.length === 0}>
+                      <Printer className="h-4 w-4 mr-1.5" />Cetak
+                      <ChevronRight className="h-3.5 w-3.5 ml-1 rotate-90" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleCetakPdf} disabled={exportingPdf}>
+                      {exportingPdf ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
+                      PDF (dialog cetak)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExportMonthlyExcel} disabled={exportingExcel}>
+                      {exportingExcel ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+                      Excel (.xlsx)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExportMonthlyCsv}>
+                      <Download className="h-4 w-4 mr-2" />CSV
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative flex-1 min-w-[160px]">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                   <Input
                     value={searchBulanan}
                     onChange={(e) => setSearchBulanan(e.target.value)}
                     placeholder="Cari nama / NIS…"
-                    className="h-8 pl-8"
+                    className="h-9 pl-8"
                     aria-label="Cari siswa"
                   />
                 </div>
-                <span className="text-center text-xs text-muted-foreground tabular-nums md:text-left">
-                  {visibleMatrix.length} dari {matrix.length} siswa
-                </span>
-              </div>
-
-              {/* Baris 2: urutan + aksi — di HP menumpuk selebar layar;
-                  aksi jadi grid agar tombol mudah disentuh */}
-              <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center md:gap-2">
                 <Select value={sortOpt} onValueChange={setSortOpt}>
-                  <SelectTrigger className="w-full h-8 md:w-[180px]"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-9 w-full flex-1 min-w-[150px] md:w-[180px] md:flex-none"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="name-asc">Urut: Nama A–Z</SelectItem>
                     <SelectItem value="name-desc">Urut: Nama Z–A</SelectItem>
@@ -554,32 +693,11 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
                     <SelectItem value="alpha-desc">Urut: Alpha terbanyak</SelectItem>
                   </SelectContent>
                 </Select>
-                <div className="grid grid-cols-3 gap-2 md:ml-auto md:flex md:gap-2">
-                  <Button size="sm" onClick={handleExportMonthlyExcel} disabled={visibleMatrix.length === 0 || exportingExcel}>
-                    {exportingExcel ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
-                    Excel
-                  </Button>
-                  <Button size="sm" onClick={handlePrint} disabled={matrix.length === 0}>
-                    <Printer className="h-4 w-4 mr-1" />Cetak / PDF
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" aria-label="Pilihan lain" disabled={visibleMatrix.length === 0 && matrix.length === 0}>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={handleExportMonthlyCsv} disabled={visibleMatrix.length === 0}>
-                        <Download className="h-4 w-4 mr-2" />Unduh CSV
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
               </div>
 
               {/* Info ringkas periode */}
               <p className="text-xs text-muted-foreground">
-                Hari efektif: <strong className="text-foreground">{effectiveDays}</strong> dari {daysInMonth} tanggal
+                {visibleMatrix.length} dari {matrix.length} siswa • Hari efektif: <strong className="text-foreground">{effectiveDays}</strong> dari {daysInMonth} tanggal
                 {" • Tahun pelajaran "}<strong className="text-foreground">{academicYearLabel}</strong>
                 {holidayReasons.length > 0 && (
                   <>{" • Libur: "}{holidayReasons.map(([d, r]) => `${parseInt(d.split("-")[2], 10)} ${MONTHS[parseInt(d.split("-")[1], 10) - 1]} (${r})`).join(", ")}</>
@@ -709,14 +827,23 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
           ) : (
             renderGroups.map((g) => (
               <Fragment key={g.cls || "kelas"}>
-                {/* Tampilan layar (mobile-first) */}
-                <ScreenMatrix
+                {/* Mobile (<md): kartu per siswa — terbaca di portrait kecil */}
+                <StudentCards
                   matrix={g.rows} columns={visibleColumns} effectiveDays={effectiveDays}
                   className={g.cls ? formatClassName(g.cls) : classNameBulanan}
                   monthName={monthName} year={selectedYear}
                   onStudentClick={handleStudentClick}
                 />
-                {/* Artefak kertas untuk cetak */}
+                {/* Desktop (≥md): tabel matriks */}
+                <div className="hidden md:block">
+                  <ScreenMatrix
+                    matrix={g.rows} columns={visibleColumns} effectiveDays={effectiveDays}
+                    className={g.cls ? formatClassName(g.cls) : classNameBulanan}
+                    monthName={monthName} year={selectedYear}
+                    onStudentClick={handleStudentClick}
+                  />
+                </div>
+                {/* Artefak kertas untuk cetak (fallback bila template tak ada) */}
                 <PrintPage matrix={g.rows}
                   columns={visibleColumns} effectiveDays={effectiveDays}
                   monthName={monthName} year={selectedYear} academicYear={academicYearLabel}
@@ -970,7 +1097,112 @@ function ScreenMatrix({
         </table>
       </div>
       <p className="px-3 py-1.5 text-[11px] leading-snug text-slate-500 md:hidden">
-        Geser tabel ke samping untuk tanggal lainnya • Ketuk nama siswa untuk detail kehadiran
+        Ketuk nama siswa untuk detail kehadiran
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Tampilan mobile (<md): satu kartu per siswa — nama/NIS, badge %,
+ * grid chip tanggal (hari libur DIBLOK MERAH, status berwarna H/S/I/A),
+ * rekap mini H/S/I/A. Menggantikan tabel 31 kolom yang sulit dibaca di
+ * layar portrait kecil.
+ */
+function StudentCards({
+  matrix, columns, effectiveDays, className, monthName, year, onStudentClick,
+}: {
+  matrix: StudentMatrix[]; columns: DayColumn[]; effectiveDays: number;
+  className: string; monthName: string; year: number;
+  onStudentClick?: (student: { id: string; name: string; nis: string; className: string }) => void;
+}) {
+  const pctKelas = classPct(matrix, effectiveDays);
+  return (
+    <div className="md:hidden space-y-2">
+      {/* Identitas blok + % kelas (setara header ScreenMatrix) */}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-lg border bg-slate-50 px-3 py-2">
+        <div>
+          <p className="text-sm font-semibold leading-tight text-slate-800">Daftar Hadir — {className}</p>
+          <p className="text-xs leading-tight text-slate-500">
+            {monthName} {year} • {matrix.length} siswa • Hari efektif {effectiveDays} hari
+          </p>
+        </div>
+        <span className={`text-sm font-bold ${pctKelas !== null && pctKelas < 75 ? "text-red-600" : "text-green-700"}`}>
+          {pctKelas === null ? "–" : `${pctKelas}%`}
+        </span>
+      </div>
+
+      {matrix.map((s) => {
+        const pct = studentPct(s, effectiveDays);
+        const warn = isBelowThreshold(s, effectiveDays);
+        return (
+          <div key={s.studentId} className="rounded-lg border bg-white p-3 shadow-sm">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p
+                  className="truncate text-sm font-semibold leading-tight text-slate-800"
+                  style={{ cursor: onStudentClick ? "pointer" : "default" }}
+                  onClick={() => onStudentClick?.({ id: s.studentId, name: s.studentName, nis: s.nis, className: s.className || className })}
+                >
+                  {s.studentName}
+                </p>
+                <p className="text-[11px] leading-tight text-slate-500">{s.nis || s.nisn || ""}</p>
+              </div>
+              <span
+                className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold ${
+                  warn ? "bg-red-50 text-red-600 ring-1 ring-red-200" : "bg-green-50 text-green-700 ring-1 ring-green-200"
+                }`}
+              >
+                {pct === null ? "–" : `${pct}%`}
+              </span>
+            </div>
+
+            {/* Chip tanggal: hari libur diblok merah, status H/S/I/A berwarna */}
+            <div className="mt-2 grid grid-cols-8 gap-1 sm:grid-cols-10">
+              {columns.map((c) => {
+                const status = s.dailyStatus[c.day];
+                if (!c.effective) {
+                  return (
+                    <div
+                      key={c.day}
+                      title={`Libur — ${c.reason || "hari libur/akhir pekan"}`}
+                      className="rounded border border-red-300 bg-red-100 text-center leading-tight"
+                    >
+                      <div className="text-[9px] font-medium text-red-700">{c.day}</div>
+                      <div className="text-[10px] font-bold text-red-700">✕</div>
+                    </div>
+                  );
+                }
+                const tone =
+                  status === "H" ? "border-green-300 bg-green-50 text-green-700"
+                  : status === "S" ? "border-amber-300 bg-amber-50 text-amber-700"
+                  : status === "I" ? "border-blue-300 bg-blue-50 text-blue-700"
+                  : status === "A" ? "border-red-300 bg-red-50 text-red-700"
+                  : "border-slate-200 bg-slate-50 text-slate-400";
+                return (
+                  <div key={c.day} title={`${c.day} ${monthName} — ${STATUS_LABELS_ID[status || ""] || "Belum tercatat"}`} className={`rounded border text-center leading-tight ${tone}`}>
+                    <div className="text-[9px] opacity-70">{c.day}</div>
+                    <div className="text-[10px] font-bold">{status || "–"}</div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Rekap mini */}
+            <div className="mt-2 flex items-center justify-between border-t pt-2 text-[11px]">
+              <span className="text-slate-500">Rekap</span>
+              <span className="flex gap-2.5 tabular-nums">
+                <span><b className="text-green-700">H</b> {s.totalHadir}</span>
+                <span><b className="text-amber-700">S</b> {s.totalSakit}</span>
+                <span><b className="text-blue-700">I</b> {s.totalIzin}</span>
+                <span><b className="text-red-700">A</b> {s.totalAlpha}</span>
+              </span>
+            </div>
+          </div>
+        );
+      })}
+      <p className="pt-1 text-center text-[11px] text-slate-500">
+        Ketuk nama siswa untuk detail kehadiran • {matrix.length} siswa
       </p>
     </div>
   );
@@ -1067,7 +1299,7 @@ function PrintPage({
         .print-table .status-i { color: #1d4ed8; }
         .print-table .status-a { color: #dc2626; }
         .print-table .status-none { color: #64748b; }
-        .print-table .day-off { background: #f1f5f9; color: #94a3b8; }
+        .print-table .day-off { background: #fee2e2; color: #dc2626; }
         .print-table .pct-warn { color: #dc2626; font-weight: 700; }
         .print-table tfoot td { background: #f8fafc; font-weight: 600; }
         .print-table td.col-name { text-decoration: none !important; }

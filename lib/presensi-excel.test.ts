@@ -176,10 +176,11 @@ describe("fillPresensiWorksheet", () => {
     expect(ws.getRow(1).getCell(1).value).toBe("Kelas Kelas 1A");
     expect(ws.getRow(4).getCell(2).value).toBe("Andi");
     expect(ws.getRow(4).getCell(5).value).toEqual({ formula: 'COUNTIF(C4:D4,"H")' });
-    // Baris Jumlah otomatis di bawah blok data (2 siswa → baris 6)
+    // Baris Jumlah otomatis di bawah blok data (2 siswa → baris 6);
+    // result terhitung disertakan agar bisa dirender ke HTML/PDF.
     expect(ws.getRow(6).getCell(2).value).toBe("Jumlah"); // label menimpa sisa duplikat
-    expect(ws.getRow(6).getCell(3).value).toEqual({ formula: 'COUNTIF(C4:C5,"H")' });
-    expect(ws.getRow(6).getCell(4).value).toEqual({ formula: 'COUNTIF(D4:D5,"H")' });
+    expect(ws.getRow(6).getCell(3).value).toEqual({ formula: 'COUNTIF(C4:C5,"H")', result: 1 });
+    expect(ws.getRow(6).getCell(4).value).toEqual({ formula: 'COUNTIF(D4:D5,"H")', result: 0 });
   });
 
   it("mengembalikan rowCount 0 bila template tanpa baris contoh", async () => {
@@ -237,6 +238,46 @@ describe("fillPresensiWorksheet — merge cells", () => {
     expect(ws.getCell("B10").value).not.toBe("Mengetahui,");
     expect(ws.getCell("B10").value).toBe("Dedi"); // siswa ke-4 (7+3)
     expect(ws.getCell("B13").value).toBe("Mengetahui,"); // pindah ke 10+3
+  });
+});
+
+describe("fillPresensiWorksheet — warna status, blok libur & pageSetup", () => {
+  it("H/S/I/A berwarna, kolom libur diblok merah, pageSetup ikut paperSize", async () => {
+    const { default: ExcelJS } = await import("exceljs");
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("S");
+    // Header tanggal (baris 6) + baris contoh (baris 7).
+    ws.getCell("C6").value = 1;
+    ws.getCell("D6").value = 2;
+    ws.getCell("A7").value = "{{no}}";
+    ws.getCell("B7").value = "{{nama}}";
+    ws.getCell("C7").value = "{{tgl_1}}";
+    ws.getCell("D7").value = "{{tgl_2}}";
+
+    await fillPresensiWorksheet(ws as never, {
+      rows: [rows[0]], // Andi: tgl_1=H, tgl_2=S
+      columns: [col(1), col(2, false)], // tgl 2 = libur
+      effectiveDays: 21,
+      scalars: { kelas: "1A", bulan: "Oktober", tahun: 2026, tahunAjaran: "2026/2027", hariEfektif: 21 },
+      paperSize: "A4",
+      orientation: "landscape",
+    });
+
+    const argb = (v: unknown) => JSON.stringify(v);
+    // Sel data: H hijau; kolom libur di-blok merah muda (isinya "").
+    expect(ws.getCell("C7").value).toBe("H");
+    expect(argb((ws.getCell("C7").font as any)?.color?.argb)).toContain("15803D");
+    expect(ws.getCell("D7").value).toBe("");
+    expect(argb((ws.getCell("D7").fill as any)?.fgColor?.argb)).toContain("FEE2E2");
+    // Header tanggal libur (D6=2): font merah tebal + blok merah.
+    expect(argb((ws.getCell("D6").font as any)?.color?.argb)).toContain("DC2626");
+    expect((ws.getCell("D6").font as any)?.bold).toBe(true);
+    expect(argb((ws.getCell("D6").fill as any)?.fgColor?.argb)).toContain("FEE2E2");
+    // Header tanggal efektif (C6=1) tidak disentuh.
+    expect((ws.getCell("C6").font as any)?.color).toBeUndefined();
+    // pageSetup A4=9 landscape.
+    expect((ws as any).pageSetup?.paperSize).toBe(9);
+    expect((ws as any).pageSetup?.orientation).toBe("landscape");
   });
 });
 

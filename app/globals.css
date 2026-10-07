@@ -538,8 +538,9 @@
 .attm-table tbody td.status-a { color: #dc2626; font-weight: 600; }
 .attm-table tbody td.status-none { color: #94a3b8; }
 .attm-table .day-off {
-  background: #f1f5f9 !important;
-  color: #cbd5e1;
+  /* Blok merah hari libur — konsisten dengan Excel & kartu mobile. */
+  background: #fee2e2 !important;
+  color: #dc2626;
 }
 .attm-table .pct-warn { color: #dc2626; }
 .attm-table .c-name .attm-nis {
@@ -558,7 +559,7 @@
   border-top: 1.5px solid #cbd5e1;
   border-bottom: none;
 }
-.attm-table tfoot .day-off { background: #e2e8f0 !important; }
+.attm-table tfoot .day-off { background: #fecdd3 !important; }
 /* No + NIS menempel di kiri: tampil mulai layar sedang (NIS ada isinya) */
 @media (min-width: 768px) {
   .attm-table .c-no {

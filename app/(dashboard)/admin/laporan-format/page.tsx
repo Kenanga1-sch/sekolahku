@@ -72,7 +72,18 @@ export default function LaporanFormatPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  const [form, setForm] = useState({ name: "", category: "Umum", module: "umum", kind: "xlsx" as "xlsx" | "docx" });
+  const [form, setForm] = useState({
+    name: "",
+    category: "Umum",
+    module: "umum",
+    kind: "xlsx" as "xlsx" | "docx",
+    paperSize: "A4",
+    orientation: "landscape" as "portrait" | "landscape",
+  });
+
+  // Dialog edit pengaturan (nama/kategori/ukuran kertas/orientasi).
+  const [editT, setEditT] = useState<TemplateRow | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", category: "", paperSize: "A4", orientation: "portrait" });
 
   const load = async () => {
     setLoading(true);
@@ -122,8 +133,8 @@ export default function LaporanFormatPage() {
       category: form.category.trim() || "Umum",
       module: moduleKey,
       description: `Template ${kind === "xlsx" ? "Excel" : "Word"} — unggah berkas via tombol Upload.`,
-      paperSize: "A4",
-      orientation: kind === "xlsx" ? "landscape" : "portrait",
+      paperSize: form.paperSize,
+      orientation: form.orientation,
       layoutJson: "",
       filePath: "",
       kind,
@@ -140,6 +151,49 @@ export default function LaporanFormatPage() {
       }
     } catch {
       toast.error("Gagal membuat slot template");
+    }
+  };
+
+  /** Buka dialog edit pengaturan template (ukuran kertas dipakai saat cetak PDF/Excel). */
+  const handleOpenEdit = (t: TemplateRow) => {
+    setEditT(t);
+    setEditForm({
+      name: t.name,
+      category: t.category || "Umum",
+      paperSize: t.paperSize || "A4",
+      orientation: (t.orientation as "portrait" | "landscape") || "portrait",
+    });
+  };
+
+  const handleEdit = async () => {
+    if (!editT) return;
+    if (!editForm.name.trim()) {
+      toast.error("Nama format wajib diisi");
+      return;
+    }
+    try {
+      const res: any = await goPut(`/api/reports/templates/${editT.id}`, {
+        code: editT.code,
+        name: editForm.name.trim(),
+        category: editForm.category.trim() || "Umum",
+        module: editT.module || "umum",
+        description: editT.description || "",
+        paperSize: editForm.paperSize,
+        orientation: editForm.orientation,
+        layoutJson: editT.layoutJson || "",
+        filePath: editT.filePath || "",
+        kind: editT.kind || "",
+        isDefault: editT.isDefault || false,
+      });
+      if (res?.success) {
+        toast.success("Pengaturan format diperbarui");
+        setEditT(null);
+        void load();
+      } else {
+        toast.error(res?.error || "Gagal memperbarui format");
+      }
+    } catch {
+      toast.error("Gagal memperbarui format");
     }
   };
 
@@ -375,6 +429,9 @@ export default function LaporanFormatPage() {
                           <Pencil className="h-3.5 w-3.5" /> Buka
                         </Button>
                       )}
+                      <Button variant="outline" size="sm" className="h-7 gap-1 text-[11px]" title="Pengaturan (ukuran kertas, orientasi, nama)" onClick={() => handleOpenEdit(t)}>
+                        <Pencil className="h-3.5 w-3.5" /> Edit
+                      </Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7" title="Duplikat" onClick={() => handleDuplicate(t)}>
                         <Copy className="h-3.5 w-3.5" />
                       </Button>
@@ -437,7 +494,17 @@ export default function LaporanFormatPage() {
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium">Jenis Template</label>
-              <Select value={form.kind} onValueChange={(v) => setForm((f) => ({ ...f, kind: v as "xlsx" | "docx" }))}>
+              <Select
+                value={form.kind}
+                onValueChange={(v) =>
+                  setForm((f) => ({
+                    ...f,
+                    kind: v as "xlsx" | "docx",
+                    // Orientasi default mengikuti jenis: Excel landscape, Word portrait.
+                    orientation: v === "xlsx" ? "landscape" : "portrait",
+                  }))
+                }
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -450,6 +517,31 @@ export default function LaporanFormatPage() {
                 Excel untuk rekap tabel (duplikasi baris + rumus hidup); Word untuk dokumen naratif (variabel + loop).
               </p>
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium">Ukuran Kertas</label>
+                <Select value={form.paperSize} onValueChange={(v) => setForm((f) => ({ ...f, paperSize: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="A4">A4 (210×297)</SelectItem>
+                    <SelectItem value="F4">F4 / Folio (215×330)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium">Orientasi</label>
+                <Select value={form.orientation} onValueChange={(v) => setForm((f) => ({ ...f, orientation: v as "portrait" | "landscape" }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="portrait">Potret</SelectItem>
+                    <SelectItem value="landscape">Landscape</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Ukuran kertas dipakai saat cetak PDF (dialog browser) &amp; pengaturan cetak Excel.
+            </p>
             <div>
               <label className="mb-1 block text-xs font-medium">Peruntukan Modul</label>
               <Select value={form.module} onValueChange={(v) => setForm((f) => ({ ...f, module: v }))}>
@@ -476,6 +568,54 @@ export default function LaporanFormatPage() {
             <Button onClick={handleCreate}>
               Buat Slot
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog edit pengaturan: nama, kategori, ukuran kertas, orientasi */}
+      <Dialog open={!!editT} onOpenChange={(o) => !o && setEditT(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Format Laporan</DialogTitle>
+            <DialogDescription>
+              {editT?.code} — ukuran kertas dipakai saat cetak PDF &amp; Excel.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium">Nama Format</label>
+              <Input value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium">Kategori</label>
+              <Input value={editForm.category} onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium">Ukuran Kertas</label>
+                <Select value={editForm.paperSize} onValueChange={(v) => setEditForm((f) => ({ ...f, paperSize: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="A4">A4 (210×297)</SelectItem>
+                    <SelectItem value="F4">F4 / Folio (215×330)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium">Orientasi</label>
+                <Select value={editForm.orientation} onValueChange={(v) => setEditForm((f) => ({ ...f, orientation: v as "portrait" | "landscape" }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="portrait">Potret</SelectItem>
+                    <SelectItem value="landscape">Landscape</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setEditT(null)}>Batal</Button>
+            <Button onClick={handleEdit}>Simpan</Button>
           </div>
         </DialogContent>
       </Dialog>

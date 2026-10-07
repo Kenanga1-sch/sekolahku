@@ -69,10 +69,14 @@ func (r *AcademicRepository) GetClasses() ([]models.AcademicClass, error) {
 
 func (r *AcademicRepository) getClassesByYear(academicYear string) ([]models.AcademicClass, error) {
 	// ORDER BY harus qualified: setelah JOIN users, kolom "name" menjadi ambigu.
+	// NIP wali kelas diambil dari employee_details (untuk tanda tangan laporan).
 	query := `SELECT k.id, k.name, k.grade, k.academic_year, k.teacher_name, k.capacity, k.is_active,
-	                 k.wali_user_id, u.name
+	                 k.wali_user_id, u.name, e.nip
 	          FROM student_classes k
 	          LEFT JOIN users u ON u.id = k.wali_user_id
+	          LEFT JOIN (SELECT user_id, MAX(nip) AS nip FROM employee_details
+	                     WHERE user_id IS NOT NULL GROUP BY user_id) e
+	                 ON e.user_id = k.wali_user_id
 	          WHERE k.academic_year = ? ORDER BY k.grade ASC, k.name ASC`
 	rows, err := r.DB.Query(query, academicYear)
 	if err != nil {
@@ -83,8 +87,8 @@ func (r *AcademicRepository) getClassesByYear(academicYear string) ([]models.Aca
 	classes := []models.AcademicClass{}
 	for rows.Next() {
 		var c models.AcademicClass
-		var teacherName, waliUserID, waliUserName sql.NullString
-		err := rows.Scan(&c.ID, &c.Name, &c.Grade, &c.AcademicYear, &teacherName, &c.Capacity, &c.IsActive, &waliUserID, &waliUserName)
+		var teacherName, waliUserID, waliUserName, waliNip sql.NullString
+		err := rows.Scan(&c.ID, &c.Name, &c.Grade, &c.AcademicYear, &teacherName, &c.Capacity, &c.IsActive, &waliUserID, &waliUserName, &waliNip)
 		if err != nil {
 			return nil, err
 		}
@@ -98,6 +102,10 @@ func (r *AcademicRepository) getClassesByYear(academicYear string) ([]models.Aca
 		if waliUserName.Valid {
 			s := waliUserName.String
 			c.WaliUserName = &s
+		}
+		if waliNip.Valid && waliNip.String != "" {
+			s := waliNip.String
+			c.WaliNip = &s
 		}
 		classes = append(classes, c)
 	}

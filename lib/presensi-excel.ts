@@ -56,7 +56,29 @@ export interface PresensiExcelInput {
   columns: DayColumn[];
   scalars: PresensiExcelScalars;
   effectiveDays: number;
+  /** Ukuran kertas template (A4/F4/LEGAL) → worksheet.pageSetup Excel. */
+  paperSize?: string;
+  orientation?: string;
 }
+
+/** Warna font status kehadiran (palet sama dengan tampilan layar). */
+export const STATUS_FONT_ARGB: Record<string, string> = {
+  H: "FF15803D", // hijau
+  S: "FFB45309", // kuning/amber
+  I: "FF1D4ED8", // biru
+  A: "FFDC2626", // merah
+};
+
+/** Blok merah muda untuk kolom hari libur (fill) + font merah angka tanggalnya. */
+export const HOLIDAY_FILL_ARGB = "FFFEE2E2";
+export const HOLIDAY_FONT_ARGB = "FFDC2626";
+
+/** Pemetaan ukuran kertas → kode ECMA-376 untuk worksheet.pageSetup.paperSize. */
+export const PAPER_SIZE_CODES: Record<string, number> = {
+  A4: 9,
+  F4: 14, // Folio 215,9×330,2 mm — padanan F4
+  LEGAL: 5,
+};
 
 /** Variabel skalar yang dikenali → nilai dari input. */
 export function scalarMap(input: PresensiExcelInput): Record<string, string> {
@@ -151,10 +173,10 @@ export async function fillPresensiWorksheet(
   ws: {
     rowCount: number;
     getRow(n: number): {
-      getCell(c: number): { value: unknown; formula?: string };
-      eachCell(o: { includeEmpty?: boolean }, cb: (cell: { value: unknown }, col: number) => void): void;
+      getCell(c: number): { value: unknown; formula?: string; font?: unknown; fill?: unknown };
+      eachCell(o: { includeEmpty?: boolean }, cb: (cell: { value: unknown; font?: unknown; fill?: unknown }, col: number) => void): void;
     };
-    eachRow(cb: (row: { getCell(c: number): { value: unknown } }, n: number) => void): void;
+    eachRow(cb: (row: { getCell(c: number): { value: unknown; font?: unknown; fill?: unknown } }, n: number) => void): void;
     duplicateRow(n: number, count: number, insert: boolean): void;
   },
   input: PresensiExcelInput
@@ -247,7 +269,7 @@ export async function fillPresensiWorksheet(
 
   // Kolom tanggal (berisi {{tgl_N}}) → alamat kolom untuk baris Jumlah.
   // Rekaman kolom efektif saja; hari libur dibiarkan kosong.
-  const dateCols: { col: number; letter: string; effective: boolean }[] = [];
+  const dateCols: { col: number; letter: string; day: number; effective: boolean }[] = [];
   for (const [c, v] of tplSnapshot) {
     if (typeof v === "string") {
       const m = /\{\{tgl_(\d+)\}\}/.exec(v);
@@ -256,10 +278,30 @@ export async function fillPresensiWorksheet(
         dateCols.push({
           col: c,
           letter: colLetter(c),
+          day,
           effective: input.columns.some((dc) => dc.day === day && dc.effective),
         });
       }
     }
+  }
+  const dayByCol = new Map(dateCols.map((d) => [d.col, d.day]));
+  const holidayCols = new Set(dateCols.filter((d) => !d.effective).map((d) => d.col));
+  const solidFill = (argb: string) => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
+
+  // Blok merah hari libur pada baris header tanggal (angka 1..31 di atas
+  // baris contoh): font merah tebal + fill merah muda.
+  if (holidayCols.size > 0) {
+    ws.eachRow((row, n) => {
+      if (n >= tplRowNum) return;
+      for (const col of holidayCols) {
+        const cell = row.getCell(col);
+        const v = cell.value;
+        if (typeof v === "number" && v === dayByCol.get(col)) {
+          cell.font = { ...(cell.font || {}), color: { argb: HOLIDAY_FONT_ARGB }, bold: true };
+          cell.fill = solidFill(HOLIDAY_FILL_ARGB);
+        }
+      }
+    });
   }
 
   input.rows.forEach((r, i) => {
@@ -277,6 +319,16 @@ export async function fillPresensiWorksheet(
         const before = cell.value;
         cell.value = substitute(before, vals);
         for (const v of unknownVariables([before])) unknown.add(v);
+      }
+      // Blok merah muda pada kolom hari libur (sel data).
+      if (holidayCols.has(c)) {
+        cell.fill = solidFill(HOLIDAY_FILL_ARGB);
+      }
+      // Warna status kehadiran: H hijau, S kuning, I biru, A merah.
+      const day = dayByCol.get(c);
+      if (day !== undefined) {
+        const argb = STATUS_FONT_ARGB[String(vals[`tgl_${day}`] ?? "")];
+        if (argb) cell.font = { ...(cell.font || {}), color: { argb } };
       }
     }
   });
@@ -303,8 +355,12 @@ export async function fillPresensiWorksheet(
     jumlahRow.getCell(nameCol).value = "Jumlah";
     for (const dc of dateCols) {
       if (!dc.effective) continue;
+      // result diisi agar cell punya nilai saat dirender ke HTML/PDF;
+      // Excel tetap menghitung ulang formula saat file dibuka.
+      const hadirCount = input.rows.filter((r) => r.dailyStatus[dc.day] === "H").length;
       jumlahRow.getCell(dc.col).value = {
         formula: `COUNTIF(${dc.letter}${firstData}:${dc.letter}${lastData},"H")`,
+        result: hadirCount,
       } as never;
     }
     // Total H/S/I/A: kolom yang memuat {{total_h}} dst pada baris contoh.
@@ -316,14 +372,36 @@ export async function fillPresensiWorksheet(
         }
       }
     }
+    const totalPick: Record<string, (r: MatrixRow) => number> = {
+      total_h: (r) => r.totalHadir,
+      total_s: (r) => r.totalSakit,
+      total_i: (r) => r.totalIzin,
+      total_a: (r) => r.totalAlpha,
+    };
     for (const key of Object.keys(totalVars)) {
       const L = totalVars[key];
+      const sum = input.rows.reduce((n, r) => n + totalPick[key](r), 0);
       jumlahRow.getCell(colNumber(L)).value = {
         formula: `SUM(${L}${firstData}:${L}${lastData})`,
+        result: sum,
       } as never;
     }
   } catch {
     // Template tanpa ruang baris Jumlah — lewati tanpa menggagalkan unduhan.
+  }
+
+  // 6. Terapkan ukuran kertas/orientasi template ke pageSetup Excel
+  //    (A4=9, F4→Folio=14, LEGAL=5) agar hasil cetak dari Excel ikut sesuai.
+  if (input.paperSize) {
+    const paperCode = PAPER_SIZE_CODES[input.paperSize.trim().toUpperCase()];
+    if (paperCode !== undefined) {
+      const wsPS = ws as { pageSetup?: Record<string, unknown> };
+      wsPS.pageSetup = {
+        ...(wsPS.pageSetup || {}),
+        paperSize: paperCode,
+        orientation: (input.orientation || "portrait").toLowerCase() === "landscape" ? "landscape" : "portrait",
+      };
+    }
   }
 
   return { rowCount: input.rows.length, unknown: [...unknown].sort() };
@@ -372,7 +450,8 @@ export function excelFilename(className: string, month: number, year: number): s
 export async function resolvePresensiTemplateUrl(
   fetchFn: typeof fetch = fetch,
   apiBase = ""
-): Promise<{ url: string; fromDefault: boolean }> {
+): Promise<{ url: string; fromDefault: boolean; paperSize?: string; orientation?: string }> {
+  let meta: { paperSize?: string; orientation?: string } = {};
   try {
     const res = await fetchFn(`${apiBase}/api/reports/templates/default/presensi`, {
       credentials: "include",
@@ -380,26 +459,27 @@ export async function resolvePresensiTemplateUrl(
     if (res.ok) {
       const json = (await res.json().catch(() => null)) as {
         success?: boolean;
-        data?: { filePath?: string };
+        data?: { filePath?: string; paperSize?: string; orientation?: string };
       } | null;
       const fp = json?.data?.filePath?.trim();
       if (json?.success && fp) {
+        meta = { paperSize: json.data?.paperSize, orientation: json.data?.orientation };
         const normalized = resolveUploadUrl(fp) ?? (fp.startsWith("/") ? fp : `/${fp}`);
         // Endpoint privat /api/files/* hanya mendaftarkan GET — HEAD → 405
         // sehingga probe dianggap gagal dan diam-diam jatuh ke template lama.
         // Untuk path privat: langsung pakai (bila file hilang, fetch ekspor
         // gagal → pemanggil fallback ke CSV, tetap aman).
         if (normalized.startsWith("/api/files/")) {
-          return { url: normalized, fromDefault: true };
+          return { url: normalized, fromDefault: true, ...meta };
         }
         const check = await fetchFn(normalized, { method: "HEAD", credentials: "include" }).catch(() => null);
-        if (!check || check.ok) return { url: normalized, fromDefault: true };
+        if (!check || check.ok) return { url: normalized, fromDefault: true, ...meta };
       }
     }
   } catch {
     // Abaikan: lanjut ke bawaan.
   }
-  return { url: PRESENSI_TEMPLATE_PATH, fromDefault: false };
+  return { url: PRESENSI_TEMPLATE_PATH, fromDefault: false, ...meta };
 }
 
 /** Ringkasan untuk toast sukses: jumlah baris + variabel tak dikenal (bila ada). */

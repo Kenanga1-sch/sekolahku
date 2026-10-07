@@ -25,6 +25,8 @@ type AcademicClass struct {
 	// Presensi & Tabungan (guru hanya melihat kelasnya sendiri).
 	WaliUserID   *string `json:"waliUserId"`
 	WaliUserName *string `json:"waliUserName"`
+	// NIP wali kelas dari employee_details (untuk tanda tangan laporan).
+	WaliNip *string `json:"waliNip,omitempty"`
 }
 
 type Subject struct {
