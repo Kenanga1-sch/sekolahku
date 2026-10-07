@@ -4,6 +4,7 @@ import {
   cellStyleCss,
   cellText,
   escapeHtml,
+  extractPrintImages,
   joinPageSections,
   pageCss,
   worksheetToHtml,
@@ -90,6 +91,44 @@ describe("worksheetToHtml", () => {
     // Sel di dalam merge (bukan anchor) tidak dirender ganda.
     expect(html).not.toContain("C3");
   }, 30000); // import exceljs lambat di mesin CI — jangan kena timeout 5s
+});
+
+describe("extractPrintImages & render gambar", () => {
+  it("konversi buffer/base64 jadi data URI + posisi absolute", () => {
+    // Mock ws.getImages seperti exceljs (anchor 0-based).
+    const mockWs = {
+      getImages: () => [
+        { imageId: 0, range: { tl: { nativeRow: 0, nativeCol: 1, nativeColOff: 0, nativeRowOff: 0 }, br: { nativeRow: 0, nativeCol: 3, nativeColOff: 30, nativeRowOff: 40 } } },
+        { imageId: 1, range: { tl: { nativeRow: 6, nativeCol: 0, nativeColOff: 0, nativeRowOff: 0 }, br: { nativeRow: 8, nativeCol: 2, nativeColOff: 0, nativeRowOff: 0 } } },
+      ],
+    };
+    const getImage = (id: number) =>
+      id === 0
+        ? { extension: "png", base64: "QUJD" } // langsung base64
+        : { extension: "png", buffer: new Uint8Array([1, 2, 3, 4]) }; // via buffer
+
+    const images = extractPrintImages(mockWs, getImage);
+    expect(images).toHaveLength(2);
+    expect(images[0].src).toContain("data:image/png;base64,QUJD");
+    expect(images[1].src).toContain("data:image/png;base64,");
+    expect(images[0].tl).toEqual({ row: 0, col: 1, colOff: 0, rowOff: 0 });
+
+    // worksheetToHtml tanpa gambar → tabel polos; dengan gambar → holder absolute.
+    const wblessWs = {
+      rowCount: 1, columnCount: 2,
+      eachRow(_a: unknown, b?: unknown) {
+        const cb = (typeof _a === "function" ? _a : b) as (r: unknown, n: number) => void;
+        cb({ getCell: () => ({ value: "x" }) }, 1);
+      },
+      getRow: () => ({ getCell: () => ({ value: "" }) }),
+    };
+    const plain = worksheetToHtml(wblessWs as never);
+    expect(plain).not.toContain("position:absolute");
+    const withImg = worksheetToHtml(wblessWs as never, images);
+    expect(withImg).toContain("position:absolute");
+    expect(withImg).toContain("data:image/png;base64,QUJD");
+    expect(withImg).toContain("position:relative");
+  });
 });
 
 describe("joinPageSections", () => {

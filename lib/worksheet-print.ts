@@ -177,6 +177,75 @@ interface MergeRange {
   right: number;
 }
 
+/** Gambar (logo kop dll) dari worksheet untuk dirender absolute di HTML. */
+export interface PrintImage {
+  src: string;
+  tl: { row: number; col: number; colOff: number; rowOff: number };
+  br: { row: number; col: number; colOff: number; rowOff: number };
+}
+
+/**
+ * Ekstrak gambar worksheet (ws.getImages + wb.getImage) jadi data URI.
+ * Buffer exceljs di-browser dikonversi manual ke base64 (btoa).
+ */
+export function extractPrintImages(
+  ws: unknown,
+  getImage: (id: number) => { extension?: string; base64?: string; buffer?: Uint8Array | ArrayBuffer } | undefined | null
+): PrintImage[] {
+  const wsg = ws as {
+    getImages?: () => { imageId: string | number; range?: { tl?: Record<string, number>; br?: Record<string, number> } }[];
+  };
+  if (typeof wsg.getImages !== "function") return [];
+  const toDataUri = (meta: { extension?: string; base64?: string; buffer?: Uint8Array | ArrayBuffer }): string | null => {
+    const mime = `image/${meta.extension || "png"}`;
+    if (meta.base64) return `data:${mime};base64,${meta.base64}`;
+    if (meta.buffer && (meta.buffer as ArrayBuffer).byteLength) {
+      const bytes = meta.buffer instanceof Uint8Array ? meta.buffer : new Uint8Array(meta.buffer);
+      let bin = "";
+      for (let i = 0; i < bytes.length; i += 0x8000) {
+        bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+      }
+      try {
+        return `data:${mime};base64,${btoa(bin)}`;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  };
+  const out: PrintImage[] = [];
+  let list: ReturnType<NonNullable<typeof wsg.getImages>> = [];
+  try {
+    list = wsg.getImages();
+  } catch {
+    return [];
+  }
+  for (const im of list) {
+    const meta = getImage(Number(im.imageId));
+    if (!meta) continue;
+    const src = toDataUri(meta);
+    const tl = im.range?.tl;
+    const br = im.range?.br;
+    if (!src || !tl || !br) continue;
+    out.push({
+      src,
+      tl: {
+        row: tl.nativeRow ?? tl.row ?? 0,
+        col: tl.nativeCol ?? tl.col ?? 0,
+        colOff: tl.nativeColOff ?? 0,
+        rowOff: tl.nativeRowOff ?? 0,
+      },
+      br: {
+        row: br.nativeRow ?? br.row ?? 0,
+        col: br.nativeCol ?? br.col ?? 0,
+        colOff: br.nativeColOff ?? 0,
+        rowOff: br.nativeRowOff ?? 0,
+      },
+    });
+  }
+  return out;
+}
+
 function parseMerges(refs: readonly string[]): MergeRange[] {
   const out: MergeRange[] = [];
   for (const ref of refs) {
@@ -200,8 +269,10 @@ function parseMerges(refs: readonly string[]): MergeRange[] {
 /**
  * Render worksheet exceljs → string HTML `<table>` (inline style).
  * Merge → colspan/rowspan; sel di dalam merge (bukan anchor) dilewati.
+ * Gambar (images, 0-based anchor) dirender absolute di atas tabel —
+ * dipakai untuk logo kop template resmi.
  */
-export function worksheetToHtml(ws: ExcelSheetLike): string {
+export function worksheetToHtml(ws: ExcelSheetLike, images: PrintImage[] = []): string {
   const merges = parseMerges(ws.model?.merges ?? []);
   const mergeAt = new Map<string, MergeRange>();
   const inside = new Set<string>();
@@ -217,11 +288,19 @@ export function worksheetToHtml(ws: ExcelSheetLike): string {
   const colCount = Math.min(ws.columnCount || 64, 64);
 
   // Lebar kolom: exceljs width (satuan karakter) → px.
+  const colWidths: number[] = [];
   const widths: string[] = [];
   for (let c = 1; c <= colCount; c++) {
     const w = ws.getColumn?.(c)?.width;
-    widths.push(`<col style="width:${Math.round((w ?? 8.43) * 7 + 5)}px">`);
+    const px = Math.round((w ?? 8.43) * 7 + 5);
+    colWidths.push(px);
+    widths.push(`<col style="width:${px}px">`);
   }
+  // Tinggi baris (points → px); default Excel 15pt = 20px.
+  const rowHeightPx = (rowNumber: number): number => {
+    const h = ws.getRow(rowNumber)?.height;
+    return h ? Math.round(h * (96 / 72)) : 20;
+  };
 
   const rows: string[] = [];
   // exceljs: eachRow(options, iteratee) — baris kosong tetap dirender
@@ -247,11 +326,35 @@ export function worksheetToHtml(ws: ExcelSheetLike): string {
     rows.push(`<tr${height}>${cells.join("")}</tr>`);
   });
 
-  return (
+  const table =
     `<table class="ws"><colgroup>${widths.join("")}</colgroup><tbody>` +
     rows.join("") +
-    `</tbody></table>`
-  );
+    `</tbody></table>`;
+
+  if (images.length === 0) return table;
+
+  // Posisi gambar: akumulasi lebar kolom + tinggi baris (anchor 0-based).
+  const imgHtml = images
+    .map((img) => {
+      let left = 0;
+      for (let c = 0; c < img.tl.col; c++) left += colWidths[c] ?? 74;
+      left += img.tl.colOff;
+      let top = 0;
+      for (let r = 0; r < img.tl.row; r++) top += rowHeightPx(r + 1);
+      top += img.tl.rowOff;
+      const w = Math.max(
+        8,
+        (img.br.col - img.tl.col) * (colWidths[img.tl.col] ?? 74) + (img.br.colOff - img.tl.colOff)
+      );
+      const h = Math.max(
+        8,
+        (img.br.row - img.tl.row) * rowHeightPx(img.tl.row + 1) + (img.br.rowOff - img.tl.rowOff)
+      );
+      return `<img src="${img.src}" alt="" style="position:absolute;left:${left}px;top:${top}px;width:${w}px;height:${h}px">`;
+    })
+    .join("");
+
+  return `<div style="position:relative;display:inline-block;max-width:100%">${imgHtml}${table}</div>`;
 }
 
 /**

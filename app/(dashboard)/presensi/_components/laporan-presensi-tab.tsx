@@ -532,7 +532,11 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
           orientation: opts.orientation,
         });
         if (rowCount === 0) throw new Error("template-tanpa-baris-contoh");
-        sections.push(printLib.worksheetToHtml(ws as never));
+        // Logo/gambar kop template → data URI untuk render cetak.
+        const images = printLib.extractPrintImages(ws, (id: number) =>
+          (wb as unknown as { getImage?: (i: number) => never }).getImage?.(id)
+        );
+        sections.push(printLib.worksheetToHtml(ws as never, images));
       }
 
       printLib.openPrintWindow(

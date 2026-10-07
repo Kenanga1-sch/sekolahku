@@ -173,10 +173,10 @@ export async function fillPresensiWorksheet(
   ws: {
     rowCount: number;
     getRow(n: number): {
-      getCell(c: number): { value: unknown; formula?: string; font?: unknown; fill?: unknown };
-      eachCell(o: { includeEmpty?: boolean }, cb: (cell: { value: unknown; font?: unknown; fill?: unknown }, col: number) => void): void;
+      getCell(c: number): { value: unknown; formula?: string; font?: unknown; fill?: unknown; style?: unknown };
+      eachCell(o: { includeEmpty?: boolean }, cb: (cell: { value: unknown; font?: unknown; fill?: unknown; style?: unknown }, col: number) => void): void;
     };
-    eachRow(cb: (row: { getCell(c: number): { value: unknown; font?: unknown; fill?: unknown } }, n: number) => void): void;
+    eachRow(cb: (row: { getCell(c: number): { value: unknown; font?: unknown; fill?: unknown; style?: unknown } }, n: number) => void): void;
     duplicateRow(n: number, count: number, insert: boolean): void;
   },
   input: PresensiExcelInput
@@ -288,6 +288,23 @@ export async function fillPresensiWorksheet(
   const holidayCols = new Set(dateCols.filter((d) => !d.effective).map((d) => d.col));
   const solidFill = (argb: string) => ({ type: "pattern", pattern: "solid", fgColor: { argb } });
 
+  // Copy-on-write style: pada template dengan row-level style (customFormat),
+  // exceljs MENSHARE satu object style untuk semua sel dalam satu baris —
+  // menulis cell.font/fill langsung menular ke seluruh baris (terbukti via
+  // probe: D13.style === I13.style). Karena itu selalu assign style BARU
+  // (spread) agar warna hanya mengenai sel yang dituju.
+  const patchCellStyle = (
+    cell: { style?: unknown; font?: unknown },
+    patch: { font?: Record<string, unknown>; fill?: Record<string, unknown> }
+  ) => {
+    const next: Record<string, unknown> = { ...((cell.style || {}) as Record<string, unknown>) };
+    if (patch.font) {
+      next.font = { ...((cell.font || next.font || {}) as Record<string, unknown>), ...patch.font };
+    }
+    if (patch.fill) next.fill = patch.fill;
+    cell.style = next;
+  };
+
   // Blok merah hari libur pada baris header tanggal (angka 1..31 di atas
   // baris contoh): font merah tebal + fill merah muda.
   if (holidayCols.size > 0) {
@@ -297,8 +314,10 @@ export async function fillPresensiWorksheet(
         const cell = row.getCell(col);
         const v = cell.value;
         if (typeof v === "number" && v === dayByCol.get(col)) {
-          cell.font = { ...(cell.font || {}), color: { argb: HOLIDAY_FONT_ARGB }, bold: true };
-          cell.fill = solidFill(HOLIDAY_FILL_ARGB);
+          patchCellStyle(cell, {
+            font: { color: { argb: HOLIDAY_FONT_ARGB }, bold: true },
+            fill: solidFill(HOLIDAY_FILL_ARGB),
+          });
         }
       }
     });
@@ -320,16 +339,18 @@ export async function fillPresensiWorksheet(
         cell.value = substitute(before, vals);
         for (const v of unknownVariables([before])) unknown.add(v);
       }
-      // Blok merah muda pada kolom hari libur (sel data).
+      // Patch style sekali per sel: blok merah libur + warna status
+      // (H hijau, S kuning, I biru, A merah) — copy-on-write, tanpa menular.
+      const patch: { font?: Record<string, unknown>; fill?: Record<string, unknown> } = {};
       if (holidayCols.has(c)) {
-        cell.fill = solidFill(HOLIDAY_FILL_ARGB);
+        patch.fill = solidFill(HOLIDAY_FILL_ARGB);
       }
-      // Warna status kehadiran: H hijau, S kuning, I biru, A merah.
       const day = dayByCol.get(c);
       if (day !== undefined) {
         const argb = STATUS_FONT_ARGB[String(vals[`tgl_${day}`] ?? "")];
-        if (argb) cell.font = { ...(cell.font || {}), color: { argb } };
+        if (argb) patch.font = { color: { argb } };
       }
+      if (patch.fill || patch.font) patchCellStyle(cell, patch);
     }
   });
 
@@ -349,10 +370,21 @@ export async function fillPresensiWorksheet(
     for (const [c, v] of tplSnapshot) {
       if (typeof v === "string" && v.includes("{{nama}}")) nameCol = c;
     }
+    // Label: pertahankan "Jumlah" bawaan template bila ada — penting karena
+    // template bisa meletakkannya di ANCHOR merge (mis. A14:C14) sehingga
+    // menimpa sel lain (atau mengosongkan anchor) membuat label hilang
+    // saat dibuka di Excel (hanya nilai anchor yang tampil).
+    let labelPlaced = false;
     for (let c = 1; c <= 64; c++) {
-      if (c !== nameCol) jumlahRow.getCell(c).value = null;
+      if (c === nameCol) continue;
+      const cur = jumlahRow.getCell(c).value;
+      if (typeof cur === "string" && cur.trim().toLowerCase() === "jumlah") {
+        labelPlaced = true;
+        continue;
+      }
+      jumlahRow.getCell(c).value = null;
     }
-    jumlahRow.getCell(nameCol).value = "Jumlah";
+    if (!labelPlaced) jumlahRow.getCell(nameCol).value = "Jumlah";
     for (const dc of dateCols) {
       if (!dc.effective) continue;
       // result diisi agar cell punya nilai saat dirender ke HTML/PDF;

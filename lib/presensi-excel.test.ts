@@ -281,6 +281,78 @@ describe("fillPresensiWorksheet — warna status, blok libur & pageSetup", () =>
   }, 30000); // import exceljs lambat di mesin CI — jangan kena timeout 5s
 });
 
+describe("fillPresensiWorksheet — baris Jumlah bawaan template", () => {
+  it("mempertahankan label 'Jumlah' di anchor merge (A14:C14), bukan ditimpa", async () => {
+    const { default: ExcelJS } = await import("exceljs");
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("Sheet1");
+    // Header + baris contoh (13) + baris Jumlah statis (14, label di anchor A)
+    // + signature (16) — struktur seperti template "Daftar hadir murid".
+    ws.getCell("A14").value = "Jumlah";
+    ws.mergeCells("A14:C14");
+    ws.getCell("A16").value = "Mengetahui,";
+    ws.mergeCells("B16:C16");
+    ws.getCell("A13").value = "{{no}}";
+    ws.getCell("B13").value = "{{nis}}";
+    ws.getCell("C13").value = "{{nama}}";
+    ws.getCell("D13").value = "{{tgl_1}}";
+
+    const res = await fillPresensiWorksheet(ws as never, {
+      rows: [rows[0], { ...rows[0], studentId: "s2" }, { ...rows[0], studentId: "s3" }],
+      columns: [col(1)],
+      effectiveDays: 21,
+      scalars: { kelas: "1A", bulan: "Oktober", tahun: 2026, tahunAjaran: "2026/2027", hariEfektif: 21 },
+    });
+    expect(res.rowCount).toBe(3); // delta 2 → jumlah asli 14+2=16, signature 16+2=18
+
+    // Label tetap di anchor merge — kalau ditimpa null, Excel menampilkan
+    // anchor (kosong) dan label "Jumlah" hilang.
+    expect(ws.getCell("A16").value).toBe("Jumlah");
+    const merges = (ws.model as { merges?: string[] }).merges ?? [];
+    expect(merges).toContain("A16:C16"); // merge jumlah ikut tergeser
+    expect(merges).not.toContain("A14:C14");
+    expect(merges).toContain("B18:C18"); // signature tergeser
+    expect(merges).not.toContain("B16:C16");
+    // Formula jumlah di kolom tanggal tetap tertulis.
+    const v = ws.getCell("D16").value as { formula?: string; result?: number };
+    expect(v?.formula).toContain("COUNTIF");
+    expect(v?.result).toBe(3); // ketiga baris menyalin rows[0] (tgl_1 = H)
+  }, 30000);
+});
+
+describe("fillPresensiWorksheet — copy-on-write style (anti menular)", () => {
+  it("warna status tidak bocor ke sel lain satu baris (row-level style dishare)", async () => {
+    const { default: ExcelJS } = await import("exceljs");
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("S");
+    ws.getCell("A5").value = "{{no}}";
+    ws.getCell("B5").value = "{{nama}}";
+    ws.getCell("C5").value = "{{tgl_1}}";
+    // Simulasikan row-level style exceljs: satu object dishare banyak sel
+    // (terbukti pada template nyata: D13.style === I13.style).
+    const shared = { font: { name: "Arial Narrow", size: 10, color: { argb: "FF333333" } } };
+    ws.getCell("A5").style = shared;
+    ws.getCell("B5").style = shared;
+    ws.getCell("C5").style = shared;
+    expect(ws.getCell("A5").style).toBe(ws.getCell("C5").style); // ter-share
+
+    await fillPresensiWorksheet(ws as never, {
+      rows: [rows[0]], // tgl_1 = H → C5 harus hijau
+      columns: [col(1)],
+      effectiveDays: 21,
+      scalars: { kelas: "1A", bulan: "Oktober", tahun: 2026, tahunAjaran: "2026/2027", hariEfektif: 21 },
+    });
+
+    const c5 = ws.getCell("C5");
+    expect((c5.font as { color?: { argb?: string } })?.color?.argb).toContain("15803D"); // hijau
+    // Sel lain TIDAK tertular: masih memakai style bersama berwarna asli.
+    const a5 = ws.getCell("A5");
+    expect(a5.style).toBe(shared);
+    expect((a5.font as { color?: { argb?: string } })?.color?.argb).toBe("FF333333");
+    expect(c5.style).not.toBe(shared); // copy-on-write memutus share
+  }, 30000);
+});
+
 describe("unknownVariables", () => {
   it("melaporkan variabel salah ketik", () => {
     expect(unknownVariables(["{{kelas}}", "{{kellas}}", "{{tgl_32}}"])).toEqual(["kellas", "tgl_32"]);
