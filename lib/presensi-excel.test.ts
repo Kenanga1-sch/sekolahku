@@ -238,7 +238,7 @@ describe("fillPresensiWorksheet — merge cells", () => {
     expect(ws.getCell("B10").value).not.toBe("Mengetahui,");
     expect(ws.getCell("B10").value).toBe("Dedi"); // siswa ke-4 (7+3)
     expect(ws.getCell("B13").value).toBe("Mengetahui,"); // pindah ke 10+3
-  });
+  }, 30000); // import exceljs lambat di mesin CI — jangan kena timeout 5s
 });
 
 describe("fillPresensiWorksheet — warna status, blok libur & pageSetup", () => {
@@ -278,7 +278,7 @@ describe("fillPresensiWorksheet — warna status, blok libur & pageSetup", () =>
     // pageSetup A4=9 landscape.
     expect((ws as any).pageSetup?.paperSize).toBe(9);
     expect((ws as any).pageSetup?.orientation).toBe("landscape");
-  });
+  }, 30000); // import exceljs lambat di mesin CI — jangan kena timeout 5s
 });
 
 describe("unknownVariables", () => {

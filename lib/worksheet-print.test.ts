@@ -89,7 +89,7 @@ describe("worksheetToHtml", () => {
     expect(html).toContain("<td  style="); // sel formula tanpa span
     // Sel di dalam merge (bukan anchor) tidak dirender ganda.
     expect(html).not.toContain("C3");
-  });
+  }, 30000); // import exceljs lambat di mesin CI — jangan kena timeout 5s
 });
 
 describe("joinPageSections", () => {
