@@ -1071,7 +1071,7 @@ func (r *StudentRepository) GetStudentsByIDs(ids []string) ([]models.Student, er
 }
 
 func (r *StudentRepository) GetClasses() ([]models.StudentClassItem, error) {
-	rows, err := r.DB.Query("SELECT DISTINCT class_name FROM students WHERE class_name IS NOT NULL AND class_name != '' ORDER BY class_name ASC")
+	rows, err := r.DB.Query("SELECT DISTINCT class_name FROM students WHERE class_name IS NOT NULL AND class_name != '' AND status != 'deleted' ORDER BY class_name ASC")
 	if err != nil {
 		return nil, err
 	}

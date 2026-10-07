@@ -212,3 +212,29 @@ func TestBackfillStudentQRCodes(t *testing.T) {
 		t.Fatalf("second run should fill 0, got %d (err=%v)", filled, err)
 	}
 }
+
+func TestStudentRepositoryGetClassesIgnoresDeleted(t *testing.T) {
+	db := setupStudentTestDB(t)
+	defer db.Close()
+	repo := NewStudentRepository(db)
+
+	_, err := db.Exec(`
+		INSERT INTO students (id, full_name, class_name, status, is_active) VALUES
+			('student-active', 'Siswa Aktif', '1A', 'active', 1),
+			('student-deleted', 'Siswa Dihapus', '6A', 'deleted', 0);
+	`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	classes, err := repo.GetClasses()
+	if err != nil {
+		t.Fatalf("GetClasses returned error: %v", err)
+	}
+	if len(classes) != 1 {
+		t.Fatalf("expected only active student class, got %#v", classes)
+	}
+	if classes[0].Name != "1A" {
+		t.Fatalf("expected 1A, got %q", classes[0].Name)
+	}
+}
