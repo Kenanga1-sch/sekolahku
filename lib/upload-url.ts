@@ -6,7 +6,8 @@
  * di halaman publik (foto guru, galeri, sampul buku).
  *
  * Folder PRIVAT (spmb, alumni, arsip, eoffice, chat, tugas, profiles,
- * inventory, bank-soal) hanya bisa diakses lewat endpoint terautentikasi
+ * inventory, bank-soal, templates — termasuk uploads/templates berkas
+ * template laporan) hanya bisa diakses lewat endpoint terautentikasi
  * /api/files/* yang memeriksa JWT + role per folder. Meneruskan path privat
  * ke /uploads/* akan menghasilkan 404.
  */
@@ -23,6 +24,10 @@ const PUBLIC_UPLOAD_FOLDERS = new Set([
 /**
  * Ubah path tersimpan (format "/uploads/<folder>/..." atau "<folder>/...")
  * menjadi URL yang bisa diakses sesuai klasifikasi foldernya.
+ *
+ * Pengecualian: path template lama "templates/..." (public statis,
+ * mis. bawaan public/templates) BUKAN path upload — diteruskan apa adanya
+ * sebagai URL publik agar template lama tetap bisa diunduh.
  */
 export function resolveUploadUrl(storedPath?: string | null): string | undefined {
   if (!storedPath) return undefined;
@@ -32,8 +37,14 @@ export function resolveUploadUrl(storedPath?: string | null): string | undefined
     return storedPath;
   }
 
+  const noLead = storedPath.replace(/^\/+/, "");
+  // Path template lama (public statis): teruskan sebagai URL publik.
+  if (noLead === "templates" || noLead.startsWith("templates/")) {
+    return `/${noLead}`;
+  }
+
   // Normalisasi: hilangkan leading "/" dan prefix "uploads/".
-  let rel = storedPath.replace(/^\/+/, "");
+  let rel = noLead;
   if (rel.startsWith("uploads/")) rel = rel.slice("uploads/".length);
 
   // Klasifikasi folder tingkat atas.

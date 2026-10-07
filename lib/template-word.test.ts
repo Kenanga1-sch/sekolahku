@@ -51,7 +51,17 @@ describe("resolveWordTemplate", () => {
       data: { filePath: "templates/sk-v1.docx", kind: "docx", code: "RPT_SK", name: "SK" },
     });
     const res = await resolveWordTemplate("kepegawaian", f);
+    // Path lama templates/... = publik (tanpa /api/files).
     expect(res).toEqual({ url: "/templates/sk-v1.docx", code: "RPT_SK", name: "SK" });
+  });
+
+  it("mengarahkan unggahan uploads/templates via endpoint terautentikasi", async () => {
+    const f = okFetch({
+      success: true,
+      data: { filePath: "uploads/templates/rpt-1.docx", kind: "docx", code: "RPT_X", name: "X" },
+    });
+    const res = await resolveWordTemplate("arsip", f);
+    expect(res.url).toBe("/api/files/uploads/templates/rpt-1.docx");
   });
 
   it("menerima filePath docx tanpa kind (kompatibel lama)", async () => {

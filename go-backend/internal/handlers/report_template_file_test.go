@@ -254,7 +254,8 @@ func TestTemplateUploadValidation(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 	after, _ := repo.GetByID(tpl.ID)
-	if !strings.HasPrefix(after.FilePath, "templates/") || !strings.HasSuffix(after.FilePath, ".xlsx") {
+	// Unggahan baru wajib ke volume writable uploads/templates.
+	if !strings.HasPrefix(after.FilePath, "uploads/templates/") || !strings.HasSuffix(after.FilePath, ".xlsx") {
 		t.Fatalf("filePath tidak diperbarui: %q", after.FilePath)
 	}
 	if after.Kind != "xlsx" {
@@ -262,6 +263,61 @@ func TestTemplateUploadValidation(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "public", after.FilePath)); err != nil {
 		t.Fatalf("berkas tidak tersimpan: %v", err)
+	}
+}
+
+// TestTemplateLegacyPathReadable memastikan file_path lama "templates/..."
+// (public statis) tetap bisa dibaca via DownloadFile.
+func TestTemplateLegacyPathReadable(t *testing.T) {
+	db := openTemplateTestDB(t)
+	defer db.Close()
+	repo := repository.NewReportTemplateRepository(db)
+	h := NewReportTemplateHandler(repo)
+
+	tpl, err := repo.Create(&models.CreateReportTemplateRequest{Code: "RPT_OLD", Name: "Old", Module: "presensi"})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	dir := t.TempDir()
+	old, _ := os.Getwd()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	defer func() { _ = os.Chdir(old) }()
+
+	legacyRel := "templates/lama.xlsx"
+	legacyAbs := filepath.Join(dir, "public", legacyRel)
+	if err := os.MkdirAll(filepath.Dir(legacyAbs), 0755); err != nil {
+		t.Fatalf("mkdir legacy: %v", err)
+	}
+	if err := os.WriteFile(legacyAbs, miniXLSX(t, "{{no}}", "{{nama}}", "{{tgl_1}}"), 0644); err != nil {
+		t.Fatalf("write legacy: %v", err)
+	}
+	if _, err := repo.UpdateFilePath(tpl.ID, legacyRel); err != nil {
+		t.Fatalf("update path: %v", err)
+	}
+
+	abs, err := resolveTemplateFile(legacyRel)
+	if err != nil {
+		t.Fatalf("resolve legacy: %v", err)
+	}
+	// resolve mengembalikan path relatif thd cwd (sudah chdir ke dir).
+	if abs != filepath.Join("public", legacyRel) {
+		t.Fatalf("resolve legacy = %q, want %q", abs, filepath.Join("public", legacyRel))
+	}
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+	ctx.SetParamNames("id")
+	ctx.SetParamValues(itoa(tpl.ID))
+	if err := h.DownloadFile(ctx); err != nil {
+		t.Fatalf("download legacy: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 }
 
@@ -315,8 +371,8 @@ func TestTemplateUploadDOCX(t *testing.T) {
 	if after.Kind != "docx" {
 		t.Fatalf("kind harus docx, got %q", after.Kind)
 	}
-	if !strings.HasSuffix(after.FilePath, ".docx") {
-		t.Fatalf("filePath harus .docx: %q", after.FilePath)
+	if !strings.HasPrefix(after.FilePath, "uploads/templates/") || !strings.HasSuffix(after.FilePath, ".docx") {
+		t.Fatalf("filePath harus uploads/templates/*.docx: %q", after.FilePath)
 	}
 
 	// Kind manual yang tak dikenal dinormalisasi ke "" (grid lama).

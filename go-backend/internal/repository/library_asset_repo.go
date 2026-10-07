@@ -102,38 +102,66 @@ func (r *LibraryRepository) GetAssetByCode(code string) (*models.BookDetail, err
 	return &b, nil
 }
 
-// LookupISBN looks up book info via ISBN (cached or external API)
+// LookupISBN looks up book info via ISBN (cached or external API).
+// Dedup longgar: 1 ISBN boleh dipakai N judul (katalog) berbeda. Bila ISBN
+// cocok ke >1 katalog, respons utama tetap katalog pertama (kompatibilitas)
+// tetapi Candidates berisi semua katalog agar frontend bisa menampilkan
+// picker — buku kedua tidak lagi nyangkut diam-diam ke katalog pertama.
 func (r *LibraryRepository) LookupISBN(isbn string) (*models.ISBNLookupResponse, error) {
 	isbn = normalizeISBN(isbn)
 	if isbn == "" {
 		return nil, nil
 	}
 
-	var cachedID, title, author, pub, cat, desc, cover string
-	var yr int64
-	err := r.DB.QueryRow(`
+	type localHit struct {
+		id, title, author, pub, cat, desc, cover string
+		yr                                      int64
+	}
+	var hits []localHit
+	rows, err := r.DB.Query(`
 		SELECT id, title, author, COALESCE(publisher,''), COALESCE(year,0), COALESCE(category,''), COALESCE(description,''), COALESCE(cover,'')
-		FROM library_catalog WHERE isbn = ? LIMIT 1
-	`, isbn).Scan(&cachedID, &title, &author, &pub, &yr, &cat, &desc, &cover)
+		FROM library_catalog WHERE isbn = ?
+	`, isbn)
 	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var h localHit
+			if err := rows.Scan(&h.id, &h.title, &h.author, &h.pub, &h.yr, &h.cat, &h.desc, &h.cover); err == nil {
+				hits = append(hits, h)
+			}
+		}
+	}
+
+	if len(hits) > 0 {
+		first := hits[0]
 		var exemplars int
-		_ = r.DB.QueryRow("SELECT COUNT(*) FROM library_assets WHERE catalog_id = ?", cachedID).Scan(&exemplars)
+		_ = r.DB.QueryRow("SELECT COUNT(*) FROM library_assets WHERE catalog_id = ?", first.id).Scan(&exemplars)
 
 		res := &models.ISBNLookupResponse{
-			ID:             cachedID,
-			Title:          title,
-			Author:         author,
-			Publisher:      pub,
-			Year:           yr,
+			ID:             first.id,
+			Title:          first.title,
+			Author:         first.author,
+			Publisher:      first.pub,
+			Year:           first.yr,
 			ISBN:           isbn,
-			Category:       cat,
-			DDCCategory:    cat,
-			Description:    desc,
-			Cover:          cover,
-			CoverURL:       cover,
+			Category:       first.cat,
+			DDCCategory:    first.cat,
+			Description:    first.desc,
+			Cover:          first.cover,
+			CoverURL:       first.cover,
 			LocalFound:     true,
 			TotalExemplars: exemplars,
 			Sources:        []string{"Katalog Lokal"},
+		}
+		if len(hits) > 1 {
+			for _, h := range hits {
+				var n int
+				_ = r.DB.QueryRow("SELECT COUNT(*) FROM library_assets WHERE catalog_id = ?", h.id).Scan(&n)
+				res.Candidates = append(res.Candidates, models.ISBNCandidate{
+					ID: h.id, Title: h.title, Author: h.author, TotalExemplars: n,
+				})
+			}
+			res.Sources = append(res.Sources, "Multi-judul")
 		}
 
 		// Also try to query online in background or quick sync to enrich missing fields (cover, subjects, description)
@@ -282,7 +310,12 @@ func mergeSearchResults(sources ...[]*isbnLookupResult) []models.ISBNLookupRespo
 	return merged
 }
 
-// BindAsset registers a new asset from QR scan
+// BindAsset registers a new asset from QR scan.
+// Dedup longgar: kunci reuse adalah (isbn_ternormalisasi, judul_ternormalisasi).
+// ISBN sama + judul beda → katalog BARU (ISBN daur-ulang/salah-cetak memang
+// terjadi). Judul koreksian user tidak pernah dibuang diam-diam lagi:
+// bila katalog lama cocok ISBN tetapi judul berbeda, dibuat katalog baru;
+// bila cocok penuh, field kosong lama dilengkapi seperti sebelumnya.
 func (r *LibraryRepository) BindAsset(qrCode, location string, catalog models.CatalogInput) error {
 	qrCode = strings.TrimSpace(qrCode)
 	title := strings.TrimSpace(catalog.Title)
@@ -312,12 +345,43 @@ func (r *LibraryRepository) BindAsset(qrCode, location string, catalog models.Ca
 
 	now := UnixMilli()
 	catalogID := ""
+	normTitle := normalizeTitle(title)
 	if isbn != "" {
 		normalizedInputISBN := normalizeISBN(isbn)
 		if normalizedInputISBN != "" {
-			_ = tx.QueryRow("SELECT id FROM library_catalog WHERE isbn = ? OR isbn = ? LIMIT 1", isbn, normalizedInputISBN).Scan(&catalogID)
+			// Kunci longgar: ISBN cocok DAN judul cocok (dinormalisasi).
+			_ = tx.QueryRow(`
+				SELECT id FROM library_catalog
+				WHERE (isbn = ? OR isbn = ?)
+				  AND LOWER(TRIM(title)) = LOWER(TRIM(?))
+				LIMIT 1
+			`, isbn, normalizedInputISBN, title).Scan(&catalogID)
+			if catalogID == "" && normTitle != "" {
+				// ISBN dinormalisasi di kedua sisi + judul dinormalisasi
+				// (abaikan tanda baca/kapital) untuk varian penulisan.
+				rows, qerr := tx.Query(`SELECT id, isbn, title FROM library_catalog WHERE isbn = ? OR isbn = ?`, isbn, normalizedInputISBN)
+				if qerr == nil {
+					func() {
+						defer rows.Close()
+						for rows.Next() {
+							var id, dbISBN, dbTitle string
+							if rows.Scan(&id, &dbISBN, &dbTitle) != nil {
+								continue
+							}
+							if normalizeISBN(dbISBN) == normalizedInputISBN && normalizeTitle(dbTitle) == normTitle {
+								catalogID = id
+								return
+							}
+						}
+					}()
+				}
+			}
 		} else {
-			_ = tx.QueryRow("SELECT id FROM library_catalog WHERE isbn = ? LIMIT 1", isbn).Scan(&catalogID)
+			_ = tx.QueryRow(`
+				SELECT id FROM library_catalog
+				WHERE isbn = ? AND LOWER(TRIM(title)) = LOWER(TRIM(?))
+				LIMIT 1
+			`, isbn, title).Scan(&catalogID)
 		}
 	}
 	if catalogID == "" {

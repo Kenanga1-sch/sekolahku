@@ -117,6 +117,55 @@ func (r *LibraryRepository) GetBooks(page, perPage int, search, category, status
 	return books, total, nil
 }
 
+// findCatalogLoose mencari katalog dengan kunci longgar (isbn, judul):
+// cocok bila ISBN ternormalisasi sama DAN judul ternormalisasi sama.
+// Mengembalikan "" bila tidak ada. Dipakai CreateBook agar konsisten
+// dengan BindAsset (sebelumnya CreateBook selalu INSERT → duplikat).
+func (r *LibraryRepository) findCatalogLoose(tx *sql.Tx, isbn, title string) string {
+	catalogID := ""
+	isbn = strings.TrimSpace(isbn)
+	normTitle := normalizeTitle(title)
+	if isbn != "" {
+		normalizedInputISBN := normalizeISBN(isbn)
+		if normalizedInputISBN != "" {
+			_ = tx.QueryRow(`
+				SELECT id FROM library_catalog
+				WHERE (isbn = ? OR isbn = ?)
+				  AND LOWER(TRIM(title)) = LOWER(TRIM(?))
+				LIMIT 1
+			`, isbn, normalizedInputISBN, title).Scan(&catalogID)
+			if catalogID == "" && normTitle != "" {
+				rows, qerr := tx.Query(`SELECT id, isbn, title FROM library_catalog WHERE isbn = ? OR isbn = ?`, isbn, normalizedInputISBN)
+				if qerr == nil {
+					func() {
+						defer rows.Close()
+						for rows.Next() {
+							var id, dbISBN, dbTitle string
+							if rows.Scan(&id, &dbISBN, &dbTitle) != nil {
+								continue
+							}
+							if normalizeISBN(dbISBN) == normalizedInputISBN && normalizeTitle(dbTitle) == normTitle {
+								catalogID = id
+								return
+							}
+						}
+					}()
+				}
+			}
+		} else {
+			_ = tx.QueryRow(`
+				SELECT id FROM library_catalog
+				WHERE isbn = ? AND LOWER(TRIM(title)) = LOWER(TRIM(?))
+				LIMIT 1
+			`, isbn, title).Scan(&catalogID)
+		}
+	}
+	if catalogID == "" {
+		_ = tx.QueryRow("SELECT id FROM library_catalog WHERE LOWER(TRIM(title)) = LOWER(TRIM(?)) LIMIT 1", title).Scan(&catalogID)
+	}
+	return catalogID
+}
+
 func (r *LibraryRepository) CreateBook(input models.CreateBookRequest) error {
 	id := cuid2.Generate()
 	now := UnixMilli()
@@ -140,19 +189,22 @@ func (r *LibraryRepository) CreateBook(input models.CreateBookRequest) error {
 	}
 	defer tx.Rollback()
 
-	catalogID := cuid2.Generate()
-	var yearVal interface{}
-	if input.Year != nil {
-		yearVal = *input.Year
-	} else {
-		yearVal = 0 // NULL-compatible for SQLite
-	}
-	_, err = tx.Exec(`
-		INSERT INTO library_catalog (id, isbn, title, author, publisher, year, category, description, cover, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, catalogID, isbn, title, author, input.Publisher, yearVal, category, input.Description, input.Cover, now, now)
-	if err != nil {
-		return err
+	catalogID := r.findCatalogLoose(tx, isbn, title)
+	if catalogID == "" {
+		catalogID = cuid2.Generate()
+		var yearVal interface{}
+		if input.Year != nil {
+			yearVal = *input.Year
+		} else {
+			yearVal = 0 // NULL-compatible for SQLite
+		}
+		_, err = tx.Exec(`
+			INSERT INTO library_catalog (id, isbn, title, author, publisher, year, category, description, cover, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`, catalogID, isbn, title, author, input.Publisher, yearVal, category, input.Description, input.Cover, now, now)
+		if err != nil {
+			return err
+		}
 	}
 
 	for i := 0; i < input.Copies; i++ {
@@ -178,8 +230,81 @@ func (r *LibraryRepository) UpdateBook(id string, input models.UpdateBookRequest
 	if err != nil {
 		return err
 	}
-	
-	// Always update except year if nil or zero
+
+	// Copy-on-write (dedup longgar): bila field bibliografis berubah dan
+	// katalog dipakai >1 aset, aset ini dipisah ke katalog BARU alih-alih
+	// menimpa katalog bersama ("edit menular").
+	var refCount int
+	_ = r.DB.QueryRow("SELECT COUNT(*) FROM library_assets WHERE catalog_id = ?", catalogID).Scan(&refCount)
+
+	var curISBN, curTitle, curAuthor, curPublisher, curCategory, curDesc, curCover sql.NullString
+	var curYear sql.NullInt64
+	_ = r.DB.QueryRow(`
+		SELECT isbn, title, author, publisher, category, description, cover, year
+		FROM library_catalog WHERE id = ?
+	`, catalogID).Scan(&curISBN, &curTitle, &curAuthor, &curPublisher, &curCategory, &curDesc, &curCover, &curYear)
+
+	newISBN := strings.TrimSpace(input.ISBN)
+	newTitle := strings.TrimSpace(input.Title)
+	newAuthor := ""
+	if input.Author != nil {
+		newAuthor = strings.TrimSpace(*input.Author)
+	}
+	newPublisher := ""
+	if input.Publisher != nil {
+		newPublisher = strings.TrimSpace(*input.Publisher)
+	}
+	newCategory := strings.TrimSpace(input.Category)
+	newDesc := ""
+	if input.Description != nil {
+		newDesc = strings.TrimSpace(*input.Description)
+	}
+	newCover := ""
+	if input.Cover != nil {
+		newCover = strings.TrimSpace(*input.Cover)
+	}
+	biblioChanged := (newISBN != "" && newISBN != curISBN.String) ||
+		(newTitle != "" && normalizeTitle(newTitle) != normalizeTitle(curTitle.String)) ||
+		(newAuthor != "" && newAuthor != strings.TrimSpace(curAuthor.String))
+
+	if biblioChanged && refCount > 1 {
+		tx, err := r.DB.Begin()
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback()
+		newCatalogID := cuid2.Generate()
+		yearVal := int64(0)
+		if input.Year != nil && *input.Year > 0 {
+			yearVal = int64(*input.Year)
+		} else if curYear.Valid {
+			yearVal = curYear.Int64
+		}
+		_, err = tx.Exec(`
+			INSERT INTO library_catalog (id, isbn, title, author, publisher, year, category, description, cover, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`, newCatalogID,
+			firstNonEmpty(newISBN, curISBN.String),
+			firstNonEmpty(newTitle, curTitle.String),
+			firstNonEmpty(newAuthor, curAuthor.String),
+			firstNonEmpty(newPublisher, curPublisher.String),
+			yearVal,
+			firstNonEmpty(newCategory, curCategory.String),
+			firstNonEmpty(newDesc, curDesc.String),
+			firstNonEmpty(newCover, curCover.String),
+			now, now)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec("UPDATE library_assets SET catalog_id = ?, location = ?, updated_at = ? WHERE id = ?",
+			newCatalogID, input.Location, now, id); err != nil {
+			return err
+		}
+		return tx.Commit()
+	}
+
+	// Jalur biasa: katalog milik sendiri (refCount<=1) atau hanya lokasi
+	// yang berubah → update langsung seperti sebelumnya.
 	_, err = r.DB.Exec(`
 		UPDATE library_catalog SET isbn=?, title=?, author=?, publisher=?, 
 		category=?, description=?, cover=?, updated_at=?
@@ -188,7 +313,7 @@ func (r *LibraryRepository) UpdateBook(id string, input models.UpdateBookRequest
 	if err != nil {
 		return err
 	}
-	
+
 	// Update year separately only if provided (non-nil and > 0)
 	if input.Year != nil && *input.Year > 0 {
 		_, err = r.DB.Exec(`UPDATE library_catalog SET year=? WHERE id=?`, *input.Year, catalogID)
@@ -196,7 +321,7 @@ func (r *LibraryRepository) UpdateBook(id string, input models.UpdateBookRequest
 			return err
 		}
 	}
-	
+
 	_, err = r.DB.Exec("UPDATE library_assets SET location=?, updated_at=? WHERE id=?",
 		input.Location, now, id)
 	return err

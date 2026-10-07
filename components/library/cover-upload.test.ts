@@ -20,6 +20,24 @@ vi.mock("@/lib/utils", async (importOriginal) => {
 const goPostMock = vi.mocked(goPost);
 const pngFile = () => new File(["png"], "cover.png", { type: "image/png" });
 
+// readImageSize memakai `new Image()` yang tak pernah load di jsdom →
+// stub agar onload langsung terpanggil (potrait → needsRotation false,
+// jadi rotateImageFile/canvas tak tersentuh).
+beforeEach(() => {
+  URL.createObjectURL = vi.fn(() => "blob:fake");
+  URL.revokeObjectURL = vi.fn();
+  class FakeImage {
+    naturalWidth = 600;
+    naturalHeight = 800;
+    onload: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    set src(_v: string) {
+      setTimeout(() => this.onload?.(), 0);
+    }
+  }
+  vi.stubGlobal("Image", FakeImage);
+});
+
 describe("uploadCoverFile", () => {
   beforeEach(() => {
     goPostMock.mockReset();

@@ -61,7 +61,10 @@ export async function resolveWordTemplate(
   if (!json?.success || !fp || !isDocx) {
     throw new Error("Template default modul ini bukan Word (.docx) — periksa Admin → Format Laporan.");
   }
-  const url = fp.startsWith("/") ? fp : `/${fp}`;
+  // Unggahan baru (uploads/templates/...) = folder privat → endpoint
+  // terautentikasi; path lama (templates/...) tetap URL publik.
+  const { resolveUploadUrl } = await import("./upload-url");
+  const url = resolveUploadUrl(fp) ?? (fp.startsWith("/") ? fp : `/${fp}`);
   return { url, code: json.data?.code || "", name: json.data?.name || "" };
 }
 
@@ -134,7 +137,7 @@ export interface DownloadWordOptions {
 export async function downloadWordTemplate(opts: DownloadWordOptions): Promise<{ unknown: string[] }> {
   const { module, data, filename, apiBase = "" } = opts;
   const { url } = await resolveWordTemplate(module, fetch, apiBase);
-  const res = await fetch(url);
+  const res = await fetch(url, { credentials: "include" });
   if (!res.ok) throw new Error("Berkas template tidak dapat diunduh dari server.");
   const buf = await res.arrayBuffer();
   const [blob, variables] = await Promise.all([fillWordTemplate(buf, data), listWordVariables(buf)]);

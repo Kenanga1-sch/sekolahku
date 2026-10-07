@@ -334,7 +334,13 @@ func (h *ReportTemplateHandler) Delete(c echo.Context) error {
 // Batas berkas template yang diunggah admin (.xlsx rekap, .docx naratif).
 const (
 	templateFileMaxBytes = int64(5 << 20) // 5 MB
-	templateFileDir      = "templates"
+	// Direktori simpan BARU (writable di prod): di dalam volume uploads.
+	// Rel yang tersimpan berbentuk "uploads/templates/<slug>-<ts>.<ext>"
+	// dan diakses klien via endpoint terautentikasi /api/files/... .
+	// Path lama "templates/..." tetap bisa DIBACA (kompatibilitas).
+	templateFileDir = "uploads/templates"
+	// Prefix lama (public/templates, diserve statis) — hanya untuk baca.
+	legacyTemplateDir = "templates"
 )
 
 // templateAllowedExt ekstensi template file yang diterima, dipetakan ke kind.
@@ -343,31 +349,43 @@ var templateAllowedExt = map[string]string{
 	".docx": "docx",
 }
 
-// templateFileRoots kandidat direktori penyimpanan berkas template,
-// mengikuti pola resolvePublicUploadsDir (dist hot-swap diutamakan).
+// templateFileRoots kandidat direktori penyimpanan berkas template.
+// Primer: public/uploads/templates (volume writable di prod).
+// Legacy: uploads/templates (data lama) — lalu public/templates (bawaan).
 func templateFileRoots() []string {
 	return []string{
 		filepath.Join("public", templateFileDir),
-		filepath.Join("..", "public", templateFileDir),
+		templateFileDir,
+		filepath.Join("public", legacyTemplateDir),
+		filepath.Join("..", "public", legacyTemplateDir),
 	}
 }
 
 // resolveTemplateFile memastikan file_path aman (relatif, di dalam
 // direktori templates, berekstensi .xlsx/.docx) lalu mengembalikan path
-// absolut kandidat pertama yang ada (untuk baca) — sibling-nya untuk tulis.
+// disk kandidat pertama yang ada (untuk baca) — sibling-nya untuk tulis.
+// Menerima prefix baru "uploads/templates/..." maupun prefix lama
+// "templates/..." (kompatibilitas baca; tulis selalu memakai prefix baru).
 func resolveTemplateFile(rel string) (string, error) {
 	clean := filepath.Clean("/" + strings.TrimSpace(rel))
 	clean = strings.TrimPrefix(clean, "/")
 	if clean == "" || clean == "." {
 		return "", fmt.Errorf("file_path kosong")
 	}
-	if !strings.HasPrefix(clean, templateFileDir+"/") {
+	// Normalisasi: prefix lama "templates/..." dipetakan ke direktori lama
+	// (hanya untuk baca), prefix baru ke direktori baru.
+	isLegacy := strings.HasPrefix(clean, legacyTemplateDir+"/") &&
+		!strings.HasPrefix(clean, templateFileDir+"/")
+	if !strings.HasPrefix(clean, templateFileDir+"/") && !isLegacy {
 		return "", fmt.Errorf("file_path harus di dalam direktori templates/")
 	}
 	if _, ok := templateAllowedExt[strings.ToLower(filepath.Ext(clean))]; !ok {
 		return "", fmt.Errorf("hanya berkas .xlsx/.docx yang didukung")
 	}
 	base := strings.TrimPrefix(clean, templateFileDir+"/")
+	if isLegacy {
+		base = strings.TrimPrefix(clean, legacyTemplateDir+"/")
+	}
 	if base == "" || strings.Contains(base, "/") || strings.Contains(base, `\`) || strings.HasPrefix(base, ".") {
 		return "", fmt.Errorf("nama berkas tidak valid")
 	}
@@ -492,8 +510,8 @@ func readUploadFile(fh *multipart.FileHeader, maxBytes int64) ([]byte, error) {
 // UploadTemplateFile menerima berkas template (.xlsx rekap / .docx naratif)
 // dari admin, memvalidasinya (ZIP OOXML + minimal 2 variabel {{...}};
 // .xlsx presensi memakai validasi baris khusus), menyimpannya ke
-// public/templates/<slug>-<timestamp>.<ext>, lalu memperbarui file_path +
-// kind template yang dimaksud.
+// public/uploads/templates/<slug>-<timestamp>.<ext> (volume writable),
+// lalu memperbarui file_path + kind template yang dimaksud.
 func (h *ReportTemplateHandler) UploadTemplateFile(c echo.Context) error {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -575,13 +593,13 @@ func (h *ReportTemplateHandler) UploadTemplateFile(c echo.Context) error {
 	if err := os.MkdirAll(filepath.Dir(abs), 0755); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
 			"success": false,
-			"error":   "Gagal menyiapkan direktori template",
+			"error":   "Gagal menyiapkan direktori template: " + err.Error(),
 		})
 	}
 	if err := os.WriteFile(abs, data, 0644); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{
 			"success": false,
-			"error":   "Gagal menyimpan berkas template",
+			"error":   "Gagal menyimpan berkas template: " + err.Error(),
 		})
 	}
 

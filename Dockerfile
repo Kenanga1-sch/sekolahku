@@ -7,7 +7,7 @@ WORKDIR /app
 COPY sekolahku_linux /app/sekolahku
 
 RUN chmod +x /app/sekolahku && \
-    mkdir -p /app/data /app/uploads /app/public/uploads /app/dist
+    mkdir -p /app/data /app/uploads /app/public/uploads /app/public/uploads/templates /app/dist
 
 # Catatan keamanan: image sengaja tetap berjalan sebagai uid 0 (root) di dalam
 # container. Deploy memakai podman ROOTLESS: uid 0 container ter-map ke uid

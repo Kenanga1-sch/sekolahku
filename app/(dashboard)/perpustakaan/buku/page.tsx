@@ -114,7 +114,26 @@ export default function BukuPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
+        // Copy-on-write backend: bila judul/ISBN diubah dan katalog dipakai
+        // >1 eksemplar, aset ini dipisah ke katalog baru (tidak menular).
+        // Konfirmasi agar user sadar akan pemisahan tersebut.
+        if (editingItem) {
+            const titleChanged = (formData.title || "").trim() !== (editingItem.title || "").trim();
+            const isbnChanged = (formData.isbn || "").trim() !== (editingItem.isbn || "").trim();
+            if (titleChanged || isbnChanged) {
+                const sameCatalog = items.filter((it) => it.catalogId === editingItem.catalogId);
+                if (sameCatalog.length > 1) {
+                    const ok = window.confirm(
+                        `Buku ini 1 katalog dengan ${sameCatalog.length} eksemplar.\n\n` +
+                        `Mengubah judul/ISBN akan MEMISAHKAN eksemplar ini ke katalog baru ` +
+                        `(eksemplar lain tidak ikut berubah).\n\nLanjutkan?`
+                    );
+                    if (!ok) return;
+                }
+            }
+        }
+
         // Prepare payload without year field
         const data: any = {
             title: formData.title,

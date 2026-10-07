@@ -11,7 +11,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 
-import { ScanLine, Upload } from "lucide-react";
+import { RotateCw, ScanLine, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ import { goPost } from "@/lib/api-client";
 import { fetchPrinters, requestScan } from "@/lib/docstation/api";
 import { fetchScannerCaps, supportedResolutions } from "@/lib/docstation/escl-caps";
 import getCroppedImg from "@/lib/crop-image";
+import { needsRotation, nextRotation } from "@/lib/library/cover-orient";
 import { cn, compressImage } from "@/lib/utils";
 
 import {
@@ -56,12 +57,66 @@ async function lowestDpi(printerIp: string): Promise<number> {
   return supportedResolutions(caps, "flatbed", RESOLUTION_OPTIONS)[0] ?? 100;
 }
 
-/** Validasi → kompres → POST ke endpoint cover; mengembalikan URL publik. */
+/** Baca dimensi gambar dari File (browser) tanpa mengunggah. */
+function readImageSize(file: File): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Gagal membaca gambar"));
+    };
+    img.src = url;
+  });
+}
+
+/** Putar File gambar searah jarum jam (90/180/270°) via canvas. */
+export async function rotateImageFile(file: File, deg: 90 | 180 | 270): Promise<File> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error("Gagal membaca gambar"));
+      el.src = url;
+    });
+    const swap = deg === 90 || deg === 270;
+    const canvas = document.createElement("canvas");
+    canvas.width = swap ? img.naturalHeight : img.naturalWidth;
+    canvas.height = swap ? img.naturalWidth : img.naturalHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate((deg * Math.PI) / 180);
+    ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, file.type.startsWith("image/") ? file.type : "image/jpeg", 0.92)
+    );
+    if (!blob) return file;
+    return new File([blob], file.name, { type: blob.type, lastModified: Date.now() });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/** Validasi → auto-putar bila landscape → kompres → POST endpoint cover. */
 export async function uploadCoverFile(file: File, isbn?: string): Promise<string> {
   if (!file.type.startsWith("image/")) throw new Error("File harus berupa gambar");
   let uploadFile = file;
   try {
-    uploadFile = await compressImage(file, 600, 0.85);
+    const { width, height } = await readImageSize(file);
+    if (needsRotation(width, height)) {
+      uploadFile = await rotateImageFile(file, 90);
+    }
+  } catch (error) {
+    console.error("Cover orientation check failed:", error);
+  }
+  try {
+    uploadFile = await compressImage(uploadFile, 600, 0.85);
   } catch (error) {
     console.error("Cover image compression failed:", error);
   }
@@ -105,6 +160,8 @@ export function CoverField({
 }: CoverFieldProps) {
   const inputId = useId();
   const [scanOpen, setScanOpen] = useState(false);
+  const [rotateOpen, setRotateOpen] = useState(false);
+  const [rotating, setRotating] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -156,6 +213,15 @@ export function CoverField({
               <Upload className="h-4 w-4" />
               <span className="sr-only">Unggah gambar</span>
             </Label>
+            <button
+              type="button"
+              title="Putar 90° (koreksi orientasi)"
+              aria-label="Putar sampul"
+              onClick={() => setRotateOpen(true)}
+              className="rounded-full border border-white/20 bg-white/10 p-2 text-white backdrop-blur-sm hover:bg-white/20"
+            >
+              <RotateCw className="h-4 w-4" />
+            </button>
             <button
               type="button"
               title="Pindai sampul"
@@ -215,6 +281,15 @@ export function CoverField({
         isbn={isbn}
         onCoverChange={onCoverChange}
       />
+      <CoverRotateDialog
+        open={rotateOpen}
+        onOpenChange={setRotateOpen}
+        coverUrl={coverUrl}
+        isbn={isbn}
+        busy={rotating}
+        onBusyChange={setRotating}
+        onCoverChange={onCoverChange}
+      />
     </>
   );
 
@@ -229,6 +304,96 @@ export interface CoverScanDialogProps {
   onOpenChange: (open: boolean) => void;
   isbn?: string;
   onCoverChange: (url: string) => void;
+}
+
+/**
+ * Dialog koreksi orientasi: unduh sampul terpasang → putar 90° searah jarum
+ * jam per klik (pratinjau langsung) → simpan sebagai upload baru.
+ * Cadangan bila auto-putar upload salah arah (web tak bisa tahu HP miring
+ * ke kiri vs kanan) atau sampul memang desain landscape.
+ */
+export function CoverRotateDialog({
+  open,
+  onOpenChange,
+  coverUrl,
+  isbn,
+  busy,
+  onBusyChange,
+  onCoverChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  coverUrl?: string;
+  isbn?: string;
+  busy: boolean;
+  onBusyChange: (busy: boolean) => void;
+  onCoverChange: (url: string) => void;
+}) {
+  const [deg, setDeg] = useState<0 | 90 | 180 | 270>(0);
+
+  useEffect(() => {
+    if (open) setDeg(0);
+  }, [open, coverUrl]);
+
+  const handleSave = async () => {
+    if (!coverUrl || deg === 0) {
+      onOpenChange(false);
+      return;
+    }
+    onBusyChange(true);
+    try {
+      const res = await fetch(coverUrl);
+      if (!res.ok) throw new Error("Gagal mengunduh sampul");
+      const blob = await res.blob();
+      const file = new File([blob], "cover.jpg", { type: blob.type || "image/jpeg" });
+      const rotated = await rotateImageFile(file, deg as 90 | 180 | 270);
+      const url = await uploadCoverFile(rotated, isbn);
+      onCoverChange(url);
+      toast.success("Orientasi sampul dikoreksi!");
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Rotate cover error:", error);
+      toast.error(error instanceof Error ? error.message : "Gagal memutar sampul");
+    } finally {
+      onBusyChange(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Putar Sampul</DialogTitle>
+          <DialogDescription>
+            Koreksi orientasi foto yang miring. Setiap klik memutar 90° searah jarum jam.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex h-56 items-center justify-center overflow-hidden rounded-lg border bg-muted">
+            {coverUrl ? (
+              <img
+                src={coverUrl}
+                alt="Pratinjau sampul"
+                style={{ transform: `rotate(${deg}deg)`, maxWidth: deg % 180 === 0 ? "100%" : "224px" }}
+                className="max-h-56 object-contain"
+              />
+            ) : null}
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setDeg(nextRotation(deg))}>
+            <RotateCw className="mr-1.5 h-4 w-4" /> Putar 90° ({deg}° → {nextRotation(deg)}°)
+          </Button>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
+            Batal
+          </Button>
+          <Button onClick={handleSave} disabled={busy || deg === 0}>
+            {busy ? "Menyimpan…" : "Simpan Hasil Putar"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 /** Dialog dua tahap: pilih printer → pindai → sesuaikan hasil (crop) → upload. */

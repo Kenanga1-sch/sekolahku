@@ -58,6 +58,8 @@ export default function LibraryBindingPage() {
         subjects?: string[];
     } | null>(null);
     const [aiEnabled, setAiEnabled] = useState(true);
+    // Kandidat multi-judul: 1 ISBN dipakai N katalog (dedup longgar).
+    const [isbnCandidates, setIsbnCandidates] = useState<any[]>([]);
 
     // Cari Judul (search by title)
     const [searchMode, setSearchMode] = useState<'isbn' | 'title'>('isbn');
@@ -94,6 +96,7 @@ export default function LibraryBindingPage() {
     };
 
     const applySearchResult = (item: any) => {
+        setIsbnCandidates(Array.isArray(item.candidates) ? item.candidates : []);
         setCatalog({
             title: item.title || "",
             author: item.author || "",
@@ -296,7 +299,29 @@ export default function LibraryBindingPage() {
                 );
 
                 if (data.localFound) {
-                    toast.success(`Data ditemukan di koleksi lokal! (${data.totalExemplars} exemplar sudah ada)`);
+                    if (Array.isArray(data.candidates) && data.candidates.length > 1) {
+                        setIsbnCandidates(data.candidates);
+                        setCatalog({
+                            title: "",
+                            author: "",
+                            publisher: "",
+                            year: new Date().getFullYear(),
+                            isbn: isbnToLookup,
+                            coverUrl: undefined,
+                            subjects: [],
+                            ddcCategory: "UNSORTED",
+                            localFound: true,
+                            totalExemplars: data.candidates.reduce((n: number, c: any) => n + (c.totalExemplars || 0), 0),
+                            description: "",
+                        });
+                        setLocation("RAK-NEW");
+                        toast.warning(`ISBN ini dipakai ${data.candidates.length} judul berbeda — pilih judul yang benar.`, {
+                            description: "Buku tidak otomatis menumpang katalog lain lagi.",
+                            duration: 7000,
+                        });
+                    } else {
+                        toast.success(`Data ditemukan di koleksi lokal! (${data.totalExemplars} exemplar sudah ada)`);
+                    }
                 } else {
                     const sourceText = Array.isArray(data.sources) && data.sources.length > 0 ? ` (${data.sources.join(", ")})` : "";
                     toast.success(`Data buku ditemukan!${sourceText}`, {
@@ -314,15 +339,16 @@ export default function LibraryBindingPage() {
                     description: "Silakan isi Judul & Penulis manual, atau gunakan tab 'Cari Judul'.",
                     duration: 7000,
                 });
-                setCatalog(prev => ({ 
-                    ...prev, 
-                    title: "", 
-                    author: "", 
-                    publisher: "", 
+                setCatalog(prev => ({
+                    ...prev,
+                    title: "",
+                    author: "",
+                    publisher: "",
                     isbn: isbnToLookup,
                     ddcCategory: "UNSORTED",
                     description: "",
                 }));
+                setIsbnCandidates([]);
             }
         } catch (error) {
             setLookupStatus('idle');
@@ -369,6 +395,8 @@ export default function LibraryBindingPage() {
                 });
                 setLocation("RAK-NEW");
                 setStep(1);
+                setIsbnCandidates([]);
+                setLookupSources([]);
             } else {
                 toast.error(result.error || "Gagal menyimpan data.");
             }
@@ -701,10 +729,56 @@ export default function LibraryBindingPage() {
                                                 </Badge>
                                             )}
                                         </div>
-                                        {catalog.localFound && (
+                                        {catalog.localFound && isbnCandidates.length <= 1 && (
                                             <p className="text-[10px] text-green-600 font-medium">
                                                 Sudah ada {catalog.totalExemplars} copy di koleksi. Ini akan menjadi exemplar ke-{Number(catalog.totalExemplars) + 1}.
                                             </p>
+                                        )}
+                                        {isbnCandidates.length > 1 && (
+                                            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-2">
+                                                <p className="text-xs font-semibold text-amber-800">
+                                                    ISBN ini dipakai {isbnCandidates.length} judul berbeda. Pilih judul yang benar:
+                                                </p>
+                                                <div className="space-y-1.5">
+                                                    {isbnCandidates.map((c: any) => (
+                                                        <button
+                                                            key={c.id}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setCatalog(prev => ({
+                                                                    ...prev,
+                                                                    title: c.title,
+                                                                    author: c.author || prev.author,
+                                                                    localFound: true,
+                                                                    totalExemplars: c.totalExemplars,
+                                                                }));
+                                                                toast.success(`Judul "${c.title}" dipilih.`);
+                                                            }}
+                                                            className={`w-full text-left rounded-md border px-2.5 py-1.5 text-xs transition-colors ${
+                                                                catalog.title === c.title
+                                                                    ? "border-green-500 bg-green-50 font-semibold"
+                                                                    : "border-amber-200 bg-white hover:bg-amber-100/60"
+                                                            }`}
+                                                        >
+                                                            {c.title}
+                                                            <span className="ml-1.5 text-[10px] text-muted-foreground">
+                                                                ({c.totalExemplars} eksemplar{c.author ? ` · ${c.author}` : ""})
+                                                            </span>
+                                                        </button>
+                                                    ))}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setIsbnCandidates([]);
+                                                            setCatalog(prev => ({ ...prev, title: "", localFound: false }));
+                                                            toast.info("Isi judul baru di bawah — akan tersimpan sebagai katalog terpisah.");
+                                                        }}
+                                                        className="w-full text-left rounded-md border border-dashed border-amber-300 px-2.5 py-1.5 text-xs text-amber-700 hover:bg-amber-100/60"
+                                                    >
+                                                        + Judul lain (buat katalog baru dengan ISBN ini)
+                                                    </button>
+                                                </div>
+                                            </div>
                                         )}
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">

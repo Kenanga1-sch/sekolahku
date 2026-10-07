@@ -197,7 +197,7 @@ func registerStaticRoutes(server *echo.Echo) {
 
 	publicUploadPath := resolvePublicUploadsDir()
 	legacyUploadPath := filepath.Join("uploads")
-	subDirs := []string{"announcements", "spmb", "profiles", "gallery", "alumni", "staff", "library", "arsip", "inventory"}
+	subDirs := []string{"announcements", "spmb", "profiles", "gallery", "alumni", "staff", "library", "arsip", "inventory", "templates"}
 	for _, d := range subDirs {
 		_ = os.MkdirAll(filepath.Join(publicUploadPath, d), 0755)
 		_ = os.MkdirAll(filepath.Join(legacyUploadPath, d), 0755)

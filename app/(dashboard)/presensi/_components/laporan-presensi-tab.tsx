@@ -342,7 +342,8 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
         fetch,
         process.env.NEXT_PUBLIC_API_URL || ""
       );
-      const res = await fetch(templateUrl);
+      // Template unggahan admin = folder privat → butuh cookie sesi.
+      const res = await fetch(templateUrl, { credentials: "include" });
       if (!res.ok) throw new Error("template-tidak-ditemukan");
       const buf = await res.arrayBuffer();
       const wb = new ExcelJS.Workbook();

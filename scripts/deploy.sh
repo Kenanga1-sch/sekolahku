@@ -42,7 +42,7 @@ echo "║  Deploy SEKOLAHKU [$MODE] port $PORT        ║"
 echo "╚══════════════════════════════════════════╝"
 
 # ── Pastikan struktur folder ada ──────────
-mkdir -p "$DEPLOY_DIR"/{data,uploads,public/uploads,dist,backups}
+mkdir -p "$DEPLOY_DIR"/{data,uploads,public/uploads,public/uploads/templates,dist,backups}
 
 # ── Backup sebelum deploy (safety net) ────
 # Snapshot konsisten via sqlite3 .backup bila tersedia (menyertakan WAL).

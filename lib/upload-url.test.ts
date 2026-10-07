@@ -15,6 +15,11 @@ describe("resolveUploadUrl", () => {
 
   it("mengarahkan folder privat ke endpoint terautentikasi", () => {
     expect(resolveUploadUrl("/uploads/spmb/x.pdf")).toBe("/api/files/uploads/spmb/x.pdf");
+    expect(resolveUploadUrl("uploads/templates/rpt-1.xlsx")).toBe("/api/files/uploads/templates/rpt-1.xlsx");
+  });
+
+  it("melewatkan path template lama (publik) apa adanya", () => {
+    expect(resolveUploadUrl("templates/custom-v2.xlsx")).toBe("/templates/custom-v2.xlsx");
   });
 
   it("mengembalikan undefined untuk input kosong", () => {

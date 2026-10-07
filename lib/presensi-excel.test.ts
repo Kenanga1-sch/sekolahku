@@ -221,8 +221,21 @@ describe("resolvePresensiTemplateUrl", () => {
       return { ok: true };
     }) as unknown as typeof fetch;
     const res = await resolvePresensiTemplateUrl(fakeFetch);
+    // Path lama templates/... = publik (tanpa /api/files).
     expect(res).toEqual({ url: "/templates/custom-v2.xlsx", fromDefault: true });
     expect(res.url).not.toBe(PRESENSI_TEMPLATE_PATH);
+  });
+
+  it("mengarahkan unggahan uploads/templates via endpoint terautentikasi", async () => {
+    const { resolvePresensiTemplateUrl } = await import("./presensi-excel");
+    const fakeFetch = (async (url: string) => {
+      if (url.includes("/api/reports/templates/default/presensi")) {
+        return { ok: true, json: async () => ({ success: true, data: { filePath: "uploads/templates/rpt-1.xlsx" } }) };
+      }
+      return { ok: true };
+    }) as unknown as typeof fetch;
+    const res = await resolvePresensiTemplateUrl(fakeFetch);
+    expect(res).toEqual({ url: "/api/files/uploads/templates/rpt-1.xlsx", fromDefault: true });
   });
 
   it("fallback ke bawaan bila belum ada default", async () => {

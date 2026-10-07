@@ -10,8 +10,9 @@ type ReportTemplate struct {
 	PaperSize   string `json:"paperSize" db:"paper_size"`
 	Orientation string `json:"orientation" db:"orientation"`
 	LayoutJSON  string `json:"layoutJson" db:"layout_json"`
-	// FilePath menunjuk template file-based (relatif terhadap public/dist,
-	// mis. "templates/daftar-hadir-bulanan-v1.xlsx").
+	// FilePath menunjuk template file-based. Unggahan baru memakai
+	// "uploads/templates/<slug>-<ts>.<ext>" (diakses via /api/files/...);
+	// path lama "templates/..." (public statis) tetap bisa dibaca.
 	// Kosong = template grid (layout_json).
 	FilePath string `json:"filePath" db:"file_path"`
 	// Kind jenis berkas template: "xlsx" (rekap/tabel) atau "docx"

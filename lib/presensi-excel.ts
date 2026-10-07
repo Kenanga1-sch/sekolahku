@@ -27,6 +27,7 @@
  */
 import type { DayColumn, MatrixRow } from "./presensi-report";
 import { recordedDays, studentPct } from "./presensi-report";
+import { resolveUploadUrl } from "./upload-url";
 
 export const PRESENSI_TEMPLATE_PATH = "/templates/daftar-hadir-bulanan-v1.xlsx";
 export const PRESENSI_TEMPLATE_VERSION = "v1";
@@ -327,6 +328,10 @@ export function excelFilename(className: string, month: number, year: number): s
 /**
  * URL template Excel modul presensi, berlapis (fallback):
  *   1. default modul dari /api/reports/templates/default/presensi (filePath),
+ *      dinormalisasi via resolveUploadUrl — unggahan baru di
+ *      uploads/templates/... dilewatkan endpoint terautentikasi
+ *      /api/files/... (folder privat), path lama templates/... tetap
+ *      lewat URL publik,
  *   2. bawaan PRESENSI_TEMPLATE_PATH,
  *   3. null bila keduanya tak bisa diunduh → pemanggil fallback ke CSV.
  *
@@ -348,7 +353,7 @@ export async function resolvePresensiTemplateUrl(
       } | null;
       const fp = json?.data?.filePath?.trim();
       if (json?.success && fp) {
-        const normalized = fp.startsWith("/") ? fp : `/${fp}`;
+        const normalized = resolveUploadUrl(fp) ?? (fp.startsWith("/") ? fp : `/${fp}`);
         const check = await fetchFn(normalized, { method: "HEAD", credentials: "include" }).catch(() => null);
         if (!check || check.ok) return { url: normalized, fromDefault: true };
       }

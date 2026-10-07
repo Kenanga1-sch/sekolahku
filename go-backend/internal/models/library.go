@@ -64,6 +64,18 @@ type ISBNLookupResponse struct {
 	LocalFound     bool     `json:"localFound,omitempty"`
 	TotalExemplars int      `json:"totalExemplars,omitempty"`
 	Description    string   `json:"description,omitempty"`
+	// Candidates terisi bila 1 ISBN dipakai N judul berbeda (dedup longgar):
+	// tiap kandidat = 1 katalog (id, judul, jumlah eksemplar). Frontend
+	// menampilkan picker agar buku tidak nyangkut ke katalog yang salah.
+	Candidates []ISBNCandidate `json:"candidates,omitempty"`
+}
+
+// ISBNCandidate satu katalog lokal yang memakai ISBN yang sama.
+type ISBNCandidate struct {
+	ID             string `json:"id"`
+	Title          string `json:"title"`
+	Author         string `json:"author,omitempty"`
+	TotalExemplars int    `json:"totalExemplars"`
 }
 
 // BookSearchResponse adalah hasil pencarian kandidat buku berdasarkan judul

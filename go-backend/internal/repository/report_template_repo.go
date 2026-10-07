@@ -229,7 +229,9 @@ func (r *ReportTemplateRepository) UpdateKind(id int64, kind string) (*models.Re
 	return r.GetByID(id)
 }
 
-// UpdateFilePath memperbarui penunjuk berkas template (relatif templates/).
+// UpdateFilePath memperbarui penunjuk berkas template
+// (relatif "uploads/templates/..." untuk unggahan baru;
+// "templates/..." lama tetap terbaca via resolveTemplateFile).
 func (r *ReportTemplateRepository) UpdateFilePath(id int64, rel string) (*models.ReportTemplate, error) {
 	now := time.Now().Unix()
 	if _, err := r.db.Exec(`UPDATE report_templates SET file_path = ?, updated_at = ? WHERE id = ?`, rel, now, id); err != nil {
