@@ -56,23 +56,26 @@ if ! npm run test -- --run; then
 fi
 
 # ─────────────────────────────────────────
-# 5/6  Backend: go vet + test
+# 5/6  Build frontend DULU + siapkan embed Go
 # ─────────────────────────────────────────
-echo "▶ [5/6] Backend: go vet + test"
-( cd go-backend && go vet ./... && go test ./... )
-
-# ─────────────────────────────────────────
-# 6/6  Build binary + frontend
-# ─────────────────────────────────────────
-echo "▶ [6/6] Build: frontend (next build) + backend (go build)"
-
-# Frontend: static export ke out/
+# static.go memakai `//go:embed all:dist` dan folder
+# go-backend/cmd/api/dist di-gitignore — jadi out/ hasil next build
+# (static export) wajib disalin ke sana SEBELUM go vet/test/build.
+# Tanpa ini: "pattern all:dist: no matching files found".
+echo "▶ [5/6] Build: frontend (next build) + siapkan dist embed"
 if ! npm run build; then
   echo "✗ next build GAGAL"
   exit 1
 fi
+rm -rf go-backend/cmd/api/dist
+mkdir -p go-backend/cmd/api/dist
+cp -r out/. go-backend/cmd/api/dist/
 
-# Backend: cross-compile binary produksi
+# ─────────────────────────────────────────
+# 6/6  Backend: go vet + test + build binary
+# ─────────────────────────────────────────
+echo "▶ [6/6] Backend: go vet + test + build binary"
+( cd go-backend && go vet ./... && go test ./... )
 ( cd go-backend && CGO_ENABLED=0 go build -o sekolahku_linux ./cmd/api )
 
 echo ""
