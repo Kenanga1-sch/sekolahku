@@ -71,7 +71,7 @@ var folderRoleMatrix = map[string][]string{
 	"spmb":       {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff},
 	"arsip":      {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff},
 	"eoffice":    {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff},
-	"templates":  {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff},
+	"templates":  {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff, middleware.RoleGuru},
 	"inventory":  {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff},
 	"docstation": {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff},
 	"alumni":     {middleware.RoleSuperadmin, middleware.RoleAdmin},

@@ -15,7 +15,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Download, FileText, Loader2, Printer, ChevronLeft, ChevronRight, User, Calendar, Search, RefreshCw, AlertTriangle, Eye } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ArrowLeft, Download, FileText, Loader2, Printer, ChevronLeft, ChevronRight, User, Calendar, Search, AlertTriangle, MoreHorizontal } from "lucide-react";
 import { DataTable } from "@/components/data-table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -124,11 +130,7 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [searchBulanan, setSearchBulanan] = useState("");
-  const [colMode, setColMode] = useState<"all" | "effective">("all");
-  const [dayRange, setDayRange] = useState<"full" | "first" | "second">("full");
   const [sortOpt, setSortOpt] = useState("name-asc");
-  // Pratinjau artefak kertas (.print-page) di layar — normalnya hanya untuk cetak
-  const [previewCetak, setPreviewCetak] = useState(false);
   const [effDaysApi, setEffDaysApi] = useState(0);
   const [holidays, setHolidays] = useState<HolidayInfo[]>([]);
   const printRef = useRef<HTMLDivElement>(null);
@@ -152,6 +154,17 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
     for (let y = current - 3; y <= current + 1; y++) years.push(y);
     return years;
   }, []);
+
+  // Satu Select "Oktober 2026" menggantikan Select bulan + tahun terpisah.
+  const monthYearOptions = useMemo(() => {
+    const opts: { value: string; label: string }[] = [];
+    for (const y of yearOptions) {
+      for (let m = 1; m <= 12; m++) {
+        opts.push({ value: `${y}-${m}`, label: `${MONTHS[m - 1]} ${y}` });
+      }
+    }
+    return opts;
+  }, [yearOptions]);
 
   useEffect(() => {
     goGet("/api/classes")
@@ -288,13 +301,9 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
     () => resolveEffectiveDays(effDaysApi, dayColumns),
     [effDaysApi, dayColumns]
   );
-  // Kolom yang ditampilkan: semua tanggal atau hanya hari efektif; opsional belah 1-15 / 16-akhir
-  const visibleColumns = useMemo(() => {
-    let cols = colMode === "effective" ? dayColumns.filter((c) => c.effective) : dayColumns;
-    if (dayRange === "first") cols = cols.filter((c) => c.day <= 15);
-    if (dayRange === "second") cols = cols.filter((c) => c.day > 15);
-    return cols;
-  }, [dayColumns, colMode, dayRange]);
+  // Kolom tanggal selalu sepanjang bulan (1–31); filter mode kolom/rentang
+  // dihapus dari toolbar agar tampilan lebih sederhana.
+  const visibleColumns = dayColumns;
   const visibleMatrix = useMemo(() => {
     const [key, dir] = sortOpt.split("-") as [SortKey, "asc" | "desc"];
     return sortMatrix(filterMatrix(matrix, searchBulanan), key, dir, effectiveDays);
@@ -491,16 +500,17 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
                   <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={() => shiftMonth(-1)} aria-label="Bulan sebelumnya">
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <Select value={String(selectedMonth)} onValueChange={(v) => setSelectedMonth(parseInt(v))}>
-                    <SelectTrigger className="h-8 w-[110px]"><SelectValue /></SelectTrigger>
+                  <Select
+                    value={`${selectedYear}-${selectedMonth}`}
+                    onValueChange={(v) => {
+                      const [y, m] = v.split("-").map(Number);
+                      setSelectedYear(y);
+                      setSelectedMonth(m);
+                    }}
+                  >
+                    <SelectTrigger className="h-8 w-[150px]"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {MONTHS.map((m, i) => (<SelectItem key={i} value={String(i + 1)}>{m}</SelectItem>))}
-                    </SelectContent>
-                  </Select>
-                  <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-                    <SelectTrigger className="h-8 w-[85px]"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {yearOptions.map((y) => (<SelectItem key={y} value={String(y)}>{y}</SelectItem>))}
+                      {monthYearOptions.map((o) => (<SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>))}
                     </SelectContent>
                   </Select>
                   <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={() => shiftMonth(1)} aria-label="Bulan berikutnya">
@@ -531,33 +541,9 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
                 </span>
               </div>
 
-              {/* Baris 2: mode kolom, rentang, urutan, aksi — di HP menumpuk
-                  selebar layar; aksi jadi grid 2 kolom agar tombol mudah disentuh */}
+              {/* Baris 2: urutan + aksi — di HP menumpuk selebar layar;
+                  aksi jadi grid agar tombol mudah disentuh */}
               <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center md:gap-2">
-                <div className="inline-flex w-full md:w-auto rounded-md border p-0.5 bg-muted/40">
-                  <button
-                    type="button"
-                    onClick={() => setColMode("all")}
-                    className={`flex-1 md:flex-none px-2.5 py-1.5 text-xs rounded-sm font-medium transition-colors ${colMode === "all" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                  >
-                    Semua Tanggal
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setColMode("effective")}
-                    className={`flex-1 md:flex-none px-2.5 py-1.5 text-xs rounded-sm font-medium transition-colors ${colMode === "effective" ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                  >
-                    Hari Efektif Saja
-                  </button>
-                </div>
-                <Select value={dayRange} onValueChange={(v) => setDayRange(v as "full" | "first" | "second")}>
-                  <SelectTrigger className="w-full h-8 md:w-[150px]"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="full">Sepanjang Bulan</SelectItem>
-                    <SelectItem value="first">Tanggal 1–15</SelectItem>
-                    <SelectItem value="second">Tanggal 16–akhir</SelectItem>
-                  </SelectContent>
-                </Select>
                 <Select value={sortOpt} onValueChange={setSortOpt}>
                   <SelectTrigger className="w-full h-8 md:w-[180px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -568,30 +554,26 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
                     <SelectItem value="alpha-desc">Urut: Alpha terbanyak</SelectItem>
                   </SelectContent>
                 </Select>
-                <div className="grid grid-cols-2 gap-2 md:ml-auto md:flex md:gap-2">
-                  <Button variant="outline" size="sm" onClick={fetchBulanan} disabled={loadingBulanan}>
-                    {loadingBulanan ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
-                    Muat Ulang
-                  </Button>
+                <div className="grid grid-cols-3 gap-2 md:ml-auto md:flex md:gap-2">
                   <Button size="sm" onClick={handleExportMonthlyExcel} disabled={visibleMatrix.length === 0 || exportingExcel}>
                     {exportingExcel ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
                     Excel
                   </Button>
-                  <Button variant="outline" size="sm" onClick={handleExportMonthlyCsv} disabled={visibleMatrix.length === 0}>
-                    <Download className="h-4 w-4 mr-1" />CSV
-                  </Button>
-                  <Button
-                    variant={previewCetak ? "secondary" : "outline"}
-                    size="sm"
-                    aria-pressed={previewCetak}
-                    onClick={() => setPreviewCetak((v) => !v)}
-                    disabled={matrix.length === 0}
-                  >
-                    <Eye className="h-4 w-4 mr-1" />{previewCetak ? "Sembunyikan" : "Pratinjau"}
-                  </Button>
                   <Button size="sm" onClick={handlePrint} disabled={matrix.length === 0}>
                     <Printer className="h-4 w-4 mr-1" />Cetak / PDF
                   </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" aria-label="Pilihan lain" disabled={visibleMatrix.length === 0 && matrix.length === 0}>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={handleExportMonthlyCsv} disabled={visibleMatrix.length === 0}>
+                        <Download className="h-4 w-4 mr-2" />Unduh CSV
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
 
@@ -712,7 +694,6 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
                 principalName={principalName} principalNIP={principalNIP}
                 waliKelas={getWaliKelas(classNameBulanan)}
                 holidayReasons={holidayReasons}
-                preview={previewCetak}
               />
             </>
           ) : visibleMatrix.length === 0 ? (
@@ -735,7 +716,7 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
                   monthName={monthName} year={selectedYear}
                   onStudentClick={handleStudentClick}
                 />
-                {/* Artefak kertas untuk cetak/pratinjau */}
+                {/* Artefak kertas untuk cetak */}
                 <PrintPage matrix={g.rows}
                   columns={visibleColumns} effectiveDays={effectiveDays}
                   monthName={monthName} year={selectedYear} academicYear={academicYearLabel}
@@ -745,7 +726,6 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
                   waliKelas={getWaliKelas(g.cls || "")}
                   holidayReasons={holidayReasons}
                   belowThreshold={g.rows.filter((s) => isBelowThreshold(s, effectiveDays)).length}
-                  preview={previewCetak}
                 />
               </Fragment>
             ))

@@ -196,6 +196,50 @@ describe("fillPresensiWorksheet", () => {
   });
 });
 
+describe("fillPresensiWorksheet — merge cells", () => {
+  it("menggeser merge di bawah baris contoh, header tetap", async () => {
+    const { default: ExcelJS } = await import("exceljs");
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("Daftar Hadir");
+    // Baris 1 header merge (di atas baris contoh → tak tersentuh).
+    ws.getCell("A1").value = "Daftar Hadir {{kelas}}";
+    ws.mergeCells("A1:D1");
+    // Baris 7 = baris contoh.
+    ws.getCell("A7").value = "{{no}}";
+    ws.getCell("B7").value = "{{nama}}";
+    // Signature block (merge di bawah baris contoh) — harus ikut turun.
+    ws.getCell("B10").value = "Mengetahui,";
+    ws.mergeCells("B10:C10");
+    ws.mergeCells("D11:E11");
+
+    const res = await fillPresensiWorksheet(ws as never, {
+      rows: [
+        rows[0],
+        { ...rows[0], studentId: "s2", studentName: "Budi" },
+        { ...rows[0], studentId: "s3", studentName: "Cici" },
+        { ...rows[0], studentId: "s4", studentName: "Dedi" },
+      ],
+      columns: [col(1), col(2)],
+      effectiveDays: 21,
+      scalars: { kelas: "Kelas 1A", bulan: "Oktober", tahun: 2026, tahunAjaran: "2026/2027", hariEfektif: 21 },
+    });
+    expect(res.rowCount).toBe(4); // 4 siswa → delta 3
+
+    const merges = (ws.model as { merges?: string[] }).merges ?? [];
+    expect(merges).toContain("A1:D1"); // header tetap
+    expect(merges).toContain("B13:C13"); // 10 + 3
+    expect(merges).toContain("D14:E14"); // 11 + 3
+    expect(merges).not.toContain("B10:C10"); // ref lama hilang
+    expect(merges).not.toContain("D11:E11");
+
+    // Konten signature tergeser 3 baris (data 7..10, jumlah 11): merge lama
+    // di baris 10 akan menutupi Nama siswa ke-4 bila tidak digeser.
+    expect(ws.getCell("B10").value).not.toBe("Mengetahui,");
+    expect(ws.getCell("B10").value).toBe("Dedi"); // siswa ke-4 (7+3)
+    expect(ws.getCell("B13").value).toBe("Mengetahui,"); // pindah ke 10+3
+  });
+});
+
 describe("unknownVariables", () => {
   it("melaporkan variabel salah ketik", () => {
     expect(unknownVariables(["{{kelas}}", "{{kellas}}", "{{tgl_32}}"])).toEqual(["kellas", "tgl_32"]);
@@ -236,6 +280,23 @@ describe("resolvePresensiTemplateUrl", () => {
     }) as unknown as typeof fetch;
     const res = await resolvePresensiTemplateUrl(fakeFetch);
     expect(res).toEqual({ url: "/api/files/uploads/templates/rpt-1.xlsx", fromDefault: true });
+  });
+
+  it("tanpa HEAD probe ke URL privat (endpoint hanya GET → HEAD 405)", async () => {
+    const { resolvePresensiTemplateUrl } = await import("./presensi-excel");
+    const calls: string[] = [];
+    const fakeFetch = (async (url: string, init?: RequestInit) => {
+      calls.push(`${init?.method || "GET"} ${url}`);
+      if (url.includes("/api/reports/templates/default/presensi")) {
+        return { ok: true, json: async () => ({ success: true, data: { filePath: "uploads/templates/rpt-1.xlsx" } }) };
+      }
+      // Server privat membalas 405 untuk HEAD — dulu ini memicu fallback diam-diam.
+      if (init?.method === "HEAD") return { ok: false, status: 405 };
+      return { ok: true };
+    }) as unknown as typeof fetch;
+    const res = await resolvePresensiTemplateUrl(fakeFetch);
+    expect(res).toEqual({ url: "/api/files/uploads/templates/rpt-1.xlsx", fromDefault: true });
+    expect(calls.some((c) => c.startsWith("HEAD /api/files/"))).toBe(false);
   });
 
   it("fallback ke bawaan bila belum ada default", async () => {

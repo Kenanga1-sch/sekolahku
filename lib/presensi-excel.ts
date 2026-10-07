@@ -144,6 +144,8 @@ export function shiftFormulaRows(formula: string, templateRow: number, delta: nu
  * Catatan exceljs: duplicateRow menyalin style tetapi TIDAK menggeser
  * formula (terbukti via probe) — jadi formula baris contoh digeser manual
  * lewat shiftFormulaRows agar rentangnya mengikuti baris data aktual.
+ * Sama halnya merge cells juga tidak ikut bergeser — digesir terpisah di
+ * langkah 3b agar blok signature tidak menimpa baris data siswa.
  */
 export async function fillPresensiWorksheet(
   ws: {
@@ -199,9 +201,38 @@ export async function fillPresensiWorksheet(
     tplSnapshot.set(c, cell.value);
   });
 
-  // 3. Replikasi baris contoh sejumlah siswa (style ikut tersalin).
+  // 3a. Lepaskan merge di bawah baris contoh SEBELUM replikasi.
+  //     duplicateRow menyalin sel + style TETAPI tidak menggeser merge cells
+  //     (terbukti via probe) — blok signature di bawah baris contoh (mis.
+  //     B10:C10) harus ikut turun, kalau tidak menimpa baris data siswa
+  //     ke-4 dst. (Nama + tanggal akhir + kolom rekap tersembunyi di Excel).
+  //     unMergeCells exceljs berbasis tipe cell sehingga rapuh setelah baris
+  //     digeser — karena itu dilepas dulu (3a), baru dipasang kembali
+  //     tergeser setelah replikasi (3c). Merge header (di atas/tepat baris
+  //     contoh) tak tersentuh. Method opsional: worksheet fake pada test
+  //     lama di-skip dengan aman.
+  const delta = input.rows.length - 1;
+  const wsMerge = ws as {
+    model?: { merges?: readonly string[] };
+    unMergeCells?: (range: string) => void;
+    mergeCells?: (range: string) => void;
+  };
+  const belowTemplate = delta > 0
+    ? (wsMerge.model?.merges ?? [])
+        .map((ref) => ({ ref, m: /^([A-Z]+)(\d+):([A-Z]+)(\d+)$/.exec(ref) }))
+        .filter((x): x is { ref: string; m: RegExpExecArray } =>
+          !!x.m && Number(x.m[2]) > tplRowNum)
+    : [];
+  for (const { ref } of belowTemplate) wsMerge.unMergeCells?.(ref);
+
+  // 3b. Replikasi baris contoh sejumlah siswa (style ikut tersalin).
   if (input.rows.length > 1) {
     ws.duplicateRow(tplRowNum, input.rows.length - 1, true);
+  }
+
+  // 3c. Pasang kembali merge pada posisi tergeser sejauh jumlah siswa − 1.
+  for (const { m } of belowTemplate) {
+    wsMerge.mergeCells?.(`${m[1]}${Number(m[2]) + delta}:${m[3]}${Number(m[4]) + delta}`);
   }
 
   // 4. Isi tiap baris data; formula digeser ke baris aktual.
@@ -354,6 +385,13 @@ export async function resolvePresensiTemplateUrl(
       const fp = json?.data?.filePath?.trim();
       if (json?.success && fp) {
         const normalized = resolveUploadUrl(fp) ?? (fp.startsWith("/") ? fp : `/${fp}`);
+        // Endpoint privat /api/files/* hanya mendaftarkan GET — HEAD → 405
+        // sehingga probe dianggap gagal dan diam-diam jatuh ke template lama.
+        // Untuk path privat: langsung pakai (bila file hilang, fetch ekspor
+        // gagal → pemanggil fallback ke CSV, tetap aman).
+        if (normalized.startsWith("/api/files/")) {
+          return { url: normalized, fromDefault: true };
+        }
         const check = await fetchFn(normalized, { method: "HEAD", credentials: "include" }).catch(() => null);
         if (!check || check.ok) return { url: normalized, fromDefault: true };
       }
