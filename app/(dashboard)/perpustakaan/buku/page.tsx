@@ -57,7 +57,7 @@ import {
     swapAssetQR 
 } from "@/lib/library";
 import type { LibraryItem, ItemCategory } from "@/types/library";
-import { getAllDDCCategories } from "@/lib/library/ddc-mapping";
+import { getAllDDCCategories, getShelfByDDC, type DDCCategory } from "@/lib/library/ddc-mapping";
 import { useSortableData } from "@/hooks/use-sortable-data";
 
 const CATEGORIES = getAllDDCCategories();
@@ -345,7 +345,11 @@ export default function BukuPage() {
                                     <Label htmlFor="category">Kategori</Label>
                                     <Select
                                         value={formData.category}
-                                        onValueChange={(value) => setFormData({ ...formData, category: value as ItemCategory })}
+                                        onValueChange={(value) => setFormData({
+                                            ...formData,
+                                            category: value as ItemCategory,
+                                            location: getShelfByDDC(value as DDCCategory),
+                                        })}
                                     >
                                         <SelectTrigger>
                                             <SelectValue />
@@ -367,6 +371,9 @@ export default function BukuPage() {
                                         onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                                         placeholder="A-01"
                                     />
+                                    <p className="text-xs text-muted-foreground">
+                                        Otomatis mengikuti kategori — ubah manual bila perlu.
+                                    </p>
                                 </div>
                             </div>
                             <div className="grid gap-2">
