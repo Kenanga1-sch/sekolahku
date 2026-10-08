@@ -450,11 +450,16 @@ export async function fillPresensiWorksheet(
         fitToPage: true,
         fitToWidth: 1,
         fitToHeight: 0,
-        // Margin 5mm dipaksa agar LO/Excel identik dengan jalur HTML
-        // (pageCss marginMm:5). Margin bawaan template (WPS: 19mm samping,
-        // 25.4mm atas/bawah) membuang tempat & menurunkan skala LO ~0.91.
-        // Satuan exceljs = INCH (0.2in ≈ 5mm).
-        margins: { top: 0.2, right: 0.2, bottom: 0.2, left: 0.2, header: 0.1, footer: 0.1 },
+        // Margin 10mm dipaksa agar LO/Excel identik dengan jalur HTML
+        // (pageCss/printAreaPx default 10mm). Margin bawaan template (WPS:
+        // 19mm samping, 25.4mm atas/bawah) membuang tempat. Satuan exceljs
+        // = INCH (0.4in ≈ 10mm).
+        margins: { top: 0.4, right: 0.4, bottom: 0.4, left: 0.4, header: 0.1, footer: 0.1 },
+        // Tengahkan horizontal: konversi lebar kolom LO ≈279,5mm (lebih
+        // sempit dari px exceljs) membuat konten left-aligned → kiri 7,6mm
+        // vs kanan 43mm ("mepet kiri"). Dengan ini kedua sisi ≈25,4mm sama
+        // besar di LO & Excel (fix 2026-10-08).
+        horizontalCentered: true,
       };
     }
   }

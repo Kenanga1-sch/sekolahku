@@ -1419,7 +1419,7 @@ function PrintPage({
     <div className={`print-page${preview ? " show-print-preview" : ""}`} style={{ [ "--pf" as any]: `${baseFont}px`, background: "white" }}>
       <style>{`
         @media print {
-          ${pageCss({ paperSize, orientation, marginMm: 5 })}
+          ${pageCss({ paperSize, orientation })}
           body { font-size: ${baseFont}px; }
         }
         .print-page {

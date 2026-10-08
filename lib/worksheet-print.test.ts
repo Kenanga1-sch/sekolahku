@@ -41,11 +41,11 @@ describe("pageCss", () => {
 });
 
 describe("printAreaPx", () => {
-  it("A4 landscape, margin 5mm → ~[1085, 756] px", () => {
-    expect(printAreaPx({ paperSize: "A4", orientation: "landscape" })).toEqual([1085, 756]);
+  it("A4 landscape, margin default 10mm → [1047, 718] px", () => {
+    expect(printAreaPx({ paperSize: "A4", orientation: "landscape" })).toEqual([1047, 718]);
   });
-  it("F4 landscape, margin 5mm → [1209, 775] px", () => {
-    expect(printAreaPx({ paperSize: "F4", orientation: "landscape" })).toEqual([1209, 775]);
+  it("F4 landscape, margin default 10mm → [1172, 737] px", () => {
+    expect(printAreaPx({ paperSize: "F4", orientation: "landscape" })).toEqual([1172, 737]);
   });
   it("A4 portrait → tampil lebih tinggi dari lebar", () => {
     const [w, h] = printAreaPx({ paperSize: "A4" });
@@ -239,7 +239,7 @@ describe("buildPrintDocument", () => {
     expect(doc).toContain("<!doctype html>");
     expect(doc).toContain("<title>Daftar Hadir Kelas 1A</title>");
     // @page harus F4 landscape — tanpa ini Chromium merender Letter portrait.
-    expect(doc).toContain("@page { size: 330mm 215mm; margin: 5mm; }");
+    expect(doc).toContain("@page { size: 330mm 215mm; margin: 10mm; }");
     // BASE_CSS: style tabel & page-break antar kelas.
     expect(doc).toContain("table.ws");
     expect(doc).toContain("page-break-after: always");
@@ -251,6 +251,6 @@ describe("buildPrintDocument", () => {
 
   it("default A4 portrait bila opts kosong", () => {
     const doc = buildPrintDocument("<p>x</p>");
-    expect(doc).toContain("@page { size: 210mm 297mm; margin: 5mm; }");
+    expect(doc).toContain("@page { size: 210mm 297mm; margin: 10mm; }");
   });
 });

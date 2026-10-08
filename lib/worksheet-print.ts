@@ -17,7 +17,7 @@ export interface WorksheetPrintOptions {
   /** A4 | F4 | LEGAL (default A4). */
   paperSize?: string;
   orientation?: string;
-  /** Margin kertas dalam mm (default 5). */
+  /** Margin kertas dalam mm (default 10 — seimbang & aman printer). */
   marginMm?: number;
 }
 
@@ -49,7 +49,7 @@ export function printAreaPx(opts: WorksheetPrintOptions = {}): [number, number] 
   const landscape = (opts.orientation || "portrait").toLowerCase() === "landscape";
   const w = landscape ? h0 : w0;
   const h = landscape ? w0 : h0;
-  const margin = opts.marginMm ?? 5;
+  const margin = opts.marginMm ?? 10;
   const px = (mm: number) => Math.round((mm * 96) / 25.4);
   return [px(w - 2 * margin), px(h - 2 * margin)];
 }
@@ -77,7 +77,7 @@ export function pageCss(opts: WorksheetPrintOptions = {}): string {
   const landscape = (opts.orientation || "portrait").toLowerCase() === "landscape";
   const w = landscape ? h0 : w0;
   const h = landscape ? w0 : h0;
-  const margin = opts.marginMm ?? 5;
+  const margin = opts.marginMm ?? 10;
   return `@page { size: ${w}mm ${h}mm; margin: ${margin}mm; }`;
 }
 
@@ -426,7 +426,11 @@ export function worksheetToHtml(
 
   return images.length === 0
     ? table
-    : `<div style="position:relative;display:inline-block;max-width:100%">${imgHtml}${table}</div>`;
+    // display:block (BUKAN inline-block): inline-block menambah strut baseline
+    // ≈19px sehingga box section sedikit melewati batas halaman terakhir →
+    // sisa kosong jatuh ke halaman sendiri (blank page) lalu page-break
+    // mendorong blok berikutnya satu halaman lebih jauh (insiden margin 10mm).
+    : `<div style="position:relative;display:block;max-width:100%">${imgHtml}${table}</div>`;
 }
 
 /**

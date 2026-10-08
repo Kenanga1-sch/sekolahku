@@ -276,15 +276,17 @@ describe("fillPresensiWorksheet — warna status, blok libur & pageSetup", () =>
     // Header tanggal efektif (C6=1) tidak disentuh.
     expect((ws.getCell("C6").font as any)?.color).toBeUndefined();
     // pageSetup A4=landscape + fit KOLOM (fitToHeight=0 → tinggi natural,
-    // multi-halaman seperti print Excel) + margin 5mm (0.2in) konsisten
-    // dengan jalur HTML (pageCss marginMm:5).
+    // multi-halaman seperti print Excel) + margin 10mm (0.4in) konsisten
+    // dengan jalur HTML (pageCss/printAreaPx default 10mm) + centering
+    // horizontal (fix "mepet kiri" di LibreOffice).
     expect((ws as any).pageSetup?.paperSize).toBe(9);
     expect((ws as any).pageSetup?.orientation).toBe("landscape");
     expect((ws as any).pageSetup?.fitToPage).toBe(true);
     expect((ws as any).pageSetup?.fitToWidth).toBe(1);
     expect((ws as any).pageSetup?.fitToHeight).toBe(0);
-    expect((ws as any).pageSetup?.margins?.left).toBe(0.2);
-    expect((ws as any).pageSetup?.margins?.top).toBe(0.2);
+    expect((ws as any).pageSetup?.margins?.left).toBe(0.4);
+    expect((ws as any).pageSetup?.margins?.top).toBe(0.4);
+    expect((ws as any).pageSetup?.horizontalCentered).toBe(true);
   }, 30000); // import exceljs lambat di mesin CI — jangan kena timeout 5s
 });
 
