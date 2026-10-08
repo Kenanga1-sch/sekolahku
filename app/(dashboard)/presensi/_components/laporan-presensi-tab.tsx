@@ -536,7 +536,12 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
         const images = printLib.extractPrintImages(ws, (id: number) =>
           (wb as unknown as { getImage?: (i: number) => never }).getImage?.(id)
         );
-        sections.push(printLib.worksheetToHtml(ws as never, images));
+        // Replikasi fitToPage Excel: area printable dari paperSize/margin.
+        const fitPagePx = printLib.printAreaPx({
+          paperSize: opts.paperSize,
+          orientation: opts.orientation,
+        });
+        sections.push(printLib.worksheetToHtml(ws as never, images, { fitPagePx }));
       }
 
       printLib.openPrintWindow(

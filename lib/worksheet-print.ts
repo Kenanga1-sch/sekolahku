@@ -21,12 +21,35 @@ export interface WorksheetPrintOptions {
   marginMm?: number;
 }
 
+/** Opsi render worksheet → HTML. */
+export interface WorksheetRenderOptions {
+  /** Area cetak printable [lebar, tinggi] dalam px. Bila diberikan, seluruh
+   *  sheet diskalakan muat satu halaman — mereplikasi fitToPage Excel. */
+  fitPagePx?: [number, number];
+}
+
 /** Dimensi kertas (mm) yang didukung — konsisten dengan model laporan. */
 export const PAPER_MM: Record<string, [number, number]> = {
   A4: [210, 297],
   F4: [215, 330],
   LEGAL: [216, 356],
 };
+
+/** EMU (English Metric Units) per pixel CSS @96dpi. exceljs melaporkan offset
+ *  anchor gambar (colOff/rowOff) dalam EMU: 914400 EMU = 1 inch = 96px. */
+export const EMU_PER_PX = 914400 / 96;
+
+/** Ukuran area printable (px) dari paperSize + orientasi + margin. */
+export function printAreaPx(opts: WorksheetPrintOptions = {}): [number, number] {
+  const key = (opts.paperSize || "A4").trim().toUpperCase();
+  const [w0, h0] = PAPER_MM[key] || PAPER_MM.A4;
+  const landscape = (opts.orientation || "portrait").toLowerCase() === "landscape";
+  const w = landscape ? h0 : w0;
+  const h = landscape ? w0 : h0;
+  const margin = opts.marginMm ?? 5;
+  const px = (mm: number) => Math.round((mm * 96) / 25.4);
+  return [px(w - 2 * margin), px(h - 2 * margin)];
+}
 
 /** Escape teks untuk disisipkan aman ke HTML. */
 export function escapeHtml(s: string): string {
@@ -58,7 +81,7 @@ export function pageCss(opts: WorksheetPrintOptions = {}): string {
 const BASE_CSS = `
 * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 html, body { margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; }
-table.ws { border-collapse: collapse; table-layout: fixed; width: max-content; max-width: 100%; }
+table.ws { border-collapse: collapse; table-layout: fixed; max-width: 100%; }
 table.ws td { vertical-align: middle; overflow: hidden; }
 .page-section { page-break-after: always; break-after: page; }
 .page-section:last-child { page-break-after: auto; break-after: auto; }
@@ -272,7 +295,11 @@ function parseMerges(refs: readonly string[]): MergeRange[] {
  * Gambar (images, 0-based anchor) dirender absolute di atas tabel —
  * dipakai untuk logo kop template resmi.
  */
-export function worksheetToHtml(ws: ExcelSheetLike, images: PrintImage[] = []): string {
+export function worksheetToHtml(
+  ws: ExcelSheetLike,
+  images: PrintImage[] = [],
+  renderOpts: WorksheetRenderOptions = {}
+): string {
   const merges = parseMerges(ws.model?.merges ?? []);
   const mergeAt = new Map<string, MergeRange>();
   const inside = new Set<string>();
@@ -326,35 +353,61 @@ export function worksheetToHtml(ws: ExcelSheetLike, images: PrintImage[] = []): 
     rows.push(`<tr${height}>${cells.join("")}</tr>`);
   });
 
+  // Width eksplisit = jumlah colgroup. `width: max-content` (CSS) membuat
+  // Chromium menghitung ulang lebar kolom dari konten sel; width inline ini
+  // memaksa table-layout: fixed mengikuti colgroup persis.
+  const naturalW = colWidths.reduce((a, b) => a + b, 0);
+
   const table =
-    `<table class="ws"><colgroup>${widths.join("")}</colgroup><tbody>` +
+    `<table class="ws" style="width:${naturalW}px"><colgroup>${widths.join("")}</colgroup><tbody>` +
     rows.join("") +
     `</tbody></table>`;
 
-  if (images.length === 0) return table;
-
   // Posisi gambar: akumulasi lebar kolom + tinggi baris (anchor 0-based).
+  // colOff/rowOff dari exceljs dalam EMU → konversi ke px (EMU_PER_PX).
   const imgHtml = images
     .map((img) => {
       let left = 0;
       for (let c = 0; c < img.tl.col; c++) left += colWidths[c] ?? 74;
-      left += img.tl.colOff;
+      left += img.tl.colOff / EMU_PER_PX;
       let top = 0;
       for (let r = 0; r < img.tl.row; r++) top += rowHeightPx(r + 1);
-      top += img.tl.rowOff;
-      const w = Math.max(
-        8,
-        (img.br.col - img.tl.col) * (colWidths[img.tl.col] ?? 74) + (img.br.colOff - img.tl.colOff)
-      );
-      const h = Math.max(
-        8,
-        (img.br.row - img.tl.row) * rowHeightPx(img.tl.row + 1) + (img.br.rowOff - img.tl.rowOff)
-      );
-      return `<img src="${img.src}" alt="" style="position:absolute;left:${left}px;top:${top}px;width:${w}px;height:${h}px">`;
+      top += img.tl.rowOff / EMU_PER_PX;
+      // Lebar = jumlah kolom yang direntang + delta offset (EMU→px).
+      let w = 0;
+      for (let c = img.tl.col; c < img.br.col; c++) w += colWidths[c] ?? 74;
+      w += (img.br.colOff - img.tl.colOff) / EMU_PER_PX;
+      let h = 0;
+      for (let r = img.tl.row; r < img.br.row; r++) h += rowHeightPx(r + 1);
+      h += (img.br.rowOff - img.tl.rowOff) / EMU_PER_PX;
+      return `<img src="${img.src}" alt="" style="position:absolute;left:${Math.round(left)}px;top:${Math.round(top)}px;width:${Math.max(8, Math.round(w))}px;height:${Math.max(8, Math.round(h))}px">`;
     })
     .join("");
 
-  return `<div style="position:relative;display:inline-block;max-width:100%">${imgHtml}${table}</div>`;
+  const content =
+    images.length === 0
+      ? table
+      : `<div style="position:relative;display:inline-block;max-width:100%">${imgHtml}${table}</div>`;
+
+  // Replikasi fitToPage Excel: skalakan seluruh sheet muat satu halaman.
+  const fit = renderOpts.fitPagePx;
+  if (!fit) return content;
+
+  let naturalH = 0;
+  const lastRow = ws.rowCount || 0;
+  for (let r = 1; r <= lastRow; r++) naturalH += rowHeightPx(r);
+
+  const [pageW, pageH] = fit;
+  const scale = Math.min(1, pageW / naturalW, pageH / naturalH);
+  if (scale >= 1) return content;
+
+  const wPx = Math.round(naturalW * scale);
+  const hPx = Math.round(naturalH * scale);
+  return (
+    `<div style="position:relative;overflow:hidden;width:${wPx}px;height:${hPx}px">` +
+    `<div style="position:absolute;top:0;left:0;transform:scale(${scale});transform-origin:top left">${content}</div>` +
+    `</div>`
+  );
 }
 
 /**

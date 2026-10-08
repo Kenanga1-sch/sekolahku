@@ -85,9 +85,12 @@ describe.skipIf(!fsSync.existsSync(FILE))("e2e template Daftar hadir murid", () 
     // Render HTML: kop, gambar, label Jumlah, blok merah, warna.
     const images = extractPrintImages(ws, (id) => (wb as unknown as { getImage: (i: number) => never }).getImage(id));
     expect(images.length).toBe(2);
+    // EMU→px: offset anchor asli (146050 EMU ≈ 15px) tidak boleh jadi
+    // 146050px (logo di luar layar).
     const html = worksheetToHtml(ws as never, images);
     expect(html).toContain("DAFTAR HADIR MURID");
     expect(html).toContain("position:absolute"); // logo
+    expect(html).not.toMatch(/left:\d{5,}px/); // tidak ada offset EMU mentah (logo di luar layar)
     expect(html).toContain("Jumlah");
     expect(html).toContain("#FEE2E2"); // blok merah
     expect(html).toContain("#15803D"); // H hijau
