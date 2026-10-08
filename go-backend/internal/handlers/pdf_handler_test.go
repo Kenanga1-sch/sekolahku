@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"mime/multipart"
@@ -11,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/labstack/echo/v4"
 )
@@ -56,11 +58,11 @@ done
 
 func TestSanitizePDFFilename(t *testing.T) {
 	cases := map[string]string{
-		"":                            "dokumen.pdf",
-		"laporan bulan ini.pdf":       "laporan_bulan_ini.pdf",
-		"../../etc/passwd":            "etc_passwd.pdf",
-		"Daftar Hadir Kelas 6 2026":   "Daftar_Hadir_Kelas_6_2026.pdf",
-		"sudah-aman_1.pdf":            "sudah-aman_1.pdf",
+		"":                          "dokumen.pdf",
+		"laporan bulan ini.pdf":     "laporan_bulan_ini.pdf",
+		"../../etc/passwd":          "etc_passwd.pdf",
+		"Daftar Hadir Kelas 6 2026": "Daftar_Hadir_Kelas_6_2026.pdf",
+		"sudah-aman_1.pdf":          "sudah-aman_1.pdf",
 	}
 	for in, want := range cases {
 		if got := sanitizePDFFilename(in); got != want {
@@ -221,5 +223,47 @@ func TestConvertXlsxLibreOfficeSuccess(t *testing.T) {
 	cd := rec.Header().Get(echo.HeaderContentDisposition)
 	if !strings.Contains(cd, "Daftar_Hadir_Oktober_2026.pdf") {
 		t.Fatalf("content-disposition = %q", cd)
+	}
+}
+
+// TestExecWithTimeoutPipeYatimTidakMenggantung mereproduksi insiden nyata
+// 2026-10-08: anak proses (soffice.bin yatim) memegang pipe stdout setelah
+// induk keluar → CombinedOutput menunggu tanpa batas, handler menggantung
+// 1 jam dan semaphore bocor (semua request berikut 503 "sedang sibuk").
+// WaitDelay harus memaksa execWithTimeout kembali dalam hitungan detik.
+func TestExecWithTimeoutPipeYatimTidakMenggantung(t *testing.T) {
+	script := writeStub(t, `#!/bin/sh
+sleep 60 &
+exit 0
+`)
+	start := time.Now()
+	_, err := execWithTimeout(context.Background(), script, nil, nil, 30*time.Second)
+	elapsed := time.Since(start)
+	if elapsed > 10*time.Second {
+		t.Fatalf("menggantung %s — WaitDelay harus memaksa kembali ≤10s", elapsed)
+	}
+	if err == nil {
+		t.Fatal("harus mengembalikan error saat pipe ditahan proses yatim")
+	}
+}
+
+// TestExecWithTimeoutBunuhSeluruhGrup memastikan timeout membunuh SELURUH
+// process group (Setpgid + kill -pgid): wrapper soffice mem-fork anak yang
+// tidak ikut mati bila hanya induk dibunuh. Tanpa group-kill, anak tetap
+// memegang pipe → kembali baru setelah WaitDelay (≈ timeout+5s).
+func TestExecWithTimeoutBunuhSeluruhGrup(t *testing.T) {
+	script := writeStub(t, `#!/bin/sh
+trap '' TERM
+sleep 60
+`)
+	start := time.Now()
+	_, err := execWithTimeout(context.Background(), script, nil, nil, 2*time.Second)
+	elapsed := time.Since(start)
+	// Dengan group-kill: kembali ≈2s. Tanpa group-kill (hanya WaitDelay): ≈7s.
+	if elapsed > 5*time.Second {
+		t.Fatalf("kembali setelah %s — process group tidak dibunuh saat timeout", elapsed)
+	}
+	if err == nil {
+		t.Fatal("harus error karena timeout")
 	}
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   argbToHex,
+  buildPrintDocument,
   cellStyleCss,
   cellText,
   escapeHtml,
@@ -220,5 +221,31 @@ describe("joinPageSections", () => {
     const out = joinPageSections(["<table>1</table>", "<table>2</table>"]);
     expect(out).toContain('class="page-section"');
     expect(out).toContain("<table>2</table>");
+  });
+});
+
+describe("buildPrintDocument", () => {
+  it("dokumen lengkap: doctype + @page F4 landscape + BASE_CSS", () => {
+    const doc = buildPrintDocument(
+      '<div class="page-section"><table class="ws"></table></div>',
+      { paperSize: "F4", orientation: "landscape" },
+      "Daftar Hadir Kelas 1A"
+    );
+    expect(doc).toContain("<!doctype html>");
+    expect(doc).toContain("<title>Daftar Hadir Kelas 1A</title>");
+    // @page harus F4 landscape — tanpa ini Chromium merender Letter portrait.
+    expect(doc).toContain("@page { size: 330mm 215mm; margin: 5mm; }");
+    // BASE_CSS: style tabel & page-break antar kelas.
+    expect(doc).toContain("table.ws");
+    expect(doc).toContain("page-break-after: always");
+    expect(doc).toContain('class="page-section"');
+    // Payload aman untuk filter unsafeHTML backend (tanpa <script>/on*=).
+    expect(doc).not.toMatch(/<\s*script/i);
+    expect(doc).not.toMatch(/\son[a-z]+\s*=/i);
+  });
+
+  it("default A4 portrait bila opts kosong", () => {
+    const doc = buildPrintDocument("<p>x</p>");
+    expect(doc).toContain("@page { size: 210mm 297mm; margin: 5mm; }");
   });
 });

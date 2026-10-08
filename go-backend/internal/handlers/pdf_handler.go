@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -104,11 +105,31 @@ func ensureBinary(c echo.Context, bin, engine string) error {
 }
 
 // execWithTimeout menjalankan command dengan timeout; error → pesan jelas.
+//
+// Ketahanan terhadap insiden nyata (bug 2026-10-08): wrapper soffice mem-fork
+// anak (soffice.bin) yang TIDAK ikut mati saat hanya induk dibunuh → anak itu
+// tetap memegang pipe stdout/stderr sehingga CombinedOutput tidak pernah
+// kembali, handler menggantung 1 jam dan semaphore bocor selamanya (semua
+// request berikut 503 "sedang sibuk"). Karena itu:
+//   - Setpgid + Cancel mematikan SELURUH process group saat timeout;
+//   - WaitDelay memaksa Wait kembali walau ada keturunan yang lolos dari
+//     grup dan masih memegang pipe (max 5 detik setelah proses utama keluar).
 func execWithTimeout(ctx context.Context, bin string, args []string, env []string, timeout time.Duration) ([]byte, error) {
 	runCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	cmd := exec.CommandContext(runCtx, bin, args...)
 	cmd.Env = env
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error {
+		if cmd.Process == nil {
+			return nil
+		}
+		if err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL); err != nil && err != syscall.ESRCH {
+			return err
+		}
+		return nil
+	}
+	cmd.WaitDelay = 5 * time.Second
 	out, err := cmd.CombinedOutput()
 	if runCtx.Err() == context.DeadlineExceeded {
 		return nil, fmt.Errorf("waktu habis setelah %s", timeout)
@@ -194,10 +215,10 @@ func (h *PDFHandler) PrintHTMLChromium(c echo.Context) error {
 
 	args := []string{
 		"--headless",
-		"--no-sandbox",                         // container rootless tanpa CAP_SYS_ADMIN
+		"--no-sandbox", // container rootless tanpa CAP_SYS_ADMIN
 		"--disable-gpu",
-		"--disable-dev-shm-usage",              // /dev/shm container kecil
-		"--no-pdf-header-footer",               // tanpa header URL/tanggal bawaan
+		"--disable-dev-shm-usage", // /dev/shm container kecil
+		"--no-pdf-header-footer",  // tanpa header URL/tanggal bawaan
 		"--user-data-dir=" + filepath.Join(dir, "profile"),
 		"--print-to-pdf=" + outPath,
 		"file://" + inPath,
@@ -208,6 +229,7 @@ func (h *PDFHandler) PrintHTMLChromium(c echo.Context) error {
 		"XDG_CACHE_HOME="+filepath.Join(dir, ".cache"),
 	)
 	if _, err := execWithTimeout(c.Request().Context(), bin, args, env, chromiumTimeout); err != nil {
+		c.Logger().Errorf("chromium konversi gagal: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Konversi PDF gagal: " + err.Error()})
 	}
 
@@ -286,6 +308,7 @@ func (h *PDFHandler) ConvertXlsxLibreOffice(c echo.Context) error {
 	}
 	args = append(args, xlsxPaths...)
 	if _, err := execWithTimeout(c.Request().Context(), bin, args, env, libreOfficeTimeout); err != nil {
+		c.Logger().Errorf("libreoffice konversi gagal (%d file): %v", len(xlsxPaths), err)
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Konversi LibreOffice gagal: " + err.Error()})
 	}
 
@@ -298,6 +321,7 @@ func (h *PDFHandler) ConvertXlsxLibreOffice(c echo.Context) error {
 		}
 	}
 	if len(pdfPaths) == 0 {
+		c.Logger().Errorf("libreoffice tidak menghasilkan PDF untuk %d file (outdir kosong)", len(xlsxPaths))
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "LibreOffice tidak menghasilkan PDF"})
 	}
 

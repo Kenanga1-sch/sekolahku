@@ -637,16 +637,19 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
     setExportingPdfServer("chromium");
     const toastId = toast.loading("Mengonversi PDF via Chromium\u2026");
     try {
-      const { sections, title } = await buildPrintDocs();
+      const { sections, opts, title } = await buildPrintDocs();
       const printLib = await import("@/lib/worksheet-print");
       const filename = `${title}.pdf`;
+      // Dokumen LENGKAP (doctype + @page + BASE_CSS): fragment mentah membuat
+      // Chromium merender Letter portrait tanpa style → hasil rusak.
+      const html = printLib.buildPrintDocument(printLib.joinPageSections(sections), opts, title);
       const resp = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || ""}/api/presensi/pdf/chromium`,
         {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ html: printLib.joinPageSections(sections), filename }),
+          body: JSON.stringify({ html, filename }),
         }
       );
       await downloadPdfBlob(resp, filename);

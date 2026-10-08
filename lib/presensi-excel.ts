@@ -172,6 +172,7 @@ export function shiftFormulaRows(formula: string, templateRow: number, delta: nu
 export async function fillPresensiWorksheet(
   ws: {
     rowCount: number;
+    columnCount?: number;
     getRow(n: number): {
       getCell(c: number): { value: unknown; formula?: string; font?: unknown; fill?: unknown; style?: unknown };
       eachCell(o: { includeEmpty?: boolean }, cb: (cell: { value: unknown; font?: unknown; fill?: unknown; style?: unknown }, col: number) => void): void;
@@ -184,9 +185,16 @@ export async function fillPresensiWorksheet(
   const scalars = scalarMap(input);
   const unknown = new Set<string>();
 
+  // Extent kolom NYATA template, di-capture sebelum loop mana pun berjalan.
+  // row.getCell(c) pada kolom kosong MEMBUAT sel baru — memakai batas tetap
+  // 64 membuat sel hantu 40..64 sehingga columnCount meledak 39→64 dan
+  // renderer cetak menghitung naturalW ~2× lebih lebar → skala fit-to-page
+  // runtuh (0.43) → konten mengecil hanya di pojok kiri atas lembar.
+  const maxCol = Math.min(ws.columnCount || 64, 64);
+
   // 1. Skalar di seluruh sheet.
   ws.eachRow((row) => {
-    for (let c = 1; c <= 64; c++) {
+    for (let c = 1; c <= maxCol; c++) {
       const cell = row.getCell(c);
       if (typeof cell.value === "string" && cell.value.includes("{{")) {
         const before = cell.value;
@@ -200,7 +208,7 @@ export async function fillPresensiWorksheet(
   let templateRow: number | null = null;
   ws.eachRow((row, n) => {
     if (templateRow !== null) return;
-    for (let c = 1; c <= 64; c++) {
+    for (let c = 1; c <= maxCol; c++) {
       const v = row.getCell(c).value;
       if (typeof v === "string" && isRowVariable(v)) {
         templateRow = n;
@@ -327,7 +335,7 @@ export async function fillPresensiWorksheet(
     const n = tplRowNum + i;
     const vals = rowValues(r, i + 1, input.columns, input.effectiveDays);
     const dest = ws.getRow(n);
-    for (let c = 1; c <= 64; c++) {
+    for (let c = 1; c <= maxCol; c++) {
       const cell = dest.getCell(c);
       const f = tplFormulas.get(c);
       if (f !== undefined) {
@@ -375,7 +383,7 @@ export async function fillPresensiWorksheet(
     // menimpa sel lain (atau mengosongkan anchor) membuat label hilang
     // saat dibuka di Excel (hanya nilai anchor yang tampil).
     let labelPlaced = false;
-    for (let c = 1; c <= 64; c++) {
+    for (let c = 1; c <= maxCol; c++) {
       if (c === nameCol) continue;
       const cur = jumlahRow.getCell(c).value;
       if (typeof cur === "string" && cur.trim().toLowerCase() === "jumlah") {

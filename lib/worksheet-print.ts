@@ -115,6 +115,8 @@ interface ExcelCellLike {
 
 interface ExcelRowLike {
   height?: number;
+  /** Nilai sel yang sudah ada (exceljs Row.values) — membaca TANPA membuat sel baru. */
+  values?: Record<number, unknown>;
   getCell(c: number): ExcelCellLike;
 }
 
@@ -312,7 +314,26 @@ export function worksheetToHtml(
     }
   }
 
-  const colCount = Math.min(ws.columnCount || 64, 64);
+  const colCountRaw = Math.min(ws.columnCount || 64, 64);
+  // Buang kolom hantu di ujung: sel kosong bekas loop fill (tanpa lebar
+  // terdefinisi, tanpa isi, tanpa merge) jangan ikut dirender — kolom hantu
+  // melebarkan naturalW sehingga skala fit-to-page runtuh dan konten hanya
+  // mengisi pojok kiri atas lembar (insiden 2026-10-08: 64 kolom → scale 0.43).
+  let colCount = 1;
+  for (let c = 1; c <= colCountRaw; c++) {
+    if (ws.getColumn?.(c)?.width !== undefined) colCount = c;
+  }
+  if (colCount < colCountRaw) {
+    ws.eachRow((row) => {
+      const vals = row.values;
+      if (!vals) return;
+      for (let c = colCount + 1; c <= colCountRaw; c++) {
+        const v = vals[c];
+        if (v !== undefined && v !== null && v !== "") colCount = c;
+      }
+    });
+  }
+  for (const mg of merges) colCount = Math.max(colCount, Math.min(mg.right + 1, colCountRaw));
 
   // Lebar kolom: exceljs width (satuan karakter) → px.
   const colWidths: number[] = [];
@@ -411,15 +432,30 @@ export function worksheetToHtml(
 }
 
 /**
+ * Bungkus HTML cetak jadi dokumen lengkap: doctype + `<title>` + `<style>`
+ * berisi `@page` (ukuran kertas/orientasi) + BASE_CSS (reset, `table.ws`,
+ * page-break antar blok kelas). Dipakai dialog cetak DAN kiriman ke engine
+ * PDF server (Chromium) — fragment mentah tanpa dokumen membuat Chromium
+ * merender di Letter portrait tanpa style → hasil rusak.
+ */
+export function buildPrintDocument(
+  html: string,
+  opts: WorksheetPrintOptions = {},
+  title = "Cetak"
+): string {
+  return `<!doctype html><html lang="id"><head><meta charset="utf-8">` +
+    `<title>${escapeHtml(title)}</title>` +
+    `<style>${pageCss(opts)}${BASE_CSS}</style></head><body>${html}</body></html>`;
+}
+
+/**
  * Buka jendela cetak berisi HTML (satu blok per kelas, page-break antar
  * blok) → auto print dialog (pilih Save as PDF di sana).
  */
 export function openPrintWindow(html: string, title: string, opts: WorksheetPrintOptions = {}): void {
   const w = window.open("", "_blank");
   if (!w) throw new Error("Jendela cetak diblokir browser — izinkan popup untuk situs ini.");
-  const doc = `<!doctype html><html lang="id"><head><meta charset="utf-8">` +
-    `<title>${escapeHtml(title)}</title>` +
-    `<style>${pageCss(opts)}${BASE_CSS}</style></head><body>${html}</body></html>`;
+  const doc = buildPrintDocument(html, opts, title);
   w.document.write(doc);
   w.document.close();
   w.focus();
