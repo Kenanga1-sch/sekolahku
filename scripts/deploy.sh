@@ -164,6 +164,13 @@ echo "║  ✓ DEPLOY [$MODE] BERHASIL                ║"
 echo "║  Health: http://localhost:$PORT/api/health ║"
 echo "╚══════════════════════════════════════════╝"
 
+# ── Buang image lama (dangling) agar disk tidak menumpuk.
+# Image kini besar (chromium + libreoffice ≈ 1GB); tanpa prune, setiap deploy
+# menambah ~1GB. Aman: hanya image tanpa tag & tak dipakai container mana pun.
+if command -v podman >/dev/null 2>&1; then
+  podman image prune -f >/dev/null 2>&1 || true
+fi
+
 # ── Aktifkan systemd (auto-restart saat reboot)
 if command -v systemctl >/dev/null 2>&1; then
   systemctl --user daemon-reload || true

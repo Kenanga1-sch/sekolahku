@@ -424,6 +424,9 @@ export async function fillPresensiWorksheet(
 
   // 6. Terapkan ukuran kertas/orientasi template ke pageSetup Excel
   //    (A4=9, F4→Folio=14, LEGAL=5) agar hasil cetak dari Excel ikut sesuai.
+  //    fitToPage menyala (seperti template) agar Excel & LibreOffice
+  //    menskalakan tabel muat satu halaman — kalau tidak, tabel 39 kolom
+  //    pecah jadi 4 halaman (2× horizontal) saat dikonversi ke PDF.
   if (input.paperSize) {
     const paperCode = PAPER_SIZE_CODES[input.paperSize.trim().toUpperCase()];
     if (paperCode !== undefined) {
@@ -432,6 +435,9 @@ export async function fillPresensiWorksheet(
         ...(wsPS.pageSetup || {}),
         paperSize: paperCode,
         orientation: (input.orientation || "portrait").toLowerCase() === "landscape" ? "landscape" : "portrait",
+        fitToPage: true,
+        fitToWidth: 1,
+        fitToHeight: 1,
       };
     }
   }

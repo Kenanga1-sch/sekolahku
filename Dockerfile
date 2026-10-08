@@ -2,6 +2,27 @@ FROM alpine:3.21
 
 RUN apk add --no-cache ca-certificates tzdata libc6-compat
 
+# Mesin PDF opsional untuk tab Laporan Presensi (dipilih lewat menu Cetak ▾):
+#   chromium       → POST /api/presensi/pdf/chromium    (HTML render → PDF)
+#   libreoffice-calc → POST /api/presensi/pdf/libreoffice (isi template xlsx → PDF)
+#   qpdf           → merge PDF bila "Semua Kelas" (>1 workbook)
+# Font: template presensi memakai "Arial Narrow" (Microsoft, tak ada di Linux) →
+# di-alias ke Liberation Sans Narrow (metric-compatible) agar layout mendekati Excel.
+# Layer terpisah & ditaruh SEBELUM COPY binary: cache bertahan walau binary berubah.
+RUN apk add --no-cache chromium libreoffice-calc qpdf \
+        font-liberation font-liberation-sans-narrow fontconfig && \
+    printf '%s\n' \
+      '<?xml version="1.0"?>' \
+      '<!DOCTYPE fontconfig SYSTEM "fonts.dtd">' \
+      '<fontconfig>' \
+      '  <match target="pattern">' \
+      '    <test qual="any" name="family"><string>Arial Narrow</string></test>' \
+      '    <edit name="family" mode="assign" binding="strong"><string>Liberation Sans Narrow</string></edit>' \
+      '  </match>' \
+      '</fontconfig>' \
+      > /etc/fonts/conf.d/99-arial-narrow.conf && \
+    fc-cache -f
+
 WORKDIR /app
 
 COPY sekolahku_linux /app/sekolahku

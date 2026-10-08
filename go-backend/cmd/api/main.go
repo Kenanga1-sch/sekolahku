@@ -356,6 +356,7 @@ func main() {
 		ReportTemplate: handlers.NewReportTemplateHandler(repos.ReportTemplate),
 		AIProvider:     handlers.NewAIProviderHandler(repos.AIProvider),
 		ThemePreset:    handlers.NewThemePresetHandler(repos.ThemePreset, repos.Setting, repos.AuditLog),
+		PDF:            handlers.NewPDFHandler(),
 		PushSvc:        pushSvc,
 	}
 

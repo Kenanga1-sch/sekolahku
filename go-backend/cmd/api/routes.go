@@ -105,6 +105,7 @@ type AllHandlers struct {
 	ReportTemplate *handlers.ReportTemplateHandler
 	AIProvider     *handlers.AIProviderHandler
 	ThemePreset    *handlers.ThemePresetHandler
+	PDF            *handlers.PDFHandler
 	// PushSvc dipakai handler lain (absen, tabungan, pengumuman) untuk
 	// mengirim push ke orang tua.
 	PushSvc *push.Service
@@ -671,6 +672,10 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	guruGroup.POST("/attendance/scan", h.Attendance.ScanQR)
 	guruGroup.GET("/attendance/report", h.Attendance.GetReport)
 	guruGroup.GET("/attendance/student-summary/:studentId", h.Attendance.GetStudentSummary)
+	// PDF presensi: dua engine opsional (chromium / libreoffice) untuk
+	// membandingkan hasil; 503 bila binary tak terpasang → fallback dialog cetak.
+	guruGroup.POST("/presensi/pdf/chromium", h.PDF.PrintHTMLChromium)
+	guruGroup.POST("/presensi/pdf/libreoffice", h.PDF.ConvertXlsxLibreOffice)
 	auth.GET("/attendance/holiday", h.Attendance.CheckHoliday)
 	adminGroup.GET("/school-holidays", h.Attendance.ListSchoolHolidays)
 	adminGroup.GET("/school-holidays/national", h.Attendance.GetNationalHolidays)

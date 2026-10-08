@@ -462,100 +462,214 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
   };
 
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportingPdfServer, setExportingPdfServer] = useState<"" | "chromium" | "libreoffice">("");
 
   /**
-   * Cetak/PDF berbasis template Excel terdaftar: isi template (sama persis
-   * dengan ekspor Excel — merge, warna status, blok merah libur, kop,
-   * tanda tangan) → render ke HTML → jendela cetak browser → "Save as PDF".
-   * Admin "Semua Kelas" → satu blok/halaman per kelas. Fallback: cetak
-   * lama (PrintPage) bila template tak termuat.
+   * Bangun dokumen cetak dari template Excel terdaftar: isi template per
+   * kelompok kelas (sama persis dengan ekspor Excel — merge, warna status,
+   * blok merah libur, kop, tanda tangan) → HTML siap cetak + buffer xlsx.
+   * Dipakai tiga jalur output: dialog cetak browser, Chromium headless,
+   * dan LibreOffice.
+   */
+  const buildPrintDocs = async (): Promise<{
+    sections: string[];
+    buffers: ArrayBuffer[];
+    opts: { paperSize: string; orientation: string };
+    title: string;
+  }> => {
+    const [{ default: ExcelJS }, excelLib, printLib] = await Promise.all([
+      import("exceljs"),
+      import("@/lib/presensi-excel"),
+      import("@/lib/worksheet-print"),
+    ]);
+    const { fillPresensiWorksheet, resolvePresensiTemplateUrl } = excelLib;
+    const { url: templateUrl, paperSize, orientation } = await resolvePresensiTemplateUrl(
+      fetch,
+      process.env.NEXT_PUBLIC_API_URL || ""
+    );
+    const res = await fetch(templateUrl, { credentials: "include" });
+    if (!res.ok) throw new Error("template-tidak-ditemukan");
+    const buf = await res.arrayBuffer();
+    const opts = {
+      paperSize: (paperSize || "A4").trim().toUpperCase(),
+      orientation: orientation || "landscape",
+    };
+
+    const signPlace = (
+      siteConfig.school.address.match(/Kab\.\s*([^,]+)/)?.[1] ||
+      siteConfig.school.address.match(/Kota\s+([^,]+)/)?.[1] ||
+      ""
+    ).trim();
+    const tanggalCetak = format(new Date(), "d MMMM yyyy", { locale: localeId });
+
+    const sections: string[] = [];
+    const buffers: ArrayBuffer[] = [];
+    for (const g of renderGroups) {
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(buf);
+      const ws = wb.getWorksheet("Daftar Hadir") || wb.worksheets[0];
+      if (!ws) throw new Error("template-tidak-valid");
+      const clsLabel = g.cls ? formatClassName(g.cls) : classNameBulanan;
+      const waliCls = g.cls || (selectedClass !== "all" ? selectedClass : effectiveClassName);
+      const { rowCount } = await fillPresensiWorksheet(ws as never, {
+        rows: g.rows,
+        columns: dayColumns,
+        effectiveDays,
+        scalars: {
+          sekolahNama: siteConfig.school.name,
+          sekolahAlamat: siteConfig.school.address,
+          sekolahTelepon: siteConfig.school.phone || "",
+          kepalaSekolahNama: principalName,
+          kepalaSekolahNip: principalNIP,
+          waliKelasNama: getWaliKelas(waliCls),
+          waliKelasNip: getWaliNip(waliCls),
+          kelas: clsLabel,
+          bulan: monthName,
+          tahun: selectedYear,
+          tahunAjaran: academicYearLabel,
+          hariEfektif: effectiveDays,
+          tanggalCetak,
+          tempatTtd: signPlace,
+        },
+        paperSize: opts.paperSize,
+        orientation: opts.orientation,
+      });
+      if (rowCount === 0) throw new Error("template-tanpa-baris-contoh");
+      // Logo/gambar kop template → data URI untuk render cetak.
+      const images = printLib.extractPrintImages(ws, (id: number) =>
+        (wb as unknown as { getImage?: (i: number) => never }).getImage?.(id)
+      );
+      // Replikasi fitToPage Excel: area printable dari paperSize/margin.
+      const fitPagePx = printLib.printAreaPx({
+        paperSize: opts.paperSize,
+        orientation: opts.orientation,
+      });
+      sections.push(printLib.worksheetToHtml(ws as never, images, { fitPagePx }));
+      buffers.push((await wb.xlsx.writeBuffer()) as ArrayBuffer);
+    }
+
+    return {
+      sections,
+      buffers,
+      opts,
+      title: `Daftar Hadir ${classNameBulanan} ${monthName} ${selectedYear}`,
+    };
+  };
+
+  /** Unduh blob hasil konversi PDF dari server (nama dari Content-Disposition). */
+  const downloadPdfBlob = async (resp: Response, fallbackName: string) => {
+    if (!resp.ok) {
+      let msg = "Konversi PDF gagal";
+      try {
+        const j = await resp.json();
+        if (j?.error) msg = j.error;
+      } catch {
+        // respons bukan JSON — pakai pesan default
+      }
+      throw new Error(msg);
+    }
+    const blob = await resp.blob();
+    const cd = resp.headers.get("Content-Disposition") || "";
+    const m = /filename="([^"]+)"/.exec(cd);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = m?.[1] || fallbackName;
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  /**
+   * Cetak/PDF lewat dialog browser (jalur lama) — tetap tersedia sebagai
+   * fallback bila engine server belum terpasang.
    */
   const handleCetakPdf = async () => {
     if (exportingPdf || visibleMatrix.length === 0) return;
     setExportingPdf(true);
     const toastId = toast.loading("Menyiapkan cetak dari template…");
     try {
-      const [{ default: ExcelJS }, excelLib, printLib] = await Promise.all([
-        import("exceljs"),
-        import("@/lib/presensi-excel"),
-        import("@/lib/worksheet-print"),
-      ]);
-      const { fillPresensiWorksheet, resolvePresensiTemplateUrl } = excelLib;
-      const { url: templateUrl, paperSize, orientation } = await resolvePresensiTemplateUrl(
-        fetch,
-        process.env.NEXT_PUBLIC_API_URL || ""
-      );
-      const res = await fetch(templateUrl, { credentials: "include" });
-      if (!res.ok) throw new Error("template-tidak-ditemukan");
-      const buf = await res.arrayBuffer();
-      const opts = {
-        paperSize: (paperSize || "A4").trim().toUpperCase(),
-        orientation: orientation || "landscape",
-      };
-
-      const signPlace = (
-        siteConfig.school.address.match(/Kab\.\s*([^,]+)/)?.[1] ||
-        siteConfig.school.address.match(/Kota\s+([^,]+)/)?.[1] ||
-        ""
-      ).trim();
-      const tanggalCetak = format(new Date(), "d MMMM yyyy", { locale: localeId });
-
-      const sections: string[] = [];
-      for (const g of renderGroups) {
-        const wb = new ExcelJS.Workbook();
-        await wb.xlsx.load(buf);
-        const ws = wb.getWorksheet("Daftar Hadir") || wb.worksheets[0];
-        if (!ws) throw new Error("template-tidak-valid");
-        const clsLabel = g.cls ? formatClassName(g.cls) : classNameBulanan;
-        const waliCls = g.cls || (selectedClass !== "all" ? selectedClass : effectiveClassName);
-        const { rowCount } = await fillPresensiWorksheet(ws as never, {
-          rows: g.rows,
-          columns: dayColumns,
-          effectiveDays,
-          scalars: {
-            sekolahNama: siteConfig.school.name,
-            sekolahAlamat: siteConfig.school.address,
-            sekolahTelepon: siteConfig.school.phone || "",
-            kepalaSekolahNama: principalName,
-            kepalaSekolahNip: principalNIP,
-            waliKelasNama: getWaliKelas(waliCls),
-            waliKelasNip: getWaliNip(waliCls),
-            kelas: clsLabel,
-            bulan: monthName,
-            tahun: selectedYear,
-            tahunAjaran: academicYearLabel,
-            hariEfektif: effectiveDays,
-            tanggalCetak,
-            tempatTtd: signPlace,
-          },
-          paperSize: opts.paperSize,
-          orientation: opts.orientation,
-        });
-        if (rowCount === 0) throw new Error("template-tanpa-baris-contoh");
-        // Logo/gambar kop template → data URI untuk render cetak.
-        const images = printLib.extractPrintImages(ws, (id: number) =>
-          (wb as unknown as { getImage?: (i: number) => never }).getImage?.(id)
-        );
-        // Replikasi fitToPage Excel: area printable dari paperSize/margin.
-        const fitPagePx = printLib.printAreaPx({
-          paperSize: opts.paperSize,
-          orientation: opts.orientation,
-        });
-        sections.push(printLib.worksheetToHtml(ws as never, images, { fitPagePx }));
-      }
-
-      printLib.openPrintWindow(
-        printLib.joinPageSections(sections),
-        `Daftar Hadir ${classNameBulanan} ${monthName} ${selectedYear}`,
-        opts
-      );
-      toast.success("Jendela cetak terbuka — pilih “Simpan sebagai PDF”", { id: toastId });
+      const { sections, opts, title } = await buildPrintDocs();
+      const printLib = await import("@/lib/worksheet-print");
+      printLib.openPrintWindow(printLib.joinPageSections(sections), title, opts);
+      toast.success("Jendela cetak terbuka — pilih \u201cSimpan sebagai PDF\u201d", { id: toastId });
     } catch (err) {
       console.error("Cetak PDF error:", err);
       toast.error("Template belum tersedia — memakai format cetak biasa", { id: toastId });
       handlePrint();
     } finally {
       setExportingPdf(false);
+    }
+  };
+
+  /**
+   * PDF (Chromium headless): HTML render template yang sama dikirim ke
+   * backend → chromium --print-to-pdf. Tanpa dialog cetak. 503 bila
+   * chromium belum terpasang di server.
+   */
+  const handlePdfChromium = async () => {
+    if (exportingPdfServer || visibleMatrix.length === 0) return;
+    setExportingPdfServer("chromium");
+    const toastId = toast.loading("Mengonversi PDF via Chromium\u2026");
+    try {
+      const { sections, title } = await buildPrintDocs();
+      const printLib = await import("@/lib/worksheet-print");
+      const filename = `${title}.pdf`;
+      const resp = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || ""}/api/presensi/pdf/chromium`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ html: printLib.joinPageSections(sections), filename }),
+        }
+      );
+      await downloadPdfBlob(resp, filename);
+      toast.success("PDF berhasil diunduh", { id: toastId });
+    } catch (err) {
+      console.error("PDF chromium error:", err);
+      toast.error(err instanceof Error ? err.message : "Konversi PDF gagal", { id: toastId });
+    } finally {
+      setExportingPdfServer("");
+    }
+  };
+
+  /**
+   * PDF (LibreOffice headless): workbook xlsx hasil fill template yang sama
+   * dikirim ke backend → soffice --convert-to pdf (+qpdf bila multi kelas).
+   * 503 bila LibreOffice belum terpasang di server.
+   */
+  const handlePdfLibreOffice = async () => {
+    if (exportingPdfServer || visibleMatrix.length === 0) return;
+    setExportingPdfServer("libreoffice");
+    const toastId = toast.loading("Mengonversi PDF via LibreOffice\u2026");
+    try {
+      const { buffers, title } = await buildPrintDocs();
+      const fd = new FormData();
+      buffers.forEach((b, i) => {
+        fd.append(
+          "files",
+          new Blob([b], {
+            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          }),
+          `laporan-${i + 1}.xlsx`
+        );
+      });
+      const filename = `${title}.pdf`;
+      fd.append("filename", filename);
+      const resp = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || ""}/api/presensi/pdf/libreoffice`,
+        { method: "POST", credentials: "include", body: fd }
+      );
+      await downloadPdfBlob(resp, filename);
+      toast.success("PDF berhasil diunduh", { id: toastId });
+    } catch (err) {
+      console.error("PDF libreoffice error:", err);
+      toast.error(err instanceof Error ? err.message : "Konversi PDF gagal", { id: toastId });
+    } finally {
+      setExportingPdfServer("");
     }
   };
 
@@ -666,6 +780,14 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handlePdfChromium} disabled={!!exportingPdfServer}>
+                      {exportingPdfServer === "chromium" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
+                      PDF (Chromium)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handlePdfLibreOffice} disabled={!!exportingPdfServer}>
+                      {exportingPdfServer === "libreoffice" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
+                      PDF (LibreOffice)
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleCetakPdf} disabled={exportingPdf}>
                       {exportingPdf ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
                       PDF (dialog cetak)

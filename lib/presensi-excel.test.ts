@@ -275,9 +275,12 @@ describe("fillPresensiWorksheet — warna status, blok libur & pageSetup", () =>
     expect(argb((ws.getCell("D6").fill as any)?.fgColor?.argb)).toContain("FEE2E2");
     // Header tanggal efektif (C6=1) tidak disentuh.
     expect((ws.getCell("C6").font as any)?.color).toBeUndefined();
-    // pageSetup A4=9 landscape.
+    // pageSetup A4=landscape + fit-to-page (muat 1 halaman di Excel/LO).
     expect((ws as any).pageSetup?.paperSize).toBe(9);
     expect((ws as any).pageSetup?.orientation).toBe("landscape");
+    expect((ws as any).pageSetup?.fitToPage).toBe(true);
+    expect((ws as any).pageSetup?.fitToWidth).toBe(1);
+    expect((ws as any).pageSetup?.fitToHeight).toBe(1);
   }, 30000); // import exceljs lambat di mesin CI — jangan kena timeout 5s
 });
 
