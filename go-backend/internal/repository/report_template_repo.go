@@ -239,3 +239,14 @@ func (r *ReportTemplateRepository) UpdateFilePath(id int64, rel string) (*models
 	}
 	return r.GetByID(id)
 }
+
+// UpdatePageSetup memperbarui paper_size/orientation mengikuti geometri
+// <pageSetup> berkas unggahan — file adalah sumber kebenaran layout cetak
+// agar meta (Chromium/PDF web) dan file (LibreOffice/Excel) selalu sepakat.
+func (r *ReportTemplateRepository) UpdatePageSetup(id int64, paperSize, orientation string) (*models.ReportTemplate, error) {
+	now := time.Now().Unix()
+	if _, err := r.db.Exec(`UPDATE report_templates SET paper_size = ?, orientation = ?, updated_at = ? WHERE id = ?`, paperSize, orientation, now, id); err != nil {
+		return nil, fmt.Errorf("failed to update template page setup: %w", err)
+	}
+	return r.GetByID(id)
+}

@@ -485,6 +485,71 @@ func zipOpen(data []byte) (string, error) {
 	return sb.String(), nil
 }
 
+// xlsxPaperNames memetakan kode ukuran kertas OOXML (ECMA-376 §18.8.17,
+// <pageSetup paperSize="…">) ke nama yang dikenali pipeline frontend
+// (PAPER_SIZE_CODES di lib/presensi-excel.ts). Hanya ukuran yang didukung
+// renderer (A4/F4/LEGAL) yang bisa mewakili meta; kode lain diabaikan
+// agar paper_size di DB tidak pernah menyimpan nilai yang tak dikenali.
+var xlsxPaperNames = map[string]string{
+	"5":  "LEGAL",
+	"9":  "A4",
+	"14": "F4",
+}
+
+var (
+	pageSetupTagPattern    = regexp.MustCompile(`<pageSetup\b[^>]*>`)
+	xlsxPaperSizePattern   = regexp.MustCompile(`paperSize="(\d+)"`)
+	xlsxOrientationPattern = regexp.MustCompile(`orientation="(portrait|landscape)"`)
+)
+
+// detectXLSXPageSetup membaca paperSize + orientation dari <pageSetup> lembar
+// pertama dalam arsip .xlsx. Geometri berkas adalah sumber kebenaran layout:
+// LibreOffice membaca pageSetup file, sedangkan Chromium/PDF web memakai meta
+// paper_size/orientation — keduanya wajib sama agar ukuran halaman identik.
+// Mengembalikan ok=false bila tidak ada pageSetup atau kodenya tak dikenali
+// (meta lama dibiarkan, tidak tertimpa nilai aneh).
+func detectXLSXPageSetup(data []byte) (paperSize string, orientation string, ok bool) {
+	r, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return "", "", false
+	}
+	for _, f := range r.File {
+		name := strings.ToLower(f.Name)
+		if !strings.HasPrefix(name, "xl/worksheets/") || !strings.HasSuffix(name, ".xml") {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			continue
+		}
+		// pageSetup ada di bagian akhir sheet; batasi 4 MB per lembar
+		// (template nyata jauh lebih kecil — penjaga zip bomb).
+		content, err := io.ReadAll(io.LimitReader(rc, 4<<20))
+		rc.Close()
+		if err != nil {
+			continue
+		}
+		tag := pageSetupTagPattern.Find(content)
+		if tag == nil {
+			continue
+		}
+		ps := xlsxPaperSizePattern.FindSubmatch(tag)
+		if ps == nil {
+			continue
+		}
+		size, known := xlsxPaperNames[string(ps[1])]
+		if !known {
+			return "", "", false
+		}
+		orient := "portrait" // default OOXML bila atribut absen
+		if m := xlsxOrientationPattern.FindSubmatch(tag); m != nil {
+			orient = string(m[1])
+		}
+		return size, orient, true
+	}
+	return "", "", false
+}
+
 func readUploadFile(fh *multipart.FileHeader, maxBytes int64) ([]byte, error) {
 	if fh == nil {
 		return nil, fmt.Errorf("file tidak ditemukan")
@@ -612,6 +677,18 @@ func (h *ReportTemplateHandler) UploadTemplateFile(c echo.Context) error {
 	if updated.Kind != kind {
 		if again, err := h.repo.UpdateKind(id, kind); err == nil {
 			updated = again
+		}
+	}
+	// Sinkronkan geometri cetak dengan berkas terungggah (file = sumber
+	// kebenaran): Chromium/PDF web memakai meta paper_size/orientation
+	// sedangkan LibreOffice membaca pageSetup file — harus sama agar
+	// ukuran halaman PDF identik di kedua engine.
+	if kind == "xlsx" {
+		if ps, orient, found := detectXLSXPageSetup(data); found &&
+			(updated.PaperSize != ps || updated.Orientation != orient) {
+			if again, err := h.repo.UpdatePageSetup(id, ps, orient); err == nil {
+				updated = again
+			}
 		}
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{

@@ -388,3 +388,136 @@ func TestTemplateUploadDOCX(t *testing.T) {
 func itoa(id int64) string {
 	return strconv.FormatInt(id, 10)
 }
+
+// sheetXLSX membuat arsip ZIP OOXML minimal dengan <pageSetup> opsional
+// pada sheet1 (untuk uji deteksi geometri kertas).
+func sheetXLSX(t *testing.T, pageSetupTag string, cellTexts ...string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	w := zip.NewWriter(&buf)
+	f, err := w.Create("xl/worksheets/sheet1.xml")
+	if err != nil {
+		t.Fatalf("zip create: %v", err)
+	}
+	var sb strings.Builder
+	sb.WriteString(`<worksheet><sheetData><row>`)
+	for i, txt := range cellTexts {
+		sb.WriteString(`<c r="A` + itoa(int64(i+1)) + `" t="inlineStr"><is><t>` + txt + `</t></is></c>`)
+	}
+	sb.WriteString(`</row></sheetData>`)
+	sb.WriteString(pageSetupTag)
+	sb.WriteString(`</worksheet>`)
+	if _, err := f.Write([]byte(sb.String())); err != nil {
+		t.Fatalf("zip write: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("zip close: %v", err)
+	}
+	return buf.Bytes()
+}
+
+// TestDetectXLSXPageSetup menguji pembacaan paperSize/orientation dari
+// <pageSetup> lembar xlsx: F4 landscape, A4 default (tanpa orientation),
+// kode tak dikenal ditolak, tanpa pageSetup ditolak.
+func TestDetectXLSXPageSetup(t *testing.T) {
+	cases := []struct {
+		name       string
+		tag        string
+		wantOK     bool
+		wantSize   string
+		wantOrient string
+	}{
+		{"F4 landscape", `<pageSetup paperSize="14" orientation="landscape"/>`, true, "F4", "landscape"},
+		{"A4 tanpa orientation → portrait", `<pageSetup paperSize="9"/>`, true, "A4", "portrait"},
+		{"LEGAL portrait", `<pageSetup paperSize="5" orientation="portrait"/>`, true, "LEGAL", "portrait"},
+		{"kode tak dikenal ditolak", `<pageSetup paperSize="42" orientation="landscape"/>`, false, "", ""},
+		{"tanpa pageSetup ditolak", "", false, "", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			data := sheetXLSX(t, tc.tag, "{{no}}", "{{nama}}", "{{tgl_1}}")
+			size, orient, ok := detectXLSXPageSetup(data)
+			if ok != tc.wantOK {
+				t.Fatalf("ok = %v, want %v", ok, tc.wantOK)
+			}
+			if size != tc.wantSize || orient != tc.wantOrient {
+				t.Fatalf("got %q/%q, want %q/%q", size, orient, tc.wantSize, tc.wantOrient)
+			}
+		})
+	}
+
+	// Bukan zip → ditolak tanpa panic.
+	if _, _, ok := detectXLSXPageSetup([]byte("bukan zip")); ok {
+		t.Fatalf("data non-zip harus ditolak")
+	}
+}
+
+// TestTemplateUploadDetectsPageSetup memastikan unggahan xlsx F4 landscape
+// menimpa meta A4 lama di record (file = sumber kebenaran geometri cetak),
+// sementara berkas tanpa pageSetup / kode tak dikenal membiarkan meta lama.
+func TestTemplateUploadDetectsPageSetup(t *testing.T) {
+	db := openTemplateTestDB(t)
+	defer db.Close()
+	repo := repository.NewReportTemplateRepository(db)
+	h := NewReportTemplateHandler(repo)
+
+	tpl, err := repo.Create(&models.CreateReportTemplateRequest{
+		Code: "RPT_PS", Name: "PS", Module: "presensi",
+		PaperSize: "A4", Orientation: "portrait",
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	dir := t.TempDir()
+	old, _ := os.Getwd()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	defer func() { _ = os.Chdir(old) }()
+
+	upload := func(name string, content []byte) int {
+		var buf bytes.Buffer
+		w := multipart.NewWriter(&buf)
+		fw, _ := w.CreateFormFile("file", name)
+		_, _ = fw.Write(content)
+		_ = w.Close()
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodPost, "/", &buf)
+		req.Header.Set(echo.HeaderContentType, w.FormDataContentType())
+		rec := httptest.NewRecorder()
+		ctx := e.NewContext(req, rec)
+		ctx.SetParamNames("id")
+		ctx.SetParamValues(itoa(tpl.ID))
+		_ = h.UploadTemplateFile(ctx)
+		return rec.Code
+	}
+	vars := []string{"{{no}}", "{{nama}}", "{{tgl_1}}"}
+
+	// F4 landscape → meta ikut berubah.
+	if code := upload("f4.xlsx", sheetXLSX(t, `<pageSetup paperSize="14" orientation="landscape"/>`, vars...)); code != http.StatusOK {
+		t.Fatalf("upload f4 harus 200, got %d", code)
+	}
+	after, _ := repo.GetByID(tpl.ID)
+	if after.PaperSize != "F4" || after.Orientation != "landscape" {
+		t.Fatalf("meta harus F4/landscape, got %q/%q", after.PaperSize, after.Orientation)
+	}
+
+	// Kode tak dikenal → meta lama (F4/landscape) dipertahankan.
+	if code := upload("aneh.xlsx", sheetXLSX(t, `<pageSetup paperSize="42" orientation="portrait"/>`, vars...)); code != http.StatusOK {
+		t.Fatalf("upload aneh harus 200, got %d", code)
+	}
+	after, _ = repo.GetByID(tpl.ID)
+	if after.PaperSize != "F4" || after.Orientation != "landscape" {
+		t.Fatalf("meta tak boleh tertimpa kode tak dikenal, got %q/%q", after.PaperSize, after.Orientation)
+	}
+
+	// Tanpa pageSetup → meta lama dipertahankan.
+	if code := upload("polos2.xlsx", sheetXLSX(t, "", vars...)); code != http.StatusOK {
+		t.Fatalf("upload tanpa pageSetup harus 200, got %d", code)
+	}
+	after, _ = repo.GetByID(tpl.ID)
+	if after.PaperSize != "F4" {
+		t.Fatalf("meta tak boleh berubah tanpa pageSetup, got %q", after.PaperSize)
+	}
+}

@@ -43,6 +43,9 @@ describe("printAreaPx", () => {
   it("A4 landscape, margin 5mm → ~[1085, 756] px", () => {
     expect(printAreaPx({ paperSize: "A4", orientation: "landscape" })).toEqual([1085, 756]);
   });
+  it("F4 landscape, margin 5mm → [1209, 775] px", () => {
+    expect(printAreaPx({ paperSize: "F4", orientation: "landscape" })).toEqual([1209, 775]);
+  });
   it("A4 portrait → tampil lebih tinggi dari lebar", () => {
     const [w, h] = printAreaPx({ paperSize: "A4" });
     expect(h).toBeGreaterThan(w);

@@ -27,6 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { goGet } from "@/lib/api-client";
 import { formatClassName } from "@/lib/class-utils";
+import { pageCss, printAreaPx } from "@/lib/worksheet-print";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { siteConfig } from "@/lib/config";
 import {
@@ -143,6 +144,12 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
   const [studentsList, setStudentsList] = useState<{ id: string; name?: string; fullName?: string; username?: string; nis?: string; nisn?: string; className?: string }[]>([]);
   const [principalName, setPrincipalName] = useState("");
   const [principalNIP, setPrincipalNIP] = useState("");
+  // Geometri kertas artefak cetak fallback (PrintPage): mengikuti template
+  // default terdaftar. Default F4 landscape = format kertas sekolah.
+  const [pageSetup, setPageSetup] = useState<{ paperSize: string; orientation: string }>({
+    paperSize: "F4",
+    orientation: "landscape",
+  });
 
   // Student detail modal state
   const [detailStudent, setDetailStudent] = useState<{ id: string; name: string; nis: string; className: string } | null>(null);
@@ -209,6 +216,22 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
     setLoadingBulanan(false);
     setRecords([]);
   }, [pathname]);
+
+  // Ukuran kertas template default (paperSize/orientation record presensi)
+  // → rule @page untuk artefak cetak fallback (Ctrl+P / "format cetak biasa").
+  useEffect(() => {
+    goGet("/api/reports/templates/default/presensi")
+      .then((response: any) => {
+        const d = response?.data || response || {};
+        if (typeof d.paperSize === "string" && d.paperSize.trim()) {
+          setPageSetup({
+            paperSize: d.paperSize.trim().toUpperCase(),
+            orientation: (d.orientation || "landscape").trim() || "landscape",
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // --- Bulanan fetcher ---
   const daysInMonth = useMemo(() => getDaysInMonth(new Date(selectedYear, selectedMonth - 1)), [selectedYear, selectedMonth]);
@@ -943,6 +966,7 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
                 principalName={principalName} principalNIP={principalNIP}
                 waliKelas={getWaliKelas(classNameBulanan)}
                 holidayReasons={holidayReasons}
+                paperSize={pageSetup.paperSize} orientation={pageSetup.orientation}
               />
             </>
           ) : visibleMatrix.length === 0 ? (
@@ -984,6 +1008,7 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
                   waliKelas={getWaliKelas(g.cls || "")}
                   holidayReasons={holidayReasons}
                   belowThreshold={g.rows.filter((s) => isBelowThreshold(s, effectiveDays)).length}
+                  paperSize={pageSetup.paperSize} orientation={pageSetup.orientation}
                 />
               </Fragment>
             ))
@@ -1343,6 +1368,7 @@ function PrintPage({
   matrix, columns, effectiveDays, monthName, year, academicYear, className,
   onStudentClick, principalName, principalNIP, waliKelas, waliNIP,
   holidayReasons = [], belowThreshold = 0, preview = false,
+  paperSize = "F4", orientation = "landscape",
 }: {
   matrix: StudentMatrix[]; columns: DayColumn[]; effectiveDays: number;
   monthName: string; year: number; academicYear: string; className: string;
@@ -1351,6 +1377,9 @@ function PrintPage({
   holidayReasons?: [string, string][]; belowThreshold?: number;
   /** Tampilkan artefak kertas di layar (pratinjau eksplisit dari toolbar) */
   preview?: boolean;
+  /** Ukuran kertas template default (mis. F4) — dari meta record presensi. */
+  paperSize?: string;
+  orientation?: string;
 }) {
   const totalSiswa = matrix?.length || 0;
   const colCount = columns.length;
@@ -1371,19 +1400,21 @@ function PrintPage({
   ).trim();
   const signDate = format(new Date(), "d MMMM yyyy", { locale: localeId });
 
-  // Ukuran font adaptif agar 1 kelas selalu muat 1 lembar F4 landscape:
-  // tinggi layak ≈ 756px; kop+judul+meta+legenda+tanda tangan ≈ 260px;
+  // Ukuran font adaptif agar 1 kelas selalu muat 1 lembar (F4 landscape):
+  // tinggi layak = tinggi area cetak (printAreaPx, mis. F4 landscape 775px);
+  // kop+judul+meta+legenda+tanda tangan ≈ 260px;
   // baris tabel ≈ font*1.15 + padding 3px. Kelas sedikit → font besar (maks 10),
   // kelas besar → font ciut otomatis (min 5.5) tanpa pecah halaman.
   const rowCount = Math.max(totalSiswa, 1) + 3;
-  const rowBudget = Math.max((756 - 260) / rowCount, 7);
+  const areaHeight = printAreaPx({ paperSize, orientation })[1];
+  const rowBudget = Math.max((areaHeight - 260) / rowCount, 7);
   const baseFont = Math.min(10, Math.max(5.5, (rowBudget - 3) / 1.15));
 
   return (
     <div className={`print-page${preview ? " show-print-preview" : ""}`} style={{ [ "--pf" as any]: `${baseFont}px`, background: "white" }}>
       <style>{`
         @media print {
-          @page { size: 8.27in 13in landscape; margin: 5mm; }
+          ${pageCss({ paperSize, orientation, marginMm: 5 })}
           body { font-size: ${baseFont}px; }
         }
         .print-page {
