@@ -143,7 +143,7 @@ describe("worksheetToHtml — posisi gambar (EMU→px)", () => {
   });
 });
 
-describe("worksheetToHtml — fit-to-page (replikasi fitToPage Excel)", () => {
+describe("worksheetToHtml — fit kolom (replikasi fitToWidth=1, tanpa satu-halaman)", () => {
   const sheet2Cols = {
     rowCount: 2,
     columnCount: 39,
@@ -155,25 +155,30 @@ describe("worksheetToHtml — fit-to-page (replikasi fitToPage Excel)", () => {
     getColumn: () => ({ width: 4 }),
   };
 
-  it("membungkus skala saat tabel lebih lebar dari halaman", () => {
-    // colWidth = 4*7+5 = 33px × 39 = 1287px > 1085 → scale < 1.
-    const html = worksheetToHtml(sheet2Cols as never, [], { fitPagePx: [1085, 756] });
-    expect(html).toContain("transform:scale(");
-    expect(html).toContain("overflow:hidden");
-    // Lebar wrapper = 1287 × 0.843 ≈ 1085.
-    const m = /width:(\d+)px;height:(\d+)px/.exec(html);
-    expect(m).not.toBeNull();
-    expect(Number(m![1])).toBeLessThanOrEqual(1085);
+  it("skala lebar: colgroup dikalikan hingga pas selebar area cetak", () => {
+    // naturalW = 39 × (4*7+5=33) = 1287px > 1085 → skala 0.843.
+    const html = worksheetToHtml(sheet2Cols as never, [], { fitWidthPx: 1085 });
+    // TANPA transform/overflow wrapper — konten harus mengalir agar bisa
+    // pecah halaman (transform hanya tergambar di halaman pertama).
+    expect(html).not.toContain("transform:scale(");
+    expect(html).not.toContain("overflow:hidden;width:");
+    expect(html).toContain('style="width:1085px"');
+    // Jumlah persis fitWidthPx (pembulatan dikoreksi di kolom terakhir).
+    const cols = [...html.matchAll(/<col style="width:(\d+)px">/g)].map((m) => Number(m[1]));
+    expect(cols).toHaveLength(39);
+    expect(cols.reduce((a, b) => a + b, 0)).toBe(1085);
   });
 
-  it("tanpa opsi fitPagePx → tanpa wrapper skala (kompatibilitas lama)", () => {
+  it("tanpa opsi fitWidthPx → lebar natural (kompatibilitas lama)", () => {
     const html = worksheetToHtml(sheet2Cols as never);
+    expect(html).toContain('style="width:1287px"');
     expect(html).not.toContain("transform:scale(");
   });
 
-  it("tabel muat → tidak diskalakan", () => {
+  it("tabel sudah muat → tidak ada penskalaan", () => {
     const narrow = { ...sheet2Cols, columnCount: 5 }; // 165px << 1085
-    const html = worksheetToHtml(narrow as never, [], { fitPagePx: [1085, 756] });
+    const html = worksheetToHtml(narrow as never, [], { fitWidthPx: 1085 });
+    expect(html).toContain('style="width:165px"');
     expect(html).not.toContain("transform:scale(");
   });
 });

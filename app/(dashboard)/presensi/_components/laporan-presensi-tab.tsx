@@ -562,12 +562,14 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
       const images = printLib.extractPrintImages(ws, (id: number) =>
         (wb as unknown as { getImage?: (i: number) => never }).getImage?.(id)
       );
-      // Replikasi fitToPage Excel: area printable dari paperSize/margin.
-      const fitPagePx = printLib.printAreaPx({
+      // Replikasi fit KOLOM Excel (fitToWidth=1): area printable dari
+      // paperSize/margin — hanya lebar; tinggi alami → multi-halaman,
+      // konsisten dgn perilaku fillPresensiWorksheet (fitToHeight=0).
+      const [fitWidthPx] = printLib.printAreaPx({
         paperSize: opts.paperSize,
         orientation: opts.orientation,
       });
-      sections.push(printLib.worksheetToHtml(ws as never, images, { fitPagePx }));
+      sections.push(printLib.worksheetToHtml(ws as never, images, { fitWidthPx }));
       buffers.push((await wb.xlsx.writeBuffer()) as ArrayBuffer);
     }
 

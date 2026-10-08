@@ -23,9 +23,12 @@ export interface WorksheetPrintOptions {
 
 /** Opsi render worksheet → HTML. */
 export interface WorksheetRenderOptions {
-  /** Area cetak printable [lebar, tinggi] dalam px. Bila diberikan, seluruh
-   *  sheet diskalakan muat satu halaman — mereplikasi fitToPage Excel. */
-  fitPagePx?: [number, number];
+  /** Lebar area cetak (px). Bila diberikan dan sheet lebih lebar, lebar
+   *  kolom colgroup dikalikan skala agar selalu muat selebar halaman
+   *  (replikasi fitToWidth=1 Excel). Tinggi TIDAK diklamp: konten mengalir
+   *  natural ke halaman lanjutan — wrapper transform/satu-halaman sengaja
+   *  tidak dipakai karena konten ter-transform hanya tergambar di hal.1. */
+  fitWidthPx?: number;
 }
 
 /** Dimensi kertas (mm) yang didukung — konsisten dengan model laporan. */
@@ -337,13 +340,31 @@ export function worksheetToHtml(
 
   // Lebar kolom: exceljs width (satuan karakter) → px.
   const colWidths: number[] = [];
-  const widths: string[] = [];
   for (let c = 1; c <= colCount; c++) {
     const w = ws.getColumn?.(c)?.width;
-    const px = Math.round((w ?? 8.43) * 7 + 5);
-    colWidths.push(px);
-    widths.push(`<col style="width:${px}px">`);
+    colWidths.push(Math.round((w ?? 8.43) * 7 + 5));
   }
+  let naturalW = colWidths.reduce((a, b) => a + b, 0);
+
+  // Fit KOLOM (replikasi fitToWidth=1): skala lebar saja — kalikan lebar
+  // kolom agar total pas selebar area cetak. Tanpa transform: tabel mengalir
+  // natural & pecah halaman di browser/Chromium (transform+overflow:hidden
+  // hanya menggambar konten di halaman pertama). Tinggi bebas → multi-halaman.
+  const fitW = renderOpts.fitWidthPx;
+  if (fitW && naturalW > fitW && colWidths.length > 0) {
+    const scale = fitW / naturalW;
+    let sum = 0;
+    for (let i = 0; i < colWidths.length; i++) {
+      colWidths[i] = Math.max(1, Math.round(colWidths[i] * scale));
+      sum += colWidths[i];
+    }
+    // Koreksi pembulatan agar jumlah kolom PAS = fitW (pilih kolom terakhir).
+    const last = colWidths.length - 1;
+    colWidths[last] = Math.max(1, colWidths[last] + (fitW - sum));
+    naturalW = colWidths.reduce((a, b) => a + b, 0);
+  }
+  const widths = colWidths.map((px) => `<col style="width:${px}px">`);
+
   // Tinggi baris (points → px); default Excel 15pt = 20px.
   const rowHeightPx = (rowNumber: number): number => {
     const h = ws.getRow(rowNumber)?.height;
@@ -377,15 +398,13 @@ export function worksheetToHtml(
   // Width eksplisit = jumlah colgroup. `width: max-content` (CSS) membuat
   // Chromium menghitung ulang lebar kolom dari konten sel; width inline ini
   // memaksa table-layout: fixed mengikuti colgroup persis.
-  const naturalW = colWidths.reduce((a, b) => a + b, 0);
-
   const table =
     `<table class="ws" style="width:${naturalW}px"><colgroup>${widths.join("")}</colgroup><tbody>` +
     rows.join("") +
     `</tbody></table>`;
 
-  // Posisi gambar: akumulasi lebar kolom + tinggi baris (anchor 0-based).
-  // colOff/rowOff dari exceljs dalam EMU → konversi ke px (EMU_PER_PX).
+  // Posisi gambar: akumulasi lebar kolom (sudah termasuk skala fit) + tinggi
+  // baris (anchor 0-based). colOff/rowOff dari exceljs dalam EMU → px.
   const imgHtml = images
     .map((img) => {
       let left = 0;
@@ -405,30 +424,9 @@ export function worksheetToHtml(
     })
     .join("");
 
-  const content =
-    images.length === 0
-      ? table
-      : `<div style="position:relative;display:inline-block;max-width:100%">${imgHtml}${table}</div>`;
-
-  // Replikasi fitToPage Excel: skalakan seluruh sheet muat satu halaman.
-  const fit = renderOpts.fitPagePx;
-  if (!fit) return content;
-
-  let naturalH = 0;
-  const lastRow = ws.rowCount || 0;
-  for (let r = 1; r <= lastRow; r++) naturalH += rowHeightPx(r);
-
-  const [pageW, pageH] = fit;
-  const scale = Math.min(1, pageW / naturalW, pageH / naturalH);
-  if (scale >= 1) return content;
-
-  const wPx = Math.round(naturalW * scale);
-  const hPx = Math.round(naturalH * scale);
-  return (
-    `<div style="position:relative;overflow:hidden;width:${wPx}px;height:${hPx}px">` +
-    `<div style="position:absolute;top:0;left:0;transform:scale(${scale});transform-origin:top left">${content}</div>` +
-    `</div>`
-  );
+  return images.length === 0
+    ? table
+    : `<div style="position:relative;display:inline-block;max-width:100%">${imgHtml}${table}</div>`;
 }
 
 /**

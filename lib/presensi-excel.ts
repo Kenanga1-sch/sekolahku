@@ -443,9 +443,18 @@ export async function fillPresensiWorksheet(
         ...(wsPS.pageSetup || {}),
         paperSize: paperCode,
         orientation: (input.orientation || "portrait").toLowerCase() === "landscape" ? "landscape" : "portrait",
+        // Fit KOLOM saja (keputusan user 2026-10-08): semua kolom selalu muat
+        // (skala ≈99%), tinggi natural → kelas kecil 1 halaman, kelas besar
+        // lanjut ke halaman berikutnya seperti print Excel. fitToHeight=1
+        // (1 halaman) memaksa skala 43–50% → teks mengecil tak wajar.
         fitToPage: true,
         fitToWidth: 1,
-        fitToHeight: 1,
+        fitToHeight: 0,
+        // Margin 5mm dipaksa agar LO/Excel identik dengan jalur HTML
+        // (pageCss marginMm:5). Margin bawaan template (WPS: 19mm samping,
+        // 25.4mm atas/bawah) membuang tempat & menurunkan skala LO ~0.91.
+        // Satuan exceljs = INCH (0.2in ≈ 5mm).
+        margins: { top: 0.2, right: 0.2, bottom: 0.2, left: 0.2, header: 0.1, footer: 0.1 },
       };
     }
   }
