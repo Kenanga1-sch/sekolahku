@@ -11,6 +11,8 @@
 import { useState, useEffect, Suspense, lazy } from "react";
 import { useSearchParams } from "next/navigation";
 import { ClipboardList, CalendarDays, FileText, Loader2, LayoutDashboard } from "lucide-react";
+import { useAuthStore } from "@/lib/stores/auth-store";
+import { canManageHolidays } from "@/lib/presensi-access";
 
 const PresensiDashboardTab = lazy(() =>
   import("./_components/presensi-dashboard-tab").then((m) => ({ default: m.PresensiDashboardTab }))
@@ -45,28 +47,35 @@ function TabFallback() {
 function PresensiTabsContent() {
   const searchParams = useSearchParams();
   const queryTab = searchParams.get("tab") as TabType | null;
+  const { user } = useAuthStore();
 
   const [activeTab, setActiveTab] = useState<TabType>("ringkasan");
 
+  const canLibur = canManageHolidays(user?.role);
+  const visibleTabs = TABS.filter((t) => t.id !== "libur" || canLibur);
+
   useEffect(() => {
-    if (queryTab === "ringkasan" || queryTab === "pengajuan" || queryTab === "laporan" || queryTab === "libur") {
+    if (queryTab === "ringkasan" || queryTab === "pengajuan" || queryTab === "laporan" || (queryTab === "libur" && canLibur)) {
       setActiveTab(queryTab);
     }
-  }, [queryTab]);
+  }, [queryTab, canLibur]);
+
+  // Tab "libur" tidak terlihat untuk non-admin -> jatuh ke "ringkasan"
+  const active = visibleTabs.some((t) => t.id === activeTab) ? activeTab : "ringkasan";
 
   return (
     <div className="space-y-6">
       {/* Tabs Navigation */}
       <div className="relative">
         <div className="flex overflow-x-auto whitespace-nowrap scrollbar-none bg-slate-100/60 dark:bg-zinc-900/40 p-1 rounded-xl gap-1.5 border border-slate-200/40 dark:border-zinc-800/40">
-          {TABS.map((t) => {
+          {visibleTabs.map((t) => {
             const Icon = t.icon;
             return (
               <button
                 key={t.id}
                 onClick={() => setActiveTab(t.id)}
                 className={`shrink-0 py-1.5 sm:py-2 px-3 sm:px-4 text-xs sm:text-sm font-semibold rounded-lg transition-all duration-200 flex items-center gap-1.5 cursor-pointer border ${
-                  activeTab === t.id
+                  active === t.id
                     ? "bg-white dark:bg-zinc-950 text-blue-600 dark:text-blue-400 shadow-sm border-slate-200/80 dark:border-zinc-800"
                     : "text-muted-foreground hover:text-foreground hover:bg-slate-200/40 dark:hover:bg-zinc-900/30 border-transparent"
                 }`}
@@ -81,22 +90,22 @@ function PresensiTabsContent() {
       </div>
 
       <div className="pt-2">
-        {activeTab === "ringkasan" && (
+        {active === "ringkasan" && (
           <Suspense fallback={<TabFallback />}>
             <PresensiDashboardTab />
           </Suspense>
         )}
-        {activeTab === "pengajuan" && (
+        {active === "pengajuan" && (
           <Suspense fallback={<TabFallback />}>
             <PengajuanIzinTab hideHeader />
           </Suspense>
         )}
-        {activeTab === "laporan" && (
+        {active === "laporan" && (
           <Suspense fallback={<TabFallback />}>
             <LaporanPresensiTab hideHeader />
           </Suspense>
         )}
-        {activeTab === "libur" && (
+        {active === "libur" && (
           <Suspense fallback={<TabFallback />}>
             <HariLiburTab hideHeader />
           </Suspense>

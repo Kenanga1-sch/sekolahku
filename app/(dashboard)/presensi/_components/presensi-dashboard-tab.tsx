@@ -25,6 +25,8 @@ import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { goGet } from "@/lib/api-client";
 import { formatClassName } from "@/lib/class-utils";
+import { useAuthStore } from "@/lib/stores/auth-store";
+import { canManageHolidays } from "@/lib/presensi-access";
 
 interface Stats {
   totalStudents: number;
@@ -45,6 +47,7 @@ interface ClassItem {
 }
 
 export function PresensiDashboardTab() {
+  const { user } = useAuthStore();
   const [stats, setStats] = useState<Stats | null>(null);
   const [classes, setClasses] = useState<ClassItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -247,12 +250,14 @@ export function PresensiDashboardTab() {
                 <span>Laporan Bulanan</span>
               </Button>
             </Link>
-            <Link href="/presensi/holidays">
-              <Button variant="outline" className="w-full h-20 flex-col gap-1">
-                <Calendar className="h-6 w-6" />
-                <span>Kelola Libur</span>
-              </Button>
-            </Link>
+            {canManageHolidays(user?.role) && (
+              <Link href="/presensi/holidays">
+                <Button variant="outline" className="w-full h-20 flex-col gap-1">
+                  <Calendar className="h-6 w-6" />
+                  <span>Kelola Libur</span>
+                </Button>
+              </Link>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -18,10 +18,6 @@
 .holiday-calendar .rdp-month {
   width: 100%;
 }
-.holiday-calendar .rdp-nav {
-  justify-content: space-between;
-  width: 100%;
-}
 .holiday-calendar .rdp-weekday {
   font-size: 0.75rem;
   font-weight: 500;
