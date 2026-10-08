@@ -27,9 +27,24 @@ check() {
 echo "═══ Health Check [$MODE] — $(date '+%Y-%m-%d %H:%M:%S') ═══"
 
 # 1. Aplikasi merespons
+# Retry: health-check kadang berjalan di jeda transisi deploy (container baru
+# baru saja bind) → curl sekali bisa false-negative walau detik kemudian sehat.
 echo "▸ Aplikasi"
-check "API /api/health merespons (port $PORT)" \
-  curl -sf --max-time 5 "http://localhost:$PORT/api/health"
+API_OK=0
+for i in $(seq 1 5); do
+  if curl -sf --max-time 5 "http://localhost:$PORT/api/health" >/dev/null 2>&1; then
+    API_OK=1
+    break
+  fi
+  echo "  … percobaan $i/5 belum berhasil, tunggu 2s"
+  sleep 2
+done
+if [ "$API_OK" -eq 1 ]; then
+  echo "  ✓ API /api/health merespons (port $PORT)"
+else
+  echo "  ✗ API /api/health merespons (port $PORT)"
+  FAIL=1
+fi
 
 # 2. Database
 echo "▸ Database"
