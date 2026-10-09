@@ -3,7 +3,7 @@
 import NextImage from "next/image";
 import { QRCodeSVG } from "qrcode.react";
 import type { StudentCard } from "./use-cetak-kartu";
-import { CARD_W_MM, CARD_H_MM } from "./print-layout";
+import { CARD_W_MM, CARD_H_MM } from "@/lib/kartu-print-layout";
 import { resolveUploadUrl } from "@/lib/upload-url";
 
 interface PreviewProps {

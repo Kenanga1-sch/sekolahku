@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { KartuPreview } from "./kartu-preview";
-import { CARD_W_MM, CARD_H_MM } from "./print-layout";
+import { CARD_W_MM, CARD_H_MM } from "@/lib/kartu-print-layout";
 import type { StudentCard } from "./use-cetak-kartu";
 
 const student: StudentCard = {

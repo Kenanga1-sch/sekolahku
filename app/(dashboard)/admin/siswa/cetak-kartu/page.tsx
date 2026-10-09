@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useCetakKartu } from "./use-cetak-kartu";
 import { KartuPreview } from "./kartu-preview";
-import { buildPrintPages, getOffset, parseMmValue, CARD_H_MM } from "./print-layout";
+import { buildPrintPages, getOffset, parseMmValue, CARD_H_MM } from "@/lib/kartu-print-layout";
 
 const COLUMN_LABELS = ["kiri", "kanan"];
 
@@ -296,7 +296,7 @@ export default function CetakKartuPage() {
               /* Kalibrasi posisi (offset mm) dipasang inline per sel kartu
                  (translate pada anak, bukan blok halaman) — transform pada
                  blok halaman yang dipecah break merusak pagination & margin
-                 halaman berikutnya. Lihat print-layout.ts. */
+                 halaman berikutnya. Lihat lib/kartu-print-layout.ts. */
             }
           `}</style>,
           document.head
@@ -312,14 +312,14 @@ export default function CetakKartuPage() {
                     className="flex break-inside-avoid page-break-inside-avoid"
                     style={{
                       // Posisi fisik eksplisit: sisi belakang duplex dicerminkan
-                      // (lihat print-layout.ts) — auto-placement tak bisa menaruh
+                      // (lihat lib/kartu-print-layout.ts) — auto-placement tak bisa menaruh
                       // sel di slot hasil cermin.
                       gridRow: cell.row + 1,
                       gridColumn: cell.col + 1,
                       transform: `translate(${offset.x}mm, ${offset.y}mm)`,
                     }}
                   >
-                    <KartuPreview student={cell.student} schoolName={schoolName} schoolAddress={schoolAddress} schoolLogo={schoolLogo} showPhoto={showPhoto} showNIS={showNIS} cardType={cardType} showBackSide={showBackSide} printSide={cell.side} forPrint />
+                    <KartuPreview student={cell.card} schoolName={schoolName} schoolAddress={schoolAddress} schoolLogo={schoolLogo} showPhoto={showPhoto} showNIS={showNIS} cardType={cardType} showBackSide={showBackSide} printSide={cell.side} forPrint />
                   </div>
                 );
               })}

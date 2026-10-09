@@ -18,7 +18,7 @@ import {
   withOffset,
   type AdjustAll,
   type PrintMode,
-} from "./print-layout";
+} from "@/lib/kartu-print-layout";
 
 export interface StudentCard {
   id: string;
@@ -66,7 +66,8 @@ export function useCetakKartu() {
     const s = readSettingsStorage();
     if (s) {
       setCardsPerRow(s.cardsPerRow);
-      setCardType(s.cardType);
+      // "gtk" milik modul GTK (prefix storage berbeda) — jangan bocor ke siswa.
+      setCardType(s.cardType === "gtk" ? "pelajar" : s.cardType);
       setShowPhoto(s.showPhoto);
       setShowNIS(s.showNIS);
       setShowBackSide(s.showBackSide);

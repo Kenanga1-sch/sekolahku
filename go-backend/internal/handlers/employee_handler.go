@@ -44,6 +44,39 @@ func (h *EmployeeHandler) GetEmployees(c echo.Context) error {
 	return c.JSON(http.StatusOK, res)
 }
 
+// GetEmployeesForPrint mengembalikan data GTK terpilih untuk cetak kartu
+// (batch, urut sesuai input — pola sama dengan GetStudentsForPrint).
+func (h *EmployeeHandler) GetEmployeesForPrint(c echo.Context) error {
+	var req struct {
+		EmployeeIds []string `json:"employeeIds"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Invalid payload"})
+	}
+
+	employeeIDs := make([]string, 0, len(req.EmployeeIds))
+	for _, id := range req.EmployeeIds {
+		id = strings.TrimSpace(id)
+		if id != "" {
+			employeeIDs = append(employeeIDs, id)
+		}
+	}
+	if len(employeeIDs) == 0 {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Tidak ada GTK yang dipilih"})
+	}
+
+	employees, err := h.Repo.GetEmployeesByIDs(employeeIDs)
+	if err != nil {
+		c.Logger().Error("GetEmployeesForPrint ERROR: ", err)
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data":    employees,
+	})
+}
+
 // GetEmployeesWithoutAccount returns GTK entries not yet linked to a user account
 func (h *EmployeeHandler) GetEmployeesWithoutAccount(c echo.Context) error {
 	employees, err := h.Repo.GetEmployeesWithoutAccount()

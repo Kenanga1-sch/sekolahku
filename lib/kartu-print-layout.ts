@@ -1,8 +1,7 @@
-import type { StudentCard } from "./use-cetak-kartu";
-
 /**
- * Tata letak lembar cetak kartu (A4, 4 baris) untuk mode duplex dan gabungan,
- * plus model kalibrasi posisi (offset mm per sisi per kolom, terpisah per mode).
+ * Mesin cetak kartu (A4, 4 baris) untuk mode duplex dan gabungan, plus
+ * model kalibrasi posisi (offset mm per sisi per kolom, terpisah per mode).
+ * Dipakai bersama cetak kartu siswa & GTK — hanya butuh `{ id }` pada kartu.
  *
  * Semua fungsi di sini murni (tanpa DOM) supaya bisa diuji unit-test:
  * - urutan halaman duplex harus berpasangan F1,B1,F2,B2… (halaman ganjil =
@@ -16,14 +15,19 @@ import type { StudentCard } from "./use-cetak-kartu";
 
 export const ROWS_PER_PAGE = 4;
 
-/** Dimensi fisik kartu (mm, landscape) — sumber tunggal untuk CSS print di
- *  page.tsx dan render kartu di kartu-preview.tsx. Plastik laminating 66×96 mm. */
+/** Dimensi fisik kartu (mm, landscape) — sumber tunggal untuk CSS print dan
+ *  render kartu. Plastik laminating 66×96 mm. */
 export const CARD_W_MM = 88;
 export const CARD_H_MM = 58;
 
-export interface PrintCell {
+/** Kartu apa pun yang bisa dicetak — mesin cetak hanya butuh `id`. */
+export interface KartuCetak {
+  id: string;
+}
+
+export interface PrintCell<T extends KartuCetak = KartuCetak> {
   key: string;
-  student: StudentCard;
+  card: T;
   side: "front" | "back";
   /** Indeks kolom pada baris halaman (0-based), menentukan offset kalibrasi. */
   col: number;
@@ -31,15 +35,15 @@ export interface PrintCell {
   row: number;
 }
 
-export interface PrintPage {
+export interface PrintPage<T extends KartuCetak = KartuCetak> {
   key: string;
-  cells: PrintCell[];
+  cells: PrintCell<T>[];
 }
 
 export type PrintMode = "combined" | "duplex";
 
-export interface BuildPrintPagesParams {
-  cards: StudentCard[];
+export interface BuildPrintPagesParams<T extends KartuCetak> {
+  cards: T[];
   cardsPerRow: number;
   mode: PrintMode;
   showBackSide: boolean;
@@ -47,18 +51,24 @@ export interface BuildPrintPagesParams {
 }
 
 /** Susun daftar halaman cetak sesuai mode & jumlah kartu per baris. */
-export function buildPrintPages({ cards, cardsPerRow, mode, showBackSide, flipEdge = "long" }: BuildPrintPagesParams): PrintPage[] {
+export function buildPrintPages<T extends KartuCetak>({
+  cards,
+  cardsPerRow,
+  mode,
+  showBackSide,
+  flipEdge = "long",
+}: BuildPrintPagesParams<T>): PrintPage<T>[] {
   const perRow = Math.max(1, Math.floor(cardsPerRow));
   const cellsPerPage = perRow * ROWS_PER_PAGE;
-  const pages: PrintPage[] = [];
+  const pages: PrintPage<T>[] = [];
 
   if (mode === "duplex") {
-    const studentsPerPage = cellsPerPage;
-    for (let start = 0; start < cards.length; start += studentsPerPage) {
-      const batch = cards.slice(start, start + studentsPerPage);
+    const cardsPerPage = cellsPerPage;
+    for (let start = 0; start < cards.length; start += cardsPerPage) {
+      const batch = cards.slice(start, start + cardsPerPage);
       pages.push({
         key: `front-${pages.length}`,
-        cells: batch.map((student, i) => ({ key: student.id, student, side: "front" as const, col: i % perRow, row: Math.floor(i / perRow) })),
+        cells: batch.map((card, i) => ({ key: card.id, card, side: "front" as const, col: i % perRow, row: Math.floor(i / perRow) })),
       });
       if (showBackSide) {
         // Pasangan fisik di sisi belakang harus mengikuti arah kertas dibalik:
@@ -68,14 +78,14 @@ export function buildPrintPages({ cards, cardsPerRow, mode, showBackSide, flipEd
         //   dengan baris bawah belakang → balik urutan baris.
         const rows = ROWS_PER_PAGE;
         const cols = perRow;
-        const cells: PrintCell[] = [];
+        const cells: PrintCell<T>[] = [];
         for (let targetIdx = 0; targetIdx < rows * cols; targetIdx++) {
           const r = Math.floor(targetIdx / cols);
           const c = targetIdx % cols;
           const srcIdx = flipEdge === "long" ? r * cols + (cols - 1 - c) : (rows - 1 - r) * cols + c;
           if (srcIdx >= batch.length) continue; // batch terakhir tak penuh → slot kosong dibiarkan
-          const student = batch[srcIdx];
-          cells.push({ key: `${student.id}-back`, student, side: "back", col: c, row: r });
+          const card = batch[srcIdx];
+          cells.push({ key: `${card.id}-back`, card, side: "back", col: c, row: r });
         }
         pages.push({ key: `back-${pages.length}`, cells });
       }
@@ -85,11 +95,11 @@ export function buildPrintPages({ cards, cardsPerRow, mode, showBackSide, flipEd
 
   // Mode gabungan: tiap sisi kartu adalah sel grid tersendiri, diurutkan
   // f1,b1,f2,b2… sehingga pada 2 kolom tiap baris berisi pasangan depan+belakang
-  // satu siswa — muat di A4 dan tinggal digunting per baris.
-  const flat: PrintCell[] = [];
-  for (const student of cards) {
-    flat.push({ key: `${student.id}-front`, student, side: "front", col: flat.length % perRow, row: Math.floor(flat.length / perRow) });
-    if (showBackSide) flat.push({ key: `${student.id}-back`, student, side: "back", col: flat.length % perRow, row: Math.floor(flat.length / perRow) });
+  // satu kartu — muat di A4 dan tinggal digunting per baris.
+  const flat: PrintCell<T>[] = [];
+  for (const card of cards) {
+    flat.push({ key: `${card.id}-front`, card, side: "front", col: flat.length % perRow, row: Math.floor(flat.length / perRow) });
+    if (showBackSide) flat.push({ key: `${card.id}-back`, card, side: "back", col: flat.length % perRow, row: Math.floor(flat.length / perRow) });
   }
   for (let start = 0; start < flat.length; start += cellsPerPage) {
     pages.push({ key: `combined-${pages.length}`, cells: flat.slice(start, start + cellsPerPage) });
@@ -168,9 +178,7 @@ export function withOffset(
   return { ...adjust, [mode]: { ...target, [side]: list } };
 }
 
-// ---- Persistensi localStorage ----
-
-const STORAGE_KEY = "siswa-cetak-kartu-adjust";
+// ---- Persistensi localStorage (prefix per modul: siswa-cetak-kartu, gtk-cetak-kartu, …) ----
 
 function isFiniteNumber(v: unknown): v is number {
   return typeof v === "number" && Number.isFinite(v);
@@ -203,11 +211,11 @@ export function normalizeAdjust(value: unknown): AdjustAll {
   };
 }
 
-/** Baca pengaturan tersimpan; null bila belum ada / rusak / di luar browser. */
-export function readAdjustStorage(): AdjustAll | null {
+/** Baca kalibrasi tersimpan; null bila belum ada / rusak / di luar browser. */
+export function readAdjustStorage(prefix = "siswa-cetak-kartu"): AdjustAll | null {
   try {
     if (typeof window === "undefined") return null;
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(`${prefix}-adjust`);
     if (!raw) return null;
     return normalizeAdjust(JSON.parse(raw));
   } catch {
@@ -215,10 +223,10 @@ export function readAdjustStorage(): AdjustAll | null {
   }
 }
 
-export function writeAdjustStorage(adjust: AdjustAll): boolean {
+export function writeAdjustStorage(adjust: AdjustAll, prefix = "siswa-cetak-kartu"): boolean {
   try {
     if (typeof window === "undefined") return false;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizeAdjust(adjust)));
+    window.localStorage.setItem(`${prefix}-adjust`, JSON.stringify(normalizeAdjust(adjust)));
     return true;
   } catch {
     // Storage penuh/di-block — abaikan, nilai tetap hidup di state tetapi akan hilang saat reload.
@@ -230,7 +238,7 @@ export function writeAdjustStorage(adjust: AdjustAll): boolean {
 
 export interface CetakKartuSettings {
   cardsPerRow: string;
-  cardType: "pelajar" | "nisn" | "kip";
+  cardType: "pelajar" | "nisn" | "kip" | "gtk";
   showPhoto: boolean;
   showNIS: boolean;
   showBackSide: boolean;
@@ -248,15 +256,13 @@ export const DEFAULT_CETAK_SETTINGS: CetakKartuSettings = {
   flipEdge: "long",
 };
 
-const STORAGE_SETTINGS_KEY = "siswa-cetak-kartu-settings";
-
 function sanitizeSettings(value: unknown): CetakKartuSettings {
   const d = DEFAULT_CETAK_SETTINGS;
   const v = (value ?? {}) as Partial<CetakKartuSettings>;
 
   return {
     cardsPerRow: v.cardsPerRow === "1" || v.cardsPerRow === "2" ? v.cardsPerRow : d.cardsPerRow,
-    cardType: v.cardType === "pelajar" || v.cardType === "nisn" || v.cardType === "kip" ? v.cardType : d.cardType,
+    cardType: v.cardType === "pelajar" || v.cardType === "nisn" || v.cardType === "kip" || v.cardType === "gtk" ? v.cardType : d.cardType,
     showPhoto: typeof v.showPhoto === "boolean" ? v.showPhoto : d.showPhoto,
     showNIS: typeof v.showNIS === "boolean" ? v.showNIS : d.showNIS,
     showBackSide: typeof v.showBackSide === "boolean" ? v.showBackSide : d.showBackSide,
@@ -265,10 +271,10 @@ function sanitizeSettings(value: unknown): CetakKartuSettings {
   };
 }
 
-export function readSettingsStorage(): CetakKartuSettings | null {
+export function readSettingsStorage(prefix = "siswa-cetak-kartu"): CetakKartuSettings | null {
   try {
     if (typeof window === "undefined") return null;
-    const raw = window.localStorage.getItem(STORAGE_SETTINGS_KEY);
+    const raw = window.localStorage.getItem(`${prefix}-settings`);
     if (!raw) return null;
     return sanitizeSettings(JSON.parse(raw));
   } catch {
@@ -276,10 +282,10 @@ export function readSettingsStorage(): CetakKartuSettings | null {
   }
 }
 
-export function writeSettingsStorage(settings: CetakKartuSettings): boolean {
+export function writeSettingsStorage(settings: CetakKartuSettings, prefix = "siswa-cetak-kartu"): boolean {
   try {
     if (typeof window === "undefined") return false;
-    window.localStorage.setItem(STORAGE_SETTINGS_KEY, JSON.stringify(sanitizeSettings(settings)));
+    window.localStorage.setItem(`${prefix}-settings`, JSON.stringify(sanitizeSettings(settings)));
     return true;
   } catch {
     return false;
@@ -301,4 +307,3 @@ export function parseMmValue(raw: string): number | null {
   const parsed = parseFloat(normalized);
   return Number.isFinite(parsed) ? parsed : null;
 }
-

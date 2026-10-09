@@ -123,6 +123,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/siswa/cetak": "Cetak",
   "/admin/siswa/detail": "Detail Siswa",
   "/admin/siswa": "Manajemen Siswa",
+  "/admin/master/gtk/cetak-kartu": "Cetak Kartu GTK",
   "/admin/master/gtk": "Direktori GTK",
   "/admin/akademik": "Akademik",
   "/admin/surat/jenis": "Jenis Surat",

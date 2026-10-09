@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/nrednav/cuid2"
@@ -50,69 +51,10 @@ func (r *EmployeeRepository) GetEmployees(page, limit int, search string) (*mode
 
 	var employees []models.Employee
 	for rows.Next() {
-		var e models.Employee
-		var name, email, role, nip, nuptk, nik, empStatus, jobType, joinDate sql.NullString
-		var cat, deg, quot, photo, uId sql.NullString
-		var displayOrder sql.NullInt64
-
-		err := rows.Scan(
-			&e.ID, &name, &email, &role, &nip, &nuptk, &nik,
-			&empStatus, &jobType, &joinDate,
-			&cat, &deg, &quot, &photo, &displayOrder,
-			&uId,
-		)
+		e, err := scanEmployeeRow(rows)
 		if err != nil {
 			return nil, err
 		}
-
-		if name.Valid {
-			e.Name = name.String
-		}
-		if email.Valid {
-			e.Email = email.String
-		}
-		if role.Valid {
-			e.Role = role.String
-		}
-		if nip.Valid {
-			e.NIP = &nip.String
-		}
-		if nuptk.Valid {
-			e.NUPTK = &nuptk.String
-		}
-		if nik.Valid {
-			e.NIK = &nik.String
-		}
-		if empStatus.Valid {
-			e.EmploymentStatus = &empStatus.String
-		}
-		if jobType.Valid {
-			e.JobType = &jobType.String
-		}
-		if joinDate.Valid {
-			e.JoinDate = &joinDate.String
-		}
-		if uId.Valid {
-			e.UserID = &uId.String
-			e.HasAccount = true
-		}
-		if cat.Valid {
-			e.Category = &cat.String
-		}
-		if deg.Valid {
-			e.Degree = &deg.String
-		}
-		if quot.Valid {
-			e.Quote = &quot.String
-		}
-		if photo.Valid {
-			e.PhotoUrl = &photo.String
-		}
-		if displayOrder.Valid {
-			do := int(displayOrder.Int64)
-			e.DisplayOrder = &do
-		}
-
 		employees = append(employees, e)
 	}
 	if employees == nil {
@@ -137,6 +79,120 @@ func (r *EmployeeRepository) GetEmployees(page, limit int, search string) (*mode
 			TotalPages: totalPages,
 		},
 	}, nil
+}
+
+// scanEmployeeRow membaca satu baris SELECT kolom employee_details
+// (daftar kolom sama dengan GetEmployees/GetEmployeesByIDs).
+func scanEmployeeRow(rows *sql.Rows) (models.Employee, error) {
+	var e models.Employee
+	var name, email, role, nip, nuptk, nik, empStatus, jobType, joinDate sql.NullString
+	var cat, deg, quot, photo, uId sql.NullString
+	var displayOrder sql.NullInt64
+
+	err := rows.Scan(
+		&e.ID, &name, &email, &role, &nip, &nuptk, &nik,
+		&empStatus, &jobType, &joinDate,
+		&cat, &deg, &quot, &photo, &displayOrder,
+		&uId,
+	)
+	if err != nil {
+		return e, err
+	}
+
+	if name.Valid {
+		e.Name = name.String
+	}
+	if email.Valid {
+		e.Email = email.String
+	}
+	if role.Valid {
+		e.Role = role.String
+	}
+	if nip.Valid {
+		e.NIP = &nip.String
+	}
+	if nuptk.Valid {
+		e.NUPTK = &nuptk.String
+	}
+	if nik.Valid {
+		e.NIK = &nik.String
+	}
+	if empStatus.Valid {
+		e.EmploymentStatus = &empStatus.String
+	}
+	if jobType.Valid {
+		e.JobType = &jobType.String
+	}
+	if joinDate.Valid {
+		e.JoinDate = &joinDate.String
+	}
+	if uId.Valid {
+		e.UserID = &uId.String
+		e.HasAccount = true
+	}
+	if cat.Valid {
+		e.Category = &cat.String
+	}
+	if deg.Valid {
+		e.Degree = &deg.String
+	}
+	if quot.Valid {
+		e.Quote = &quot.String
+	}
+	if photo.Valid {
+		e.PhotoUrl = &photo.String
+	}
+	if displayOrder.Valid {
+		do := int(displayOrder.Int64)
+		e.DisplayOrder = &do
+	}
+	return e, nil
+}
+
+// GetEmployeesByIDs mengembalikan GTK terpilih sesuai urutan ids
+// (dipakai cetak kartu; pola sama dengan GetStudentsByIDs).
+func (r *EmployeeRepository) GetEmployeesByIDs(ids []string) ([]models.Employee, error) {
+	if len(ids) == 0 {
+		return []models.Employee{}, nil
+	}
+
+	placeholders := make([]string, len(ids))
+	args := make([]interface{}, len(ids))
+	orderCases := make([]string, len(ids))
+	for i, id := range ids {
+		placeholders[i] = "?"
+		args[i] = id
+		orderCases[i] = "WHEN ? THEN " + fmt.Sprint(i)
+	}
+
+	query := fmt.Sprintf(`
+		SELECT e.id, e.name, e.email, e.role, e.nip, e.nuptk, e.nik,
+		       e.employment_status, e.job_type, e.join_date,
+		       e.category, e.degree, e.quote, e.photo_url, e.display_order,
+		       e.user_id
+		FROM employee_details e
+		WHERE e.id IN (%s)
+		ORDER BY CASE e.id %s END
+	`, strings.Join(placeholders, ","), strings.Join(orderCases, " "))
+	for _, id := range ids {
+		args = append(args, id)
+	}
+
+	rows, err := r.DB.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	employees := []models.Employee{}
+	for rows.Next() {
+		e, err := scanEmployeeRow(rows)
+		if err != nil {
+			return nil, err
+		}
+		employees = append(employees, e)
+	}
+	return employees, rows.Err()
 }
 
 func (r *EmployeeRepository) CreateEmployee(req models.CreateEmployeeRequest) (string, error) {

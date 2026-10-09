@@ -392,6 +392,7 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	adminGroup.GET("/master/employees", h.Employee.GetEmployees)
 	adminGroup.GET("/master/employees/without-account", h.Employee.GetEmployeesWithoutAccount)
 	adminGroup.POST("/master/employees/import", h.Employee.BulkImportEmployees)
+	adminGroup.POST("/master/employees/print", h.Employee.GetEmployeesForPrint)
 	adminGroup.GET("/master/employees/:id", h.Employee.GetEmployeeByID)
 	adminGroup.POST("/master/employees", h.Employee.CreateEmployee)
 	adminGroup.PUT("/master/employees/:id", h.Employee.UpdateEmployee)
