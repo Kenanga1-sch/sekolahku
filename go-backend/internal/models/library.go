@@ -104,6 +104,7 @@ type LibraryMember struct {
 	ID             string     `json:"id"`
 	UserID         *string    `json:"userId"`
 	StudentID      *string    `json:"studentId"`
+	EmployeeID     *string    `json:"employeeId"`
 	Name           string     `json:"name"`
 	ClassName      *string    `json:"className"`
 	QrCode         string     `json:"qrCode"`

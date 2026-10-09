@@ -19,6 +19,29 @@ func NewEmployeeRepository(db *sql.DB) *EmployeeRepository {
 	return &EmployeeRepository{DB: db}
 }
 
+// EmployeeQRCodePrefix adalah namespace QR GTK — mencegah bentrok dengan QR
+// siswa ("STU-") maupu aset perpustakaan ("BK-"). Satu QR ini terbaca di semua
+// modul scan (perpustakaan, tabungan, presensi) karena employee_details.qr_code
+// adalah single source of truth (pola sama dengan students.qr_code).
+const EmployeeQRCodePrefix = "GTK-"
+
+// NewEmployeeQRCode menghasilkan QR stabil untuk GTK. Prioritas: NIP (unik &
+// dijamin oleh validasi 18 digit) → NUPTK → id. Disimpan di DB sehingga kartu
+// yang sudah tercetak tetap terbaca walau data berubah.
+func NewEmployeeQRCode(nip, nuptk *string, employeeID string) string {
+	if nip != nil {
+		if n := strings.TrimSpace(*nip); n != "" {
+			return EmployeeQRCodePrefix + n
+		}
+	}
+	if nuptk != nil {
+		if n := strings.TrimSpace(*nuptk); n != "" {
+			return EmployeeQRCodePrefix + n
+		}
+	}
+	return EmployeeQRCodePrefix + strings.ToUpper(employeeID)
+}
+
 func (r *EmployeeRepository) GetEmployees(page, limit int, search string) (*models.EmployeeResponse, error) {
 	offset := (page - 1) * limit
 
@@ -35,7 +58,7 @@ func (r *EmployeeRepository) GetEmployees(page, limit int, search string) (*mode
 		SELECT e.id, e.name, e.email, e.role, e.nip, e.nuptk, e.nik,
 		       e.employment_status, e.job_type, e.join_date,
 		       e.category, e.degree, e.quote, e.photo_url, e.display_order,
-		       e.user_id
+		       e.user_id, e.qr_code
 		FROM employee_details e
 		WHERE %s
 		ORDER BY e.created_at DESC
@@ -86,14 +109,14 @@ func (r *EmployeeRepository) GetEmployees(page, limit int, search string) (*mode
 func scanEmployeeRow(rows *sql.Rows) (models.Employee, error) {
 	var e models.Employee
 	var name, email, role, nip, nuptk, nik, empStatus, jobType, joinDate sql.NullString
-	var cat, deg, quot, photo, uId sql.NullString
+	var cat, deg, quot, photo, uId, qr sql.NullString
 	var displayOrder sql.NullInt64
 
 	err := rows.Scan(
 		&e.ID, &name, &email, &role, &nip, &nuptk, &nik,
 		&empStatus, &jobType, &joinDate,
 		&cat, &deg, &quot, &photo, &displayOrder,
-		&uId,
+		&uId, &qr,
 	)
 	if err != nil {
 		return e, err
@@ -146,6 +169,7 @@ func scanEmployeeRow(rows *sql.Rows) (models.Employee, error) {
 		do := int(displayOrder.Int64)
 		e.DisplayOrder = &do
 	}
+	e.QrCode = qr.String
 	e.ApplyFullName()
 	return e, nil
 }
@@ -170,7 +194,7 @@ func (r *EmployeeRepository) GetEmployeesByIDs(ids []string) ([]models.Employee,
 		SELECT e.id, e.name, e.email, e.role, e.nip, e.nuptk, e.nik,
 		       e.employment_status, e.job_type, e.join_date,
 		       e.category, e.degree, e.quote, e.photo_url, e.display_order,
-		       e.user_id
+		       e.user_id, e.qr_code
 		FROM employee_details e
 		WHERE e.id IN (%s)
 		ORDER BY CASE e.id %s END
@@ -213,11 +237,13 @@ func (r *EmployeeRepository) CreateEmployee(req models.CreateEmployeeRequest) (s
 		role = "guru"
 	}
 
+	qrCode := NewEmployeeQRCode(req.NIP, req.NUPTK, detailId)
+
 	query := `
-		INSERT INTO employee_details (id, name, email, role, nip, nuptk, nik, employment_status, job_type, join_date, category, degree, quote, photo_url, display_order, phone, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO employee_details (id, name, email, role, nip, nuptk, nik, employment_status, job_type, join_date, category, degree, quote, photo_url, display_order, phone, qr_code, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	_, err := r.DB.Exec(query, detailId, req.FullName, req.Email, role, req.NIP, req.NUPTK, req.NIK, empStatus, jobType, req.JoinDate, req.Category, req.Degree, req.Quote, req.PhotoUrl, req.DisplayOrder, req.Phone, now, now)
+	_, err := r.DB.Exec(query, detailId, req.FullName, req.Email, role, req.NIP, req.NUPTK, req.NIK, empStatus, jobType, req.JoinDate, req.Category, req.Degree, req.Quote, req.PhotoUrl, req.DisplayOrder, req.Phone, qrCode, now, now)
 	if err != nil {
 		return "", err
 	}
@@ -227,7 +253,7 @@ func (r *EmployeeRepository) CreateEmployee(req models.CreateEmployeeRequest) (s
 // GetEmployeesWithoutAccount returns employees not yet linked to a user account
 func (r *EmployeeRepository) GetEmployeesWithoutAccount() ([]models.Employee, error) {
 	query := `
-		SELECT e.id, e.name, e.email, e.role, e.nip, e.phone, e.degree
+		SELECT e.id, e.name, e.email, e.role, e.nip, e.phone, e.degree, e.qr_code
 		FROM employee_details e
 		WHERE e.user_id IS NULL
 		ORDER BY e.name ASC
@@ -241,8 +267,8 @@ func (r *EmployeeRepository) GetEmployeesWithoutAccount() ([]models.Employee, er
 	var employees []models.Employee
 	for rows.Next() {
 		var e models.Employee
-		var name, email, role, nip, phone, deg sql.NullString
-		if err := rows.Scan(&e.ID, &name, &email, &role, &nip, &phone, &deg); err != nil {
+		var name, email, role, nip, phone, deg, qr sql.NullString
+		if err := rows.Scan(&e.ID, &name, &email, &role, &nip, &phone, &deg, &qr); err != nil {
 			return nil, err
 		}
 		if name.Valid {
@@ -263,6 +289,7 @@ func (r *EmployeeRepository) GetEmployeesWithoutAccount() ([]models.Employee, er
 		if deg.Valid {
 			e.Degree = &deg.String
 		}
+		e.QrCode = qr.String
 		e.ApplyFullName()
 		employees = append(employees, e)
 	}
@@ -277,20 +304,20 @@ func (r *EmployeeRepository) GetEmployeeByID(id string) (*models.Employee, error
 		SELECT e.id, e.name, e.email, e.role,
 		       e.nip, e.nuptk, e.nik, e.employment_status, e.job_type, e.join_date,
 		       e.category, e.degree, e.quote, e.photo_url, e.display_order, e.phone,
-		       e.user_id
+		       e.user_id, e.qr_code
 		FROM employee_details e
 		WHERE e.id = ?
 	`
 	var e models.Employee
 	var name, email, role, nip, nuptk, nik, empStatus, jobType, joinDate, phone sql.NullString
-	var cat, deg, quot, photo, uId sql.NullString
+	var cat, deg, quot, photo, uId, qr sql.NullString
 	var displayOrder sql.NullInt64
 
 	err := r.DB.QueryRow(query, id).Scan(
 		&e.ID, &name, &email, &role,
 		&nip, &nuptk, &nik, &empStatus, &jobType, &joinDate,
 		&cat, &deg, &quot, &photo, &displayOrder, &phone,
-		&uId,
+		&uId, &qr,
 	)
 	if err != nil {
 		return nil, err
@@ -346,6 +373,7 @@ func (r *EmployeeRepository) GetEmployeeByID(id string) (*models.Employee, error
 		do := int(displayOrder.Int64)
 		e.DisplayOrder = &do
 	}
+	e.QrCode = qr.String
 
 	e.ApplyFullName()
 	return &e, nil
@@ -362,6 +390,14 @@ func (r *EmployeeRepository) UpdateEmployee(id string, req models.CreateEmployee
 	if err != nil {
 		return err
 	}
+
+	// Backfill qr_code bila kosong (data lama sebelum kolom ada). Sengaja TIDAK
+	// menimpa yang sudah terisi — QR harus stabil seumur kartu tercetak.
+	_, _ = r.DB.Exec(`
+		UPDATE employee_details
+		SET qr_code = ?
+		WHERE id = ? AND (qr_code IS NULL OR TRIM(qr_code) = '')
+	`, NewEmployeeQRCode(req.NIP, req.NUPTK, id), id)
 
 	// Sinkron nama akun login terkait → users.name/full_name = "Nama, Gelar"
 	// agar perubahan nama/gelar GTK langsung terlihat di semua konsumen

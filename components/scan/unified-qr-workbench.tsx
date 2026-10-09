@@ -42,7 +42,7 @@ import type { TabunganSiswaWithRelations } from "@/types/tabungan";
 
 type ScanMode = "camera" | "manual";
 type WorkPhase = "ready" | "resolving" | "awaitingSavings" | "saving" | "feedback";
-type IdentityKind = "student" | "savings-only";
+type IdentityKind = "student" | "savings-only" | "staff";
 type AttendanceStatus =
   | "recorded"
   | "already"
@@ -71,6 +71,16 @@ interface CurrentScan {
   className?: string;
   attendance: AttendanceOutcome;
   savingsAccount: TabunganSiswaWithRelations | null;
+  gtkAccount?: GtkSavingsAccount | null;
+  gtkAlreadyPresent?: boolean;
+}
+
+interface GtkSavingsAccount {
+  id: string;
+  employeeId: string;
+  nama: string;
+  kategori: string;
+  saldoTerakhir: number;
 }
 
 interface ScanLogItem {
@@ -171,7 +181,7 @@ export function UnifiedQRWorkbench({
   const lastScanRef = useRef<{ code: string; at: number } | null>(null);
 
   const scannerActive = scanMode === "camera" && (phase === "ready" || phase === "awaitingSavings");
-  const hasSavingsAccount = Boolean(currentScan?.savingsAccount);
+  const hasSavingsAccount = Boolean(currentScan?.savingsAccount || currentScan?.gtkAccount);
   const canSubmitDeposit = hasSavingsAccount && Number(nominal) >= 1000 && (phase === "awaitingSavings" || phase === "ready");
 
   const addLog = useCallback((item: Omit<ScanLogItem, "id" | "time">) => {
@@ -291,7 +301,7 @@ export function UnifiedQRWorkbench({
   }, [phase, playBeep]);
 
   useEffect(() => {
-    if (phase === "awaitingSavings" && currentScan?.savingsAccount) {
+    if (phase === "awaitingSavings" && (currentScan?.savingsAccount || currentScan?.gtkAccount)) {
       requestAnimationFrame(() => nominalInputRef.current?.focus());
     }
   }, [currentScan, phase]);
@@ -311,6 +321,78 @@ export function UnifiedQRWorkbench({
     const accounts = toArray<TabunganSiswaWithRelations>(response);
     return accounts[0] || null;
   }, []);
+
+  const resolveIsStaff = useCallback(async (qrCode: string): Promise<boolean> => {
+    try {
+      const response = await goPost("/api/scan/resolve", { code: qrCode });
+      const data = (response as { data?: { kind?: string } })?.data;
+      return data?.kind === "staff";
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const processStaffScan = useCallback(
+    async (qrCode: string) => {
+      const [presensi, rekening] = await Promise.allSettled([
+        goPost("/api/gtk-attendance/scan", {
+          qrCode,
+          status: "hadir",
+          recordedBy: user?.id || "scanner",
+        }),
+        goGet(`/api/tabungan/gtk/scan?qrCode=${encodeURIComponent(qrCode)}`),
+      ]);
+
+      if (rekening.status === "rejected") {
+        setFeedback(getApiMessage(rekening.reason));
+        setPhase("feedback");
+        playBeep("error");
+        triggerFlash("red");
+        showError("Scan GTK gagal", getApiMessage(rekening.reason));
+        scheduleReset(INVALID_RESET_MS);
+        return;
+      }
+
+      const presensiData = presensi.status === "fulfilled" ? (presensi.value as { already?: boolean; employee?: { name?: string; category?: string } }) : null;
+      const already = Boolean(presensiData?.already);
+      const acct = (rekening.value as { data?: GtkSavingsAccount })?.data || null;
+      const displayName = acct?.nama || presensiData?.employee?.name || "GTK";
+
+      const attendanceOutcome: AttendanceOutcome = {
+        status: presensi.status === "fulfilled" ? (already ? "already" : "recorded") : "error",
+        message:
+          presensi.status === "fulfilled"
+            ? already ? "Sudah hadir hari ini" : "Kehadiran GTK tercatat"
+            : getApiMessage(presensi.reason),
+        student: null,
+      };
+
+      setCurrentScan({
+        qrCode,
+        identity: "staff",
+        displayName,
+        className: acct?.kategori || presensiData?.employee?.category,
+        attendance: attendanceOutcome,
+        savingsAccount: null,
+        gtkAccount: acct,
+        gtkAlreadyPresent: already,
+      });
+
+      playBeep("success");
+      triggerFlash("green");
+      if (attendanceOutcome.status === "recorded") {
+        setStats((prev) => ({ ...prev, attendance: prev.attendance + 1 }));
+      }
+      addLog({
+        name: displayName,
+        detail: attendanceOutcome.message,
+        tone: attendanceOutcome.status === "recorded" ? "success" : "warning",
+      });
+      setPhase("awaitingSavings");
+    },
+    [addLog, playBeep, scheduleReset, triggerFlash, user?.id]
+  );
+
 
   const recordAttendance = useCallback(async (qrCode: string): Promise<AttendanceOutcome> => {
     const payload: Record<string, unknown> = {
@@ -396,6 +478,14 @@ export function UnifiedQRWorkbench({
       setCatatan("");
 
       try {
+        // Kartu GTK: resolve dulu — jalur staff terpisah (presensi & tabungan GTK).
+        // Siswa tetap lewat alur lama di bawah, tanpa perubahan.
+        const isStaff = await resolveIsStaff(qrCode);
+        if (isStaff) {
+          await processStaffScan(qrCode);
+          return;
+        }
+
         const [attendance, savingsResult] = await Promise.allSettled([
           recordAttendance(qrCode),
           lookupSavings(qrCode),
@@ -483,7 +573,7 @@ export function UnifiedQRWorkbench({
         scheduleReset(INVALID_RESET_MS);
       }
     },
-    [addLog, clearResetTimer, lookupSavings, phase, recordAttendance, scheduleReset, playBeep, triggerFlash]
+    [addLog, clearResetTimer, lookupSavings, phase, recordAttendance, resolveIsStaff, processStaffScan, scheduleReset, playBeep, triggerFlash]
   );
 
   const handleManualSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -492,7 +582,7 @@ export function UnifiedQRWorkbench({
   };
 
   const submitDeposit = async () => {
-    if (!currentScan?.savingsAccount) {
+    if (!currentScan?.savingsAccount && !currentScan?.gtkAccount) {
       showWarning("Rekening tabungan tidak ditemukan");
       return;
     }
@@ -505,14 +595,24 @@ export function UnifiedQRWorkbench({
 
     setPhase("saving");
     try {
-      await goPost("/api/tabungan/transaksi", {
-        siswaId: currentScan.savingsAccount.id,
-        tipe: "setor",
-        type: "setor",
-        nominal: amount,
-        catatan: catatan.trim() || undefined,
-        userId: user?.id || "scanner",
-      });
+      if (currentScan.gtkAccount) {
+        await goPost("/api/tabungan/gtk/transaksi", {
+          code: currentScan.qrCode,
+          tipe: "setor",
+          nominal: amount,
+          catatan: catatan.trim() || undefined,
+          userId: user?.id || "scanner",
+        });
+      } else {
+        await goPost("/api/tabungan/transaksi", {
+          siswaId: currentScan.savingsAccount!.id,
+          tipe: "setor",
+          type: "setor",
+          nominal: amount,
+          catatan: catatan.trim() || undefined,
+          userId: user?.id || "scanner",
+        });
+      }
 
       setStats((prev) => ({ ...prev, deposits: prev.deposits + 1 }));
       setFeedback(`${formatRupiah(amount)} tercatat untuk ${currentScan.displayName}.`);
@@ -558,12 +658,12 @@ export function UnifiedQRWorkbench({
 
   const statusCopy = useMemo(() => {
     if (phase === "resolving") return "Membaca QR dan mencocokkan data";
-    if (phase === "awaitingSavings" && currentScan?.savingsAccount) return "Isi nominal atau pilih tidak menabung";
+    if (phase === "awaitingSavings" && (currentScan?.savingsAccount || currentScan?.gtkAccount)) return "Isi nominal atau pilih tidak menabung";
     if (phase === "awaitingSavings") return "Tidak ada rekening tabungan, melanjutkan antrean...";
     if (phase === "saving") return "Mencatat setoran";
     if (phase === "feedback") return feedback || "Selesai";
     return "Siap scan QR / barcode siswa";
-  }, [currentScan?.savingsAccount, feedback, phase]);
+  }, [currentScan?.savingsAccount, currentScan?.gtkAccount, feedback, phase]);
 
   return (
     <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-4 px-3 pb-8 sm:px-4 lg:px-6">
@@ -778,7 +878,7 @@ export function UnifiedQRWorkbench({
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-1.5">
                             <Badge variant="secondary" className="text-[10px] uppercase font-bold px-1.5 py-0.5">
-                              {currentScan.identity === "student" ? "Siswa Aktif" : "Penabung Eksternal"}
+                              {currentScan.identity === "student" ? "Siswa Aktif" : currentScan.identity === "staff" ? "GTK" : "Penabung Eksternal"}
                             </Badge>
                             {currentScan.className && (
                               <Badge variant="outline" className="text-[10px] uppercase font-bold bg-white text-slate-700 px-1.5 py-0.5">
@@ -798,13 +898,13 @@ export function UnifiedQRWorkbench({
                     </div>
 
                     {/* Savings Deposit Section */}
-                    {currentScan.savingsAccount ? (
+                    {currentScan.savingsAccount || currentScan.gtkAccount ? (
                       <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm space-y-3">
                         <div className="flex items-center justify-between border-b pb-2 dark:border-slate-800">
                           <div>
                             <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Setoran Tabungan</p>
                             <p className="text-sm font-semibold text-slate-700 font-mono mt-0.5">
-                              Saldo Saat Ini: {formatRupiah(currentScan.savingsAccount.saldoTerakhir || 0)}
+                              Saldo Saat Ini: {formatRupiah(currentScan.savingsAccount?.saldoTerakhir ?? currentScan.gtkAccount?.saldoTerakhir ?? 0)}
                             </p>
                           </div>
                           <Badge variant="secondary" className="gap-1 bg-blue-50 text-blue-700 border-blue-150">

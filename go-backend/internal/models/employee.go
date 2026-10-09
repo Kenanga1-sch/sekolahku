@@ -51,6 +51,7 @@ type Employee struct {
 	UserID           *string `json:"userId"`
 	HasAccount       bool    `json:"hasAccount"`
 	EmployeeDetailID *string `json:"employeeDetailId"`
+	QrCode           string  `json:"qrCode"`
 }
 
 type EmployeePagination struct {

@@ -18,6 +18,7 @@ const baseCard: GtkCard = {
   category: "guru",
   degree: "S.Pd",
   photoUrl: null,
+  qrCode: "GTK-197001011990031001",
 };
 
 const baseProps = {
@@ -52,15 +53,18 @@ describe("Dimensi kartu GTK (sumber tunggal lib/kartu-print-layout)", () => {
   });
 });
 
-describe("gtkCardIdentity — fallback NIP → NUPTK → id", () => {
-  it("prioritas NIP", () => {
-    expect(gtkCardIdentity(baseCard)).toBe("197001011990031001");
+describe("gtkCardIdentity — qrCode stabil → NIP → NUPTK → id", () => {
+  it("prioritas qrCode stabil dari DB", () => {
+    expect(gtkCardIdentity(baseCard)).toBe("GTK-197001011990031001");
   });
-  it("tanpa NIP → NUPTK", () => {
-    expect(gtkCardIdentity({ ...baseCard, nip: null })).toBe("1234567890123456");
+  it("tanpa qrCode (data lama) → NIP", () => {
+    expect(gtkCardIdentity({ ...baseCard, qrCode: "" })).toBe("197001011990031001");
   });
-  it("tanpa NIP & NUPTK → id", () => {
-    expect(gtkCardIdentity({ ...baseCard, nip: null, nuptk: null })).toBe("emp-1");
+  it("tanpa qrCode & NIP → NUPTK", () => {
+    expect(gtkCardIdentity({ ...baseCard, qrCode: "", nip: null })).toBe("1234567890123456");
+  });
+  it("tanpa qrCode, NIP & NUPTK → id", () => {
+    expect(gtkCardIdentity({ ...baseCard, qrCode: "", nip: null, nuptk: null })).toBe("emp-1");
   });
 });
 

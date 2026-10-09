@@ -21,9 +21,11 @@ type Repositories struct {
 	Student        *repository.StudentRepository
 	Employee       *repository.EmployeeRepository
 	Savings        *repository.SavingsRepository
+	SavingsGTK     *repository.SavingsGTKRepository
 	Library        *repository.LibraryRepository
 	EOffice        *repository.EOfficeRepository
 	Attendance     *repository.AttendanceRepository
+	AttendanceGTK  *repository.AttendanceGTKRepository
 	Loan           *repository.LoanRepository
 	Setting        *repository.SettingRepository
 	Alumni         *repository.AlumniRepository
@@ -67,9 +69,12 @@ type AllHandlers struct {
 	Student        *handlers.StudentHandler
 	Employee       *handlers.EmployeeHandler
 	Savings        *handlers.SavingsHandler
+	SavingsGTK     *handlers.SavingsGTKHandler
 	Library        *handlers.LibraryHandler
 	EOffice        *handlers.EOfficeHandler
 	Attendance     *handlers.AttendanceHandler
+	AttendanceGTK  *handlers.AttendanceGTKHandler
+	ScanResolve    *handlers.ScanResolveHandler
 	Loan           *handlers.LoanHandler
 	Setting        *handlers.SettingHandler
 	Alumni         *handlers.AlumniHandler
@@ -486,6 +491,11 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	tabunganGroup.GET("/laporan/akhir-tahun", h.Savings.GetFinalReport)
 	tabunganGroup.GET("/rekening-koran", h.Savings.GetStatement)
 	tabunganGroup.GET("/rekening-koran/verify/detail", h.Savings.VerifyStatement)
+	// Tabungan GTK (guru & tenaga kependidikan) — ringkas: lookup by scan,
+	// list rekap, detail. Mutasi (setor/tarik) di bawah (bendahara).
+	tabunganGroup.GET("/gtk", h.SavingsGTK.GetGtkList)
+	tabunganGroup.GET("/gtk/scan", h.SavingsGTK.GetGtkByQR)
+	tabunganGroup.GET("/gtk/:id", h.SavingsGTK.GetGtkDetail)
 
 	tabunganGroupBendahara := tabunganGroup.Group("")
 	tabunganGroupBendahara.Use(authMiddleware.RoleMiddleware(authMiddleware.RoleSuperadmin, authMiddleware.RoleAdmin, authMiddleware.RoleBendahara))
@@ -497,6 +507,7 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	tabunganGroupBendahara.DELETE("/siswa/:id", h.Savings.DeleteSiswa)
 	tabunganGroupBendahara.POST("/transactions", h.Savings.CreateTransaksi)
 	tabunganGroupBendahara.POST("/transaksi", h.Savings.CreateTransaksi)
+	tabunganGroupBendahara.POST("/gtk/transaksi", h.SavingsGTK.CreateGtkTransaksi)
 	tabunganGroupBendahara.PUT("/setoran/detail", h.Savings.ResubmitSetoran)
 	tabunganGroupBendahara.POST("/setoran", h.Savings.CreateSetoran)
 	tabunganGroupBendahara.POST("/setoran/verify", h.Savings.VerifySetoran)
@@ -673,6 +684,11 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	guruGroup.POST("/attendance/scan", h.Attendance.ScanQR)
 	guruGroup.GET("/attendance/report", h.Attendance.GetReport)
 	guruGroup.GET("/attendance/student-summary/:studentId", h.Attendance.GetStudentSummary)
+	// Presensi GTK (guru & tenaga kependidikan) — scan kartu GTK, rekap harian/rentang.
+	guruGroup.POST("/gtk-attendance/scan", h.AttendanceGTK.ScanGTK)
+	guruGroup.GET("/gtk-attendance/daily", h.AttendanceGTK.GetGTKDaily)
+	guruGroup.GET("/gtk-attendance/report", h.AttendanceGTK.GetGTKReport)
+	guruGroup.POST("/scan/resolve", h.ScanResolve.Resolve)
 	// PDF presensi: LibreOffice headless (satu-satunya mesin sejak 2026-10-08);
 	// 503 bila binary tak terpasang → frontend mengarahkan ke export Excel.
 	guruGroup.POST("/presensi/pdf/libreoffice", h.PDF.ConvertXlsxLibreOffice)

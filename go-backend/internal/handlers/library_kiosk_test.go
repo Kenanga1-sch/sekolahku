@@ -36,9 +36,14 @@ func setupKioskTestDB(t *testing.T) *sql.DB {
 			id TEXT PRIMARY KEY,
 			student_id TEXT UNIQUE,
 			user_id TEXT,
+			employee_id TEXT,
 			max_borrow_limit INTEGER DEFAULT 3,
 			is_active INTEGER DEFAULT 1,
 			created_at INTEGER, updated_at INTEGER
+		);
+		CREATE TABLE employee_details (
+			id TEXT PRIMARY KEY, name TEXT, nip TEXT, nuptk TEXT,
+			qr_code TEXT, category TEXT, user_id TEXT, photo_url TEXT
 		);
 		CREATE TABLE library_catalog (
 			id TEXT PRIMARY KEY, isbn TEXT, title TEXT, author TEXT,

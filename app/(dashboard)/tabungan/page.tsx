@@ -28,6 +28,10 @@ const QuickActionsPanel = dynamic(
     }
 );
 
+const TabGtk = dynamic(
+    () => import("./tab-gtk").then(mod => mod.TabunganGtkTab),
+    { ssr: false }
+);
 const TabBendahara = dynamic(
     () => import("./tab-bendahara").then(mod => mod.default),
     {
@@ -58,7 +62,7 @@ export default function TabunganDashboardPage() {
     // Auth & Otorisasi
     const [treasurer, setTreasurer] = useState<any>(null);
     const [isCheckingRights, setIsCheckingRights] = useState(true);
-    const [activeTab, setActiveTab] = useState<"dashboard" | "bendahara">("dashboard");
+    const [activeTab, setActiveTab] = useState<"dashboard" | "bendahara" | "gtk">("dashboard");
 
     const fetchStats = useCallback(async () => {
         try {
@@ -208,6 +212,17 @@ export default function TabunganDashboardPage() {
                         <ShieldCheck className="h-4 w-4" />
                         Kelola Bendahara
                     </button>
+                    <button
+                        onClick={() => setActiveTab("gtk")}
+                        className={`pb-3 px-4 text-sm font-medium border-b-2 transition-colors -mb-[2px] flex items-center gap-2 ${
+                            activeTab === "gtk"
+                                ? "border-primary text-primary"
+                                : "border-transparent text-muted-foreground hover:text-foreground"
+                        }`}
+                    >
+                        <Users className="h-4 w-4" />
+                        Tabungan GTK
+                    </button>
                 </div>
             )}
 
@@ -281,6 +296,8 @@ export default function TabunganDashboardPage() {
                         {/* Quick Actions */}
                         <QuickActionsPanel />
                     </div>
+                ) : activeTab === "gtk" ? (
+                    <TabGtk />
                 ) : (
                     <TabBendahara onChanged={fetchStats} />
                 )}

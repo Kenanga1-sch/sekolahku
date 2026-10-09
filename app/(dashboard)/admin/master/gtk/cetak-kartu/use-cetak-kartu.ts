@@ -34,6 +34,7 @@ export interface GtkCard {
   degree?: string | null;
   photoUrl: string | null;
   joinDate?: string | null;
+  qrCode: string;
 }
 
 const STORAGE_PREFIX = "gtk-cetak-kartu";

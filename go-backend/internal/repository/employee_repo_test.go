@@ -37,7 +37,8 @@ func setupEmployeeTestDB(t *testing.T) *sql.DB {
 			name TEXT,
 			email TEXT,
 			role TEXT,
-			phone TEXT
+			phone TEXT,
+			qr_code TEXT
 		);
 		CREATE TABLE users (
 			id TEXT PRIMARY KEY,
@@ -228,5 +229,83 @@ func TestUserRepositoryLinkEmployeeToUserSyncsName(t *testing.T) {
 	}
 	if userID != "user-new" {
 		t.Fatalf("user_id tidak tertaut, got %q", userID)
+	}
+}
+
+func TestNewEmployeeQRCodeFallbackOrder(t *testing.T) {
+	nip := " 197001011990031001 "
+	nuptk := "1234567890123456"
+	empty := "   "
+
+	if got := NewEmployeeQRCode(&nip, &nuptk, "emp-1"); got != "GTK-197001011990031001" {
+		t.Fatalf("NIP diprioritaskan & ditrim, got %q", got)
+	}
+	if got := NewEmployeeQRCode(nil, &nuptk, "emp-1"); got != "GTK-1234567890123456" {
+		t.Fatalf("fallback NUPTK, got %q", got)
+	}
+	if got := NewEmployeeQRCode(&empty, &empty, "emp-1"); got != "GTK-EMP-1" {
+		t.Fatalf("fallback id (upper), got %q", got)
+	}
+	if got := NewEmployeeQRCode(nil, nil, "emp-2"); got != "GTK-EMP-2" {
+		t.Fatalf("fallback id saat keduanya nil, got %q", got)
+	}
+}
+
+// CreateEmployee harus mengisi qr_code stabil (GTK-{NIP}).
+func TestEmployeeRepositoryCreateEmployeeSetsQrCode(t *testing.T) {
+	db := setupEmployeeTestDB(t)
+	defer db.Close()
+	repo := NewEmployeeRepository(db)
+
+	nip := "197001011990031001"
+	id, err := repo.CreateEmployee(models.CreateEmployeeRequest{
+		FullName: "Budi", Email: "budi@sekolah.id", Role: "guru", NIP: &nip,
+	})
+	if err != nil {
+		t.Fatalf("CreateEmployee returned error: %v", err)
+	}
+	var qr string
+	if err := db.QueryRow(`SELECT qr_code FROM employee_details WHERE id = ?`, id).Scan(&qr); err != nil {
+		t.Fatal(err)
+	}
+	if qr != "GTK-197001011990031001" {
+		t.Fatalf("qr_code tidak terisi saat create, got %q", qr)
+	}
+}
+
+// UpdateEmployee: backfill qr_code bila kosong, TAPI tidak menimpa yang sudah ada
+// (stabilitas kartu lama).
+func TestEmployeeRepositoryUpdateEmployeeQrBackfillOnlyWhenEmpty(t *testing.T) {
+	db := setupEmployeeTestDB(t)
+	defer db.Close()
+	repo := NewEmployeeRepository(db)
+
+	// Baris lama tanpa qr_code (data sebelum kolom ada).
+	_, err := db.Exec(`INSERT INTO employee_details (id, name, email, role) VALUES ('emp-old', 'Tua', 'tua@sekolah.id', 'guru')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nipOld := "198001012000031002"
+	if err := repo.UpdateEmployee("emp-old", models.CreateEmployeeRequest{FullName: "Tua", Email: "tua@sekolah.id", Role: "guru", NIP: &nipOld}); err != nil {
+		t.Fatalf("UpdateEmployee error: %v", err)
+	}
+	var qr string
+	if err := db.QueryRow(`SELECT qr_code FROM employee_details WHERE id='emp-old'`).Scan(&qr); err != nil {
+		t.Fatal(err)
+	}
+	if qr != "GTK-198001012000031002" {
+		t.Fatalf("qr_code harus ter-backfill dari NIP, got %q", qr)
+	}
+
+	// Update lagi dengan NIP berbeda — qr_code TIDAK boleh berubah.
+	nipBaru := "199901012022031009"
+	if err := repo.UpdateEmployee("emp-old", models.CreateEmployeeRequest{FullName: "Tua", Email: "tua@sekolah.id", Role: "guru", NIP: &nipBaru}); err != nil {
+		t.Fatalf("UpdateEmployee error: %v", err)
+	}
+	if err := db.QueryRow(`SELECT qr_code FROM employee_details WHERE id='emp-old'`).Scan(&qr); err != nil {
+		t.Fatal(err)
+	}
+	if qr != "GTK-198001012000031002" {
+		t.Fatalf("qr_code tidak boleh ditimpa saat update, got %q", qr)
 	}
 }

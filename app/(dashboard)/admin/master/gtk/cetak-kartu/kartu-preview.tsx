@@ -18,9 +18,12 @@ interface PreviewProps {
   printSide?: "front" | "back" | "combined";
 }
 
-/** Identitas utama untuk QR/caption: NIP → NUPTK → id (staff tanpa NIP). */
+/** Identitas utama untuk QR/caption: qrCode stabil (GTK-…) → NIP → NUPTK → id.
+ * qrCode diambil dari DB (employee_details.qr_code) sehingga kartu yang sudah
+ * tercetak tetap terbaca walau NIP diisi/diubah. Fallback lama dipertahankan
+ * bila qrCode belum terkirim (data lama). */
 export function gtkCardIdentity(card: GtkCard): string {
-  return card.nip || card.nuptk || card.id;
+  return card.qrCode || card.nip || card.nuptk || card.id;
 }
 
 export function KartuGtkPreview({ card, schoolName, schoolAddress, schoolLogo, showPhoto, showNIP, showBackSide, forPrint, printSide = "combined" }: PreviewProps) {

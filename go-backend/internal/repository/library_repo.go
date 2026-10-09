@@ -374,31 +374,34 @@ func (r *LibraryRepository) DeleteBook(id string) error {
 // ───────── Members (single source: students for student members, users for staff) ─────────
 
 // memberBaseQuery resolves member identity via JOIN: students for student members,
-// users for staff members. No denormalized name/class/qr anymore.
+// users for staff members, employee_details for GTK members (employee_id).
+// No denormalized name/class/qr anymore.
 const memberBaseQuery = `
-	SELECT m.id, m.student_id, m.user_id, m.max_borrow_limit, m.is_active, m.created_at,
-	       COALESCE(st.full_name, u.name, '') as display_name,
+	SELECT m.id, m.student_id, m.user_id, m.employee_id, m.max_borrow_limit, m.is_active, m.created_at,
+	       COALESCE(st.full_name, ed.name, u.name, '') as display_name,
 	       COALESCE(st.class_name, '') as class_name,
-	       COALESCE(st.qr_code, '') as qr_code,
-	       COALESCE(st.photo, u.image, '') as photo
+	       COALESCE(st.qr_code, ed.qr_code, '') as qr_code,
+	       COALESCE(st.photo, ed.photo_url, u.image, '') as photo
 	FROM library_members m
 	LEFT JOIN students st ON m.student_id = st.id
+	LEFT JOIN employee_details ed ON m.employee_id = ed.id
 	LEFT JOIN users u ON m.user_id = u.id
 `
 
 func scanMember(scanner interface{ Scan(dest ...interface{}) error }) (*models.LibraryMember, error) {
 	var m models.LibraryMember
-	var stID, uID sql.NullString
+	var stID, uID, edID sql.NullString
 	var qrCode, photo, className sql.NullString
 	var crAt sql.NullInt64
 
-	err := scanner.Scan(&m.ID, &stID, &uID, &m.MaxBorrowLimit, &m.IsActive, &crAt,
+	err := scanner.Scan(&m.ID, &stID, &uID, &edID, &m.MaxBorrowLimit, &m.IsActive, &crAt,
 		&m.Name, &className, &qrCode, &photo)
 	if err != nil {
 		return nil, err
 	}
 	if stID.Valid { m.StudentID = &stID.String }
 	if uID.Valid { m.UserID = &uID.String }
+	if edID.Valid { m.EmployeeID = &edID.String }
 	if className.Valid && className.String != "" {
 		m.ClassName = &className.String
 	}
@@ -418,13 +421,13 @@ func (r *LibraryRepository) GetMembers(page, perPage int, search string) ([]mode
 	where := "WHERE 1=1"
 	args := []interface{}{}
 	if search = strings.TrimSpace(search); search != "" {
-		where += " AND (COALESCE(st.full_name, u.name, '') LIKE ? OR COALESCE(st.qr_code,'') LIKE ? OR m.id LIKE ? OR COALESCE(st.nisn,'') LIKE ? OR COALESCE(st.class_name,'') LIKE ?)"
+		where += " AND (COALESCE(st.full_name, ed.name, u.name, '') LIKE ? OR COALESCE(st.qr_code, ed.qr_code,'') LIKE ? OR m.id LIKE ? OR COALESCE(st.nisn,'') LIKE ? OR COALESCE(st.class_name,'') LIKE ?)"
 		s := "%" + search + "%"
 		args = append(args, s, s, s, s, s)
 	}
 
 	var total int
-	r.DB.QueryRow("SELECT COUNT(*) FROM library_members m LEFT JOIN students st ON m.student_id = st.id LEFT JOIN users u ON m.user_id = u.id "+where, args...).Scan(&total)
+	r.DB.QueryRow("SELECT COUNT(*) FROM library_members m LEFT JOIN students st ON m.student_id = st.id LEFT JOIN employee_details ed ON m.employee_id = ed.id LEFT JOIN users u ON m.user_id = u.id "+where, args...).Scan(&total)
 
 	query := memberBaseQuery + where + " ORDER BY display_name ASC LIMIT ? OFFSET ?"
 	listArgs := append(args, perPage, offset)
@@ -464,6 +467,13 @@ func (r *LibraryRepository) CreateMember(m models.LibraryMember) error {
 			INSERT INTO library_members (id, user_id, max_borrow_limit, is_active, created_at, updated_at)
 			VALUES (?, ?, ?, 1, ?, ?)
 		`, id, *m.UserID, m.MaxBorrowLimit, now, now)
+		return err
+	}
+	if m.EmployeeID != nil && *m.EmployeeID != "" {
+		_, err := r.DB.Exec(`
+			INSERT INTO library_members (id, employee_id, max_borrow_limit, is_active, created_at, updated_at)
+			VALUES (?, ?, ?, 1, ?, ?)
+		`, id, *m.EmployeeID, m.MaxBorrowLimit, now, now)
 		return err
 	}
 	return errors.New("member siswa/guru wajib dipilih")
@@ -522,7 +532,9 @@ func (r *LibraryRepository) SyncFromStudents() (int, error) {
 	return int(count), nil
 }
 
-// GetMemberByCode resolves a member by QR/NISN/NIS/student-id (student) or member id
+// GetMemberByCode resolves a member by QR/NISN/NIS/student-id (student),
+// qr_code/NIP/NUPTK/employee-id (GTK, dengan auto-create anggota aktif),
+// atau member id (staff lama).
 func (r *LibraryRepository) GetMemberByCode(code string) (*models.LibraryMember, error) {
 	code = strings.TrimSpace(code)
 	if code == "" {
@@ -543,6 +555,13 @@ func (r *LibraryRepository) GetMemberByCode(code string) (*models.LibraryMember,
 	if !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
+	// GTK: resolve employee (qr_code / nip / nuptk / id) → anggota (auto-create
+	// bila aktif & belum terdaftar — konsisten dengan siswa yang auto-sync).
+	if m, err := r.getOrCreateStaffMember(code); err == nil {
+		return m, nil
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
 	// Fallback: member id direct (staff members)
 	m, err = scanMember(r.DB.QueryRow(memberBaseQuery+" WHERE m.id = ?", code))
 	if err != nil {
@@ -552,4 +571,37 @@ func (r *LibraryRepository) GetMemberByCode(code string) (*models.LibraryMember,
 		return nil, err
 	}
 	return m, nil
+}
+
+// getOrCreateStaffMember mencari anggota perpustakaan milik GTK lewat
+// employee_id. Bila GTK ditemukan tapi belum punya baris anggota, otomatis
+// dibuatkan (konsisten dengan AutoSyncStudentToSavingsAndLibrary untuk siswa).
+// Mengembalikan sql.ErrNoRows bila kode bukan GTK yang dikenal.
+func (r *LibraryRepository) getOrCreateStaffMember(code string) (*models.LibraryMember, error) {
+	var empID string
+	err := r.DB.QueryRow(`
+		SELECT id FROM employee_details
+		WHERE qr_code = ? OR nip = ? OR nuptk = ? OR id = ?
+		LIMIT 1
+	`, code, code, code, code).Scan(&empID)
+	if err != nil {
+		return nil, err // termasuk sql.ErrNoRows bila bukan GTK
+	}
+	// Cari anggota by employee_id.
+	m, err := scanMember(r.DB.QueryRow(memberBaseQuery+" WHERE m.employee_id = ?", empID))
+	if err == nil {
+		return m, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	// Auto-create anggota GTK (limit pinjaman default 3, aktif).
+	if _, err := r.DB.Exec(`
+		INSERT INTO library_members (id, employee_id, max_borrow_limit, is_active, created_at, updated_at)
+		SELECT 'lib_' || ?, ?, 3, 1, ?, ?
+		WHERE NOT EXISTS (SELECT 1 FROM library_members WHERE employee_id = ?)
+	`, empID, empID, UnixMilli(), UnixMilli(), empID); err != nil {
+		return nil, err
+	}
+	return scanMember(r.DB.QueryRow(memberBaseQuery+" WHERE m.employee_id = ?", empID))
 }

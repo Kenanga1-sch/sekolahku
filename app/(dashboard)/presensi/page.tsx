@@ -10,7 +10,7 @@
 
 import { useState, useEffect, Suspense, lazy } from "react";
 import { useSearchParams } from "next/navigation";
-import { ClipboardList, CalendarDays, FileText, Loader2, LayoutDashboard } from "lucide-react";
+import { ClipboardList, CalendarDays, FileText, Loader2, LayoutDashboard, IdCard } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { canManageHolidays } from "@/lib/presensi-access";
 
@@ -26,13 +26,17 @@ const LaporanPresensiTab = lazy(() =>
 const HariLiburTab = lazy(() =>
   import("./_components/hari-libur-tab").then((m) => ({ default: m.HariLiburTab }))
 );
+const PresensiGtkTab = lazy(() =>
+  import("./_components/presensi-gtk-tab").then((m) => ({ default: m.PresensiGtkTab }))
+);
 
-type TabType = "ringkasan" | "pengajuan" | "laporan" | "libur";
+type TabType = "ringkasan" | "pengajuan" | "laporan" | "gtk" | "libur";
 
 const TABS: { id: TabType; label: string; icon: any }[] = [
   { id: "ringkasan", label: "Ringkasan", icon: LayoutDashboard },
   { id: "pengajuan", label: "Pengajuan Izin", icon: CalendarDays },
   { id: "laporan", label: "Laporan", icon: FileText },
+  { id: "gtk", label: "Presensi GTK", icon: IdCard },
   { id: "libur", label: "Hari Libur", icon: CalendarDays },
 ];
 
@@ -55,7 +59,7 @@ function PresensiTabsContent() {
   const visibleTabs = TABS.filter((t) => t.id !== "libur" || canLibur);
 
   useEffect(() => {
-    if (queryTab === "ringkasan" || queryTab === "pengajuan" || queryTab === "laporan" || (queryTab === "libur" && canLibur)) {
+    if (queryTab === "ringkasan" || queryTab === "pengajuan" || queryTab === "laporan" || queryTab === "gtk" || (queryTab === "libur" && canLibur)) {
       setActiveTab(queryTab);
     }
   }, [queryTab, canLibur]);
@@ -103,6 +107,11 @@ function PresensiTabsContent() {
         {active === "laporan" && (
           <Suspense fallback={<TabFallback />}>
             <LaporanPresensiTab hideHeader />
+          </Suspense>
+        )}
+        {active === "gtk" && (
+          <Suspense fallback={<TabFallback />}>
+            <PresensiGtkTab />
           </Suspense>
         )}
         {active === "libur" && (
