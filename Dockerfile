@@ -2,10 +2,11 @@ FROM alpine:3.21
 
 RUN apk add --no-cache ca-certificates tzdata libc6-compat
 
-# Mesin PDF opsional untuk tab Laporan Presensi (dipilih lewat menu Cetak ▾):
-#   chromium       → POST /api/presensi/pdf/chromium    (HTML render → PDF)
+# Mesin PDF tab Laporan Presensi (menu Cetak ▾ → "PDF") — LibreOffice
+# headless SAAT INI satu-satunya mesin (keputusan 2026-10-08: paling presisi,
+# menyerupai print Excel; Chromium & dialog cetak sudah dihapus dari aplikasi):
 #   libreoffice-calc → POST /api/presensi/pdf/libreoffice (isi template xlsx → PDF)
-#   qpdf           → merge PDF bila "Semua Kelas" (>1 workbook)
+#   qpdf             → merge PDF bila "Semua Kelas" (>1 workbook)
 # CATATAN: libreoffice-calc SAJA membuat soffice crash saat bootstrap di Alpine
 # (RuntimeException di comphelper::ConfigurationWrapper::get → getProductName).
 # Menambah libreoffice-writer memperbaikinya (terverifikasi: --version dan
@@ -16,7 +17,7 @@ RUN apk add --no-cache ca-certificates tzdata libc6-compat
 # Open Sans (metrik beda) sehingga teks meluber dari kolom fixed-width di PDF;
 # "Bookman Old Style" → Liberation Serif sebagai fallback yang stabil.
 # Layer terpisah & ditaruh SEBELUM COPY binary: cache bertahan walau binary berubah.
-RUN apk add --no-cache chromium libreoffice-calc libreoffice-writer qpdf \
+RUN apk add --no-cache libreoffice-calc libreoffice-writer qpdf \
         font-liberation font-liberation-sans-narrow font-carlito fontconfig && \
     printf '%s\n' \
       '<?xml version="1.0"?>' \

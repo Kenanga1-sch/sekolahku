@@ -3,7 +3,6 @@ package handlers
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -27,18 +26,6 @@ func writeStub(t *testing.T, script string) string {
 	}
 	return path
 }
-
-// chromiumStub: tulis PDF dummy ke argumen --print-to-pdf=PATH.
-const chromiumStub = `#!/bin/sh
-out=""
-for arg in "$@"; do
-  case "$arg" in
-    --print-to-pdf=*) out="${arg#--print-to-pdf=}" ;;
-  esac
-done
-[ -n "$out" ] || exit 1
-printf '%%PDF-1.4 stub-chromium' > "$out"
-`
 
 // sofficeStub: untuk tiap input .xlsx tulis .pdf di --outdir.
 const sofficeStub = `#!/bin/sh
@@ -68,86 +55,6 @@ func TestSanitizePDFFilename(t *testing.T) {
 		if got := sanitizePDFFilename(in); got != want {
 			t.Errorf("sanitizePDFFilename(%q) = %q, want %q", in, got, want)
 		}
-	}
-}
-
-func TestPrintHTMLChromiumMissingBinary(t *testing.T) {
-	t.Setenv("CHROMIUM_BIN", filepath.Join(t.TempDir(), "tidak-ada"))
-	e := echo.New()
-	req := httptest.NewRequest(http.MethodPost, "/api/presensi/pdf/chromium",
-		strings.NewReader(`{"html":"<html><body>halo</body></html>"}`))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	rec := httptest.NewRecorder()
-	if err := NewPDFHandler().PrintHTMLChromium(e.NewContext(req, rec)); err == nil {
-		t.Fatal("expected error saat binary tidak ada")
-	}
-	if rec.Code != http.StatusServiceUnavailable {
-		t.Fatalf("code = %d, want 503", rec.Code)
-	}
-	if !strings.Contains(rec.Body.String(), "dialog cetak") {
-		t.Fatalf("pesan harus mengarahkan fallback, got: %s", rec.Body.String())
-	}
-}
-
-func TestPrintHTMLChromiumValidation(t *testing.T) {
-	t.Setenv("CHROMIUM_BIN", writeStub(t, chromiumStub)) // binary ada → validasi payload dulu
-	e := echo.New()
-	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"html":""}`))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	rec := httptest.NewRecorder()
-	// echo.Context.JSON mengembalikan error=nil pada respons sukses — cek kode.
-	_ = NewPDFHandler().PrintHTMLChromium(e.NewContext(req, rec))
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("code = %d, want 400 (body %s)", rec.Code, rec.Body.String())
-	}
-}
-
-func TestPrintHTMLChromiumRejectsScript(t *testing.T) {
-	t.Setenv("CHROMIUM_BIN", writeStub(t, chromiumStub))
-	for _, bad := range []string{
-		`<html><script>alert(1)</script></html>`,
-		`<html><img src=x onerror=alert(1)></html>`,
-		`<html><body onload="x()">y</body></html>`,
-	} {
-		e := echo.New()
-		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"html":`+quoteJSON(bad)+`}`))
-		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-		rec := httptest.NewRecorder()
-		_ = NewPDFHandler().PrintHTMLChromium(e.NewContext(req, rec))
-		if rec.Code != http.StatusBadRequest {
-			t.Fatalf("html %q: code = %d, want 400", bad, rec.Code)
-		}
-	}
-}
-
-// quoteJSON meng-escape string menjadi literal JSON yang valid.
-func quoteJSON(s string) string {
-	b, _ := json.Marshal(s)
-	return string(b)
-}
-
-func TestPrintHTMLChromiumSuccess(t *testing.T) {
-	t.Setenv("CHROMIUM_BIN", writeStub(t, chromiumStub))
-	e := echo.New()
-	req := httptest.NewRequest(http.MethodPost, "/",
-		strings.NewReader(`{"html":"<html><head><style>@page{size:297mm 210mm}</style></head><body>x</body></html>","filename":"Daftar Hadir Kelas 6 Oktober 2026.pdf"}`))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	rec := httptest.NewRecorder()
-	if err := NewPDFHandler().PrintHTMLChromium(e.NewContext(req, rec)); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if rec.Code != http.StatusOK {
-		t.Fatalf("code = %d body=%s", rec.Code, rec.Body.String())
-	}
-	if got := rec.Header().Get(echo.HeaderContentType); got != "application/pdf" {
-		t.Fatalf("content-type = %q", got)
-	}
-	cd := rec.Header().Get(echo.HeaderContentDisposition)
-	if !strings.Contains(cd, "Daftar_Hadir_Kelas_6_Oktober_2026.pdf") {
-		t.Fatalf("content-disposition = %q", cd)
-	}
-	if !strings.HasPrefix(rec.Body.String(), "%PDF-1.4") {
-		t.Fatalf("body bukan PDF: %q", rec.Body.String()[:20])
 	}
 }
 
@@ -265,5 +172,23 @@ sleep 60
 	}
 	if err == nil {
 		t.Fatal("harus error karena timeout")
+	}
+}
+
+// TestLibreOfficeMissingBinary: binary hilang → 503 + saran export Excel
+// (dialog cetak sudah dihapus sejak LO-only, 2026-10-08).
+func TestLibreOfficeMissingBinary(t *testing.T) {
+	t.Setenv("SOFFICE_BIN", filepath.Join(t.TempDir(), "tidak-ada"))
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	rec := httptest.NewRecorder()
+	if err := NewPDFHandler().ConvertXlsxLibreOffice(e.NewContext(req, rec)); err == nil {
+		t.Fatal("expected error saat binary tidak ada")
+	}
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("code = %d, want 503", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "export Excel") {
+		t.Fatalf("pesan harus mengarahkan ke export Excel, got: %s", rec.Body.String())
 	}
 }

@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -18,32 +17,28 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// PDFHandler mengonversi dokumen menjadi PDF lewat dua engine opsional:
+// PDFHandler mengonversi workbook xlsx (hasil fill template) menjadi PDF
+// lewat LibreOffice headless — satu-satunya mesin PDF sejak keputusan
+// 2026-10-08 (LibreOffice paling presisi, menyerupai print Excel asli).
+// Chromium & dialog cetak browser sudah dihapus.
 //
-//   - Chromium headless   : HTML (render template presensi) → PDF.
-//   - LibreOffice headless: xlsx hasil fill template → PDF.
-//
-// Keduanya HANYA berjalan bila binary terpasang di image container; bila tidak,
-// endpoint membalas 503 sehingga frontend bisa fallback ke dialog cetak browser.
-// Konversi diserialisasi lewat semaphore (LibreOffice berat, Chromium sedang).
+// Konversi HANYA berjalan bila binary terpasang di image container; bila
+// tidak, endpoint membalas 503 sehingga frontend mengarahkan user ke export
+// Excel. Konversi diserialisasi lewat semaphore (LibreOffice berat).
 type PDFHandler struct {
-	chromiumSem chan struct{}
-	sofficeSem  chan struct{}
+	sofficeSem chan struct{}
 }
 
 func NewPDFHandler() *PDFHandler {
 	return &PDFHandler{
-		chromiumSem: make(chan struct{}, 2),
-		sofficeSem:  make(chan struct{}, 1),
+		sofficeSem: make(chan struct{}, 1),
 	}
 }
 
 const (
-	maxHTMLBodyBytes    = 5 << 20  // 5MB HTML
 	maxXLSXFileBytes    = 10 << 20 // 10MB per workbook
 	maxLibreOfficeFiles = 20       // jumlah workbook per request (per kelas)
 	semaphoreWait       = 30 * time.Second
-	chromiumTimeout     = 45 * time.Second
 	libreOfficeTimeout  = 90 * time.Second
 )
 
@@ -97,7 +92,7 @@ func ensureBinary(c echo.Context, bin, engine string) error {
 	if _, err := exec.LookPath(bin); err != nil {
 		_ = c.JSON(http.StatusServiceUnavailable, map[string]interface{}{
 			"success": false,
-			"error":   "Mesin PDF (" + engine + ") belum terpasang di server — gunakan pilihan PDF (dialog cetak)",
+			"error":   "Mesin PDF (" + engine + ") belum terpasang di server — silakan gunakan export Excel sebagai gantinya",
 		})
 		return fmt.Errorf("%s tidak tersedia: %w", engine, err)
 	}
@@ -144,13 +139,8 @@ func execWithTimeout(ctx context.Context, bin string, args []string, env []strin
 	return out, nil
 }
 
-// unsafeHTML mendeteksi konten yang bisa mengeksekusi JS di chromium.
-// Cukup untuk HTML cetak yang berasal dari template internal (tanpa <script>).
-var unsafeHTMLPattern = regexp.MustCompile(`(?i)<\s*script|\son[a-z]+\s*=`)
-
-func unsafeHTML(html string) bool {
-	return unsafeHTMLPattern.MatchString(html)
-}
+// unsafeHTML dihapus bersama jalur Chromium (2026-10-08): LibreOffice
+// mengonversi xlsx, bukan HTML yang dieksekusi.
 
 // tempWorkspace membuat direktori kerja di /tmp (tmpfs container) + cleanup.
 func tempWorkspace(prefix string) (string, func(), error) {
@@ -159,86 +149,6 @@ func tempWorkspace(prefix string) (string, func(), error) {
 		return "", nil, err
 	}
 	return dir, func() { _ = os.RemoveAll(dir) }, nil
-}
-
-// ---------------------------------------------------------------- Chromium ---
-
-type chromiumPDFRequest struct {
-	HTML     string `json:"html"`
-	Filename string `json:"filename"`
-}
-
-// PrintHTMLChromium merender HTML (sudah berisi @page CSS) menjadi PDF
-// menggunakan chromium headless — tanpa dialog cetak user.
-func (h *PDFHandler) PrintHTMLChromium(c echo.Context) error {
-	bin := binPath("CHROMIUM_BIN", "chromium")
-	if err := ensureBinary(c, bin, "chromium"); err != nil {
-		return err
-	}
-
-	body, err := io.ReadAll(io.LimitReader(c.Request().Body, maxHTMLBodyBytes+1))
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Gagal membaca permintaan"})
-	}
-	if len(body) > maxHTMLBodyBytes {
-		return c.JSON(http.StatusRequestEntityTooLarge, map[string]interface{}{"success": false, "error": "HTML terlalu besar (maks 5MB)"})
-	}
-	var req chromiumPDFRequest
-	if err := json.Unmarshal(body, &req); err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Payload tidak valid"})
-	}
-	if strings.TrimSpace(req.HTML) == "" {
-		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "html wajib diisi"})
-	}
-	// Chromium dijalankan TANPA mematikan JS (flag scriptEnabled=false membuat
-	// chromium gagal menulis PDF diam-diam) → filter konten berbahaya di sini.
-	if unsafeHTML(req.HTML) {
-		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "HTML mengandung konten terlarang (script/event handler)"})
-	}
-
-	if err := acquireSem(c, h.chromiumSem, "chromium"); err != nil {
-		return err
-	}
-	defer func() { <-h.chromiumSem }()
-
-	dir, cleanup, err := tempWorkspace("pdf-chromium-")
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal menyiapkan ruang kerja"})
-	}
-	defer cleanup()
-
-	inPath := filepath.Join(dir, "input.html")
-	if err := os.WriteFile(inPath, []byte(req.HTML), 0o600); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal menulis berkas sementara"})
-	}
-	outPath := filepath.Join(dir, "output.pdf")
-
-	args := []string{
-		"--headless",
-		"--no-sandbox", // container rootless tanpa CAP_SYS_ADMIN
-		"--disable-gpu",
-		"--disable-dev-shm-usage", // /dev/shm container kecil
-		"--no-pdf-header-footer",  // tanpa header URL/tanggal bawaan
-		"--user-data-dir=" + filepath.Join(dir, "profile"),
-		"--print-to-pdf=" + outPath,
-		"file://" + inPath,
-	}
-	env := append(os.Environ(),
-		"HOME="+dir,
-		"XDG_CONFIG_HOME="+filepath.Join(dir, ".config"),
-		"XDG_CACHE_HOME="+filepath.Join(dir, ".cache"),
-	)
-	if _, err := execWithTimeout(c.Request().Context(), bin, args, env, chromiumTimeout); err != nil {
-		c.Logger().Errorf("chromium konversi gagal: %v", err)
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Konversi PDF gagal: " + err.Error()})
-	}
-
-	pdf, err := os.ReadFile(outPath)
-	if err != nil || len(pdf) == 0 {
-		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Chromium tidak menghasilkan PDF"})
-	}
-	c.Response().Header().Set(echo.HeaderContentDisposition, `attachment; filename="`+sanitizePDFFilename(req.Filename)+`"`)
-	return c.Blob(http.StatusOK, "application/pdf", pdf)
 }
 
 // ------------------------------------------------------------- LibreOffice ---

@@ -672,9 +672,8 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	guruGroup.POST("/attendance/scan", h.Attendance.ScanQR)
 	guruGroup.GET("/attendance/report", h.Attendance.GetReport)
 	guruGroup.GET("/attendance/student-summary/:studentId", h.Attendance.GetStudentSummary)
-	// PDF presensi: dua engine opsional (chromium / libreoffice) untuk
-	// membandingkan hasil; 503 bila binary tak terpasang → fallback dialog cetak.
-	guruGroup.POST("/presensi/pdf/chromium", h.PDF.PrintHTMLChromium)
+	// PDF presensi: LibreOffice headless (satu-satunya mesin sejak 2026-10-08);
+	// 503 bila binary tak terpasang → frontend mengarahkan ke export Excel.
 	guruGroup.POST("/presensi/pdf/libreoffice", h.PDF.ConvertXlsxLibreOffice)
 	auth.GET("/attendance/holiday", h.Attendance.CheckHoliday)
 	adminGroup.GET("/school-holidays", h.Attendance.ListSchoolHolidays)

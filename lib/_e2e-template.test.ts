@@ -1,7 +1,6 @@
-// ONE-OFF: verifikasi fill+render dengan template asli (dihapus setelah pakai).
+// ONE-OFF: verifikasi fill dengan template asli (dihapus setelah pakai).
 import { describe, expect, it } from "vitest";
 import { fillPresensiWorksheet } from "./presensi-excel";
-import { extractPrintImages, worksheetToHtml } from "./worksheet-print";
 import type { DayColumn, MatrixRow } from "./presensi-report";
 import { buildDayColumns } from "./presensi-report";
 
@@ -82,21 +81,17 @@ describe.skipIf(!fsSync.existsSync(FILE))("e2e template Daftar hadir murid", () 
     // pageSetup.
     expect((ws as never as { pageSetup?: { paperSize?: number } }).pageSetup?.paperSize).toBe(9);
 
-    // Render HTML: kop, gambar, label Jumlah, blok merah, warna.
-    const images = extractPrintImages(ws, (id) => (wb as unknown as { getImage: (i: number) => never }).getImage(id));
-    expect(images.length).toBe(2);
-    // EMU→px: offset anchor asli (146050 EMU ≈ 15px) tidak boleh jadi
-    // 146050px (logo di luar layar).
-    const html = worksheetToHtml(ws as never, images);
-    expect(html).toContain("DAFTAR HADIR MURID");
-    expect(html).toContain("position:absolute"); // logo
-    expect(html).not.toMatch(/left:\d{5,}px/); // tidak ada offset EMU mentah (logo di luar layar)
-    expect(html).toContain("Jumlah");
-    expect(html).toContain("#FEE2E2"); // blok merah
-    expect(html).toContain("#15803D"); // H hijau
-    expect(html).toContain("19680101");
-    expect(html).toContain("Siti, S.Pd");
-    expect(html).not.toContain("{{"); // tak ada variabel sisa
+    // Gambar kop template tetap ada (2 gambar anchor); render HTML dihapus
+    // bersama jalur Chromium/dialog (2026-10-08) — PDF kini lewat LibreOffice.
+    const anchored = (ws as never as { getImages?: () => unknown[] }).getImages?.() ?? [];
+    expect(anchored.length).toBe(2);
+    // Kop judul masih tersubstitusi di sel (bukan {{variabel}}).
+    let kopJudul = "";
+    for (let r = 1; r <= 15; r++) {
+      const v = ws.getCell(`A${r}`).value;
+      if (typeof v === "string" && v.includes("DAFTAR HADIR")) kopJudul = v;
+    }
+    expect(kopJudul).toContain("DAFTAR HADIR MURID");
 
     // Tulis ulang → workbook valid.
     const out = await wb.xlsx.writeBuffer();

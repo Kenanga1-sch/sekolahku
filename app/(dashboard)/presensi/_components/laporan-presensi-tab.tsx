@@ -367,8 +367,6 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
     [matrix, effectiveDays]
   );
 
-  const handlePrint = () => window.print();
-
   const [exportingExcel, setExportingExcel] = useState(false);
 
   /**
@@ -485,25 +483,19 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
   };
 
   const [exportingPdf, setExportingPdf] = useState(false);
-  const [exportingPdfServer, setExportingPdfServer] = useState<"" | "chromium" | "libreoffice">("");
 
   /**
-   * Bangun dokumen cetak dari template Excel terdaftar: isi template per
-   * kelompok kelas (sama persis dengan ekspor Excel — merge, warna status,
-   * blok merah libur, kop, tanda tangan) → HTML siap cetak + buffer xlsx.
-   * Dipakai tiga jalur output: dialog cetak browser, Chromium headless,
-   * dan LibreOffice.
+   * Isi template Excel terdaftar per kelompok kelas (sama persis dengan
+   * ekspor Excel — merge, warna status, blok merah libur, kop, tanda tangan)
+   * → buffer xlsx siap dikonversi LibreOffice.
    */
   const buildPrintDocs = async (): Promise<{
-    sections: string[];
     buffers: ArrayBuffer[];
-    opts: { paperSize: string; orientation: string };
     title: string;
   }> => {
-    const [{ default: ExcelJS }, excelLib, printLib] = await Promise.all([
+    const [{ default: ExcelJS }, excelLib] = await Promise.all([
       import("exceljs"),
       import("@/lib/presensi-excel"),
-      import("@/lib/worksheet-print"),
     ]);
     const { fillPresensiWorksheet, resolvePresensiTemplateUrl } = excelLib;
     const { url: templateUrl, paperSize, orientation } = await resolvePresensiTemplateUrl(
@@ -525,7 +517,6 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
     ).trim();
     const tanggalCetak = format(new Date(), "d MMMM yyyy", { locale: localeId });
 
-    const sections: string[] = [];
     const buffers: ArrayBuffer[] = [];
     for (const g of renderGroups) {
       const wb = new ExcelJS.Workbook();
@@ -558,25 +549,11 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
         orientation: opts.orientation,
       });
       if (rowCount === 0) throw new Error("template-tanpa-baris-contoh");
-      // Logo/gambar kop template → data URI untuk render cetak.
-      const images = printLib.extractPrintImages(ws, (id: number) =>
-        (wb as unknown as { getImage?: (i: number) => never }).getImage?.(id)
-      );
-      // Replikasi fit KOLOM Excel (fitToWidth=1): area printable dari
-      // paperSize/margin — hanya lebar; tinggi alami → multi-halaman,
-      // konsisten dgn perilaku fillPresensiWorksheet (fitToHeight=0).
-      const [fitWidthPx] = printLib.printAreaPx({
-        paperSize: opts.paperSize,
-        orientation: opts.orientation,
-      });
-      sections.push(printLib.worksheetToHtml(ws as never, images, { fitWidthPx }));
       buffers.push((await wb.xlsx.writeBuffer()) as ArrayBuffer);
     }
 
     return {
-      sections,
       buffers,
-      opts,
       title: `Daftar Hadir ${classNameBulanan} ${monthName} ${selectedYear}`,
     };
   };
@@ -608,71 +585,15 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
   };
 
   /**
-   * Cetak/PDF lewat dialog browser (jalur lama) — tetap tersedia sebagai
-   * fallback bila engine server belum terpasang.
+   * PDF lewat LibreOffice headless (satu-satunya mesin PDF sejak 2026-10-08):
+   * workbook xlsx hasil fill template → backend soffice --convert-to pdf
+   * (+qpdf bila multi kelas). 503 bila LibreOffice belum terpasang →
+   * frontend mengarahkan user ke export Excel.
    */
-  const handleCetakPdf = async () => {
+  const handlePdf = async () => {
     if (exportingPdf || visibleMatrix.length === 0) return;
     setExportingPdf(true);
-    const toastId = toast.loading("Menyiapkan cetak dari template…");
-    try {
-      const { sections, opts, title } = await buildPrintDocs();
-      const printLib = await import("@/lib/worksheet-print");
-      printLib.openPrintWindow(printLib.joinPageSections(sections), title, opts);
-      toast.success("Jendela cetak terbuka — pilih \u201cSimpan sebagai PDF\u201d", { id: toastId });
-    } catch (err) {
-      console.error("Cetak PDF error:", err);
-      toast.error("Template belum tersedia — memakai format cetak biasa", { id: toastId });
-      handlePrint();
-    } finally {
-      setExportingPdf(false);
-    }
-  };
-
-  /**
-   * PDF (Chromium headless): HTML render template yang sama dikirim ke
-   * backend → chromium --print-to-pdf. Tanpa dialog cetak. 503 bila
-   * chromium belum terpasang di server.
-   */
-  const handlePdfChromium = async () => {
-    if (exportingPdfServer || visibleMatrix.length === 0) return;
-    setExportingPdfServer("chromium");
-    const toastId = toast.loading("Mengonversi PDF via Chromium\u2026");
-    try {
-      const { sections, opts, title } = await buildPrintDocs();
-      const printLib = await import("@/lib/worksheet-print");
-      const filename = `${title}.pdf`;
-      // Dokumen LENGKAP (doctype + @page + BASE_CSS): fragment mentah membuat
-      // Chromium merender Letter portrait tanpa style → hasil rusak.
-      const html = printLib.buildPrintDocument(printLib.joinPageSections(sections), opts, title);
-      const resp = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || ""}/api/presensi/pdf/chromium`,
-        {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ html, filename }),
-        }
-      );
-      await downloadPdfBlob(resp, filename);
-      toast.success("PDF berhasil diunduh", { id: toastId });
-    } catch (err) {
-      console.error("PDF chromium error:", err);
-      toast.error(err instanceof Error ? err.message : "Konversi PDF gagal", { id: toastId });
-    } finally {
-      setExportingPdfServer("");
-    }
-  };
-
-  /**
-   * PDF (LibreOffice headless): workbook xlsx hasil fill template yang sama
-   * dikirim ke backend → soffice --convert-to pdf (+qpdf bila multi kelas).
-   * 503 bila LibreOffice belum terpasang di server.
-   */
-  const handlePdfLibreOffice = async () => {
-    if (exportingPdfServer || visibleMatrix.length === 0) return;
-    setExportingPdfServer("libreoffice");
-    const toastId = toast.loading("Mengonversi PDF via LibreOffice\u2026");
+    const toastId = toast.loading("Menyiapkan PDF…");
     try {
       const { buffers, title } = await buildPrintDocs();
       const fd = new FormData();
@@ -697,7 +618,7 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
       console.error("PDF libreoffice error:", err);
       toast.error(err instanceof Error ? err.message : "Konversi PDF gagal", { id: toastId });
     } finally {
-      setExportingPdfServer("");
+      setExportingPdf(false);
     }
   };
 
@@ -808,17 +729,9 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={handlePdfChromium} disabled={!!exportingPdfServer}>
-                      {exportingPdfServer === "chromium" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
-                      PDF (Chromium)
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handlePdfLibreOffice} disabled={!!exportingPdfServer}>
-                      {exportingPdfServer === "libreoffice" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
-                      PDF (LibreOffice)
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleCetakPdf} disabled={exportingPdf}>
+                    <DropdownMenuItem onClick={handlePdf} disabled={exportingPdf}>
                       {exportingPdf ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
-                      PDF (dialog cetak)
+                      PDF
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleExportMonthlyExcel} disabled={exportingExcel}>
                       {exportingExcel ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}

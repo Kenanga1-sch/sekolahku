@@ -165,7 +165,7 @@ echo "║  Health: http://localhost:$PORT/api/health ║"
 echo "╚══════════════════════════════════════════╝"
 
 # ── Buang image lama (dangling) agar disk tidak menumpuk.
-# Image kini besar (chromium + libreoffice ≈ 1GB); tanpa prune, setiap deploy
+# Image besar (libreoffice ≈ 1GB+); tanpa prune, setiap deploy
 # menambah ~1GB. Aman: hanya image tanpa tag & tak dipakai container mana pun.
 if command -v podman >/dev/null 2>&1; then
   podman image prune -f >/dev/null 2>&1 || true
