@@ -27,7 +27,11 @@
  */
 import type { DayColumn, MatrixRow } from "./presensi-report";
 import { recordedDays, studentPct } from "./presensi-report";
-import { resolveUploadUrl } from "./upload-url";
+import { applyPrintPageSetup, resolveModuleTemplate } from "./print-kit";
+
+// Geometry cetak bersama (kode kertas, fit kolom, margin, centering) ada di
+// print-kit — presensi hanya memakai; jangan menambah logika halaman di sini.
+export { PAPER_SIZE_CODES } from "./print-kit";
 
 export const PRESENSI_TEMPLATE_PATH = "/templates/daftar-hadir-bulanan-v1.xlsx";
 export const PRESENSI_TEMPLATE_VERSION = "v1";
@@ -72,13 +76,6 @@ export const STATUS_FONT_ARGB: Record<string, string> = {
 /** Blok merah muda untuk kolom hari libur (fill) + font merah angka tanggalnya. */
 export const HOLIDAY_FILL_ARGB = "FFFEE2E2";
 export const HOLIDAY_FONT_ARGB = "FFDC2626";
-
-/** Pemetaan ukuran kertas → kode ECMA-376 untuk worksheet.pageSetup.paperSize. */
-export const PAPER_SIZE_CODES: Record<string, number> = {
-  A4: 9,
-  F4: 14, // Folio 215,9×330,2 mm — padanan F4
-  LEGAL: 5,
-};
 
 /** Variabel skalar yang dikenali → nilai dari input. */
 export function scalarMap(input: PresensiExcelInput): Record<string, string> {
@@ -430,39 +427,14 @@ export async function fillPresensiWorksheet(
     // Template tanpa ruang baris Jumlah — lewati tanpa menggagalkan unduhan.
   }
 
-  // 6. Terapkan ukuran kertas/orientasi template ke pageSetup Excel
-  //    (A4=9, F4→Folio=14, LEGAL=5) agar hasil cetak dari Excel ikut sesuai.
-  //    fitToPage menyala (seperti template) agar Excel & LibreOffice
-  //    menskalakan tabel muat satu halaman — kalau tidak, tabel 39 kolom
-  //    pecah jadi 4 halaman (2× horizontal) saat dikonversi ke PDF.
-  if (input.paperSize) {
-    const paperCode = PAPER_SIZE_CODES[input.paperSize.trim().toUpperCase()];
-    if (paperCode !== undefined) {
-      const wsPS = ws as { pageSetup?: Record<string, unknown> };
-      wsPS.pageSetup = {
-        ...(wsPS.pageSetup || {}),
-        paperSize: paperCode,
-        orientation: (input.orientation || "portrait").toLowerCase() === "landscape" ? "landscape" : "portrait",
-        // Fit KOLOM saja (keputusan user 2026-10-08): semua kolom selalu muat
-        // (skala ≈99%), tinggi natural → kelas kecil 1 halaman, kelas besar
-        // lanjut ke halaman berikutnya seperti print Excel. fitToHeight=1
-        // (1 halaman) memaksa skala 43–50% → teks mengecil tak wajar.
-        fitToPage: true,
-        fitToWidth: 1,
-        fitToHeight: 0,
-        // Margin 10mm dipaksa agar LO/Excel identik dengan jalur HTML
-        // (pageCss/printAreaPx default 10mm). Margin bawaan template (WPS:
-        // 19mm samping, 25.4mm atas/bawah) membuang tempat. Satuan exceljs
-        // = INCH (0.4in ≈ 10mm).
-        margins: { top: 0.4, right: 0.4, bottom: 0.4, left: 0.4, header: 0.1, footer: 0.1 },
-        // Tengahkan horizontal: konversi lebar kolom LO ≈279,5mm (lebih
-        // sempit dari px exceljs) membuat konten left-aligned → kiri 7,6mm
-        // vs kanan 43mm ("mepet kiri"). Dengan ini kedua sisi ≈25,4mm sama
-        // besar di LO & Excel (fix 2026-10-08).
-        horizontalCentered: true,
-      };
-    }
-  }
+  // 6. Terapkan ukuran kertas/orientasi template ke pageSetup Excel via
+  //    print-kit (A4=9, F4→Folio=14, LEGAL=5; fit kolom, margin 10mm,
+  //    horizontalCentered) agar hasil cetak Excel & LibreOffice identik
+  //    dengan jalur HTML.
+  applyPrintPageSetup(ws as never, {
+    paperSize: input.paperSize,
+    orientation: input.orientation,
+  });
 
   return { rowCount: input.rows.length, unknown: [...unknown].sort() };
 }
@@ -495,51 +467,19 @@ export function excelFilename(className: string, month: number, year: number): s
 }
 
 /**
- * URL template Excel modul presensi, berlapis (fallback):
- *   1. default modul dari /api/reports/templates/default/presensi (filePath),
- *      dinormalisasi via resolveUploadUrl — unggahan baru di
- *      uploads/templates/... dilewatkan endpoint terautentikasi
- *      /api/files/... (folder privat), path lama templates/... tetap
- *      lewat URL publik,
- *   2. bawaan PRESENSI_TEMPLATE_PATH,
- *   3. null bila keduanya tak bisa diunduh → pemanggil fallback ke CSV.
- *
- * goGet di sini opsional: dipanggil dengan fetch polos agar fungsi ini
- * tetap bisa dipakai tanpa dependensi api-client (diuji vitest).
+ * URL template Excel modul presensi — pembungkus tipis atas
+ * resolveModuleTemplate(print-kit) dengan fallback bawaan
+ * PRESENSI_TEMPLATE_PATH. Lihat print-kit untuk logika normalisasi.
  */
 export async function resolvePresensiTemplateUrl(
   fetchFn: typeof fetch = fetch,
   apiBase = ""
 ): Promise<{ url: string; fromDefault: boolean; paperSize?: string; orientation?: string }> {
-  let meta: { paperSize?: string; orientation?: string } = {};
-  try {
-    const res = await fetchFn(`${apiBase}/api/reports/templates/default/presensi`, {
-      credentials: "include",
-    });
-    if (res.ok) {
-      const json = (await res.json().catch(() => null)) as {
-        success?: boolean;
-        data?: { filePath?: string; paperSize?: string; orientation?: string };
-      } | null;
-      const fp = json?.data?.filePath?.trim();
-      if (json?.success && fp) {
-        meta = { paperSize: json.data?.paperSize, orientation: json.data?.orientation };
-        const normalized = resolveUploadUrl(fp) ?? (fp.startsWith("/") ? fp : `/${fp}`);
-        // Endpoint privat /api/files/* hanya mendaftarkan GET — HEAD → 405
-        // sehingga probe dianggap gagal dan diam-diam jatuh ke template lama.
-        // Untuk path privat: langsung pakai (bila file hilang, fetch ekspor
-        // gagal → pemanggil fallback ke CSV, tetap aman).
-        if (normalized.startsWith("/api/files/")) {
-          return { url: normalized, fromDefault: true, ...meta };
-        }
-        const check = await fetchFn(normalized, { method: "HEAD", credentials: "include" }).catch(() => null);
-        if (!check || check.ok) return { url: normalized, fromDefault: true, ...meta };
-      }
-    }
-  } catch {
-    // Abaikan: lanjut ke bawaan.
-  }
-  return { url: PRESENSI_TEMPLATE_PATH, fromDefault: false, ...meta };
+  return resolveModuleTemplate(PRESENSI_TEMPLATE_MODULE, {
+    fetchFn,
+    apiBase,
+    fallbackUrl: PRESENSI_TEMPLATE_PATH,
+  });
 }
 
 /** Ringkasan untuk toast sukses: jumlah baris + variabel tak dikenal (bila ada). */

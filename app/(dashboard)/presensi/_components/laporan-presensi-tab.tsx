@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { goGet } from "@/lib/api-client";
 import { formatClassName } from "@/lib/class-utils";
 import { pageCss, printAreaPx } from "@/lib/worksheet-print";
+import { convertXlsxToPdf, downloadPdf } from "@/lib/print-kit";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { siteConfig } from "@/lib/config";
 import {
@@ -558,37 +559,11 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
     };
   };
 
-  /** Unduh blob hasil konversi PDF dari server (nama dari Content-Disposition). */
-  const downloadPdfBlob = async (resp: Response, fallbackName: string) => {
-    if (!resp.ok) {
-      let msg = "Konversi PDF gagal";
-      try {
-        const j = await resp.json();
-        if (j?.error) msg = j.error;
-      } catch {
-        // respons bukan JSON — pakai pesan default
-      }
-      throw new Error(msg);
-    }
-    const blob = await resp.blob();
-    const cd = resp.headers.get("Content-Disposition") || "";
-    const m = /filename="([^"]+)"/.exec(cd);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = m?.[1] || fallbackName;
-    a.style.display = "none";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
   /**
    * PDF lewat LibreOffice headless (satu-satunya mesin PDF sejak 2026-10-08):
    * workbook xlsx hasil fill template → backend soffice --convert-to pdf
-   * (+qpdf bila multi kelas). 503 bila LibreOffice belum terpasang →
-   * frontend mengarahkan user ke export Excel.
+   * (+qpdf bila multi kelas). Konversi & unduhan via print-kit (lintas
+   * modul). 503 bila LibreOffice belum terpasang → arahkan ke export Excel.
    */
   const handlePdf = async () => {
     if (exportingPdf || visibleMatrix.length === 0) return;
@@ -596,23 +571,9 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
     const toastId = toast.loading("Menyiapkan PDF…");
     try {
       const { buffers, title } = await buildPrintDocs();
-      const fd = new FormData();
-      buffers.forEach((b, i) => {
-        fd.append(
-          "files",
-          new Blob([b], {
-            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          }),
-          `laporan-${i + 1}.xlsx`
-        );
-      });
       const filename = `${title}.pdf`;
-      fd.append("filename", filename);
-      const resp = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || ""}/api/presensi/pdf/libreoffice`,
-        { method: "POST", credentials: "include", body: fd }
-      );
-      await downloadPdfBlob(resp, filename);
+      const result = await convertXlsxToPdf(buffers, filename);
+      downloadPdf(result, filename);
       toast.success("PDF berhasil diunduh", { id: toastId });
     } catch (err) {
       console.error("PDF libreoffice error:", err);
