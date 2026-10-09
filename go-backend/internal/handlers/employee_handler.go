@@ -197,6 +197,7 @@ func (h *EmployeeHandler) BulkImportEmployees(c echo.Context) error {
 			JobType:          optionalImportStringPtr(importString(row, "JenisPTK", "jobType")),
 			Phone:            optionalImportStringPtr(importString(row, "NoHP", "phone")),
 			JoinDate:         optionalImportStringPtr(importString(row, "TanggalMasuk", "joinDate")),
+			Degree:           optionalImportStringPtr(importString(row, "Gelar", "gelar", "degree", "Degree")),
 		}
 
 		if msg := validateEmployeeIdentityNumbers(req); msg != "" {

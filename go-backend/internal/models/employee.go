@@ -1,6 +1,34 @@
 package models
 
-import "time"
+import (
+	"strings"
+	"time"
+)
+
+// FullNameWithDegree menggabungkan nama (TANPA gelar) dengan gelar menjadi
+// "Nama, Gelar" — format konvergen aplikasi (halaman publik, Daftar-1, form).
+// Name/degree kosong ditrim; keduanya kosong → string kosong.
+func FullNameWithDegree(name string, degree *string) string {
+	name = strings.TrimSpace(name)
+	if degree != nil {
+		if deg := strings.TrimSpace(*degree); deg != "" {
+			if name == "" {
+				return deg
+			}
+			return name + ", " + deg
+		}
+	}
+	return name
+}
+
+// ApplyFullName mengisi FullName (json "fullName") dengan hasil gabungan
+// name+degree. Dipanggil repo setelah scan — sejak descope GTK (1c585f9)
+// kolom ini tidak pernah diisi sehingga pola frontend "fullName || name"
+// selalu jatuh ke name tanpa gelar (bug gelar tak pernah ikut).
+func (e *Employee) ApplyFullName() {
+	fn := FullNameWithDegree(e.Name, e.Degree)
+	e.FullName = &fn
+}
 
 type Employee struct {
 	ID               string  `json:"id"`

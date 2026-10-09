@@ -36,6 +36,8 @@ interface ClassData {
 interface EmployeeData {
     id: string;
     name: string | null;
+    /** name + degree digabung ("Nama, Gelar") dari API. */
+    fullName?: string | null;
 }
 
 interface ClassRepManagerProps {
@@ -120,7 +122,7 @@ function ClassRepSelector({ classId, currentRepId, employees }: { classId: strin
               disabled={loading}
             >
               {value
-                ? employees.find((emp) => emp.id === value)?.name
+                ? (employees.find((emp) => emp.id === value)?.fullName || employees.find((emp) => emp.id === value)?.name)
                 : "Pilih PJ..."}
               {loading ? <Loader2 className="ml-2 h-3 w-3 animate-spin" /> : <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />}
             </Button>
@@ -145,7 +147,7 @@ function ClassRepSelector({ classId, currentRepId, employees }: { classId: strin
                           value === emp.id ? "opacity-100" : "opacity-0"
                           )}
                       />
-                      {emp.name}
+                      {emp.fullName || emp.name}
                       </CommandItem>
                   ))}
                   </CommandGroup>

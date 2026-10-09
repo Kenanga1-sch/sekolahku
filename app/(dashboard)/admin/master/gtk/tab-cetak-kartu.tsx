@@ -15,16 +15,19 @@ import { useSortableData } from "@/hooks/use-sortable-data";
 import { useDebounce } from "@/hooks/use-debounce";
 import { goGet } from "@/lib/api-client";
 import { showError } from "@/lib/toast";
+import { formatNamaGtk } from "@/lib/gtk-name";
 
 type Employee = {
   id: string;
   name: string;
+  fullName?: string | null;
   email: string;
   nip: string | null;
   nuptk: string | null;
   employmentStatus: string | null;
   jobType: string | null;
   category: string | null;
+  degree?: string | null;
   photoUrl: string | null;
 };
 
@@ -182,7 +185,7 @@ export default function TabCetakKartuGtk() {
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-semibold text-slate-800 dark:text-zinc-200">{emp.name}</p>
+                      <p className="font-semibold text-slate-800 dark:text-zinc-200">{formatNamaGtk(emp.name, emp.degree)}</p>
                       <p className="text-xs text-muted-foreground">{emp.email}</p>
                     </div>
                   </div>

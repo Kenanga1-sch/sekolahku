@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { goGet } from "@/lib/api-client";
+import { formatNamaGtk } from "@/lib/gtk-name";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { siteConfig } from "@/lib/config";
 import { Reveal, EASE_OUT } from "@/components/public/motion";
@@ -56,6 +57,8 @@ interface HomepageData {
 interface StaffItem {
   id: string;
   name: string;
+  /** Gelar terpisah dari API public staff (name = tanpa gelar). */
+  degree?: string | null;
   position?: string;
   photoUrl?: string;
   category?: string;
@@ -381,7 +384,7 @@ export default function PublicHomepage() {
                       )}
                     </div>
                     <div className="flex flex-1 flex-col p-3.5 text-center">
-                      <h3 className="text-sm font-semibold text-foreground line-clamp-1">{person.name}</h3>
+                      <h3 className="text-sm font-semibold text-foreground line-clamp-1">{formatNamaGtk(person.name, person.degree)}</h3>
                       {person.position && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{person.position}</p>}
                     </div>
                   </div>

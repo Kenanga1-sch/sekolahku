@@ -8,13 +8,15 @@ import type { GtkCard } from "./use-cetak-kartu";
 
 const baseCard: GtkCard = {
   id: "emp-1",
-  name: "Budi Santoso, S.Pd",
+  // name = TANPA gelar, degree terpisah — persis pola data produksi.
+  name: "Budi Santoso",
   email: "budi@sekolah.id",
   nip: "197001011990031001",
   nuptk: "1234567890123456",
   employmentStatus: "PNS",
   jobType: "Guru Kelas",
   category: "guru",
+  degree: "S.Pd",
   photoUrl: null,
 };
 
@@ -63,9 +65,11 @@ describe("gtkCardIdentity — fallback NIP → NUPTK → id", () => {
 });
 
 describe("KartuGTK — konten depan", () => {
-  it("menampilkan nama, NIP, NUPTK, jabatan, status", () => {
+  it("menampilkan nama + gelar hasil gabungan, NIP, NUPTK, jabatan, status", () => {
     const html = renderGtk({ showBackSide: false });
+    // formatNamaGtk(name, degree) → "Budi Santoso, S.Pd".
     expect(html).toContain("Budi Santoso, S.Pd");
+    expect(html).not.toMatch(/>Budi Santoso</); // tidak tampil polos tanpa gelar
     expect(html).toContain("197001011990031001");
     expect(html).toContain("1234567890123456");
     expect(html).toContain("Guru Kelas");

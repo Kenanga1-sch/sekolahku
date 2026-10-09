@@ -266,7 +266,10 @@ func (h *EOfficeHandler) GetDaftar1Stats(c echo.Context) error {
 	}
 	var gtkList []GTKRow
 	var nKep, nGKelas, nInggris, nPenjas, nAgama, nOp, nPenjaga int
-	rows, _ = h.Repo.DB.Query(`SELECT name,nip,position,category,COALESCE(degree,'') FROM staff_profiles WHERE is_active=1 ORDER BY display_order ASC`)
+	// Sumber: employee_details (staff_profiles sudah mati — 0 baris sejak
+	// konsolidasi GTK, laporan Daftar-1 selalu kosong). Pemetaan kolom:
+	// position→job_type, is_active=1→category terisi.
+	rows, _ = h.Repo.DB.Query(`SELECT COALESCE(name,''), COALESCE(nip,''), COALESCE(job_type,''), COALESCE(category,''), COALESCE(degree,'') FROM employee_details WHERE category IS NOT NULL ORDER BY display_order ASC`)
 	if rows != nil {
 		idx := 1
 		for rows.Next() {

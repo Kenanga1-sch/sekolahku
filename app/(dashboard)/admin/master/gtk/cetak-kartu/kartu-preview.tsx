@@ -4,6 +4,7 @@ import { QRCodeSVG } from "qrcode.react";
 import type { GtkCard } from "./use-cetak-kartu";
 import { CARD_W_MM, CARD_H_MM } from "@/lib/kartu-print-layout";
 import { resolveUploadUrl } from "@/lib/upload-url";
+import { formatNamaGtk } from "@/lib/gtk-name";
 
 interface PreviewProps {
   card: GtkCard;
@@ -93,7 +94,7 @@ function GtkCardFront({ card, schoolName, schoolAddress, schoolLogo, showPhoto, 
                   overflow: "hidden",
                 }}
               >
-                {card.name}
+                {formatNamaGtk(card.name, card.degree)}
               </h3>
             </div>
             <div className="grid gap-y-1 leading-tight" style={{ gridTemplateColumns: "max-content 4px auto" }}>

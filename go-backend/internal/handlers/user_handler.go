@@ -483,15 +483,21 @@ func (h *UserHandler) GenerateAccounts(c echo.Context) error {
 			if role == "" {
 				role = "guru"
 			}
+			// Nama akun login = "Nama, Gelar" (FullName sudah digabung repo);
+			// LinkEmployeeToUser di bawah men_sinkron-kan lagi bila ada selisih.
+			displayName := e.Name
+			if e.FullName != nil && *e.FullName != "" {
+				displayName = *e.FullName
+			}
 			u := models.User{
-				Name: &e.Name, Email: e.Email, FullName: &e.Name,
+				Name: &displayName, Email: e.Email, FullName: &displayName,
 				PasswordHash: &pwHash, Role: role,
 				IsActive: true, MustChangePassword: true,
 			}
 			userId, err := h.UserRepo.CreateUser(u)
 			if err == nil {
 				h.UserRepo.LinkEmployeeToUser(e.ID, userId)
-				accounts = append(accounts, generatedAccount{Name: e.Name, Email: e.Email, Password: pw})
+				accounts = append(accounts, generatedAccount{Name: displayName, Email: e.Email, Password: pw})
 				count++
 			} else {
 				skipped++

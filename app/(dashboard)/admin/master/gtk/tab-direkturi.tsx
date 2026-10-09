@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { showSuccess, showError } from "@/lib/toast";
 import { useDebounce } from "@/hooks/use-debounce";
 import { goGet, goDelete } from "@/lib/api-client";
+import { formatNamaGtk } from "@/lib/gtk-name";
 import { EmployeeFormDialog } from "@/components/master/employee-form-dialog";
 import { EmployeeImportDialog } from "@/components/master/employee-import-dialog";
 
@@ -319,7 +320,7 @@ export default function MasterGTKPage() {
                                 render: (emp) => (
                                     <div className="flex flex-col">
                                         <span className="font-semibold text-slate-800 dark:text-slate-200">
-                                            {emp.name}
+                                            {formatNamaGtk(emp.name, emp.degree)}
                                         </span>
                                         <span className="text-xs text-muted-foreground">{emp.email}</span>
                                     </div>

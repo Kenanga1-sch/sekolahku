@@ -426,7 +426,23 @@ func (r *UserRepository) UpdatePassword(id string, newHash string) error {
 }
 
 // LinkEmployeeToUser links an employee_detail record to a users record
+// dan menyalin nama+gelar GTK ke users.name/full_name (format "Nama, Gelar")
+// agar konsumen berbasis users (laporan presensi, eoffice, tabungan, dst.)
+// ikut menampilkan gelar.
 func (r *UserRepository) LinkEmployeeToUser(employeeID string, userID string) error {
-	_, err := r.DB.Exec("UPDATE employee_details SET user_id = ? WHERE id = ?", userID, employeeID)
+	_, err := r.DB.Exec(`
+		UPDATE users SET
+		  name = (SELECT COALESCE(ed.name, '') ||
+		                 CASE WHEN COALESCE(ed.degree, '') <> '' THEN ', ' || ed.degree ELSE '' END
+		          FROM employee_details ed WHERE ed.id = ?),
+		  full_name = (SELECT COALESCE(ed.name, '') ||
+		                 CASE WHEN COALESCE(ed.degree, '') <> '' THEN ', ' || ed.degree ELSE '' END
+		          FROM employee_details ed WHERE ed.id = ?)
+		WHERE id = ?
+	`, employeeID, employeeID, userID)
+	if err != nil {
+		return err
+	}
+	_, err = r.DB.Exec("UPDATE employee_details SET user_id = ? WHERE id = ?", userID, employeeID)
 	return err
 }

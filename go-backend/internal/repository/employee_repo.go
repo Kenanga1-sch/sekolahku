@@ -146,6 +146,7 @@ func scanEmployeeRow(rows *sql.Rows) (models.Employee, error) {
 		do := int(displayOrder.Int64)
 		e.DisplayOrder = &do
 	}
+	e.ApplyFullName()
 	return e, nil
 }
 
@@ -226,7 +227,7 @@ func (r *EmployeeRepository) CreateEmployee(req models.CreateEmployeeRequest) (s
 // GetEmployeesWithoutAccount returns employees not yet linked to a user account
 func (r *EmployeeRepository) GetEmployeesWithoutAccount() ([]models.Employee, error) {
 	query := `
-		SELECT e.id, e.name, e.email, e.role, e.nip, e.phone
+		SELECT e.id, e.name, e.email, e.role, e.nip, e.phone, e.degree
 		FROM employee_details e
 		WHERE e.user_id IS NULL
 		ORDER BY e.name ASC
@@ -240,8 +241,8 @@ func (r *EmployeeRepository) GetEmployeesWithoutAccount() ([]models.Employee, er
 	var employees []models.Employee
 	for rows.Next() {
 		var e models.Employee
-		var name, email, role, nip, phone sql.NullString
-		if err := rows.Scan(&e.ID, &name, &email, &role, &nip, &phone); err != nil {
+		var name, email, role, nip, phone, deg sql.NullString
+		if err := rows.Scan(&e.ID, &name, &email, &role, &nip, &phone, &deg); err != nil {
 			return nil, err
 		}
 		if name.Valid {
@@ -259,6 +260,10 @@ func (r *EmployeeRepository) GetEmployeesWithoutAccount() ([]models.Employee, er
 		if phone.Valid {
 			e.Phone = &phone.String
 		}
+		if deg.Valid {
+			e.Degree = &deg.String
+		}
+		e.ApplyFullName()
 		employees = append(employees, e)
 	}
 	if employees == nil {
@@ -342,6 +347,7 @@ func (r *EmployeeRepository) GetEmployeeByID(id string) (*models.Employee, error
 		e.DisplayOrder = &do
 	}
 
+	e.ApplyFullName()
 	return &e, nil
 }
 
@@ -353,7 +359,24 @@ func (r *EmployeeRepository) UpdateEmployee(id string, req models.CreateEmployee
 		WHERE id=?
 	`
 	_, err := r.DB.Exec(query, req.FullName, req.Email, req.Role, req.NIP, req.NUPTK, req.NIK, req.EmploymentStatus, req.JobType, req.JoinDate, req.Category, req.Degree, req.Quote, req.PhotoUrl, req.DisplayOrder, req.Phone, now, id)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Sinkron nama akun login terkait → users.name/full_name = "Nama, Gelar"
+	// agar perubahan nama/gelar GTK langsung terlihat di semua konsumen
+	// berbasis users (laporan presensi, eoffice, tabungan, dst.).
+	_, syncErr := r.DB.Exec(`
+		UPDATE users SET
+		  name = (SELECT COALESCE(ed.name, '') ||
+		                 CASE WHEN COALESCE(ed.degree, '') <> '' THEN ', ' || ed.degree ELSE '' END
+		          FROM employee_details ed WHERE ed.id = ?),
+		  full_name = (SELECT COALESCE(ed.name, '') ||
+		                 CASE WHEN COALESCE(ed.degree, '') <> '' THEN ', ' || ed.degree ELSE '' END
+		          FROM employee_details ed WHERE ed.id = ?)
+		WHERE id = (SELECT user_id FROM employee_details WHERE id = ?)
+	`, id, id, id)
+	return syncErr
 }
 
 func (r *EmployeeRepository) DeleteEmployee(id string) error {

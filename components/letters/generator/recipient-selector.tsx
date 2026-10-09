@@ -199,7 +199,7 @@ export function RecipientSelector({
                   <PopoverTrigger asChild>
                     <Button variant="outline" role="combobox" className="w-full justify-between bg-white dark:bg-zinc-950 border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-sm font-normal text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-zinc-900">
                       {recipientMode === "SINGLE" && selectedRecipients.length > 0
-                        ? selectedRecipients[0].name || selectedRecipients[0].fullName
+                        ? selectedRecipients[0].fullName || selectedRecipients[0].name
                         : `Ketik nama ${targetType === "STUDENT" ? "siswa" : "staff"}...`}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50 text-slate-400" />
                     </Button>
@@ -229,7 +229,7 @@ export function RecipientSelector({
                               )}
                             />
                             <div className="flex flex-col text-slate-800 dark:text-slate-250">
-                              <span className="font-medium text-sm">{item.name || item.fullName}</span>
+                              <span className="font-medium text-sm">{item.fullName || item.name}</span>
                               <span className="text-xs text-muted-foreground mt-0.5">
                                 {item.nisn || item.nip || "-"} • {item.className || item.position || item.jobType || item.role || "Staf"}
                               </span>
@@ -254,7 +254,7 @@ export function RecipientSelector({
                       key={s.id}
                       className="flex items-center gap-1.5 bg-white dark:bg-zinc-850 text-xs text-slate-700 dark:text-slate-300 pl-2.5 pr-1.5 py-1 rounded-full border border-slate-200/60 dark:border-zinc-800 shadow-sm"
                     >
-                      <span>{s.name || s.fullName}</span>
+                      <span>{s.fullName || s.name}</span>
                       {recipientMode === "MULTIPLE" && (
                         <button
                           type="button"

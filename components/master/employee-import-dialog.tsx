@@ -70,6 +70,7 @@ export function EmployeeImportDialog({ open, onOpenChange, onSuccess }: Employee
         "NIP": "199001012020011001", 
         "NUPTK": "1234567890123456",
         "NIK": "3201010101900001",
+        "Gelar": "S.Pd",
         "StatusKepegawaian": "PNS",
         "JenisPTK": "Guru Kelas",
         "NoHP": "08123456789",
@@ -180,6 +181,12 @@ export function EmployeeImportDialog({ open, onOpenChange, onSuccess }: Employee
                                 header: "Role",
                                 card: "field",
                                 render: (row) => row.Role,
+                            },
+                            {
+                                key: "Gelar",
+                                header: "Gelar",
+                                card: "field",
+                                render: (row) => row.Gelar || "-",
                             },
                             {
                                 key: "StatusKepegawaian",

@@ -44,6 +44,8 @@ interface ClassItem {
   id: string;
   name: string;
   teacherName?: string | null;
+  /** Nama wali kelas dari users (sudah "Nama, Gelar" sejak sinkron 000074). */
+  waliUserName?: string | null;
 }
 
 export function PresensiDashboardTab() {
@@ -218,7 +220,7 @@ export function PresensiDashboardTab() {
                         <div>
                           <p className="font-medium">{formatClassName(cls.name)}</p>
                           <p className="text-sm text-muted-foreground">
-                            {cls.teacherName || "Wali Kelas"}
+                            {cls.teacherName || cls.waliUserName || "Wali Kelas"}
                           </p>
                         </div>
                       </div>

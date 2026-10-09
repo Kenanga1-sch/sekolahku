@@ -75,6 +75,9 @@ interface ClassOption {
 interface GtkOption {
     id: string;
     name: string;
+    /** Dari API: name + degree digabung ("Nama, Gelar"). */
+    fullName?: string;
+    degree?: string;
     email: string;
     role: string;
     nip?: string;
@@ -244,7 +247,8 @@ export default function TabUsers() {
         if (gtk) {
             setFormData((prev) => ({
                 ...prev,
-                name: gtk.name,
+                // users.name ikut ber-gelar (sinkron 000074) — pakai fullName.
+                name: gtk.fullName || gtk.name,
                 email: gtk.email,
                 role: gtk.role,
                 employeeId: gtk.id,
@@ -795,7 +799,7 @@ export default function TabUsers() {
                                                 ) : (
                                                     gtkOptions.map((gtk) => (
                                                         <SelectItem key={gtk.id} value={gtk.id}>
-                                                            {gtk.name} — {gtk.role} {gtk.nip ? `(NIP: ${gtk.nip})` : ""}
+                                                            {gtk.fullName || gtk.name} — {gtk.role} {gtk.nip ? `(NIP: ${gtk.nip})` : ""}
                                                         </SelectItem>
                                                     ))
                                                 )}

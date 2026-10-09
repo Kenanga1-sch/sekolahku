@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { goGet } from "@/lib/api-client";
+import { formatNamaGtk } from "@/lib/gtk-name";
 import { BULAN_INDO } from "@/lib/letter-render-shared";
 
 /**
@@ -44,6 +45,9 @@ export interface StudentRow {
 export interface EmployeeRow {
   id: string;
   name: string;
+  /** name + degree digabung ("Nama, Gelar") dari API. */
+  fullName?: string;
+  degree?: string;
   nip?: string;
   role?: string;
 }
@@ -125,14 +129,15 @@ export function DataPickerDialog({
   };
 
   const handlePickTeacher = (t: EmployeeRow) => {
+    const guruNama = formatNamaGtk(t.name, t.degree);
     const vars: Record<string, string> = {
-      guru_nama: t.name || "",
+      guru_nama: guruNama,
       guru_nip: t.nip || "",
       guru_jabatan: t.role || "Guru",
     };
-    onSelectTeacher(vars, t.name);
+    onSelectTeacher(vars, guruNama);
     onOpenChange(false);
-    toast.success(`Data guru "${t.name}" diterapkan`);
+    toast.success(`Data guru "${guruNama}" diterapkan`);
   };
 
   return (
@@ -210,7 +215,7 @@ export function DataPickerDialog({
                   className="flex cursor-pointer items-center justify-between rounded-md border p-2 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/20"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{t.name}</p>
+                    <p className="truncate text-sm font-medium">{formatNamaGtk(t.name, t.degree)}</p>
                     <p className="truncate text-xs text-muted-foreground">
                       NIP: {t.nip || "-"} {t.role ? `• ${t.role}` : ""}
                     </p>

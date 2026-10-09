@@ -72,7 +72,7 @@ function formatLetterNumber(formatPattern: string | undefined, sequence: number,
 }
 
 function recipientLabel(recipient: any) {
-  return recipient?.name || recipient?.fullName || recipient?.email || "Manual";
+  return recipient?.fullName || recipient?.name || recipient?.email || "Manual";
 }
 
 function LetterGeneratorContent() {
@@ -239,7 +239,7 @@ function LetterGeneratorContent() {
       data.siswa_no_hp_wali = recipient.parentPhone || "";
       data.siswa_no_hp = recipient.parentPhone || "";
     } else {
-      data.penerima_nama = recipient.name || recipient.fullName || "";
+      data.penerima_nama = recipient.fullName || recipient.name || "";
       data.penerima_nip = recipient.nip || "-";
       data.penerima_jabatan = recipient.position || recipient.jobType || recipient.role || "";
       data.guru_nama = data.penerima_nama;

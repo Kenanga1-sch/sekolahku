@@ -49,6 +49,8 @@ interface Loan {
 interface Employee {
     id: string;
     name: string;
+    /** name + degree digabung ("Nama, Gelar") dari API. */
+    fullName?: string;
     employeeDetailId?: string;
 }
 
@@ -218,7 +220,7 @@ export function DebtManager({ receivables = [], payables = [], employees = [], o
                                     </SelectTrigger>
                                     <SelectContent>
                                         {employees.map(emp => (
-                                            <SelectItem key={emp.id} value={emp.id}>{emp.name}</SelectItem>
+                                            <SelectItem key={emp.id} value={emp.id}>{emp.fullName || emp.name}</SelectItem>
                                         ))}
                                     </SelectContent>
                                 </Select>

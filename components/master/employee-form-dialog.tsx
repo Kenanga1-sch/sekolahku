@@ -92,7 +92,11 @@ export function EmployeeFormDialog({ open, onOpenChange, employeeId, onSuccess }
                 }
 
                 form.reset({
-                    fullName: data.fullName || data.name || "",
+                    // name SELALU tanpa gelar (gelar di field degree terpisah).
+                    // Jangan pakai data.fullName — kini berisi "Nama, Gelar"
+                    // (sinkron 2026-10) → prefill itu akan menaruh gelar ke
+                    // field Nama dan menyimpannya balik (gelar ganda).
+                    fullName: data.name || "",
                     email: data.email || "",
                     role: data.role || "guru",
                     employmentStatus: data.employmentStatus || "",
@@ -223,8 +227,8 @@ export function EmployeeFormDialog({ open, onOpenChange, employeeId, onSuccess }
                         name="fullName"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Nama Lengkap (dengan Gelar)</FormLabel>
-                                <FormControl><Input {...field} placeholder="Siti Aminah, S.Pd" /></FormControl>
+                                <FormLabel>Nama Lengkap (Tanpa Gelar)</FormLabel>
+                                <FormControl><Input {...field} placeholder="Siti Aminah" /></FormControl>
                                 <FormMessage />
                             </FormItem>
                         )}
