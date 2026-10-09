@@ -10,12 +10,16 @@
  *      lalu mengisi tiap sel {{tgl_N}} / {{total_h}} / {{persen}} / rumus,
  *   4. mengembalikan workbook siap unduh.
  *
- * Variabel yang dikenali:
+ * Variabel yang dikenali — daftar lengkap & deskripsi ada di kamus:
+ *   lib/config/report-variables.ts (halaman admin /admin/kamus-variabel).
  *   Skalar : {{sekolah_nama}} {{sekolah_alamat}} {{sekolah_telepon}}
+ *            {{sekolah_npsn}} {{sekolah_email}} {{sekolah_website}}
  *            {{kepala_sekolah_nama}} {{kepala_sekolah_nip}}
  *            {{wali_kelas_nama}} {{wali_kelas_nip}}
- *            {{kelas}} {{bulan}} {{tahun}} {{tahun_ajaran}}
+ *            {{kelas}} {{kelas_upper}} {{jumlah_siswa}} {{persen_kelas}}
+ *            {{bulan}} {{tahun}} {{tahun_ajaran}}
  *            {{hari_efektif}} {{tanggal_cetak}} {{tempat_ttd}}
+ *            {{ttd_mulai}} {{ttd_selesai}} (penanda blok TTD — dikosongkan)
  *   Baris  : {{no}} {{nama}} {{nis}} {{nisn}}
  *            {{tgl_1}}..{{tgl_31}} {{total_h}} {{total_s}} {{total_i}}
  *            {{total_a}} {{persen}}
@@ -28,6 +32,7 @@
 import type { DayColumn, MatrixRow } from "./presensi-report";
 import { recordedDays, studentPct } from "./presensi-report";
 import { applyPagination, applyPrintPageSetup, resolveModuleTemplate, type PrintSettings } from "./print-kit";
+import { PRESENSI_KNOWN_VARIABLES } from "./config/report-variables";
 
 // Geometry cetak bersama (kode kertas, fit kolom, margin, centering) ada di
 // print-kit — presensi hanya memakai; jangan menambah logika halaman di sini.
@@ -42,6 +47,9 @@ export interface PresensiExcelScalars {
   sekolahNama?: string;
   sekolahAlamat?: string;
   sekolahTelepon?: string;
+  sekolahNpsn?: string;
+  sekolahEmail?: string;
+  sekolahWebsite?: string;
   kepalaSekolahNama?: string;
   kepalaSekolahNip?: string;
   waliKelasNama?: string;
@@ -53,6 +61,10 @@ export interface PresensiExcelScalars {
   hariEfektif: number | string;
   tanggalCetak?: string;
   tempatTtd?: string;
+  /** Jumlah siswa pada kelas yang dicetak (opsional; bila kosong, tidak ada variabel jumlah_siswa). */
+  jumlahSiswa?: number | string;
+  /** Persentase kehadiran kelas (%). */
+  persenKelas?: number | string | null;
 }
 
 export interface PresensiExcelInput {
@@ -88,11 +100,18 @@ export function scalarMap(input: PresensiExcelInput): Record<string, string> {
     sekolah_nama: s.sekolahNama ?? "",
     sekolah_alamat: s.sekolahAlamat ?? "",
     sekolah_telepon: s.sekolahTelepon ?? "",
+    sekolah_npsn: s.sekolahNpsn ?? "",
+    sekolah_email: s.sekolahEmail ?? "",
+    sekolah_website: s.sekolahWebsite ?? "",
     kepala_sekolah_nama: s.kepalaSekolahNama ?? "",
     kepala_sekolah_nip: s.kepalaSekolahNip ?? "",
     wali_kelas_nama: s.waliKelasNama ?? "",
     wali_kelas_nip: s.waliKelasNip ?? "",
     kelas: s.kelas,
+    // Huruf besar penuh — untuk judul raksaka ("DAFTAR HADIR MURID {{kelas_upper}}").
+    kelas_upper: s.kelas ? s.kelas.toLocaleUpperCase("id") : "",
+    jumlah_siswa: s.jumlahSiswa === undefined ? "" : String(s.jumlahSiswa),
+    persen_kelas: s.persenKelas === undefined || s.persenKelas === null ? "" : String(s.persenKelas),
     bulan: s.bulan,
     tahun: String(s.tahun),
     tahun_ajaran: s.tahunAjaran,
@@ -535,16 +554,7 @@ export async function resolvePresensiTemplateUrl(
 
 /** Ringkasan untuk toast sukses: jumlah baris + variabel tak dikenal (bila ada). */
 export function unknownVariables(texts: string[]): string[] {
-  const known = new Set([
-    "sekolah_nama", "sekolah_alamat", "sekolah_telepon",
-    "kepala_sekolah_nama", "kepala_sekolah_nip",
-    "wali_kelas_nama", "wali_kelas_nip",
-    "kelas", "bulan", "tahun", "tahun_ajaran",
-    "hari_efektif", "tanggal_cetak", "tempat_ttd",
-    "no", "nama", "nis", "nisn",
-    "total_h", "total_s", "total_i", "total_a", "persen",
-    ...Array.from({ length: 31 }, (_, i) => `tgl_${i + 1}`),
-  ]);
+  const known = new Set(PRESENSI_KNOWN_VARIABLES);
   const found = new Set<string>();
   for (const t of texts) {
     if (typeof t !== "string") continue;

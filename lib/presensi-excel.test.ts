@@ -105,6 +105,33 @@ describe("scalarMap", () => {
     expect(m.tahun).toBe("2026");
     expect(m.hari_efektif).toBe("21");
     expect(m.wali_kelas_nama).toBe("");
+    expect(m.kelas_upper).toBe("KELAS 1A");
+    expect(m.jumlah_siswa).toBe("");
+    expect(m.persen_kelas).toBe("");
+  });
+
+  it("jumlah_siswa, persen_kelas, npsn/email/website diisi bila disuplai", () => {
+    const m = scalarMap({
+      rows, columns: [col(1)], effectiveDays: 21,
+      scalars: {
+        kelas: "Kelas 2", bulan: "Oktober", tahun: 2026, tahunAjaran: "2026/2027", hariEfektif: 21,
+        sekolahNpsn: "20216609", sekolahEmail: "x@y.z", sekolahWebsite: "https://y.z",
+        jumlahSiswa: 35, persenKelas: 92.5,
+      },
+    });
+    expect(m.sekolah_npsn).toBe("20216609");
+    expect(m.sekolah_email).toBe("x@y.z");
+    expect(m.sekolah_website).toBe("https://y.z");
+    expect(m.jumlah_siswa).toBe("35");
+    expect(m.persen_kelas).toBe("92.5");
+  });
+
+  it("persen_kelas null → kosong (bukan 'null')", () => {
+    const m = scalarMap({
+      rows, columns: [col(1)], effectiveDays: 21,
+      scalars: { kelas: "Kelas 3", bulan: "Oktober", tahun: 2026, tahunAjaran: "2026/2027", hariEfektif: 21, persenKelas: null },
+    });
+    expect(m.persen_kelas).toBe("");
   });
 });
 
