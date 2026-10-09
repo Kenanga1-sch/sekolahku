@@ -21,14 +21,22 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ArrowLeft, Download, FileText, Loader2, Printer, ChevronLeft, ChevronRight, User, Calendar, Search, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Download, FileText, Loader2, Printer, ChevronLeft, ChevronRight, User, Calendar, Search, AlertTriangle, Settings2 } from "lucide-react";
 import { DataTable } from "@/components/data-table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { goGet } from "@/lib/api-client";
 import { formatClassName } from "@/lib/class-utils";
 import { pageCss, printAreaPx } from "@/lib/worksheet-print";
-import { convertXlsxToPdf, downloadPdf } from "@/lib/print-kit";
+import {
+  convertXlsxToPdf,
+  downloadPdf,
+  fetchPrintSettings,
+  savePrintSettings,
+  DEFAULT_PRINT_SETTINGS,
+  type PrintSettings,
+} from "@/lib/print-kit";
+import { Label } from "@/components/ui/label";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { siteConfig } from "@/lib/config";
 import {
@@ -54,6 +62,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 
 interface AttendanceRecord {
@@ -485,6 +494,38 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
 
   const [exportingPdf, setExportingPdf] = useState(false);
 
+  const PRINT_MODULE = "presensi";
+  const [printSettings, setPrintSettings] = useState<Required<PrintSettings> & { keepRows: number }>({
+    ...DEFAULT_PRINT_SETTINGS,
+    keepRows: 0,
+  });
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [printDraft, setPrintDraft] = useState(printSettings);
+  const [savingPrint, setSavingPrint] = useState(false);
+
+  useEffect(() => {
+    fetchPrintSettings(PRINT_MODULE).then(setPrintSettings);
+  }, []);
+
+  const openPrintDialog = () => {
+    setPrintDraft(printSettings);
+    setPrintDialogOpen(true);
+  };
+
+  const handleSavePrintSettings = async () => {
+    setSavingPrint(true);
+    try {
+      await savePrintSettings(PRINT_MODULE, printDraft);
+      setPrintSettings(printDraft);
+      setPrintDialogOpen(false);
+      toast.success("Pengaturan cetak disimpan");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal menyimpan pengaturan cetak");
+    } finally {
+      setSavingPrint(false);
+    }
+  };
+
   /**
    * Isi template Excel terdaftar per kelompok kelas (sama persis dengan
    * ekspor Excel — merge, warna status, blok merah libur, kop, tanda tangan)
@@ -548,6 +589,8 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
         },
         paperSize: opts.paperSize,
         orientation: opts.orientation,
+        printSettings: printSettings,
+        keepRows: printSettings.keepRows,
       });
       if (rowCount === 0) throw new Error("template-tanpa-baris-contoh");
       buffers.push((await wb.xlsx.writeBuffer()) as ArrayBuffer);
@@ -701,6 +744,11 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
                     <DropdownMenuItem onClick={handleExportMonthlyCsv}>
                       <Download className="h-4 w-4 mr-2" />CSV
                     </DropdownMenuItem>
+                    {isAdmin && (
+                      <DropdownMenuItem onClick={openPrintDialog}>
+                        <Settings2 className="h-4 w-4 mr-2" />Pengaturan cetak
+                      </DropdownMenuItem>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -901,6 +949,53 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
         loading={studentDetailLoading}
         onClose={() => setDetailStudent(null)}
       />
+
+      <Dialog open={printDialogOpen} onOpenChange={setPrintDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Pengaturan Cetak Laporan Presensi</DialogTitle>
+            <DialogDescription>Berlaku untuk semua cetak PDF daftar hadir.</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            {([
+              ["marginTopMm", "Margin atas (mm)"],
+              ["marginBottomMm", "Margin bawah (mm)"],
+              ["marginLeftMm", "Margin kiri (mm)"],
+              ["marginRightMm", "Margin kanan (mm)"],
+            ] as const).map(([key, label]) => (
+              <div key={key} className="space-y-1">
+                <Label>{label}</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={50}
+                  step={0.5}
+                  value={printDraft[key]}
+                  onChange={(e) => setPrintDraft((d) => ({ ...d, [key]: Number(e.target.value) }))}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="space-y-1 text-sm">
+            <Label>Baris siswa ikut ke halaman TTD (0 = otomatis)</Label>
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              value={printDraft.keepRows}
+              onChange={(e) => setPrintDraft((d) => ({ ...d, keepRows: Math.max(0, Math.round(Number(e.target.value) || 0)) }))}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPrintDialogOpen(false)}>Batal</Button>
+            <Button onClick={handleSavePrintSettings} disabled={savingPrint}>
+              {savingPrint && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+              Simpan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }

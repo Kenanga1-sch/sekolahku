@@ -240,6 +240,7 @@ func main() {
 		Tugas:          repository.NewTugasRepository(db),
 		CloudStorage:   repository.NewCloudStorageRepository(db),
 		ReportTemplate: repository.NewReportTemplateRepository(db),
+		PrintSettings:  repository.NewPrintSettingsRepository(db),
 		AIProvider:     repository.NewAIProviderRepository(db),
 		ThemePreset:    repository.NewThemePresetRepository(db),
 	}
@@ -359,6 +360,7 @@ func main() {
 		DocStation:     handlers.NewDocStationHandler(),
 		CloudStorage:   handlers.NewCloudStorageHandler(repos.CloudStorage),
 		ReportTemplate: handlers.NewReportTemplateHandler(repos.ReportTemplate),
+		PrintSettings:  handlers.NewPrintSettingsHandler(repos.PrintSettings),
 		AIProvider:     handlers.NewAIProviderHandler(repos.AIProvider),
 		ThemePreset:    handlers.NewThemePresetHandler(repos.ThemePreset, repos.Setting, repos.AuditLog),
 		PDF:            handlers.NewPDFHandler(),

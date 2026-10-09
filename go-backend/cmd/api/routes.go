@@ -56,6 +56,7 @@ type Repositories struct {
 	Tugas          *repository.TugasRepository
 	CloudStorage   *repository.CloudStorageRepository
 	ReportTemplate *repository.ReportTemplateRepository
+	PrintSettings  *repository.PrintSettingsRepository
 	AIProvider     *repository.AIProviderRepository
 	ThemePreset    *repository.ThemePresetRepository
 }
@@ -108,6 +109,7 @@ type AllHandlers struct {
 	DocStation     *handlers.DocStationHandler
 	CloudStorage   *handlers.CloudStorageHandler
 	ReportTemplate *handlers.ReportTemplateHandler
+	PrintSettings  *handlers.PrintSettingsHandler
 	AIProvider     *handlers.AIProviderHandler
 	ThemePreset    *handlers.ThemePresetHandler
 	PDF            *handlers.PDFHandler
@@ -896,6 +898,8 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 
 	// Report Templates (Report Builder)
 	auth.GET("/reports/templates", h.ReportTemplate.GetAll)
+	auth.GET("/print-settings/:module", h.PrintSettings.GetByModule)
+	adminGroup.PUT("/print-settings/:module", h.PrintSettings.Save)
 	auth.GET("/reports/templates/:id", h.ReportTemplate.GetByID)
 	auth.GET("/reports/templates/code/:code", h.ReportTemplate.GetByCode)
 	auth.GET("/reports/templates/module/:module", h.ReportTemplate.GetByModule)

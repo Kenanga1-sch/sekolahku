@@ -100,3 +100,15 @@ Yang diverifikasi: ukuran halaman (MediaBox/pdfinfo, F4 landscape
   `min(ws.columnCount, batas)`.
 - **Path privat jangan di-HEAD-probe** — endpoint `/api/files/*` hanya GET;
   HEAD 405 → fallback diam-diam ke template lama.
+
+## Pagination & blok tanda tangan (print-kit)
+
+- Tandai blok TTD di template dengan dua marker di sel mana pun:
+  `{{ttd_mulai}}` (baris pertama blok) dan `{{ttd_selesai}}` (baris terakhir).
+  Marker dikosongkan saat fill, tidak tampil di hasil.
+- Modul yang punya tabel baris data memanggil `applyPagination` (lewat fill),
+  dengan `dataStartRow`, `dataEndRow`, `keepRows`, dan posisi TTD.
+- `keepRows` = jumlah baris data terakhir yang ikut pindah ke halaman TTD;
+  `0` = otomatis (hanya blok TTD yang pindah bila tidak muat).
+- Margin dan `keepRows` diatur per modul di pengaturan cetak; disimpan di
+  tabel `print_settings` (endpoint `/api/print-settings/:module`).

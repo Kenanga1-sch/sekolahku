@@ -27,7 +27,7 @@
  */
 import type { DayColumn, MatrixRow } from "./presensi-report";
 import { recordedDays, studentPct } from "./presensi-report";
-import { applyPrintPageSetup, resolveModuleTemplate } from "./print-kit";
+import { applyPagination, applyPrintPageSetup, resolveModuleTemplate, type PrintSettings } from "./print-kit";
 
 // Geometry cetak bersama (kode kertas, fit kolom, margin, centering) ada di
 // print-kit — presensi hanya memakai; jangan menambah logika halaman di sini.
@@ -63,6 +63,10 @@ export interface PresensiExcelInput {
   /** Ukuran kertas template (A4/F4/LEGAL) → worksheet.pageSetup Excel. */
   paperSize?: string;
   orientation?: string;
+  /** Pengaturan cetak modul (margin, ulang kop) — dari pengaturan cetak laporan. */
+  printSettings?: PrintSettings;
+  /** Jumlah baris siswa yang ikut pindah ke halaman terakhir bersama TTD (0 = otomatis). */
+  keepRows?: number;
 }
 
 /** Warna font status kehadiran (palet sama dengan tampilan layar). */
@@ -188,6 +192,20 @@ export async function fillPresensiWorksheet(
   // renderer cetak menghitung naturalW ~2× lebih lebar → skala fit-to-page
   // runtuh (0.43) → konten mengecil hanya di pojok kiri atas lembar.
   const maxCol = Math.min(ws.columnCount || 64, 64);
+
+  // 0. Marker blok TTD dicatat dulu (sebelum substitusi), lalu dikosongkan
+  //    agar tidak tampil di hasil cetak.
+  const ttdRows = ttdMarkerRows(ws, maxCol);
+  if (ttdRows) {
+    ws.eachRow((row) => {
+      for (let c = 1; c <= maxCol; c++) {
+        const cell = row.getCell(c);
+        if (typeof cell.value === "string" && cell.value.includes("{{ttd_")) {
+          cell.value = cell.value.replace(/\{\{ttd_(mulai|selesai)\}\}/g, "");
+        }
+      }
+    });
+  }
 
   // 1. Skalar di seluruh sheet.
   ws.eachRow((row) => {
@@ -427,6 +445,21 @@ export async function fillPresensiWorksheet(
     // Template tanpa ruang baris Jumlah — lewati tanpa menggagalkan unduhan.
   }
 
+  // 5b. Pagination: blok TTD ({{ttd_mulai}}..{{ttd_selesai}}) tidak boleh
+  //     terpotong; keepRows baris siswa terakhir ikut pindah ke halaman TTD.
+  if (ttdRows) {
+    applyPagination(ws as never, {
+      paperSize: input.paperSize,
+      orientation: input.orientation,
+      settings: input.printSettings,
+      dataStartRow: firstData,
+      dataEndRow: lastData,
+      keepRows: input.keepRows ?? 0,
+      signatureStartRow: ttdRows.start,
+      signatureEndRow: ttdRows.end,
+    });
+  }
+
   // 6. Terapkan ukuran kertas/orientasi template ke pageSetup Excel via
   //    print-kit (A4=9, F4→Folio=14, LEGAL=5; fit kolom, margin 10mm,
   //    horizontalCentered) agar hasil cetak Excel & LibreOffice identik
@@ -437,6 +470,24 @@ export async function fillPresensiWorksheet(
   });
 
   return { rowCount: input.rows.length, unknown: [...unknown].sort() };
+}
+
+/** Baris marker {{ttd_mulai}} dan {{ttd_selesai}} di template (null bila tak ada). */
+function ttdMarkerRows(
+  ws: { eachRow(cb: (row: { getCell(c: number): { value: unknown } }, n: number) => void): void },
+  maxCol: number
+): { start: number; end: number } | null {
+  let start: number | null = null;
+  let end: number | null = null;
+  ws.eachRow((row, n) => {
+    for (let c = 1; c <= maxCol; c++) {
+      const v = row.getCell(c).value;
+      if (typeof v !== "string") continue;
+      if (v.includes("{{ttd_mulai}}") && start === null) start = n;
+      if (v.includes("{{ttd_selesai}}")) end = n;
+    }
+  });
+  return start !== null && end !== null ? { start, end } : null;
 }
 
 /** 1-based nomor kolom → huruf Excel (1=A, 28=AB). */

@@ -284,8 +284,8 @@ describe("fillPresensiWorksheet — warna status, blok libur & pageSetup", () =>
     expect((ws as any).pageSetup?.fitToPage).toBe(true);
     expect((ws as any).pageSetup?.fitToWidth).toBe(1);
     expect((ws as any).pageSetup?.fitToHeight).toBe(0);
-    expect((ws as any).pageSetup?.margins?.left).toBe(0.4);
-    expect((ws as any).pageSetup?.margins?.top).toBe(0.4);
+    expect((ws as any).pageSetup?.margins?.left).toBeCloseTo(10 / 25.4, 6);
+    expect((ws as any).pageSetup?.margins?.top).toBeCloseTo(10 / 25.4, 6);
     expect((ws as any).pageSetup?.horizontalCentered).toBe(true);
   }, 30000); // import exceljs lambat di mesin CI — jangan kena timeout 5s
 });

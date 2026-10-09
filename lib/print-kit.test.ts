@@ -9,7 +9,7 @@ import {
 } from "./print-kit";
 
 describe("applyPrintPageSetup", () => {
-  it("A4 landscape: kode 9 + fit kolom + margin 0,4in + centering", () => {
+  it("A4 landscape: kode 9 + fit kolom + margin 10mm + centering", () => {
     const ws: { pageSetup?: Record<string, unknown> } = { pageSetup: { existing: 1 } };
     applyPrintPageSetup(ws, { paperSize: "A4", orientation: "landscape" });
     expect(ws.pageSetup).toEqual({
@@ -19,7 +19,7 @@ describe("applyPrintPageSetup", () => {
       fitToPage: true,
       fitToWidth: 1,
       fitToHeight: 0,
-      margins: { top: 0.4, right: 0.4, bottom: 0.4, left: 0.4, header: 0.1, footer: 0.1 },
+      margins: { top: 10 / 25.4, right: 10 / 25.4, bottom: 10 / 25.4, left: 10 / 25.4, header: 0.1, footer: 0.1 },
       horizontalCentered: true,
     });
   });
