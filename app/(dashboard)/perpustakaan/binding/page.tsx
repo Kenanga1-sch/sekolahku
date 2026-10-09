@@ -35,7 +35,6 @@ export default function LibraryBindingPage() {
     const [qrCode, setQrCode] = useState("");
     const [isbn, setIsbn] = useState("");
     const [loading, setLoading] = useState(false);
-    const [location, setLocation] = useState("RAK-NEW");
     const [overrideCategory, setOverrideCategory] = useState<DDCCategory | null>(null);
     const [showISBNScanner, setShowISBNScanner] = useState(true);
     const [lookupStatus, setLookupStatus] = useState<'idle' | 'loading' | 'success' | 'not_found'>('idle');
@@ -52,7 +51,6 @@ export default function LibraryBindingPage() {
     const [aiLoading, setAiLoading] = useState(false);
     const [aiRecommendation, setAiRecommendation] = useState<{
         category: DDCCategory;
-        shelf: string;
         description?: string;
         reason?: string;
         subjects?: string[];
@@ -60,6 +58,10 @@ export default function LibraryBindingPage() {
     const [aiEnabled, setAiEnabled] = useState(true);
     // Kandidat multi-judul: 1 ISBN dipakai N katalog (dedup longgar).
     const [isbnCandidates, setIsbnCandidates] = useState<any[]>([]);
+    const [selectedCatalogId, setSelectedCatalogId] = useState<string>("");
+    const finalCategory = (overrideCategory || catalog.ddcCategory || "UNSORTED") as DDCCategory;
+    const location = getShelfByDDC(finalCategory);
+    const lookupSeqRef = useRef(0);
 
     // Cari Judul (search by title)
     const [searchMode, setSearchMode] = useState<'isbn' | 'title'>('isbn');
@@ -111,8 +113,6 @@ export default function LibraryBindingPage() {
             description: item.description || "",
         });
         if (item.isbn) setIsbn(item.isbn);
-        const targetShelf = getShelfByDDC((item.ddcCategory as DDCCategory) || "UNSORTED");
-        setLocation(targetShelf);
         setOverrideCategory(null);
         setLookupStatus('success');
         setLookupSources(Array.isArray(item.sources) ? item.sources : []);
@@ -140,7 +140,6 @@ export default function LibraryBindingPage() {
             setAiRecommendation(cached);
             setAiEnabled(true);
             setOverrideCategory(prev => prev || cached!.category);
-            setLocation(prev => (prev === "RAK-NEW" || !prev) ? cached!.shelf : prev);
             toast.info("Rekomendasi AI dari hasil sebelumnya diterapkan.");
             return;
         }
@@ -169,7 +168,6 @@ export default function LibraryBindingPage() {
 
                     // Auto-apply AI suggestions to form fields if user hasn't manually set override
                     setOverrideCategory(prev => prev || rec.category);
-                    setLocation(prev => (prev === "RAK-NEW" || !prev) ? rec.shelf : prev);
 
                     setCatalog(prev => {
                         const newCat = { ...prev };
@@ -264,80 +262,52 @@ export default function LibraryBindingPage() {
     };
 
     const triggerISBNLookup = async (isbnToLookup: string) => {
+        const seq = ++lookupSeqRef.current;
         setLoading(true);
         setLookupStatus('loading');
         try {
-            const response: any = await goGet(`/api/library/isbn/${encodeURIComponent(isbnToLookup)}`, { timeout: 60000 });
-            if (!response.error) {
-                const data = response.data; // Unpack the actual book data
-                
+            const response: any = await goGet(`/api/library/isbn/${encodeURIComponent(isbnToLookup)}`, { timeout: 15000 });
+            if (seq !== lookupSeqRef.current) return; // hasil lama, sudah digantikan scan berikutnya
+            const data = response?.data;
+            if (!response.error && data) {
+                const candidates: any[] = Array.isArray(data.candidates) ? data.candidates : [];
+                const multi = candidates.length > 1;
+                const first = candidates.length === 1 ? candidates[0] : null;
                 setLookupStatus('success');
+                setIsbnCandidates(multi ? candidates : []);
+                setSelectedCatalogId(multi ? "" : (first?.id || data.id || ""));
                 setCatalog({
-                    title: data.title || "",
-                    author: data.author || "",
-                    publisher: data.publisher || "",
+                    title: multi ? "" : (data.title || ""),
+                    author: multi ? "" : (data.author || ""),
+                    publisher: multi ? "" : (data.publisher || ""),
                     year: data.year || new Date().getFullYear(),
                     isbn: isbnToLookup,
-                    coverUrl: data.cover || data.coverUrl,
+                    coverUrl: multi ? undefined : (data.cover || data.coverUrl),
                     subjects: data.subjects || [],
                     ddcCategory: data.ddcCategory || "UNSORTED",
-                    localFound: data.localFound,
-                    totalExemplars: data.totalExemplars,
-                    description: data.description || "",
+                    localFound: true,
+                    totalExemplars: multi ? candidates.reduce((n: number, c: any) => n + (c.totalExemplars || 0), 0) : data.totalExemplars,
+                    description: multi ? "" : (data.description || ""),
                 });
-
-                // Auto-map to shelf
-                const targetShelf = getShelfByDDC(data.ddcCategory || "UNSORTED");
-                setLocation(targetShelf);
-
-                // Call Gemini AI auto classification in background
-                triggerAIClassify(
-                    data.title || "",
-                    data.author || "",
-                    data.description || "",
-                    data.subjects || []
-                );
-
-                if (data.localFound) {
-                    if (Array.isArray(data.candidates) && data.candidates.length > 1) {
-                        setIsbnCandidates(data.candidates);
-                        setCatalog({
-                            title: "",
-                            author: "",
-                            publisher: "",
-                            year: new Date().getFullYear(),
-                            isbn: isbnToLookup,
-                            coverUrl: undefined,
-                            subjects: [],
-                            ddcCategory: "UNSORTED",
-                            localFound: true,
-                            totalExemplars: data.candidates.reduce((n: number, c: any) => n + (c.totalExemplars || 0), 0),
-                            description: "",
-                        });
-                        setLocation("RAK-NEW");
-                        toast.warning(`ISBN ini dipakai ${data.candidates.length} judul berbeda — pilih judul yang benar.`, {
-                            description: "Buku tidak otomatis menumpang katalog lain lagi.",
-                            duration: 7000,
-                        });
-                    } else {
-                        toast.success(`Data ditemukan di koleksi lokal! (${data.totalExemplars} exemplar sudah ada)`);
-                    }
+                if (!multi) {
+                    triggerAIClassify(data.title || "", data.author || "", data.description || "", data.subjects || []);
+                    toast.success(`Ditemukan di koleksi! Ini akan menjadi eksemplar ke-${(data.totalExemplars || 0) + 1}.`);
                 } else {
-                    const sourceText = Array.isArray(data.sources) && data.sources.length > 0 ? ` (${data.sources.join(", ")})` : "";
-                    toast.success(`Data buku ditemukan!${sourceText}`, {
-                        description: sourceText ? `Sumber: ${data.sources.join(", ")}` : undefined,
+                    toast.warning(`ISBN ini dipakai ${candidates.length} judul berbeda — pilih judul yang benar.`, {
+                        description: "Pilih salah satu untuk menambah eksemplar, atau buat judul baru.",
+                        duration: 7000,
                     });
                 }
-                // Simpan sumber agar bisa ditampilkan di UI
-                setLookupSources(Array.isArray(data.sources) ? data.sources : []);
-                // Automatically hide scanner to show results
+                setLookupSources(["Katalog Lokal"]);
                 setShowISBNScanner(false);
             } else {
                 setLookupStatus('not_found');
                 setLookupSources([]);
-                toast.info("ISBN tidak ditemukan di Google Books maupun Open Library.", {
-                    description: "Silakan isi Judul & Penulis manual, atau gunakan tab 'Cari Judul'.",
-                    duration: 7000,
+                setIsbnCandidates([]);
+                setSelectedCatalogId("");
+                toast.info("ISBN belum ada di koleksi.", {
+                    description: "Isi judul dan data buku secara manual.",
+                    duration: 6000,
                 });
                 setCatalog(prev => ({
                     ...prev,
@@ -345,17 +315,38 @@ export default function LibraryBindingPage() {
                     author: "",
                     publisher: "",
                     isbn: isbnToLookup,
+                    coverUrl: undefined,
+                    localFound: false,
+                    totalExemplars: undefined,
                     ddcCategory: "UNSORTED",
                     description: "",
                 }));
-                setIsbnCandidates([]);
             }
         } catch (error) {
+            if (seq !== lookupSeqRef.current) return;
             setLookupStatus('idle');
             toast.error("Gagal menghubungi server. Periksa koneksi lalu coba lagi.");
         } finally {
-            setLoading(false);
+            if (seq === lookupSeqRef.current) setLoading(false);
         }
+    };
+
+    const pickCatalog = (c: any) => {
+        setSelectedCatalogId(c.id);
+        setCatalog(prev => ({
+            ...prev,
+            title: c.title,
+            author: c.author || prev.author,
+            localFound: true,
+            totalExemplars: c.totalExemplars,
+        }));
+        toast.success(`Eksemplar akan masuk ke "${c.title}".`);
+    };
+
+    const useNewTitle = () => {
+        setSelectedCatalogId("");
+        setCatalog(prev => ({ ...prev, title: "", author: "", localFound: false, totalExemplars: undefined }));
+        toast.info("Isi judul baru — akan tersimpan sebagai katalog terpisah dengan ISBN ini.");
     };
 
     const handleSave = async () => {
@@ -368,6 +359,7 @@ export default function LibraryBindingPage() {
                     ...catalog,
                     cover: catalog.coverUrl, // Map frontend coverUrl to backend cover
                     category: overrideCategory || catalog.ddcCategory || "UNSORTED",
+                    catalogId: selectedCatalogId || undefined,
                 }
             });
 
@@ -393,9 +385,9 @@ export default function LibraryBindingPage() {
                     subjects: [],
                     description: ""
                 });
-                setLocation("RAK-NEW");
                 setStep(1);
                 setIsbnCandidates([]);
+                setSelectedCatalogId("");
                 setLookupSources([]);
             } else {
                 toast.error(result.error || "Gagal menyimpan data.");
@@ -729,33 +721,24 @@ export default function LibraryBindingPage() {
                                                 </Badge>
                                             )}
                                         </div>
-                                        {catalog.localFound && isbnCandidates.length <= 1 && (
+                                        {catalog.localFound && isbnCandidates.length === 0 && (
                                             <p className="text-[10px] text-green-600 font-medium">
-                                                Sudah ada {catalog.totalExemplars} copy di koleksi. Ini akan menjadi exemplar ke-{Number(catalog.totalExemplars) + 1}.
+                                                Sudah ada {catalog.totalExemplars} eksemplar di koleksi. Ini akan menjadi eksemplar ke-{Number(catalog.totalExemplars) + 1}.
                                             </p>
                                         )}
                                         {isbnCandidates.length > 1 && (
                                             <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-2">
                                                 <p className="text-xs font-semibold text-amber-800">
-                                                    ISBN ini dipakai {isbnCandidates.length} judul berbeda. Pilih judul yang benar:
+                                                    ISBN ini dipakai {isbnCandidates.length} judul berbeda. Eksemplar ini masuk ke:
                                                 </p>
                                                 <div className="space-y-1.5">
                                                     {isbnCandidates.map((c: any) => (
                                                         <button
                                                             key={c.id}
                                                             type="button"
-                                                            onClick={() => {
-                                                                setCatalog(prev => ({
-                                                                    ...prev,
-                                                                    title: c.title,
-                                                                    author: c.author || prev.author,
-                                                                    localFound: true,
-                                                                    totalExemplars: c.totalExemplars,
-                                                                }));
-                                                                toast.success(`Judul "${c.title}" dipilih.`);
-                                                            }}
+                                                            onClick={() => pickCatalog(c)}
                                                             className={`w-full text-left rounded-md border px-2.5 py-1.5 text-xs transition-colors ${
-                                                                catalog.title === c.title
+                                                                selectedCatalogId === c.id
                                                                     ? "border-green-500 bg-green-50 font-semibold"
                                                                     : "border-amber-200 bg-white hover:bg-amber-100/60"
                                                             }`}
@@ -768,12 +751,12 @@ export default function LibraryBindingPage() {
                                                     ))}
                                                     <button
                                                         type="button"
-                                                        onClick={() => {
-                                                            setIsbnCandidates([]);
-                                                            setCatalog(prev => ({ ...prev, title: "", localFound: false }));
-                                                            toast.info("Isi judul baru di bawah — akan tersimpan sebagai katalog terpisah.");
-                                                        }}
-                                                        className="w-full text-left rounded-md border border-dashed border-amber-300 px-2.5 py-1.5 text-xs text-amber-700 hover:bg-amber-100/60"
+                                                        onClick={useNewTitle}
+                                                        className={`w-full text-left rounded-md border border-dashed px-2.5 py-1.5 text-xs ${
+                                                            selectedCatalogId === ""
+                                                                ? "border-green-500 bg-green-50 font-semibold"
+                                                                : "border-amber-300 text-amber-700 hover:bg-amber-100/60"
+                                                        }`}
                                                     >
                                                         + Judul lain (buat katalog baru dengan ISBN ini)
                                                     </button>
@@ -783,10 +766,9 @@ export default function LibraryBindingPage() {
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                                         <div className="grid gap-3">
-                                            <Label htmlFor="author">Penulis</Label>
+                                            <Label htmlFor="author">Penulis <span className="text-xs text-muted-foreground">(opsional)</span></Label>
                                             <Input
                                                 id="author"
-                                                className={!catalog.author?.trim() ? "border-amber-400 ring-amber-400 focus-visible:ring-amber-500" : ""}
                                                 value={catalog.author}
                                                 onChange={(e) => setCatalog({...catalog, author: e.target.value})}
                                             />
@@ -825,7 +807,6 @@ export default function LibraryBindingPage() {
                                                         className="h-7 text-xs border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 font-semibold gap-1"
                                                         onClick={() => {
                                                             setOverrideCategory(aiRecommendation.category);
-                                                            setLocation(aiRecommendation.shelf);
                                                             if (aiRecommendation.description && !catalog.description) {
                                                                 setCatalog(prev => ({ ...prev, description: aiRecommendation.description }));
                                                             }
@@ -857,8 +838,8 @@ export default function LibraryBindingPage() {
                                                             <p className="font-semibold text-foreground">{getDDCLabel(aiRecommendation.category)}</p>
                                                         </div>
                                                         <div className="rounded-lg bg-background/50 border p-2 space-y-0.5">
-                                                            <span className="text-[10px] text-muted-foreground font-medium uppercase">Saran Lokasi Rak</span>
-                                                            <p className="font-semibold text-foreground">{getAllShelves().find(s => s.value === aiRecommendation.shelf)?.label || aiRecommendation.shelf}</p>
+                                                            <span className="text-[10px] text-muted-foreground font-medium uppercase">Rak Otomatis</span>
+                                                            <p className="font-semibold text-foreground">{getAllShelves().find(s => s.value === location)?.label || location}</p>
                                                         </div>
                                                     </div>
                                                     
@@ -891,9 +872,6 @@ export default function LibraryBindingPage() {
                                                 onValueChange={(val) => {
                                                     const newCat = val === "auto" ? null : val as DDCCategory;
                                                     setOverrideCategory(newCat);
-                                                    // Update shelf when override changes
-                                                    const shelf = getShelfByDDC(newCat || catalog.ddcCategory || "UNSORTED");
-                                                    setLocation(shelf);
                                                 }}
                                             >
                                             <SelectTrigger>
@@ -935,10 +913,10 @@ export default function LibraryBindingPage() {
                             <Button variant="outline" onClick={() => setStep(1)}>Kembali</Button>
                             
                             <div className="flex items-center gap-3">
-                                {(!catalog.title?.trim() || !catalog.author?.trim()) && (
-                                    <span className="text-xs text-amber-600 font-medium">Judul dan Penulis wajib diisi</span>
+                                {!catalog.title?.trim() && (
+                                    <span className="text-xs text-amber-600 font-medium">Judul wajib diisi</span>
                                 )}
-                                <Button onClick={() => setStep(3)} disabled={!catalog.title?.trim() || !catalog.author?.trim()}>Lanjut</Button>
+                                <Button onClick={() => setStep(3)} disabled={!catalog.title?.trim()}>Lanjut</Button>
                             </div>
                         </div>
                     </CardContent>
@@ -964,24 +942,9 @@ export default function LibraryBindingPage() {
                                 <span>ISBN: {catalog.isbn || '-'}</span>
                                 <span>Penerbit: {catalog.publisher || '-'}</span>
                                 <span>Kategori: {getDDCLabel(overrideCategory || catalog.ddcCategory || "UNSORTED")}</span>
+                                <span>Rak: {getAllShelves().find((sh) => sh.value === location)?.label || location}</span>
                             </div>
                         </div>
-
-                        <div className="space-y-2">
-                            <Label>Lokasi Rak</Label>
-                                <Select value={location} onValueChange={setLocation}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Pilih Rak" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {getAllShelves().map((shelf) => (
-                                            <SelectItem key={shelf.value} value={shelf.value}>
-                                                {shelf.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
 
                         <div className="flex justify-between pt-4">
                             <Button variant="outline" onClick={() => setStep(2)}>Edit Data</Button>

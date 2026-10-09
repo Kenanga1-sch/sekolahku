@@ -110,105 +110,62 @@ func (r *LibraryRepository) GetAssetByCode(code string) (*models.BookDetail, err
 func (r *LibraryRepository) LookupISBN(isbn string) (*models.ISBNLookupResponse, error) {
 	isbn = normalizeISBN(isbn)
 	if isbn == "" {
-		return nil, nil
-	}
-
-	type localHit struct {
-		id, title, author, pub, cat, desc, cover string
-		yr                                      int64
-	}
-	var hits []localHit
-	rows, err := r.DB.Query(`
-		SELECT id, title, author, COALESCE(publisher,''), COALESCE(year,0), COALESCE(category,''), COALESCE(description,''), COALESCE(cover,'')
-		FROM library_catalog WHERE isbn = ?
-	`, isbn)
-	if err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			var h localHit
-			if err := rows.Scan(&h.id, &h.title, &h.author, &h.pub, &h.yr, &h.cat, &h.desc, &h.cover); err == nil {
-				hits = append(hits, h)
-			}
-		}
-	}
-
-	if len(hits) > 0 {
-		first := hits[0]
-		var exemplars int
-		_ = r.DB.QueryRow("SELECT COUNT(*) FROM library_assets WHERE catalog_id = ?", first.id).Scan(&exemplars)
-
-		res := &models.ISBNLookupResponse{
-			ID:             first.id,
-			Title:          first.title,
-			Author:         first.author,
-			Publisher:      first.pub,
-			Year:           first.yr,
-			ISBN:           isbn,
-			Category:       first.cat,
-			DDCCategory:    first.cat,
-			Description:    first.desc,
-			Cover:          first.cover,
-			CoverURL:       first.cover,
-			LocalFound:     true,
-			TotalExemplars: exemplars,
-			Sources:        []string{"Katalog Lokal"},
-		}
-		if len(hits) > 1 {
-			for _, h := range hits {
-				var n int
-				_ = r.DB.QueryRow("SELECT COUNT(*) FROM library_assets WHERE catalog_id = ?", h.id).Scan(&n)
-				res.Candidates = append(res.Candidates, models.ISBNCandidate{
-					ID: h.id, Title: h.title, Author: h.author, TotalExemplars: n,
-				})
-			}
-			res.Sources = append(res.Sources, "Multi-judul")
-		}
-
-		// Also try to query online in background or quick sync to enrich missing fields (cover, subjects, description)
-		ext, extErr := lookupISBNOnline(r, isbn)
-		if extErr == nil && ext != nil {
-			if res.Cover == "" && ext.CoverURL != "" {
-				res.Cover = ext.CoverURL
-				res.CoverURL = ext.CoverURL
-			}
-			if res.Description == "" && ext.Description != "" {
-				res.Description = ext.Description
-			}
-			if len(ext.Subjects) > 0 {
-				res.Subjects = ext.Subjects
-			}
-			if ext.Source != "" {
-				res.Sources = append(res.Sources, ext.Source)
-			}
-			if len(ext.Sources) > 0 {
-				for _, s := range ext.Sources {
-					if s != "Katalog Lokal" {
-						res.Sources = append(res.Sources, s)
-					}
-				}
-			}
-		}
-
-		return res, nil
-	}
-
-	ext, extErr := lookupISBNOnline(r, isbn)
-	if extErr != nil || ext == nil {
 		return nil, sql.ErrNoRows
 	}
-	return &models.ISBNLookupResponse{
-		Title:       ext.Title,
-		Author:      ext.Author,
-		Publisher:   ext.Publisher,
-		Year:        int64(ext.Year),
-		ISBN:        isbn,
-		Cover:       ext.CoverURL,
-		CoverURL:    ext.CoverURL,
-		Subjects:    ext.Subjects,
-		DDCCategory: ext.DDCCategory,
-		Category:    ext.Category,
-		Sources:     ext.Sources,
-	}, nil
+
+	rows, err := r.DB.Query(`
+		SELECT c.id, c.title, COALESCE(c.author,''), COALESCE(c.publisher,''), COALESCE(c.year,0),
+		       COALESCE(c.category,''), COALESCE(c.description,''), COALESCE(c.cover,''),
+		       (SELECT COUNT(*) FROM library_assets a WHERE a.catalog_id = c.id)
+		FROM library_catalog c
+		WHERE c.isbn = ? OR c.isbn = ?
+		ORDER BY c.created_at ASC
+	`, isbn, isbn)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var res *models.ISBNLookupResponse
+	for rows.Next() {
+		var id, title, author, pub, cat, desc, cover string
+		var yr int64
+		var exemplars int
+		if err := rows.Scan(&id, &title, &author, &pub, &yr, &cat, &desc, &cover, &exemplars); err != nil {
+			return nil, err
+		}
+		if res == nil {
+			res = &models.ISBNLookupResponse{
+				ID:             id,
+				Title:          title,
+				Author:         author,
+				Publisher:      pub,
+				Year:           yr,
+				ISBN:           isbn,
+				Category:       cat,
+				DDCCategory:    cat,
+				Description:    desc,
+				Cover:          cover,
+				CoverURL:       cover,
+				LocalFound:     true,
+				TotalExemplars: exemplars,
+				Sources:        []string{"Katalog Lokal"},
+			}
+		}
+		res.Candidates = append(res.Candidates, models.ISBNCandidate{
+			ID: id, Title: title, Author: author, TotalExemplars: exemplars,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if res == nil {
+		return nil, sql.ErrNoRows
+	}
+	if len(res.Candidates) > 1 {
+		res.Sources = append(res.Sources, "Multi-judul")
+	}
+	return res, nil
 }
 
 // SearchBooksByTitle mencari kandidat buku berdasarkan judul ke Google Books &
@@ -310,12 +267,13 @@ func mergeSearchResults(sources ...[]*isbnLookupResult) []models.ISBNLookupRespo
 	return merged
 }
 
-// BindAsset registers a new asset from QR scan.
-// Dedup longgar: kunci reuse adalah (isbn_ternormalisasi, judul_ternormalisasi).
-// ISBN sama + judul beda → katalog BARU (ISBN daur-ulang/salah-cetak memang
-// terjadi). Judul koreksian user tidak pernah dibuang diam-diam lagi:
-// bila katalog lama cocok ISBN tetapi judul berbeda, dibuat katalog baru;
-// bila cocok penuh, field kosong lama dilengkapi seperti sebelumnya.
+// BindAsset mendaftarkan eksemplar baru dari hasil scan QR.
+// Penentuan katalog:
+//   - CatalogID terisi → eksemplar ditempel ke katalog itu (pilihan user).
+//   - selainnya        → cocokkan (ISBN + judul ternormalisasi); tanpa ISBN,
+//     cocokkan judul saja; bila tidak ada, buat katalog baru.
+//
+// Judul input tidak pernah ditimpa oleh katalog lain.
 func (r *LibraryRepository) BindAsset(qrCode, location string, catalog models.CatalogInput) error {
 	qrCode = strings.TrimSpace(qrCode)
 	title := strings.TrimSpace(catalog.Title)
@@ -345,104 +303,46 @@ func (r *LibraryRepository) BindAsset(qrCode, location string, catalog models.Ca
 
 	now := UnixMilli()
 	catalogID := ""
-	normTitle := normalizeTitle(title)
-	if isbn != "" {
-		normalizedInputISBN := normalizeISBN(isbn)
-		if normalizedInputISBN != "" {
-			// Kunci longgar: ISBN cocok DAN judul cocok (dinormalisasi).
-			_ = tx.QueryRow(`
-				SELECT id FROM library_catalog
-				WHERE (isbn = ? OR isbn = ?)
-				  AND LOWER(TRIM(title)) = LOWER(TRIM(?))
-				LIMIT 1
-			`, isbn, normalizedInputISBN, title).Scan(&catalogID)
-			if catalogID == "" && normTitle != "" {
-				// ISBN dinormalisasi di kedua sisi + judul dinormalisasi
-				// (abaikan tanda baca/kapital) untuk varian penulisan.
-				rows, qerr := tx.Query(`SELECT id, isbn, title FROM library_catalog WHERE isbn = ? OR isbn = ?`, isbn, normalizedInputISBN)
-				if qerr == nil {
-					func() {
-						defer rows.Close()
-						for rows.Next() {
-							var id, dbISBN, dbTitle string
-							if rows.Scan(&id, &dbISBN, &dbTitle) != nil {
-								continue
-							}
-							if normalizeISBN(dbISBN) == normalizedInputISBN && normalizeTitle(dbTitle) == normTitle {
-								catalogID = id
-								return
-							}
-						}
-					}()
-				}
-			}
-		} else {
-			_ = tx.QueryRow(`
-				SELECT id FROM library_catalog
-				WHERE isbn = ? AND LOWER(TRIM(title)) = LOWER(TRIM(?))
-				LIMIT 1
-			`, isbn, title).Scan(&catalogID)
+	switch {
+	case strings.TrimSpace(catalog.CatalogID) != "":
+		catalogID = strings.TrimSpace(catalog.CatalogID)
+		var n int
+		if err := tx.QueryRow("SELECT COUNT(*) FROM library_catalog WHERE id = ?", catalogID).Scan(&n); err != nil {
+			return err
 		}
-	}
-	if catalogID == "" {
-		_ = tx.QueryRow("SELECT id FROM library_catalog WHERE LOWER(TRIM(title)) = LOWER(TRIM(?)) LIMIT 1", title).Scan(&catalogID)
+		if n == 0 {
+			return errors.New("katalog yang dipilih tidak ditemukan")
+		}
+	default:
+		catalogID = r.findCatalogLoose(tx, isbn, title)
 	}
 
-	year := catalog.Year
-	if catalogID == "" {
+	created := catalogID == ""
+	if created {
 		catalogID = cuid2.Generate()
 		_, err = tx.Exec(`
 			INSERT INTO library_catalog (id, isbn, title, author, publisher, year, category, description, cover, created_at, updated_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		`, catalogID, isbn, title, catalog.Author, catalog.Publisher, year, category, catalog.Description, catalog.Cover, now, now)
+		`, catalogID, isbn, title, catalog.Author, catalog.Publisher, catalog.Year, category, catalog.Description, catalog.Cover, now, now)
 		if err != nil {
 			return err
 		}
-	} else {
-		var existingISBN, existingTitle, existingAuthor, existingPublisher, existingCategory, existingDescription, existingCover sql.NullString
-		var existingYear sql.NullInt64
-		err = tx.QueryRow(`
-			SELECT isbn, title, author, publisher, year, category, description, cover
-			FROM library_catalog
+	}
+
+	if !created {
+		_, err = tx.Exec(`
+			UPDATE library_catalog SET
+				isbn = CASE WHEN isbn IS NULL OR TRIM(isbn) = '' THEN ? ELSE isbn END,
+				author = CASE WHEN author IS NULL OR TRIM(author) = '' THEN ? ELSE author END,
+				publisher = CASE WHEN publisher IS NULL OR TRIM(publisher) = '' THEN ? ELSE publisher END,
+				year = CASE WHEN year IS NULL OR year = 0 THEN ? ELSE year END,
+				description = CASE WHEN description IS NULL OR TRIM(description) = '' THEN ? ELSE description END,
+				cover = CASE WHEN cover IS NULL OR TRIM(cover) = '' THEN ? ELSE cover END,
+				updated_at = ?
 			WHERE id = ?
-		`, catalogID).Scan(&existingISBN, &existingTitle, &existingAuthor, &existingPublisher, &existingYear, &existingCategory, &existingDescription, &existingCover)
-		if err == nil {
-			if (!existingISBN.Valid || existingISBN.String == "") && isbn != "" {
-				existingISBN.String = isbn
-				existingISBN.Valid = true
-			}
-			if (!existingAuthor.Valid || existingAuthor.String == "") && catalog.Author != "" {
-				existingAuthor.String = catalog.Author
-				existingAuthor.Valid = true
-			}
-			if (!existingPublisher.Valid || existingPublisher.String == "") && catalog.Publisher != "" {
-				existingPublisher.String = catalog.Publisher
-				existingPublisher.Valid = true
-			}
-			if (!existingYear.Valid || existingYear.Int64 == 0) && year > 0 {
-				existingYear.Int64 = int64(year)
-				existingYear.Valid = true
-			}
-			if (!existingCategory.Valid || existingCategory.String == "" || existingCategory.String == "UNSORTED" || existingCategory.String == "OTHER") && category != "" && category != "UNSORTED" && category != "OTHER" {
-				existingCategory.String = category
-				existingCategory.Valid = true
-			}
-			if (!existingDescription.Valid || existingDescription.String == "") && catalog.Description != "" {
-				existingDescription.String = catalog.Description
-				existingDescription.Valid = true
-			}
-			if (!existingCover.Valid || existingCover.String == "") && catalog.Cover != "" {
-				existingCover.String = catalog.Cover
-				existingCover.Valid = true
-			}
-			_, err = tx.Exec(`
-				UPDATE library_catalog
-				SET isbn=?, title=?, author=?, publisher=?, year=?, category=?, description=?, cover=?, updated_at=?
-				WHERE id=?
-			`, existingISBN, existingTitle, existingAuthor, existingPublisher, existingYear, existingCategory, existingDescription, existingCover, now, catalogID)
-			if err != nil {
-				return err
-			}
+		`, isbn, catalog.Author, catalog.Publisher, catalog.Year, catalog.Description, catalog.Cover, now, catalogID)
+		if err != nil {
+			return err
 		}
 	}
 

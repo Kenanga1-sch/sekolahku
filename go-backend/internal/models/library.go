@@ -158,6 +158,9 @@ type CatalogInput struct {
 	Year        int    `json:"year"`
 	Description string `json:"description"`
 	Cover       string `json:"cover"`
+	// CatalogID: katalog yang dipilih user saat ISBN dipakai banyak judul.
+	// Kosong = cocokkan (ISBN + judul) atau buat katalog baru.
+	CatalogID string `json:"catalogId,omitempty"`
 }
 
 type BookDetail struct {

@@ -117,53 +117,37 @@ func (r *LibraryRepository) GetBooks(page, perPage int, search, category, status
 	return books, total, nil
 }
 
-// findCatalogLoose mencari katalog dengan kunci longgar (isbn, judul):
-// cocok bila ISBN ternormalisasi sama DAN judul ternormalisasi sama.
-// Mengembalikan "" bila tidak ada. Dipakai CreateBook agar konsisten
-// dengan BindAsset (sebelumnya CreateBook selalu INSERT → duplikat).
+// findCatalogLoose mencari katalog yang sama persis: ISBN ternormalisasi sama
+// dan judul ternormalisasi sama. Tanpa ISBN, cocok berdasarkan judul saja.
+// ISBN berbeda selalu dianggap buku lain, meski judulnya sama.
+// Mengembalikan "" bila tidak ada.
 func (r *LibraryRepository) findCatalogLoose(tx *sql.Tx, isbn, title string) string {
-	catalogID := ""
-	isbn = strings.TrimSpace(isbn)
 	normTitle := normalizeTitle(title)
-	if isbn != "" {
-		normalizedInputISBN := normalizeISBN(isbn)
-		if normalizedInputISBN != "" {
-			_ = tx.QueryRow(`
-				SELECT id FROM library_catalog
-				WHERE (isbn = ? OR isbn = ?)
-				  AND LOWER(TRIM(title)) = LOWER(TRIM(?))
-				LIMIT 1
-			`, isbn, normalizedInputISBN, title).Scan(&catalogID)
-			if catalogID == "" && normTitle != "" {
-				rows, qerr := tx.Query(`SELECT id, isbn, title FROM library_catalog WHERE isbn = ? OR isbn = ?`, isbn, normalizedInputISBN)
-				if qerr == nil {
-					func() {
-						defer rows.Close()
-						for rows.Next() {
-							var id, dbISBN, dbTitle string
-							if rows.Scan(&id, &dbISBN, &dbTitle) != nil {
-								continue
-							}
-							if normalizeISBN(dbISBN) == normalizedInputISBN && normalizeTitle(dbTitle) == normTitle {
-								catalogID = id
-								return
-							}
-						}
-					}()
-				}
-			}
-		} else {
-			_ = tx.QueryRow(`
-				SELECT id FROM library_catalog
-				WHERE isbn = ? AND LOWER(TRIM(title)) = LOWER(TRIM(?))
-				LIMIT 1
-			`, isbn, title).Scan(&catalogID)
+	if normTitle == "" {
+		return ""
+	}
+	normISBN := normalizeISBN(isbn)
+	if normISBN == "" {
+		var catalogID string
+		_ = tx.QueryRow("SELECT id FROM library_catalog WHERE (isbn IS NULL OR TRIM(isbn) = '') AND LOWER(TRIM(title)) = LOWER(TRIM(?)) LIMIT 1", title).Scan(&catalogID)
+		return catalogID
+	}
+
+	rows, err := tx.Query(`SELECT id, isbn, title FROM library_catalog WHERE isbn = ? OR isbn = ?`, isbn, normISBN)
+	if err != nil {
+		return ""
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, dbISBN, dbTitle string
+		if rows.Scan(&id, &dbISBN, &dbTitle) != nil {
+			continue
+		}
+		if normalizeISBN(dbISBN) == normISBN && normalizeTitle(dbTitle) == normTitle {
+			return id
 		}
 	}
-	if catalogID == "" {
-		_ = tx.QueryRow("SELECT id FROM library_catalog WHERE LOWER(TRIM(title)) = LOWER(TRIM(?)) LIMIT 1", title).Scan(&catalogID)
-	}
-	return catalogID
+	return ""
 }
 
 func (r *LibraryRepository) CreateBook(input models.CreateBookRequest) error {
@@ -172,8 +156,8 @@ func (r *LibraryRepository) CreateBook(input models.CreateBookRequest) error {
 	title := strings.TrimSpace(input.Title)
 	author := strings.TrimSpace(input.Author)
 	isbn := strings.TrimSpace(input.ISBN)
-	if title == "" || author == "" {
-		return errors.New("judul dan penulis wajib diisi")
+	if title == "" {
+		return errors.New("judul wajib diisi")
 	}
 	if input.Copies < 1 {
 		return ErrMinCopies

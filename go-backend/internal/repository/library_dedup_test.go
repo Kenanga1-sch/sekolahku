@@ -210,3 +210,78 @@ func TestUpdateBookSingleCatalog(t *testing.T) {
 		t.Fatalf("lokasi harus terupdate: %q", loc)
 	}
 }
+
+// Judul input tidak pernah ditimpa katalog lain: ISBN sama, judul beda →
+// katalog baru dengan judul yang diinput user.
+func TestBindSameISBNNewTitleKeepsInputTitle(t *testing.T) {
+	db := setupDedupTestDB(t)
+	defer db.Close()
+	repo := NewLibraryRepository(db)
+
+	if err := repo.BindAsset("QR-1", "RAK-500", models.CatalogInput{ISBN: "9781234567890", Title: "Matematika Kelas 1"}); err != nil {
+		t.Fatalf("bind1: %v", err)
+	}
+	if err := repo.BindAsset("QR-2", "RAK-800", models.CatalogInput{ISBN: "9781234567890", Title: "Cerita Rakyat"}); err != nil {
+		t.Fatalf("bind2: %v", err)
+	}
+	if n := countCatalogs(t, repo); n != 2 {
+		t.Fatalf("harus 2 katalog, got %d", n)
+	}
+	var title string
+	if err := repo.DB.QueryRow("SELECT title FROM library_catalog WHERE id = ?", catalogOf(t, repo, "QR-2")).Scan(&title); err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	if title != "Cerita Rakyat" {
+		t.Fatalf("judul katalog kedua harus 'Cerita Rakyat', got %q", title)
+	}
+}
+
+// Pilihan katalog eksplisit: eksemplar masuk ke katalog yang dipilih, meski
+// judul input berbeda, dan judul katalog tidak berubah.
+func TestBindExplicitCatalogChoice(t *testing.T) {
+	db := setupDedupTestDB(t)
+	defer db.Close()
+	repo := NewLibraryRepository(db)
+
+	if err := repo.BindAsset("QR-1", "RAK-500", models.CatalogInput{ISBN: "9781234567890", Title: "Matematika Kelas 1"}); err != nil {
+		t.Fatalf("bind1: %v", err)
+	}
+	if err := repo.BindAsset("QR-2", "RAK-800", models.CatalogInput{ISBN: "9781234567890", Title: "Cerita Rakyat"}); err != nil {
+		t.Fatalf("bind2: %v", err)
+	}
+	first := catalogOf(t, repo, "QR-1")
+	if err := repo.BindAsset("QR-3", "RAK-500", models.CatalogInput{ISBN: "9781234567890", Title: "Matematika Kelas 1", CatalogID: first}); err != nil {
+		t.Fatalf("bind3: %v", err)
+	}
+	if got := catalogOf(t, repo, "QR-3"); got != first {
+		t.Fatalf("eksemplar harus masuk katalog pilihan %s, got %s", first, got)
+	}
+	if n := countCatalogs(t, repo); n != 2 {
+		t.Fatalf("tidak boleh ada katalog baru, got %d", n)
+	}
+}
+
+// Lookup ISBN lokal: kandidat dikembalikan dan tidak memanggil API luar.
+func TestLookupISBNLocalOnlyNotFound(t *testing.T) {
+	db := setupDedupTestDB(t)
+	defer db.Close()
+	repo := NewLibraryRepository(db)
+
+	if _, err := repo.LookupISBN("9780000000002"); err == nil {
+		t.Fatalf("ISBN tidak ada di katalog harus mengembalikan error (not found)")
+	}
+}
+
+// Buku tanpa penulis tetap bisa disimpan (hanya judul wajib).
+func TestCreateBookTitleOnly(t *testing.T) {
+	db := setupDedupTestDB(t)
+	defer db.Close()
+	repo := NewLibraryRepository(db)
+
+	if err := repo.CreateBook(models.CreateBookRequest{Title: "Judul Saja", Copies: 1, Location: "RAK-500"}); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if n := countCatalogs(t, repo); n != 1 {
+		t.Fatalf("harus 1 katalog, got %d", n)
+	}
+}
