@@ -174,6 +174,7 @@ export async function uploadFileChunked(
     // yang BENAR-BENAR ada (chunk bisa hilang bila /tmp dibersihkan, container
     // restart, atau sesi kedaluwarsa). Bila server tidak mengenal sesi ini,
     // mulai sesi baru dari awal.
+    let resumeOk = false;
     try {
       const st = await fetch(`${API_BASE}/upload-sessions/${info.sessionId}/status`, {
         credentials: "include",
@@ -187,23 +188,26 @@ export async function uploadFileChunked(
           : [];
         if (stStatus === "uploading") {
           info.uploadedChunks = serverIndexes;
+          resumeOk = true;
         } else if (stStatus === "done") {
           // Sudah selesai sepenuhnya di server.
           await clearSession(file);
           onProgress({ percent: 100, uploadedChunks: totalChunks, totalChunks, status: "done" });
           return;
-        } else {
-          // merging/failed → sesi tidak bisa dilanjutkan; buat sesi baru.
-          info = null as unknown as UploadSessionInfo;
         }
-      } else if (st.status === 404) {
-        // Sesi lama sudah dibersihkan server → mulai dari awal.
-        info = null as unknown as UploadSessionInfo;
+        // merging/failed/status lain → tidak bisa dilanjutkan: resumeOk tetap false.
       }
+      // 404/400 (sesi hilang) atau status lain → resumeOk tetap false.
     } catch {
       if (signal?.aborted) throw new Error("Dibatalkan");
-      // Gagal menghubungi server saat verifikasi resume → mulai dari awal agar
-      // tidak mengirim complete untuk sesi yang potongannya tidak lengkap.
+      // Gagal menghubungi server saat verifikasi resume → jangan pertahankan
+      // sesi lama; akan dibuat sesi baru di bawah.
+    }
+
+    if (!resumeOk) {
+      // Sesi lama tidak valid/kedaluwarsa → lupakan agar tidak mengirim chunk
+      // atau complete ke sesi yang sudah tidak ada.
+      await clearSession(file);
       info = null as unknown as UploadSessionInfo;
     }
 

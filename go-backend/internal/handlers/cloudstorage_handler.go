@@ -103,6 +103,11 @@ func cloudErr(c echo.Context, err error) error {
 	if errors.Is(err, repository.ErrCloudNotFound) {
 		return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Berkas tidak ditemukan"})
 	}
+	// Sesi upload tidak ada (mis. sudah dibersihkan/kedaluwarsa) → 404 agar
+	// klien tahu harus memulai sesi baru, bukan retry sesi yang sama.
+	if errors.Is(err, repository.ErrUploadSessionNotFound) {
+		return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Sesi unggahan tidak ditemukan"})
+	}
 	return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": err.Error()})
 }
 
