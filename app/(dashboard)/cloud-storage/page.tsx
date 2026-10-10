@@ -1,6 +1,7 @@
 "use client";
 
 import { CloudStorageApp } from "./_components/cloud-storage-app";
+import { CloudErrorBoundary } from "./_components/cloud-error-boundary";
 
 /**
  * Cloud Storage — penyimpanan berkas pribadi per pengguna.
@@ -10,5 +11,9 @@ import { CloudStorageApp } from "./_components/cloud-storage-app";
  * terpisah yang terisolasi di server.
  */
 export default function CloudStoragePage() {
-  return <CloudStorageApp />;
+  return (
+    <CloudErrorBoundary>
+      <CloudStorageApp />
+    </CloudErrorBoundary>
+  );
 }

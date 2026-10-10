@@ -31,6 +31,7 @@ export function TextEditorDialog({ file, parentId, onClose, onSaved }: Props) {
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
+  const [initialContent, setInitialContent] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -39,7 +40,10 @@ export function TextEditorDialog({ file, parentId, onClose, onSaved }: Props) {
       cloud
         .fetchTextContent(file.id)
         .then((text) => {
-          if (!cancelled) setContent(text);
+          if (!cancelled) {
+            setContent(text);
+            setInitialContent(text);
+          }
         })
         .catch((e: unknown) => {
           if (!cancelled) toast.error(e instanceof Error ? e.message : "Gagal memuat isi");
@@ -53,7 +57,24 @@ export function TextEditorDialog({ file, parentId, onClose, onSaved }: Props) {
     };
   }, [file]);
 
+  // Perubahan belum disimpan (catatan baru: ada isi atau nama).
+  const dirty = isNew ? content.length > 0 || name.trim().length > 0 : content !== initialContent;
+
+  /** Tutup dengan konfirmasi bila ada perubahan belum disimpan. */
+  const requestClose = () => {
+    if (dirty && !saving) {
+      if (!window.confirm("Ada perubahan yang belum disimpan. Tutup tanpa menyimpan?")) return;
+    }
+    onClose();
+  };
+
+  const canSave = !loading && !saving && (!isNew || name.trim().length > 0);
+
   const handleSave = async () => {
+    if (isNew && !name.trim()) {
+      toast.error("Nama catatan wajib diisi");
+      return;
+    }
     setSaving(true);
     try {
       if (isNew) {
@@ -75,18 +96,26 @@ export function TextEditorDialog({ file, parentId, onClose, onSaved }: Props) {
   const lines = content.split("\n").length;
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
+    <Dialog open onOpenChange={(o) => { if (!o) requestClose(); }}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>{isNew ? "Catatan Baru" : `Edit: ${file?.name}`}</DialogTitle>
         </DialogHeader>
 
         {isNew && (
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Nama catatan (mis. catatan-rapat.md)"
-          />
+          <div className="space-y-1">
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Nama catatan (mis. catatan-rapat.md)"
+              aria-label="Nama catatan"
+              aria-invalid={name.trim().length === 0}
+              autoFocus
+            />
+            {name.trim().length === 0 && (
+              <p className="text-xs text-neutral-400">Nama wajib diisi untuk menyimpan.</p>
+            )}
+          </div>
         )}
 
         {loading ? (
@@ -101,6 +130,7 @@ export function TextEditorDialog({ file, parentId, onClose, onSaved }: Props) {
               className="min-h-[50vh] resize-y font-mono text-sm"
               placeholder="Tulis di sini…"
               spellCheck={false}
+              aria-label="Isi catatan"
             />
             <p className="text-right text-xs text-neutral-400">
               {lines} baris • {cloud.formatBytes(new Blob([content]).size)}
@@ -108,11 +138,11 @@ export function TextEditorDialog({ file, parentId, onClose, onSaved }: Props) {
           </>
         )}
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+        <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button variant="outline" onClick={requestClose} className="w-full sm:w-auto">
             Batal
           </Button>
-          <Button onClick={handleSave} disabled={saving || loading} className="gap-2">
+          <Button onClick={handleSave} disabled={!canSave} className="w-full gap-2 sm:w-auto">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             Simpan
           </Button>

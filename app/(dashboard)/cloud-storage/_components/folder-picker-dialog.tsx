@@ -28,15 +28,19 @@ export function FolderPickerDialog({ title = "Pindah ke Folder", excludeIds = []
   const [crumbs, setCrumbs] = useState<Array<{ id: string | null; name: string }>>([{ id: null, name: "Beranda" }]);
   const [folders, setFolders] = useState<CloudFile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const load = useCallback(async (parentId: string | null) => {
     setLoading(true);
+    setError(false);
     try {
       const items = await cloud.listFiles2({ parentId, type: "folder" });
       // Jangan tawarkan folder yang sedang dipindah (menghindari siklus).
       setFolders(items.filter((f) => !excludeIds.includes(f.id)));
     } catch {
+      // Bedakan gagal-memuat dari kosong agar pengguna tidak salah paham.
       setFolders([]);
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -78,6 +82,13 @@ export function FolderPickerDialog({ title = "Pindah ke Folder", excludeIds = []
           {loading ? (
             <div className="flex h-32 items-center justify-center text-neutral-400">
               <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          ) : error ? (
+            <div className="flex h-32 flex-col items-center justify-center gap-3 p-6 text-center text-sm">
+              <p className="text-rose-600">Gagal memuat folder. Periksa koneksi Anda.</p>
+              <Button size="sm" variant="outline" onClick={() => load(cwd)}>
+                Coba lagi
+              </Button>
             </div>
           ) : folders.length === 0 ? (
             <p className="p-6 text-center text-sm text-neutral-400">Tidak ada subfolder di sini.</p>
