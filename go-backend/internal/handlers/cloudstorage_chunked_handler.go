@@ -6,11 +6,8 @@ package handlers
 
 import (
 	"net/http"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/labstack/echo/v4"
 )
@@ -111,11 +108,3 @@ func (h *CloudStorageHandler) AbortUploadSession(c echo.Context) error {
 func (h *CloudStorageHandler) CleanupUploadSessions(maxAgeSeconds int64) {
 	_ = h.Svc.CleanupStale(maxAgeSeconds)
 }
-
-// touchUploadTmpDir memastikan direktori sementara ada (dipanggil sekali
-// saat startup bila perlu; os.MkdirAll sudah idempoten di chunkDir).
-func touchUploadTmpDir() {
-	_ = os.MkdirAll(filepath.Join(os.TempDir(), "cloud-uploads"), 0o755)
-}
-
-var _ = time.Second

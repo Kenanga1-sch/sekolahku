@@ -279,6 +279,14 @@ func (s *Service) CleanupStale(maxAge int64) error {
 }
 
 // chunkDir mengembalikan direktori sementara sebuah sesi.
+//
+// Memakai cfg.ChunkDir bila diisi (diarahkan ke disk persisten), selain itu
+// fallback ke os.TempDir(). Di container, /tmp biasanya tmpfs kecil (64MB)
+// sehingga file besar gagal "no space left on device".
 func (s *Service) chunkDir(sessionID string) string {
-	return filepath.Join(os.TempDir(), "cloud-uploads", sessionID)
+	base := s.cfg.ChunkDir
+	if base == "" {
+		base = filepath.Join(os.TempDir(), "cloud-uploads")
+	}
+	return filepath.Join(base, sessionID)
 }

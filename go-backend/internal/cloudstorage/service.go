@@ -31,6 +31,11 @@ type Config struct {
 	MaxUploadBytes int64
 	ThumbDir       string
 	EncryptionKey  string
+	// ChunkDir: direktori kerja upload bertahap (potongan sementara + hasil
+	// gabungan). Kosong = os.TempDir(). WAJIB diarahkan ke disk non-tmpfs di
+	// container (mis. /app/data/cloud-uploads) — /tmp di container sering
+	// tmpfs kecil (64MB) sehingga file besar gagal "no space left on device".
+	ChunkDir string
 	// LocalFileRoot: direktori (di dalam container) tempat berkas server Bot API
 	// lokal di-mount, mis. /app/telegram-data. Kosong = ambil lewat HTTP /file/.
 	LocalFileRoot string

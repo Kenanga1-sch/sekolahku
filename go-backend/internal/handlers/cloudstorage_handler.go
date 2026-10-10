@@ -31,6 +31,7 @@ type CloudStorageHandler struct {
 //	CLOUDSTORAGE_BOT_TOKEN, CLOUDSTORAGE_CHAT_ID, CLOUDSTORAGE_MAX_UPLOAD_MB,
 //	CLOUDSTORAGE_THUMB_DIR, CLOUDSTORAGE_ENCRYPTION_KEY, CLOUDSTORAGE_SHARE_EXPIRY_DAYS
 //	CLOUDSTORAGE_LOCAL_FILE_ROOT (mount berkas server Bot API lokal di container)
+//	CLOUDSTORAGE_CHUNK_DIR (direktori kerja upload bertahap; default ./data/cloud-uploads)
 func NewCloudStorageHandler(repo *repository.CloudStorageRepository) *CloudStorageHandler {
 	maxMB := int64(2048)
 	if v := strings.TrimSpace(os.Getenv("CLOUDSTORAGE_MAX_UPLOAD_MB")); v != "" {
@@ -54,6 +55,7 @@ func NewCloudStorageHandler(repo *repository.CloudStorageRepository) *CloudStora
 		ThumbDir:       strings.TrimSpace(os.Getenv("CLOUDSTORAGE_THUMB_DIR")),
 		EncryptionKey:  strings.TrimSpace(os.Getenv("CLOUDSTORAGE_ENCRYPTION_KEY")),
 		LocalFileRoot:  localRoot,
+		ChunkDir:       chunkDirFromEnv(),
 	}
 
 	expiry := int64(0)
@@ -65,6 +67,16 @@ func NewCloudStorageHandler(repo *repository.CloudStorageRepository) *CloudStora
 
 	svc := cloudstorage.NewService(repo, cloudstorage.NewTelegramClient(token, apiURL, localRoot, remotePrefix), cfg)
 	return &CloudStorageHandler{Svc: svc, ExpiryDays: expiry}
+}
+
+// chunkDirFromEnv mengembalikan direktori kerja upload bertahap dari env
+// CLOUDSTORAGE_CHUNK_DIR. Default "./data/cloud-uploads" (di dalam volume
+// ./data) agar TIDAK memakai /tmp container yang biasanya tmpfs kecil.
+func chunkDirFromEnv() string {
+	if v := strings.TrimSpace(os.Getenv("CLOUDSTORAGE_CHUNK_DIR")); v != "" {
+		return v
+	}
+	return filepath.Join("data", "cloud-uploads")
 }
 
 // StartThumbCleaner menjalankan pembersih thumbnail berkala (tiap 24 jam).
