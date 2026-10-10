@@ -71,6 +71,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -900,7 +901,7 @@ export function CloudStorageApp() {
                 <span className="hidden text-xs text-neutral-400 md:block">{f.is_folder ? "Folder" : (f.mime_type || "—").split("/")[1] || "berkas"}</span>
                 <span className="hidden text-right text-xs text-neutral-500 md:block">{f.is_folder ? "—" : cloud.formatBytes(f.size)}</span>
                 <span className="hidden text-xs text-neutral-500 md:block">{formatDate(f.updated_at)}</span>
-                <RowMenu
+                <RowActions
                   file={f}
                   onPreview={() => setPreview(f)}
                   onRename={() => {
@@ -974,7 +975,7 @@ export function CloudStorageApp() {
                   )}
                 </button>
                 <div className="absolute right-1 top-1">
-                  <RowMenu
+                  <RowActions
                     file={f}
                     onPreview={() => setPreview(f)}
                     onRename={() => {
@@ -1242,8 +1243,25 @@ export function CloudStorageApp() {
   );
 }
 
-/** Menu aksi per-item (dipakai di tampilan kotak maupun daftar). */
-function RowMenu({
+/** Satu aksi dalam menu/bottom-sheet berkas. */
+interface RowAction {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  onClick?: () => void;
+  /** Bila diisi, aksi dirender sebagai tautan (mis. Unduh). */
+  href?: string;
+  danger?: boolean;
+  /** Pemisah sebelum aksi ini (petunjuk pengelompokan). */
+  dividerBefore?: boolean;
+}
+
+/**
+ * Menu aksi per-item. Desktop: DropdownMenu. Mobile (sentuh): bottom-sheet
+ * dengan target baris besar — jauh lebih nyaman di jari daripada dropdown
+ * mengambang. Keduanya berbagi SATU daftar aksi agar tidak divergen.
+ */
+function RowActions({
   file,
   onPreview,
   onRename,
@@ -1268,73 +1286,122 @@ function RowMenu({
   onMoveTo: () => void;
   onCopyTo: () => void;
 }) {
+  const [sheetOpen, setSheetOpen] = React.useState(false);
   const isImage = !file.is_folder && (file.mime_type || "").startsWith("image/");
   const canEdit = cloud.isEditableText(file);
+
+  const actions: RowAction[] = [];
+  if (!file.is_folder) {
+    actions.push({ id: "preview", label: "Pratinjau", icon: FileText, onClick: onPreview });
+  }
+  if (canEdit) {
+    actions.push({ id: "edit", label: "Edit teks", icon: Pencil, onClick: onEdit });
+  }
+  if (isImage) {
+    actions.push({ id: "rotate-right", label: "Putar 90° ke kanan", icon: RotateCw, onClick: () => onRotate(90) });
+    actions.push({ id: "rotate-left", label: "Putar 90° ke kiri", icon: RotateCw, onClick: () => onRotate(270) });
+  }
+  if (!file.is_folder) {
+    actions.push({ id: "download", label: "Unduh", icon: Download, href: cloud.fileDownloadUrl(file.id, true) });
+  }
+  actions.push({ id: "rename", label: "Ganti Nama", icon: Pencil, onClick: onRename, dividerBefore: true });
+  actions.push({ id: "move-to", label: "Pindah ke…", icon: FolderInput, onClick: onMoveTo });
+  actions.push({ id: "copy-to", label: "Salin ke…", icon: Copy, onClick: onCopyTo });
+  actions.push({ id: "copy", label: "Salin", icon: Copy, onClick: onCopy });
+  actions.push({ id: "cut", label: "Potong", icon: Scissors, onClick: onCut });
+  actions.push({ id: "share", label: "Bagikan", icon: Share2, onClick: onShare });
+  actions.push({ id: "delete", label: "Hapus", icon: Trash2, onClick: onDelete, danger: true, dividerBefore: true });
+
+  const logoTrigger = (
+    <Button
+      size="icon"
+      variant="ghost"
+      aria-label="Menu berkas"
+      className="h-9 w-9 opacity-100 md:h-7 md:w-7 md:opacity-0 md:group-hover:opacity-100 md:data-[state=open]:opacity-100 data-[state=open]:opacity-100"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <MoreVertical className="h-4 w-4" />
+    </Button>
+  );
+
+  const run = (a: RowAction) => {
+    setSheetOpen(false);
+    a.onClick?.();
+  };
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
+    <>
+      {/* Desktop: dropdown mengambang */}
+      <div className="hidden md:block">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>{logoTrigger}</DropdownMenuTrigger>
+          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+            {actions.map((a) => (
+              <React.Fragment key={a.id}>
+                {a.dividerBefore && <DropdownMenuSeparator />}
+                {a.href ? (
+                  <DropdownMenuItem asChild>
+                    <a href={a.href} download>
+                      <a.icon className="mr-2 h-4 w-4" /> {a.label}
+                    </a>
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    className={a.danger ? "text-rose-600" : undefined}
+                    onClick={a.onClick}
+                  >
+                    <a.icon className="mr-2 h-4 w-4" /> {a.label}
+                  </DropdownMenuItem>
+                )}
+              </React.Fragment>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {/* Mobile: bottom-sheet dengan baris besar & label */}
+      <div className="md:hidden">
         <Button
           size="icon"
           variant="ghost"
           aria-label="Menu berkas"
-          className="h-9 w-9 opacity-100 md:h-7 md:w-7 md:opacity-0 md:group-hover:opacity-100 md:data-[state=open]:opacity-100 data-[state=open]:opacity-100"
-          onClick={(e) => e.stopPropagation()}
+          className="h-9 w-9"
+          onClick={(e) => {
+            e.stopPropagation();
+            setSheetOpen(true);
+          }}
         >
           <MoreVertical className="h-4 w-4" />
         </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-        {!file.is_folder && (
-          <DropdownMenuItem onClick={onPreview}>
-            <FileText className="mr-2 h-4 w-4" /> Pratinjau
-          </DropdownMenuItem>
-        )}
-        {canEdit && (
-          <DropdownMenuItem onClick={onEdit}>
-            <Pencil className="mr-2 h-4 w-4" /> Edit teks
-          </DropdownMenuItem>
-        )}
-        {isImage && (
-          <>
-            <DropdownMenuItem onClick={() => onRotate(90)}>
-              <RotateCw className="mr-2 h-4 w-4" /> Putar 90° ke kanan
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onRotate(270)}>
-              <RotateCw className="mr-2 h-4 w-4 -scale-x-100" /> Putar 90° ke kiri
-            </DropdownMenuItem>
-          </>
-        )}
-        {!file.is_folder && (
-          <DropdownMenuItem asChild>
-            <a href={cloud.fileDownloadUrl(file.id, true)} download>
-              <Download className="mr-2 h-4 w-4" /> Unduh
-            </a>
-          </DropdownMenuItem>
-        )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={onRename}>
-          <Pencil className="mr-2 h-4 w-4" /> Ganti Nama
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={onMoveTo}>
-          <FolderInput className="mr-2 h-4 w-4" /> Pindah ke…
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={onCopyTo}>
-          <Copy className="mr-2 h-4 w-4" /> Salin ke…
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={onCopy}>
-          <Copy className="mr-2 h-4 w-4" /> Salin
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={onCut}>
-          <Scissors className="mr-2 h-4 w-4" /> Potong
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={onShare}>
-          <Share2 className="mr-2 h-4 w-4" /> Bagikan
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem className="text-rose-600" onClick={onDelete}>
-          <Trash2 className="mr-2 h-4 w-4" /> Hapus
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+          <SheetContent side="bottom" className="rounded-t-2xl p-0">
+            <SheetHeader className="border-b dark:border-neutral-800">
+              <SheetTitle className="truncate pr-8 text-left text-base">{file.name}</SheetTitle>
+            </SheetHeader>
+            <div className="max-h-[70vh] overflow-y-auto py-1 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
+              {actions.map((a) => {
+                const Icon = a.icon;
+                const itemCls = cn(
+                  "flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition-colors active:bg-neutral-100 dark:active:bg-neutral-800",
+                  a.danger ? "text-rose-600" : "text-neutral-700 dark:text-neutral-200",
+                  a.dividerBefore && "border-t dark:border-neutral-800"
+                );
+                return a.href ? (
+                  <a key={a.id} href={a.href} download className={itemCls} onClick={() => setSheetOpen(false)}>
+                    <Icon className="h-5 w-5 shrink-0" />
+                    {a.label}
+                  </a>
+                ) : (
+                  <button key={a.id} type="button" className={itemCls} onClick={() => run(a)}>
+                    <Icon className="h-5 w-5 shrink-0" />
+                    {a.label}
+                  </button>
+                );
+              })}
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+    </>
   );
 }
