@@ -55,6 +55,7 @@ type Repositories struct {
 	Skrining       *repository.SkriningRepository
 	Tugas          *repository.TugasRepository
 	CloudStorage   *repository.CloudStorageRepository
+	CloudUploadSession *repository.CloudUploadSessionRepository
 	ReportTemplate *repository.ReportTemplateRepository
 	PrintSettings  *repository.PrintSettingsRepository
 	AIProvider     *repository.AIProviderRepository
@@ -1003,6 +1004,13 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	cloudGroup.GET("/cloud/usage", h.CloudStorage.Usage)
 	cloudGroup.GET("/cloud/files", h.CloudStorage.ListFiles)
 	cloudGroup.POST("/cloud/files", h.CloudStorage.Upload)
+	// Upload bertahap (chunked) untuk file besar (batas ~100MB request
+	// Cloudflare Tunnel). Lihat handlers/cloudstorage_chunked_handler.go.
+	cloudGroup.POST("/cloud/upload-sessions", h.CloudStorage.CreateUploadSession)
+	cloudGroup.POST("/cloud/upload-sessions/:id/chunks", h.CloudStorage.UploadChunk)
+	cloudGroup.POST("/cloud/upload-sessions/:id/complete", h.CloudStorage.CompleteUploadSession)
+	cloudGroup.GET("/cloud/upload-sessions/:id/status", h.CloudStorage.GetUploadSessionStatus)
+	cloudGroup.DELETE("/cloud/upload-sessions/:id", h.CloudStorage.AbortUploadSession)
 	cloudGroup.GET("/cloud/files/:id", h.CloudStorage.GetFile)
 	cloudGroup.GET("/cloud/files/:id/download", h.CloudStorage.Download)
 	cloudGroup.GET("/cloud/files/:id/thumb", h.CloudStorage.Thumbnail)

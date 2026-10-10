@@ -80,6 +80,14 @@ func loadEnv() {
 	}
 }
 
+// newCloudStorageHandler membangun handler Cloud Storage sekaligus menyambung
+// repo sesi upload bertahap (dipisah via setter untuk menghindari import cycle).
+func newCloudStorageHandler(repos *Repositories) *handlers.CloudStorageHandler {
+	h := handlers.NewCloudStorageHandler(repos.CloudStorage)
+	h.Svc.SetSessionRepo(repos.CloudUploadSession)
+	return h
+}
+
 func main() {
 	loadEnv()
 	startTime := time.Now()
@@ -118,12 +126,17 @@ func main() {
 	}))
 	server.Use(middleware.Recover())
 	// Batas body global 60M. Upload Cloud Storage dikecualikan di sini karena
-	// bisa mencapai 2GB; handler-nya memasang MaxBytesReader sendiri sesuai
+	// bisa mencapai 2GB (upload biasa) atau 30MB per potongan (upload
+	// bertahap); handler-nya memasang MaxBytesReader sendiri sesuai
 	// CLOUDSTORAGE_MAX_UPLOAD_MB.
 	server.Use(middleware.BodyLimitWithConfig(middleware.BodyLimitConfig{
 		Limit: "60M",
 		Skipper: func(c echo.Context) bool {
-			return c.Request().Method == http.MethodPost && c.Path() == "/api/cloud/files"
+			if c.Request().Method != http.MethodPost {
+				return false
+			}
+			path := c.Path()
+			return path == "/api/cloud/files" || strings.HasPrefix(path, "/api/cloud/upload-sessions/")
 		},
 	}))
 	server.Use(middleware.GzipWithConfig(middleware.GzipConfig{
@@ -239,6 +252,7 @@ func main() {
 		Skrining:       repository.NewSkriningRepository(db),
 		Tugas:          repository.NewTugasRepository(db),
 		CloudStorage:   repository.NewCloudStorageRepository(db),
+		CloudUploadSession: repository.NewCloudUploadSessionRepository(db),
 		ReportTemplate: repository.NewReportTemplateRepository(db),
 		PrintSettings:  repository.NewPrintSettingsRepository(db),
 		AIProvider:     repository.NewAIProviderRepository(db),
@@ -358,7 +372,7 @@ func main() {
 		Tugas:          handlers.NewTugasHandler(repos.Tugas, repos.Academic, repos.AuditLog, repos.Notification, db),
 		File:           handlers.NewFileHandler(),
 		DocStation:     handlers.NewDocStationHandler(),
-		CloudStorage:   handlers.NewCloudStorageHandler(repos.CloudStorage),
+		CloudStorage:   newCloudStorageHandler(repos),
 		ReportTemplate: handlers.NewReportTemplateHandler(repos.ReportTemplate),
 		PrintSettings:  handlers.NewPrintSettingsHandler(repos.PrintSettings),
 		AIProvider:     handlers.NewAIProviderHandler(repos.AIProvider),

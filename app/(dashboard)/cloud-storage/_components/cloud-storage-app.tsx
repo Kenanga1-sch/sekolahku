@@ -77,6 +77,7 @@ import { cn } from "@/lib/utils";
 
 import * as cloud from "@/lib/cloudstorage/api";
 import type { CloudFile, CloudSort, CloudTypeFilter, CloudView } from "@/lib/cloudstorage/api";
+import { uploadFileChunked, CHUNKED_THRESHOLD, clearResumeState } from "@/lib/cloudstorage/chunked-upload";
 import { FilePreviewDialog } from "./file-preview-dialog";
 import { TextEditorDialog } from "./text-editor-dialog";
 import { FolderPickerDialog } from "./folder-picker-dialog";
@@ -278,9 +279,16 @@ export function CloudStorageApp() {
       let ok = 0;
       for (let i = 0; i < arr.length; i++) {
         try {
-          await cloud.uploadFileWithProgress(arr[i], parentId, (p) => {
-            setUploads((prev) => prev.map((u, idx) => (idx === i ? { ...u, percent: p } : u)));
-          });
+          if (arr[i].size > CHUNKED_THRESHOLD) {
+            await uploadFileChunked(arr[i], parentId, (p) => {
+              setUploads((prev) => prev.map((u, idx) => (idx === i ? { ...u, percent: p.percent } : u)));
+            });
+            await clearResumeState(arr[i]);
+          } else {
+            await cloud.uploadFileWithProgress(arr[i], parentId, (p) => {
+              setUploads((prev) => prev.map((u, idx) => (idx === i ? { ...u, percent: p } : u)));
+            });
+          }
           ok++;
         } catch (e: unknown) {
           toast.error(`${arr[i].name}: ${e instanceof Error ? e.message : "gagal"}`);

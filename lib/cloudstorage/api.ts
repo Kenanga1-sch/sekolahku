@@ -436,7 +436,27 @@ export function uploadFileWithProgress(
       }
       reject(new Error(msg));
     };
-    xhr.onerror = () => reject(new Error("Kesalahan jaringan"));
+    // onerror tidak punya info status yang jelas; koneksi yang diputus
+    // di tengah (mis. file melebihi batas Cloudflare Tunnel ~100MB)
+    // muncul sebagai status 0 — bedakan dari penolakan server.
+    xhr.onerror = () => {
+      if (xhr.status && xhr.status >= 400) {
+        let msg = "Gagal mengunggah";
+        try {
+          msg = JSON.parse(xhr.responseText).error || msg;
+        } catch {
+          /* abaikan */
+        }
+        reject(new Error(msg));
+      } else {
+        reject(
+          new Error(
+            `Koneksi terputus saat mengunggah ${file.name} (${formatBytes(file.size)}). ` +
+              "File mungkin melebihi batas ~100MB — file lebih besar diunggah otomatis bertahap oleh aplikasi."
+          )
+        );
+      }
+    };
     xhr.onabort = () => reject(new Error("Dibatalkan"));
 
     if (signal) {

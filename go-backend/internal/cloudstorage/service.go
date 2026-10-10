@@ -39,9 +39,10 @@ type Config struct {
 // Service adalah logika bisnis Cloud Storage. Semua operasi file/folder
 // ter-scope pada ownerID (isolasi antar-user).
 type Service struct {
-	repo *repository.CloudStorageRepository
-	tg   TelegramAPI
-	cfg  Config
+	repo     *repository.CloudStorageRepository
+	sessRepo *repository.CloudUploadSessionRepository
+	tg       TelegramAPI
+	cfg      Config
 }
 
 // NewService membangun service dengan klien Telegram nyata.
@@ -50,6 +51,12 @@ func NewService(repo *repository.CloudStorageRepository, tg TelegramAPI, cfg Con
 		cfg.MaxUploadBytes = 2048 * 1024 * 1024
 	}
 	return &Service{repo: repo, tg: tg, cfg: cfg}
+}
+
+// SetSessionRepo memasang repo sesi upload bertahap (injektion terpisah
+// untuk hindari import cycle: repo mengimpor models, tidak mengimpor paket ini).
+func (s *Service) SetSessionRepo(r *repository.CloudUploadSessionRepository) {
+	s.sessRepo = r
 }
 
 // Enabled melaporkan apakah backend Telegram sudah dikonfigurasi.
