@@ -279,19 +279,12 @@ export function CloudStorageApp() {
       // Validasi ukuran di klien agar pengguna tak menunggu lama hanya untuk
       // ditolak server. Server tetap memvalidasi ulang (klien bukan batas aman).
       const maxBytes = config.max_upload_size > 0 ? config.max_upload_size : 0;
-      let rejected = 0;
-      const accepted = maxBytes
-        ? arr.filter((f) => {
-            if (f.size > maxBytes) {
-              rejected++;
-              toast.error(`${f.name}: melebihi batas ${cloud.formatBytes(maxBytes)}`);
-              return false;
-            }
-            return true;
-          })
-        : arr;
+      const { accepted, rejected } = cloud.splitByUploadLimit(arr, maxBytes);
+      for (const f of rejected) {
+        toast.error(`${f.name}: melebihi batas ${cloud.formatBytes(maxBytes)}`);
+      }
       if (accepted.length === 0) {
-        if (!maxBytes && rejected === 0) toast.error("Tidak ada berkas untuk diunggah");
+        if (rejected.length === 0) toast.error("Tidak ada berkas untuk diunggah");
         return;
       }
       setUploads(accepted.map((f) => ({ name: f.name, percent: 0 })));

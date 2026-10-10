@@ -472,9 +472,13 @@ export function uploadFileWithProgress(
 
 /** Format ukuran byte ke string ringkas. */
 export function formatBytes(bytes: number): string {
-  if (!bytes || bytes <= 0) return "0 B";
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  let i = Math.floor(Math.log(bytes) / Math.log(1024));
+  // Clamp: nilai sangat besar (>TB) atau log negatif tak terduga tidak boleh
+  // menghasilkan indeks di luar array (units[i] === undefined).
+  if (i < 0) i = 0;
+  if (i > units.length - 1) i = units.length - 1;
   const val = bytes / Math.pow(1024, i);
   return `${val.toFixed(val >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
 }
@@ -489,4 +493,31 @@ export function fileKind(file: CloudFile): "folder" | "image" | "video" | "audio
   if (m === "application/pdf") return "pdf";
   if (m.startsWith("text/") || m.includes("word") || m.includes("document")) return "doc";
   return "other";
+}
+
+/** Hasil pemisahan berkas terhadap batas ukuran unggah. */
+export interface UploadSplit<T> {
+  /** Berkas yang boleh diunggah (≤ batas). */
+  accepted: T[];
+  /** Berkas yang melebihi batas, beserta jumlahnya. */
+  rejected: T[];
+}
+
+/**
+ * Pisahkan berkas menjadi yang boleh diunggah dan yang melebihi batas ukuran.
+ * `maxBytes <= 0` berarti tanpa batas (semua diterima). Dipakai UI untuk
+ * menolak lebih awal sebelum mengirim ke server (server tetap memvalidasi).
+ */
+export function splitByUploadLimit<T extends { size: number }>(
+  files: T[],
+  maxBytes: number,
+): UploadSplit<T> {
+  if (!maxBytes || maxBytes <= 0) return { accepted: [...files], rejected: [] };
+  const accepted: T[] = [];
+  const rejected: T[] = [];
+  for (const f of files) {
+    if (f.size > maxBytes) rejected.push(f);
+    else accepted.push(f);
+  }
+  return { accepted, rejected };
 }
