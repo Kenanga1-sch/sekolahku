@@ -39,6 +39,7 @@ type Repositories struct {
 	Public         *repository.PublicRepository
 	PublicLibrary  *repository.PublicLibraryRepository
 	Booking        *repository.LibraryBookingRepository
+	Computer       *repository.ComputerRepository
 	StickerPreset  *repository.LibraryStickerPresetRepository
 	FAQ            *repository.FAQRepository
 	Contact        *repository.ContactRepository
@@ -91,6 +92,7 @@ type AllHandlers struct {
 	Public         *handlers.PublicHandler
 	PublicLibrary  *handlers.PublicLibraryHandler
 	Booking        *handlers.BookingHandler
+	Computer       *handlers.ComputerHandler
 	StickerPreset  *handlers.StickerPresetHandler
 	FAQ            *handlers.FAQHandler
 	Contact        *handlers.ContactHandler
@@ -577,6 +579,32 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	guruGroup.GET("/library/bookings", h.Booking.GetMyBookings)
 	guruGroup.DELETE("/library/bookings/:id", h.Booking.CancelBooking)
 
+	// Modul Komputer Belajar Perpustakaan.
+	// Kelola (admin/guru/staff): stasiun, kuota, laporan, booking, laporan/riwayat.
+	guruGroup.GET("/computer/stations", h.Computer.ListStations)
+	adminGroup.POST("/computer/stations", h.Computer.CreateStation)
+	adminGroup.PUT("/computer/stations/:id", h.Computer.UpdateStation)
+	adminGroup.DELETE("/computer/stations/:id", h.Computer.DeleteStation)
+
+	guruGroup.GET("/computer/quota-policies", h.Computer.ListQuotaPolicies)
+	adminGroup.PUT("/computer/quota-policies", h.Computer.SetQuotaPolicy)
+	guruGroup.GET("/computer/quotas", h.Computer.ListQuotas)
+	adminGroup.PUT("/computer/quotas", h.Computer.SetStudentQuota)
+
+	guruGroup.GET("/computer/reading-reports", h.Computer.ListReadingReports)
+	guruGroup.POST("/computer/reading-reports/:id/review", h.Computer.ReviewReadingReport)
+
+	guruGroup.POST("/computer/bookings", h.Computer.CreateBooking)
+	guruGroup.GET("/computer/bookings", h.Computer.ListBookings)
+	guruGroup.DELETE("/computer/bookings/:id", h.Computer.CancelBooking)
+
+	guruGroup.GET("/computer/sessions", h.Computer.ListSessions)
+	guruGroup.POST("/computer/sessions/:id/end", h.Computer.EndSession)
+
+	// Kiosk komputer: scan mulai sesi + pantau status stasiun (dibuka di PC, guru login).
+	guruGroup.POST("/computer/kiosk/start", h.Computer.StartSessionByScan)
+	guruGroup.GET("/computer/kiosk/stations/:code", h.Computer.GetStationSession)
+
 	// Announcements
 	auth.GET("/announcements", h.Announcement.GetAnnouncements)
 	adminGroup.POST("/announcements", h.Announcement.CreateAnnouncement)
@@ -855,6 +883,12 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	studentGroup.GET("/me/tugas", h.Tugas.ListMyTugas)
 	studentGroup.GET("/me/tugas/:id", h.Tugas.GetMyTugas)
 	studentGroup.POST("/me/tugas/:id/submit", h.Tugas.SubmitMyTugas)
+
+	// Komputer Belajar: kuota, laporan baca, jadwal siswa.
+	studentGroup.GET("/me/computer/quota", h.Computer.GetMyQuota)
+	studentGroup.GET("/me/computer/reading-reports", h.Computer.ListMyReadingReports)
+	studentGroup.POST("/me/computer/reading-reports", h.Computer.CreateReadingReport)
+	studentGroup.GET("/me/computer/bookings", h.Computer.ListMyBookings)
 
 	// Pengajuan izin/sakit: guru/admin meninjau
 	guruGroup.GET("/leave-requests", h.Parent.ListLeaves)

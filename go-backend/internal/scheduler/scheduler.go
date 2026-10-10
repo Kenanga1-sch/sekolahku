@@ -98,6 +98,12 @@ func (s *Scheduler) Start() {
 		s.composeParentDigest()
 	})
 
+	// Komputer Belajar: tutup sesi yang lewat deadline + tandai booking
+	// kadaluarsa + kirim peringatan sisa waktu (tiap menit).
+	s.cron.AddFunc("0 * * * * *", func() {
+		s.enforceComputerSessions()
+	})
+
 	s.cron.Start()
 	log.Println("[CRON] Scheduler started with", len(s.cron.Entries()), "jobs registered")
 }
@@ -321,6 +327,78 @@ func (s *Scheduler) composeParentDigest() {
 		sent++
 	}
 	log.Printf("[CRON] Parent daily digest: %d notifikasi terkirim", sent)
+}
+
+// enforceComputerSessions menjalankan penegakan waktu modul Komputer Belajar:
+// 1) tutup sesi yang sudah lewat deadline (end_reason=time_up),
+// 2) tandai booking yang tidak dipakai sebagai expired,
+// 3) kirim notifikasi "sisa 5 menit" ke siswa sekali per sesi.
+func (s *Scheduler) enforceComputerSessions() {
+	repo := repository.NewComputerRepository(s.db)
+	now := time.Now()
+	nowMs := now.UnixMilli()
+
+	// 1) Sesi lewat deadline.
+	due, err := repo.DueSessions(nowMs)
+	if err != nil {
+		log.Printf("[CRON] Komputer: gagal memuat sesi due: %v", err)
+	} else {
+		for _, id := range due {
+			if _, err := repo.EndSession(id, "time_up"); err != nil {
+				log.Printf("[CRON] Komputer: gagal menutup sesi %s: %v", id, err)
+			}
+		}
+		if len(due) > 0 {
+			log.Printf("[CRON] Komputer: %d sesi ditutup karena waktu habis", len(due))
+		}
+	}
+
+	// 2) Booking kadaluarsa (slot lewat tanpa dipakai).
+	if n, err := repo.ExpireBookings(nowMs); err != nil {
+		log.Printf("[CRON] Komputer: gagal menandai booking expired: %v", err)
+	} else if n > 0 {
+		log.Printf("[CRON] Komputer: %d booking ditandai expired", n)
+	}
+
+	// 3) Peringatan sisa 5 menit.
+	nearing, err := repo.SessionsNearingEnd(nowMs, 5)
+	if err != nil {
+		log.Printf("[CRON] Komputer: gagal memuat sesi mendekati akhir: %v", err)
+		return
+	}
+	if len(nearing) == 0 {
+		return
+	}
+	notifRepo := repository.NewNotificationRepository(s.db)
+	for _, sess := range nearing {
+		repo.MarkWarnSent(sess.ID)
+		var uid string
+		_ = s.db.QueryRow(`SELECT id FROM users WHERE student_id = ? AND is_active = 1 LIMIT 1`, sess.StudentID).Scan(&uid)
+		if uid == "" {
+			continue
+		}
+		uidCopy := uid
+		sisa := int(sess.DeadlineAt.Sub(now).Minutes())
+		if sisa < 1 {
+			sisa = 1
+		}
+		_ = notifRepo.CreateNotification(models.Notification{
+			UserID:    &uidCopy,
+			Type:      "warning",
+			Category:  "perpustakaan",
+			Title:     "Waktu komputer hampir habis",
+			Message:   "Sisa " + strconv.Itoa(sisa) + " menit lagi. Segera simpan pekerjaanmu sebelum komputer terkunci.",
+			TargetURL: handlers.StrPtr("/perpustakaan/saya/laporan-baca"),
+		})
+		if s.push != nil && s.push.Enabled() {
+			_ = s.push.SendToUsers([]string{uid}, models.PushPayload{
+				Title: "Waktu komputer hampir habis",
+				Body:  "Sisa " + strconv.Itoa(sisa) + " menit lagi sebelum komputer terkunci.",
+				URL:   "/perpustakaan/saya/laporan-baca",
+				Tag:   "computer-" + sess.ID,
+			})
+		}
+	}
 }
 
 func labelStatus(status string) string {
