@@ -22,6 +22,7 @@ import {
   ArrowRightLeft,
   FileText,
   Library,
+  MonitorPlay,
   ArrowRight,
   ShieldCheck,
   Globe,
@@ -207,6 +208,7 @@ const navGroups: NavGroup[] = [
       { href: "/ruang-tumbuh", label: "Ruang Tumbuh", icon: Sprout, roles: SISWA_ROLES },
       { href: "/presensi/saya", label: "Presensi Saya", icon: ClipboardList, roles: SISWA_ROLES },
       { href: "/tabungan/saya", label: "Tabungan Saya", icon: Wallet, roles: SISWA_ROLES },
+      { href: "/perpustakaan/saya/laporan-baca", label: "Komputer Belajar", icon: MonitorPlay, roles: SISWA_ROLES },
     ],
   },
   {
@@ -215,6 +217,7 @@ const navGroups: NavGroup[] = [
       { href: "/overview", label: "Beranda", icon: LayoutDashboard, roles: ALL_DASHBOARD_ROLES },
       { href: "/chat", label: "Pesan", icon: MessageCircle, roles: ALL_DASHBOARD_ROLES },
       { href: "/perpustakaan", label: "Perpustakaan", icon: Library, roles: ADMIN_ROLES },
+      { href: "/perpustakaan/komputer", label: "Komputer Belajar", icon: MonitorPlay, roles: GURU_ACCESS_ROLES },
       { href: "/inventaris", label: "Inventaris", icon: Package, roles: INVENTARIS_ROLES },
       { href: "/arsip", label: "E-Arsip", icon: FileText, roles: ADMIN_ROLES },
       { href: "/docstation", label: "DocStation", icon: Printer, roles: DOCSTATION_ROLES },

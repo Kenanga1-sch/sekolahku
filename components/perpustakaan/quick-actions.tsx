@@ -12,6 +12,7 @@ import {
     ScanBarcode,
     Users,
     TrendingUp,
+    MonitorPlay,
 } from "lucide-react";
 
 const QUICK_ACTIONS = [
@@ -46,6 +47,14 @@ const QUICK_ACTIONS = [
         href: "/kiosk",
         color: "text-cyan-500",
         bgColor: "bg-cyan-500/10 hover:bg-cyan-500/20",
+    },
+    {
+        title: "Komputer Belajar",
+        description: "Jadwal & kuota",
+        icon: MonitorPlay,
+        href: "/perpustakaan/komputer",
+        color: "text-sky-500",
+        bgColor: "bg-sky-500/10 hover:bg-sky-500/20",
     },
     {
         title: "Binding Buku",
