@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { goPost } from "@/lib/api-client";
 import { formatClassName } from "@/lib/class-utils";
+import { usePageVisible } from "@/lib/hooks/use-page-visible";
 
 interface ScanResult {
   success: boolean;
@@ -53,6 +54,8 @@ export function QRScanner({ sessionId, onScanSuccess, onScanError }: QRScannerPr
   const [lastResult, setLastResult] = useState<ScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [scanCount, setScanCount] = useState(0);
+  // Tab tidak terlihat → kamera & decode berhenti agar HP tidak panas.
+  const pageVisible = usePageVisible();
 
   const handleScan = useCallback(
     async (result: { rawValue: string }[]) => {
@@ -154,6 +157,7 @@ export function QRScanner({ sessionId, onScanSuccess, onScanError }: QRScannerPr
               <Scanner
                 onScan={handleScan}
                 onError={handleError}
+                paused={!pageVisible}
                 constraints={{
                   facingMode: "environment",
                 }}

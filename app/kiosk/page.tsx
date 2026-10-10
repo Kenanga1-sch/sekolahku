@@ -30,6 +30,7 @@ import { goPost } from "@/lib/api-client";
 import { formatClassName } from "@/lib/class-utils";
 import { evaluateScan } from "@/lib/kiosk/scan-gate";
 import { getDDCLabel } from "@/lib/library/ddc-mapping";
+import { usePageVisible } from "@/lib/hooks/use-page-visible";
 import type { LibraryMember, LibraryLoan } from "@/types/library";
 
 // Dynamic import QR Scanner to prevent SSR issues
@@ -140,6 +141,8 @@ export default function KioskPage() {
     const [attCountdown, setAttCountdown] = useState(0);
     const [countdown, setCountdown] = useState(0);
     const [cameraEnabled, setCameraEnabled] = useState(true);
+    // Tab tidak terlihat → kamera & decode berhenti (HP tidak panas).
+    const pageVisible = usePageVisible();
     const [cameraFacing, setCameraFacing] = useState<"environment" | "user">("environment");
     const [mirrorPreview, setMirrorPreview] = useState(() => {
         if (typeof window === "undefined") return true;
@@ -699,6 +702,7 @@ export default function KioskPage() {
                                         onScan={onScanResult}
                                         onError={handleScanError}
                                         scanDelay={250}
+                                        paused={!pageVisible}
                                         constraints={{ facingMode: cameraFacing }}
                                         styles={{
                                             container: { width: "100%", height: "100%" },

@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { CameraOff, RefreshCw, FlipHorizontal, SwitchCamera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { usePageVisible } from "@/lib/hooks/use-page-visible";
 
 // Dynamic import to prevent SSR issues
 const Scanner = dynamic(
@@ -13,9 +14,16 @@ const Scanner = dynamic(
 );
 
 import type { BarcodeFormat } from "barcode-detector";
-import type { IDetectedBarcode, TrackFunction } from "@yudiel/react-qr-scanner";
+import type { TrackFunction } from "@yudiel/react-qr-scanner";
 
 type FacingMode = "user" | "environment";
+
+/**
+ * Lama idle (tanpa deteksi) sebelum tracker dilepas dan decode diperlambat
+ * dari ~100x/detik ke 2x/detik. Barcode tetap terdeteksi saat idle, hanya
+ * lebih jarang — cukup untuk memicu kembali mode cepat begitu ada kode.
+ */
+const IDLE_AFTER_MS = 5000;
 
 interface QRScannerProps {
   onScan: (data: string) => void;
@@ -57,6 +65,10 @@ export function QRScanner({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<FacingMode>("environment"); // Default to back camera for mobile-first scanning
   const [isMounted, setIsMounted] = useState(false);
+  // Pause otomatis saat tab tidak terlihat: kamera + loop decode rAF
+  // dihentikan sepenuhnya (bukan sekadar overlay) supaya HP tidak panas
+  // dan baterai tidak terkuras saat pengguna pindah aplikasi/layar mati.
+  const pageVisible = usePageVisible();
 
   useEffect(() => {
       // Load preference from localStorage
@@ -76,14 +88,40 @@ export function QRScanner({
   // Auto-mirror logic: only mirror if it's front camera AND mirrored prop is true
   const isMirrored = facingMode === "user" && mirrored;
 
+  // Idle throttle: kehadiran `tracker` menurunkan retryDelay library dari
+  // 500ms ke 10ms (decode ~100x/detik di main thread → HP panas). Setelah
+  // beberapa detik tanpa deteksi, tracker dilepas (decode turun ke 2x/detik)
+  // dan dipasang kembali begitu ada barcode — sehingga scan tetap responsif
+  // saat benar-benar mengarahkan barcode, tanpa membakar CPU terus-menerus.
+  const [trackerEnabled, setTrackerEnabled] = useState(barcodeMode);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const markActivity = useCallback(() => {
+    setTrackerEnabled(true);
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    idleTimerRef.current = setTimeout(() => setTrackerEnabled(false), IDLE_AFTER_MS);
+  }, []);
+
+  // Mulai siklus idle saat mode barcode aktif; bersihkan timer saat unmount.
+  // Nilai awal trackerEnabled sudah true (barcodeMode), jadi effect cukup
+  // memasang timer — tidak ada setState di badan effect.
+  useEffect(() => {
+    if (!barcodeMode) return;
+    idleTimerRef.current = setTimeout(() => setTrackerEnabled(false), IDLE_AFTER_MS);
+    return () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    };
+  }, [barcodeMode]);
+
   /**
    * Tracker hanya dipakai di mode barcode. Dua manfaat:
    * 1. Kehadirannya menurunkan retryDelay library dari 500ms ke 10ms —
-   *    sebelumnya decoder hanya mencoba 2x/detik, barcode kecil sering lolos.
-   * 2. Menggambar kotak highlight hijau + nilai terdeteksi di canvas overlay,
-   *    sebagai indikator visual bahwa kamera "melihat" barcode.
+   *    decoder mencoba ~100x/detik sehingga barcode cepat terbaca.
+   * 2. Menggambar kotak highlight hijau + nilai terdeteksi di canvas overlay.
+   * Selama idle (tidak ada deteksi) tracker dilepas agar decode melambat.
    */
   const trackBarcode = useCallback<TrackFunction>((detectedCodes, ctx) => {
+    if (detectedCodes.length) markActivity();
     if (!detectedCodes.length) return;
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     for (const code of detectedCodes) {
@@ -102,25 +140,25 @@ export function QRScanner({
         ctx.fillText(code.rawValue, labelX, labelY);
       }
     }
-  }, []);
+  }, [markActivity]);
 
   const scannerConstraints = barcodeMode
     ? {
         facingMode,
-        // Barcode kecil butuh piksel lebih banyak. min diturunkan dari 640 ke
-        // 320 supaya kamera HP lama/murah tidak ditolak (constraint min yang
-        // ketat mematikan kamera sepenuhnya, bukan sekadar menurunkan kualitas).
-        // ideal hanya preferensi — kamera tanpa dukungan tetap jalan pada
-        // resolusi terdekat yang tersedia.
-        width: { min: 320, ideal: 2560, max: 3840 },
-        height: { min: 320, ideal: 1440, max: 2160 },
+        // Resolusi ideal diturunkan dari 2560×1440 → 1280×720: decode
+        // barcode berjalan di main thread, dan area 4× lebih kecil membuat
+        // CPU jauh lebih ringan (HP tidak panas) tanpa kehilangan akurasi
+        // untuk barcode yang didekatkan manual. min tetap rendah agar
+        // kamera HP lama tidak menolak constraint.
+        width: { min: 320, ideal: 1280, max: 1920 },
+        height: { min: 320, ideal: 720, max: 1080 },
       }
     : { facingMode };
 
   // Tombol torch hanya dirender library bila capabilities kamera memilikinya,
   // jadi aman diaktifkan untuk semua HP di barcodeMode.
   const scannerComponents = barcodeMode
-    ? { onOff: true, tracker: trackBarcode, zoom: true, torch: true }
+    ? { onOff: true, tracker: trackerEnabled ? trackBarcode : undefined, zoom: true, torch: true }
     : { onOff: true };
 
   const lastScanRef = useRef<string>("");
@@ -133,6 +171,10 @@ export function QRScanner({
           onScan(result[0].rawValue);
           return;
       }
+      // Barcode terdeteksi → pasang kembali tracker (mode decode cepat) bila
+      // sebelumnya dilepas saat idle. Deteksi saat idle tetap terjadi karena
+      // retryDelay 500ms, jadi siklus cepat bisa dipulihkan dari sini.
+      markActivity();
       // Barcode: library sudah menahan duplikat selama kode yang sama masih
       // terlihat, tapi saat kamera goyang kode lama bisa muncul-hilang sehingga
       // onScan terpicu berulang dan membanjiri handler (mis. trigger lookup
@@ -192,6 +234,9 @@ export function QRScanner({
                 onError={handleError}
                 formats={formats}
                 constraints={scannerConstraints}
+                // Tab tidak terlihat (pindah aplikasi / layar mati) → hentikan
+                // kamera + loop decode sepenuhnya agar HP tidak panas.
+                paused={!pageVisible}
                 sound={barcodeMode ? (sound ?? true) : undefined}
                 styles={{
                     container: { width: "100%", height: "100%" },
