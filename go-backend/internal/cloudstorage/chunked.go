@@ -23,12 +23,15 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/nrednav/cuid2"
 
-	"github.com/sekolahku/go-backend/internal/repository"
 	"github.com/sekolahku/go-backend/internal/models"
+	"github.com/sekolahku/go-backend/internal/repository"
 )
 
 // ChunkUploadResult adalah hasil satu potongan yang masuk.
@@ -38,6 +41,10 @@ type ChunkUploadResult struct {
 	TotalChunks    int    `json:"totalChunks"`
 	// Offset byte yang sudah tersimpan (untuk validasi di klien).
 	StoredBytes int64 `json:"storedBytes"`
+	// UploadedIndexes: indeks potongan yang benar-benar ada di server. Klien
+	// memakai ini untuk resume sehingga tahu persis potongan mana yang perlu
+	// dikirim ulang (bukan asumsi "0..N-1").
+	UploadedIndexes []int `json:"uploadedIndexes"`
 }
 
 // CreateSession membuat sesi upload bertahap baru.
@@ -52,16 +59,16 @@ func (s *Service) CreateSession(ownerID, name, mimeType string, parentID *string
 		return nil, fmt.Errorf("jumlah/ukuran potongan tidak valid")
 	}
 	sess := &models.CloudUploadSession{
-		ID:           cuid2.Generate(),
-		OwnerID:      ownerID,
-		FileName:     name,
-		MimeType:     mimeType,
-		ParentID:     parentID,
-		TotalSize:    totalSize,
-		TotalChunks:  totalChunks,
-		ChunkSize:    chunkSize,
-		Encrypted:    encrypted,
-		Status:       models.UploadStatusUploading,
+		ID:          cuid2.Generate(),
+		OwnerID:     ownerID,
+		FileName:    name,
+		MimeType:    mimeType,
+		ParentID:    parentID,
+		TotalSize:   totalSize,
+		TotalChunks: totalChunks,
+		ChunkSize:   chunkSize,
+		Encrypted:   encrypted,
+		Status:      models.UploadStatusUploading,
 	}
 	if err := s.sessRepo.Create(sess); err != nil {
 		return nil, err
@@ -108,16 +115,56 @@ func (s *Service) SaveChunk(ownerID, sessionID string, index int, reader io.Read
 		return nil, err
 	}
 
+	// Sinkronkan counter DB (untuk statistik/observability saja). Sumber
+	// kebenaran tetap berkas di disk — lihat chunkIndexesOnDisk.
 	uploaded, err := s.sessRepo.AddChunk(ownerID, sessionID)
 	if err != nil {
 		return nil, err
 	}
+	// Laporkan jumlah potongan yang BENAR-BENAR ada di disk, bukan counter:
+	// upload ulang indeks yang sama (retry) tidak boleh menggelembungkan angka.
+	onDisk := s.chunkIndexesOnDisk(sessionID)
 	return &ChunkUploadResult{
-		SessionID:      sessionID,
-		UploadedChunks: uploaded,
-		TotalChunks:    sess.TotalChunks,
-		StoredBytes:    int64(uploaded) * sess.ChunkSize,
+		SessionID:       sessionID,
+		UploadedChunks:  len(onDisk),
+		TotalChunks:     sess.TotalChunks,
+		StoredBytes:     int64(uploaded) * sess.ChunkSize,
+		UploadedIndexes: onDisk,
 	}, nil
+}
+
+// chunkIndexesOnDisk memindai direktori sesi dan mengembalikan indeks potongan
+// yang benar-benar ada (file "chunk-N"), terurut menaik. Ini menjadikan disk
+// sebagai sumber kebenaran sehingga sesi tetap konsisten walau chunk hilang
+// (mis. /tmp dibersihkan, container restart) atau ter-upload ulang.
+func (s *Service) chunkIndexesOnDisk(sessionID string) []int {
+	dir := s.chunkDir(sessionID)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return []int{}
+	}
+	indexes := make([]int, 0, len(entries))
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		numStr, ok := strings.CutPrefix(name, "chunk-")
+		if !ok {
+			continue
+		}
+		// Lewati berkas sementara ".part" yang sedang ditulis.
+		if strings.HasSuffix(numStr, ".part") {
+			continue
+		}
+		n, err := strconv.Atoi(numStr)
+		if err != nil {
+			continue
+		}
+		indexes = append(indexes, n)
+	}
+	sort.Ints(indexes)
+	return indexes
 }
 
 // Complete memulai penggabungan + pengiriman ke Telegram secara async.
@@ -130,8 +177,13 @@ func (s *Service) Complete(ctx context.Context, ownerID, sessionID string) (*mod
 	if sess.Status != models.UploadStatusUploading {
 		return nil, fmt.Errorf("sesi tidak dalam status uploading (status: %s)", sess.Status)
 	}
-	if sess.UploadedChunks != sess.TotalChunks {
-		return nil, fmt.Errorf("potongan belum lengkap: %d/%d", sess.UploadedChunks, sess.TotalChunks)
+	// Validasi kelengkapan berdasarkan berkas nyata di disk, bukan counter DB:
+	// counter bisa salah bila ada retry/duplikat atau berkas hilang.
+	onDisk := s.chunkIndexesOnDisk(sessionID)
+	if len(onDisk) != sess.TotalChunks {
+		missing := missingChunkIndexes(onDisk, sess.TotalChunks)
+		return nil, fmt.Errorf("potongan belum lengkap: %d/%d (hilang: %v)",
+			len(onDisk), sess.TotalChunks, missing)
 	}
 	if err := s.sessRepo.SetStatus(ownerID, sessionID, models.UploadStatusMerging, ""); err != nil {
 		return nil, err
@@ -202,17 +254,17 @@ func (s *Service) processSession(ctx context.Context, ownerID, sessionID string)
 	now := time.Now().Unix()
 	used, _ := s.repo.UsedNames(ownerID, sess.ParentID, "")
 	cloudFile := &models.CloudFile{
-		ID:         cuid2.Generate(),
-		OwnerID:    ownerID,
-		Name:       repository.UniqueCloudName(used, sess.FileName),
-		ParentID:   sess.ParentID,
-		FileID:     &fileID,
-		MessageID:  &messageID,
-		MimeType:   sess.MimeType,
-		Size:       size,
-		Encrypted:  sess.Encrypted,
-		CreatedAt:  now,
-		UpdatedAt:  now,
+		ID:        cuid2.Generate(),
+		OwnerID:   ownerID,
+		Name:      repository.UniqueCloudName(used, sess.FileName),
+		ParentID:  sess.ParentID,
+		FileID:    &fileID,
+		MessageID: &messageID,
+		MimeType:  sess.MimeType,
+		Size:      size,
+		Encrypted: sess.Encrypted,
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
 	if err := s.createWithUniqueName(ownerID, sess.ParentID, cloudFile, sess.FileName); err != nil {
 		// Gagal simpan metadata → hapus file di Telegram agar tidak orphan.
@@ -247,8 +299,39 @@ func (s *Service) mergeChunks(dir, outPath string, totalChunks int) error {
 }
 
 // GetSessionStatus mengembalikan status sesi untuk polling klien.
+// Field UploadedChunks & MissingChunks diisi dari berkas nyata di disk agar
+// klien dapat memutuskan resume yang benar walau server sempat restart.
 func (s *Service) GetSessionStatus(ownerID, sessionID string) (*models.CloudUploadSession, error) {
-	return s.sessRepo.Get(ownerID, sessionID)
+	sess, err := s.sessRepo.Get(ownerID, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	onDisk := s.chunkIndexesOnDisk(sessionID)
+	sess.UploadedChunks = len(onDisk)
+	sess.UploadedIndexes = onDisk
+	switch sess.Status {
+	case models.UploadStatusUploading:
+		sess.MissingChunks = missingChunkIndexes(onDisk, sess.TotalChunks)
+	default:
+		sess.MissingChunks = []int{}
+	}
+	return sess, nil
+}
+
+// missingChunkIndexes mengembalikan indeks 0..total-1 yang tidak ada di set
+// `present` (diasumsikan terurut menaik).
+func missingChunkIndexes(present []int, total int) []int {
+	have := make(map[int]struct{}, len(present))
+	for _, n := range present {
+		have[n] = struct{}{}
+	}
+	missing := make([]int, 0)
+	for i := 0; i < total; i++ {
+		if _, ok := have[i]; !ok {
+			missing = append(missing, i)
+		}
+	}
+	return missing
 }
 
 // AbortSession membatalkan upload: hapus potongan sementara + baris sesi.

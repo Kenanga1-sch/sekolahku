@@ -29,7 +29,6 @@ export interface UploadSessionInfo {
   totalSize: number;
   uploadedChunks: number[];
 }
-
 /** Store IndexedDB minimal: key = nama file+ukuran, value = info sesi. */
 function openChunkDb(): Promise<IDBDatabase | null> {
   return new Promise((resolve) => {
@@ -170,6 +169,73 @@ export async function uploadFileChunked(
       totalSize: file.size,
       uploadedChunks: [],
     };
+  } else {
+    // Resume: jangan percaya catatan lokal. Tanyakan ke server potongan mana
+    // yang BENAR-BENAR ada (chunk bisa hilang bila /tmp dibersihkan, container
+    // restart, atau sesi kedaluwarsa). Bila server tidak mengenal sesi ini,
+    // mulai sesi baru dari awal.
+    try {
+      const st = await fetch(`${API_BASE}/upload-sessions/${info.sessionId}/status`, {
+        credentials: "include",
+        signal,
+      });
+      if (st.ok) {
+        const sd = await st.json();
+        const stStatus: string = sd.data?.status || "";
+        const serverIndexes: number[] = Array.isArray(sd.data?.uploaded_indexes)
+          ? sd.data.uploaded_indexes
+          : [];
+        if (stStatus === "uploading") {
+          info.uploadedChunks = serverIndexes;
+        } else if (stStatus === "done") {
+          // Sudah selesai sepenuhnya di server.
+          await clearSession(file);
+          onProgress({ percent: 100, uploadedChunks: totalChunks, totalChunks, status: "done" });
+          return;
+        } else {
+          // merging/failed → sesi tidak bisa dilanjutkan; buat sesi baru.
+          info = null as unknown as UploadSessionInfo;
+        }
+      } else if (st.status === 404) {
+        // Sesi lama sudah dibersihkan server → mulai dari awal.
+        info = null as unknown as UploadSessionInfo;
+      }
+    } catch {
+      if (signal?.aborted) throw new Error("Dibatalkan");
+      // Gagal menghubungi server saat verifikasi resume → mulai dari awal agar
+      // tidak mengirim complete untuk sesi yang potongannya tidak lengkap.
+      info = null as unknown as UploadSessionInfo;
+    }
+
+    if (!info) {
+      const res = await fetch(`${API_BASE}/upload-sessions`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": getCSRFToken() || "" },
+        body: JSON.stringify({
+          fileName: file.name,
+          mimeType,
+          parentId: parentId && parentId !== "root" ? parentId : null,
+          totalSize: file.size,
+          totalChunks,
+          chunkSize: CHUNK_SIZE,
+          encrypted: false,
+        }),
+        signal,
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Gagal memulai upload bertahap");
+      }
+      const data = await res.json();
+      info = {
+        sessionId: data.data.id,
+        totalChunks,
+        chunkSize: CHUNK_SIZE,
+        totalSize: file.size,
+        uploadedChunks: [],
+      };
+    }
   }
 
   const report = (uploaded: number, status: string, message?: string) =>
@@ -210,7 +276,13 @@ export async function uploadFileChunked(
           throw new Error(data?.error || `Potongan ${i} gagal diunggah`);
         }
         const data = await res.json();
-        info.uploadedChunks = Array.from({ length: data.data.uploadedChunks }, (_, n) => n);
+        // Utamakan daftar indeks nyata dari server. Fallback ke asumsi lama
+        // (0..n-1) hanya bila field tidak ada (server versi lama).
+        if (Array.isArray(data.data.uploadedIndexes)) {
+          info.uploadedChunks = data.data.uploadedIndexes as number[];
+        } else {
+          info.uploadedChunks = Array.from({ length: data.data.uploadedChunks }, (_, n) => n);
+        }
         await saveSession(file, info);
         lastErr = null;
         break;

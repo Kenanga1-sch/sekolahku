@@ -149,6 +149,81 @@ func TestChunkedUploadRoundtrip(t *testing.T) {
 	}
 }
 
+// Chunk yang hilang dari disk harus terdeteksi & dilaporkan, walau counter DB
+// mengira sudah lengkap (skenario /tmp dibersihkan / container restart).
+func TestChunkedUploadDetectsMissingChunkOnDisk(t *testing.T) {
+	svc, _, _ := setupChunkedService(t)
+	const chunkSize = 30
+	sess, err := svc.CreateSession("u1", "v.mp4", "video/mp4", nil, 90, 3, chunkSize, false)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	for i := 0; i < 3; i++ {
+		if _, err := svc.SaveChunk("u1", sess.ID, i, bytes.NewReader(chunkBytes(i, chunkSize))); err != nil {
+			t.Fatalf("save %d: %v", i, err)
+		}
+	}
+
+	// Simulasikan chunk-0 hilang dari disk (mis. cleanup).
+	if err := os.Remove(svc.chunkDir(sess.ID) + "/chunk-0"); err != nil {
+		t.Fatalf("remove chunk-0: %v", err)
+	}
+
+	// Status harus melaporkan 2/3 dan missing [0], juga uploaded_indexes [1 2].
+	st, err := svc.GetSessionStatus("u1", sess.ID)
+	if err != nil {
+		t.Fatalf("status: %v", err)
+	}
+	if st.UploadedChunks != 2 {
+		t.Fatalf("uploaded di disk = %d, want 2", st.UploadedChunks)
+	}
+	if len(st.MissingChunks) != 1 || st.MissingChunks[0] != 0 {
+		t.Fatalf("missing = %v, want [0]", st.MissingChunks)
+	}
+	if len(st.UploadedIndexes) != 2 || st.UploadedIndexes[0] != 1 || st.UploadedIndexes[1] != 2 {
+		t.Fatalf("uploaded_indexes = %v, want [1 2]", st.UploadedIndexes)
+	}
+
+	// Complete harus menolak karena potongan tidak lengkap di disk.
+	if _, err := svc.Complete(context.Background(), "u1", sess.ID); err == nil {
+		t.Fatal("complete dengan chunk hilang harus error")
+	}
+
+	// Unggah ulang chunk-0 → sekarang lengkap.
+	if _, err := svc.SaveChunk("u1", sess.ID, 0, bytes.NewReader(chunkBytes(0, chunkSize))); err != nil {
+		t.Fatalf("re-save chunk-0: %v", err)
+	}
+	if _, err := svc.Complete(context.Background(), "u1", sess.ID); err != nil {
+		t.Fatalf("complete setelah lengkap: %v", err)
+	}
+}
+
+// Mengunggah ulang indeks yang sama (retry) tidak boleh menggelembungkan
+// jumlah potongan — counter DB boleh naik, tapi laporan ke klien dari disk.
+func TestChunkedUploadRetrySameIndexDoesNotInflate(t *testing.T) {
+	svc, _, _ := setupChunkedService(t)
+	sess, err := svc.CreateSession("u1", "f.bin", "", nil, 60, 2, 30, false)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if _, err := svc.SaveChunk("u1", sess.ID, 0, bytes.NewReader(chunkBytes(0, 30))); err != nil {
+		t.Fatalf("save 0: %v", err)
+	}
+	// Retry indeks 0 tiga kali.
+	for n := 0; n < 3; n++ {
+		res, err := svc.SaveChunk("u1", sess.ID, 0, bytes.NewReader(chunkBytes(0, 30)))
+		if err != nil {
+			t.Fatalf("retry 0: %v", err)
+		}
+		if res.UploadedChunks != 1 {
+			t.Fatalf("uploaded setelah retry = %d, want 1 (dari disk)", res.UploadedChunks)
+		}
+		if len(res.UploadedIndexes) != 1 || res.UploadedIndexes[0] != 0 {
+			t.Fatalf("uploaded_indexes = %v, want [0]", res.UploadedIndexes)
+		}
+	}
+}
+
 func TestChunkedUploadChunkOutOfRange(t *testing.T) {
 	svc, _, _ := setupChunkedService(t)
 	sess, err := svc.CreateSession("u1", "f.bin", "", nil, 60, 2, 30, false)

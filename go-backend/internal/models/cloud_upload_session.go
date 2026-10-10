@@ -16,6 +16,11 @@ type CloudUploadSession struct {
 	Error          string  `json:"error,omitempty"`
 	CreatedAt      int64   `json:"created_at"`
 	UpdatedAt      int64   `json:"updated_at"`
+	// UploadedIndexes: indeks potongan yang ada di server (diisi saat GET status,
+	// bukan dari kolom DB). MissingChunks: indeks yang belum diterima. Keduanya
+	// diisi dari berkas nyata di disk sehingga resume tetap akurat.
+	UploadedIndexes []int `json:"uploaded_indexes,omitempty"`
+	MissingChunks   []int `json:"missing_chunks,omitempty"`
 }
 
 // Status sesi upload bertahap.
