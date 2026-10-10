@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Cloud,
   Folder,
@@ -276,23 +276,41 @@ export function CloudStorageApp() {
         toast.error("Cloud Storage belum diaktifkan (bot token belum diisi)");
         return;
       }
-      setUploads(arr.map((f) => ({ name: f.name, percent: 0 })));
+      // Validasi ukuran di klien agar pengguna tak menunggu lama hanya untuk
+      // ditolak server. Server tetap memvalidasi ulang (klien bukan batas aman).
+      const maxBytes = config.max_upload_size > 0 ? config.max_upload_size : 0;
+      let rejected = 0;
+      const accepted = maxBytes
+        ? arr.filter((f) => {
+            if (f.size > maxBytes) {
+              rejected++;
+              toast.error(`${f.name}: melebihi batas ${cloud.formatBytes(maxBytes)}`);
+              return false;
+            }
+            return true;
+          })
+        : arr;
+      if (accepted.length === 0) {
+        if (!maxBytes && rejected === 0) toast.error("Tidak ada berkas untuk diunggah");
+        return;
+      }
+      setUploads(accepted.map((f) => ({ name: f.name, percent: 0 })));
       let ok = 0;
-      for (let i = 0; i < arr.length; i++) {
+      for (let i = 0; i < accepted.length; i++) {
         try {
-          if (arr[i].size > CHUNKED_THRESHOLD) {
-            await uploadFileChunked(arr[i], parentId, (p) => {
+          if (accepted[i].size > CHUNKED_THRESHOLD) {
+            await uploadFileChunked(accepted[i], parentId, (p) => {
               setUploads((prev) => prev.map((u, idx) => (idx === i ? { ...u, percent: p.percent } : u)));
             });
-            await clearResumeState(arr[i]);
+            await clearResumeState(accepted[i]);
           } else {
-            await cloud.uploadFileWithProgress(arr[i], parentId, (p) => {
+            await cloud.uploadFileWithProgress(accepted[i], parentId, (p) => {
               setUploads((prev) => prev.map((u, idx) => (idx === i ? { ...u, percent: p } : u)));
             });
           }
           ok++;
         } catch (e: unknown) {
-          toast.error(`${arr[i].name}: ${e instanceof Error ? e.message : "gagal"}`);
+          toast.error(`${accepted[i].name}: ${e instanceof Error ? e.message : "gagal"}`);
         }
       }
       setUploads([]);
@@ -498,12 +516,6 @@ export function CloudStorageApp() {
     containerRef: gridRef,
   });
 
-  const usedPercent = useMemo(() => {
-    if (usage.used_bytes <= 0) return 0;
-    const baseline = 5 * 1024 * 1024 * 1024;
-    return Math.min(100, Math.round((usage.used_bytes / baseline) * 100));
-  }, [usage]);
-
   const viewTitle: Record<View, string> = {
     files: "Penyimpanan pribadi Anda",
     starred: "Berkas favorit Anda",
@@ -537,8 +549,9 @@ export function CloudStorageApp() {
 
       {usage.used_bytes > 0 && (
         <div className="space-y-1">
-          <Progress value={usedPercent} className="h-1.5" />
-          <p className="text-xs text-neutral-400">Pemakaian penyimpanan (tanpa batas kuota)</p>
+          <p className="text-xs text-neutral-400">
+            Pemakaian penyimpanan: <span className="font-medium text-neutral-600 dark:text-neutral-300">{cloud.formatBytes(usage.used_bytes)}</span> • {usage.file_count} berkas (tanpa batas kuota)
+          </p>
         </div>
       )}
 
@@ -836,7 +849,7 @@ export function CloudStorageApp() {
           </div>
         ) : layout === "list" ? (
           /* ================= TAMPILAN DAFTAR ================= */
-          <div className="overflow-hidden rounded-xl border dark:border-neutral-800">
+          <div role="list" className="overflow-hidden rounded-xl border dark:border-neutral-800">
             <div className="hidden grid-cols-[auto_1fr_100px_120px_130px_40px] items-center gap-3 border-b bg-neutral-50 px-3 py-2 text-xs font-medium text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900 md:grid">
               <span className="w-4" />
               <span>Nama</span>
@@ -849,7 +862,17 @@ export function CloudStorageApp() {
               <div
                 key={f.id}
                 data-select-id={f.id}
+                role="listitem"
+                tabIndex={0}
+                aria-label={`${f.is_folder ? "Folder" : "Berkas"} ${f.name}`}
                 draggable
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    if (f.is_folder) openFolder(f);
+                    else setPreview(f);
+                  }
+                }}
                 onDragStart={(e) => startDrag(e, selected.has(f.id) ? Array.from(selected) : [f.id], e.altKey ? "copy" : "move")}
                 onDragEnd={() => {
                   setDrag(null);
@@ -867,7 +890,7 @@ export function CloudStorageApp() {
                   dropOnFolder(f.id);
                 }}
                 className={cn(
-                  "grid cursor-pointer grid-cols-[auto_1fr_40px] items-center gap-3 border-b px-3 py-2.5 last:border-b-0 hover:bg-neutral-50 md:grid-cols-[auto_1fr_100px_120px_130px_40px] dark:border-neutral-800 dark:hover:bg-neutral-900",
+                  "grid cursor-pointer grid-cols-[auto_1fr_40px] items-center gap-3 border-b px-3 py-2.5 last:border-b-0 hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 md:grid-cols-[auto_1fr_100px_120px_130px_40px] dark:border-neutral-800 dark:hover:bg-neutral-900",
                   selected.has(f.id) && "bg-emerald-50 dark:bg-emerald-950/30",
                   dragOverFolder === f.id && "ring-2 ring-inset ring-emerald-500",
                 )}
@@ -922,11 +945,21 @@ export function CloudStorageApp() {
           </div>
         ) : (
           /* ================= TAMPILAN KOTAK ================= */
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          <div role="list" className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {displayed.map((f) => (
               <Card
                 key={f.id}
                 data-select-id={f.id}
+                role="listitem"
+                tabIndex={0}
+                aria-label={`${f.is_folder ? "Folder" : "Berkas"} ${f.name}`}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    if (f.is_folder) openFolder(f);
+                    else setPreview(f);
+                  }
+                }}
                 draggable
                 onDragStart={(e) => startDrag(e, selected.has(f.id) ? Array.from(selected) : [f.id], e.altKey ? "copy" : "move")}
                 onDragEnd={() => {
@@ -945,7 +978,7 @@ export function CloudStorageApp() {
                   dropOnFolder(f.id);
                 }}
                 className={cn(
-                  "group relative flex cursor-pointer flex-col items-center gap-2 p-3 transition hover:shadow-md",
+                  "group relative flex cursor-pointer flex-col items-center gap-2 p-3 transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500",
                   selected.has(f.id) && "ring-2 ring-emerald-500",
                   dragOverFolder === f.id && "ring-2 ring-emerald-500 bg-emerald-50 dark:bg-emerald-950/30",
                 )}
@@ -971,7 +1004,7 @@ export function CloudStorageApp() {
                   {f.is_starred ? (
                     <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
                   ) : (
-                    <StarOff className="h-4 w-4 text-neutral-300 opacity-0 group-hover:opacity-100" />
+                      <StarOff className="h-4 w-4 text-neutral-300 md:opacity-0 md:group-hover:opacity-100" />
                   )}
                 </button>
                 <div className="absolute right-1 top-1">
@@ -1207,34 +1240,37 @@ export function CloudStorageApp() {
       {/* Floating multi-select actions */}
       {selected.size > 0 && view !== "trash" && (
         <div className="fixed bottom-20 left-1/2 z-40 flex -translate-x-1/2 flex-wrap items-center justify-center gap-1 rounded-full border bg-white px-3 py-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-900 md:bottom-6">
-          <span className="px-2 text-sm font-medium">{selected.size} dipilih</span>
-          <Button size="sm" variant="ghost" onClick={downloadZipSelected} disabled={busy} title="Unduh ZIP">
+          <span className="px-2 text-sm font-medium" aria-live="polite">{selected.size} dipilih</span>
+          <Button size="icon" variant="ghost" className="h-10 w-10" onClick={downloadZipSelected} disabled={busy} aria-label="Unduh ZIP" title="Unduh ZIP">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => setClipboard({ ids: Array.from(selected), mode: "copy" })} title="Salin">
+          <Button size="icon" variant="ghost" className="h-10 w-10" onClick={() => setClipboard({ ids: Array.from(selected), mode: "copy" })} aria-label="Salin" title="Salin">
             <Copy className="h-4 w-4" />
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => setClipboard({ ids: Array.from(selected), mode: "cut" })} title="Potong">
+          <Button size="icon" variant="ghost" className="h-10 w-10" onClick={() => setClipboard({ ids: Array.from(selected), mode: "cut" })} aria-label="Potong" title="Potong">
             <Scissors className="h-4 w-4" />
           </Button>
           <Button
-            size="sm"
+            size="icon"
             variant="ghost"
+            className="h-10 w-10"
             onClick={() => setPickerTarget({ ids: Array.from(selected), mode: "move" })}
+            aria-label="Pindah ke folder"
             title="Pindah ke folder"
           >
             <FolderInput className="h-4 w-4" />
           </Button>
           <Button
-            size="sm"
+            size="icon"
             variant="ghost"
-            className="text-rose-600"
+            className="h-10 w-10 text-rose-600"
             onClick={() => trashMany(Array.from(selected))}
+            aria-label="Hapus"
             title="Hapus"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())} title="Batal pilih">
+          <Button size="icon" variant="ghost" className="h-10 w-10" onClick={() => setSelected(new Set())} aria-label="Batal pilih" title="Batal pilih">
             <X className="h-4 w-4" />
           </Button>
         </div>

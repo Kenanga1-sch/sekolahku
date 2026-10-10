@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Download, ExternalLink, Pencil, RotateCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ export function FilePreviewDialog({ file, onClose, onEdit, onRotate }: Props) {
   const downloadUrl = cloud.fileDownloadUrl(file.id, true);
   const canEdit = cloud.isEditableText(file);
   const isImage = kind === "image";
+  const [loadError, setLoadError] = useState(false);
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -36,22 +38,36 @@ export function FilePreviewDialog({ file, onClose, onEdit, onRotate }: Props) {
         </DialogHeader>
 
         <div className="flex max-h-[70vh] min-h-[240px] items-center justify-center overflow-auto rounded-lg bg-neutral-50 dark:bg-neutral-900">
+          {loadError ? (
+            <div className="flex flex-col items-center gap-3 p-8 text-center text-neutral-500">
+              <p>Gagal memuat pratinjau berkas.</p>
+              <Button asChild size="sm">
+                <a href={downloadUrl} download>
+                  <Download className="mr-2 h-4 w-4" /> Unduh berkas
+                </a>
+              </Button>
+            </div>
+          ) : (
+            <>
           {kind === "image" && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={url} alt={file.name} className="max-h-[70vh] w-auto object-contain" />
+            <img src={url} alt={file.name} className="max-h-[70vh] w-auto object-contain" onError={() => setLoadError(true)} />
           )}
           {kind === "video" && (
-            <video src={url} controls className="max-h-[70vh] w-full">
+            <video src={url} controls className="max-h-[70vh] w-full" onError={() => setLoadError(true)}>
               Browser Anda tidak mendukung pemutar video.
             </video>
           )}
           {kind === "audio" && (
-            <audio src={url} controls className="w-full px-6">
+            <audio src={url} controls className="w-full px-6" onError={() => setLoadError(true)}>
               Browser Anda tidak mendukung pemutar audio.
             </audio>
           )}
           {kind === "pdf" && <iframe src={url} className="h-[70vh] w-full" title={file.name} />}
-          {kind === "doc" && <iframe src={url} className="h-[70vh] w-full" title={file.name} />}
+          {/* Dokumen (termasuk text/html) dirender tanpa sandbox = bisa
+              mengeksekusi skrip pada origin aplikasi (vektor XSS tersimpan).
+              sandbox="" mematikan skrip, form, & navigasi. */}
+          {kind === "doc" && <iframe src={url} sandbox="" className="h-[70vh] w-full" title={file.name} />}
           {kind === "other" && (
             <div className="flex flex-col items-center gap-2 p-8 text-neutral-400">
               <p>Pratinjau tidak tersedia untuk tipe berkas ini.</p>
@@ -59,6 +75,8 @@ export function FilePreviewDialog({ file, onClose, onEdit, onRotate }: Props) {
                 {file.mime_type || "application/octet-stream"} • {cloud.formatBytes(file.size)}
               </p>
             </div>
+          )}
+            </>
           )}
         </div>
 
