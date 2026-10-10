@@ -622,11 +622,11 @@ export function CloudStorageApp() {
           )
         ) : null}
 
-        <div className="ml-auto flex flex-wrap items-center gap-2">
+        <div className="ml-auto flex w-full flex-wrap items-center gap-2 sm:w-auto">
           {view !== "trash" && (
             <>
               <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as CloudTypeFilter)}>
-                <SelectTrigger className="h-9 w-[130px]">
+                <SelectTrigger className="h-10 flex-1 sm:h-9 sm:w-[130px] sm:flex-none">
                   <SelectValue placeholder="Jenis" />
                 </SelectTrigger>
                 <SelectContent>
@@ -643,7 +643,7 @@ export function CloudStorageApp() {
 
               {view === "files" && (
                 <Select value={sort} onValueChange={(v) => setSort(v as CloudSort)}>
-                  <SelectTrigger className="h-9 w-[150px]">
+                  <SelectTrigger className="h-10 flex-1 sm:h-9 sm:w-[150px] sm:flex-none">
                     <SelectValue placeholder="Urutkan" />
                   </SelectTrigger>
                   <SelectContent>
@@ -658,14 +658,18 @@ export function CloudStorageApp() {
 
               <div className="flex overflow-hidden rounded-md border dark:border-neutral-700">
                 <button
-                  className={cn("px-2 py-1.5", layout === "grid" ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900" : "hover:bg-neutral-100 dark:hover:bg-neutral-800")}
+                  aria-label="Tampilan kotak"
+                  aria-pressed={layout === "grid"}
+                  className={cn("flex h-11 w-11 items-center justify-center md:h-auto md:w-auto md:px-2 md:py-1.5", layout === "grid" ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900" : "hover:bg-neutral-100 dark:hover:bg-neutral-800")}
                   onClick={() => setLayout("grid")}
                   title="Tampilan kotak"
                 >
                   <LayoutGrid className="h-4 w-4" />
                 </button>
                 <button
-                  className={cn("px-2 py-1.5", layout === "list" ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900" : "hover:bg-neutral-100 dark:hover:bg-neutral-800")}
+                  aria-label="Tampilan daftar"
+                  aria-pressed={layout === "list"}
+                  className={cn("flex h-11 w-11 items-center justify-center md:h-auto md:w-auto md:px-2 md:py-1.5", layout === "list" ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900" : "hover:bg-neutral-100 dark:hover:bg-neutral-800")}
                   onClick={() => setLayout("list")}
                   title="Tampilan daftar"
                 >
@@ -873,13 +877,15 @@ export function CloudStorageApp() {
                   checked={selected.has(f.id)}
                   onChange={() => toggleSelect(f.id)}
                   onClick={(e) => e.stopPropagation()}
+                  aria-label={`Pilih ${f.name}`}
                   className="h-4 w-4 accent-emerald-600"
                 />
                 <div className="flex min-w-0 items-center gap-2">
                   <GripVertical className="h-3.5 w-3.5 shrink-0 text-neutral-300" />
                   <button
-                    className="shrink-0"
+                    className="shrink-0 p-2 -m-1"
                     onClick={(e) => toggleStar(f, e)}
+                    aria-label={f.is_starred ? "Hapus dari favorit" : "Tandai favorit"}
                     title={f.is_starred ? "Hapus dari favorit" : "Tandai favorit"}
                   >
                     {f.is_starred ? (
@@ -952,11 +958,13 @@ export function CloudStorageApp() {
                     toggleSelect(f.id);
                   }}
                   onClick={(e) => e.stopPropagation()}
-                  className="absolute left-2 top-2 h-4 w-4 accent-emerald-600"
+                  aria-label={`Pilih ${f.name}`}
+                  className="absolute left-2 top-2 h-5 w-5 accent-emerald-600"
                 />
                 <button
-                  className="absolute left-7 top-2.5"
+                  className="absolute left-8 top-1.5 p-1.5"
                   onClick={(e) => toggleStar(f, e)}
+                  aria-label={f.is_starred ? "Hapus dari favorit" : "Tandai favorit"}
                   title={f.is_starred ? "Hapus dari favorit" : "Tandai favorit"}
                 >
                   {f.is_starred ? (
@@ -1268,7 +1276,8 @@ function RowMenu({
         <Button
           size="icon"
           variant="ghost"
-          className="h-7 w-7 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
+          aria-label="Menu berkas"
+          className="h-9 w-9 opacity-100 md:h-7 md:w-7 md:opacity-0 md:group-hover:opacity-100 md:data-[state=open]:opacity-100 data-[state=open]:opacity-100"
           onClick={(e) => e.stopPropagation()}
         >
           <MoreVertical className="h-4 w-4" />
