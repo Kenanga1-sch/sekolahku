@@ -10,7 +10,7 @@
 -- Uang disimpan sebagai INTEGER Rupiah (tanpa desimal), konsisten dgn tabungan.
 
 -- 1) Unit usaha. code dipakai di URL (/keuangan/unit/:code).
-CREATE TABLE IF NOT EXISTS finance_units (
+CREATE TABLE IF NOT EXISTS unit_finance_units (
     id          TEXT PRIMARY KEY,
     code        TEXT NOT NULL UNIQUE,            -- slug unik, mis. 'sampah-plastik'
     name        TEXT NOT NULL,
@@ -23,12 +23,12 @@ CREATE TABLE IF NOT EXISTS finance_units (
     created_at  INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
     updated_at  INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
 );
-CREATE INDEX IF NOT EXISTS idx_finance_units_active ON finance_units(is_active, sort_order);
+CREATE INDEX IF NOT EXISTS idx_unit_finance_units_active ON unit_finance_units(is_active, sort_order);
 
 -- 2) Kategori pemasukan/pengeluaran. Satu kategori milik satu unit.
-CREATE TABLE IF NOT EXISTS finance_categories (
+CREATE TABLE IF NOT EXISTS unit_finance_categories (
     id         TEXT PRIMARY KEY,
-    unit_id    TEXT NOT NULL REFERENCES finance_units(id) ON DELETE CASCADE,
+    unit_id    TEXT NOT NULL REFERENCES unit_finance_units(id) ON DELETE CASCADE,
     name       TEXT NOT NULL,
     direction  TEXT NOT NULL DEFAULT 'in',       -- in|out
     is_active  INTEGER NOT NULL DEFAULT 1,
@@ -36,15 +36,15 @@ CREATE TABLE IF NOT EXISTS finance_categories (
     created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
     updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
 );
-CREATE INDEX IF NOT EXISTS idx_finance_categories_unit ON finance_categories(unit_id, direction, sort_order);
+CREATE INDEX IF NOT EXISTS idx_unit_finance_categories_unit ON unit_finance_categories(unit_id, direction, sort_order);
 
 -- 3) Buku besar transaksi. Satu transaksi = satu baris.
 --    Field sampah (kg, harga/kg, jenis sampah) disimpan sebagai kolom opsional
 --    + metadata JSON, sehingga skema yang sama melayani semua jenis unit.
-CREATE TABLE IF NOT EXISTS finance_transactions (
+CREATE TABLE IF NOT EXISTS unit_finance_transactions (
     id              TEXT PRIMARY KEY,
-    unit_id         TEXT NOT NULL REFERENCES finance_units(id) ON DELETE CASCADE,
-    category_id     TEXT REFERENCES finance_categories(id) ON DELETE SET NULL,
+    unit_id         TEXT NOT NULL REFERENCES unit_finance_units(id) ON DELETE CASCADE,
+    category_id     TEXT REFERENCES unit_finance_categories(id) ON DELETE SET NULL,
     direction       TEXT NOT NULL,               -- in|out
     amount          INTEGER NOT NULL DEFAULT 0,  -- Rupiah (total)
     description     TEXT NOT NULL DEFAULT '',
@@ -59,12 +59,12 @@ CREATE TABLE IF NOT EXISTS finance_transactions (
     created_at      INTEGER NOT NULL DEFAULT (unixepoch() * 1000),
     updated_at      INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
 );
-CREATE INDEX IF NOT EXISTS idx_finance_tx_unit_date ON finance_transactions(unit_id, tx_date);
-CREATE INDEX IF NOT EXISTS idx_finance_tx_category ON finance_transactions(category_id);
-CREATE INDEX IF NOT EXISTS idx_finance_tx_direction ON finance_transactions(direction, tx_date);
+CREATE INDEX IF NOT EXISTS idx_unit_finance_tx_unit_date ON unit_finance_transactions(unit_id, tx_date);
+CREATE INDEX IF NOT EXISTS idx_unit_finance_tx_category ON unit_finance_transactions(category_id);
+CREATE INDEX IF NOT EXISTS idx_unit_finance_tx_direction ON unit_finance_transactions(direction, tx_date);
 
 -- 4) Audit trail (append-only): siapa melakukan apa, kapan, nilai sebelum/sesudah.
-CREATE TABLE IF NOT EXISTS finance_audit_log (
+CREATE TABLE IF NOT EXISTS unit_finance_audit_log (
     id         TEXT PRIMARY KEY,
     entity     TEXT NOT NULL,                    -- unit|category|transaction
     entity_id  TEXT NOT NULL,
@@ -75,24 +75,24 @@ CREATE TABLE IF NOT EXISTS finance_audit_log (
     after      TEXT NOT NULL DEFAULT '',         -- JSON snapshot
     created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
 );
-CREATE INDEX IF NOT EXISTS idx_finance_audit_entity ON finance_audit_log(entity, entity_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_unit_finance_audit_entity ON unit_finance_audit_log(entity, entity_id, created_at);
 
 -- 5) Seed unit usaha pertama: Sampah Plastik beserta kategorinya.
 --    Saat dijual ke pengepul, seluruh sampah plastik dinyatakan sebagai satu
 --    jenis "Sampah Plastik" (bukan dipecah per jenis plastik).
-INSERT INTO finance_units (id, code, name, type, description, icon, color, sort_order)
+INSERT INTO unit_finance_units (id, code, name, type, description, icon, color, sort_order)
 SELECT 'unit_sampah_plastik', 'sampah-plastik', 'Sampah Plastik', 'sampah',
        'Pengelolaan sampah plastik yang dijual ke pengepul', 'recycle', '#16a34a', 1
-WHERE NOT EXISTS (SELECT 1 FROM finance_units WHERE code = 'sampah-plastik');
+WHERE NOT EXISTS (SELECT 1 FROM unit_finance_units WHERE code = 'sampah-plastik');
 
-INSERT INTO finance_categories (id, unit_id, name, direction, sort_order)
+INSERT INTO unit_finance_categories (id, unit_id, name, direction, sort_order)
 SELECT 'cat_sampah_jual', 'unit_sampah_plastik', 'Penjualan Sampah Plastik', 'in', 1
-WHERE NOT EXISTS (SELECT 1 FROM finance_categories WHERE id = 'cat_sampah_jual');
+WHERE NOT EXISTS (SELECT 1 FROM unit_finance_categories WHERE id = 'cat_sampah_jual');
 
-INSERT INTO finance_categories (id, unit_id, name, direction, sort_order)
+INSERT INTO unit_finance_categories (id, unit_id, name, direction, sort_order)
 SELECT 'cat_sampah_beli_alat', 'unit_sampah_plastik', 'Pembelian Alat & Perlengkapan', 'out', 2
-WHERE NOT EXISTS (SELECT 1 FROM finance_categories WHERE id = 'cat_sampah_beli_alat');
+WHERE NOT EXISTS (SELECT 1 FROM unit_finance_categories WHERE id = 'cat_sampah_beli_alat');
 
-INSERT INTO finance_categories (id, unit_id, name, direction, sort_order)
+INSERT INTO unit_finance_categories (id, unit_id, name, direction, sort_order)
 SELECT 'cat_sampah_operasional', 'unit_sampah_plastik', 'Biaya Operasional', 'out', 3
-WHERE NOT EXISTS (SELECT 1 FROM finance_categories WHERE id = 'cat_sampah_operasional');
+WHERE NOT EXISTS (SELECT 1 FROM unit_finance_categories WHERE id = 'cat_sampah_operasional');

@@ -26,7 +26,7 @@ func NewFinanceRepository(db *sql.DB) *FinanceRepository {
 
 const unitSelect = `SELECT id, code, name, type, COALESCE(description,''), COALESCE(icon,''), COALESCE(color,''),
 	COALESCE(is_active,1), COALESCE(sort_order,0), COALESCE(created_at,0), COALESCE(updated_at,0)
-	FROM finance_units`
+	FROM unit_finance_units`
 
 func (r *FinanceRepository) ListUnits(includeInactive bool) ([]models.FinanceUnit, error) {
 	q := unitSelect
@@ -100,7 +100,7 @@ func (r *FinanceRepository) CreateUnit(req models.CreateFinanceUnitRequest, acto
 	id := cuid2.Generate()
 	now := UnixMilli()
 	_, err := r.DB.Exec(`
-		INSERT INTO finance_units (id, code, name, type, description, icon, color, is_active, sort_order, created_at, updated_at)
+		INSERT INTO unit_finance_units (id, code, name, type, description, icon, color, is_active, sort_order, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, id, code, name, typ, strings.TrimSpace(req.Description), icon, strings.TrimSpace(req.Color), active, req.SortOrder, now, now)
 	if err != nil {
@@ -143,7 +143,7 @@ func (r *FinanceRepository) UpdateUnit(id string, req models.CreateFinanceUnitRe
 		active = 0
 	}
 	_, err := r.DB.Exec(`
-		UPDATE finance_units
+		UPDATE unit_finance_units
 		SET code = ?, name = ?, type = ?, description = ?, icon = ?, color = ?, is_active = ?, sort_order = ?, updated_at = ?
 		WHERE id = ?
 	`, code, strings.TrimSpace(req.Name), typ, strings.TrimSpace(req.Description), icon, strings.TrimSpace(req.Color), active, req.SortOrder, UnixMilli(), id)
@@ -163,7 +163,7 @@ func (r *FinanceRepository) DeleteUnit(id string, actorID, actorName string) err
 	if before == nil {
 		return nil
 	}
-	if _, err := r.DB.Exec(`DELETE FROM finance_units WHERE id = ?`, id); err != nil {
+	if _, err := r.DB.Exec(`DELETE FROM unit_finance_units WHERE id = ?`, id); err != nil {
 		return err
 	}
 	_, _ = r.writeAudit("unit", id, "delete", actorID, actorName, mustJSON(before), "")
@@ -187,7 +187,7 @@ func scanUnit(row rowScanner) (models.FinanceUnit, error) {
 
 const categorySelect = `SELECT c.id, c.unit_id, COALESCE(u.name,''), c.name, c.direction,
 	COALESCE(c.is_active,1), COALESCE(c.sort_order,0), COALESCE(c.created_at,0), COALESCE(c.updated_at,0)
-	FROM finance_categories c LEFT JOIN finance_units u ON u.id = c.unit_id`
+	FROM unit_finance_categories c LEFT JOIN unit_finance_units u ON u.id = c.unit_id`
 
 func (r *FinanceRepository) ListCategories(unitID string, includeInactive bool) ([]models.FinanceCategory, error) {
 	clauses := []string{"1=1"}
@@ -245,7 +245,7 @@ func (r *FinanceRepository) CreateCategory(req models.CreateFinanceCategoryReque
 	id := cuid2.Generate()
 	now := UnixMilli()
 	_, err := r.DB.Exec(`
-		INSERT INTO finance_categories (id, unit_id, name, direction, is_active, sort_order, created_at, updated_at)
+		INSERT INTO unit_finance_categories (id, unit_id, name, direction, is_active, sort_order, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`, id, unitID, name, dir, active, req.SortOrder, now, now)
 	if err != nil {
@@ -277,7 +277,7 @@ func (r *FinanceRepository) UpdateCategory(id string, req models.CreateFinanceCa
 		active = 0
 	}
 	_, err := r.DB.Exec(`
-		UPDATE finance_categories SET name = ?, direction = ?, is_active = ?, sort_order = ?, updated_at = ?
+		UPDATE unit_finance_categories SET name = ?, direction = ?, is_active = ?, sort_order = ?, updated_at = ?
 		WHERE id = ?
 	`, strings.TrimSpace(req.Name), dir, active, req.SortOrder, UnixMilli(), id)
 	if err != nil {
@@ -293,7 +293,7 @@ func (r *FinanceRepository) DeleteCategory(id string, actorID, actorName string)
 	if before == nil {
 		return nil
 	}
-	if _, err := r.DB.Exec(`DELETE FROM finance_categories WHERE id = ?`, id); err != nil {
+	if _, err := r.DB.Exec(`DELETE FROM unit_finance_categories WHERE id = ?`, id); err != nil {
 		return err
 	}
 	_, _ = r.writeAudit("category", id, "delete", actorID, actorName, mustJSON(before), "")
@@ -319,9 +319,9 @@ const txSelect = `SELECT t.id, t.unit_id, COALESCE(u.name,''), t.category_id, CO
 	t.direction, t.amount, COALESCE(t.description,''), COALESCE(t.tx_date,0), COALESCE(t.party,''),
 	t.quantity, t.unit_price, COALESCE(t.reference,''), COALESCE(t.metadata,''),
 	t.created_by, COALESCE(t.created_by_name,''), COALESCE(t.created_at,0), COALESCE(t.updated_at,0)
-	FROM finance_transactions t
-	LEFT JOIN finance_units u ON u.id = t.unit_id
-	LEFT JOIN finance_categories c ON c.id = t.category_id`
+	FROM unit_finance_transactions t
+	LEFT JOIN unit_finance_units u ON u.id = t.unit_id
+	LEFT JOIN unit_finance_categories c ON c.id = t.category_id`
 
 // FinanceTransactionFilter menyaring daftar transaksi.
 type FinanceTransactionFilter struct {
@@ -419,7 +419,7 @@ func (r *FinanceRepository) CountTransactions(f FinanceTransactionFilter) (int, 
 		args = append(args, like, like, like)
 	}
 	var n int
-	err := r.DB.QueryRow("SELECT COUNT(*) FROM finance_transactions WHERE "+strings.Join(clauses, " AND "), args...).Scan(&n)
+	err := r.DB.QueryRow("SELECT COUNT(*) FROM unit_finance_transactions WHERE "+strings.Join(clauses, " AND "), args...).Scan(&n)
 	return n, err
 }
 
@@ -483,7 +483,7 @@ func (r *FinanceRepository) CreateTransaction(req models.CreateFinanceTransactio
 	id := cuid2.Generate()
 	now := UnixMilli()
 	_, err := r.DB.Exec(`
-		INSERT INTO finance_transactions
+		INSERT INTO unit_finance_transactions
 			(id, unit_id, category_id, direction, amount, description, tx_date, party,
 			 quantity, unit_price, reference, metadata, created_by, created_by_name, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -530,7 +530,7 @@ func (r *FinanceRepository) UpdateTransaction(id string, req models.CreateFinanc
 		unitID = before.UnitID
 	}
 	_, err := r.DB.Exec(`
-		UPDATE finance_transactions
+		UPDATE unit_finance_transactions
 		SET unit_id = ?, category_id = ?, direction = ?, amount = ?, description = ?, tx_date = ?, party = ?,
 		    quantity = ?, unit_price = ?, reference = ?, metadata = ?, updated_at = ?
 		WHERE id = ?
@@ -550,7 +550,7 @@ func (r *FinanceRepository) DeleteTransaction(id string, actorID, actorName stri
 	if before == nil {
 		return nil
 	}
-	if _, err := r.DB.Exec(`DELETE FROM finance_transactions WHERE id = ?`, id); err != nil {
+	if _, err := r.DB.Exec(`DELETE FROM unit_finance_transactions WHERE id = ?`, id); err != nil {
 		return err
 	}
 	_, _ = r.writeAudit("transaction", id, "delete", actorID, actorName, mustJSON(before), "")
@@ -601,7 +601,7 @@ func (r *FinanceRepository) SummaryByUnit(unitID string) (*models.FinanceSummary
 	s := &models.FinanceSummary{UnitID: unit.ID, UnitName: unit.Name, UnitCode: unit.Code}
 	rows, err := r.DB.Query(`
 		SELECT direction, COALESCE(SUM(amount),0), COUNT(*)
-		FROM finance_transactions WHERE unit_id = ? GROUP BY direction
+		FROM unit_finance_transactions WHERE unit_id = ? GROUP BY direction
 	`, unitID)
 	if err != nil {
 		return nil, err
@@ -653,8 +653,8 @@ func (r *FinanceRepository) RecapByCategory(unitID string, dateFrom, dateTo int6
 	}
 	q := `SELECT COALESCE(t.category_id,''), COALESCE(c.name,'(Tanpa Kategori)'), t.direction,
 		COALESCE(SUM(t.amount),0), COUNT(*)
-		FROM finance_transactions t
-		LEFT JOIN finance_categories c ON c.id = t.category_id
+		FROM unit_finance_transactions t
+		LEFT JOIN unit_finance_categories c ON c.id = t.category_id
 		WHERE ` + strings.Join(clauses, " AND ") + `
 		GROUP BY t.category_id, t.direction ORDER BY 4 DESC`
 	rows, err := r.DB.Query(q, args...)
@@ -686,7 +686,7 @@ func (r *FinanceRepository) RecapMonthly(unitID string, limit int) ([]models.Fin
 	// tx_date disimpan dalam epoch ms → bagi 1000 untuk unixepoch().
 	q := `SELECT strftime('%Y-%m', tx_date/1000, 'unixepoch') AS period,
 		direction, COALESCE(SUM(amount),0), COUNT(*)
-		FROM finance_transactions
+		FROM unit_finance_transactions
 		WHERE ` + strings.Join(clauses, " AND ") + `
 		GROUP BY period, direction ORDER BY period DESC`
 	rows, err := r.DB.Query(q, args...)
@@ -735,7 +735,7 @@ func (r *FinanceRepository) ListAuditLog(limit int) ([]models.FinanceAuditLog, e
 	rows, err := r.DB.Query(`
 		SELECT id, entity, entity_id, action, actor_id, COALESCE(actor_name,''),
 		       COALESCE(before,''), COALESCE(after,''), COALESCE(created_at,0)
-		FROM finance_audit_log ORDER BY created_at DESC LIMIT ?
+		FROM unit_finance_audit_log ORDER BY created_at DESC LIMIT ?
 	`, limit)
 	if err != nil {
 		return nil, err
@@ -765,7 +765,7 @@ func (r *FinanceRepository) writeAudit(entity, entityID, action, actorID, actorN
 		actor = actorID
 	}
 	_, err := r.DB.Exec(`
-		INSERT INTO finance_audit_log (id, entity, entity_id, action, actor_id, actor_name, before, after, created_at)
+		INSERT INTO unit_finance_audit_log (id, entity, entity_id, action, actor_id, actor_name, before, after, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, id, entity, entityID, action, actor, strings.TrimSpace(actorName), before, after, UnixMilli())
 	return id, err
