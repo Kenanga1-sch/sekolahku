@@ -40,14 +40,15 @@ export function ProfileHeader({ alumni, onDelete }: ProfileHeaderProps) {
             </div>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Link href={`/admin/siswa/alumni-detail/edit?id=${alumni.id}`}>
-            <Button variant="outline" size="sm"><Edit className="h-4 w-4 mr-1" />Edit</Button>
+        <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:w-auto sm:items-center">
+          <Link href={`/admin/siswa/alumni-detail/edit?id=${alumni.id}`} className="col-span-1 sm:w-auto">
+            <Button variant="outline" size="sm" className="w-full sm:w-auto"><Edit className="h-4 w-4 mr-1" />Edit</Button>
           </Link>
-          <Button variant="outline" size="sm" className="text-xs sm:text-sm" onClick={() => window.open(`/admin/siswa/buku-induk/print?id=${alumni.id}&type=alumni`, "_blank")}>
-            <Printer className="h-4 w-4 mr-1" />Cetak Buku Induk
+          <Button variant="outline" size="sm" className="col-span-1 w-full text-xs sm:w-auto sm:text-sm" onClick={() => window.open(`/admin/siswa/buku-induk/print?id=${alumni.id}&type=alumni`, "_blank")}>
+            <Printer className="h-4 w-4 mr-1" />Cetak
+            <span className="hidden sm:inline">&nbsp;Buku Induk</span>
           </Button>
-          <Button variant="destructive" size="sm" onClick={onDelete}><Trash2 className="h-4 w-4 mr-1" />Hapus</Button>
+          <Button variant="destructive" size="sm" className="col-span-2 w-full sm:col-span-1 sm:w-auto" onClick={onDelete}><Trash2 className="h-4 w-4 mr-1" />Hapus</Button>
         </div>
       </div>
 

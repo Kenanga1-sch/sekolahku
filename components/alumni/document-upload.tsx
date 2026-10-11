@@ -292,10 +292,11 @@ export function DocumentUpload({ alumniId, onUploadComplete }: DocumentUploadPro
           )}
 
           {/* Actions */}
-          <div className="flex items-center justify-end gap-2 pt-2">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 pt-2">
             <Button
               type="button"
               variant="outline"
+              className="w-full sm:w-auto"
               onClick={() => {
                 setOpen(false);
                 resetForm();
@@ -304,7 +305,7 @@ export function DocumentUpload({ alumniId, onUploadComplete }: DocumentUploadPro
             >
               Batal
             </Button>
-            <Button onClick={handleUpload} disabled={uploading || !file || !selectedType}>
+            <Button className="w-full sm:w-auto" onClick={handleUpload} disabled={uploading || !file || !selectedType}>
               {uploading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-1 animate-spin" />

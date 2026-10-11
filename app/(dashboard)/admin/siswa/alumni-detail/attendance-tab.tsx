@@ -22,7 +22,7 @@ export function AttendanceTab({ attendances, onAdd, onEdit, onDelete }: Attendan
         <Card>
           <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <CardTitle className="text-base flex items-center gap-2"><Calendar className="h-5 w-5 text-primary" />Rekapitulasi Kehadiran</CardTitle>
-            <Button size="sm" onClick={onAdd}><Plus className="h-4 w-4 mr-1" />Tambah Rekap</Button>
+            <Button size="sm" className="w-full sm:w-auto" onClick={onAdd}><Plus className="h-4 w-4 mr-1" />Tambah Rekap</Button>
           </CardHeader>
           <CardContent>
             <DataTable

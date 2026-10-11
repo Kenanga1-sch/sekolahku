@@ -28,7 +28,7 @@ export function AchievementTab(props: AchievementTabProps) {
         <Card>
           <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <CardTitle className="text-base flex items-center gap-2"><Trophy className="h-5 w-5 text-amber-500" />Prestasi & Penghargaan</CardTitle>
-            <Button size="sm" onClick={onAddAchievement}><Plus className="h-4 w-4 mr-1" />Tambah Prestasi</Button>
+            <Button size="sm" className="w-full sm:w-auto" onClick={onAddAchievement}><Plus className="h-4 w-4 mr-1" />Tambah Prestasi</Button>
           </CardHeader>
           <CardContent>
             {achievements.length === 0 ? (
@@ -60,7 +60,7 @@ export function AchievementTab(props: AchievementTabProps) {
         <Card>
           <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <CardTitle className="text-base flex items-center gap-2"><Activity className="h-5 w-5 text-emerald-500" />Kegiatan Ekstrakurikuler</CardTitle>
-            <Button size="sm" onClick={onAddEkskul}><Plus className="h-4 w-4 mr-1" />Tambah Ekskul</Button>
+            <Button size="sm" className="w-full sm:w-auto" onClick={onAddEkskul}><Plus className="h-4 w-4 mr-1" />Tambah Ekskul</Button>
           </CardHeader>
           <CardContent>
             {extracurriculars.length === 0 ? (

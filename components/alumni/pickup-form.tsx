@@ -195,7 +195,7 @@ export function PickupForm({ alumniId, onPickupComplete }: PickupFormProps) {
             </Select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* ID Number */}
             <div className="space-y-2">
               <Label>Nomor KTP/Identitas</Label>
@@ -239,10 +239,11 @@ export function PickupForm({ alumniId, onPickupComplete }: PickupFormProps) {
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-end gap-2 pt-2">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 pt-2">
             <Button
               type="button"
               variant="outline"
+              className="w-full sm:w-auto"
               onClick={() => {
                 setOpen(false);
                 resetForm();
@@ -251,7 +252,7 @@ export function PickupForm({ alumniId, onPickupComplete }: PickupFormProps) {
             >
               Batal
             </Button>
-            <Button onClick={handleSubmit} disabled={loading || !recipientName}>
+            <Button className="w-full sm:w-auto" onClick={handleSubmit} disabled={loading || !recipientName}>
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-1 animate-spin" />

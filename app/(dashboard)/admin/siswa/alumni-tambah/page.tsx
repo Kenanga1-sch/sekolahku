@@ -243,17 +243,17 @@ export default function TambahAlumniPage() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-12">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Link href="/admin/siswa">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-4 min-w-0">
+          <Link href="/admin/siswa" className="shrink-0">
             <Button variant="outline" size="icon">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <GraduationCap className="h-6 w-6 text-primary" />
-              Tambah Data Buku Induk
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2 min-w-0">
+              <GraduationCap className="h-6 w-6 text-primary shrink-0" />
+              <span className="truncate">Tambah Data Buku Induk</span>
             </h1>
             <p className="text-muted-foreground text-sm">
               Tambahkan data lengkap siswa ke dalam Buku Induk Sekolah
@@ -716,8 +716,8 @@ export default function TambahAlumniPage() {
           </TabsContent>
         </Tabs>
 
-        {/* Submit Button */}
-        <div className="flex justify-end gap-2 pt-4 border-t">
+        {/* Submit Button (desktop) */}
+        <div className="hidden sm:flex justify-end gap-2 pt-4 border-t">
           <Link href="/admin/siswa">
             <Button type="button" variant="ghost" className="h-9">
               Batal
@@ -733,6 +733,28 @@ export default function TambahAlumniPage() {
               <>
                 <Save className="h-4 w-4" />
                 Simpan Data Buku Induk
+              </>
+            )}
+          </Button>
+        </div>
+
+        {/* Submit Button (mobile — sticky) */}
+        <div className="sm:hidden sticky bottom-0 z-20 -mx-4 px-4 py-3 bg-background/95 backdrop-blur border-t flex gap-2">
+          <Link href="/admin/siswa" className="flex-1">
+            <Button type="button" variant="outline" className="h-11 w-full">
+              Batal
+            </Button>
+          </Link>
+          <Button type="submit" disabled={loading} className="h-11 flex-[2] flex items-center justify-center gap-1">
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Menyimpan...
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4" />
+                Simpan
               </>
             )}
           </Button>

@@ -76,21 +76,21 @@ export function DocumentViewer({ document, open, onClose }: DocumentViewerProps)
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden">
         <DialogHeader className="p-4 border-b bg-muted/30">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
               {isImage ? (
-                <ImageIcon className="h-5 w-5 text-blue-600" />
+                <ImageIcon className="h-5 w-5 text-blue-600 shrink-0" />
               ) : (
-                <FileText className="h-5 w-5 text-red-600" />
+                <FileText className="h-5 w-5 text-red-600 shrink-0" />
               )}
-              <div>
-                <DialogTitle className="text-base">
+              <div className="min-w-0">
+                <DialogTitle className="text-base truncate">
                   {document.documentType?.name || document.fileName}
                 </DialogTitle>
-                <p className="text-xs text-muted-foreground">{document.fileName}</p>
+                <p className="text-xs text-muted-foreground truncate">{document.fileName}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <Badge className={status.color}>
                 <StatusIcon className="h-3 w-3 mr-1" />
                 {status.label}

@@ -22,7 +22,7 @@ export function HealthTab({ records, onAdd, onEdit, onDelete }: HealthTabProps) 
         <Card>
           <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <CardTitle className="text-base flex items-center gap-2"><Heart className="h-5 w-5 text-rose-500 animate-pulse" />Riwayat Kesehatan & Perkembangan Jasmani</CardTitle>
-            <Button size="sm" onClick={onAdd}><Plus className="h-4 w-4 mr-1" />Tambah Rekam Medis</Button>
+            <Button size="sm" className="w-full sm:w-auto" onClick={onAdd}><Plus className="h-4 w-4 mr-1" />Tambah Rekam Medis</Button>
           </CardHeader>
           <CardContent>
             <DataTable

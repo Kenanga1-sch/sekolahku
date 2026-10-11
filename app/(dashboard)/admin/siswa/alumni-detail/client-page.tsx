@@ -1,4 +1,4 @@
-﻿﻿"use client";
+﻿"use client";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -67,14 +67,14 @@ export default function AlumniDetailPage() {
         >
           <Tabs value={ctx.activeTab} onValueChange={ctx.setActiveTab}>
             <div className="relative">
-              <TabsList className="w-full h-auto gap-1 bg-muted p-1 rounded-lg md:grid md:grid-cols-7 md:h-10">
-                <TabsTrigger value="documents" className="text-xs md:text-sm">Dokumen</TabsTrigger>
-                <TabsTrigger value="transcripts" className="text-xs md:text-sm">Nilai</TabsTrigger>
-                <TabsTrigger value="attendance" className="text-xs md:text-sm">Absensi</TabsTrigger>
-                <TabsTrigger value="achievements" className="text-xs md:text-sm">Prestasi</TabsTrigger>
-                <TabsTrigger value="health" className="text-xs md:text-sm">Kesehatan</TabsTrigger>
-                <TabsTrigger value="pickups" className="text-xs md:text-sm">Pengambilan</TabsTrigger>
-                <TabsTrigger value="info" className="text-xs md:text-sm">Info Profil</TabsTrigger>
+              <TabsList className="w-full h-auto justify-start gap-1 bg-muted p-1 rounded-lg overflow-x-auto scrollbar-none whitespace-nowrap md:grid md:grid-cols-7 md:h-10 md:overflow-visible">
+                <TabsTrigger value="documents" className="shrink-0 text-xs md:text-sm">Dokumen</TabsTrigger>
+                <TabsTrigger value="transcripts" className="shrink-0 text-xs md:text-sm">Nilai</TabsTrigger>
+                <TabsTrigger value="attendance" className="shrink-0 text-xs md:text-sm">Absensi</TabsTrigger>
+                <TabsTrigger value="achievements" className="shrink-0 text-xs md:text-sm">Prestasi</TabsTrigger>
+                <TabsTrigger value="health" className="shrink-0 text-xs md:text-sm">Kesehatan</TabsTrigger>
+                <TabsTrigger value="pickups" className="shrink-0 text-xs md:text-sm">Pengambilan</TabsTrigger>
+                <TabsTrigger value="info" className="shrink-0 text-xs md:text-sm">Info Profil</TabsTrigger>
               </TabsList>
               <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-muted to-transparent md:hidden" aria-hidden="true" />
             </div>
