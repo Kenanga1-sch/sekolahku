@@ -345,7 +345,7 @@ export default function ScanGtkPage() {
       </Card>
 
       {/* Counters */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         <div className="rounded-lg border bg-white px-3 py-2">
           <p className="text-xs text-muted-foreground font-medium">Tercatat</p>
           <p className="text-xl font-bold font-mono">{stats.recorded}</p>

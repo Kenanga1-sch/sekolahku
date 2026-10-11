@@ -172,7 +172,7 @@ export default function PresensiClientPage() {
                     <p className="text-sm font-medium">
                       {s.academicYear || "Tahun ini"}
                     </p>
-                    <div className="grid grid-cols-4 gap-2 text-center">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
                       {(
                         [
                           [

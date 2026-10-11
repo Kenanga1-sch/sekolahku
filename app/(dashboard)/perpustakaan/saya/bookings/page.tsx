@@ -89,7 +89,7 @@ export default function MyBookingsPage() {
       {/* Summary */}
       <Card>
         <CardContent className="p-4">
-          <div className="grid grid-cols-3 gap-4 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
             <div className="text-center">
               <div className="text-2xl font-bold">{bookings.length}</div>
               <div className="text-muted-foreground">Total Booking</div>

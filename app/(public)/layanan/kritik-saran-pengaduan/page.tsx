@@ -342,7 +342,7 @@ export default function KritikSaranPengaduanPage() {
                       <span className="text-xs text-muted-foreground">{files.length}/{MAX_FILES} · gambar ≤25MB, video ≤50MB</span>
                     </div>
                     {files.length > 0 && (
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         {files.map((f, idx) => (
                           <div key={idx} className="relative group aspect-square rounded-lg border overflow-hidden bg-muted">
                             {f.isVideo ? (

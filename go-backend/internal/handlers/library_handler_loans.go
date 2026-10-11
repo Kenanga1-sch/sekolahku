@@ -64,7 +64,7 @@ func (h *LibraryHandler) BorrowBook(c echo.Context) error {
 			Category:  "perpustakaan",
 			Title:     "Peminjaman buku baru",
 			Message:   "Buku dipinjam dengan jatuh tempo " + strconv.Itoa(req.LoanDays) + " hari.",
-			TargetURL: StrPtr("/perpustakaan/sirkulasi"),
+			TargetURL: StrPtr("/perpustakaan/peminjaman"),
 		}, "admin", "superadmin")
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{

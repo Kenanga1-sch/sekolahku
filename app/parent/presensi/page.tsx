@@ -12,7 +12,7 @@ function PresensiFallback() {
       <Skeleton className="h-10 w-full rounded-full" />
       <div className="rounded-lg border p-4 space-y-3">
         <Skeleton className="h-5 w-40" />
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {[1, 2, 3, 4].map((i) => (
             <Skeleton key={i} className="h-16 rounded-lg" />
           ))}

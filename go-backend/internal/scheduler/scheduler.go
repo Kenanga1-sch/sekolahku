@@ -57,7 +57,7 @@ func (s *Scheduler) notifyAdminsLibraryOverdue(count int64) {
 		Category:  "perpustakaan",
 		Title:     "Buku overdue: " + strconv.FormatInt(count, 10),
 		Message:   strconv.FormatInt(count, 10) + " peminjaman melewati jatuh tempo dan terkena denda. Segera hubungi peminjam.",
-		TargetURL: handlers.StrPtr("/perpustakaan/sirkulasi"),
+		TargetURL: handlers.StrPtr("/perpustakaan/peminjaman"),
 	}, "admin", "superadmin")
 }
 
