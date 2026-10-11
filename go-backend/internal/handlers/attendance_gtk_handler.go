@@ -155,6 +155,27 @@ func (h *AttendanceGTKHandler) GetGTKMonthly(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": report})
 }
 
+// GetGTKRange: GET /gtk-attendance/range?year=&startMonth=&endMonth=&type= —
+// rekap tahunan/semester presensi GTK (agregat per GTK pada rentang bulan).
+func (h *AttendanceGTKHandler) GetGTKRange(c echo.Context) error {
+	year := parseIntOr(c.QueryParam("year"), 0)
+	startMonth := parseIntOr(c.QueryParam("startMonth"), 0)
+	endMonth := parseIntOr(c.QueryParam("endMonth"), 0)
+	attendeeType := strings.TrimSpace(c.QueryParam("type"))
+	if attendeeType != "gtk" && attendeeType != "ekskul" {
+		attendeeType = ""
+	}
+	if year <= 0 || startMonth < 1 || startMonth > 12 || endMonth < 1 || endMonth > 12 {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Parameter year/startMonth/endMonth tidak valid"})
+	}
+	report, err := h.Repo.GetGTKRangeReport(year, startMonth, endMonth, attendeeType)
+	if err != nil {
+		c.Logger().Error("GetGTKRange: ", err)
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": report})
+}
+
 // isBendaharaRole: superadmin/admin/bendahara boleh override radius.
 func isBendaharaRole(role string) bool {
 	switch strings.ToLower(strings.TrimSpace(role)) {

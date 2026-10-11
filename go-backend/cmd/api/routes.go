@@ -750,6 +750,8 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	guruGroup.GET("/gtk-attendance/ekskul", h.AttendanceGTK.GetEkskulDaily)
 	// Laporan bulanan presensi GTK (matriks + hari efektif) untuk ekspor.
 	guruGroup.GET("/gtk-attendance/monthly", h.AttendanceGTK.GetGTKMonthly)
+	// Rekap tahunan/semester presensi GTK (agregat rentang bulan).
+	guruGroup.GET("/gtk-attendance/range", h.AttendanceGTK.GetGTKRange)
 	bendaharaGroup.GET("/attendance/points", h.AttendanceGTK.ListPoints)
 	bendaharaGroup.POST("/attendance/points", h.AttendanceGTK.CreatePoint)
 	bendaharaGroup.PUT("/attendance/points/:id", h.AttendanceGTK.UpdatePoint)

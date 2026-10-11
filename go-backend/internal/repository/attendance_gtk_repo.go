@@ -739,3 +739,141 @@ func (r *AttendanceGTKRepository) GetGTKMonthlyReport(year, month int, attendeeT
 	}
 	return report, nil
 }
+
+// ==========================================================================
+// Rekap tahunan / semester presensi GTK
+// ==========================================================================
+
+// GTKAnnualRow adalah baris rekap per GTK untuk rentang bulan (tahun/semester).
+type GTKAnnualRow struct {
+	EmployeeID       string `json:"employeeId"`
+	Name             string `json:"name"`
+	NIP              string `json:"nip"`
+	Category         string `json:"category"`
+	EmploymentStatus string `json:"employmentStatus"`
+	Extracurricular  string `json:"extracurricular,omitempty"`
+	TotalHadir       int    `json:"totalHadir"`
+	TotalSakit       int    `json:"totalSakit"`
+	TotalIzin        int    `json:"totalIzin"`
+	TotalAlpha       int    `json:"totalAlpha"`
+	EffectiveDays    int    `json:"effectiveDays"`
+}
+
+// GTKAnnualReport adalah hasil rekap presensi GTK untuk rentang bulan.
+type GTKAnnualReport struct {
+	StartMonth    int            `json:"startMonth"`
+	EndMonth      int            `json:"endMonth"`
+	Year          int            `json:"year"`
+	EffectiveDays int            `json:"effectiveDays"`
+	Rows          []GTKAnnualRow `json:"rows"`
+}
+
+// GetGTKRangeReport menyusun rekap presensi GTK untuk rentang bulan [startMonth..endMonth]
+// pada satu tahun (mis. semester: 1..6 atau 7..12). attendeeType "" | "gtk" | "ekskul".
+func (r *AttendanceGTKRepository) GetGTKRangeReport(year, startMonth, endMonth int, attendeeType string) (*GTKAnnualReport, error) {
+	if startMonth < 1 {
+		startMonth = 1
+	}
+	if endMonth > 12 {
+		endMonth = 12
+	}
+	if endMonth < startMonth {
+		startMonth, endMonth = endMonth, startMonth
+	}
+	startDate := time.Date(year, time.Month(startMonth), 1, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
+	endDate := time.Date(year, time.Month(endMonth)+1, 0, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
+
+	report := &GTKAnnualReport{StartMonth: startMonth, EndMonth: endMonth, Year: year, Rows: []GTKAnnualRow{}}
+
+	// Hari efektif seluruh rentang (Minggu + libur).
+	start, _ := time.Parse("2006-01-02", startDate)
+	end, _ := time.Parse("2006-01-02", endDate)
+	for d := start; !d.After(end); d = d.AddDate(0, 0, 1) {
+		if holiday, _ := IsHoliday(d.Format("2006-01-02")); !holiday {
+			report.EffectiveDays++
+		}
+	}
+
+	// Base GTK wajib presensi.
+	baseRows, err := r.DB.Query(`
+		SELECT ed.id, COALESCE(ed.name,''), COALESCE(ed.nip,''), COALESCE(ed.category,''),
+		       COALESCE(ed.employment_status,'')
+		FROM employee_details ed
+		WHERE ed.attendance_required = 1
+		ORDER BY ed.name ASC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer baseRows.Close()
+	idx := map[string]int{}
+	for baseRows.Next() {
+		var row GTKAnnualRow
+		if err := baseRows.Scan(&row.EmployeeID, &row.Name, &row.NIP, &row.Category, &row.EmploymentStatus); err != nil {
+			return nil, err
+		}
+		row.EffectiveDays = report.EffectiveDays
+		idx[row.EmployeeID] = len(report.Rows)
+		report.Rows = append(report.Rows, row)
+	}
+	if err := baseRows.Err(); err != nil {
+		return nil, err
+	}
+
+	q := `
+		SELECT ea.employee_id, ea.status, COALESCE(et.extracurricular_name,'')
+		FROM employee_attendance ea
+		LEFT JOIN extracurricular_teachers et ON et.id = ea.extracurricular_id
+		WHERE ea.date BETWEEN ? AND ?
+	`
+	args := []interface{}{startDate, endDate}
+	if attendeeType != "" {
+		q += " AND COALESCE(ea.attendee_type,'gtk') = ?"
+		args = append(args, attendeeType)
+	}
+	recRows, err := r.DB.Query(q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer recRows.Close()
+	ekskulAssigned := map[string]bool{}
+	for recRows.Next() {
+		var empID, status, ekskul string
+		if err := recRows.Scan(&empID, &status, &ekskul); err != nil {
+			return nil, err
+		}
+		i, ok := idx[empID]
+		if !ok {
+			continue
+		}
+		switch status {
+		case "hadir":
+			report.Rows[i].TotalHadir++
+		case "sakit":
+			report.Rows[i].TotalSakit++
+		case "izin":
+			report.Rows[i].TotalIzin++
+		case "alpha":
+			report.Rows[i].TotalAlpha++
+		}
+		if ekskul != "" && !ekskulAssigned[empID] {
+			report.Rows[i].Extracurricular = ekskul
+			ekskulAssigned[empID] = true
+		}
+	}
+	if err := recRows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Mode ekskul: hanya GTK yang punya catatan.
+	if attendeeType == "ekskul" {
+		filtered := report.Rows[:0]
+		for _, row := range report.Rows {
+			if row.TotalHadir+row.TotalSakit+row.TotalIzin+row.TotalAlpha > 0 {
+				filtered = append(filtered, row)
+			}
+		}
+		report.Rows = filtered
+	}
+	return report, nil
+}

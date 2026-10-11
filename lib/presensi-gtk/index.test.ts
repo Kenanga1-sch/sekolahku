@@ -12,6 +12,12 @@ import {
   gtkAttendancePct,
   overallAttendancePct,
   monthlyFilename,
+  annualAttendancePct,
+  overallAnnualPct,
+  isBelowThreshold,
+  monthRangeLabel,
+  rangeFilename,
+  SEMESTERS,
   type AttendancePoint,
 } from "./index";
 
@@ -137,5 +143,47 @@ describe("monthly report helpers", () => {
   it("monthlyFilename", () => {
     expect(monthlyFilename(2026, 10, "gtk")).toBe("laporan-presensi-gtk-2026-10");
     expect(monthlyFilename(2026, 3, "ekskul")).toBe("laporan-presensi-ekskul-2026-03");
+  });
+});
+
+describe("annual/semester helpers", () => {
+  const row = {
+    employeeId: "e1", name: "A", nip: "", category: "guru", employmentStatus: "Honorer",
+    totalHadir: 100, totalSakit: 5, totalIzin: 3, totalAlpha: 12, effectiveDays: 120,
+  };
+
+  it("annualAttendancePct", () => {
+    expect(annualAttendancePct(row)).toBe(83.3);
+    expect(annualAttendancePct({ ...row, totalHadir: 0, totalSakit: 0, totalIzin: 0, totalAlpha: 0 })).toBeNull();
+    expect(annualAttendancePct({ ...row, effectiveDays: 0 })).toBeNull();
+  });
+
+  it("overallAnnualPct", () => {
+    const rows = [{ ...row, totalHadir: 60 }, { ...row, totalHadir: 60 }];
+    expect(overallAnnualPct(rows, 120)).toBe(50);
+    expect(overallAnnualPct([], 120)).toBeNull();
+  });
+
+  it("isBelowThreshold", () => {
+    expect(isBelowThreshold(70)).toBe(true);
+    expect(isBelowThreshold(75)).toBe(false);
+    expect(isBelowThreshold(80)).toBe(false);
+    expect(isBelowThreshold(null)).toBe(false);
+    expect(isBelowThreshold(60, 65)).toBe(true);
+  });
+
+  it("monthRangeLabel", () => {
+    expect(monthRangeLabel(7, 12, 2026)).toBe("Jul–Des 2026");
+    expect(monthRangeLabel(1, 6, 2026)).toBe("Jan–Jun 2026");
+  });
+
+  it("rangeFilename", () => {
+    expect(rangeFilename(2026, 7, 12, "gtk")).toBe("rekap-presensi-gtk-2026-07-12");
+    expect(rangeFilename(2026, 1, 6, "ekskul")).toBe("rekap-presensi-ekskul-2026-01-06");
+  });
+
+  it("SEMESTERS", () => {
+    expect(SEMESTERS.ganjil.startMonth).toBe(7);
+    expect(SEMESTERS.genap.endMonth).toBe(6);
   });
 });

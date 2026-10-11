@@ -88,6 +88,28 @@ export interface GtkMonthlyReport {
   rows: GtkMonthlyRow[];
 }
 
+export interface GtkAnnualRow {
+  employeeId: string;
+  name: string;
+  nip: string;
+  category: string;
+  employmentStatus: string;
+  extracurricular?: string;
+  totalHadir: number;
+  totalSakit: number;
+  totalIzin: number;
+  totalAlpha: number;
+  effectiveDays: number;
+}
+
+export interface GtkAnnualReport {
+  year: number;
+  startMonth: number;
+  endMonth: number;
+  effectiveDays: number;
+  rows: GtkAnnualRow[];
+}
+
 export interface ScanGtkPayload {
   qrCode: string;
   status?: string;
@@ -114,6 +136,10 @@ export const gtkAttendanceApi = {
   monthly: (year: number, month: number, type?: "gtk" | "ekskul") =>
     goGet<{ data: GtkMonthlyReport }>(
       `/api/gtk-attendance/monthly?year=${year}&month=${month}${type ? `&type=${type}` : ""}`
+    ),
+  range: (year: number, startMonth: number, endMonth: number, type?: "gtk" | "ekskul") =>
+    goGet<{ data: GtkAnnualReport }>(
+      `/api/gtk-attendance/range?year=${year}&startMonth=${startMonth}&endMonth=${endMonth}${type ? `&type=${type}` : ""}`
     ),
 };
 
@@ -295,4 +321,55 @@ export function monthName(month: number): string {
 export function monthlyFilename(year: number, month: number, type?: "gtk" | "ekskul"): string {
   const slug = type === "ekskul" ? "ekskul" : "gtk";
   return `laporan-presensi-${slug}-${year}-${String(month).padStart(2, "0")}`;
+}
+
+// ==========================================================================
+// Ambang kehadiran & rekap tahunan/semester
+// ==========================================================================
+
+/** Ambang minimum kehadiran (%) — di bawah ini dianggap perlu perhatian. */
+export const MIN_ATTENDANCE_PCT = 75;
+
+/** Ambang peringatan default untuk laporan GTK. */
+export const ATTENDANCE_WARNING_THRESHOLD = MIN_ATTENDANCE_PCT;
+
+/** Definisi semester (rentang bulan) untuk rekap. */
+export const SEMESTERS = {
+  ganjil: { label: "Semester Ganjil (Jul–Des)", startMonth: 7, endMonth: 12 },
+  genap: { label: "Semester Genap (Jan–Jun)", startMonth: 1, endMonth: 6 },
+} as const;
+
+export type SemesterKey = keyof typeof SEMESTERS;
+
+/** Apakah persentase kehadiran di bawah ambang (perlu perhatian). */
+export function isBelowThreshold(pct: number | null, threshold = ATTENDANCE_WARNING_THRESHOLD): boolean {
+  return pct !== null && pct < threshold;
+}
+
+/** Persentase kehadiran untuk baris rekap tahunan/semester. */
+export function annualAttendancePct(row: GtkAnnualRow): number | null {
+  if (row.effectiveDays <= 0) return null;
+  const recorded = row.totalHadir + row.totalSakit + row.totalIzin + row.totalAlpha;
+  if (recorded === 0) return null;
+  return Math.min(Math.round((row.totalHadir / row.effectiveDays) * 1000) / 10, 100);
+}
+
+/** Persentase kehadiran agregat untuk laporan tahunan/semester. */
+export function overallAnnualPct(rows: GtkAnnualRow[], effectiveDays: number): number | null {
+  const denom = rows.length * effectiveDays;
+  if (denom <= 0) return null;
+  const hadir = rows.reduce((n, r) => n + r.totalHadir, 0);
+  return Math.min(Math.round((hadir / denom) * 1000) / 10, 100);
+}
+
+/** Label rentang bulan untuk judul laporan (mis. "Jul–Des 2026"). */
+export function monthRangeLabel(startMonth: number, endMonth: number, year: number): string {
+  const short = (m: number) => (MONTH_NAMES_ID[m - 1] || String(m)).slice(0, 3);
+  return `${short(startMonth)}–${short(endMonth)} ${year}`;
+}
+
+/** Nama file ekspor rekap tahunan/semester. */
+export function rangeFilename(year: number, startMonth: number, endMonth: number, type?: "gtk" | "ekskul"): string {
+  const slug = type === "ekskul" ? "ekskul" : "gtk";
+  return `rekap-presensi-${slug}-${year}-${String(startMonth).padStart(2, "0")}-${String(endMonth).padStart(2, "0")}`;
 }

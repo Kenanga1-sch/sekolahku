@@ -334,3 +334,41 @@ func TestAttendanceGTKMonthlyReport(t *testing.T) {
 		t.Fatalf("daily status 05 salah: %+v", r.DailyStatus)
 	}
 }
+
+func TestAttendanceGTKRangeReport(t *testing.T) {
+	db := setupGtkAttendanceTestDB(t)
+	defer db.Close()
+	repo := NewAttendanceGTKRepository(db)
+
+	_, err := db.Exec(`INSERT INTO employee_attendance (id, employee_id, date, status, created_at, updated_at, attendee_type) VALUES
+		('r1','emp-1','2026-07-15','hadir',0,0,'gtk'),
+		('r2','emp-1','2026-08-15','hadir',0,0,'gtk'),
+		('r3','emp-1','2026-09-15','alpha',0,0,'gtk')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Semester 2 (Juli–Desember).
+	report, err := repo.GetGTKRangeReport(2026, 7, 12, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.StartMonth != 7 || report.EndMonth != 12 {
+		t.Fatalf("rentang salah: %+v", report)
+	}
+	if report.EffectiveDays <= 0 {
+		t.Fatalf("effectiveDays harus > 0, got %d", report.EffectiveDays)
+	}
+	if len(report.Rows) != 1 || report.Rows[0].EmployeeID != "emp-1" {
+		t.Fatalf("hanya GTK wajib presensi, got %+v", report.Rows)
+	}
+	if report.Rows[0].TotalHadir != 2 || report.Rows[0].TotalAlpha != 1 {
+		t.Fatalf("rekap salah: %+v", report.Rows[0])
+	}
+
+	// Semester 1 (Jan–Jun) tidak punya catatan → total 0.
+	report1, _ := repo.GetGTKRangeReport(2026, 1, 6, "")
+	if len(report1.Rows) != 1 || report1.Rows[0].TotalHadir != 0 {
+		t.Fatalf("semester 1 harus kosong: %+v", report1.Rows)
+	}
+}
