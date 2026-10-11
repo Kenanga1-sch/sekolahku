@@ -58,7 +58,7 @@ func (r *EmployeeRepository) GetEmployees(page, limit int, search string) (*mode
 		SELECT e.id, e.name, e.email, e.role, e.nip, e.nuptk, e.nik,
 		       e.employment_status, e.job_type, e.join_date,
 		       e.category, e.degree, e.quote, e.photo_url, e.display_order,
-		       e.user_id, e.qr_code
+		       e.user_id, e.qr_code, COALESCE(e.attendance_required, 0)
 		FROM employee_details e
 		WHERE %s
 		ORDER BY e.created_at DESC
@@ -111,12 +111,13 @@ func scanEmployeeRow(rows *sql.Rows) (models.Employee, error) {
 	var name, email, role, nip, nuptk, nik, empStatus, jobType, joinDate sql.NullString
 	var cat, deg, quot, photo, uId, qr sql.NullString
 	var displayOrder sql.NullInt64
+	var attendanceRequired sql.NullInt64
 
 	err := rows.Scan(
 		&e.ID, &name, &email, &role, &nip, &nuptk, &nik,
 		&empStatus, &jobType, &joinDate,
 		&cat, &deg, &quot, &photo, &displayOrder,
-		&uId, &qr,
+		&uId, &qr, &attendanceRequired,
 	)
 	if err != nil {
 		return e, err
@@ -170,6 +171,7 @@ func scanEmployeeRow(rows *sql.Rows) (models.Employee, error) {
 		e.DisplayOrder = &do
 	}
 	e.QrCode = qr.String
+	e.AttendanceRequired = attendanceRequired.Valid && attendanceRequired.Int64 == 1
 	e.ApplyFullName()
 	return e, nil
 }
@@ -194,7 +196,7 @@ func (r *EmployeeRepository) GetEmployeesByIDs(ids []string) ([]models.Employee,
 		SELECT e.id, e.name, e.email, e.role, e.nip, e.nuptk, e.nik,
 		       e.employment_status, e.job_type, e.join_date,
 		       e.category, e.degree, e.quote, e.photo_url, e.display_order,
-		       e.user_id, e.qr_code
+		       e.user_id, e.qr_code, COALESCE(e.attendance_required, 0)
 		FROM employee_details e
 		WHERE e.id IN (%s)
 		ORDER BY CASE e.id %s END
@@ -239,11 +241,16 @@ func (r *EmployeeRepository) CreateEmployee(req models.CreateEmployeeRequest) (s
 
 	qrCode := NewEmployeeQRCode(req.NIP, req.NUPTK, detailId)
 
+	attendanceRequired := 0
+	if IsAttendanceRequired(empStatus) {
+		attendanceRequired = 1
+	}
+
 	query := `
-		INSERT INTO employee_details (id, name, email, role, nip, nuptk, nik, employment_status, job_type, join_date, category, degree, quote, photo_url, display_order, phone, qr_code, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO employee_details (id, name, email, role, nip, nuptk, nik, employment_status, job_type, join_date, category, degree, quote, photo_url, display_order, phone, qr_code, created_at, updated_at, attendance_required)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	_, err := r.DB.Exec(query, detailId, req.FullName, req.Email, role, req.NIP, req.NUPTK, req.NIK, empStatus, jobType, req.JoinDate, req.Category, req.Degree, req.Quote, req.PhotoUrl, req.DisplayOrder, req.Phone, qrCode, now, now)
+	_, err := r.DB.Exec(query, detailId, req.FullName, req.Email, role, req.NIP, req.NUPTK, req.NIK, empStatus, jobType, req.JoinDate, req.Category, req.Degree, req.Quote, req.PhotoUrl, req.DisplayOrder, req.Phone, qrCode, now, now, attendanceRequired)
 	if err != nil {
 		return "", err
 	}
@@ -304,7 +311,7 @@ func (r *EmployeeRepository) GetEmployeeByID(id string) (*models.Employee, error
 		SELECT e.id, e.name, e.email, e.role,
 		       e.nip, e.nuptk, e.nik, e.employment_status, e.job_type, e.join_date,
 		       e.category, e.degree, e.quote, e.photo_url, e.display_order, e.phone,
-		       e.user_id, e.qr_code
+		       e.user_id, e.qr_code, COALESCE(e.attendance_required, 0)
 		FROM employee_details e
 		WHERE e.id = ?
 	`
@@ -312,12 +319,13 @@ func (r *EmployeeRepository) GetEmployeeByID(id string) (*models.Employee, error
 	var name, email, role, nip, nuptk, nik, empStatus, jobType, joinDate, phone sql.NullString
 	var cat, deg, quot, photo, uId, qr sql.NullString
 	var displayOrder sql.NullInt64
+	var attendanceRequired sql.NullInt64
 
 	err := r.DB.QueryRow(query, id).Scan(
 		&e.ID, &name, &email, &role,
 		&nip, &nuptk, &nik, &empStatus, &jobType, &joinDate,
 		&cat, &deg, &quot, &photo, &displayOrder, &phone,
-		&uId, &qr,
+		&uId, &qr, &attendanceRequired,
 	)
 	if err != nil {
 		return nil, err
@@ -375,6 +383,7 @@ func (r *EmployeeRepository) GetEmployeeByID(id string) (*models.Employee, error
 	}
 	e.QrCode = qr.String
 
+	e.AttendanceRequired = attendanceRequired.Valid && attendanceRequired.Int64 == 1
 	e.ApplyFullName()
 	return &e, nil
 }
@@ -382,11 +391,16 @@ func (r *EmployeeRepository) GetEmployeeByID(id string) (*models.Employee, error
 func (r *EmployeeRepository) UpdateEmployee(id string, req models.CreateEmployeeRequest) error {
 	now := time.Now().UnixMilli()
 
+	attendanceRequired := 0
+	if req.EmploymentStatus != nil && IsAttendanceRequired(*req.EmploymentStatus) {
+		attendanceRequired = 1
+	}
+
 	query := `
-		UPDATE employee_details SET name=?, email=?, role=?, nip=?, nuptk=?, nik=?, employment_status=?, job_type=?, join_date=?, category=?, degree=?, quote=?, photo_url=?, display_order=?, phone=?, updated_at=?
+		UPDATE employee_details SET name=?, email=?, role=?, nip=?, nuptk=?, nik=?, employment_status=?, job_type=?, join_date=?, category=?, degree=?, quote=?, photo_url=?, display_order=?, phone=?, updated_at=?, attendance_required=?
 		WHERE id=?
 	`
-	_, err := r.DB.Exec(query, req.FullName, req.Email, req.Role, req.NIP, req.NUPTK, req.NIK, req.EmploymentStatus, req.JobType, req.JoinDate, req.Category, req.Degree, req.Quote, req.PhotoUrl, req.DisplayOrder, req.Phone, now, id)
+	_, err := r.DB.Exec(query, req.FullName, req.Email, req.Role, req.NIP, req.NUPTK, req.NIK, req.EmploymentStatus, req.JobType, req.JoinDate, req.Category, req.Degree, req.Quote, req.PhotoUrl, req.DisplayOrder, req.Phone, now, attendanceRequired, id)
 	if err != nil {
 		return err
 	}

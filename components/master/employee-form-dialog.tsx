@@ -13,10 +13,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ImageCropper } from "@/components/ui/image-cropper";
-import { Loader2, User } from "lucide-react";
+import { Loader2, User, Plus, Trash2 } from "lucide-react";
 import { showSuccess, showError } from "@/lib/toast";
 import { goGet, goPost, goPut } from "@/lib/api-client";
 import { compressImage } from "@/lib/utils";
+import { ekskulTeachersApi, attendancePointsApi, type EkskulTeacher, type AttendancePoint } from "@/lib/presensi-gtk";
 
 const employeeSchema = z.object({
   fullName: z.string().min(3, "Nama minimal 3 karakter"),
@@ -54,6 +55,62 @@ export function EmployeeFormDialog({ open, onOpenChange, employeeId, onSuccess }
   const [uploading, setUploading] = useState(false);
   const [cropperOpen, setCropperOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  // Ekskul yang diampu (khusus edit; pakai employeeId).
+  const [ekskulList, setEkskulList] = useState<EkskulTeacher[]>([]);
+  const [points, setPoints] = useState<AttendancePoint[]>([]);
+  const [newEkskulName, setNewEkskulName] = useState("");
+  const [newEkskulSchedule, setNewEkskulSchedule] = useState("");
+  const [newEkskulPoint, setNewEkskulPoint] = useState("");
+  const [ekskulBusy, setEkskulBusy] = useState(false);
+
+  const loadEkskul = async (empId: string) => {
+    try {
+      const [all, pts] = await Promise.all([ekskulTeachersApi.list(), attendancePointsApi.list()]);
+      const list = ((all as any)?.data || []).filter((e: EkskulTeacher) => e.employeeId === empId);
+      setEkskulList(list);
+      setPoints((pts as any)?.data || []);
+    } catch {
+      // diamkan — tab ekskul opsional
+    }
+  };
+
+  const addEkskul = async () => {
+    if (!employeeId || !newEkskulName.trim()) {
+      showError("Nama ekskul wajib diisi");
+      return;
+    }
+    setEkskulBusy(true);
+    try {
+      await ekskulTeachersApi.assign({
+        employeeId,
+        extracurricularName: newEkskulName.trim(),
+        schedule: newEkskulSchedule.trim() || undefined,
+        pointId: newEkskulPoint || undefined,
+        isActive: true,
+      });
+      showSuccess("Ekskul ditambahkan");
+      setNewEkskulName("");
+      setNewEkskulSchedule("");
+      setNewEkskulPoint("");
+      await loadEkskul(employeeId);
+    } catch (e: any) {
+      showError(e?.message || "Gagal menambah ekskul");
+    } finally {
+      setEkskulBusy(false);
+    }
+  };
+
+  const removeEkskul = async (id: string) => {
+    if (!employeeId) return;
+    try {
+      await ekskulTeachersApi.remove(id);
+      showSuccess("Ekskul dihapus");
+      await loadEkskul(employeeId);
+    } catch (e: any) {
+      showError(e?.message || "Gagal menghapus ekskul");
+    }
+  };
 
   const form = useForm<EmployeeFormValues>({
     resolver: zodResolver(employeeSchema) as any,
@@ -112,10 +169,12 @@ export function EmployeeFormDialog({ open, onOpenChange, employeeId, onSuccess }
                     quote: data.quote || "",
                     displayOrder: data.displayOrder ?? 0,
                 });
+                loadEkskul(employeeId);
             })
             .catch((e) => showError(e.message))
             .finally(() => setIsLoading(false));
     } else if (open) {
+        setEkskulList([]);
         form.reset({
             fullName: "",
             email: "",
@@ -215,10 +274,11 @@ export function EmployeeFormDialog({ open, onOpenChange, employeeId, onSuccess }
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <Tabs defaultValue="account">
-                <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3">
+                <TabsList className={`grid w-full grid-cols-1 ${employeeId ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
                     <TabsTrigger value="account">Akun Login</TabsTrigger>
                     <TabsTrigger value="employment">Kepegawaian</TabsTrigger>
                     <TabsTrigger value="public">Profil Publik</TabsTrigger>
+                    {employeeId && <TabsTrigger value="ekskul">Ekskul</TabsTrigger>}
                 </TabsList>
 
                 <TabsContent value="account" className="space-y-4">
@@ -321,10 +381,12 @@ export function EmployeeFormDialog({ open, onOpenChange, employeeId, onSuccess }
                                         </FormControl>
                                         <SelectContent>
                                             <SelectItem value="PNS">PNS</SelectItem>
-                                            <SelectItem value="P3K">P3K</SelectItem>
+                                            <SelectItem value="P3K">P3K / PPPK</SelectItem>
                                             <SelectItem value="GTY">GTY (Tetap Yayasan)</SelectItem>
                                             <SelectItem value="GTT">GTT (Tidak Tetap)</SelectItem>
+                                            <SelectItem value="PTT">PTT (Pegawai Tidak Tetap)</SelectItem>
                                             <SelectItem value="Honorer">Honorer</SelectItem>
+                                            <SelectItem value="Pembina Ekskul">Pembina Ekskul</SelectItem>
                                         </SelectContent>
                                     </Select>
                                     <FormMessage />
@@ -468,6 +530,57 @@ export function EmployeeFormDialog({ open, onOpenChange, employeeId, onSuccess }
                         )}
                     />
                 </TabsContent>
+
+                {employeeId && (
+                    <TabsContent value="ekskul" className="space-y-4">
+                        <div className="rounded-lg border border-slate-200 bg-slate-50/40 p-3 text-xs text-muted-foreground">
+                            Daftar ekskul yang diampu GTK ini (mis. Pramuka, Drumband). Pengajar ekskul wajib
+                            presensi & dapat discan di menu <b>Presensi → Scan GTK</b>.
+                        </div>
+
+                        {ekskulList.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-3">Belum ada ekskul diampu.</p>
+                        ) : (
+                            <div className="space-y-2">
+                                {ekskulList.map((e) => (
+                                    <div key={e.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 p-3">
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-semibold text-slate-800 truncate">{e.extracurricularName}</p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {e.schedule || "Jadwal belum diatur"}
+                                                {e.pointName ? ` · ${e.pointName}` : ""}
+                                            </p>
+                                        </div>
+                                        <Button type="button" variant="ghost" size="icon" className="text-rose-600 hover:text-rose-700" onClick={() => removeEkskul(e.id)}>
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        <div className="rounded-lg border border-slate-200 p-3 space-y-3">
+                            <p className="text-xs font-semibold text-slate-600">Tambah Ekskul</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <Input placeholder="Nama ekskul (mis. Pramuka)" value={newEkskulName} onChange={(e) => setNewEkskulName(e.target.value)} />
+                                <Input placeholder="Jadwal (mis. Jumat, 14:00)" value={newEkskulSchedule} onChange={(e) => setNewEkskulSchedule(e.target.value)} />
+                            </div>
+                            <Select value={newEkskulPoint || "none"} onValueChange={(v) => setNewEkskulPoint(v === "none" ? "" : v)}>
+                                <SelectTrigger><SelectValue placeholder="Titik presensi (opsional)" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">Pakai titik sekolah (default)</SelectItem>
+                                    {points.map((p) => (
+                                        <SelectItem key={p.id} value={p.id}>{p.name} · {p.radiusM} m</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <Button type="button" size="sm" onClick={addEkskul} disabled={ekskulBusy || !newEkskulName.trim()}>
+                                {ekskulBusy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
+                                Tambah Ekskul
+                            </Button>
+                        </div>
+                    </TabsContent>
+                )}
             </Tabs>
 
             <DialogFooter>

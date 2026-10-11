@@ -5,9 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { AlertTriangle, Compass, GraduationCap, ShieldCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AlertTriangle, Compass, GraduationCap, ShieldCheck, MapPin, Plus, Trash2, Loader2 } from "lucide-react";
 import { goGet } from "@/lib/api-client";
-import { showError } from "@/lib/toast";
+import { showError, showSuccess } from "@/lib/toast";
+import { attendancePointsApi, type AttendancePoint } from "@/lib/presensi-gtk";
 
 interface TabSistemProps {
   settings: any;
@@ -17,6 +19,62 @@ interface TabSistemProps {
 export default function TabSistem({ settings, setSettings }: TabSistemProps) {
   const [employees, setEmployees] = useState<any[]>([]);
   const [academicYears, setAcademicYears] = useState<any[]>([]);
+  const [points, setPoints] = useState<AttendancePoint[]>([]);
+  const [newPoint, setNewPoint] = useState({ name: "", latitude: "", longitude: "", radiusM: "100" });
+  const [pointBusy, setPointBusy] = useState(false);
+
+  const loadPoints = () => {
+    attendancePointsApi
+      .list()
+      .then((res: any) => setPoints(res?.data || []))
+      .catch(() => showError("Gagal memuat titik presensi"));
+  };
+
+  const addPoint = async () => {
+    if (!newPoint.name.trim() || !newPoint.latitude || !newPoint.longitude) {
+      showError("Nama, latitude & longitude wajib diisi");
+      return;
+    }
+    setPointBusy(true);
+    try {
+      await attendancePointsApi.create({
+        name: newPoint.name.trim(),
+        pointType: "custom",
+        latitude: parseFloat(newPoint.latitude),
+        longitude: parseFloat(newPoint.longitude),
+        radiusM: parseInt(newPoint.radiusM) || 100,
+        isActive: true,
+      });
+      showSuccess("Titik presensi ditambahkan");
+      setNewPoint({ name: "", latitude: "", longitude: "", radiusM: "100" });
+      loadPoints();
+    } catch (e: any) {
+      showError(e?.message || "Gagal menambah titik");
+    } finally {
+      setPointBusy(false);
+    }
+  };
+
+  const updatePoint = async (id: string, patch: Partial<AttendancePoint>) => {
+    try {
+      await attendancePointsApi.update(id, patch);
+      showSuccess("Titik presensi diperbarui");
+      loadPoints();
+    } catch (e: any) {
+      showError(e?.message || "Gagal memperbarui titik");
+    }
+  };
+
+  const removePoint = async (id: string) => {
+    if (!confirm("Hapus titik presensi ini?")) return;
+    try {
+      await attendancePointsApi.remove(id);
+      showSuccess("Titik presensi dihapus");
+      loadPoints();
+    } catch (e: any) {
+      showError(e?.message || "Gagal menghapus titik (titik sekolah tak bisa dihapus)");
+    }
+  };
 
   useEffect(() => {
     // Fetch GTK/Employees for treasurer list
@@ -34,6 +92,8 @@ export default function TabSistem({ settings, setSettings }: TabSistemProps) {
       console.error("Error fetching academic years:", err);
       showError("Gagal memuat daftar tahun ajaran");
     });
+
+    loadPoints();
   }, []);
 
   return (
@@ -264,6 +324,99 @@ export default function TabSistem({ settings, setSettings }: TabSistemProps) {
             />
           </div>
 
+        </CardContent>
+      </Card>
+
+      {/* Titik & Radius Presensi GTK */}
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-emerald-600">
+            <MapPin className="h-5 w-5" />
+            Titik & Radius Presensi GTK
+          </CardTitle>
+          <CardDescription>
+            Titik lokasi untuk validasi radius saat scan presensi GTK (honorer & pembina ekskul).
+            Koordinat sekolah di atas dipakai sebagai titik default bila belum diatur.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {points.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Belum ada titik presensi.</p>
+          ) : (
+            <div className="space-y-2">
+              {points.map((p) => (
+                <div key={p.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 p-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm text-slate-800">{p.name}</span>
+                      <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">
+                        {p.pointType}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground font-mono">
+                      {p.latitude}, {p.longitude}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs text-muted-foreground">Radius (m)</Label>
+                    <Input
+                      type="number"
+                      className="w-24 h-8"
+                      defaultValue={p.radiusM}
+                      onBlur={(e) => {
+                        const v = parseInt(e.target.value) || 100;
+                        if (v !== p.radiusM) updatePoint(p.id, { radiusM: v });
+                      }}
+                    />
+                    <Switch
+                      checked={p.isActive}
+                      onCheckedChange={(checked) => updatePoint(p.id, { isActive: checked })}
+                    />
+                    {p.pointType !== "sekolah" && (
+                      <Button variant="ghost" size="icon" className="text-rose-600" onClick={() => removePoint(p.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="rounded-lg border border-slate-200 p-3 space-y-3">
+            <p className="text-xs font-semibold text-slate-600">Tambah Titik Presensi</p>
+            <div className="grid gap-3 sm:grid-cols-4">
+              <Input
+                placeholder="Nama titik (mis. Lapangan)"
+                value={newPoint.name}
+                onChange={(e) => setNewPoint({ ...newPoint, name: e.target.value })}
+              />
+              <Input
+                type="number"
+                step="0.000001"
+                placeholder="Latitude"
+                value={newPoint.latitude}
+                onChange={(e) => setNewPoint({ ...newPoint, latitude: e.target.value })}
+              />
+              <Input
+                type="number"
+                step="0.000001"
+                placeholder="Longitude"
+                value={newPoint.longitude}
+                onChange={(e) => setNewPoint({ ...newPoint, longitude: e.target.value })}
+              />
+              <Input
+                type="number"
+                placeholder="Radius (m)"
+                value={newPoint.radiusM}
+                onChange={(e) => setNewPoint({ ...newPoint, radiusM: e.target.value })}
+              />
+            </div>
+            <Button type="button" size="sm" onClick={addPoint} disabled={pointBusy}>
+              {pointBusy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
+              Tambah Titik
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

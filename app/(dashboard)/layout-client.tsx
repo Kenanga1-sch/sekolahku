@@ -114,6 +114,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/presensi/pengajuan": "Pengajuan Izin",
   "/presensi/laporan": "Laporan Presensi",
   "/presensi/scan": "Scan Presensi",
+  "/presensi/scan-gtk": "Scan Presensi GTK",
   "/presensi/holidays": "Hari Libur",
   "/presensi": "Presensi",
   // Admin

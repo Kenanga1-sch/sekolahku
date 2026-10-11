@@ -741,9 +741,21 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	guruGroup.GET("/attendance/report", h.Attendance.GetReport)
 	guruGroup.GET("/attendance/student-summary/:studentId", h.Attendance.GetStudentSummary)
 	// Presensi GTK (guru & tenaga kependidikan) — scan kartu GTK, rekap harian/rentang.
+	// Sejak 000084: hanya non-ASN (GTT/GTY/Honorer/PTT) + Pembina Ekskul yang
+	// wajib presensi; PNS/PPPK dikecualikan. Scan divalidasi radius lokasi.
 	guruGroup.POST("/gtk-attendance/scan", h.AttendanceGTK.ScanGTK)
 	guruGroup.GET("/gtk-attendance/daily", h.AttendanceGTK.GetGTKDaily)
 	guruGroup.GET("/gtk-attendance/report", h.AttendanceGTK.GetGTKReport)
+	// Presensi sesi ekskul (pengajar ekskul) + titik lokasi & pengajar ekskul.
+	guruGroup.GET("/gtk-attendance/ekskul", h.AttendanceGTK.GetEkskulDaily)
+	bendaharaGroup.GET("/attendance/points", h.AttendanceGTK.ListPoints)
+	bendaharaGroup.POST("/attendance/points", h.AttendanceGTK.CreatePoint)
+	bendaharaGroup.PUT("/attendance/points/:id", h.AttendanceGTK.UpdatePoint)
+	bendaharaGroup.DELETE("/attendance/points/:id", h.AttendanceGTK.DeletePoint)
+	guruGroup.GET("/attendance/ekskul-teachers", h.AttendanceGTK.ListEkskul)
+	bendaharaGroup.POST("/attendance/ekskul-teachers", h.AttendanceGTK.AssignEkskul)
+	bendaharaGroup.PUT("/attendance/ekskul-teachers/:id", h.AttendanceGTK.UpdateEkskul)
+	bendaharaGroup.DELETE("/attendance/ekskul-teachers/:id", h.AttendanceGTK.RemoveEkskul)
 	guruGroup.POST("/scan/resolve", h.ScanResolve.Resolve)
 	// PDF presensi: LibreOffice headless (satu-satunya mesin sejak 2026-10-08);
 	// 503 bila binary tak terpasang → frontend mengarahkan ke export Excel.

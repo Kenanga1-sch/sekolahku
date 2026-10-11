@@ -38,7 +38,8 @@ func setupEmployeeTestDB(t *testing.T) *sql.DB {
 			email TEXT,
 			role TEXT,
 			phone TEXT,
-			qr_code TEXT
+			qr_code TEXT,
+			attendance_required INTEGER DEFAULT 0
 		);
 		CREATE TABLE users (
 			id TEXT PRIMARY KEY,

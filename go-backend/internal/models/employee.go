@@ -43,6 +43,9 @@ type Employee struct {
 	EmploymentStatus *string `json:"employmentStatus"`
 	JobType          *string `json:"jobType"`
 	JoinDate         *string `json:"joinDate"`
+	// AttendanceRequired: true untuk GTK non-ASN (GTT/GTY/Honorer/PTT) &
+	// Pembina Ekskul yang wajib presensi; false untuk PNS/PPPK/P3K.
+	AttendanceRequired bool `json:"attendanceRequired"`
 	Category         *string `json:"category"`
 	Degree           *string `json:"degree"`
 	Quote            *string `json:"quote"`

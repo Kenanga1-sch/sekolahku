@@ -1,0 +1,30 @@
+package repository
+
+import "strings"
+
+// attendanceRequiredStatuses adalah status kepegawaian yang WAJIB presensi:
+// seluruh non-ASN (GTT/GTY/Honorer/PTT) plus Pembina Ekskul. PNS & PPPK/P3K
+// (ASN) dikecualikan.
+var attendanceRequiredStatuses = map[string]bool{
+	"gtt":                   true,
+	"gty":                   true,
+	"ptt":                   true,
+	"honorer":               true,
+	"guru tidak tetap":      true,
+	"guru tetap yayasan":    true,
+	"pegawai tidak tetap":   true,
+	"pembina ekskul":        true,
+	"pembina ekstrakurikuler": true,
+}
+
+// IsAttendanceRequired melaporkan apakah status kepegawaian wajib presensi.
+// Normalisasi case-insensitive + trim (nilai lama tak konsisten).
+func IsAttendanceRequired(employmentStatus string) bool {
+	return attendanceRequiredStatuses[strings.ToLower(strings.TrimSpace(employmentStatus))]
+}
+
+// AttendanceRequiredStatuses mengembalikan daftar status (kanonik) yang wajib
+// presensi — dipakai frontend untuk menampilkan pilihan.
+func AttendanceRequiredStatuses() []string {
+	return []string{"GTT", "GTY", "Honorer", "PTT", "Pembina Ekskul"}
+}
