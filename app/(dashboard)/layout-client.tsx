@@ -67,6 +67,8 @@ import type { SchoolSettings } from "@/types";
 // Page title mapping for mobile header (longest-prefix match)
 const PAGE_TITLES: Record<string, string> = {
   "/overview": "Beranda",
+  // Keuangan
+  "/keuangan": "Keuangan",
   // Perpustakaan
   "/perpustakaan/buku": "Data Buku",
   "/perpustakaan/anggota": "Anggota Perpustakaan",
@@ -196,6 +198,7 @@ const DOCSTATION_ROLES: UserRole[] = ["admin", "superadmin", "staff"];
 const CLOUDSTORAGE_ROLES: UserRole[] = ["admin", "superadmin", "staff", "guru"];
 const ALL_DASHBOARD_ROLES: UserRole[] = ["admin", "superadmin", "guru", "staff", "siswa"];
 const TABUNGAN_ROLES: UserRole[] = ["admin", "superadmin", "guru", "staff"];
+const KEUANGAN_ROLES: UserRole[] = ["admin", "superadmin", "bendahara", "guru", "staff"];
 const SISWA_ROLES: UserRole[] = ["siswa"];
 
 const navGroups: NavGroup[] = [
@@ -222,6 +225,7 @@ const navGroups: NavGroup[] = [
       { href: "/arsip", label: "E-Arsip", icon: FileText, roles: ADMIN_ROLES },
       { href: "/docstation", label: "DocStation", icon: Printer, roles: DOCSTATION_ROLES },
       { href: "/cloud-storage", label: "Cloud Storage", icon: Cloud, roles: CLOUDSTORAGE_ROLES },
+      { href: "/keuangan", label: "Keuangan", icon: Banknote, roles: KEUANGAN_ROLES },
     ],
   },
   {

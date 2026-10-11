@@ -14,53 +14,54 @@ import (
 
 // Repositories holds all repository instances.
 type Repositories struct {
-	User           *repository.UserRepository
-	Academic       *repository.AcademicRepository
-	Inventory      *repository.InventoryRepository
-	SPMB           *repository.SPMBRepository
-	Student        *repository.StudentRepository
-	Employee       *repository.EmployeeRepository
-	Savings        *repository.SavingsRepository
-	SavingsGTK     *repository.SavingsGTKRepository
-	Library        *repository.LibraryRepository
-	EOffice        *repository.EOfficeRepository
-	Attendance     *repository.AttendanceRepository
-	AttendanceGTK  *repository.AttendanceGTKRepository
-	Loan           *repository.LoanRepository
-	Setting        *repository.SettingRepository
-	Alumni         *repository.AlumniRepository
-	Mutasi         *repository.MutasiRepository
-	Gallery        *repository.GalleryRepository
-	Announcement   *repository.AnnouncementRepository
-	AuditLog       *repository.AuditLogRepository
-	Notification   *repository.NotificationRepository
-	TelegramBackup *repository.TelegramBackupRepository
-	Dashboard      *repository.DashboardRepository
-	Public         *repository.PublicRepository
-	PublicLibrary  *repository.PublicLibraryRepository
-	Booking        *repository.LibraryBookingRepository
-	Computer       *repository.ComputerRepository
-	StickerPreset  *repository.LibraryStickerPresetRepository
-	FAQ            *repository.FAQRepository
-	Contact        *repository.ContactRepository
-	Sync           *repository.SyncRepository
-	Integration    *repository.IntegrationRepository
-	Document       *repository.DocumentRepository
-	Holiday        *repository.SchoolHolidayRepository
-	Push           *repository.PushRepository
-	Parent         *repository.ParentRepository
-	BankSoal       *repository.BankSoalRepository
-	ExamAssignment *repository.ExamAssignmentRepository
-	Kurikulum      *repository.KurikulumRepository
-	Chat           *repository.ChatRepository
-	Skrining       *repository.SkriningRepository
-	Tugas          *repository.TugasRepository
-	CloudStorage   *repository.CloudStorageRepository
+	User               *repository.UserRepository
+	Academic           *repository.AcademicRepository
+	Inventory          *repository.InventoryRepository
+	SPMB               *repository.SPMBRepository
+	Student            *repository.StudentRepository
+	Employee           *repository.EmployeeRepository
+	Savings            *repository.SavingsRepository
+	SavingsGTK         *repository.SavingsGTKRepository
+	Library            *repository.LibraryRepository
+	EOffice            *repository.EOfficeRepository
+	Attendance         *repository.AttendanceRepository
+	AttendanceGTK      *repository.AttendanceGTKRepository
+	Loan               *repository.LoanRepository
+	Setting            *repository.SettingRepository
+	Alumni             *repository.AlumniRepository
+	Mutasi             *repository.MutasiRepository
+	Gallery            *repository.GalleryRepository
+	Announcement       *repository.AnnouncementRepository
+	AuditLog           *repository.AuditLogRepository
+	Notification       *repository.NotificationRepository
+	TelegramBackup     *repository.TelegramBackupRepository
+	Dashboard          *repository.DashboardRepository
+	Public             *repository.PublicRepository
+	PublicLibrary      *repository.PublicLibraryRepository
+	Booking            *repository.LibraryBookingRepository
+	Computer           *repository.ComputerRepository
+	Finance            *repository.FinanceRepository
+	StickerPreset      *repository.LibraryStickerPresetRepository
+	FAQ                *repository.FAQRepository
+	Contact            *repository.ContactRepository
+	Sync               *repository.SyncRepository
+	Integration        *repository.IntegrationRepository
+	Document           *repository.DocumentRepository
+	Holiday            *repository.SchoolHolidayRepository
+	Push               *repository.PushRepository
+	Parent             *repository.ParentRepository
+	BankSoal           *repository.BankSoalRepository
+	ExamAssignment     *repository.ExamAssignmentRepository
+	Kurikulum          *repository.KurikulumRepository
+	Chat               *repository.ChatRepository
+	Skrining           *repository.SkriningRepository
+	Tugas              *repository.TugasRepository
+	CloudStorage       *repository.CloudStorageRepository
 	CloudUploadSession *repository.CloudUploadSessionRepository
-	ReportTemplate *repository.ReportTemplateRepository
-	PrintSettings  *repository.PrintSettingsRepository
-	AIProvider     *repository.AIProviderRepository
-	ThemePreset    *repository.ThemePresetRepository
+	ReportTemplate     *repository.ReportTemplateRepository
+	PrintSettings      *repository.PrintSettingsRepository
+	AIProvider         *repository.AIProviderRepository
+	ThemePreset        *repository.ThemePresetRepository
 }
 
 // AllHandlers holds all HTTP handler instances.
@@ -93,6 +94,7 @@ type AllHandlers struct {
 	PublicLibrary  *handlers.PublicLibraryHandler
 	Booking        *handlers.BookingHandler
 	Computer       *handlers.ComputerHandler
+	Finance        *handlers.FinanceHandler
 	StickerPreset  *handlers.StickerPresetHandler
 	FAQ            *handlers.FAQHandler
 	Contact        *handlers.ContactHandler
@@ -604,6 +606,29 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	// Kiosk komputer: scan mulai sesi + pantau status stasiun (dibuka di PC, guru login).
 	guruGroup.POST("/computer/kiosk/start", h.Computer.StartSessionByScan)
 	guruGroup.GET("/computer/kiosk/stations/:code", h.Computer.GetStationSession)
+
+	// Modul Keuangan (buku besar generik multi-unit: sampah, koperasi, dll).
+	// Baca: admin/bendahara/guru/staff. Transaksi bisa diinput guru/staff.
+	guruGroup.GET("/finance/units", h.Finance.ListUnits)
+	guruGroup.GET("/finance/units/:id", h.Finance.GetUnit)
+	guruGroup.GET("/finance/categories", h.Finance.ListCategories)
+	guruGroup.GET("/finance/transactions", h.Finance.ListTransactions)
+	guruGroup.GET("/finance/transactions/:id", h.Finance.GetTransaction)
+	guruGroup.POST("/finance/transactions", h.Finance.CreateTransaction)
+	guruGroup.PUT("/finance/transactions/:id", h.Finance.UpdateTransaction)
+	guruGroup.GET("/finance/summary", h.Finance.Summary)
+	guruGroup.GET("/finance/recap/category", h.Finance.RecapByCategory)
+	guruGroup.GET("/finance/recap/monthly", h.Finance.RecapMonthly)
+
+	// Kelola unit & kategori + hapus transaksi: admin/bendahara.
+	bendaharaGroup.POST("/finance/units", h.Finance.CreateUnit)
+	bendaharaGroup.PUT("/finance/units/:id", h.Finance.UpdateUnit)
+	bendaharaGroup.DELETE("/finance/units/:id", h.Finance.DeleteUnit)
+	bendaharaGroup.POST("/finance/categories", h.Finance.CreateCategory)
+	bendaharaGroup.PUT("/finance/categories/:id", h.Finance.UpdateCategory)
+	bendaharaGroup.DELETE("/finance/categories/:id", h.Finance.DeleteCategory)
+	bendaharaGroup.DELETE("/finance/transactions/:id", h.Finance.DeleteTransaction)
+	bendaharaGroup.GET("/finance/audit", h.Finance.ListAuditLog)
 
 	// Announcements
 	auth.GET("/announcements", h.Announcement.GetAnnouncements)
