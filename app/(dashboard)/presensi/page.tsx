@@ -10,7 +10,7 @@
 
 import { useState, useEffect, Suspense, lazy } from "react";
 import { useSearchParams } from "next/navigation";
-import { ClipboardList, CalendarDays, FileText, Loader2, LayoutDashboard, IdCard } from "lucide-react";
+import { ClipboardList, CalendarDays, FileText, Loader2, LayoutDashboard, IdCard, FileSpreadsheet } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { canManageHolidays } from "@/lib/presensi-access";
 
@@ -29,14 +29,18 @@ const HariLiburTab = lazy(() =>
 const PresensiGtkTab = lazy(() =>
   import("./_components/presensi-gtk-tab").then((m) => ({ default: m.PresensiGtkTab }))
 );
+const LaporanGtkTab = lazy(() =>
+  import("./_components/laporan-gtk-tab").then((m) => ({ default: m.LaporanGtkTab }))
+);
 
-type TabType = "ringkasan" | "pengajuan" | "laporan" | "gtk" | "libur";
+type TabType = "ringkasan" | "pengajuan" | "laporan" | "gtk" | "laporan-gtk" | "libur";
 
 const TABS: { id: TabType; label: string; icon: any }[] = [
   { id: "ringkasan", label: "Ringkasan", icon: LayoutDashboard },
   { id: "pengajuan", label: "Pengajuan Izin", icon: CalendarDays },
   { id: "laporan", label: "Laporan", icon: FileText },
   { id: "gtk", label: "Presensi GTK", icon: IdCard },
+  { id: "laporan-gtk", label: "Laporan GTK", icon: FileSpreadsheet },
   { id: "libur", label: "Hari Libur", icon: CalendarDays },
 ];
 
@@ -59,7 +63,7 @@ function PresensiTabsContent() {
   const visibleTabs = TABS.filter((t) => t.id !== "libur" || canLibur);
 
   useEffect(() => {
-    if (queryTab === "ringkasan" || queryTab === "pengajuan" || queryTab === "laporan" || queryTab === "gtk" || (queryTab === "libur" && canLibur)) {
+    if (queryTab === "ringkasan" || queryTab === "pengajuan" || queryTab === "laporan" || queryTab === "gtk" || queryTab === "laporan-gtk" || (queryTab === "libur" && canLibur)) {
       setActiveTab(queryTab);
     }
   }, [queryTab, canLibur]);
@@ -112,6 +116,11 @@ function PresensiTabsContent() {
         {active === "gtk" && (
           <Suspense fallback={<TabFallback />}>
             <PresensiGtkTab />
+          </Suspense>
+        )}
+        {active === "laporan-gtk" && (
+          <Suspense fallback={<TabFallback />}>
+            <LaporanGtkTab />
           </Suspense>
         )}
         {active === "libur" && (

@@ -135,6 +135,26 @@ func (h *AttendanceGTKHandler) GetEkskulDaily(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": rows})
 }
 
+// GetGTKMonthly: GET /gtk-attendance/monthly?year=&month=&type= — matriks
+// presensi bulanan GTK (untuk laporan & ekspor Excel/PDF).
+func (h *AttendanceGTKHandler) GetGTKMonthly(c echo.Context) error {
+	year := parseIntOr(c.QueryParam("year"), 0)
+	month := parseIntOr(c.QueryParam("month"), 0)
+	attendeeType := strings.TrimSpace(c.QueryParam("type"))
+	if attendeeType != "gtk" && attendeeType != "ekskul" {
+		attendeeType = ""
+	}
+	if year <= 0 || month < 1 || month > 12 {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Parameter year/month tidak valid"})
+	}
+	report, err := h.Repo.GetGTKMonthlyReport(year, month, attendeeType)
+	if err != nil {
+		c.Logger().Error("GetGTKMonthly: ", err)
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": report})
+}
+
 // isBendaharaRole: superadmin/admin/bendahara boleh override radius.
 func isBendaharaRole(role string) bool {
 	switch strings.ToLower(strings.TrimSpace(role)) {

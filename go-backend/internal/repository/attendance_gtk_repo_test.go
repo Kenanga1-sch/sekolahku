@@ -295,3 +295,42 @@ func TestHaversineM(t *testing.T) {
 		t.Fatalf("jarak titik sama harus 0, got %v", got)
 	}
 }
+
+func TestAttendanceGTKMonthlyReport(t *testing.T) {
+	db := setupGtkAttendanceTestDB(t)
+	defer db.Close()
+	repo := NewAttendanceGTKRepository(db)
+
+	// Candra (Honorer, emp-1) hadir 2 hari; emp-2/emp-3 (ASN) tak wajib → tak muncul.
+	today := TodayJakarta()
+	_ = today
+	// Insert presensi pada tanggal tertentu (bukan hanya hari ini).
+	now := int64(0)
+	_, err := db.Exec(`INSERT INTO employee_attendance (id, employee_id, date, status, check_in_time, created_at, updated_at, attendee_type) VALUES
+		('a1','emp-1','2026-10-05','hadir',0,?,?, 'gtk'),
+		('a2','emp-1','2026-10-06','sakit',0,?,?, 'gtk')`, now, now, now, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	report, err := repo.GetGTKMonthlyReport(2026, 10, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Year != 2026 || report.Month != 10 {
+		t.Fatalf("periode salah: %+v", report)
+	}
+	if report.EffectiveDays <= 0 {
+		t.Fatalf("effectiveDays harus > 0, got %d", report.EffectiveDays)
+	}
+	if len(report.Rows) != 1 {
+		t.Fatalf("hanya GTK wajib presensi (emp-1) yang tampil, got %d", len(report.Rows))
+	}
+	r := report.Rows[0]
+	if r.EmployeeID != "emp-1" || r.TotalHadir != 1 || r.TotalSakit != 1 {
+		t.Fatalf("rekap salah: %+v", r)
+	}
+	if r.DailyStatus["2026-10-05"] != "hadir" {
+		t.Fatalf("daily status 05 salah: %+v", r.DailyStatus)
+	}
+}

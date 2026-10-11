@@ -6,6 +6,12 @@ import {
   formatDistance,
   resolvePointForSession,
   gtkCategoryLabel,
+  daysInMonth,
+  dateKey,
+  statusLetter,
+  gtkAttendancePct,
+  overallAttendancePct,
+  monthlyFilename,
   type AttendancePoint,
 } from "./index";
 
@@ -87,5 +93,49 @@ describe("gtkCategoryLabel", () => {
     expect(gtkCategoryLabel("guru")).toBe("Guru");
     expect(gtkCategoryLabel("kepsek")).toBe("Kepala Sekolah");
     expect(gtkCategoryLabel(undefined)).toBe("GTK");
+  });
+});
+
+describe("monthly report helpers", () => {
+  it("daysInMonth", () => {
+    expect(daysInMonth(2026, 1)).toBe(31);
+    expect(daysInMonth(2026, 2)).toBe(28);
+    expect(daysInMonth(2026, 10)).toBe(31);
+  });
+
+  it("dateKey", () => {
+    expect(dateKey(2026, 10, 5)).toBe("2026-10-05");
+  });
+
+  it("statusLetter", () => {
+    expect(statusLetter("hadir")).toBe("H");
+    expect(statusLetter("Sakit")).toBe("S");
+    expect(statusLetter("")).toBe("-");
+  });
+
+  it("gtkAttendancePct", () => {
+    const row = {
+      employeeId: "e1", name: "A", nip: "", category: "guru", employmentStatus: "Honorer",
+      dailyStatus: {}, totalHadir: 20, totalSakit: 1, totalIzin: 0, totalAlpha: 1,
+    };
+    expect(gtkAttendancePct(row, 22)).toBe(90.9);
+    // tanpa catatan → null
+    expect(gtkAttendancePct({ ...row, totalHadir: 0, totalSakit: 0, totalIzin: 0, totalAlpha: 0 }, 22)).toBeNull();
+    expect(gtkAttendancePct(row, 0)).toBeNull();
+  });
+
+  it("overallAttendancePct", () => {
+    const rows = [
+      { employeeId: "e1", name: "A", nip: "", category: "", employmentStatus: "", dailyStatus: {}, totalHadir: 10, totalSakit: 0, totalIzin: 0, totalAlpha: 0 },
+      { employeeId: "e2", name: "B", nip: "", category: "", employmentStatus: "", dailyStatus: {}, totalHadir: 12, totalSakit: 0, totalIzin: 0, totalAlpha: 0 },
+    ];
+    // 22 / (2*22) = 50%
+    expect(overallAttendancePct(rows, 22)).toBe(50);
+    expect(overallAttendancePct([], 22)).toBeNull();
+  });
+
+  it("monthlyFilename", () => {
+    expect(monthlyFilename(2026, 10, "gtk")).toBe("laporan-presensi-gtk-2026-10");
+    expect(monthlyFilename(2026, 3, "ekskul")).toBe("laporan-presensi-ekskul-2026-03");
   });
 });

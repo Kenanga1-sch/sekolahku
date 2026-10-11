@@ -32,31 +32,31 @@ func NewAttendanceGTKRepository(db *sql.DB) *AttendanceGTKRepository {
 
 // GTKAttendanceRow adalah satu baris rekap presensi GTK.
 type GTKAttendanceRow struct {
-	EmployeeID    string   `json:"employeeId"`
-	Name          string   `json:"name"`
-	Category      string   `json:"category"`
-	NIP           string   `json:"nip"`
-	EmploymentStatus string `json:"employmentStatus"`
-	Date          string   `json:"date"`
-	Status        string   `json:"status"`
-	CheckIn       string   `json:"checkIn"`
-	AttendeeType  string   `json:"attendeeType"`
-	DistanceM     *float64 `json:"distanceM,omitempty"`
-	WithinRadius  *bool    `json:"withinRadius,omitempty"`
-	PointName     string   `json:"pointName,omitempty"`
-	ExtracurricularName string `json:"extracurricularName,omitempty"`
+	EmployeeID          string   `json:"employeeId"`
+	Name                string   `json:"name"`
+	Category            string   `json:"category"`
+	NIP                 string   `json:"nip"`
+	EmploymentStatus    string   `json:"employmentStatus"`
+	Date                string   `json:"date"`
+	Status              string   `json:"status"`
+	CheckIn             string   `json:"checkIn"`
+	AttendeeType        string   `json:"attendeeType"`
+	DistanceM           *float64 `json:"distanceM,omitempty"`
+	WithinRadius        *bool    `json:"withinRadius,omitempty"`
+	PointName           string   `json:"pointName,omitempty"`
+	ExtracurricularName string   `json:"extracurricularName,omitempty"`
 }
 
 // ScanOutcome hasil pemrosesan satu scan presensi GTK.
 type ScanOutcome struct {
-	EmployeeID  string
-	Name        string
-	Category    string
-	Already     bool
-	DistanceM   float64
-	WithinRad   bool
-	PointName   string
-	Status      string
+	EmployeeID string
+	Name       string
+	Category   string
+	Already    bool
+	DistanceM  float64
+	WithinRad  bool
+	PointName  string
+	Status     string
 }
 
 // ScanGTK mencatat kehadiran GTK (idempotent per employee+date). Validasi:
@@ -584,4 +584,158 @@ func (r *AttendanceGTKRepository) GetEkskulForEmployee(employeeID string) ([]Eks
 		out = append(out, t)
 	}
 	return out, rows.Err()
+}
+
+// ==========================================================================
+// Laporan bulanan presensi GTK
+// ==========================================================================
+
+// GTKMonthlyRow adalah satu baris matriks presensi bulanan (per GTK).
+type GTKMonthlyRow struct {
+	EmployeeID       string            `json:"employeeId"`
+	Name             string            `json:"name"`
+	NIP              string            `json:"nip"`
+	Category         string            `json:"category"`
+	EmploymentStatus string            `json:"employmentStatus"`
+	Extracurricular  string            `json:"extracurricular,omitempty"`
+	DailyStatus      map[string]string `json:"dailyStatus"` // "2026-10-05" → "hadir|sakit|izin|alpha"
+	TotalHadir       int               `json:"totalHadir"`
+	TotalSakit       int               `json:"totalSakit"`
+	TotalIzin        int               `json:"totalIzin"`
+	TotalAlpha       int               `json:"totalAlpha"`
+}
+
+// GTKMonthlyReport adalah hasil laporan bulanan presensi GTK.
+type GTKMonthlyReport struct {
+	Year          int              `json:"year"`
+	Month         int              `json:"month"`
+	EffectiveDays int              `json:"effectiveDays"`
+	Holidays      []MonthlyHoliday `json:"holidays"`
+	Rows          []GTKMonthlyRow  `json:"rows"`
+}
+
+// MonthlyHoliday satu tanggal libur di bulan laporan.
+type MonthlyHoliday struct {
+	Date   string `json:"date"`
+	Reason string `json:"reason"`
+}
+
+// GetGTKMonthlyReport menyusun matriks presensi bulanan GTK wajib presensi
+// (attendance_required=1). attendeeType: "" (semua) | "gtk" | "ekskul".
+// Bila ekskul, hanya GTK yang punya catatan presensi ekskul pada bulan itu.
+func (r *AttendanceGTKRepository) GetGTKMonthlyReport(year, month int, attendeeType string) (*GTKMonthlyReport, error) {
+	startDate := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
+	endDate := time.Date(year, time.Month(month)+1, 0, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
+
+	report := &GTKMonthlyReport{Year: year, Month: month, Rows: []GTKMonthlyRow{}, Holidays: []MonthlyHoliday{}}
+
+	// Hari efektif & daftar libur (Minggu + libur sekolah/nasional).
+	start, _ := time.Parse("2006-01-02", startDate)
+	end, _ := time.Parse("2006-01-02", endDate)
+	for d := start; !d.After(end); d = d.AddDate(0, 0, 1) {
+		ds := d.Format("2006-01-02")
+		if holiday, reason := IsHoliday(ds); holiday {
+			report.Holidays = append(report.Holidays, MonthlyHoliday{Date: ds, Reason: reason})
+		} else {
+			report.EffectiveDays++
+		}
+	}
+
+	// Base GTK wajib presensi.
+	type base struct {
+		row    GTKMonthlyRow
+		ekskul string
+	}
+	bases := []base{}
+	baseRows, err := r.DB.Query(`
+		SELECT ed.id, COALESCE(ed.name,''), COALESCE(ed.nip,''), COALESCE(ed.category,''),
+		       COALESCE(ed.employment_status,'')
+		FROM employee_details ed
+		WHERE ed.attendance_required = 1
+		ORDER BY ed.name ASC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer baseRows.Close()
+	for baseRows.Next() {
+		var b base
+		if err := baseRows.Scan(&b.row.EmployeeID, &b.row.Name, &b.row.NIP, &b.row.Category, &b.row.EmploymentStatus); err != nil {
+			return nil, err
+		}
+		b.row.DailyStatus = map[string]string{}
+		bases = append(bases, b)
+	}
+	if err := baseRows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Presensi bulan ini (filter attendee_type bila diminta).
+	q := `
+		SELECT ea.employee_id, ea.date, ea.status, COALESCE(et.extracurricular_name,'')
+		FROM employee_attendance ea
+		LEFT JOIN extracurricular_teachers et ON et.id = ea.extracurricular_id
+		WHERE ea.date BETWEEN ? AND ?
+	`
+	args := []interface{}{startDate, endDate}
+	if attendeeType != "" {
+		q += " AND COALESCE(ea.attendee_type,'gtk') = ?"
+		args = append(args, attendeeType)
+	}
+	recRows, err := r.DB.Query(q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer recRows.Close()
+
+	byEmp := map[string]int{}
+	ekskulSet := map[string]string{}
+	for recRows.Next() {
+		var empID, date, status, ekskul string
+		if err := recRows.Scan(&empID, &date, &status, &ekskul); err != nil {
+			return nil, err
+		}
+		idx, ok := byEmp[empID]
+		if !ok {
+			idx = -1
+			for i := range bases {
+				if bases[i].row.EmployeeID == empID {
+					idx = i
+					byEmp[empID] = i
+					break
+				}
+			}
+			if idx < 0 {
+				continue // GTK tak wajib presensi — lewati
+			}
+		}
+		bases[idx].row.DailyStatus[date] = status
+		switch status {
+		case "hadir":
+			bases[idx].row.TotalHadir++
+		case "sakit":
+			bases[idx].row.TotalSakit++
+		case "izin":
+			bases[idx].row.TotalIzin++
+		case "alpha":
+			bases[idx].row.TotalAlpha++
+		}
+		if ekskul != "" && bases[idx].ekskul == "" {
+			bases[idx].ekskul = ekskul
+			ekskulSet[empID] = ekskul
+		}
+	}
+	if err := recRows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Bila mode ekskul: hanya tampilkan GTK yang punya catatan ekskul bulan ini.
+	for _, b := range bases {
+		if attendeeType == "ekskul" && len(b.row.DailyStatus) == 0 {
+			continue
+		}
+		b.row.Extracurricular = b.ekskul
+		report.Rows = append(report.Rows, b.row)
+	}
+	return report, nil
 }

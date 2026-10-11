@@ -62,6 +62,32 @@ export interface ScanGtkResult {
   message?: string;
 }
 
+// ==========================================================================
+// Laporan bulanan
+// ==========================================================================
+
+export interface GtkMonthlyRow {
+  employeeId: string;
+  name: string;
+  nip: string;
+  category: string;
+  employmentStatus: string;
+  extracurricular?: string;
+  dailyStatus: Record<string, string>; // "YYYY-MM-DD" → hadir|sakit|izin|alpha
+  totalHadir: number;
+  totalSakit: number;
+  totalIzin: number;
+  totalAlpha: number;
+}
+
+export interface GtkMonthlyReport {
+  year: number;
+  month: number;
+  effectiveDays: number;
+  holidays: { date: string; reason: string }[];
+  rows: GtkMonthlyRow[];
+}
+
 export interface ScanGtkPayload {
   qrCode: string;
   status?: string;
@@ -85,6 +111,10 @@ export const gtkAttendanceApi = {
   report: (start: string, end: string) =>
     goGet<{ data: GtkAttendanceRow[] }>(`/api/gtk-attendance/report?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`),
   ekskulDaily: (date: string) => goGet<{ data: GtkAttendanceRow[] }>(`/api/gtk-attendance/ekskul?date=${encodeURIComponent(date)}`),
+  monthly: (year: number, month: number, type?: "gtk" | "ekskul") =>
+    goGet<{ data: GtkMonthlyReport }>(
+      `/api/gtk-attendance/monthly?year=${year}&month=${month}${type ? `&type=${type}` : ""}`
+    ),
 };
 
 export const attendancePointsApi = {
@@ -200,4 +230,69 @@ export function gtkCategoryLabel(category?: string): string {
     default:
       return "GTK";
   }
+}
+
+// ==========================================================================
+// Helper laporan bulanan (murni, mudah diuji)
+// ==========================================================================
+
+export const MONTH_NAMES_ID = [
+  "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+  "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+] as const;
+
+/** "YYYY-MM-DD" untuk hari ke-N pada bulan tertentu. */
+export function dateKey(year: number, month: number, day: number): string {
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+/** Jumlah hari dalam bulan (1..12). */
+export function daysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+/** Kode status presensi → huruf (H/S/I/A/-). */
+export function statusLetter(status: string): "H" | "S" | "I" | "A" | "-" {
+  switch ((status || "").toLowerCase()) {
+    case "hadir":
+      return "H";
+    case "sakit":
+      return "S";
+    case "izin":
+      return "I";
+    case "alpha":
+      return "A";
+    default:
+      return "-";
+  }
+}
+
+/**
+ * Persentase kehadiran GTK: hadir ÷ hari efektif, 1 desimal, maks 100.
+ * null bila tak ada hari efektif atau belum ada catatan (bukan 0% menyesatkan).
+ */
+export function gtkAttendancePct(row: GtkMonthlyRow, effectiveDays: number): number | null {
+  if (effectiveDays <= 0) return null;
+  const recorded = row.totalHadir + row.totalSakit + row.totalIzin + row.totalAlpha;
+  if (recorded === 0) return null;
+  return Math.min(Math.round((row.totalHadir / effectiveDays) * 1000) / 10, 100);
+}
+
+/** Persentase kehadiran agregat (semua GTK). */
+export function overallAttendancePct(rows: GtkMonthlyRow[], effectiveDays: number): number | null {
+  const denom = rows.length * effectiveDays;
+  if (denom <= 0) return null;
+  const hadir = rows.reduce((n, r) => n + r.totalHadir, 0);
+  return Math.min(Math.round((hadir / denom) * 1000) / 10, 100);
+}
+
+/** Nama bulan Indonesia dari 1..12. */
+export function monthName(month: number): string {
+  return MONTH_NAMES_ID[month - 1] || String(month);
+}
+
+/** Nama file ekspor (tanpa ekstensi). */
+export function monthlyFilename(year: number, month: number, type?: "gtk" | "ekskul"): string {
+  const slug = type === "ekskul" ? "ekskul" : "gtk";
+  return `laporan-presensi-${slug}-${year}-${String(month).padStart(2, "0")}`;
 }
