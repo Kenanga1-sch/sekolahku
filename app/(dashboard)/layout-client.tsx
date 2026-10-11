@@ -418,7 +418,7 @@ function DashboardLayoutChrome({
           <div className="flex flex-col flex-1 overflow-hidden">
             {/* Logo */}
             <div className="flex flex-col">
-                <Link href="#" className="font-normal flex space-x-2 items-center text-sm text-black py-1 relative z-20">
+                <Link href="/overview" className="font-normal flex space-x-2 items-center text-sm text-black py-1 relative z-20">
                     <div className={cn(
                         "h-6 w-6 relative flex-shrink-0 rounded-full flex items-center justify-center overflow-hidden",
                         !schoolLogo && "bg-black dark:bg-white"

@@ -701,7 +701,7 @@ export default function AnggotaPage() {
                         <DialogDescription>Preview desain kartu untuk {memberToPrint?.name}</DialogDescription>
                     </DialogHeader>
                     
-                    <div className="flex flex-col items-center justify-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-300 print-area">
+                    <div className="flex flex-col items-center justify-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-300 print-area overflow-x-auto">
                         {memberToPrint && <MemberCardPreview member={memberToPrint} />}
                     </div>
 

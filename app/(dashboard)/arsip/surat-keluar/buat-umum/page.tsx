@@ -180,7 +180,7 @@ export default function BuatSuratUmumPage() {
 
         <div className="space-y-2">
           <Label>Isi Surat</Label>
-          <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden bg-white dark:bg-zinc-950 min-h-[500px] flex flex-col">
+          <div className="border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden bg-white dark:bg-zinc-950 min-h-[500px] flex flex-col lg:flex-row">
             <EditorSidebar 
               editor={editor} 
               paperSize={paperSize}
@@ -188,7 +188,7 @@ export default function BuatSuratUmumPage() {
               orientation={orientation}
               setOrientation={setOrientation}
             />
-            <div className="flex-1 p-8 prose prose-slate max-w-none dark:prose-invert">
+            <div className="flex-1 p-4 sm:p-8 prose prose-slate max-w-none dark:prose-invert">
               <EditorContent editor={editor} className="min-h-[400px] outline-none" />
             </div>
           </div>

@@ -211,8 +211,8 @@ export default function VerificationPage() {
       <div className="mt-8 text-center space-y-2">
          <p className="text-xs text-slate-400">© {new Date().getFullYear()} {schoolName}. All rights reserved.</p>
          <div className="flex justify-center gap-4 text-xs text-slate-400">
-            <Link href="#" className="hover:text-slate-600">Privacy Policy</Link>
-            <Link href="#" className="hover:text-slate-600">Contact Support</Link>
+            <Link href="/layanan" className="hover:text-slate-600">Pusat Layanan</Link>
+            <Link href="/layanan/kritik-saran-pengaduan" className="hover:text-slate-600">Kontak &amp; Pengaduan</Link>
          </div>
       </div>
     </div>

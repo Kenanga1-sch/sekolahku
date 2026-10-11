@@ -158,7 +158,7 @@ export default function BarangKeluarPage() {
                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[400px] p-0">
+                    <PopoverContent className="w-[calc(100vw-2rem)] sm:w-[400px] p-0">
                       <Command>
                         <CommandInput placeholder="Cari nama barang..." />
                         <CommandList>
@@ -181,7 +181,7 @@ export default function BarangKeluarPage() {
                                  />
                                  <div className="flex flex-col">
                                     <span>{item.name}</span>
-                                    <div className="flex justify-between items-center w-[200px]">
+                                    <div className="flex justify-between items-center w-full sm:w-[200px]">
                                        <span className="text-xs text-muted-foreground">Sisa: {item.currentStock} {item.unit}</span>
                                        {item.currentStock <= 0 && <span className="text-xs text-red-500 font-bold">Habis</span>}
                                     </div>

@@ -91,7 +91,7 @@ export default function KeuanganPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-6 p-4 sm:p-6">
       <div className="flex items-center gap-4">
-        <Link href="/dashboard">
+        <Link href="/overview">
           <Button variant="ghost" size="icon" aria-label="Kembali ke dasbor">
             <ArrowLeft className="h-4 w-4" />
           </Button>

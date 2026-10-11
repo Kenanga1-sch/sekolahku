@@ -204,7 +204,7 @@ export function RecipientSelector({
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50 text-slate-400" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[450px] p-0 rounded-xl border border-slate-200 dark:border-slate-850 shadow-lg overflow-hidden bg-white dark:bg-zinc-900">
+                  <PopoverContent className="w-[calc(100vw-2rem)] sm:w-[450px] p-0 rounded-xl border border-slate-200 dark:border-slate-850 shadow-lg overflow-hidden bg-white dark:bg-zinc-900">
                     <Command shouldFilter={false}>
                       <CommandInput
                         placeholder={`Cari ${targetType === "STUDENT" ? "siswa" : "staff"}...`}

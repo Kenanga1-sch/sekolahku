@@ -53,6 +53,7 @@ import { resolveUploadUrl } from "@/lib/upload-url";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import { useSortableData } from "@/hooks/use-sortable-data";
+import { StudentFormDialog } from "@/components/master/student-form-dialog";
 
 interface Student {
   id: string;
@@ -92,6 +93,8 @@ export default function TabKartu() {
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editStudentId, setEditStudentId] = useState<string | null>(null);
   const { sortedData, sortConfig, requestSort } = useSortableData(students);
 
   const fetchStudents = useCallback(async () => {
@@ -171,6 +174,11 @@ export default function TabKartu() {
     setQrDialogOpen(true);
   };
 
+  const showEditStudent = (student: Student) => {
+    setEditStudentId(student.id);
+    setEditDialogOpen(true);
+  };
+
   const uniqueClasses = (summary?.byClass || [])
     .filter((c) => c?.className)
     .map((c) => c.className!)
@@ -178,6 +186,12 @@ export default function TabKartu() {
 
   return (
     <div className="space-y-6">
+      <StudentFormDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        studentId={editStudentId}
+        onSuccess={() => fetchStudents()}
+      />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -450,9 +464,7 @@ export default function TabKartu() {
                     Detail
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() =>
-                      router.push(`/admin/siswa/detail/edit?id=${student.id}`)
-                    }
+                    onClick={() => showEditStudent(student)}
                   >
                     <Pencil className="h-4 w-4 mr-2" />
                     Edit

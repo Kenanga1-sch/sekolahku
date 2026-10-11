@@ -231,7 +231,7 @@ export default function CetakKartuPage() {
                       <ImageIcon className="h-3.5 w-3.5" />Unduh PNG
                     </Button>
                   </div>
-                  <div ref={(el) => setCardRef(student.id, el)} className="inline-flex gap-1.5">
+                  <div ref={(el) => setCardRef(student.id, el)} className="inline-flex gap-1.5 overflow-x-auto max-w-full">
                     <KartuPreview student={student} schoolName={schoolName} schoolAddress={schoolAddress} schoolLogo={schoolLogo} showPhoto={showPhoto} showNIS={showNIS} cardType={cardType} showBackSide={showBackSide} />
                   </div>
                 </div>

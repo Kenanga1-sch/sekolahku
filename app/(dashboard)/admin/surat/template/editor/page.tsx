@@ -297,9 +297,9 @@ export default function TemplateEditorPage() {
                 description="Template HTML ini dipakai oleh wizard surat lama. Untuk membuat surat berkop standar, gunakan Editor Surat Modular yang menerapkan aturan tipografi baku otomatis."
                 className="mx-4 mt-3"
               />
-              <div className="flex-1 flex overflow-hidden">
+              <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
                  {/* Canvas Area */}
-                 <div className="flex-1 overflow-y-auto p-8 flex justify-center bg-zinc-100 dark:bg-zinc-950/50">
+                 <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex justify-center bg-zinc-100 dark:bg-zinc-950/50">
                     <div className="scale-[0.8] md:scale-100 origin-top transition-transform duration-200">
                        <EditorContent editor={editor} />
                     </div>

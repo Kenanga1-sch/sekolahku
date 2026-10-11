@@ -109,8 +109,8 @@ export default function RoomDetailPage() {
                 </TabsList>
 
                 <TabsContent value="assets" className="pt-4 space-y-4">
-                    <div className="flex justify-between items-center">
-                        <div className="relative w-72">
+                    <div className="flex flex-wrap justify-between items-center gap-2">
+                        <div className="relative w-full sm:w-72">
                             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                             <Input 
                                 placeholder="Cari aset..." 

@@ -218,7 +218,7 @@ export default function CetakKartuGtkPage() {
                       <ImageIcon className="h-3.5 w-3.5" />Unduh PNG
                     </Button>
                   </div>
-                  <div ref={(el) => setCardRef(gtk.id, el)} className="inline-flex gap-1.5">
+                  <div ref={(el) => setCardRef(gtk.id, el)} className="inline-flex gap-1.5 overflow-x-auto max-w-full">
                     <KartuGtkPreview card={gtk} schoolName={schoolName} schoolAddress={schoolAddress} schoolLogo={schoolLogo} showPhoto={showPhoto} showNIP={showNIP} showBackSide={showBackSide} />
                   </div>
                 </div>

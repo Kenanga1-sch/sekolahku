@@ -150,7 +150,7 @@ export function EditorSidebar({
   );
 
   return (
-    <div className="w-[320px] border-l bg-white dark:bg-zinc-900 flex flex-col h-full shrink-0">
+    <div className="w-full lg:w-[320px] border-t lg:border-t-0 lg:border-l bg-white dark:bg-zinc-900 flex flex-col h-full shrink-0 max-h-[60vh] lg:max-h-none overflow-hidden">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
           <TabsList className="grid grid-cols-2 rounded-none border-b h-12 w-full shrink-0">
               <TabsTrigger value="format" disabled={mode === "UPLOAD"} className={mode === "UPLOAD" ? "hidden" : ""}>Formatting</TabsTrigger>
