@@ -843,7 +843,7 @@ export default function TabAlumni() {
                 placeholder="Nama sesuai buku induk fisik"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Tahun Lulus</label>
                 <Input
@@ -861,7 +861,7 @@ export default function TabAlumni() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Buku Induk No.</label>
                 <Input

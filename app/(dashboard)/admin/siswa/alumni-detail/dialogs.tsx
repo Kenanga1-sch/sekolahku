@@ -128,9 +128,9 @@ export function TemplatesDialog({ open, onOpenChange, templates, newTemplateName
 // --- Shared Form Actions ---
 function DialogActions({ onCancel, submitting }: { onCancel: () => void; submitting: boolean }) {
   return (
-    <div className="flex justify-end gap-2 pt-2">
-      <Button type="button" variant="outline" onClick={onCancel}>Batal</Button>
-      <Button type="submit" disabled={submitting}>{submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Simpan"}</Button>
+    <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2">
+      <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={onCancel}>Batal</Button>
+      <Button type="submit" className="w-full sm:w-auto" disabled={submitting}>{submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Simpan"}</Button>
     </div>
   );
 }

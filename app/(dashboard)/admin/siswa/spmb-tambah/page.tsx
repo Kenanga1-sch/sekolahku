@@ -63,7 +63,7 @@ export default function SPMBTambahPage() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/30 -mx-4 sm:-mx-6 lg:-mx-8 -my-6">
+    <div className="min-h-dvh bg-muted/30 -mx-4 sm:-mx-6 lg:-mx-8 -my-6">
       <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white pt-8 pb-8">
         <div className="container px-4 sm:px-6 lg:px-8">
           <Link href="/admin/siswa?tab=spmb">

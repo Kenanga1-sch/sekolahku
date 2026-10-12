@@ -273,15 +273,15 @@ export default function RegistrantDetailPage() {
         <div className="space-y-6 pb-10">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div className="flex items-center gap-4">
-                    <Link href="/admin/siswa?tab=spmb">
+                <div className="flex items-center gap-4 min-w-0">
+                    <Link href="/admin/siswa?tab=spmb" className="shrink-0">
                         <Button variant="outline" size="icon">
                             <ArrowLeft className="h-4 w-4" />
                         </Button>
                     </Link>
-                    <div>
-                        <h1 className="text-2xl font-bold uppercase tracking-tight">{registrant.fullName}</h1>
-                        <p className="text-muted-foreground font-mono flex items-center gap-2">
+                    <div className="min-w-0">
+                        <h1 className="text-2xl font-bold uppercase tracking-tight truncate">{registrant.fullName}</h1>
+                        <p className="text-muted-foreground font-mono flex flex-wrap items-center gap-2">
                              {registrant.registrationNumber}
                              <span className="inline-block w-1 h-1 rounded-full bg-gray-400" />
                              {new Date(registrant.createdAt).toLocaleDateString("id-ID", { 
@@ -290,8 +290,12 @@ export default function RegistrantDetailPage() {
                         </p>
                     </div>
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="destructive" onClick={() => setShowDelete(true)}>
+                <div className="flex gap-2 w-full md:w-auto">
+                    <Button
+                        variant="outline"
+                        className="w-full border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive md:w-auto"
+                        onClick={() => setShowDelete(true)}
+                    >
                         <Trash2 className="h-4 w-4 mr-2" />
                         Hapus
                     </Button>

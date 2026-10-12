@@ -214,9 +214,9 @@ export function DialogMutasiMasuk({ classStats }: Props) {
             />
           </div>
 
-          <div className="pt-4 flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Batal</Button>
-            <Button type="submit" disabled={loading}>
+          <div className="pt-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setOpen(false)}>Batal</Button>
+            <Button type="submit" className="w-full sm:w-auto" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Proses Mutasi
             </Button>

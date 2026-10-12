@@ -67,7 +67,7 @@ export default function AlumniDetailPage() {
         >
           <Tabs value={ctx.activeTab} onValueChange={ctx.setActiveTab}>
             <div className="relative">
-              <TabsList className="w-full h-auto justify-start gap-1 bg-muted p-1 rounded-lg overflow-x-auto scrollbar-none whitespace-nowrap md:grid md:grid-cols-7 md:h-10 md:overflow-visible">
+              <TabsList className="w-full h-auto justify-start gap-1 bg-muted p-1 rounded-lg overflow-x-auto scrollbar-none whitespace-nowrap lg:grid lg:grid-cols-7 lg:h-10 lg:overflow-visible">
                 <TabsTrigger value="documents" className="shrink-0 text-xs md:text-sm">Dokumen</TabsTrigger>
                 <TabsTrigger value="transcripts" className="shrink-0 text-xs md:text-sm">Nilai</TabsTrigger>
                 <TabsTrigger value="attendance" className="shrink-0 text-xs md:text-sm">Absensi</TabsTrigger>
@@ -76,7 +76,7 @@ export default function AlumniDetailPage() {
                 <TabsTrigger value="pickups" className="shrink-0 text-xs md:text-sm">Pengambilan</TabsTrigger>
                 <TabsTrigger value="info" className="shrink-0 text-xs md:text-sm">Info Profil</TabsTrigger>
               </TabsList>
-              <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-muted to-transparent md:hidden" aria-hidden="true" />
+              <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-muted to-transparent lg:hidden" aria-hidden="true" />
             </div>
 
             <AnimatePresence mode="wait">

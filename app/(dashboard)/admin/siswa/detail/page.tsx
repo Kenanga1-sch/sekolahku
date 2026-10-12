@@ -309,7 +309,7 @@ export default function StudentDetailPage() {
         } catch (e) { showError("Error"); }
     };
 
-    if (isLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8" /></div>;
+    if (isLoading) return <div className="flex min-h-dvh items-center justify-center"><Loader2 className="animate-spin h-8 w-8" /></div>;
     if (!student) return <div>Siswa tidak ditemukan</div>;
 
     const meta = (() => {
@@ -324,13 +324,13 @@ export default function StudentDetailPage() {
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" onClick={() => router.back()}>
+                <div className="flex items-center gap-4 min-w-0">
+                    <Button variant="ghost" size="icon" className="shrink-0" onClick={() => router.back()}>
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
-                    <div>
-                        <h1 className="text-2xl font-bold">{student.fullName}</h1>
-                        <div className="flex gap-2 text-muted-foreground text-sm">
+                    <div className="min-w-0">
+                        <h1 className="text-2xl font-bold truncate">{student.fullName}</h1>
+                        <div className="flex flex-wrap gap-2 text-muted-foreground text-sm">
                             <span>{student.nisn || "No NISN"}</span>
                             <span>•</span>
                             <span>{student.className || "Tanpa Kelas"}</span>
@@ -339,15 +339,15 @@ export default function StudentDetailPage() {
                         </div>
                     </div>
                 </div>
-                <div className="flex gap-2 pl-12 sm:pl-0">
-                    <Button variant="outline" size="sm" onClick={() => window.open(`/admin/siswa/buku-induk/print?id=${studentId}`, '_blank')}>
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto sm:pl-0">
+                    <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => window.open(`/admin/siswa/buku-induk/print?id=${studentId}`, '_blank')}>
                         <FileText className="h-4 w-4 mr-2" />
                         Cetak Buku Induk
                     </Button>
                     <Button
                         variant="outline"
                         size="sm"
-                        className="text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                        className="w-full sm:w-auto text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                         onClick={() => {
                             const bi = student?.bukuIndukId;
                             if (!bi) {
@@ -364,12 +364,12 @@ export default function StudentDetailPage() {
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 max-w-2xl">
-                    <TabsTrigger value="profile">Profil</TabsTrigger>
-                    <TabsTrigger value="savings">Tabungan</TabsTrigger>
-                    <TabsTrigger value="library">Perpustakaan</TabsTrigger>
-                    <TabsTrigger value="documents">Dokumen</TabsTrigger>
-                    <TabsTrigger value="parents">Orang Tua</TabsTrigger>
+                <TabsList className="w-full h-auto justify-start gap-1 overflow-x-auto scrollbar-none whitespace-nowrap sm:grid sm:grid-cols-5 sm:max-w-2xl">
+                    <TabsTrigger value="profile" className="shrink-0">Profil</TabsTrigger>
+                    <TabsTrigger value="savings" className="shrink-0">Tabungan</TabsTrigger>
+                    <TabsTrigger value="library" className="shrink-0">Perpustakaan</TabsTrigger>
+                    <TabsTrigger value="documents" className="shrink-0">Dokumen</TabsTrigger>
+                    <TabsTrigger value="parents" className="shrink-0">Orang Tua</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="parents" className="pt-4 space-y-6">

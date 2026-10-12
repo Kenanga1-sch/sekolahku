@@ -386,8 +386,9 @@ export default function TabMutasiMasuk() {
                         <h3 className="font-semibold">Tindak Lanjut</h3>
 
                         {req.statusApproval === "pending" && (
-                          <div className="flex gap-2">
+                          <div className="grid grid-cols-2 gap-2 sm:flex">
                             <Button
+                              className="w-full sm:w-auto"
                               onClick={() => handleUpdateStatusIn(req.id, "verified")}
                               disabled={isUpdatingIn}
                             >
@@ -396,7 +397,8 @@ export default function TabMutasiMasuk() {
                               <span className="sm:hidden">Verifikasi</span>
                             </Button>
                             <Button
-                              variant="destructive"
+                              variant="outline"
+                              className="w-full border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive sm:w-auto"
                               onClick={() => handleUpdateStatusIn(req.id, "rejected")}
                               disabled={isUpdatingIn}
                             >
@@ -429,8 +431,9 @@ export default function TabMutasiMasuk() {
                                 </p>
                               )}
                             </div>
-                            <div className="flex gap-2">
+                            <div className="grid grid-cols-2 gap-2 sm:flex">
                               <Button
+                                className="w-full sm:w-auto"
                                 onClick={() => handleUpdateStatusIn(req.id, "principal_approved", targetClass)}
                                 disabled={isUpdatingIn || !targetClass}
                               >
@@ -439,7 +442,8 @@ export default function TabMutasiMasuk() {
                                 <span className="sm:hidden">Setujui</span>
                               </Button>
                               <Button
-                                variant="destructive"
+                                variant="outline"
+                                className="w-full border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive sm:w-auto"
                                 onClick={() => handleUpdateStatusIn(req.id, "rejected")}
                                 disabled={isUpdatingIn}
                               >

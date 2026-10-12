@@ -358,8 +358,8 @@ export default function TabMutasiKeluar() {
                             )}
                           </div>
 
-                          <div className="flex justify-end gap-3 pt-4 border-t">
-                            <Button variant="outline" onClick={() => {
+                          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3 pt-4 border-t">
+                            <Button variant="outline" className="w-full sm:w-auto" onClick={() => {
                               setOpenRequestIdOut(null);
                               setSelectedRequestOut(null);
                             }}>Tutup</Button>
@@ -368,6 +368,7 @@ export default function TabMutasiKeluar() {
                               <>
                                 {selectedRequestOut.status === "draft" && (
                                   <Button
+                                    className="w-full sm:w-auto"
                                     onClick={() => updateStatusOut(selectedRequestOut.id, "processed")}
                                     disabled={updatingOut}
                                   >
@@ -376,7 +377,7 @@ export default function TabMutasiKeluar() {
                                 )}
                                 {selectedRequestOut.status === "processed" && (
                                   <Button
-                                    className="bg-green-600 hover:bg-green-700"
+                                    className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
                                     onClick={() => updateStatusOut(selectedRequestOut.id, "completed")}
                                     disabled={updatingOut}
                                   >
