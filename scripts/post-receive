@@ -86,9 +86,15 @@ fi
 
 echo "→ Branch yang di-push: $BRANCH (commit ${NEWREV:0:7})"
 
-# Siapkan workspace checkout
+# Siapkan workspace checkout.
+# PENTING: pakai `checkout -f -B` + `reset --hard` agar work-tree BENAR-BENAR
+# tersinkron dengan commit target. `checkout -f <branch>` saja TIDAK menimpa
+# file tracked yang isinya beda di disk bila HEAD sudah di branch itu (pernah
+# terjadi: scripts/deploy.sh tetap versi lama -> perbaikan prune tak aktif).
+# (Tidak memakai `git clean` agar file tak-terlacak/env tidak terhapus.)
 mkdir -p "$REPO_DIR"
-git --work-tree="$REPO_DIR" --git-dir="$BARE_REPO" checkout -f "$BRANCH"
+git --work-tree="$REPO_DIR" --git-dir="$BARE_REPO" checkout -f -B "$BRANCH" "$BRANCH"
+git --work-tree="$REPO_DIR" --git-dir="$BARE_REPO" reset --hard "$BRANCH"
 
 cd "$REPO_DIR"
 export PATH="/usr/local/go/bin:$PATH"
