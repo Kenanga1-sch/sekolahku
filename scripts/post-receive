@@ -5,6 +5,12 @@
 #
 # Saat push ke main: jalankan CI, lalu deploy.
 # Saat push ke branch lain: CI saja (test).
+#
+# Perbaikan (2026-10):
+#  - flock: serialisasi pipeline agar dua push tidak menjalankan
+#    npm ci bersamaan di node_modules yang sama (penyebab SIGTERM).
+#  - Penanda kegagalan berkas + baris ringkas di log.
+#  - Rotasi cicd.log bila terlalu besar.
 # ==========================================
 set -euo pipefail
 
@@ -13,14 +19,63 @@ BARE_REPO="/opt/sekolahku.git"
 SCRIPTS_DIR="/opt/sekolahku-scripts"    # symlink ke scripts/ repo
 
 LOG="/opt/sekolahku-prod/backups/cicd.log"
+LOCK_FILE="/opt/sekolahku-prod/backups/.cicd.lock"
+FAIL_FLAG="/opt/sekolahku-prod/backups/.last_deploy_failed"
+LOCK_WAIT_SECONDS=1200                  # tunggu maks 20 menit giliran pipeline
+
+# ── Rotasi log sederhana (potong bila > 5 MB, simpan 1 arsip) ──
+if [ -f "$LOG" ]; then
+  LOG_SIZE=$(stat -c%s "$LOG" 2>/dev/null || echo 0)
+  if [ "$LOG_SIZE" -gt 5242880 ]; then
+    mv -f "$LOG" "$LOG.1"
+  fi
+fi
+
+# ── Serialisasi: hanya satu pipeline berjalan dalam satu waktu ──
+# Buka fd 9 ke lock file; tunggu (blocking) sampai maks LOCK_WAIT_SECONDS.
+exec 9>"$LOCK_FILE"
+if ! flock -w "$LOCK_WAIT_SECONDS" 9; then
+  exec >> "$LOG" 2>&1
+  echo ""
+  echo "══════════════════════════════════════════════════"
+  echo "  post-receive — $(date '+%Y-%m-%d %H:%M:%S')"
+  echo "══════════════════════════════════════════════════"
+  echo "✗ Pipeline lain masih berjalan > ${LOCK_WAIT_SECONDS}s — push ini di-skip."
+  echo "  Silakan push ulang setelah pipeline sebelumnya selesai."
+  exit 1
+fi
+
 exec >> "$LOG" 2>&1
 echo ""
 echo "══════════════════════════════════════════════════"
 echo "  post-receive — $(date '+%Y-%m-%d %H:%M:%S')"
 echo "══════════════════════════════════════════════════"
 
+# ── Penanda kegagalan: hapus di awal, buat bila pipeline gagal ──
+rm -f "$FAIL_FLAG"
+
+on_failure() {
+  local exit_code=$?
+  if [ "$exit_code" -ne 0 ]; then
+    {
+      echo "failed_at=$(date '+%Y-%m-%d %H:%M:%S')"
+      echo "exit_code=$exit_code"
+      echo "commit=$NEWREV"
+      echo "branch=$BRANCH"
+      echo "log=$LOG"
+    } > "$FAIL_FLAG"
+    echo "─────────────"
+    echo "✗ PIPELINE GAGAL (exit $exit_code)."
+    echo "  Penanda ditulis ke: $FAIL_FLAG"
+    echo "─────────────"
+  fi
+}
+trap on_failure EXIT
+
 BRANCH=""
+NEWREV=""
 while read -r _oldrev _newrev ref; do
+  NEWREV="$_newrev"
   BRANCH="${ref#refs/heads/}"
 done
 
@@ -29,7 +84,7 @@ if [ -z "$BRANCH" ]; then
   exit 0
 fi
 
-echo "→ Branch yang di-push: $BRANCH"
+echo "→ Branch yang di-push: $BRANCH (commit ${NEWREV:0:7})"
 
 # Siapkan workspace checkout
 mkdir -p "$REPO_DIR"
@@ -40,7 +95,7 @@ export PATH="/usr/local/go/bin:$PATH"
 
 # ── Jalankan CI (lint + test + build) ─────
 echo "▶ Menjalankan CI..."
-if ! bash "$REPO_DIR/scripts/ci.sh"; then
+if ! REPO_DIR="$REPO_DIR" GIT_DIR="$BARE_REPO" bash "$REPO_DIR/scripts/ci.sh"; then
   echo "✗ CI GAGAL — deploy dibatalkan."
   echo "  Kode yang gagal tidak akan masuk produksi."
   exit 1

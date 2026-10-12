@@ -12,10 +12,20 @@ cd "$REPO_DIR"
 
 export PATH="/usr/local/go/bin:$PATH"
 
+# Work-tree ini biasanya bukan git repo (git-dir terpisah di bare repo).
+# Pakai GIT_DIR bila disediakan agar hash commit bisa ditampilkan.
+GIT_DIR_HINT="${GIT_DIR:-}"
+COMMIT_SHORT="n/a"
+if [ -n "$GIT_DIR_HINT" ]; then
+  COMMIT_SHORT="$(git --git-dir="$GIT_DIR_HINT" rev-parse --short HEAD 2>/dev/null || echo n/a)"
+else
+  COMMIT_SHORT="$(git rev-parse --short HEAD 2>/dev/null || echo n/a)"
+fi
+
 echo "╔══════════════════════════════════════════╗"
 echo "║   SEKOLAHKU CI — Test & Build            ║"
 echo "╚══════════════════════════════════════════╝"
-echo "→ Repo: $REPO_DIR  (commit $(git rev-parse --short HEAD 2>/dev/null || echo n/a))"
+echo "→ Repo: $REPO_DIR  (commit $COMMIT_SHORT)"
 echo ""
 
 # ─────────────────────────────────────────
@@ -23,7 +33,13 @@ echo ""
 # ─────────────────────────────────────────
 echo "▶ [1/6] Frontend: npm ci"
 if [ ! -d node_modules/.package-lock.json ]; then
-  npm ci --no-audit --no-fund
+  # Bila npm ci gagal di tengah, node_modules bisa tertinggal parsial & rusak.
+  # Hapus agar run berikutnya benar-benar bersih (hindari SIGTERM sisa instalasi).
+  if ! npm ci --no-audit --no-fund; then
+    echo "✗ npm ci GAGAL — bersihkan node_modules parsial."
+    rm -rf node_modules
+    exit 1
+  fi
 else
   echo "  node_modules ada, skip install."
 fi
