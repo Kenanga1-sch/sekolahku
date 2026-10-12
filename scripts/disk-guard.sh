@@ -50,11 +50,16 @@ if command -v podman >/dev/null 2>&1; then
   fi
 fi
 
-# ── 2. Image Docker yang tidak dipakai container ──
+# ── 2. Image & build cache Docker yang tidak dipakai container ──
 if command -v docker >/dev/null 2>&1; then
   if [ "$DRY_RUN" = "1" ]; then
+    log "[dry-run] docker builder prune -a -f"
     log "[dry-run] docker image prune -a -f"
   else
+    # Build cache bisa menumpuk puluhan GB (pernah ~50 GB). Aman: dibangun
+    # ulang saat build. `image prune -a` hanya hapus image tanpa container.
+    log "docker builder prune -a -f"
+    docker builder prune -a -f >/dev/null 2>&1 || true
     log "docker image prune -a -f"
     docker image prune -a -f >/dev/null 2>&1 || true
   fi
