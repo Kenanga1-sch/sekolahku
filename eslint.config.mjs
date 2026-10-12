@@ -47,6 +47,28 @@ const eslintConfig = defineConfig([
       "react-hooks/immutability": "warn",
     },
   },
+  // Pagar kesehatan kode: sinyal ukuran/kompleksitas agar file tak membengkak
+  // jadi monolit. Sementara "warn" (bukan "error") supaya refactor bertahap
+  // tidak memblokir CI — sama pola dengan no-explicit-any di atas.
+  // Ambang bisa diperketat setelah file-file besar dipecah.
+  // File test dikecualikan: panjangnya wajar & bukan kode produksi.
+  {
+    files: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}", "lib/**/*.{ts,tsx}"],
+    ignores: [
+      "**/*.test.ts",
+      "**/*.test.tsx",
+      "**/*.spec.ts",
+      "**/*.spec.tsx",
+      "**/__tests__/**",
+      "**/*.stories.tsx",
+    ],
+    rules: {
+      "max-lines": ["warn", { max: 800, skipBlankLines: true, skipComments: true }],
+      "max-lines-per-function": ["warn", { max: 300, skipBlankLines: true, skipComments: true }],
+      complexity: ["warn", 25],
+      "max-depth": ["warn", 6],
+    },
+  },
 ]);
 
 export default eslintConfig;
