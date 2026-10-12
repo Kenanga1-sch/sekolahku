@@ -164,11 +164,14 @@ echo "║  ✓ DEPLOY [$MODE] BERHASIL                ║"
 echo "║  Health: http://localhost:$PORT/api/health ║"
 echo "╚══════════════════════════════════════════╝"
 
-# ── Buang image lama (dangling) agar disk tidak menumpuk.
-# Image besar (libreoffice ≈ 1GB+); tanpa prune, setiap deploy
-# menambah ~1GB. Aman: hanya image tanpa tag & tak dipakai container mana pun.
+# ── Buang image lama agar disk tidak menumpuk.
+# Image besar (≈1GB); tanpa prune, setiap deploy menambah ~1GB.
+# PENTING: pakai -a (bukan hanya dangling) karena image blue-green lama
+# masih ber-tag/berbagi layer sehingga tidak terdeteksi sebagai dangling,
+# padahal tidak dipakai container mana pun. -a hanya menghapus image yang
+# TIDAK dipakai container aktif — aman untuk prod & dev.
 if command -v podman >/dev/null 2>&1; then
-  podman image prune -f >/dev/null 2>&1 || true
+  podman image prune -a -f >/dev/null 2>&1 || true
 fi
 
 # ── Aktifkan systemd (auto-restart saat reboot)
