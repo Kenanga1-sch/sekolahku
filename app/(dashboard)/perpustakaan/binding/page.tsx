@@ -270,7 +270,7 @@ export default function LibraryBindingPage() {
         triggerISBNLookup(isbn);
     };
 
-    const triggerISBNLookup = async (isbnToLookup: string) => {
+    const triggerISBNLookup = async (isbnToLookup: string, opts?: { preferNewTitle?: boolean }) => {
         const seq = ++lookupSeqRef.current;
         setLoading(true);
         setLookupStatus('loading');
@@ -281,14 +281,17 @@ export default function LibraryBindingPage() {
             if (!response.error && data) {
                 const candidates: any[] = Array.isArray(data.candidates) ? data.candidates : [];
                 const multi = candidates.length > 1;
-                const first = candidates.length === 1 ? candidates[0] : null;
+                const first = candidates.length >= 1 ? candidates[0] : null;
                 setLookupStatus('success');
-                setIsbnCandidates(multi ? candidates : []);
+                // Selalu simpan kandidat (walau hanya 1) supaya picker + tombol
+                // "+ Judul lain" tetap muncul: ISBN yang sudah dipakai 1 judul
+                // pun harus bisa dipakai untuk judul BARU.
+                setIsbnCandidates(candidates);
                 setSelectedCatalogId(multi ? "" : (first?.id || data.id || ""));
                 setCatalog({
-                    title: multi ? "" : (data.title || ""),
-                    author: multi ? "" : (data.author || ""),
-                    publisher: multi ? "" : (data.publisher || ""),
+                    title: (multi || opts?.preferNewTitle) ? "" : (data.title || ""),
+                    author: (multi || opts?.preferNewTitle) ? "" : (data.author || ""),
+                    publisher: (multi || opts?.preferNewTitle) ? "" : (data.publisher || ""),
                     year: data.year || new Date().getFullYear(),
                     isbn: isbnToLookup,
                     coverUrl: multi ? undefined : (data.cover || data.coverUrl),
@@ -296,13 +299,24 @@ export default function LibraryBindingPage() {
                     ddcCategory: data.ddcCategory || "UNSORTED",
                     localFound: true,
                     totalExemplars: multi ? candidates.reduce((n: number, c: any) => n + (c.totalExemplars || 0), 0) : data.totalExemplars,
-                    description: multi ? "" : (data.description || ""),
+                    description: (multi || opts?.preferNewTitle) ? "" : (data.description || ""),
                 });
-                if (!multi) {
+                if (opts?.preferNewTitle) {
+                    // User sudah menekan "Judul Baru": biarkan judul kosong agar
+                    // diisi manual; kandidat tetap tampil agar bisa memilih
+                    // "tambah eksemplar" bila ternyata judulnya sama.
+                    setSelectedCatalogId("");
+                    toast.info("ISBN ini sudah terdaftar. Isi judul baru, atau pilih judul yang ada di bawah.", {
+                        duration: 7000,
+                    });
+                } else if (!multi) {
                     // Buku sudah ada: eksemplar baru mewarisi kategori & data
                     // katalog yang ada. AI TIDAK dipanggil otomatis — user bisa
                     // menekan "Tanya AI" bila memang ingin menilai ulang.
-                    toast.success(`Ditemukan di koleksi! Ini akan menjadi eksemplar ke-${(data.totalExemplars || 0) + 1}.`);
+                    toast.success(`Ditemukan di koleksi! Ini akan menjadi eksemplar ke-${(data.totalExemplars || 0) + 1}.`, {
+                        description: "Atau tekan \"Judul lain\" bila buku ini judul berbeda dengan ISBN sama.",
+                        duration: 7000,
+                    });
                 } else {
                     toast.warning(`ISBN ini dipakai ${candidates.length} judul berbeda — pilih judul yang benar.`, {
                         description: "Pilih salah satu untuk menambah eksemplar, atau buat judul baru.",
@@ -358,6 +372,21 @@ export default function LibraryBindingPage() {
         setSelectedCatalogId("");
         setCatalog(prev => ({ ...prev, title: "", author: "", localFound: false, totalExemplars: undefined }));
         toast.info("Isi judul baru — akan tersimpan sebagai katalog terpisah dengan ISBN ini.");
+    };
+
+    // Dipakai dari tab "Cari Judul": user ingin menambah judul BARU. Bila field
+    // ISBN diisi, cek dulu ke katalog — jika ISBN itu sudah dipakai judul lain,
+    // tampilkan picker (tambah eksemplar vs judul baru). Bila tidak, langsung
+    // kosongkan form untuk judul baru.
+    const startTitleFromSearch = async () => {
+        const manual = isbn.trim();
+        if (!manual) {
+            setSelectedCatalogId("");
+            setCatalog(prev => ({ ...prev, title: "", author: "", localFound: false, totalExemplars: undefined, isbn: "" }));
+            toast.info("Isi data judul baru di bawah. Tambahkan ISBN bila ada.");
+            return;
+        }
+        await triggerISBNLookup(manual, { preferNewTitle: true });
     };
 
     const handleSave = async () => {
@@ -666,6 +695,42 @@ export default function LibraryBindingPage() {
                                             </div>
                                         </div>
                                     )}
+
+                                    {/* Buku baru: ISBN manual + tombol buat judul baru */}
+                                    <div className="rounded-lg border border-dashed border-primary/40 bg-muted/40 p-3 space-y-2">
+                                        <p className="text-xs font-semibold text-foreground">Menambah judul baru?</p>
+                                        <p className="text-[11px] text-muted-foreground">
+                                            Isi ISBN (opsional) lalu tekan tombol. Jika ISBN sudah dipakai judul lain, Anda bisa memilih
+                                            tambah eksemplar atau tetap membuat judul baru.
+                                        </p>
+                                        <div className="flex flex-col sm:flex-row gap-2">
+                                            <div className="relative flex-1">
+                                                <QrCode className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                                                <Input
+                                                    className="pl-8"
+                                                    placeholder="ISBN (opsional)..."
+                                                    value={isbn}
+                                                    onChange={(e) => setIsbn(e.target.value)}
+                                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); startTitleFromSearch(); } }}
+                                                />
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                variant="secondary"
+                                                className="w-full sm:w-auto shrink-0"
+                                                onClick={startTitleFromSearch}
+                                                disabled={loading}
+                                            >
+                                                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 mr-1" />}
+                                                Judul Baru
+                                            </Button>
+                                        </div>
+                                        {catalog.isbn && !catalog.title?.trim() && (
+                                            <p className="text-[10px] text-amber-700 dark:text-amber-400">
+                                                ISBN aktif: <span className="font-mono">{catalog.isbn}</span> — isi Judul di bawah.
+                                            </p>
+                                        )}
+                                    </div>
                                 </>
                             )}
                         </div>
@@ -736,10 +801,12 @@ export default function LibraryBindingPage() {
                                                 Sudah ada {catalog.totalExemplars} eksemplar di koleksi. Ini akan menjadi eksemplar ke-{Number(catalog.totalExemplars) + 1}.
                                             </p>
                                         )}
-                                        {isbnCandidates.length > 1 && (
-                                            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-2">
-                                                <p className="text-xs font-semibold text-amber-800">
-                                                    ISBN ini dipakai {isbnCandidates.length} judul berbeda. Eksemplar ini masuk ke:
+                                        {isbnCandidates.length >= 1 && (
+                                            <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-2">
+                                                <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+                                                    {isbnCandidates.length > 1
+                                                        ? `ISBN ini dipakai ${isbnCandidates.length} judul berbeda. Eksemplar ini masuk ke:`
+                                                        : "ISBN ini sudah terdaftar. Pilih tujuan eksemplar:"}
                                                 </p>
                                                 <div className="space-y-1.5">
                                                     {isbnCandidates.map((c: any) => (
@@ -749,8 +816,8 @@ export default function LibraryBindingPage() {
                                                             onClick={() => pickCatalog(c)}
                                                             className={`w-full text-left rounded-md border px-2.5 py-1.5 text-xs transition-colors ${
                                                                 selectedCatalogId === c.id
-                                                                    ? "border-green-500 bg-green-50 font-semibold"
-                                                                    : "border-amber-200 bg-white hover:bg-amber-100/60"
+                                                                    ? "border-green-500 bg-green-50 dark:bg-green-950/30 font-semibold"
+                                                                    : "border-amber-200 dark:border-amber-800 bg-white dark:bg-transparent hover:bg-amber-100/60"
                                                             }`}
                                                         >
                                                             {c.title}
@@ -764,17 +831,36 @@ export default function LibraryBindingPage() {
                                                         onClick={useNewTitle}
                                                         className={`w-full text-left rounded-md border border-dashed px-2.5 py-1.5 text-xs ${
                                                             selectedCatalogId === ""
-                                                                ? "border-green-500 bg-green-50 font-semibold"
-                                                                : "border-amber-300 text-amber-700 hover:bg-amber-100/60"
+                                                                ? "border-green-500 bg-green-50 dark:bg-green-950/30 font-semibold"
+                                                                : "border-amber-300 text-amber-700 dark:text-amber-400 hover:bg-amber-100/60"
                                                         }`}
                                                     >
                                                         + Judul lain (buat katalog baru dengan ISBN ini)
                                                     </button>
                                                 </div>
+                                                {selectedCatalogId === "" && (
+                                                    <p className="text-[10px] text-amber-700 dark:text-amber-400">
+                                                        Isi <strong>Judul</strong> buku baru di bawah — akan tersimpan sebagai katalog terpisah dengan ISBN ini.
+                                                    </p>
+                                                )}
                                             </div>
                                         )}
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                        <div className="grid gap-3">
+                                            <Label htmlFor="isbn">ISBN <span className="text-xs text-muted-foreground">(opsional)</span></Label>
+                                            <Input
+                                                id="isbn"
+                                                className="font-mono"
+                                                placeholder="mis. 9786022916628"
+                                                value={catalog.isbn}
+                                                onChange={(e) => {
+                                                    const v = e.target.value;
+                                                    setCatalog(prev => ({ ...prev, isbn: v }));
+                                                    setIsbn(v);
+                                                }}
+                                            />
+                                        </div>
                                         <div className="grid gap-3">
                                             <Label htmlFor="author">Penulis <span className="text-xs text-muted-foreground">(opsional)</span></Label>
                                             <Input
@@ -783,7 +869,7 @@ export default function LibraryBindingPage() {
                                                 onChange={(e) => setCatalog({...catalog, author: e.target.value})}
                                             />
                                         </div>
-                                        <div className="grid gap-3">
+                                        <div className="grid gap-3 sm:col-span-2">
                                             <Label htmlFor="publisher">Penerbit</Label>
                                             <Input
                                                 id="publisher"

@@ -115,6 +115,35 @@ func TestBindTitleNormalization(t *testing.T) {
 	}
 }
 
+// LookupISBN single-hit → Candidates tetap terisi 1 kandidat. Frontend butuh
+// ini agar picker "+ Judul lain" bisa tampil untuk membuat judul baru dengan
+// ISBN yang sama walau baru ada 1 judul terdaftar.
+func TestLookupISBNSingleHitReturnsCandidate(t *testing.T) {
+	db := setupDedupTestDB(t)
+	defer db.Close()
+	repo := NewLibraryRepository(db)
+
+	if err := repo.BindAsset("QR-1", "RAK-500", models.CatalogInput{ISBN: "9781234567890", Title: "Matematika Kelas 1", Author: "A"}); err != nil {
+		t.Fatalf("bind: %v", err)
+	}
+	res, err := repo.LookupISBN("9781234567890")
+	if err != nil {
+		t.Fatalf("lookup: %v", err)
+	}
+	if len(res.Candidates) != 1 {
+		t.Fatalf("harus 1 kandidat walau hanya 1 judul, got %d", len(res.Candidates))
+	}
+	if res.Candidates[0].Title != "Matematika Kelas 1" {
+		t.Fatalf("kandidat judul salah: %q", res.Candidates[0].Title)
+	}
+	if res.Candidates[0].ID == "" {
+		t.Fatalf("kandidat harus punya id katalog")
+	}
+	if res.TotalExemplars != 1 {
+		t.Fatalf("total eksemplar harus 1, got %d", res.TotalExemplars)
+	}
+}
+
 // LookupISBN multi-hit → Candidates terisi semua katalog.
 func TestLookupISBNMultiHit(t *testing.T) {
 	db := setupDedupTestDB(t)

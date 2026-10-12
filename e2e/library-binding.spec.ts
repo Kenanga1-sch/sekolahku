@@ -46,4 +46,42 @@ test.describe("Library Binding Flow", () => {
         await expect(page.locator("text=Buku E2E Test")).toBeVisible();
         await expect(page.locator(`text=${testQR}`)).toBeVisible();
     });
+
+    // ISBN yang sudah dipakai 1 judul → panel "Pilih tujuan eksemplar" muncul
+    // dengan opsi "+ Judul lain" untuk membuat katalog baru ber-ISBN sama.
+    test("ISBN sama dengan judul lain → bisa buat judul baru", async ({ page }) => {
+        const isbn = "978" + Date.now().toString().slice(-10); // ISBN-13 unik per run
+
+        // Daftarkan buku pertama dengan ISBN tsb.
+        await page.goto("/perpustakaan/binding");
+        await page.getByPlaceholder("Input Kode QR Manual...").fill("E2E-A-" + Date.now());
+        await page.getByRole("button", { name: "Lanjut" }).click();
+        await page.getByPlaceholder("Scan barcode ISBN...").fill(isbn);
+        await page.locator("#title").fill("Judul Pertama E2E");
+        await page.getByRole("button", { name: "Lanjut" }).click();
+        await page.click("text=Simpan Buku");
+        await expect(page.locator("text=Buku berhasil didaftarkan!")).toBeVisible();
+
+        // Daftarkan buku kedua dengan ISBN SAMA tapi judul berbeda.
+        await page.getByPlaceholder("Input Kode QR Manual...").fill("E2E-B-" + Date.now());
+        await page.getByRole("button", { name: "Lanjut" }).click();
+        await page.getByPlaceholder("Scan barcode ISBN...").fill(isbn);
+        await page.getByRole("button", { name: "Cari" }).click();
+
+        // Panel picker harus muncul (walau hanya 1 judul terdaftar).
+        await expect(page.getByText("ISBN ini sudah terdaftar. Pilih tujuan eksemplar:").or(
+            page.getByText(/ISBN ini dipakai \d+ judul berbeda/)
+        )).toBeVisible();
+
+        // Pilih "+ Judul lain" → form judul dikosongkan, ISBN tetap terisi.
+        await page.getByText("+ Judul lain (buat katalog baru dengan ISBN ini)").click();
+        await page.locator("#title").fill("Judul Kedua E2E");
+        await page.getByRole("button", { name: "Lanjut" }).click();
+
+        // Konfirmasi menampilkan judul baru + ISBN yang sama.
+        await expect(page.locator("text=Judul Kedua E2E")).toBeVisible();
+        await expect(page.locator(`text=${isbn}`)).toBeVisible();
+        await page.click("text=Simpan Buku");
+        await expect(page.locator("text=Buku berhasil didaftarkan!")).toBeVisible();
+    });
 });
