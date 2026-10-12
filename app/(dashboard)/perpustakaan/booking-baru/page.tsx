@@ -80,13 +80,13 @@ function BookingForm() {
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link href="/katalog-buku">
+        <Link href="/katalog-buku" className="shrink-0">
           <Button variant="ghost" size="icon">
             <ArrowLeft className="h-4 w-4" />
           </Button>
         </Link>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Booking Buku</h1>
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold tracking-tight truncate">Booking Buku</h1>
           <p className="text-muted-foreground">Pesan buku yang ingin Anda pinjam dari perpustakaan</p>
         </div>
       </div>
@@ -213,13 +213,13 @@ function BookingForm() {
             </div>
 
             {/* Submit Button */}
-            <div className="flex gap-4 pt-4 border-t">
-              <Link href="/katalog-buku">
-                <Button variant="outline" type="button">
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-4 border-t">
+              <Link href="/katalog-buku" className="w-full sm:w-auto">
+                <Button variant="outline" type="button" className="w-full sm:w-auto">
                   Batal
                 </Button>
               </Link>
-              <Button type="submit" disabled={loading}>
+              <Button type="submit" disabled={loading} className="w-full sm:w-auto">
                 {loading && (
                   <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                 )}

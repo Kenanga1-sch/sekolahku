@@ -332,17 +332,17 @@ export default function AnggotaPage() {
         <div className="space-y-6 pb-20">
             {/* Header Area */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                    <Link href="/perpustakaan">
+                <div className="flex items-center gap-4 min-w-0">
+                    <Link href="/perpustakaan" className="shrink-0">
                         <Button variant="outline" size="icon" className="h-10 w-10 border-border bg-background shadow-sm hover:bg-muted transition-all rounded-xl">
                             <ArrowLeft className="h-5 w-5 text-muted-foreground" />
                         </Button>
                     </Link>
-                    <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-xl hidden sm:block">
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-xl hidden sm:block shrink-0">
                         <Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                     </div>
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-foreground">Anggota Perpustakaan</h1>
+                    <div className="min-w-0">
+                        <h1 className="text-2xl font-bold tracking-tight text-foreground truncate">Anggota Perpustakaan</h1>
                         <p className="text-muted-foreground text-sm">
                             Manajemen data anggota, kartu pelajar, dan hak akses.
                         </p>
@@ -386,7 +386,7 @@ export default function AnggotaPage() {
                             <code>Siti Aminah, 6B, 12346, 5</code>
                         </div>
                     </div>
-                    <DialogFooter>
+                    <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
                         <Button variant="outline" onClick={() => setIsImportDialogOpen(false)} disabled={importing}>Batal</Button>
                         <Button onClick={handleImport} disabled={!importFile || importing}>
                             {importing ? "Mengimport..." : "Mulai Import"}
@@ -607,7 +607,7 @@ export default function AnggotaPage() {
                                     placeholder="Contoh: Budi Santoso"
                                 />
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="grid gap-2">
                                     <Label htmlFor="className">Kelas / Jabatan</Label>
                                     <Input
@@ -643,7 +643,7 @@ export default function AnggotaPage() {
                                 </div>
                             </div>
                         </div>
-                        <DialogFooter>
+                        <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
                             <Button type="button" variant="ghost" onClick={() => setIsAddDialogOpen(false)}>Batal</Button>
                             <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
                                 {editingMember ? "Simpan Perubahan" : "Simpan Anggota"}
@@ -705,7 +705,7 @@ export default function AnggotaPage() {
                         {memberToPrint && <MemberCardPreview member={memberToPrint} />}
                     </div>
 
-                    <DialogFooter className="gap-2 sm:gap-0">
+                    <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
                         <Button variant="outline" onClick={() => setMemberToPrint(null)}>
                             Tutup
                         </Button>

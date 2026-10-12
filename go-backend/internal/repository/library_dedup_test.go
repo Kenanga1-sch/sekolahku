@@ -285,3 +285,83 @@ func TestCreateBookTitleOnly(t *testing.T) {
 		t.Fatalf("harus 1 katalog, got %d", n)
 	}
 }
+
+// Cari Judul hanya membaca katalog lokal — hasil lokal harus muncul dengan
+// LocalFound=true dan TotalExemplars yang benar, tanpa menyentuh API luar.
+func TestSearchBooksByTitleLocalOnly(t *testing.T) {
+	db := setupDedupTestDB(t)
+	defer db.Close()
+	repo := NewLibraryRepository(db)
+
+	if err := repo.BindAsset("QR-1", "RAK-500", models.CatalogInput{ISBN: "9781234567890", Title: "Laskar Pelangi", Author: "Andrea Hirata"}); err != nil {
+		t.Fatalf("bind1: %v", err)
+	}
+	if err := repo.BindAsset("QR-2", "RAK-500", models.CatalogInput{ISBN: "9781234567890", Title: "Laskar Pelangi", Author: "Andrea Hirata"}); err != nil {
+		t.Fatalf("bind2: %v", err)
+	}
+	if err := repo.BindAsset("QR-3", "RAK-800", models.CatalogInput{ISBN: "9780000000002", Title: "Bumi Manusia", Author: "Pramoedya"}); err != nil {
+		t.Fatalf("bind3: %v", err)
+	}
+
+	res, err := repo.SearchBooksByTitle("Laskar", 1, 10)
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if res.TotalItems != 1 {
+		t.Fatalf("harus 1 hasil lokal, got %d", res.TotalItems)
+	}
+	if len(res.Results) != 1 {
+		t.Fatalf("harus 1 result, got %d", len(res.Results))
+	}
+	got := res.Results[0]
+	if !got.LocalFound {
+		t.Fatalf("hasil harus LocalFound=true")
+	}
+	if got.Title != "Laskar Pelangi" {
+		t.Fatalf("judul salah: %q", got.Title)
+	}
+	if got.TotalExemplars != 2 {
+		t.Fatalf("eksemplar harus 2, got %d", got.TotalExemplars)
+	}
+	if got.ID == "" {
+		t.Fatalf("ID katalog harus terisi agar eksemplar bisa masuk katalog yang sama")
+	}
+}
+
+// Cari Judul dengan kata kunci penulis juga menemukan katalog lokal.
+func TestSearchBooksByTitleByAuthor(t *testing.T) {
+	db := setupDedupTestDB(t)
+	defer db.Close()
+	repo := NewLibraryRepository(db)
+
+	if err := repo.BindAsset("QR-1", "RAK-500", models.CatalogInput{ISBN: "111", Title: "Cerita Rakyat", Author: "Andrea Hirata"}); err != nil {
+		t.Fatalf("bind: %v", err)
+	}
+
+	res, err := repo.SearchBooksByTitle("Andrea", 1, 10)
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if res.TotalItems != 1 || len(res.Results) != 1 {
+		t.Fatalf("harus 1 hasil via penulis, got total=%d len=%d", res.TotalItems, len(res.Results))
+	}
+}
+
+// Cari Judul tanpa hasil → daftar kosong (bukan error), supaya UI bisa
+// menawarkan "judul baru".
+func TestSearchBooksByTitleEmpty(t *testing.T) {
+	db := setupDedupTestDB(t)
+	defer db.Close()
+	repo := NewLibraryRepository(db)
+
+	res, err := repo.SearchBooksByTitle("Tidak Ada Judul Ini", 1, 10)
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if res.TotalItems != 0 || len(res.Results) != 0 {
+		t.Fatalf("harus kosong, got total=%d len=%d", res.TotalItems, len(res.Results))
+	}
+	if res.HasMore {
+		t.Fatalf("HasMore harus false saat kosong")
+	}
+}

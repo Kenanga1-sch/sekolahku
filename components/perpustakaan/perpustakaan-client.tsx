@@ -91,8 +91,8 @@ export default function PerpustakaanClient({ initialStats, onRefresh }: Perpusta
         <div className="space-y-6 md:space-y-8">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
+                <div className="min-w-0">
+                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight truncate bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
                         Perpustakaan
                     </h1>
                     <p className="text-sm sm:text-base text-muted-foreground">

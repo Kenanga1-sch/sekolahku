@@ -67,13 +67,13 @@ export default function KomputerPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-6 p-4 sm:p-6">
       <div className="flex items-center gap-4">
-        <Link href="/perpustakaan">
+        <Link href="/perpustakaan" className="shrink-0">
           <Button variant="ghost" size="icon" aria-label="Kembali ke perpustakaan">
             <ArrowLeft className="h-4 w-4" />
           </Button>
         </Link>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Komputer Belajar</h1>
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold tracking-tight truncate">Komputer Belajar</h1>
           <p className="text-muted-foreground text-sm">
             Kelola jadwal, kuota, dan verifikasi laporan baca siswa.
           </p>
@@ -81,20 +81,20 @@ export default function KomputerPage() {
       </div>
 
       <Tabs defaultValue="stations" className="space-y-4">
-        <TabsList className="grid grid-cols-2 sm:grid-cols-5 w-full h-auto gap-1">
-          <TabsTrigger value="stations" className="gap-1.5">
+        <TabsList className="w-full h-auto justify-start gap-1 overflow-x-auto scrollbar-none whitespace-nowrap sm:grid sm:grid-cols-5">
+          <TabsTrigger value="stations" className="gap-1.5 shrink-0">
             <Monitor className="h-4 w-4" /> Komputer
           </TabsTrigger>
-          <TabsTrigger value="bookings" className="gap-1.5">
+          <TabsTrigger value="bookings" className="gap-1.5 shrink-0">
             <CalendarPlus className="h-4 w-4" /> Jadwal
           </TabsTrigger>
-          <TabsTrigger value="reports" className="gap-1.5">
+          <TabsTrigger value="reports" className="gap-1.5 shrink-0">
             <ClipboardCheck className="h-4 w-4" /> Laporan
           </TabsTrigger>
-          <TabsTrigger value="quotas" className="gap-1.5">
+          <TabsTrigger value="quotas" className="gap-1.5 shrink-0">
             <Gauge className="h-4 w-4" /> Kuota
           </TabsTrigger>
-          <TabsTrigger value="history" className="gap-1.5">
+          <TabsTrigger value="history" className="gap-1.5 shrink-0">
             <History className="h-4 w-4" /> Riwayat
           </TabsTrigger>
         </TabsList>
@@ -267,7 +267,7 @@ function StationsTab() {
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Batal
             </Button>
@@ -483,7 +483,7 @@ function BookingsTab() {
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Batal
             </Button>
@@ -648,7 +648,7 @@ function ReportsTab() {
             onChange={(e) => setRejectNotes(e.target.value)}
             placeholder="Misalnya: kesimpulan belum sesuai isi buku."
           />
-          <DialogFooter>
+          <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
             <Button variant="outline" onClick={() => setReviewing(null)}>
               Batal
             </Button>
@@ -746,7 +746,7 @@ function QuotasTab() {
                 onChange={(e) => setMinutes(Number(e.target.value))}
               />
             </div>
-            <Button onClick={savePolicy}>Simpan</Button>
+            <Button onClick={savePolicy} className="w-full sm:w-auto">Simpan</Button>
           </div>
           {policies.length > 0 && (
             <div className="flex flex-wrap gap-2">
@@ -823,7 +823,7 @@ function QuotasTab() {
           <p className="text-xs text-muted-foreground">
             Terpakai saat ini: {editStudent?.usedMinutes} menit.
           </p>
-          <DialogFooter>
+          <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
             <Button variant="outline" onClick={() => setEditStudent(null)}>
               Batal
             </Button>

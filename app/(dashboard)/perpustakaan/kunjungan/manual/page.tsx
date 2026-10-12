@@ -88,22 +88,22 @@ export default function ManualVisitPage() {
     return (
         <div className="space-y-6 max-w-2xl mx-auto py-8">
             <div className="flex items-center gap-4">
-                <Button variant="outline" size="icon" onClick={() => router.back()}>
+                <Button variant="outline" size="icon" onClick={() => router.back()} className="shrink-0">
                     <ArrowLeft className="h-4 w-4" />
                 </Button>
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Catat Kunjungan Manual</h1>
+                <div className="min-w-0">
+                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight truncate">Catat Kunjungan Manual</h1>
                     <p className="text-muted-foreground">Formulir pencatatan kunjungan harian jika Kiosk tidak tersedia</p>
                 </div>
             </div>
 
             <Tabs defaultValue="member" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-4">
-                    <TabsTrigger value="member" className="gap-2">
+                <TabsList className="w-full h-auto justify-start gap-1 overflow-x-auto scrollbar-none whitespace-nowrap sm:grid sm:grid-cols-2 mb-4">
+                    <TabsTrigger value="member" className="gap-2 shrink-0">
                         <Users className="h-4 w-4" />
                         Anggota Sekolah
                     </TabsTrigger>
-                    <TabsTrigger value="guest" className="gap-2">
+                    <TabsTrigger value="guest" className="gap-2 shrink-0">
                         <User className="h-4 w-4" />
                         Tamu Luar
                     </TabsTrigger>

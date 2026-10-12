@@ -292,23 +292,24 @@ export default function PeminjamanPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Link href="/perpustakaan">
+            <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-4 min-w-0">
+                    <Link href="/perpustakaan" className="shrink-0">
                         <Button variant="ghost" size="icon" className="h-8 w-8">
                             <ArrowLeft className="h-4 w-4" />
                         </Button>
                     </Link>
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight">Peminjaman</h1>
+                    <div className="min-w-0">
+                        <h1 className="text-2xl font-bold tracking-tight truncate">Peminjaman</h1>
                         <p className="text-muted-foreground">
                             Kelola peminjaman dan pengembalian buku
                         </p>
                     </div>
                 </div>
-                <Button onClick={() => setIsNewLoanOpen(true)} className="gap-2">
+                <Button onClick={() => setIsNewLoanOpen(true)} className="gap-2 shrink-0">
                     <BookMarked className="h-4 w-4" />
-                    Pinjam Baru
+                    <span className="hidden sm:inline">Pinjam Baru</span>
+                    <span className="sm:hidden">Pinjam</span>
                 </Button>
             </div>
 
@@ -374,12 +375,12 @@ export default function PeminjamanPage() {
 
             {/* Tabs */}
             <Tabs defaultValue={initialTab}>
-                <TabsList>
-                    <TabsTrigger value="active" className="gap-2">
+                <TabsList className="w-full h-auto justify-start gap-1 overflow-x-auto scrollbar-none whitespace-nowrap sm:w-auto">
+                    <TabsTrigger value="active" className="gap-2 shrink-0">
                         <BookMarked className="h-4 w-4" />
                         Aktif ({activeLoans.length})
                     </TabsTrigger>
-                    <TabsTrigger value="overdue" className="gap-2">
+                    <TabsTrigger value="overdue" className="gap-2 shrink-0">
                         <AlertTriangle className="h-4 w-4" />
                         Terlambat ({overdueLoans.length})
                     </TabsTrigger>
@@ -451,7 +452,7 @@ export default function PeminjamanPage() {
                             />
                         </div>
                     </div>
-                    <DialogFooter>
+                    <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
                         <Button variant="outline" onClick={() => setIsNewLoanOpen(false)}>Batal</Button>
                         <Button onClick={handleCreateLoan} disabled={isSubmitting}>
                             {isSubmitting && <Clock className="mr-2 h-4 w-4 animate-spin" />}

@@ -124,7 +124,7 @@ func (h *LibraryHandler) LookupISBN(c echo.Context) error {
 	})
 }
 
-// SearchBooks mencari kandidat buku berdasarkan judul (Google Books + Open Library).
+// SearchBooks mencari kandidat buku berdasarkan judul di katalog lokal.
 func (h *LibraryHandler) SearchBooks(c echo.Context) error {
 	query := c.QueryParam("q")
 	page, _ := strconv.Atoi(c.QueryParam("page"))

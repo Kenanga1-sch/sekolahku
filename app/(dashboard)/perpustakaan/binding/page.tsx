@@ -98,7 +98,12 @@ export default function LibraryBindingPage() {
     };
 
     const applySearchResult = (item: any) => {
-        setIsbnCandidates(Array.isArray(item.candidates) ? item.candidates : []);
+        const candidates: any[] = Array.isArray(item.candidates) ? item.candidates : [];
+        setIsbnCandidates(candidates);
+        // Hasil Cari Judul selalu berasal dari katalog lokal. Bila user memilih
+        // judul yang sudah ada, eksemplar baru masuk ke katalog itu (eksemplar
+        // ke-2 dst.) — bukan membuat duplikat judul.
+        setSelectedCatalogId(item.id ? String(item.id) : "");
         setCatalog({
             title: item.title || "",
             author: item.author || "",
@@ -116,7 +121,11 @@ export default function LibraryBindingPage() {
         setOverrideCategory(null);
         setLookupStatus('success');
         setLookupSources(Array.isArray(item.sources) ? item.sources : []);
-        toast.success(`Data "${item.title}" diterapkan.`);
+        if (item.localFound && item.totalExemplars) {
+            toast.success(`"${item.title}" sudah ada — eksemplar ke-${Number(item.totalExemplars) + 1}.`);
+        } else {
+            toast.success(`Data "${item.title}" diterapkan.`);
+        }
     };
 
     // Cache hasil AI per judul+penulis (session) agar klik ulang instan & hemat token.
@@ -290,7 +299,9 @@ export default function LibraryBindingPage() {
                     description: multi ? "" : (data.description || ""),
                 });
                 if (!multi) {
-                    triggerAIClassify(data.title || "", data.author || "", data.description || "", data.subjects || []);
+                    // Buku sudah ada: eksemplar baru mewarisi kategori & data
+                    // katalog yang ada. AI TIDAK dipanggil otomatis — user bisa
+                    // menekan "Tanya AI" bila memang ingin menilai ulang.
                     toast.success(`Ditemukan di koleksi! Ini akan menjadi eksemplar ke-${(data.totalExemplars || 0) + 1}.`);
                 } else {
                     toast.warning(`ISBN ini dipakai ${candidates.length} judul berbeda — pilih judul yang benar.`, {
@@ -402,11 +413,11 @@ export default function LibraryBindingPage() {
     return (
         <div className="container max-w-2xl py-6 space-y-6">
             <div className="flex items-center gap-4">
-                <Button variant="outline" size="icon" onClick={() => router.back()} className="border-slate-200 bg-white shadow-sm hover:bg-slate-50">
+                <Button variant="outline" size="icon" onClick={() => router.back()} className="shrink-0 border-slate-200 bg-white shadow-sm hover:bg-slate-50">
                     <ArrowLeft className="h-4 w-4" />
                 </Button>
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Binding Buku Baru</h1>
+                <div className="min-w-0">
+                    <h1 className="text-2xl font-bold tracking-tight truncate">Binding Buku Baru</h1>
                     <p className="text-muted-foreground">Hubungkan Identitas Fisik (QR) dengan Data Katalog (ISBN)</p>
                 </div>
             </div>
@@ -443,7 +454,7 @@ export default function LibraryBindingPage() {
                             <span className="text-xs text-muted-foreground uppercase">Atau Input Manual</span>
                             <div className="h-px flex-1 bg-border" />
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-col sm:flex-row gap-2">
                             <Input
                                 placeholder="Input Kode QR Manual..."
                                 value={qrCode}
@@ -536,8 +547,8 @@ export default function LibraryBindingPage() {
                                         </Button>
                                     </div>
                                     <div className="text-xs text-muted-foreground bg-muted/50 rounded-md p-2.5 border">
-                                        <p className="font-medium mb-0.5">Tidak menemukan buku Indonesia?</p>
-                                        <p>Banyak buku lokal tidak terindeks ISBN di Google Books/Open Library. Gunakan tab <strong>Cari Judul</strong> sebagai alternatif.</p>
+                                        <p className="font-medium mb-0.5">Sudah pernah mendaftarkan buku ini?</p>
+                                        <p>Gunakan tab <strong>Cari Judul</strong> untuk mencari judul yang sudah ada di koleksi — eksemplar baru otomatis menyatu dengan katalog yang sama.</p>
                                     </div>
                                 </>
                             ) : (
@@ -566,23 +577,22 @@ export default function LibraryBindingPage() {
                                     {searchLoading && (
                                         <div className="flex items-center gap-2 text-xs text-muted-foreground py-3">
                                             <Loader2 className="h-4 w-4 animate-spin" />
-                                            Mencari di Google Books & Open Library...
+                                            Mencari di katalog perpustakaan...
                                         </div>
                                     )}
 
                                     {!searchLoading && searchPerformed && searchResults.length === 0 && (
                                         <div className="text-xs rounded-md p-3 border border-amber-200 bg-amber-50 text-amber-800">
-                                            <p className="font-medium mb-1">Tidak ada hasil untuk &quot;{searchQuery}&quot;</p>
-                                            <p>Coba kurangi kata kunci (mis. hanya judul saja), atau gunakan tab Scan/ISBN bila bukunya punya barcode.</p>
-                                            <p className="mt-1 opacity-80">Layanan katalog eksternal (Google Books/Open Library) kadang sedang penuh atau terganggu, sehingga sebagian buku tidak muncul.</p>
+                                            <p className="font-medium mb-1">Tidak ada judul &quot;{searchQuery}&quot; di koleksi</p>
+                                            <p>Isi data buku di bawah untuk menambahkan <strong>judul baru</strong>. Jika ISBN-nya sudah dipakai judul lain, keduanya tetap tersimpan sebagai katalog terpisah.</p>
                                         </div>
                                     )}
 
                                     {searchResults.length > 0 && (
                                         <div className="space-y-2">
                                             <p className="text-xs text-muted-foreground">
-                                                Menampilkan halaman {searchPage} — {searchResults.length} hasil
-                                                {searchTotal > 0 ? ` dari ±${searchTotal}` : ""}. Pilih salah satu:
+                                                Menampilkan halaman {searchPage} — {searchResults.length} judul
+                                                {searchTotal > 0 ? ` dari ${searchTotal}` : ""} di koleksi. Pilih salah satu untuk menambah eksemplar:
                                             </p>
                                             <div className="grid gap-2 max-h-[420px] overflow-y-auto pr-1">
                                                 {searchResults.map((item, idx) => (
@@ -665,8 +675,8 @@ export default function LibraryBindingPage() {
                                 <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-3 rounded-md flex items-start gap-2 mb-2">
                                     <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5" />
                                     <div className="text-xs text-amber-800 dark:text-amber-300">
-                                        <p className="font-semibold">ISBN tidak ada di Google Books & Open Library</p>
-                                        <p>Silakan isi <strong>Judul</strong> dan <strong>Penulis</strong> manual di bawah, atau gunakan tab <strong>Cari Judul</strong>.</p>
+                                        <p className="font-semibold">ISBN ini belum ada di koleksi perpustakaan</p>
+                                        <p>Silakan isi <strong>Judul</strong> dan <strong>Penulis</strong> manual di bawah, atau gunakan tab <strong>Cari Judul</strong> bila bukunya sudah pernah didaftarkan.</p>
                                     </div>
                                 </div>
                             )}
@@ -909,14 +919,14 @@ export default function LibraryBindingPage() {
                             </div>
                         </div>
 
-                        <div className="flex justify-between mt-6 items-center">
-                            <Button variant="outline" onClick={() => setStep(1)}>Kembali</Button>
-                            
-                            <div className="flex items-center gap-3">
+                        <div className="flex flex-col-reverse sm:flex-row sm:justify-between sm:items-center gap-3 mt-6">
+                            <Button variant="outline" className="w-full sm:w-auto" onClick={() => setStep(1)}>Kembali</Button>
+
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                                 {!catalog.title?.trim() && (
-                                    <span className="text-xs text-amber-600 font-medium">Judul wajib diisi</span>
+                                    <span className="text-xs text-amber-600 font-medium text-center sm:text-right">Judul wajib diisi</span>
                                 )}
-                                <Button onClick={() => setStep(3)} disabled={!catalog.title?.trim()}>Lanjut</Button>
+                                <Button className="w-full sm:w-auto" onClick={() => setStep(3)} disabled={!catalog.title?.trim()}>Lanjut</Button>
                             </div>
                         </div>
                     </CardContent>
@@ -946,9 +956,9 @@ export default function LibraryBindingPage() {
                             </div>
                         </div>
 
-                        <div className="flex justify-between pt-4">
-                            <Button variant="outline" onClick={() => setStep(2)}>Edit Data</Button>
-                            <Button className="gap-2" onClick={handleSave} disabled={loading}>
+                        <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-3 pt-4">
+                            <Button variant="outline" className="w-full sm:w-auto" onClick={() => setStep(2)}>Edit Data</Button>
+                            <Button className="gap-2 w-full sm:w-auto" onClick={handleSave} disabled={loading}>
                                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                                 Simpan Buku
                             </Button>

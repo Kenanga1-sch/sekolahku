@@ -75,13 +75,13 @@ export default function MyBookingsPage() {
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link href="/katalog-buku">
+        <Link href="/katalog-buku" className="shrink-0">
           <Button variant="ghost" size="icon">
             <ArrowLeft className="h-4 w-4" />
           </Button>
         </Link>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Booking Saya</h1>
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold tracking-tight truncate">Booking Saya</h1>
           <p className="text-muted-foreground">Kelola pemesanan buku perpustakaan Anda</p>
         </div>
       </div>
@@ -158,11 +158,12 @@ export default function MyBookingsPage() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
                     {(booking.status === 'pending' || booking.status === 'confirmed') && (
-                      <Button 
-                        variant="destructive" 
+                      <Button
+                        variant="outline"
                         size="sm"
+                        className="w-full sm:w-auto border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
                         onClick={() => handleCancel(booking.id)}
                       >
                         <XCircle className="h-4 w-4 mr-2" />
@@ -170,8 +171,8 @@ export default function MyBookingsPage() {
                       </Button>
                     )}
                     {booking.status === 'ready' && (
-                      <Link href={`/katalog-buku/detail?id=${booking.assetId}`}>
-                        <Button size="sm">
+                      <Link href={`/katalog-buku/detail?id=${booking.assetId}`} className="w-full sm:w-auto">
+                        <Button size="sm" className="w-full sm:w-auto">
                           <CheckCircle2 className="h-4 w-4 mr-2" />
                           Detail Buku
                         </Button>

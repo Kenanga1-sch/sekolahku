@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -168,9 +167,12 @@ func (r *LibraryRepository) LookupISBN(isbn string) (*models.ISBNLookupResponse,
 	return res, nil
 }
 
-// SearchBooksByTitle mencari kandidat buku berdasarkan judul ke Google Books &
-// Open Library, lalu menggabungkannya. page dimulai dari 1, perPage default 10.
-// Data yang sudah ada di katalog lokal diberi penanda LocalFound.
+// SearchBooksByTitle mencari kandidat buku berdasarkan judul HANYA di katalog
+// lokal (library_catalog). Tidak lagi memanggil Google Books/Open Library:
+// tujuan Binding adalah menambah eksemplar ke judul yang sudah ada, atau
+// menyimpan judul baru — jadi sumbernya cukup koleksi sendiri.
+//
+// page dimulai dari 1, perPage default 10.
 func (r *LibraryRepository) SearchBooksByTitle(query string, page, perPage int) (*models.BookSearchResponse, error) {
 	query = strings.TrimSpace(query)
 	if query == "" {
@@ -183,88 +185,67 @@ func (r *LibraryRepository) SearchBooksByTitle(query string, page, perPage int) 
 		perPage = 10
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
+	like := "%" + query + "%"
 
-	// Ambil kandidat lebih banyak dari perPage agar paginasi lintas provider stabil.
-	fetchCount := perPage * page
-	gbResults := searchGoogleBooks(ctx, query, min(fetchCount, 40))
-	olResults := searchOpenLibrary(ctx, query, min(fetchCount, 40))
+	var total int
+	if err := r.DB.QueryRow(`
+		SELECT COUNT(*) FROM library_catalog
+		WHERE title LIKE ? OR COALESCE(author,'') LIKE ? OR COALESCE(isbn,'') LIKE ?
+	`, like, like, like).Scan(&total); err != nil {
+		return nil, err
+	}
 
-	merged := mergeSearchResults(gbResults, olResults)
+	offset := (page - 1) * perPage
+	rows, err := r.DB.Query(`
+		SELECT c.id, c.title, COALESCE(c.author,''), COALESCE(c.publisher,''), COALESCE(c.year,0),
+		       COALESCE(c.isbn,''), COALESCE(c.cover,''), COALESCE(c.category,''), COALESCE(c.description,''),
+		       (SELECT COUNT(*) FROM library_assets a WHERE a.catalog_id = c.id)
+		FROM library_catalog c
+		WHERE c.title LIKE ? OR COALESCE(c.author,'') LIKE ? OR COALESCE(c.isbn,'') LIKE ?
+		ORDER BY c.title ASC
+		LIMIT ? OFFSET ?
+	`, like, like, like, perPage, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-	// Tandai yang sudah ada di katalog lokal (agar UI bisa tampilkan "Sudah ada").
-	for i, item := range merged {
-		if item.ISBN == "" {
-			continue
-		}
-		var catalogID string
+	results := make([]models.ISBNLookupResponse, 0)
+	for rows.Next() {
+		var id, title, author, pub, isbn, cover, cat, desc string
+		var yr int64
 		var exemplars int
-		if err := r.DB.QueryRow("SELECT id FROM library_catalog WHERE isbn = ? LIMIT 1", item.ISBN).Scan(&catalogID); err == nil {
-			_ = r.DB.QueryRow("SELECT COUNT(*) FROM library_assets WHERE catalog_id = ?", catalogID).Scan(&exemplars)
-			merged[i].LocalFound = true
-			merged[i].TotalExemplars = exemplars
-			merged[i].ID = catalogID
+		if err := rows.Scan(&id, &title, &author, &pub, &yr, &isbn, &cover, &cat, &desc, &exemplars); err != nil {
+			return nil, err
 		}
+		results = append(results, models.ISBNLookupResponse{
+			ID:             id,
+			Title:          title,
+			Author:         author,
+			Publisher:      pub,
+			Year:           yr,
+			ISBN:           isbn,
+			Cover:          cover,
+			CoverURL:       cover,
+			DDCCategory:    cat,
+			Category:       cat,
+			Description:    desc,
+			Sources:        []string{"Katalog Lokal"},
+			LocalFound:     true,
+			TotalExemplars: exemplars,
+		})
 	}
-
-	start := (page - 1) * perPage
-	if start > len(merged) {
-		start = len(merged)
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
-	end := start + perPage
-	if end > len(merged) {
-		end = len(merged)
-	}
-	paged := merged[start:end]
-
-	hasMore := len(olResults) >= fetchCount || len(gbResults) >= fetchCount
 
 	return &models.BookSearchResponse{
-		Results:   paged,
-		Page:      page,
-		PerPage:   perPage,
-		TotalItems: len(merged),
-		HasMore:   hasMore,
+		Results:    results,
+		Page:       page,
+		PerPage:    perPage,
+		TotalItems: total,
+		HasMore:    offset+len(results) < total,
 	}, nil
-}
-
-// mergeSearchResults menggabungkan hasil dari berbagai provider, membuang
-// duplikat berdasarkan ISBN (bila ada) atau judul+penulis yang dinormalisasi.
-func mergeSearchResults(sources ...[]*isbnLookupResult) []models.ISBNLookupResponse {
-	seen := map[string]bool{}
-	var merged []models.ISBNLookupResponse
-
-	for _, list := range sources {
-		for _, item := range list {
-			if item == nil || strings.TrimSpace(item.Title) == "" {
-				continue
-			}
-			key := item.ISBN
-			if key == "" {
-				key = normalizeTitle(item.Title) + "|" + normalizeTitle(item.Author)
-			}
-			if seen[key] {
-				continue
-			}
-			seen[key] = true
-			merged = append(merged, models.ISBNLookupResponse{
-				Title:       item.Title,
-				Author:      item.Author,
-				Publisher:   item.Publisher,
-				Year:        int64(item.Year),
-				ISBN:        item.ISBN,
-				Cover:       item.CoverURL,
-				CoverURL:    item.CoverURL,
-				Subjects:    item.Subjects,
-				Category:    item.Category,
-				DDCCategory: item.DDCCategory,
-				Description: item.Description,
-				Sources:     item.Sources,
-			})
-		}
-	}
-	return merged
 }
 
 // BindAsset mendaftarkan eksemplar baru dari hasil scan QR.

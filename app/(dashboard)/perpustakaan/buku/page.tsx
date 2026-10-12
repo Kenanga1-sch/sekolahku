@@ -229,16 +229,16 @@ export default function BukuPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Link href="/perpustakaan">
+            <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-4 min-w-0">
+                    <Link href="/perpustakaan" className="shrink-0">
                         <Button variant="ghost" size="icon" className="h-8 w-8">
                             <ArrowLeft className="h-4 w-4" />
                         </Button>
                     </Link>
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight">Kelola Buku</h1>
-                        <p className="text-muted-foreground">
+                    <div className="min-w-0">
+                        <h1 className="text-2xl font-bold tracking-tight truncate">Kelola Buku</h1>
+                        <p className="text-muted-foreground truncate">
                             Tambah dan kelola koleksi buku perpustakaan
                         </p>
                     </div>
@@ -251,9 +251,10 @@ export default function BukuPage() {
                     }
                 }}>
                     <DialogTrigger asChild>
-                        <Button className="gap-2">
+                        <Button className="gap-2 shrink-0">
                             <Plus className="h-4 w-4" />
-                            Tambah Buku
+                            <span className="hidden sm:inline">Tambah Buku</span>
+                            <span className="sm:hidden">Tambah</span>
                         </Button>
                     </DialogTrigger>
                 <DialogContent className="max-w-lg">
@@ -405,7 +406,7 @@ export default function BukuPage() {
                                 />
                             </div>
                         </div>
-                        <DialogFooter>
+                        <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
                             <Button type="submit">
                                 {editingItem ? "Simpan Perubahan" : "Tambah Buku"}
                             </Button>
@@ -619,7 +620,7 @@ export default function BukuPage() {
                             </div>
                         </div>
                     )}
-                    <DialogFooter>
+                    <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
                         <Button variant="outline" onClick={() => setIsSwapDialogOpen(false)}>Batal</Button>
                         <Button onClick={handleSwapQR} disabled={loading || !newQrCode}>
                             {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}

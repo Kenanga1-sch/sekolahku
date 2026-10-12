@@ -453,19 +453,19 @@ export default function QRGeneratorPage() {
     return (
         <div className="space-y-6">
             <div className="flex items-center gap-4">
-                <Button variant="outline" size="icon" onClick={() => router.back()}>
+                <Button variant="outline" size="icon" onClick={() => router.back()} className="shrink-0">
                     <ArrowLeft className="h-4 w-4" />
                 </Button>
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Generator QR Code</h1>
+                <div className="min-w-0">
+                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight truncate">Generator QR Code</h1>
                     <p className="text-muted-foreground">Buat label QR Code untuk buku perpustakaan</p>
                 </div>
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList>
-                    <TabsTrigger value="generate">Generate Baru</TabsTrigger>
-                    <TabsTrigger value="history">Riwayat & Download Ulang</TabsTrigger>
+                <TabsList className="w-full h-auto justify-start gap-1 overflow-x-auto scrollbar-none whitespace-nowrap sm:w-auto">
+                    <TabsTrigger value="generate" className="shrink-0">Generate Baru</TabsTrigger>
+                    <TabsTrigger value="history" className="shrink-0">Riwayat & Download Ulang</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="generate" className="space-y-6">
@@ -541,7 +541,7 @@ export default function QRGeneratorPage() {
                             </div>
 
                             {paperId === "custom" && (
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <div className="grid gap-1">
                                         <Label className="text-xs">Lebar Kertas (mm)</Label>
                                         <Input type="number" step="0.1" value={customPaperWidth || ""}
@@ -831,7 +831,7 @@ export default function QRGeneratorPage() {
                             Ukuran tersimpan: kertas {layout.paperWidth}×{layout.paperHeight} mm · label {layout.labelWidth}×{layout.labelHeight} mm
                         </p>
                     </div>
-                    <DialogFooter>
+                    <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
                         <Button variant="outline" onClick={() => setPresetDialogOpen(false)}>Batal</Button>
                         <Button onClick={handleSubmitPreset} disabled={isLoadingPresets}>
                             {presetMode === "edit" ? "Simpan Perubahan" : "Simpan"}
