@@ -3,15 +3,10 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { 
-    ArrowLeft, 
-    FileText, 
-    Upload, 
-    Trash2, 
-    Eye, 
-    Loader2, 
-    CheckCircle2, 
-    AlertCircle,
+import {
+    ArrowLeft,
+    FileText,
+    Loader2,
     BookOpen,
     BookMarked,
     Wallet,
@@ -22,10 +17,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ParentLinkCard } from "@/components/parent-link-card";
+import { ProfileTab } from "./_components/profile-tab";
+import { DocumentsTab } from "./_components/documents-tab";
 import { showSuccess, showError } from "@/lib/toast";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
@@ -377,337 +371,21 @@ export default function StudentDetailPage() {
                 </TabsContent>
 
                 <TabsContent value="profile" className="pt-4 space-y-6">
-                    {/* 1. DATA PRIBADI */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Data Pribadi</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                                <div>
-                                    <Label className="text-muted-foreground text-xs">Nama Lengkap</Label>
-                                    <div className="font-semibold text-sm mt-1">{student.fullName || "-"}</div>
-                                </div>
-                                <div>
-                                    <Label className="text-muted-foreground text-xs">Jenis Kelamin</Label>
-                                    <div className="font-semibold text-sm mt-1">{student.gender === "L" ? "Laki-laki" : student.gender === "P" ? "Perempuan" : "-"}</div>
-                                </div>
-                                <div>
-                                    <Label className="text-muted-foreground text-xs">NISN</Label>
-                                    <div className="font-semibold text-sm mt-1">{student.nisn || "-"}</div>
-                                </div>
-                                <div>
-                                    <Label className="text-muted-foreground text-xs">NIS (Lokal)</Label>
-                                    <div className="font-semibold text-sm mt-1">{student.nis || "-"}</div>
-                                </div>
-                                <div>
-                                    <Label className="text-muted-foreground text-xs">NIK</Label>
-                                    <div className="font-semibold text-sm mt-1">{student.nik || "-"}</div>
-                                </div>
-                                <div>
-                                    <Label className="text-muted-foreground text-xs">Tempat, Tanggal Lahir</Label>
-                                    <div className="font-semibold text-sm mt-1">
-                                        {student.birthPlace || "-"}, {student.birthDate || "-"}
-                                    </div>
-                                </div>
-                                <div>
-                                    <Label className="text-muted-foreground text-xs">Agama</Label>
-                                    <div className="font-semibold text-sm mt-1">{student.religion || "-"}</div>
-                                </div>
-                                <div>
-                                    <Label className="text-muted-foreground text-xs">Nomor KIP</Label>
-                                    <div className="font-semibold text-sm mt-1">{student.kip || "-"}</div>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* 2. ALAMAT & KONTAK */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Alamat & Kontak</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                                <div className="col-span-2">
-                                    <Label className="text-muted-foreground text-xs">Alamat Jalan</Label>
-                                    <div className="font-semibold text-sm mt-1">{student.address || "-"}</div>
-                                </div>
-                                <div>
-                                    <Label className="text-muted-foreground text-xs">RT / RW</Label>
-                                    <div className="font-semibold text-sm mt-1">
-                                        {(meta.rt !== undefined && meta.rt !== null && String(meta.rt).trim() !== "") ? `RT ${meta.rt}` : "-"} / {(meta.rw !== undefined && meta.rw !== null && String(meta.rw).trim() !== "") ? `RW ${meta.rw}` : "-"}
-                                    </div>
-                                </div>
-                                <div>
-                                    <Label className="text-muted-foreground text-xs">Nama Dusun</Label>
-                                    <div className="font-semibold text-sm mt-1">{meta.dusun || "-"}</div>
-                                </div>
-                                <div>
-                                    <Label className="text-muted-foreground text-xs">Kelurahan / Desa</Label>
-                                    <div className="font-semibold text-sm mt-1">{meta.kelurahan || "-"}</div>
-                                </div>
-                                <div>
-                                    <Label className="text-muted-foreground text-xs">Kode Pos</Label>
-                                    <div className="font-semibold text-sm mt-1">{meta.kodePos || "-"}</div>
-                                </div>
-                                <div>
-                                    <Label className="text-muted-foreground text-xs">Jenis Tinggal</Label>
-                                    <div className="font-semibold text-sm mt-1">{meta.jenisTinggal || "-"}</div>
-                                </div>
-                                <div>
-                                    <Label className="text-muted-foreground text-xs">Alat Transportasi</Label>
-                                    <div className="font-semibold text-sm mt-1">{meta.alatTransportasi || "-"}</div>
-                                </div>
-                                <div>
-                                    <Label className="text-muted-foreground text-xs">No. Telepon Seluler (HP)</Label>
-                                    <div className="font-semibold text-sm mt-1">{student.parentPhone || "-"}</div>
-                                </div>
-                                <div>
-                                    <Label className="text-muted-foreground text-xs">No. Telepon Rumah</Label>
-                                    <div className="font-semibold text-sm mt-1">{meta.teleponRumah || "-"}</div>
-                                </div>
-                                <div className="col-span-2">
-                                    <Label className="text-muted-foreground text-xs">Email</Label>
-                                    <div className="font-semibold text-sm mt-1">{meta.email || "-"}</div>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* 3. DATA ORANG TUA / WALI */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Data Orang Tua & Wali</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            {/* Section Ayah */}
-                            <div className="border-b pb-6">
-                                <h4 className="font-bold text-sm mb-4 text-primary">Detail Ayah Kandung</h4>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                                    <div>
-                                        <Label className="text-muted-foreground text-xs">Nama Ayah</Label>
-                                        <div className="font-semibold text-sm mt-1">{student.fatherName || "-"}</div>
-                                    </div>
-                                    <div>
-                                        <Label className="text-muted-foreground text-xs">NIK Ayah</Label>
-                                        <div className="font-semibold text-sm mt-1">{meta.fatherNik || "-"}</div>
-                                    </div>
-                                    <div>
-                                        <Label className="text-muted-foreground text-xs">Tahun Lahir Ayah</Label>
-                                        <div className="font-semibold text-sm mt-1">{meta.fatherBirthYear || "-"}</div>
-                                    </div>
-                                    <div>
-                                        <Label className="text-muted-foreground text-xs">Pendidikan Ayah</Label>
-                                        <div className="font-semibold text-sm mt-1">{meta.fatherEducation || "-"}</div>
-                                    </div>
-                                    <div>
-                                        <Label className="text-muted-foreground text-xs">Pekerjaan Ayah</Label>
-                                        <div className="font-semibold text-sm mt-1">{meta.fatherJob || "-"}</div>
-                                    </div>
-                                    <div>
-                                        <Label className="text-muted-foreground text-xs">Penghasilan Ayah</Label>
-                                        <div className="font-semibold text-sm mt-1">{meta.fatherIncome || "-"}</div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Section Ibu */}
-                            <div className="border-b pb-6">
-                                <h4 className="font-bold text-sm mb-4 text-primary">Detail Ibu Kandung</h4>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                                    <div>
-                                        <Label className="text-muted-foreground text-xs">Nama Ibu</Label>
-                                        <div className="font-semibold text-sm mt-1">{student.motherName || "-"}</div>
-                                    </div>
-                                    <div>
-                                        <Label className="text-muted-foreground text-xs">NIK Ibu</Label>
-                                        <div className="font-semibold text-sm mt-1">{meta.motherNik || "-"}</div>
-                                    </div>
-                                    <div>
-                                        <Label className="text-muted-foreground text-xs">Tahun Lahir Ibu</Label>
-                                        <div className="font-semibold text-sm mt-1">{meta.motherBirthYear || "-"}</div>
-                                    </div>
-                                    <div>
-                                        <Label className="text-muted-foreground text-xs">Pendidikan Ibu</Label>
-                                        <div className="font-semibold text-sm mt-1">{meta.motherEducation || "-"}</div>
-                                    </div>
-                                    <div>
-                                        <Label className="text-muted-foreground text-xs">Pekerjaan Ibu</Label>
-                                        <div className="font-semibold text-sm mt-1">{meta.motherJob || "-"}</div>
-                                    </div>
-                                    <div>
-                                        <Label className="text-muted-foreground text-xs">Penghasilan Ibu</Label>
-                                        <div className="font-semibold text-sm mt-1">{meta.motherIncome || "-"}</div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Section Wali (Hanya Tampil Jika Ada) */}
-                            {student.guardianName && (
-                                <div>
-                                    <h4 className="font-bold text-sm mb-4 text-primary">Detail Wali</h4>
-                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                                        <div>
-                                            <Label className="text-muted-foreground text-xs">Nama Wali</Label>
-                                            <div className="font-semibold text-sm mt-1">{student.guardianName || "-"}</div>
-                                        </div>
-                                        <div>
-                                            <Label className="text-muted-foreground text-xs">NIK Wali</Label>
-                                            <div className="font-semibold text-sm mt-1">{meta.guardianNik || "-"}</div>
-                                        </div>
-                                        <div>
-                                            <Label className="text-muted-foreground text-xs">Tahun Lahir Wali</Label>
-                                            <div className="font-semibold text-sm mt-1">{meta.guardianBirthYear || "-"}</div>
-                                        </div>
-                                        <div>
-                                            <Label className="text-muted-foreground text-xs">Pendidikan Wali</Label>
-                                            <div className="font-semibold text-sm mt-1">{meta.guardianEducation || "-"}</div>
-                                        </div>
-                                        <div>
-                                            <Label className="text-muted-foreground text-xs">Pekerjaan Wali</Label>
-                                            <div className="font-semibold text-sm mt-1">{meta.guardianJob || "-"}</div>
-                                        </div>
-                                        <div>
-                                            <Label className="text-muted-foreground text-xs">Penghasilan Wali</Label>
-                                            <div className="font-semibold text-sm mt-1">{meta.guardianIncome || "-"}</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    {/* 4. DATA PERIODIK & LONGITUDINAL */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Data Periodik & Longitudinal</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                                <div>
-                                    <Label className="text-muted-foreground text-xs">Tinggi Badan</Label>
-                                    <div className="font-semibold text-sm mt-1">{meta.tinggiBadan ? `${meta.tinggiBadan} cm` : "-"}</div>
-                                </div>
-                                <div>
-                                    <Label className="text-muted-foreground text-xs">Berat Badan</Label>
-                                    <div className="font-semibold text-sm mt-1">{meta.beratBadan ? `${meta.beratBadan} kg` : "-"}</div>
-                                </div>
-                                <div>
-                                    <Label className="text-muted-foreground text-xs">Lingkar Kepala</Label>
-                                    <div className="font-semibold text-sm mt-1">{meta.lingkarKepala ? `${meta.lingkarKepala} cm` : "-"}</div>
-                                </div>
-                                <div>
-                                    <Label className="text-muted-foreground text-xs">Jarak Rumah ke Sekolah</Label>
-                                    <div className="font-semibold text-sm mt-1">{meta.jarakSekolah || "-"}</div>
-                                </div>
-                                <div>
-                                    <Label className="text-muted-foreground text-xs">Waktu Tempuh</Label>
-                                    <div className="font-semibold text-sm mt-1">{meta.waktuTempuh || "-"}</div>
-                                </div>
-                                <div>
-                                    <Label className="text-muted-foreground text-xs">Jumlah Saudara Kandung</Label>
-                                    <div className="font-semibold text-sm mt-1">{(meta.jumlahSaudara !== undefined && meta.jumlahSaudara !== null) ? `${meta.jumlahSaudara} orang` : "-"}</div>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    <ProfileTab student={student} meta={meta} />
                 </TabsContent>
 
                 <TabsContent value="documents" className="pt-4 space-y-6">
-                    {/* Upload Section */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-base flex items-center gap-2">
-                                <Upload className="h-4 w-4" /> Upload Dokumen Baru
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <form onSubmit={handleUpload} className="flex flex-col md:flex-row gap-4 item-end">
-                                <div className="flex-1 space-y-2">
-                                    <Label>Judul Dokumen</Label>
-                                    <Input 
-                                        placeholder="Contoh: Kartu Keluarga 2024" 
-                                        value={docTitle}
-                                        onChange={(e) => setDocTitle(e.target.value)}
-                                        required 
-                                    />
-                                </div>
-                                <div className="w-[200px] space-y-2">
-                                    <Label>Jenis</Label>
-                                    <Select value={docType} onValueChange={setDocType}>
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="kk">Kartu Keluarga (KK)</SelectItem>
-                                            <SelectItem value="akta">Akta Kelahiran</SelectItem>
-                                            <SelectItem value="kip">KIP / Bansos</SelectItem>
-                                            <SelectItem value="ijazah_tk">Ijazah TK</SelectItem>
-                                            <SelectItem value="foto">Pas Foto</SelectItem>
-                                            <SelectItem value="lainnya">Lainnya</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="flex-1 space-y-2">
-                                    <Label>File (Max 5MB)</Label>
-                                    <Input 
-                                        type="file" 
-                                        onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
-                                        accept=".pdf,.jpg,.jpeg,.png"
-                                    />
-                                </div>
-                                <div className="flex items-end">
-                                    <Button type="submit" disabled={isUploading}>
-                                        {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                        Upload
-                                    </Button>
-                                </div>
-                            </form>
-                        </CardContent>
-                    </Card>
-
-                    {/* Documents List */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {documents.length === 0 ? (
-                            <div className="col-span-full text-center py-10 text-muted-foreground border-2 border-dashed rounded-lg">
-                                <FileText className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                                Belum ada dokumen diupload
-                            </div>
-                        ) : (
-                            documents.map(doc => (
-                                <Card key={doc.id} className="group hover:border-primary/50 transition-colors">
-                                    <CardContent className="p-4 flex items-start gap-3">
-                                        <div className="mt-1 h-10 w-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center flex-shrink-0">
-                                            <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <h4 className="font-medium truncate" title={doc.title}>{doc.title}</h4>
-                                            <p className="text-xs text-muted-foreground capitalize mb-2">{doc.type.replace('_', ' ')}</p>
-                                            <div className="text-xs text-muted-foreground">
-                                                {format(new Date(doc.uploadedAt), "d MMM yyyy", { locale: id })}
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                    <div className="p-3 border-t bg-muted/20 flex items-center justify-end gap-2">
-                                        <Button variant="ghost" size="sm" asChild>
-                                            <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
-                                                <Eye className="h-3 w-3 mr-1" /> Lihat
-                                            </a>
-                                        </Button>
-                                        <Button 
-                                            variant="ghost" 
-                                            size="sm" 
-                                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                            onClick={() => handleDeleteDoc(doc.id)}
-                                        >
-                                            <Trash2 className="h-3 w-3" />
-                                        </Button>
-                                    </div>
-                                </Card>
-                            ))
-                        )}
-                    </div>
+                    <DocumentsTab
+                        documents={documents}
+                        docTitle={docTitle}
+                        setDocTitle={setDocTitle}
+                        docType={docType}
+                        setDocType={setDocType}
+                        setUploadFile={setUploadFile}
+                        isUploading={isUploading}
+                        onUpload={handleUpload}
+                        onDelete={handleDeleteDoc}
+                    />
                 </TabsContent>
 
                 {/* TAB: SAVINGS (TABUNGAN HARIAN) */}
