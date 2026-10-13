@@ -26,75 +26,12 @@ import {
 } from "@/components/ui/select";
 import { FileStack, Plus, Trash2, Eye, Pencil, ChevronUp, ChevronDown, Search, Users } from "lucide-react";
 import { goGet, goPost, goPut, goDelete } from "@/lib/api-client";
-import { formatClassName } from "@/lib/class-utils";
 import { showSuccess, showError } from "@/lib/toast";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
-
-interface QuestionBank {
-  id: string;
-  title: string;
-}
-
-interface QuestionSet {
-  id: string;
-  name: string;
-  bankId: string;
-  academicYear?: string;
-  mode: string;
-  shuffleQuestions: boolean;
-  shuffleOptions: boolean;
-  timerMinutes?: number;
-  maxAttempts?: number;
-  availableFrom?: string;
-  availableUntil?: string;
-  resultVisible: boolean;
-  bankTitle?: string;
-  itemCount?: number;
-  createdAt?: number;
-  assignedClasses?: ExamAssignment[];
-}
-
-interface ExamAssignment {
-  id: string;
-  classId: string;
-  className?: string;
-}
-
-interface ClassItem {
-  id: string;
-  name: string;
-}
-
-interface SetItem {
-  id: string;
-  setId: string;
-  questionId: string;
-  orderNumber: number;
-  question?: {
-    id: string;
-    type: string;
-    content: string;
-    points: number;
-    mediaUrl?: string;
-  };
-}
-
-interface BankQuestion {
-  id: string;
-  type: string;
-  content: string;
-  points: number;
-}
-
-const TYPE_LABELS: Record<string, string> = {
-  pg_single: "PG Tunggal",
-  pg_multi: "PG Multi",
-  true_false: "Benar/Salah",
-  fill_blank: "Isian",
-  matching: "Menjodohkan",
-  pair_match: "Mencocokkan",
-  essay: "Esai",
-};
+import { TYPE_LABELS } from "./_components/types";
+import type { QuestionBank, QuestionSet, ClassItem, SetItem, BankQuestion, ExamAssignment } from "./_components/types";
+import { AssignDialog } from "./_components/assign-dialog";
+import { EditDialog, type EditForm } from "./_components/edit-dialog";
 
 // toLocalInput mengubah ISO string dari backend ke format datetime-local (waktu lokal).
 function toLocalInput(iso?: string): string {
@@ -136,7 +73,7 @@ export default function TabPaket() {
 
   // Edit paket
   const [editingSet, setEditingSet] = useState<QuestionSet | null>(null);
-  const [editForm, setEditForm] = useState({
+  const [editForm, setEditForm] = useState<EditForm>({
     name: "",
     mode: "latihan",
     timerMinutes: "",
@@ -804,153 +741,24 @@ export default function TabPaket() {
       </Dialog>
 
       {/* Dialog Tugaskan Kelas */}
-      <Dialog open={!!assigningSet} onOpenChange={(open) => { if (!open) setAssigningSet(null); }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Tugaskan Ujian ke Kelas</DialogTitle>
-            <DialogDescription>
-              Pilih kelas yang boleh mengerjakan &quot;{assigningSet?.name}&quot;. Hanya siswa di kelas terpilih yang dapat mengakses.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2 py-2 max-h-72 overflow-y-auto">
-            {classes.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-3 text-center">Belum ada kelas</p>
-            ) : (
-              classes.map((c) => {
-                const checked = assignSelected.has(c.id);
-                return (
-                  <div
-                    key={c.id}
-                    className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-colors ${
-                      checked ? "bg-blue-50 dark:bg-blue-950/20 border-blue-300" : "hover:bg-slate-50 dark:hover:bg-zinc-900"
-                    }`}
-                    onClick={() => toggleAssign(c.id)}
-                  >
-                    <Checkbox checked={checked} />
-                    <span className="text-sm">{formatClassName(c.name)}</span>
-                  </div>
-                );
-              })
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAssigningSet(null)}>Batal</Button>
-            <Button onClick={handleAssignSave} disabled={isAssignSaving}>
-              {isAssignSaving ? "Menyimpan..." : "Simpan Penugasan"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AssignDialog
+        assigningSet={assigningSet}
+        classes={classes}
+        assignSelected={assignSelected}
+        isAssignSaving={isAssignSaving}
+        onToggle={toggleAssign}
+        onSave={handleAssignSave}
+        onClose={() => setAssigningSet(null)}
+      />
 
       {/* Dialog Edit Paket */}
-      <Dialog open={!!editingSet} onOpenChange={(open) => { if (!open) setEditingSet(null); }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Paket Soal</DialogTitle>
-            <DialogDescription>Ubah nama dan pengaturan paket</DialogDescription>
-          </DialogHeader>
-            <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>Nama Paket *</Label>
-              <Input
-                value={editForm.name}
-                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                placeholder="Nama paket"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Mode Paket</Label>
-              <Select value={editForm.mode} onValueChange={(v) => setEditForm({ ...editForm, mode: v })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="latihan">Latihan</SelectItem>
-                  <SelectItem value="ujian">Ujian</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Batas Waktu (Menit, Opsional)</Label>
-              <Input
-                type="number"
-                min="0"
-                value={editForm.timerMinutes}
-                onChange={(e) => setEditForm({ ...editForm, timerMinutes: e.target.value })}
-                placeholder="Kosongkan untuk tanpa batas waktu"
-              />
-            </div>
-            {editForm.mode === "ujian" && (
-              <>
-                <div className="space-y-2">
-                  <Label>Maks Percobaan (Opsional)</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={editForm.maxAttempts}
-                    onChange={(e) => setEditForm({ ...editForm, maxAttempts: e.target.value })}
-                    placeholder="Kosongkan untuk tak terbatas"
-                  />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label>Mulai (Opsional)</Label>
-                    <Input
-                      type="datetime-local"
-                      value={editForm.availableFrom}
-                      onChange={(e) => setEditForm({ ...editForm, availableFrom: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Selesai (Opsional)</Label>
-                    <Input
-                      type="datetime-local"
-                      value={editForm.availableUntil}
-                      onChange={(e) => setEditForm({ ...editForm, availableUntil: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">Tampilkan Hasil ke Siswa</p>
-                    <p className="text-xs text-muted-foreground">Jika nonaktif, siswa tidak melihat skor</p>
-                  </div>
-                  <Switch
-                    checked={editForm.resultVisible}
-                    onCheckedChange={(v) => setEditForm({ ...editForm, resultVisible: v })}
-                  />
-                </div>
-              </>
-            )}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Acak Urutan Soal</p>
-                  <p className="text-xs text-muted-foreground">Setiap siswa mendapat urutan soal berbeda</p>
-                </div>
-                <Switch
-                  checked={editForm.shuffleQuestions}
-                  onCheckedChange={(v) => setEditForm({ ...editForm, shuffleQuestions: v })}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Acak Pilihan Jawaban</p>
-                  <p className="text-xs text-muted-foreground">Urutan opsi jawaban diacak</p>
-                </div>
-                <Switch
-                  checked={editForm.shuffleOptions}
-                  onCheckedChange={(v) => setEditForm({ ...editForm, shuffleOptions: v })}
-                />
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingSet(null)}>Batal</Button>
-            <Button onClick={handleEditSubmit}>Simpan</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <EditDialog
+        editingSet={editingSet}
+        editForm={editForm}
+        onChange={setEditForm}
+        onSave={handleEditSubmit}
+        onClose={() => setEditingSet(null)}
+      />
     </div>
   );
 }
