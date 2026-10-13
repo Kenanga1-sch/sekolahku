@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { DataTable, TablePagination } from "@/components/data-table";
 import {
@@ -37,14 +36,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
   Download,
   Search,
   Filter,
@@ -66,6 +57,7 @@ import { exportToExcel, exportToPDF } from "@/lib/spmb-export";
 import { goGet, goPost, goPatch, goDelete } from "@/lib/api-client";
 import { showSuccess, showError } from "@/lib/toast";
 import { SPMBStatusBadge } from "@/components/spmb/status-badge";
+import { PeriodDialog, type PeriodFormData } from "@/components/spmb/period-dialog";
 import { SPMBPromoteDialog } from "@/components/spmb/spmb-promote-dialog";
 import { ProcessAcceptanceDialog } from "@/components/spmb/process-acceptance-dialog";
 import { calculateSPMBDomisiliPriority } from "@/lib/spmb-priority";
@@ -118,7 +110,7 @@ export default function TabSPMB() {
   const [deletePeriodId, setDeletePeriodId] = useState<string | null>(null);
   const [isSavingPeriod, setIsSavingPeriod] = useState(false);
 
-  const [periodFormData, setPeriodFormData] = useState({
+  const [periodFormData, setPeriodFormData] = useState<PeriodFormData>({
     name: "",
     committeeName: "",
     startDate: "",
@@ -1022,86 +1014,15 @@ export default function TabSPMB() {
       )}
 
       {/* Period Create/Edit Dialog */}
-      <Dialog open={isPeriodDialogOpen} onOpenChange={setIsPeriodDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>{editingPeriodId ? "Edit Gelombang Pendaftaran" : "Tambah Gelombang Pendaftaran"}</DialogTitle>
-            <DialogDescription>
-              Buat atau perbarui rincian periode pendaftaran siswa baru.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
-              <Label htmlFor="period-name" className="sm:text-right">Nama Gelombang</Label>
-              <Input
-                id="period-name"
-                value={periodFormData.name}
-                onChange={(e) => setPeriodFormData({ ...periodFormData, name: e.target.value })}
-                placeholder="misal: Gelombang 1"
-                className="sm:col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
-              <Label htmlFor="committee" className="sm:text-right">Panitia PPDB</Label>
-              <Input
-                id="committee"
-                value={periodFormData.committeeName}
-                onChange={(e) => setPeriodFormData({ ...periodFormData, committeeName: e.target.value })}
-                placeholder="Nama Ketua Panitia"
-                className="sm:col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
-              <Label htmlFor="start-date" className="sm:text-right">Tanggal Mulai</Label>
-              <Input
-                id="start-date"
-                type="date"
-                value={periodFormData.startDate}
-                onChange={(e) => setPeriodFormData({ ...periodFormData, startDate: e.target.value })}
-                className="sm:col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
-              <Label htmlFor="end-date" className="sm:text-right">Tanggal Selesai</Label>
-              <Input
-                id="end-date"
-                type="date"
-                value={periodFormData.endDate}
-                onChange={(e) => setPeriodFormData({ ...periodFormData, endDate: e.target.value })}
-                className="sm:col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
-              <Label htmlFor="quota" className="sm:text-right">Kuota Siswa</Label>
-              <Input
-                id="quota"
-                type="number"
-                value={periodFormData.quota}
-                onChange={(e) => setPeriodFormData({ ...periodFormData, quota: e.target.value })}
-                placeholder="100"
-                className="sm:col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
-              <Label htmlFor="is-active" className="sm:text-right">Langsung Aktifkan</Label>
-              <div className="sm:col-span-3 flex items-center">
-                <Switch
-                  id="is-active"
-                  checked={periodFormData.isActive}
-                  onCheckedChange={(checked) => setPeriodFormData({ ...periodFormData, isActive: checked })}
-                />
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsPeriodDialogOpen(false)}>Batal</Button>
-            <Button onClick={handlePeriodSubmit} disabled={isSavingPeriod}>
-              {isSavingPeriod ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-              Simpan
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <PeriodDialog
+        open={isPeriodDialogOpen}
+        editingPeriodId={editingPeriodId}
+        formData={periodFormData}
+        isSaving={isSavingPeriod}
+        onChange={setPeriodFormData}
+        onSubmit={handlePeriodSubmit}
+        onOpenChange={setIsPeriodDialogOpen}
+      />
 
       {/* Delete Registrant Confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
