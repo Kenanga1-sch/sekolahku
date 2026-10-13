@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +66,8 @@ import { goGet, goPost, goPatch, goDelete } from "@/lib/api-client";
 import { showSuccess, showError } from "@/lib/toast";
 import type { User as UserType } from "@/types";
 import { useSortableData } from "@/hooks/use-sortable-data";
+import { formatCreatedDate } from "./_components/user-helpers";
+import { UserProfileDialog } from "./_components/user-profile-dialog";
 
 interface ClassOption {
     id?: string;
@@ -442,13 +444,6 @@ export default function TabUsers() {
     const { sortedData: sortedUsers, sortConfig, requestSort } = useSortableData(users);
 
     const getRoleInfo = (role: string) => roles.find((r) => r.value === role) || roles.find((r) => r.value === "user") || roles[0];
-    const formatCreatedDate = (value?: string) => {
-        if (!value) return "-";
-        const date = new Date(value);
-        if (Number.isNaN(date.getTime())) return "-";
-        return date.toLocaleDateString("id-ID");
-    };
-
     return (
         <div className="space-y-6 bg-white dark:bg-zinc-950 p-6 rounded-xl border border-slate-200/80 dark:border-zinc-800/80 shadow-xs">
             {/* Header */}
@@ -931,88 +926,12 @@ export default function TabUsers() {
                 </Dialog>
 
                 {/* User Profile Details Dialog */}
-                <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
-                    <DialogContent className="max-w-2xl">
-                        <DialogHeader>
-                            <DialogTitle>Detail Akun Pengguna</DialogTitle>
-                            <DialogDescription>
-                                Informasi lengkap akun pengguna {selectedUser?.name}
-                            </DialogDescription>
-                        </DialogHeader>
-                        
-                        {selectedUser && (
-                            <div className="space-y-6 py-4">
-                                <div className="flex items-center gap-4">
-                                    <div className="h-16 w-16 rounded-full bg-slate-200 dark:bg-zinc-700 flex items-center justify-center text-xl font-semibold">
-                                        {selectedUser.name?.substring(0, 2).toUpperCase() || "U"}
-                                    </div>
-                                    <div>
-                                        <h3 className="font-semibold text-lg">{selectedUser.name}</h3>
-                                        <p className="text-sm text-muted-foreground">{selectedUser.email}</p>
-                                        <Badge className="mt-1 capitalize" variant="outline">
-                                            {selectedUser.role}
-                                        </Badge>
-                                    </div>
-                                </div>
-                                
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label className="text-xs font-semibold text-muted-foreground">Nama Panggilan</Label>
-                                        <p className="text-sm">{selectedUser.name}</p>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-xs font-semibold text-muted-foreground">Username</Label>
-                                        <p className="text-sm">{selectedUser.username || "-"}</p>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-xs font-semibold text-muted-foreground">Telepon</Label>
-                                        <p className="text-sm">{selectedUser.phone || "-"}</p>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-xs font-semibold text-muted-foreground">Status</Label>
-                                        <Badge variant={selectedUser.isActive ? "default" : "secondary"} className="text-xs">
-                                            {selectedUser.isActive ? "Aktif" : "Nonaktif"}
-                                        </Badge>
-                                    </div>
-                                </div>
-                                
-                                <div className="pt-4 border-t">
-                                    <h4 className="font-medium mb-3">Aktivitas & Keamanan</h4>
-                                    <div className="space-y-2 text-sm">
-                                        <div className="flex justify-between">
-                                            <span className="text-muted-foreground">Terdaftar</span>
-                                            <span>{formatCreatedDate(selectedUser.created)}</span>
-                                        </div>
-                                        {selectedUser.mustChangePassword && (
-                                            <div className="flex justify-between">
-                                                <span className="text-muted-foreground">Wajib ganti password</span>
-                                                <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">Ya</Badge>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                                
-                                <div className="pt-4 border-t">
-                                    <h4 className="font-medium mb-3">Aksi Terbaru</h4>
-                                    <div className="flex items-center gap-3">
-                                        <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-                                        <div className="text-sm text-muted-foreground">
-                                            Profil pengguna dengan peran {selectedUser.role} di sistem
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        
-                        <DialogFooter>
-                            <Button variant="outline" onClick={() => setIsProfileDialogOpen(false)}>Tutup</Button>
-                            <Button onClick={() => { if (selectedUser) { handleEdit(selectedUser); setIsProfileDialogOpen(false); } }}>
-                                <Pencil className="h-4 w-4 mr-2" />
-                                Edit Profil
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
+                <UserProfileDialog
+                    user={selectedUser}
+                    open={isProfileDialogOpen}
+                    onOpenChange={setIsProfileDialogOpen}
+                    onEdit={handleEdit}
+                />
 
             {/* Generate Dialog */}
             <Dialog open={isGenerateOpen} onOpenChange={setIsGenerateOpen}>
