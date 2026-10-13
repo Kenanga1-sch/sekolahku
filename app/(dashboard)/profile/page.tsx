@@ -10,7 +10,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     User,
@@ -22,13 +21,10 @@ import {
     CheckCircle,
     AlertCircle,
     Shield,
-    Camera,
     Calendar,
     Activity,
     History,
     Globe,
-    ChevronRight,
-    Sparkles,
     Download,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
@@ -39,6 +35,9 @@ import { PwaInstallButton } from "@/components/pwa-install-button";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { resolveUploadUrl } from "@/lib/upload-url";
 import { siteConfig } from "@/lib/config";
+import { getActionIcon, getFriendlyActionBadge } from "./_components/profile-helpers";
+import { SecurityTipsCard } from "./_components/security-tips-card";
+import { ProfileHeader } from "./_components/profile-header";
 
 export default function ProfilePage() {
     const router = useRouter();
@@ -298,38 +297,6 @@ export default function ProfilePage() {
         }
     };
 
-    const getActionIcon = (action: string) => {
-        switch (action.toUpperCase()) {
-            case "LOGIN":
-                return <Globe className="h-4 w-4" />;
-            case "LOGOUT":
-                return <Globe className="h-4 w-4 opacity-70" />;
-            case "CREATE":
-                return <Save className="h-4 w-4" />;
-            case "UPDATE":
-                return <User className="h-4 w-4" />;
-            case "DELETE":
-                return <AlertCircle className="h-4 w-4 text-red-500" />;
-            default:
-                return <Activity className="h-4 w-4" />;
-        }
-    };
-
-    const getFriendlyActionBadge = (action: string) => {
-        switch (action.toUpperCase()) {
-            case "LOGIN":
-                return <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border-emerald-200">LOGIN</Badge>;
-            case "UPDATE":
-                return <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border-amber-200">UPDATE</Badge>;
-            case "DELETE":
-                return <Badge className="bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border-rose-200">DELETE</Badge>;
-            case "CREATE":
-                return <Badge className="bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400 border-sky-200">CREATE</Badge>;
-            default:
-                return <Badge className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">{action}</Badge>;
-        }
-    };
-
     if (authLoading || !user || isProfileLoading) {
         return (
             <div className="space-y-6 max-w-5xl mx-auto p-4 animate-pulse">
@@ -355,60 +322,14 @@ export default function ProfilePage() {
     return (
         <div className="space-y-6 max-w-5xl mx-auto pb-10">
             {/* Header Profil Premium */}
-            <Card className="overflow-hidden border-slate-200/80 dark:border-zinc-800/80 shadow-md bg-white dark:bg-zinc-950 relative">
-                <div className="h-36 bg-blue-600 relative overflow-hidden">
-                    {/* Decorative Blobs */}
-                    <div className="absolute top-[-50px] right-[-50px] w-48 h-48 rounded-full bg-white/10 blur-xl pointer-events-none" />
-                    <div className="absolute bottom-[-30px] left-[10%] w-32 h-32 rounded-full bg-black/10 blur-lg pointer-events-none" />
-                    <div className="absolute inset-0 bg-black/10 backdrop-blur-xs" />
-                </div>
-                <div className="px-6 pb-6 relative flex flex-col sm:flex-row items-center sm:items-end gap-5 -mt-14">
-                    <div className="relative group h-28 w-28 rounded-full border-4 border-white dark:border-zinc-950 shadow-2xl overflow-hidden bg-slate-100 dark:bg-zinc-900 shrink-0">
-                        <Avatar className="h-full w-full">
-                            <AvatarImage src={resolveImageUrl(profile.image)} className="object-cover" />
-                            <AvatarFallback className="text-3xl font-extrabold bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
-                                {profile.name ? profile.name.split(" ").map(n => n[0]).slice(0, 2).join("").toUpperCase() : "U"}
-                            </AvatarFallback>
-                        </Avatar>
-                        
-                        <Label 
-                            htmlFor="avatar-upload" 
-                            className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center cursor-pointer text-white text-[10px] font-bold gap-1.5 text-center px-1"
-                        >
-                            <Camera className="h-5 w-5 text-white" />
-                            {isUploading ? "Mengunggah..." : "Ubah Foto"}
-                        </Label>
-                        <input 
-                            type="file" 
-                            id="avatar-upload" 
-                            accept="image/*" 
-                            onChange={handleAvatarUpload}
-                            disabled={isUploading}
-                            className="hidden" 
-                        />
-                    </div>
-                    <div className="flex-1 text-center sm:text-left space-y-1.5 pb-1">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-center sm:justify-start gap-2.5">
-                            <h2 className="text-2xl font-bold text-slate-800 dark:text-white leading-none tracking-tight flex items-center justify-center sm:justify-start gap-1.5">
-                                {profile.fullName || profile.name || "User"}
-                                <Sparkles className="h-4.5 w-4.5 text-amber-500 fill-amber-500 animate-pulse" />
-                            </h2>
-                            <Badge className="w-fit self-center sm:self-auto capitalize bg-violet-100 hover:bg-violet-200 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400 dark:hover:bg-violet-950/60 font-semibold border-violet-200/50">
-                                {user.role || "User"}
-                            </Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground flex items-center justify-center sm:justify-start gap-1.5 font-medium">
-                            <Mail className="h-3.5 w-3.5 text-slate-400" /> {profile.email}
-                            {profile.username && (
-                                <>
-                                    <span className="text-slate-300 dark:text-slate-700">•</span>
-                                    <span className="font-semibold text-slate-500 dark:text-slate-400">@{profile.username}</span>
-                                </>
-                            )}
-                        </p>
-                    </div>
-                </div>
-            </Card>
+            <ProfileHeader
+                profile={profile}
+                userRole={user.role}
+                isUploading={isUploading}
+                resolveImageUrl={resolveImageUrl}
+                onAvatarUpload={handleAvatarUpload}
+            />
+
 
             <Tabs defaultValue="personal" onValueChange={setActiveTab} className="w-full">
                 <div className="relative mb-6">
@@ -701,32 +622,7 @@ export default function ProfilePage() {
 
                         <div>
                             {/* Security Tips Card */}
-                            <Card className="border-slate-200/80 dark:border-zinc-800/80 shadow-xs bg-white dark:bg-zinc-950 h-full">
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2 text-sm font-bold">
-                                        <Shield className="h-4.5 w-4.5 text-violet-500" />
-                                        Tips Keamanan Akun
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="text-xs text-muted-foreground space-y-3.5">
-                                    <div className="flex gap-2">
-                                        <ChevronRight className="h-4 w-4 text-violet-500 shrink-0" />
-                                        <span>Gunakan kombinasi huruf besar, angka, dan simbol pada password baru Anda.</span>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <ChevronRight className="h-4 w-4 text-violet-500 shrink-0" />
-                                        <span>Ganti sandi secara berkala minimal 3 bulan sekali.</span>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <ChevronRight className="h-4 w-4 text-violet-500 shrink-0" />
-                                        <span>Hindari menggunakan password yang sama dengan website/akun media sosial lain.</span>
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <ChevronRight className="h-4 w-4 text-violet-500 shrink-0" />
-                                        <span>Jangan membagikan kredensial login atau email verifikasi akun Sekolahku kepada siapa pun.</span>
-                                    </div>
-                                </CardContent>
-                            </Card>
+                            <SecurityTipsCard />
                         </div>
                     </div>
                 </TabsContent>
