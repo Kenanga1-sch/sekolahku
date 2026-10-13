@@ -1,12 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
 import { DataTable } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -21,14 +20,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   GraduationCap,
   Search,
   Plus,
@@ -36,8 +27,6 @@ import {
   Eye,
   Edit,
   Trash2,
-  Users,
-  Clock,
   RefreshCcw,
   X,
   Filter,
@@ -52,62 +41,10 @@ import {
 import Link from "next/link";
 import { goGet, goDelete, goPost } from "@/lib/api-client";
 import { useSortableData } from "@/hooks/use-sortable-data";
-
-interface Alumni {
-  id: string;
-  nisn: string | null;
-  nis: string | null;
-  fullName: string;
-  gender: string | null;
-  graduationYear: string;
-  finalClass: string | null;
-  photo: string | null;
-  nextSchool: string | null;
-  status: string;
-  bukuFisikNo: string | null;
-  registerNo: number | null;
-  createdAt: Date;
-}
-
-interface AlumniStats {
-  totalAlumni: number;
-  totalDocuments: number;
-  pendingVerification: number;
-  activeCount: number;
-  graduatedCount: number;
-  transferredCount: number;
-  droppedCount: number;
-}
-
-interface Pagination {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-}
-
-const statusInfo: Record<string, { label: string; color: string; border: string }> = {
-  active: {
-    label: "Aktif",
-    color: "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border-emerald-500/20",
-    border: "border-emerald-500/30",
-  },
-  graduated: {
-    label: "Alumni",
-    color: "bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border-blue-500/20",
-    border: "border-blue-500/30",
-  },
-  transferred: {
-    label: "Pindahan",
-    color: "bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 border-amber-500/20",
-    border: "border-amber-500/30",
-  },
-  dropped: {
-    label: "Keluar",
-    color: "bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 border-rose-500/20",
-    border: "border-rose-500/30",
-  },
-};
+import { statusInfo, type Alumni, type AlumniStats, type Pagination } from "./alumni-types";
+import { QuickIndexDialog } from "./_components/quick-index-dialog";
+import { AlumniStatsCards } from "./_components/alumni-stats-cards";
+import { StatusDistributionBar } from "./_components/status-distribution-bar";
 
 export default function TabAlumni() {
   const [alumni, setAlumni] = useState<Alumni[]>([]);
@@ -357,127 +294,19 @@ export default function TabAlumni() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-        >
-          <Card className="bg-white dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800 shadow-sm hover:border-blue-500/30 dark:hover:border-blue-400/30 transition-colors duration-300">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-semibold text-slate-500 dark:text-zinc-400">
-                Total Buku Induk
-              </CardTitle>
-              <div className="p-1.5 bg-blue-50 dark:bg-blue-950/40 rounded-lg text-blue-600 dark:text-blue-400">
-                <Users className="h-4 w-4" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-slate-900 dark:text-zinc-50">
-                {stats?.totalAlumni || 0}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Siswa terdaftar di Buku Induk
-              </p>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <Card className="bg-white dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800 shadow-sm hover:border-emerald-500/30 dark:hover:border-emerald-400/30 transition-colors duration-300">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-semibold text-slate-500 dark:text-zinc-400">
-                Siswa Aktif
-              </CardTitle>
-              <div className="p-1.5 bg-emerald-50 dark:bg-emerald-950/40 rounded-lg text-emerald-600 dark:text-emerald-400">
-                <Users className="h-4 w-4" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-slate-900 dark:text-zinc-50">
-                {stats?.activeCount || 0}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Sedang aktif bersekolah
-              </p>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-        >
-          <Card className="bg-white dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800 shadow-sm hover:border-amber-500/30 dark:hover:border-amber-400/30 transition-colors duration-300">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-semibold text-slate-500 dark:text-zinc-400">
-                Menunggu Verifikasi Dokumen
-              </CardTitle>
-              <div className="p-1.5 bg-amber-50 dark:bg-amber-950/40 rounded-lg text-amber-600 dark:text-amber-400">
-                <Clock className="h-4 w-4" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-slate-900 dark:text-zinc-50">
-                {stats?.pendingVerification || 0}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Berkas siswa perlu diverifikasi
-              </p>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
+      <AlumniStatsCards stats={stats} />
 
       {/* Stacked Status Progress Bar */}
       {totalStudents > 0 && (
-        <Card className="overflow-hidden border border-slate-100 dark:border-zinc-800 shadow-sm">
-          <CardContent className="py-4 px-5">
-            <div className="flex items-center justify-between text-xs mb-2">
-              <span className="text-muted-foreground font-medium">Distribusi Status Siswa</span>
-              <span className="text-muted-foreground font-mono font-semibold">{totalStudents} Total Siswa</span>
-            </div>
-            <div className="h-3.5 w-full rounded-full flex overflow-hidden bg-zinc-100 dark:bg-zinc-800">
-              {stats?.activeCount ? (
-                <div style={{ width: `${activePct}%` }} className="h-full bg-emerald-500 transition-all duration-300" title={`Aktif: ${stats.activeCount}`} />
-              ) : null}
-              {stats?.graduatedCount ? (
-                <div style={{ width: `${graduatedPct}%` }} className="h-full bg-blue-500 transition-all duration-300" title={`Alumni/Lulus: ${stats.graduatedCount}`} />
-              ) : null}
-              {stats?.transferredCount ? (
-                <div style={{ width: `${transferredPct}%` }} className="h-full bg-amber-500 transition-all duration-300" title={`Pindahan: ${stats.transferredCount}`} />
-              ) : null}
-              {stats?.droppedCount ? (
-                <div style={{ width: `${droppedPct}%` }} className="h-full bg-rose-500 transition-all duration-300" title={`Keluar: ${stats.droppedCount}`} />
-              ) : null}
-            </div>
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-3.5 text-xs text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <div className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                <span>Aktif: <strong className="text-foreground">{stats?.activeCount || 0}</strong> ({activePct.toFixed(0)}%)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="h-2.5 w-2.5 rounded-full bg-blue-500" />
-                <span>Alumni: <strong className="text-foreground">{stats?.graduatedCount || 0}</strong> ({graduatedPct.toFixed(0)}%)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="h-2.5 w-2.5 rounded-full bg-amber-500" />
-                <span>Pindahan: <strong className="text-foreground">{stats?.transferredCount || 0}</strong> ({transferredPct.toFixed(0)}%)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="h-2.5 w-2.5 rounded-full bg-rose-500" />
-                <span>Keluar: <strong className="text-foreground">{stats?.droppedCount || 0}</strong> ({droppedPct.toFixed(0)}%)</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <StatusDistributionBar
+          stats={stats}
+          totalStudents={totalStudents}
+          activePct={activePct}
+          graduatedPct={graduatedPct}
+          transferredPct={transferredPct}
+          droppedPct={droppedPct}
+        />
       )}
-
       {/* Data Table */}
       <Card className="border-slate-200 dark:border-zinc-800 shadow-sm overflow-hidden">
         <CardHeader className="p-4 md:p-6 pb-4 border-b border-slate-100 dark:border-zinc-800 bg-white dark:bg-zinc-950">
@@ -823,74 +652,14 @@ export default function TabAlumni() {
       )}
 
       {/* Dialog: Index Cepat Arsip Fisik */}
-      <Dialog open={quickIndexOpen} onOpenChange={setQuickIndexOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <BookMarked className="h-5 w-5 text-primary" />
-              Index Cepat Arsip Fisik
-            </DialogTitle>
-            <DialogDescription>
-              Catat penunjuk siswa lama ke buku induk fisik tanpa mengisi data lengkap. Cukup nama dan lokasi buku — data lain bisa dilengkapi nanti.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-1 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Nama Lengkap *</label>
-              <Input
-                value={quickIndexForm.fullName}
-                onChange={(e) => setQuickIndexForm((f) => ({ ...f, fullName: e.target.value }))}
-                placeholder="Nama sesuai buku induk fisik"
-              />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Tahun Lulus</label>
-                <Input
-                  value={quickIndexForm.graduationYear}
-                  onChange={(e) => setQuickIndexForm((f) => ({ ...f, graduationYear: e.target.value }))}
-                  placeholder="mis. 1995"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">NISN</label>
-                <Input
-                  value={quickIndexForm.nisn}
-                  onChange={(e) => setQuickIndexForm((f) => ({ ...f, nisn: e.target.value }))}
-                  placeholder="Opsional"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Buku Induk No.</label>
-                <Input
-                  value={quickIndexForm.bukuFisikNo}
-                  onChange={(e) => setQuickIndexForm((f) => ({ ...f, bukuFisikNo: e.target.value }))}
-                  placeholder="mis. VI"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Nomor Urut</label>
-                <Input
-                  type="number"
-                  value={quickIndexForm.registerNo}
-                  onChange={(e) => setQuickIndexForm((f) => ({ ...f, registerNo: e.target.value }))}
-                  placeholder="mis. 1421"
-                />
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setQuickIndexOpen(false)} disabled={quickIndexSaving}>
-              Batal
-            </Button>
-            <Button onClick={handleQuickIndex} disabled={quickIndexSaving}>
-              {quickIndexSaving ? "Menyimpan..." : "Simpan Index"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <QuickIndexDialog
+        open={quickIndexOpen}
+        onOpenChange={setQuickIndexOpen}
+        quickIndexForm={quickIndexForm}
+        setQuickIndexForm={setQuickIndexForm}
+        quickIndexSaving={quickIndexSaving}
+        onSubmit={handleQuickIndex}
+      />
     </div>
   );
 }
