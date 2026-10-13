@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { QRScanner } from "@/components/ui/qr-scanner";
 import { CoverField } from "@/components/library/cover-upload";
@@ -9,25 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Book, QrCode, Search, Check, Loader2, ArrowLeft, ArrowRight, Save, Plus, Camera, CameraOff, AlertCircle, X, Sparkles } from "lucide-react";
+import { Book, QrCode, Search, Check, Loader2, ArrowLeft, Save, Plus, Camera, CameraOff, AlertCircle, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getDDCLabel, getAllDDCCategories, getShelfByDDC, getAllShelves, type DDCCategory } from "@/lib/library/ddc-mapping";
 import { goGet, goPost } from "@/lib/api-client";
-
-interface CatalogData {
-    title: string;
-    author: string;
-    publisher?: string;
-    year?: number;
-    isbn?: string;
-    coverUrl?: string;
-    subjects?: string[];
-    ddcCategory?: DDCCategory;
-    localFound?: boolean;
-    totalExemplars?: number;
-    description?: string;
-}
+import { normalizeISBNBarcode, aiCacheKey } from "./binding-helpers";
+import type { CatalogData } from "./binding-helpers";
 
 export default function LibraryBindingPage() {
     const router = useRouter();
@@ -131,9 +119,6 @@ export default function LibraryBindingPage() {
     // Cache hasil AI per judul+penulis (session) agar klik ulang instan & hemat token.
     const aiCacheRef = useRef<Map<string, typeof aiRecommendation>>(new Map());
     const aiInFlightRef = useRef(false);
-
-    const aiCacheKey = (title: string, author: string) =>
-        `${title.trim().toLowerCase()}::${author.trim().toLowerCase()}`;
 
     const triggerAIClassify = async (
         title: string,
@@ -239,20 +224,8 @@ export default function LibraryBindingPage() {
 
     // Step 2: ISBN Lookup
     const handleISBNScan = (code: string) => {
-        // Normalisasi hasil scan barcode:
-        // - buang spasi/pemisah dari hasil decode
-        // - buang add-on harga (EAN-13 + 5 digit) agar ISBN inti yang terbaca
-        // - konversi UPC-A buku lama (0 + ISBN-10 + check) menjadi ISBN-10
-        let raw = code.replace(/[^0-9Xx]/g, "").toUpperCase();
-        if (raw.length > 13 && (raw.startsWith("978") || raw.startsWith("979"))) {
-            raw = raw.slice(0, 13);
-        }
-        if (raw.length === 12 && raw.startsWith("0")) {
-            raw = raw.slice(1, 11);
-        }
-        const isIsbn13 = raw.length === 13 && /^97[89]/.test(raw);
-        const isIsbn10 = raw.length === 10 && /^[0-9]{9}[0-9X]$/.test(raw);
-        if (!isIsbn13 && !isIsbn10) {
+        const { isbn: raw, valid } = normalizeISBNBarcode(code);
+        if (!valid) {
             toast.info(`Barcode terbaca (${code}), tetapi bukan ISBN.`, {
                 description: "Arahkan ke barcode ISBN 10/13 di sampul belakang, atau isi manual.",
                 duration: 5000,
