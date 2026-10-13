@@ -10,10 +10,8 @@ import { DataTable } from "@/components/data-table";
 import { toast } from "sonner";
 import { 
     ArrowLeft, 
-    FileText, 
     Settings, 
     BookOpen, 
-    CheckCircle2, 
     RefreshCw, 
     Database, 
     History,
@@ -28,44 +26,10 @@ import { useRouter } from "next/navigation";
 import { goGet, goPost, goPut, goDelete } from "@/lib/api-client";
 import { useSchoolSettings } from "@/lib/hooks/use-settings";
 import { Badge } from "@/components/ui/badge";
-import { 
-    Dialog, 
-    DialogContent, 
-    DialogDescription, 
-    DialogFooter, 
-    DialogHeader, 
-    DialogTitle 
-} from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
-
-const romanMonths = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
-
-function previewLetterNumber(formatPattern: string, sequence: number, classificationCode: string, date = new Date()) {
-    const padded3 = String(sequence).padStart(3, "0");
-    const padded2 = String(sequence).padStart(2, "0");
-    const padded4 = String(sequence).padStart(4, "0");
-    const rawSeq = String(sequence);
-    const year = String(date.getFullYear());
-    const month = romanMonths[date.getMonth()];
-    const monthNumeric = String(date.getMonth() + 1).padStart(2, "0");
-
-    return (formatPattern || "{nomor}/{kode_klasifikasi}/SDN1-KNG/{bulan}/{tahun}")
-        .replaceAll("{kode_klasifikasi}", classificationCode || "400.3.5.02")
-        .replaceAll("{nomor_urut_raw}", rawSeq)
-        .replaceAll("{nomor_raw}", rawSeq)
-        .replaceAll("{no_raw}", rawSeq)
-        .replaceAll("{nomor_urut_2}", padded2)
-        .replaceAll("{nomor_urut_3}", padded3)
-        .replaceAll("{nomor_urut_4}", padded4)
-        .replaceAll("{nomor_urut}", padded3)
-        .replaceAll("{nomor}", padded3)
-        .replaceAll("{no}", padded3)
-        .replaceAll("{bulan_angka}", monthNumeric)
-        .replaceAll("{bulan}", month)
-        .replaceAll("{bulan_romawi}", month)
-        .replaceAll("{tahun}", year);
-}
+import { previewLetterNumber, extractSequenceNumber } from "./pengaturan-helpers";
+import { CreateClassificationDialog } from "./_components/create-classification-dialog";
+import { EditClassificationDialog } from "./_components/edit-classification-dialog";
+import { DeleteClassificationDialog } from "./_components/delete-classification-dialog";
 
 export default function PengaturanPersuratanPage() {
     const router = useRouter();
@@ -787,183 +751,48 @@ export default function PengaturanPersuratanPage() {
                 </TabsContent>
             </Tabs>
 
-            {/* Modal Tambah Klasifikasi */}
-            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                <DialogContent className="sm:max-w-[480px]">
-                    <DialogHeader>
-                        <DialogTitle>Tambah Klasifikasi Dinas</DialogTitle>
-                        <DialogDescription>
-                            Buat kode klasifikasi surat baru. Pastikan kode klasifikasi unik.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={handleCreateClassification} className="space-y-4 py-2">
-                        <div className="space-y-2">
-                            <Label htmlFor="create_code" className="text-sm font-semibold">Kode Klasifikasi</Label>
-                            <Input
-                                id="create_code"
-                                placeholder="Contoh: 400.3.5.02 atau 421.1"
-                                value={createCode}
-                                onChange={(e) => setCreateCode(e.target.value)}
-                                required
-                                className="font-mono"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="create_name" className="text-sm font-semibold">Nama Kategori / Tujuan Dinas</Label>
-                            <Input
-                                id="create_name"
-                                placeholder="Contoh: Kepegawaian (PTK) atau Kurikulum"
-                                value={createName}
-                                onChange={(e) => setCreateName(e.target.value)}
-                                required
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="create_desc" className="text-sm font-semibold">Deskripsi / Penjelasan Fungsi Kode</Label>
-                            <Textarea
-                                id="create_desc"
-                                placeholder="Tuliskan penjelasan mengenai fungsi kode klasifikasi ini untuk apa saja..."
-                                value={createDescription}
-                                onChange={(e) => setCreateDescription(e.target.value)}
-                                className="min-h-[100px] resize-none"
-                            />
-                        </div>
-                        <DialogFooter className="pt-4">
-                            <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
-                                Batal
-                            </Button>
-                            <Button type="submit" disabled={isCreating} className="bg-blue-600 hover:bg-blue-700 text-white font-medium">
-                                {isCreating ? "Menyimpan..." : "Tambah Klasifikasi"}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
+            <CreateClassificationDialog
+                open={isCreateOpen}
+                onOpenChange={setIsCreateOpen}
+                createCode={createCode}
+                setCreateCode={setCreateCode}
+                createName={createName}
+                setCreateName={setCreateName}
+                createDescription={createDescription}
+                setCreateDescription={setCreateDescription}
+                isCreating={isCreating}
+                onSubmit={handleCreateClassification}
+            />
 
-            {/* Modal Edit Klasifikasi */}
-            <Dialog open={isEditOpen} onOpenChange={(open) => {
-                setIsEditOpen(open);
-                if (!open) setSelectedClass(null);
-            }}>
-                <DialogContent className="sm:max-w-[480px]">
-                    <DialogHeader>
-                        <DialogTitle>Edit Klasifikasi Dinas</DialogTitle>
-                        <DialogDescription>
-                            Perbarui detail atau status untuk kode klasifikasi <code className="font-mono bg-slate-100 dark:bg-zinc-800 px-1 py-0.5 rounded text-blue-600 font-bold">{selectedClass?.code}</code>.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <form onSubmit={handleUpdateClassification} className="space-y-4 py-2">
-                        <div className="space-y-2">
-                            <Label htmlFor="edit_code" className="text-sm font-semibold">Kode Klasifikasi</Label>
-                            <Input
-                                id="edit_code"
-                                value={editCode}
-                                onChange={(e) => setEditCode(e.target.value)}
-                                required
-                                className="font-mono bg-slate-50 dark:bg-zinc-950"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="edit_name" className="text-sm font-semibold">Nama Kategori / Tujuan Dinas</Label>
-                            <Input
-                                id="edit_name"
-                                placeholder="Contoh: Kepegawaian (PTK)"
-                                value={editName}
-                                onChange={(e) => setEditName(e.target.value)}
-                                required
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="edit_desc" className="text-sm font-semibold">Deskripsi / Penjelasan Fungsi Kode</Label>
-                            <Textarea
-                                id="edit_desc"
-                                placeholder="Tuliskan penjelasan mengenai fungsi kode klasifikasi ini untuk apa saja..."
-                                value={editDescription}
-                                onChange={(e) => setEditDescription(e.target.value)}
-                                className="min-h-[100px] resize-none"
-                            />
-                        </div>
-                        <div className="flex items-center justify-between p-3 rounded-lg border bg-slate-50/50 dark:bg-zinc-950/50">
-                            <div className="space-y-0.5">
-                                <Label htmlFor="edit_active" className="text-sm font-semibold">Status Aktif</Label>
-                                <p className="text-[11px] text-muted-foreground">
-                                    Klasifikasi nonaktif tidak akan muncul saat membuat surat baru.
-                                </p>
-                            </div>
-                            <Switch
-                                id="edit_active"
-                                checked={editIsActive}
-                                onCheckedChange={setEditIsActive}
-                            />
-                        </div>
-                        <DialogFooter className="pt-4">
-                            <Button type="button" variant="outline" onClick={() => { setIsEditOpen(false); setSelectedClass(null); }}>
-                                Batal
-                            </Button>
-                            <Button type="submit" disabled={isUpdating} className="bg-blue-600 hover:bg-blue-700 text-white font-medium">
-                                {isUpdating ? "Menyimpan..." : "Simpan Perubahan"}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
+            <EditClassificationDialog
+                open={isEditOpen}
+                onOpenChange={(open) => {
+                    setIsEditOpen(open);
+                    if (!open) setSelectedClass(null);
+                }}
+                selectedClass={selectedClass}
+                editCode={editCode}
+                setEditCode={setEditCode}
+                editName={editName}
+                setEditName={setEditName}
+                editDescription={editDescription}
+                setEditDescription={setEditDescription}
+                editIsActive={editIsActive}
+                setEditIsActive={setEditIsActive}
+                isUpdating={isUpdating}
+                onSubmit={handleUpdateClassification}
+            />
 
-            {/* Konfirmasi Hapus Klasifikasi */}
-            <Dialog open={isDeleteOpen} onOpenChange={(open) => {
-                setIsDeleteOpen(open);
-                if (!open) setClassToDelete(null);
-            }}>
-                <DialogContent className="sm:max-w-[420px]">
-                    <DialogHeader>
-                        <DialogTitle className="text-red-600 flex items-center gap-2">
-                            <Trash2 className="h-5 w-5" />
-                            Hapus Klasifikasi?
-                        </DialogTitle>
-                        <DialogDescription className="pt-2">
-                            Apakah Anda yakin ingin menghapus kode klasifikasi <strong className="font-mono text-slate-800 dark:text-white">{classToDelete?.code}</strong> ({classToDelete?.name})?
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 p-3 rounded-lg text-xs text-amber-800 dark:text-amber-300 leading-relaxed space-y-1">
-                        <p className="font-bold">⚠️ Perhatian Pengarsipan:</p>
-                        <p>
-                            Jika kode klasifikasi ini sudah digunakan pada surat masuk atau surat keluar, sistem akan **menonaktifkannya secara otomatis** (soft delete) agar arsip lama tidak terputus relasinya. Jika belum digunakan, data akan dihapus permanen.
-                        </p>
-                    </div>
-                    <DialogFooter className="pt-4 gap-2">
-                        <Button type="button" variant="outline" onClick={() => { setIsDeleteOpen(false); setClassToDelete(null); }}>
-                            Batal
-                        </Button>
-                        <Button 
-                            type="button" 
-                            disabled={isDeleting} 
-                            onClick={handleDeleteClassification} 
-                            className="bg-red-600 hover:bg-red-700 text-white font-medium"
-                        >
-                            {isDeleting ? "Menghapus..." : "Ya, Hapus"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <DeleteClassificationDialog
+                open={isDeleteOpen}
+                onOpenChange={(open) => {
+                    setIsDeleteOpen(open);
+                    if (!open) setClassToDelete(null);
+                }}
+                classToDelete={classToDelete}
+                isDeleting={isDeleting}
+                onConfirm={handleDeleteClassification}
+            />
         </div>
     );
-}
-
-function extractSequenceNumber(mailNumber: string, classCode: string): number {
-    if (!mailNumber) return 1;
-    const clean = mailNumber.trim();
-    const slashIdx = clean.indexOf("/");
-    if (slashIdx > 0) {
-        const first = clean.substring(0, slashIdx);
-        const val = parseInt(first);
-        if (!isNaN(val) && val > 0 && first !== classCode) {
-            return val;
-        }
-    }
-    const parts = clean.split("/");
-    for (const p of parts) {
-        if (p === classCode || p.startsWith("400.3") || p.startsWith("421")) continue;
-        const num = parseInt(p);
-        if (!isNaN(num) && num > 0) return num;
-    }
-    return 1;
 }
