@@ -26,7 +26,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { goPost } from "@/lib/api-client";
+import {
+    apiSmartScanComplete,
+    apiBorrowBook,
+    apiReturnBook,
+    apiReturnByItem,
+    apiAttendanceScan,
+    apiSavingsLookup,
+    apiSavingsDeposit,
+} from "@/lib/kiosk/kiosk-api";
 import { formatClassName } from "@/lib/class-utils";
 import { evaluateScan } from "@/lib/kiosk/scan-gate";
 import { getDDCLabel } from "@/lib/library/ddc-mapping";
@@ -42,47 +50,6 @@ const Scanner = dynamic(
 // ==========================================
 // API Helpers
 // ==========================================
-
-/**
- * Optimized scan endpoint - combines:
- * - smartScan (identify QR)
- * - hasVisitedToday + recordVisit (check/record visit)
- * - getMemberActiveLoans (get loans)
- * Performance: 4 API calls → 1 API call (60-70% faster)
- */
-async function apiSmartScanComplete(code: string) {
-    return goPost("/api/kiosk/scan-complete", { code }, { skipRetry: true });
-}
-
-async function apiBorrowBook(memberId: string, itemId: string) {
-    return goPost("/api/kiosk/transaction", { type: "borrow", memberId, itemId }, { skipRetry: true });
-}
-
-async function apiReturnBook(loanId: string) {
-    return goPost("/api/kiosk/transaction", { type: "return", loanId }, { skipRetry: true });
-}
-
-/** Pengembalian dalam 1 request: backend mencari pinjaman aktif via item_id. */
-async function apiReturnByItem(itemId: string) {
-    return goPost("/api/kiosk/transaction", { type: "return-by-item", itemId }, { skipRetry: true });
-}
-
-// ==========================================
-// Attendance & Savings API Helpers
-// ==========================================
-
-async function apiAttendanceScan(qrCode: string) {
-    return goPost("/api/kiosk/attendance", { qrCode }, { skipRetry: true });
-}
-
-async function apiSavingsLookup(qrCode: string) {
-    const { goGet } = await import("@/lib/api-client");
-    return goGet(`/api/kiosk/savings-lookup?qrCode=${encodeURIComponent(qrCode)}`, { skipRetry: true });
-}
-
-async function apiSavingsDeposit(qrCode: string, nominal: number) {
-    return goPost("/api/kiosk/savings-deposit", { qrCode, nominal }, { skipRetry: true });
-}
 
 // ==========================================
 // Types
