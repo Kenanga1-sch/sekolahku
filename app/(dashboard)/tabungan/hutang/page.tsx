@@ -12,46 +12,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { RefreshCw, Plus, Trash2, CreditCard, Loader2, ArrowLeft, Search, ChevronDown, ChevronUp, History, Coins, Ban } from "lucide-react";
+import { RefreshCw, Plus, CreditCard, Loader2, ArrowLeft, Search, History, Coins, Ban } from "lucide-react";
 import Link from "next/link";
 import { goGet, goPost, goDelete } from "@/lib/api-client";
-
-interface Hutang {
-    id: string;
-    siswaId: string;
-    namaBarang: string;
-    kategori: string;
-    nominal: number;
-    jumlah: number;
-    terbayar: number;
-    status: string;
-    tanggalAmbil: string | null;
-    catatan: string | null;
-    tahunAjaran: string | null;
-    siswa?: { id: string; nama: string; nisn: string; kelas: string | null } | null;
-    pencatat?: { name: string; email: string } | null;
-}
-
-interface Siswa {
-    id: string;
-    nama: string;
-    nisn: string;
-    kelasId: string;
-    kelas?: { nama: string } | null;
-    saldoTerakhir?: number;
-}
-
-interface PaymentHistoryItem {
-    id: string;
-    hutangId: string;
-    nominal: number;
-    metode: "cash" | "tabungan";
-    transaksiId?: string | null;
-    dicatatOleh: string;
-    createdAt: number;
-}
+import { PayHutangDialog } from "./_components/pay-hutang-dialog";
+import type { Hutang, Siswa, PaymentHistoryItem } from "./_components/types";
 
 const KATEGORI_OPTIONS = [
     { value: "atribut", label: "Atribut" },
@@ -1033,130 +999,17 @@ export default function HutangManagementPage() {
             </Tabs>
 
             {/* Comprehensive Payment Modal */}
-            <Dialog open={!!payDialog} onOpenChange={(open) => !open && setPayDialog(null)}>
-                <DialogContent className="sm:max-w-[420px]">
-                    <DialogHeader>
-                        <DialogTitle>Form Pembayaran Cicilan</DialogTitle>
-                        <DialogDescription>
-                            Pilih metode pembayaran (Tunai vs Potong Tabungan) dan masukkan nominal bayar.
-                        </DialogDescription>
-                    </DialogHeader>
-                    {payDialog && (
-                        <form onSubmit={handlePayHutang} className="space-y-4 pt-3">
-                            <div className="space-y-1">
-                                <Label className="text-xs text-muted-foreground">Nama Siswa</Label>
-                                <div className="font-semibold text-slate-800 dark:text-slate-200 text-sm">
-                                    {payDialog.hutang.siswa?.nama || "-"}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                    NISN: {payDialog.hutang.siswa?.nisn || "-"} • Kelas {payDialog.hutang.siswa?.kelas || "-"}
-                                </div>
-                            </div>
-
-                            <div className="space-y-1.5 border-t dark:border-slate-800 pt-3">
-                                <Label className="text-xs text-muted-foreground">Detail Hutang</Label>
-                                <div className="font-medium text-slate-800 dark:text-slate-200 text-sm">{payDialog.hutang.namaBarang}</div>
-                                <div className="text-xs flex justify-between">
-                                    <span>Total Tagihan ({payDialog.hutang.jumlah}x):</span>
-                                    <span className="font-mono">{formatRupiah(payDialog.hutang.nominal * payDialog.hutang.jumlah)}</span>
-                                </div>
-                                <div className="text-xs flex justify-between text-emerald-600">
-                                    <span>Sudah Dibayar:</span>
-                                    <span className="font-mono">{formatRupiah(payDialog.hutang.terbayar)}</span>
-                                </div>
-                                <div className="text-xs flex justify-between font-bold text-amber-600 border-t dark:border-slate-800 pt-1.5">
-                                    <span>Sisa Tagihan:</span>
-                                    <span className="font-mono">{formatRupiah((payDialog.hutang.nominal * payDialog.hutang.jumlah) - payDialog.hutang.terbayar)}</span>
-                                </div>
-                            </div>
-
-                            <div className="space-y-2 border-t dark:border-slate-800 pt-3">
-                                <Label>Metode Pembayaran</Label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <Button
-                                        type="button"
-                                        variant={paymentMethod === "cash" ? "default" : "outline"}
-                                        onClick={() => setPaymentMethod("cash")}
-                                        className="w-full flex items-center justify-center gap-1.5 h-9"
-                                    >
-                                        <Coins className="h-4 w-4" />
-                                        Tunai (Cash)
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant={paymentMethod === "tabungan" ? "default" : "outline"}
-                                        onClick={() => setPaymentMethod("tabungan")}
-                                        className="w-full flex items-center justify-center gap-1.5 h-9"
-                                    >
-                                        <CreditCard className="h-4 w-4" />
-                                        Potong Tabungan
-                                    </Button>
-                                </div>
-                            </div>
-
-                            {paymentMethod === "tabungan" && (
-                                <div className="p-3 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-lg space-y-1.5">
-                                    <div className="text-xs text-muted-foreground flex justify-between items-center">
-                                        <span>Saldo Tabungan Siswa:</span>
-                                        {getStudentSavingsBalance(payDialog.hutang.siswaId) < ((payDialog.hutang.nominal * payDialog.hutang.jumlah) - payDialog.hutang.terbayar) && (
-                                            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold uppercase">Saldo Kurang untuk Pelunasan</span>
-                                        )}
-                                    </div>
-                                    <div className="text-lg font-bold text-primary font-mono">
-                                        {formatRupiah(getStudentSavingsBalance(payDialog.hutang.siswaId))}
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="space-y-2">
-                                <div className="flex justify-between items-center">
-                                    <Label htmlFor="payAmount">Nominal Pembayaran (Rp)</Label>
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        onClick={() => {
-                                            const remaining = (payDialog.hutang.nominal * payDialog.hutang.jumlah) - payDialog.hutang.terbayar;
-                                            if (paymentMethod === "tabungan") {
-                                                const balance = getStudentSavingsBalance(payDialog.hutang.siswaId);
-                                                setPayAmount(Math.min(remaining, balance).toString());
-                                            } else {
-                                                setPayAmount(remaining.toString());
-                                            }
-                                        }}
-                                        className="text-[11px] h-6 px-2 text-slate-500 hover:text-slate-800"
-                                    >
-                                        Set Maksimal / Lunas
-                                    </Button>
-                                </div>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-mono text-sm">Rp</span>
-                                    <Input
-                                        id="payAmount"
-                                        className="pl-9 font-mono text-sm"
-                                        value={payAmount}
-                                        onChange={(e) => {
-                                            const val = e.target.value.replace(/\D/g, "");
-                                            setPayAmount(val ? parseInt(val).toLocaleString("id-ID") : "");
-                                        }}
-                                        placeholder="0"
-                                        required
-                                    />
-                                </div>
-                            </div>
-
-                            <DialogFooter className="border-t dark:border-slate-800 pt-3 flex gap-2">
-                                <Button type="button" variant="outline" onClick={() => setPayDialog(null)}>
-                                    Batal
-                                </Button>
-                                <Button type="submit" disabled={isPaying}>
-                                    {isPaying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Proses Bayar
-                                </Button>
-                            </DialogFooter>
-                        </form>
-                    )}
-                </DialogContent>
-            </Dialog>
+            <PayHutangDialog
+                hutang={payDialog?.hutang ?? null}
+                savingsBalance={payDialog ? getStudentSavingsBalance(payDialog.hutang.siswaId) : 0}
+                paymentMethod={paymentMethod}
+                payAmount={payAmount}
+                isPaying={isPaying}
+                onPaymentMethodChange={setPaymentMethod}
+                onPayAmountChange={setPayAmount}
+                onSubmit={handlePayHutang}
+                onClose={() => setPayDialog(null)}
+            />
 
             {/* Cancel/Refund Confirmation Dialog */}
             <AlertDialog open={!!cancelDialog} onOpenChange={(open) => !open && setCancelDialog(null)}>
