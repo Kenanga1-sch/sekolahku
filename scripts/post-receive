@@ -11,6 +11,11 @@
 #    npm ci bersamaan di node_modules yang sama (penyebab SIGTERM).
 #  - Penanda kegagalan berkas + baris ringkas di log.
 #  - Rotasi cicd.log bila terlalu besar.
+#  - FIX lock leak (2026-10-13): flock dijalankan dengan `-o` (close fd
+#    sebelum mengeksekusi perintah) via re-exec `--run-pipeline`, sehingga
+#    proses anak berumur panjang (podman/conmon container dev/prod) TIDAK
+#    mewarisi fd lock. Sebelumnya fd lock bocor ke conmon -> lock tetap
+#    "dipegang" setelah pipeline selesai -> push berikutnya selalu di-skip.
 # ==========================================
 set -euo pipefail
 
@@ -31,47 +36,95 @@ if [ -f "$LOG" ]; then
   fi
 fi
 
-# ── Serialisasi: hanya satu pipeline berjalan dalam satu waktu ──
-# Buka fd 9 ke lock file; tunggu (blocking) sampai maks LOCK_WAIT_SECONDS.
-exec 9>"$LOCK_FILE"
-if ! flock -w "$LOCK_WAIT_SECONDS" 9; then
+# ══════════════════════════════════════════════════════════════════════
+# BAGIAN 1 — dipanggil ulang (re-exec) sebagai: bash "$0" --run-pipeline <branch>
+# Dijalankan DI DALAM flock -o, sehingga fd lock sudah tertutup dan tidak
+# diwariskan ke proses anak (podman/conmon).
+# ══════════════════════════════════════════════════════════════════════
+if [ "${1:-}" = "--run-pipeline" ]; then
+  BRANCH="${2:-}"
+  NEWREV="${3:-}"
+
   exec >> "$LOG" 2>&1
   echo ""
   echo "══════════════════════════════════════════════════"
   echo "  post-receive — $(date '+%Y-%m-%d %H:%M:%S')"
   echo "══════════════════════════════════════════════════"
-  echo "✗ Pipeline lain masih berjalan > ${LOCK_WAIT_SECONDS}s — push ini di-skip."
-  echo "  Silakan push ulang setelah pipeline sebelumnya selesai."
-  exit 1
+  echo "→ Branch yang di-push: $BRANCH (commit ${NEWREV:0:7})"
+
+  # ── Penanda kegagalan: hapus di awal, buat bila pipeline gagal ──
+  rm -f "$FAIL_FLAG"
+
+  on_failure() {
+    local exit_code=$?
+    if [ "$exit_code" -ne 0 ]; then
+      {
+        echo "failed_at=$(date '+%Y-%m-%d %H:%M:%S')"
+        echo "exit_code=$exit_code"
+        echo "commit=$NEWREV"
+        echo "branch=$BRANCH"
+        echo "log=$LOG"
+      } > "$FAIL_FLAG"
+      echo "─────────────"
+      echo "✗ PIPELINE GAGAL (exit $exit_code)."
+      echo "  Penanda ditulis ke: $FAIL_FLAG"
+      echo "─────────────"
+    fi
+  }
+  trap on_failure EXIT
+
+  # Siapkan workspace checkout.
+  # PENTING: pakai `checkout -f -B` + `reset --hard` agar work-tree BENAR-BENAR
+  # tersinkron dengan commit target. `checkout -f <branch>` saja TIDAK menimpa
+  # file tracked yang isinya beda di disk bila HEAD sudah di branch itu (pernah
+  # terjadi: scripts/deploy.sh tetap versi lama -> perbaikan prune tak aktif).
+  # (Tidak memakai `git clean` agar file tak-terlacak/env tidak terhapus.)
+  mkdir -p "$REPO_DIR"
+  git --work-tree="$REPO_DIR" --git-dir="$BARE_REPO" checkout -f -B "$BRANCH" "$BRANCH"
+  git --work-tree="$REPO_DIR" --git-dir="$BARE_REPO" reset --hard "$BRANCH"
+
+  cd "$REPO_DIR"
+  export PATH="/usr/local/go/bin:$PATH"
+
+  # ── Jalankan CI (lint + test + build) ─────
+  echo "▶ Menjalankan CI..."
+  if ! REPO_DIR="$REPO_DIR" GIT_DIR="$BARE_REPO" bash "$REPO_DIR/scripts/ci.sh"; then
+    echo "✗ CI GAGAL — deploy dibatalkan."
+    echo "  Kode yang gagal tidak akan masuk produksi."
+    exit 1
+  fi
+  echo "✓ CI LULUS."
+
+  # ── Deploy hanya untuk branch main ────────
+  if [ "$BRANCH" = "main" ]; then
+    echo "▶ Branch main → deploy ke STAGING (dev) dulu..."
+    SRC_DIR="$REPO_DIR" bash "$REPO_DIR/scripts/deploy.sh" dev
+
+    echo "▶ Health check staging..."
+    if ! bash "$REPO_DIR/scripts/health-check.sh" dev; then
+      echo "✗ Staging GAGAL — deploy produksi dibatalkan."
+      exit 1
+    fi
+    echo "✓ Staging sehat."
+
+    echo "▶ Promote ke PRODUKSI (blue-green)..."
+    SRC_DIR="$REPO_DIR" bash "$REPO_DIR/scripts/deploy.sh" prod
+
+    echo "▶ Health check produksi..."
+    bash "$REPO_DIR/scripts/health-check.sh" prod && \
+      echo "✓✓ DEPLOY PRODUKSI BERHASIL." || \
+      { echo "✗ Produksi gagal! Jalankan rollback.sh"; exit 1; }
+  else
+    echo "→ Branch non-main: CI saja, tidak deploy."
+  fi
+
+  echo "═══════ Pipeline selesai ═══════"
+  exit 0
 fi
 
-exec >> "$LOG" 2>&1
-echo ""
-echo "══════════════════════════════════════════════════"
-echo "  post-receive — $(date '+%Y-%m-%d %H:%M:%S')"
-echo "══════════════════════════════════════════════════"
-
-# ── Penanda kegagalan: hapus di awal, buat bila pipeline gagal ──
-rm -f "$FAIL_FLAG"
-
-on_failure() {
-  local exit_code=$?
-  if [ "$exit_code" -ne 0 ]; then
-    {
-      echo "failed_at=$(date '+%Y-%m-%d %H:%M:%S')"
-      echo "exit_code=$exit_code"
-      echo "commit=$NEWREV"
-      echo "branch=$BRANCH"
-      echo "log=$LOG"
-    } > "$FAIL_FLAG"
-    echo "─────────────"
-    echo "✗ PIPELINE GAGAL (exit $exit_code)."
-    echo "  Penanda ditulis ke: $FAIL_FLAG"
-    echo "─────────────"
-  fi
-}
-trap on_failure EXIT
-
+# ══════════════════════════════════════════════════════════════════════
+# BAGIAN 2 — alur utama hook (dipanggil oleh git saat push)
+# ══════════════════════════════════════════════════════════════════════
 BRANCH=""
 NEWREV=""
 while read -r _oldrev _newrev ref; do
@@ -84,51 +137,31 @@ if [ -z "$BRANCH" ]; then
   exit 0
 fi
 
-echo "→ Branch yang di-push: $BRANCH (commit ${NEWREV:0:7})"
+# ── Serialisasi: hanya satu pipeline berjalan dalam satu waktu ──
+# `flock -o` menutup fd lock SEBELUM mengeksekusi perintah, sehingga proses
+# anak (podman/conmon) tidak mewarisi fd -> lock otomatis lepas saat pipeline
+# selesai. Pipeline dijalankan lewat re-exec `--run-pipeline` agar bisa
+# dibungkus oleh flock.
+# `-E 42`: bedakan "gagal acquire lock (timeout)" (exit 42, pipeline TIDAK
+# dijalankan) dari "pipeline selesai dengan error" (exit code pipeline).
+echo "→ Branch: $BRANCH (commit ${NEWREV:0:7})"
+PIPE_EXIT=0
+flock -w "$LOCK_WAIT_SECONDS" -E 42 -o "$LOCK_FILE" \
+  bash "$0" --run-pipeline "$BRANCH" "$NEWREV" || PIPE_EXIT=$?
 
-# Siapkan workspace checkout.
-# PENTING: pakai `checkout -f -B` + `reset --hard` agar work-tree BENAR-BENAR
-# tersinkron dengan commit target. `checkout -f <branch>` saja TIDAK menimpa
-# file tracked yang isinya beda di disk bila HEAD sudah di branch itu (pernah
-# terjadi: scripts/deploy.sh tetap versi lama -> perbaikan prune tak aktif).
-# (Tidak memakai `git clean` agar file tak-terlacak/env tidak terhapus.)
-mkdir -p "$REPO_DIR"
-git --work-tree="$REPO_DIR" --git-dir="$BARE_REPO" checkout -f -B "$BRANCH" "$BRANCH"
-git --work-tree="$REPO_DIR" --git-dir="$BARE_REPO" reset --hard "$BRANCH"
-
-cd "$REPO_DIR"
-export PATH="/usr/local/go/bin:$PATH"
-
-# ── Jalankan CI (lint + test + build) ─────
-echo "▶ Menjalankan CI..."
-if ! REPO_DIR="$REPO_DIR" GIT_DIR="$BARE_REPO" bash "$REPO_DIR/scripts/ci.sh"; then
-  echo "✗ CI GAGAL — deploy dibatalkan."
-  echo "  Kode yang gagal tidak akan masuk produksi."
+if [ "$PIPE_EXIT" -eq 42 ]; then
+  exec >> "$LOG" 2>&1
+  echo ""
+  echo "══════════════════════════════════════════════════"
+  echo "  post-receive — $(date '+%Y-%m-%d %H:%M:%S')"
+  echo "══════════════════════════════════════════════════"
+  echo "✗ Pipeline lain masih berjalan > ${LOCK_WAIT_SECONDS}s — push ini di-skip."
+  echo "  Silakan push ulang setelah pipeline sebelumnya selesai."
   exit 1
 fi
-echo "✓ CI LULUS."
 
-# ── Deploy hanya untuk branch main ────────
-if [ "$BRANCH" = "main" ]; then
-  echo "▶ Branch main → deploy ke STAGING (dev) dulu..."
-  SRC_DIR="$REPO_DIR" bash "$REPO_DIR/scripts/deploy.sh" dev
-
-  echo "▶ Health check staging..."
-  if ! bash "$REPO_DIR/scripts/health-check.sh" dev; then
-    echo "✗ Staging GAGAL — deploy produksi dibatalkan."
-    exit 1
-  fi
-  echo "✓ Staging sehat."
-
-  echo "▶ Promote ke PRODUKSI (blue-green)..."
-  SRC_DIR="$REPO_DIR" bash "$REPO_DIR/scripts/deploy.sh" prod
-
-  echo "▶ Health check produksi..."
-  bash "$REPO_DIR/scripts/health-check.sh" prod && \
-    echo "✓✓ DEPLOY PRODUKSI BERHASIL." || \
-    { echo "✗ Produksi gagal! Jalankan rollback.sh"; exit 1; }
-else
-  echo "→ Branch non-main: CI saja, tidak deploy."
+if [ "$PIPE_EXIT" -ne 0 ]; then
+  exec >> "$LOG" 2>&1
+  echo "✗ Pipeline keluar dengan kode $PIPE_EXIT. Lihat penanda: $FAIL_FLAG"
+  exit "$PIPE_EXIT"
 fi
-
-echo "═══════ Pipeline selesai ═══════"
