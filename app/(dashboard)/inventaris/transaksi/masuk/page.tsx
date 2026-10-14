@@ -51,6 +51,8 @@ export default function BarangMasukPage() {
   const [selectedItemId, setSelectedItemId] = useState("");
   const [quantity, setQuantity] = useState("");
   const [description, setDescription] = useState("");
+  const [supplier, setSupplier] = useState("");
+  const [invoiceNo, setInvoiceNo] = useState("");
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]); // YYYY-MM-DD
   const [proofImage, setProofImage] = useState(""); // Placeholder for file upload path
 
@@ -82,6 +84,8 @@ export default function BarangMasukPage() {
         type: "IN", // INCOMING
         quantity: parseInt(quantity),
         description: description || "Restock Barang",
+        supplier: supplier || undefined,
+        invoiceNo: invoiceNo || undefined,
         date: date,
         // proofImage handled separately if implemented
       });
@@ -205,10 +209,29 @@ export default function BarangMasukPage() {
                   </div>
                </div>
 
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                     <Label htmlFor="supplier">Penyedia / Toko</Label>
+                     <Input id="supplier"
+                        placeholder="Mis. Toko ATK Barokah"
+                        value={supplier}
+                        onChange={(e) => setSupplier(e.target.value)}
+                     />
+                  </div>
+                  <div className="space-y-2">
+                     <Label htmlFor="invoice-no">Nomor Nota / Faktur</Label>
+                     <Input id="invoice-no"
+                        placeholder="Mis. N-2026-05"
+                        value={invoiceNo}
+                        onChange={(e) => setInvoiceNo(e.target.value)}
+                     />
+                  </div>
+               </div>
+
                <div className="space-y-2">
-                  <Label htmlFor="keterangan-sumber">Keterangan / Sumber</Label>
+                  <Label htmlFor="keterangan-sumber">Keterangan / Sumber Dana</Label>
                   <Textarea id="keterangan-sumber" 
-                     placeholder="Contoh: Pembelian dari Toko ABC, Dana BOS, dll."
+                     placeholder="Contoh: Dana BOS, sumber dana BOSP Reguler, dll."
                      value={description}
                      onChange={(e) => setDescription(e.target.value)}
                   />

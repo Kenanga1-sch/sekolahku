@@ -10,6 +10,8 @@ import type {
     InventoryRoom,
     InventoryOpname,
     InventoryStats,
+    InventoryCategory,
+    CategoryKind,
 } from "@/types/inventory";
 
 /** Buka "items" dari bentuk respons lama (items) maupun baru (data). */
@@ -107,6 +109,52 @@ export async function updateAsset(id: string, data: Partial<InventoryAsset>): Pr
 export async function deleteAsset(id: string): Promise<boolean> {
     await goDelete(`/api/inventory/assets/${id}`);
     return true;
+}
+
+// ============ Kategori ============
+
+/**
+ * Daftar kategori terkelola. `kind` menyaring untuk aset/batang habis pakai;
+ * kosong berarti semua. Kategori bertipe BOTH selalu ikut disertakan server.
+ */
+export async function getCategories(kind?: CategoryKind): Promise<InventoryCategory[]> {
+    const q = kind ? `?kind=${encodeURIComponent(kind)}` : "";
+    const res = await goGet<{ items?: InventoryCategory[]; data?: InventoryCategory[] }>(
+        `/api/inventory/categories${q}`
+    );
+    return res?.items ?? res?.data ?? [];
+}
+
+export async function createCategory(data: Partial<InventoryCategory>): Promise<InventoryCategory> {
+    const res = await goPost<{ item: InventoryCategory }>("/api/inventory/categories", data);
+    return res.item;
+}
+
+export async function updateCategory(id: string, data: Partial<InventoryCategory>): Promise<InventoryCategory> {
+    const res = await goPut<{ item: InventoryCategory }>(`/api/inventory/categories/${id}`, data);
+    return res.item;
+}
+
+export async function deleteCategory(id: string): Promise<boolean> {
+    await goDelete(`/api/inventory/categories/${id}`);
+    return true;
+}
+
+// ============ Kode Inventaris Otomatis ============
+
+/**
+ * Preview kode inventaris berikutnya (mis. INV/BK-26-01) untuk ditampilkan di
+ * form. Hanya perkiraan — nomor final ditetapkan saat simpan.
+ */
+export async function getNextCode(
+    kind: "ASSET" | "ITEM",
+    category: string,
+    year?: number,
+): Promise<string> {
+    const params = new URLSearchParams({ kind, category });
+    if (year) params.set("year", String(year));
+    const res = await goGet<{ code: string }>(`/api/inventory/next-code?${params}`);
+    return res?.code ?? "";
 }
 
 // ============ Opname ============

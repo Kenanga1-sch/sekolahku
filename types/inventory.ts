@@ -105,10 +105,44 @@ export interface InventoryAsset extends TimestampedRecord {
     fundingSource?: string | null;
     fiscalYear?: number | null;
     photoUrl?: string | null;
+    // Data perolehan (migrasi 000085).
+    supplier?: string | null;
+    invoiceNo?: string | null;
+    serialNumber?: string | null;
+    brand?: string | null;
+    model?: string | null;
+    acquisitionType?: string | null;
     expand?: {
         room?: { id: string; name: string };
     };
 }
+
+// ==========================================
+// Inventory Categories
+// ==========================================
+
+export type CategoryKind = "ASSET" | "ITEM" | "BOTH";
+
+export interface InventoryCategory extends CamelStampedRecord {
+    name: string;
+    codePrefix?: string | null;
+    kind: CategoryKind;
+    sortOrder: number;
+}
+
+/**
+ * Opsi "Cara Perolehan". Disimpan sebagai teks bebas di kolom
+ * acquisition_type, jadi nilainya tidak divalidasi ketat di backend.
+ */
+export const ACQUISITION_TYPES = [
+    "Pembelian",
+    "Hibah",
+    "Bantuan Pemerintah",
+    "Sumbangan/Donasi",
+    "Swadaya",
+    "Inventarisasi/Reklasifikasi",
+    "Lainnya",
+] as const;
 
 // ==========================================
 // Inventory Opname (Stock Take)

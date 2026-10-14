@@ -11,6 +11,7 @@ import {
     FileText,
     History,
     HandHeart,
+    Tags,
 } from "lucide-react";
 
 const QUICK_ACTIONS = [
@@ -37,6 +38,14 @@ const QUICK_ACTIONS = [
         href: "/inventaris/ruangan",
         color: "text-purple-500",
         bgColor: "bg-purple-500/10 hover:bg-purple-500/20",
+    },
+    {
+        title: "Kategori",
+        description: "Kelola kategori & kode",
+        icon: Tags,
+        href: "/inventaris/kategori",
+        color: "text-fuchsia-500",
+        bgColor: "bg-fuchsia-500/10 hover:bg-fuchsia-500/20",
     },
     {
         title: "Stok Opname",
@@ -73,7 +82,7 @@ const QUICK_ACTIONS = [
 ];
 
 // Path menu khusus admin. Dicocokkan dengan includes() terhadap href aksi.
-const ADMIN_ONLY_PATHS = ["ruangan", "opname", "audit", "laporan"];
+const ADMIN_ONLY_PATHS = ["ruangan", "opname", "audit", "laporan", "kategori"];
 
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useEffect, useState } from "react";

@@ -29,6 +29,17 @@ export interface AssetRow {
     price: number;
     /** quantity * price */
     value: number;
+    // Data perolehan (migrasi 000085). Dibawa ke baris laporan agar template
+    // Studio Format dapat menampilkan penyedia/nota/merk bila diperlukan.
+    fundingSource: string;
+    fiscalYear: number | null;
+    purchaseDate: string | null;
+    supplier: string;
+    invoiceNo: string;
+    serialNumber: string;
+    brand: string;
+    model: string;
+    acquisitionType: string;
 }
 
 export interface RoomGroup {
@@ -72,6 +83,15 @@ export function toAssetRows(assets: InventoryAsset[]): AssetRow[] {
             unclassified: quantity - (good + light + heavy + lost),
             price,
             value: quantity * price,
+            fundingSource: a.fundingSource || "-",
+            fiscalYear: a.fiscalYear ?? null,
+            purchaseDate: a.purchase_date || null,
+            supplier: a.supplier || "-",
+            invoiceNo: a.invoiceNo || "-",
+            serialNumber: a.serialNumber || "-",
+            brand: a.brand || "-",
+            model: a.model || "-",
+            acquisitionType: a.acquisitionType || "-",
         };
     });
 }

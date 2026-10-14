@@ -48,13 +48,17 @@ import {
     deleteAsset,
     getAllRooms,
     createBorrowRequest,
+    getCategories,
+    getNextCode,
 } from "@/lib/inventory";
-import type { InventoryAsset, InventoryRoom } from "@/types/inventory";
+import type { InventoryAsset, InventoryRoom, InventoryCategory } from "@/types/inventory";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { toast } from "sonner";
 import { uploadPhoto } from "@/lib/inventory";
 
-const CATEGORIES = [
+// Fallback kategori bila API belum memuat (mis. guru tanpa hak lihat master
+// data). Isinya sengaja sama dengan seed migrasi agar dropdown tidak kosong.
+const FALLBACK_CATEGORIES = [
     "Elektronik",
     "Furniture",
     "Alat Tulis",
@@ -63,10 +67,21 @@ const CATEGORIES = [
     "Lainnya",
 ];
 
+const ACQUISITION_TYPES = [
+    "Pembelian",
+    "Hibah",
+    "Bantuan Pemerintah",
+    "Sumbangan/Donasi",
+    "Swadaya",
+    "Inventarisasi/Reklasifikasi",
+    "Lainnya",
+];
+
 export default function AsetPage() {
     const { user } = useAuthStore();
     const [assets, setAssets] = useState<InventoryAsset[]>([]);
     const [rooms, setRooms] = useState<InventoryRoom[]>([]);
+    const [categories, setCategories] = useState<string[]>(FALLBACK_CATEGORIES);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [categoryFilter, setCategoryFilter] = useState("all");
@@ -78,6 +93,8 @@ export default function AsetPage() {
     const [borrowTarget, setBorrowTarget] = useState<InventoryAsset | null>(null);
     const [borrowForm, setBorrowForm] = useState({ quantity: "1", reason: "" });
     const [borrowSubmitting, setBorrowSubmitting] = useState(false);
+    // Kode otomatis yang ditampilkan di form (read-only).
+    const [autoCode, setAutoCode] = useState("");
 
     const isAdmin = ["admin", "superadmin"].includes(user?.role || "");
     const isMyRoom = (asset: InventoryAsset) => {
@@ -104,6 +121,12 @@ export default function AsetPage() {
         funding_source: "",
         fiscal_year: new Date().getFullYear().toString(),
         photo_url: "",
+        supplier: "",
+        invoice_no: "",
+        serial_number: "",
+        brand: "",
+        model: "",
+        acquisition_type: "",
     });
 
     const loadData = useCallback(async () => {
@@ -142,6 +165,25 @@ export default function AsetPage() {
         loadData();
     }, [loadData]);
 
+    // Muat kategori terkelola sekali. Gagal memuat bukan fatal: pakai fallback.
+    useEffect(() => {
+        getCategories("ASSET")
+            .then((cats: InventoryCategory[]) => {
+                const names = cats.map((c) => c.name).filter(Boolean);
+                if (names.length > 0) setCategories(names);
+            })
+            .catch(() => { /* fallback sudah terpasang */ });
+    }, []);
+
+    // Preview kode otomatis saat kategori/tahun berubah (hanya untuk aset baru).
+    useEffect(() => {
+        if (editingAsset) return;
+        const year = parseInt(formData.fiscal_year) || new Date().getFullYear();
+        getNextCode("ASSET", formData.category, year)
+            .then((code) => setAutoCode(code))
+            .catch(() => setAutoCode(""));
+    }, [formData.category, formData.fiscal_year, editingAsset]);
+
     // Auto-calculate total quantity when breakdown changes
     useEffect(() => {
         const total =
@@ -177,6 +219,12 @@ export default function AsetPage() {
                 fundingSource: formData.funding_source || undefined,
                 fiscalYear: formData.fiscal_year ? parseInt(formData.fiscal_year) : undefined,
                 photoUrl: formData.photo_url || undefined,
+                supplier: formData.supplier || undefined,
+                invoiceNo: formData.invoice_no || undefined,
+                serialNumber: formData.serial_number || undefined,
+                brand: formData.brand || undefined,
+                model: formData.model || undefined,
+                acquisitionType: formData.acquisition_type || undefined,
             };
 
             if (editingAsset) {
@@ -245,6 +293,12 @@ export default function AsetPage() {
             funding_source: "",
             fiscal_year: new Date().getFullYear().toString(),
             photo_url: "",
+            supplier: "",
+            invoice_no: "",
+            serial_number: "",
+            brand: "",
+            model: "",
+            acquisition_type: "",
         });
     };
 
@@ -266,6 +320,12 @@ export default function AsetPage() {
             funding_source: asset.fundingSource || "",
             fiscal_year: (asset.fiscalYear || new Date().getFullYear()).toString(),
             photo_url: asset.photoUrl || "",
+            supplier: asset.supplier || "",
+            invoice_no: asset.invoiceNo || "",
+            serial_number: asset.serialNumber || "",
+            brand: asset.brand || "",
+            model: asset.model || "",
+            acquisition_type: asset.acquisitionType || "",
         });
         setIsAddDialogOpen(true);
     };
@@ -324,10 +384,17 @@ export default function AsetPage() {
                                         <Label htmlFor="code">Kode Inventaris</Label>
                                         <Input
                                             id="code"
-                                            value={formData.code ?? ""}
+                                            value={editingAsset ? (formData.code ?? "") : (autoCode || formData.code)}
                                             onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                                            placeholder="INV/2026/001"
+                                            readOnly={!editingAsset}
+                                            className={!editingAsset ? "bg-muted" : undefined}
+                                            placeholder="Otomatis"
                                         />
+                                        <p className="text-xs text-muted-foreground">
+                                            {editingAsset
+                                                ? "Kode tetap; tidak diubah otomatis."
+                                                : "Dibuat otomatis sesuai kategori & tahun."}
+                                        </p>
                                     </div>
                                 </div>
 
@@ -341,7 +408,7 @@ export default function AsetPage() {
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {CATEGORIES.map((cat) => (
+                                                {categories.map((cat) => (
                                                     <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                                                 ))}
                                             </SelectContent>
@@ -448,6 +515,77 @@ export default function AsetPage() {
                                         onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                                         rows={2}
                                     />
+                                </div>
+
+                                <div className="border rounded-md p-4 bg-muted/50">
+                                    <Label className="mb-2 block font-semibold">Data Perolehan</Label>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="supplier">Penyedia / Toko</Label>
+                                            <Input
+                                                id="supplier"
+                                                value={formData.supplier}
+                                                onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
+                                                placeholder="Mis. Toko Komputer Jaya"
+                                            />
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="invoice_no">Nomor Nota / Faktur</Label>
+                                            <Input
+                                                id="invoice_no"
+                                                value={formData.invoice_no}
+                                                onChange={(e) => setFormData({ ...formData, invoice_no: e.target.value })}
+                                                placeholder="Mis. INV-2026-777"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="brand">Merk</Label>
+                                            <Input
+                                                id="brand"
+                                                value={formData.brand}
+                                                onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+                                                placeholder="Mis. Asus"
+                                            />
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="model">Tipe / Model</Label>
+                                            <Input
+                                                id="model"
+                                                value={formData.model}
+                                                onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                                                placeholder="Mis. X441"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="serial_number">Nomor Seri</Label>
+                                            <Input
+                                                id="serial_number"
+                                                value={formData.serial_number}
+                                                onChange={(e) => setFormData({ ...formData, serial_number: e.target.value })}
+                                                placeholder="Nomor seri/rangka/IMEI"
+                                            />
+                                        </div>
+                                        <div className="grid gap-2">
+                                            <Label htmlFor="acquisition_type">Cara Perolehan</Label>
+                                            <Select
+                                                value={formData.acquisition_type}
+                                                onValueChange={(value) => setFormData({ ...formData, acquisition_type: value })}
+                                            >
+                                                <SelectTrigger id="acquisition_type">
+                                                    <SelectValue placeholder="Pilih cara perolehan" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {ACQUISITION_TYPES.map((t) => (
+                                                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div className="border rounded-md p-4 bg-muted/50">
@@ -559,7 +697,7 @@ export default function AsetPage() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Semua Kategori</SelectItem>
-                                {CATEGORIES.map((cat) => (
+                                {categories.map((cat) => (
                                     <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                                 ))}
                             </SelectContent>

@@ -38,6 +38,38 @@ describe("report-data", () => {
         expect(row.roomName).toBe("Tanpa Ruangan");
     });
 
+    it("membawa data perolehan ke baris laporan (dengan '-' bila kosong)", () => {
+        const [row] = toAssetRows([asset({
+            supplier: "Toko Jaya",
+            invoiceNo: "INV-2026-1",
+            serialNumber: "SN-1",
+            brand: "Asus",
+            model: "X441",
+            acquisitionType: "Pembelian",
+            fundingSource: "BOSP Reguler",
+            fiscalYear: 2026,
+            purchase_date: "2026-01-15T00:00:00Z",
+        })]);
+        expect(row.supplier).toBe("Toko Jaya");
+        expect(row.invoiceNo).toBe("INV-2026-1");
+        expect(row.serialNumber).toBe("SN-1");
+        expect(row.brand).toBe("Asus");
+        expect(row.model).toBe("X441");
+        expect(row.acquisitionType).toBe("Pembelian");
+        expect(row.fundingSource).toBe("BOSP Reguler");
+        expect(row.fiscalYear).toBe(2026);
+        expect(row.purchaseDate).toBe("2026-01-15T00:00:00Z");
+    });
+
+    it("memakai '-' untuk data perolehan yang kosong", () => {
+        const [row] = toAssetRows([asset({})]);
+        expect(row.supplier).toBe("-");
+        expect(row.invoiceNo).toBe("-");
+        expect(row.brand).toBe("-");
+        expect(row.acquisitionType).toBe("-");
+        expect(row.fiscalYear).toBeNull();
+    });
+
     it("mengelompokkan per ruangan dan menjumlahkan sub-total", () => {
         const rows = toAssetRows([
             asset({ id: "1", quantity: 2, price: 1000, expand: { room: { id: "r1", name: "Kelas A" } } }),

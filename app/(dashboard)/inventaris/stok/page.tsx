@@ -42,9 +42,10 @@ import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { goGet, goPost, goDelete } from "@/lib/api-client";
-import { uploadPhoto, getAllRooms } from "@/lib/inventory";
+import { uploadPhoto, getAllRooms, getCategories } from "@/lib/inventory";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import type { InventoryRoom } from "@/types/inventory";
+import { ACQUISITION_TYPES } from "@/types/inventory";
 
 // Manual debounce if hook helps avoid lookup
 function useDebouncedValue(value: string, delay: number) {
@@ -70,12 +71,19 @@ export default function StokPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [rooms, setRooms] = useState<InventoryRoom[]>([]);
+  const [categories, setCategories] = useState<string[]>([
+    "Alat Tulis Kantor",
+    "Rumah Tangga",
+    "Alat Kebersihan",
+    "Elektronik (Habis Pakai)",
+    "Lainnya",
+  ]);
 
   // Form State
   const [formData, setFormData] = useState({
     name: "",
     code: "",
-    category: "ATK",
+    category: "Alat Tulis Kantor",
     unit: "Pcs",
     minStock: 5,
     price: 0,
@@ -84,6 +92,12 @@ export default function StokPage() {
     funding_source: "",
     fiscal_year: new Date().getFullYear(),
     photo_url: "",
+    supplier: "",
+    invoice_no: "",
+    serial_number: "",
+    brand: "",
+    model: "",
+    acquisition_type: "",
   });
 
   const fetchItems = async () => {
@@ -115,6 +129,16 @@ export default function StokPage() {
       .catch(() => setRooms([]));
   }, []);
 
+  // Kategori terkelola (kind ITEM). Gagal memuat bukan fatal: pakai fallback.
+  useEffect(() => {
+    getCategories("ITEM")
+      .then((cats) => {
+        const names = cats.map((c) => c.name).filter(Boolean);
+        if (names.length > 0) setCategories(names);
+      })
+      .catch(() => { /* fallback sudah terpasang */ });
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -124,6 +148,12 @@ export default function StokPage() {
         fundingSource: formData.funding_source || undefined,
         fiscalYear: formData.fiscal_year || undefined,
         photoUrl: formData.photo_url || undefined,
+        supplier: formData.supplier || undefined,
+        invoiceNo: formData.invoice_no || undefined,
+        serialNumber: formData.serial_number || undefined,
+        brand: formData.brand || undefined,
+        model: formData.model || undefined,
+        acquisitionType: formData.acquisition_type || undefined,
       };
       const res: any = await goPost("/api/inventory/items", payload);
 
@@ -134,7 +164,7 @@ export default function StokPage() {
       setFormData({
         name: "",
         code: "",
-        category: "ATK",
+        category: "Alat Tulis Kantor",
         unit: "Pcs",
         minStock: 5,
         price: 0,
@@ -143,6 +173,12 @@ export default function StokPage() {
         funding_source: "",
         fiscal_year: new Date().getFullYear(),
         photo_url: "",
+        supplier: "",
+        invoice_no: "",
+        serial_number: "",
+        brand: "",
+        model: "",
+        acquisition_type: "",
       });
       fetchItems();
     } catch (error) {
@@ -193,10 +229,13 @@ export default function StokPage() {
                 <div className="space-y-2">
                   <Label htmlFor="kode-barang">Kode Barang</Label>
                   <Input id="kode-barang" 
-                    placeholder="Contoh: ATK-001" 
+                    placeholder="Otomatis bila dikosongkan" 
                     value={formData.code}
                     onChange={(e) => setFormData({...formData, code: e.target.value})}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Kosongkan agar dibuat otomatis (mis. INV/ATK-26-01).
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="kategori">Kategori</Label>
@@ -207,11 +246,9 @@ export default function StokPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="ATK">Alat Tulis Kantor</SelectItem>
-                      <SelectItem value="ART">Rumah Tangga</SelectItem>
-                      <SelectItem value="KEBERSIHAN">Alat Kebersihan</SelectItem>
-                      <SelectItem value="ELEKTRONIK">Elektronik (Habis Pakai)</SelectItem>
-                      <SelectItem value="LAINNYA">Lainnya</SelectItem>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -284,6 +321,71 @@ export default function StokPage() {
                     value={formData.location}
                     onChange={(e) => setFormData({...formData, location: e.target.value})}
                   />
+                </div>
+              </div>
+
+              <div className="border rounded-md p-4 bg-muted/50 space-y-4">
+                <Label className="block font-semibold">Data Perolehan</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="supplier">Penyedia / Toko</Label>
+                    <Input id="supplier"
+                      placeholder="Mis. Toko ATK Barokah"
+                      value={formData.supplier}
+                      onChange={(e) => setFormData({...formData, supplier: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="invoice_no">Nomor Nota / Faktur</Label>
+                    <Input id="invoice_no"
+                      placeholder="Mis. N-2026-05"
+                      value={formData.invoice_no}
+                      onChange={(e) => setFormData({...formData, invoice_no: e.target.value})}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="brand">Merk</Label>
+                    <Input id="brand"
+                      placeholder="Mis. Snowman"
+                      value={formData.brand}
+                      onChange={(e) => setFormData({...formData, brand: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="model">Tipe / Model</Label>
+                    <Input id="model"
+                      placeholder="Mis. Boardmarker"
+                      value={formData.model}
+                      onChange={(e) => setFormData({...formData, model: e.target.value})}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="serial_number">Nomor Seri</Label>
+                    <Input id="serial_number"
+                      placeholder="Nomor seri (bila ada)"
+                      value={formData.serial_number}
+                      onChange={(e) => setFormData({...formData, serial_number: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="acquisition_type">Cara Perolehan</Label>
+                    <Select value={formData.acquisition_type}
+                      onValueChange={(val) => setFormData({...formData, acquisition_type: val})}
+                    >
+                      <SelectTrigger id="acquisition_type">
+                        <SelectValue placeholder="Pilih cara perolehan" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ACQUISITION_TYPES.map((t) => (
+                          <SelectItem key={t} value={t}>{t}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
 
