@@ -11,7 +11,6 @@ import { getSchoolLogo } from "@/lib/school-logo";
 import { APP_VERSION } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { Sidebar, SidebarBody, SidebarLink } from "@/components/ui/sidebar";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { BottomNav, type BottomNavItem } from "@/components/ui/bottom-nav";
 import { PwaInstallButton } from "@/components/pwa-install-button";
 import { AccountAvatarMenu } from "@/components/ui/account-avatar-menu";
@@ -168,9 +167,6 @@ export default function ParentLayoutClient({ children }: { children: React.React
             <div className="flex items-center justify-center min-w-[44px] min-h-[44px]">
               <PwaInstallButton iconOnly className="sm:hidden" />
               <PwaInstallButton className="hidden sm:flex" />
-            </div>
-            <div className="flex items-center justify-center min-w-[44px] min-h-[44px]">
-              <ThemeToggle />
             </div>
             <div className="flex items-center justify-center min-w-[44px] min-h-[44px]">
               <Link

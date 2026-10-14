@@ -44,22 +44,6 @@ Multi-step form wizard for SPMB registration.
 
 ---
 
-### ThemeToggle
-
-Dark/light mode toggle with system preference detection.
-
-**Location:** `components/ui/theme-toggle.tsx`
-
-**Usage:**
-
-```tsx
-import { ThemeToggle } from "@/components/ui/theme-toggle";
-
-<ThemeToggle />;
-```
-
----
-
 ## Layout Components
 
 ### Navbar

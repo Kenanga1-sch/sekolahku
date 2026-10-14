@@ -47,7 +47,6 @@ import { APP_VERSION } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types";
 import { Sidebar, SidebarBody, SidebarLink, useSidebar } from "@/components/ui/sidebar";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { BottomNav } from "@/components/ui/bottom-nav";
 import { Button } from "@/components/ui/button";
 import { PwaInstallButton } from "@/components/pwa-install-button";
@@ -534,11 +533,6 @@ function DashboardLayoutChrome({
              <div className="flex items-center justify-center min-w-[44px] min-h-[44px]">
                 <PwaInstallButton iconOnly className="sm:hidden" />
                 <PwaInstallButton className="hidden sm:flex" />
-             </div>
-
-             {/* Theme Toggle */}
-             <div className="flex items-center justify-center min-w-[44px] min-h-[44px]">
-                <ThemeToggle />
              </div>
 
              {/* Notification */}

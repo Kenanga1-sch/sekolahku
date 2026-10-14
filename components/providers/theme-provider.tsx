@@ -1,75 +1,44 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, type ReactNode } from "react";
 
-type Theme = "light" | "dark" | "system";
+/**
+ * Tema aplikasi dikunci ke mode TERANG.
+ *
+ * Dulu provider ini mendukung light/dark/system (disimpan di localStorage dan
+ * class `.dark` pada <html>). Mode gelap kini dihapus total: seluruh UI hanya
+ * terang. API (`theme`, `setTheme`, `resolvedTheme`) tetap disediakan agar
+ * pemakai lama `useTheme` tidak pecah, tetapi nilainya konstan "light" dan
+ * `setTheme` menjadi no-op.
+ */
+type Theme = "light";
 
 interface ThemeContextType {
   theme: Theme;
   setTheme: (theme: Theme) => void;
-  resolvedTheme: "light" | "dark";
+  resolvedTheme: "light";
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("system");
-  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
-  const [mounted, setMounted] = useState(false);
-
-  // Only run on client after hydration
+  // Pastikan class `.dark` (sisa dari preferensi lama di localStorage) selalu
+  // dilepas, sehingga tidak ada satu pun halaman yang jatuh ke mode gelap.
   useEffect(() => {
-    setMounted(true);
+    document.documentElement.classList.remove("dark");
     try {
-      const stored = localStorage.getItem("theme") as Theme | null;
-      if (stored && ["light", "dark", "system"].includes(stored)) {
-        setThemeState(stored);
-      }
+      localStorage.removeItem("theme");
     } catch {
-      // localStorage not available
+      // localStorage tidak tersedia — abaikan.
     }
   }, []);
 
-  useEffect(() => {
-    if (!mounted) return;
-
-    const root = document.documentElement;
-    
-    const applyTheme = (isDark: boolean) => {
-      if (isDark) {
-        root.classList.add("dark");
-        setResolvedTheme("dark");
-      } else {
-        root.classList.remove("dark");
-        setResolvedTheme("light");
-      }
-    };
-
-    if (theme === "system") {
-      const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-      applyTheme(mediaQuery.matches);
-
-      const handler = (e: MediaQueryListEvent) => applyTheme(e.matches);
-      mediaQuery.addEventListener("change", handler);
-      return () => mediaQuery.removeEventListener("change", handler);
-    } else {
-      applyTheme(theme === "dark");
-    }
-  }, [theme, mounted]);
-
-  const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme);
-    try {
-      localStorage.setItem("theme", newTheme);
-    } catch {
-      // localStorage not available
-    }
+  const setTheme = () => {
+    // No-op: mode gelap tidak lagi didukung.
   };
 
-  // Avoid hydration mismatch by rendering children immediately
-  // The theme will be applied after mount
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, resolvedTheme }}>
+    <ThemeContext.Provider value={{ theme: "light", setTheme, resolvedTheme: "light" }}>
       {children}
     </ThemeContext.Provider>
   );
