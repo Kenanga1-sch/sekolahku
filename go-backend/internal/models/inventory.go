@@ -43,30 +43,44 @@ type InventoryAsset struct {
 	FundingSource         *string               `json:"fundingSource"`
 	FiscalYear            *int                  `json:"fiscalYear"`
 	PhotoUrl              *string               `json:"photoUrl"`
-	CreatedAt             *time.Time            `json:"created_at"`
-	UpdatedAt             *time.Time            `json:"updated_at"`
+	// Data perolehan (migrasi 000085). Semua opsional.
+	Supplier        *string    `json:"supplier"`
+	InvoiceNo       *string    `json:"invoiceNo"`
+	SerialNumber    *string    `json:"serialNumber"`
+	Brand           *string    `json:"brand"`
+	Model           *string    `json:"model"`
+	AcquisitionType *string    `json:"acquisitionType"`
+	CreatedAt       *time.Time `json:"created_at"`
+	UpdatedAt       *time.Time `json:"updated_at"`
 }
 
 type InventoryItem struct {
-	ID           string     `json:"id"`
-	Name         string     `json:"name"`
-	Code         *string    `json:"code"`
-	Category     string     `json:"category"`
-	Unit         string     `json:"unit"`
-	MinStock     int        `json:"minStock"`
-	CurrentStock int        `json:"currentStock"`
-	Location     *string    `json:"location"`
+	ID           string  `json:"id"`
+	Name         string  `json:"name"`
+	Code         *string `json:"code"`
+	Category     string  `json:"category"`
+	Unit         string  `json:"unit"`
+	MinStock     int     `json:"minStock"`
+	CurrentStock int     `json:"currentStock"`
+	Location     *string `json:"location"`
 	// RoomID adalah sumber kebenaran scope PIC barang habis pakai (migrasi
 	// 000035). Tanpa ini ItemRoomID jatuh ke pencocokan Location dengan nama
 	// ruangan, yang sunyi-sunyi gagal begitu nama ruangan diganti dan membuat
 	// barang terlindungi berubah jadi "stok umum" yang boleh diubah siapa saja.
-	RoomID   *string `json:"room"` // Match frontend expectation 'room'
-	Price    int     `json:"price"`
-	FundingSource *string   `json:"fundingSource"`
-	FiscalYear    *int      `json:"fiscalYear"`
-	PhotoUrl      *string   `json:"photoUrl"`
-	CreatedAt    *time.Time `json:"createdAt"`
-	UpdatedAt    *time.Time `json:"updatedAt"`
+	RoomID        *string `json:"room"` // Match frontend expectation 'room'
+	Price         int     `json:"price"`
+	FundingSource *string `json:"fundingSource"`
+	FiscalYear    *int    `json:"fiscalYear"`
+	PhotoUrl      *string `json:"photoUrl"`
+	// Data perolehan (migrasi 000085). Semua opsional.
+	Supplier        *string    `json:"supplier"`
+	InvoiceNo       *string    `json:"invoiceNo"`
+	SerialNumber    *string    `json:"serialNumber"`
+	Brand           *string    `json:"brand"`
+	Model           *string    `json:"model"`
+	AcquisitionType *string    `json:"acquisitionType"`
+	CreatedAt       *time.Time `json:"createdAt"`
+	UpdatedAt       *time.Time `json:"updatedAt"`
 }
 
 type InventoryAssetExpand struct {
@@ -82,13 +96,40 @@ type InventoryTransaction struct {
 	// UnitNumbers berisi nomor-nomor bungkus yang keluar, misalnya [3, 4] untuk
 	// "2 rim ke perpustakaan". Bila kosong, nomor terkecil yang masih tersedia
 	// dipakai otomatis agar stok tetap konsisten.
-	UnitNumbers []int       `json:"unitNumbers,omitempty"`
-	Date        *time.Time  `json:"date"`
-	Description *string     `json:"description"`
-	Recipient   *string     `json:"recipient"`
-	ProofImage  *string     `json:"proofImage"`
-	UserID      *string     `json:"userId"`
-	CreatedAt   *time.Time  `json:"createdAt"`
+	UnitNumbers []int      `json:"unitNumbers,omitempty"`
+	Date        *time.Time `json:"date"`
+	Description *string    `json:"description"`
+	Recipient   *string    `json:"recipient"`
+	ProofImage  *string    `json:"proofImage"`
+	UserID      *string    `json:"userId"`
+	// Penyedia & nomor nota pada mutasi masuk (migrasi 000085).
+	Supplier  *string    `json:"supplier"`
+	InvoiceNo *string    `json:"invoiceNo"`
+	CreatedAt *time.Time `json:"createdAt"`
+}
+
+// InventoryCategory adalah kategori terkelola untuk aset tetap maupun barang
+// habis pakai (migrasi 000085). Sebelumnya kategori hanyalah konstanta di
+// frontend, sehingga admin tidak bisa menambah/mengubahnya.
+//
+// Kind menentukan kategori ini dipakai untuk aset tetap ("ASSET"), barang habis
+// pakai ("ITEM"), atau keduanya ("BOTH"). CodePrefix dipakai penomoran kode
+// inventaris otomatis, mis. "BK" menghasilkan "INV/BK-2026-01".
+type InventoryCategory struct {
+	ID         string     `json:"id"`
+	Name       string     `json:"name"`
+	CodePrefix *string    `json:"codePrefix"`
+	Kind       string     `json:"kind"`
+	SortOrder  int        `json:"sortOrder"`
+	CreatedAt  *time.Time `json:"createdAt"`
+	UpdatedAt  *time.Time `json:"updatedAt"`
+}
+
+// ValidInventoryCategoryKinds memuat nilai kind yang sah.
+var ValidInventoryCategoryKinds = map[string]bool{
+	"ASSET": true,
+	"ITEM":  true,
+	"BOTH":  true,
 }
 
 type InventoryOpname struct {

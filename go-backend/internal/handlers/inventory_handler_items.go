@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
-	"github.com/sekolahku/go-backend/internal/shared"
 	"github.com/sekolahku/go-backend/internal/models"
+	"github.com/sekolahku/go-backend/internal/shared"
 )
 
 // ============ Items (Stock) CRUD ============
@@ -183,6 +183,8 @@ func (h *InventoryHandler) CreateTransaction(c echo.Context) error {
 		Description: normalizeStringPtr(payload.Description),
 		Recipient:   normalizeStringPtr(payload.Recipient),
 		ProofImage:  normalizeStringPtr(proofImage),
+		Supplier:    normalizeStringPtr(payload.Supplier),
+		InvoiceNo:   normalizeStringPtr(payload.InvoiceNo),
 		UserID:      normalizeStringPtr(userID),
 	}
 	// PIC hanya boleh memutasi stok barang di ruangannya

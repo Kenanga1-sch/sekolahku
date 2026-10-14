@@ -280,7 +280,9 @@ func (r *InventoryRepository) DeleteRoom(id string) error {
 const assetSelectColumns = `
 		SELECT a.id, a.name, a.code, COALESCE(a.category, ''), a.price, a.quantity, a.room_id,
 		       a.condition_good, a.condition_light_damaged, a.condition_heavy_damaged, a.condition_lost,
-		       a.purchase_date, a.notes, COALESCE(a.status, 'ACTIVE'), a.funding_source, a.fiscal_year, a.photo_url, a.created_at, a.updated_at,
+		       a.purchase_date, a.notes, COALESCE(a.status, 'ACTIVE'), a.funding_source, a.fiscal_year, a.photo_url,
+		       a.supplier, a.invoice_no, a.serial_number, a.brand, a.model, a.acquisition_type,
+		       a.created_at, a.updated_at,
 		       r.name
 		FROM inventory_assets a
 		LEFT JOIN inventory_rooms r ON r.id = a.room_id AND r.deleted_at IS NULL
@@ -291,13 +293,16 @@ const assetSelectColumns = `
 func scanInventoryAsset(rows rowScanner) (models.InventoryAsset, error) {
 	var a models.InventoryAsset
 	var code, roomID, roomName, notes, fundingSource, photoUrl sql.NullString
+	var supplier, invoiceNo, serialNumber, brand, model, acquisitionType sql.NullString
 	var fiscalYear sql.NullInt64
 	var pDate, crAt, upAt sql.NullInt64
 
 	if err := rows.Scan(
 		&a.ID, &a.Name, &code, &a.Category, &a.Price, &a.Quantity, &roomID,
 		&a.ConditionGood, &a.ConditionLightDamaged, &a.ConditionHeavyDamaged, &a.ConditionLost,
-		&pDate, &notes, &a.Status, &fundingSource, &fiscalYear, &photoUrl, &crAt, &upAt,
+		&pDate, &notes, &a.Status, &fundingSource, &fiscalYear, &photoUrl,
+		&supplier, &invoiceNo, &serialNumber, &brand, &model, &acquisitionType,
+		&crAt, &upAt,
 		&roomName,
 	); err != nil {
 		return a, err
@@ -326,6 +331,24 @@ func scanInventoryAsset(rows rowScanner) (models.InventoryAsset, error) {
 	}
 	if photoUrl.Valid {
 		a.PhotoUrl = &photoUrl.String
+	}
+	if supplier.Valid {
+		a.Supplier = &supplier.String
+	}
+	if invoiceNo.Valid {
+		a.InvoiceNo = &invoiceNo.String
+	}
+	if serialNumber.Valid {
+		a.SerialNumber = &serialNumber.String
+	}
+	if brand.Valid {
+		a.Brand = &brand.String
+	}
+	if model.Valid {
+		a.Model = &model.String
+	}
+	if acquisitionType.Valid {
+		a.AcquisitionType = &acquisitionType.String
 	}
 
 	if pDate.Valid {
@@ -423,26 +446,60 @@ func (r *InventoryRepository) CreateAsset(a models.InventoryAsset) (string, erro
 		pDate = &d
 	}
 
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback()
+
+	// Kode inventaris otomatis bila pemanggil tidak mengisinya. Tahun diambil
+	// dari tahun anggaran bila ada, jika tidak dari tanggal beli, jika tidak
+	// dari tahun berjalan.
+	code := a.Code
+	if code == nil || strings.TrimSpace(ptrStringOr(code, "")) == "" {
+		year := time.Now().Year()
+		if a.FiscalYear != nil {
+			year = *a.FiscalYear
+		} else if a.PurchaseDate != nil {
+			year = a.PurchaseDate.Year()
+		}
+		prefix, ok := categoryPrefixTx(tx, a.Category, "ASSET")
+		if !ok {
+			prefix = kodeKategoriFallback
+		}
+		generated, _, err := r.nextInventoryCode(tx, "inventory_assets", prefix, year)
+		if err != nil {
+			return "", err
+		}
+		code = &generated
+	}
+
 	query := `
 		INSERT INTO inventory_assets (
 			id, name, code, category, price, quantity, room_id,
 			condition_good, condition_light_damaged, condition_heavy_damaged, condition_lost,
-			purchase_date, notes, status, funding_source, fiscal_year, photo_url, created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			purchase_date, notes, status, funding_source, fiscal_year, photo_url,
+			supplier, invoice_no, serial_number, brand, model, acquisition_type,
+			created_at, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	_, err := r.DB.Exec(query,
-		id, a.Name, a.Code, a.Category, a.Price, a.Quantity, a.RoomID,
+	_, err = tx.Exec(query,
+		id, a.Name, code, a.Category, a.Price, a.Quantity, a.RoomID,
 		a.ConditionGood, a.ConditionLightDamaged, a.ConditionHeavyDamaged, a.ConditionLost,
-		pDate, a.Notes, "ACTIVE", a.FundingSource, a.FiscalYear, a.PhotoUrl, now, now)
-
+		pDate, a.Notes, "ACTIVE", a.FundingSource, a.FiscalYear, a.PhotoUrl,
+		a.Supplier, a.InvoiceNo, a.SerialNumber, a.Brand, a.Model, a.AcquisitionType,
+		now, now)
 	if err != nil {
 		return "", err
 	}
-	r.logInventoryAudit("CREATE", "ASSET", id, []map[string]interface{}{
+	if err := r.logInventoryAuditTx(tx, "CREATE", "ASSET", id, []map[string]interface{}{
 		{"field": "name", "oldValue": nil, "newValue": a.Name},
 		{"field": "quantity", "oldValue": nil, "newValue": a.Quantity},
-	}, nil)
-	return id, nil
+		{"field": "code", "oldValue": nil, "newValue": ptrStringOr(code, "")},
+	}, nil); err != nil {
+		return "", err
+	}
+	return id, tx.Commit()
 }
 
 func (r *InventoryRepository) UpdateAsset(id string, a models.InventoryAsset) error {
@@ -457,13 +514,17 @@ func (r *InventoryRepository) UpdateAsset(id string, a models.InventoryAsset) er
 		UPDATE inventory_assets SET
 			name = ?, code = ?, category = ?, price = ?, quantity = ?, room_id = ?,
 			condition_good = ?, condition_light_damaged = ?, condition_heavy_damaged = ?, condition_lost = ?,
-			purchase_date = ?, notes = ?, funding_source = ?, fiscal_year = ?, photo_url = ?, updated_at = ?
+			purchase_date = ?, notes = ?, funding_source = ?, fiscal_year = ?, photo_url = ?,
+			supplier = ?, invoice_no = ?, serial_number = ?, brand = ?, model = ?, acquisition_type = ?,
+			updated_at = ?
 		WHERE id = ?
 	`
 	_, err := r.DB.Exec(query,
 		a.Name, a.Code, a.Category, a.Price, a.Quantity, a.RoomID,
 		a.ConditionGood, a.ConditionLightDamaged, a.ConditionHeavyDamaged, a.ConditionLost,
-		pDate, a.Notes, a.FundingSource, a.FiscalYear, a.PhotoUrl, now, id)
+		pDate, a.Notes, a.FundingSource, a.FiscalYear, a.PhotoUrl,
+		a.Supplier, a.InvoiceNo, a.SerialNumber, a.Brand, a.Model, a.AcquisitionType,
+		now, id)
 	if err == nil {
 		r.logInventoryAudit("UPDATE", "ASSET", id, []map[string]interface{}{
 			{"field": "asset", "oldValue": nil, "newValue": a.Name},
@@ -493,11 +554,14 @@ type inventoryRowScanner interface {
 func scanInventoryItem(scanner inventoryRowScanner) (*models.InventoryItem, error) {
 	var i models.InventoryItem
 	var code, loc, roomID, fundingSource, photoUrl sql.NullString
+	var supplier, invoiceNo, serialNumber, brand, model, acquisitionType sql.NullString
 	var fiscalYear sql.NullInt64
 	var crAt, upAt sql.NullInt64
 	err := scanner.Scan(
 		&i.ID, &i.Name, &code, &i.Category, &i.Unit,
-		&i.MinStock, &i.CurrentStock, &loc, &roomID, &i.Price, &fundingSource, &fiscalYear, &photoUrl, &crAt, &upAt,
+		&i.MinStock, &i.CurrentStock, &loc, &roomID, &i.Price, &fundingSource, &fiscalYear, &photoUrl,
+		&supplier, &invoiceNo, &serialNumber, &brand, &model, &acquisitionType,
+		&crAt, &upAt,
 	)
 	if err != nil {
 		return nil, err
@@ -521,6 +585,24 @@ func scanInventoryItem(scanner inventoryRowScanner) (*models.InventoryItem, erro
 	if photoUrl.Valid {
 		i.PhotoUrl = &photoUrl.String
 	}
+	if supplier.Valid {
+		i.Supplier = &supplier.String
+	}
+	if invoiceNo.Valid {
+		i.InvoiceNo = &invoiceNo.String
+	}
+	if serialNumber.Valid {
+		i.SerialNumber = &serialNumber.String
+	}
+	if brand.Valid {
+		i.Brand = &brand.String
+	}
+	if model.Valid {
+		i.Model = &model.String
+	}
+	if acquisitionType.Valid {
+		i.AcquisitionType = &acquisitionType.String
+	}
 	if crAt.Valid {
 		cTime := ToTime(crAt)
 		i.CreatedAt = &cTime
@@ -534,7 +616,7 @@ func scanInventoryItem(scanner inventoryRowScanner) (*models.InventoryItem, erro
 
 func (r *InventoryRepository) GetItems(page, limit int, search, category string) ([]models.InventoryItem, int, error) {
 	offset := (page - 1) * limit
-	query := "SELECT id, name, code, category, unit, min_stock, current_stock, location, room_id, price, funding_source, fiscal_year, photo_url, created_at, updated_at FROM inventory_items WHERE deleted_at IS NULL"
+	query := "SELECT id, name, code, category, unit, min_stock, current_stock, location, room_id, price, funding_source, fiscal_year, photo_url, supplier, invoice_no, serial_number, brand, model, acquisition_type, created_at, updated_at FROM inventory_items WHERE deleted_at IS NULL"
 	var args []interface{}
 
 	if search != "" {
@@ -575,7 +657,7 @@ func (r *InventoryRepository) GetItems(page, limit int, search, category string)
 
 func (r *InventoryRepository) getItemOnlyByID(id string) (*models.InventoryItem, error) {
 	item, err := scanInventoryItem(r.DB.QueryRow(
-		"SELECT id, name, code, category, unit, min_stock, current_stock, location, room_id, price, funding_source, fiscal_year, photo_url, created_at, updated_at FROM inventory_items WHERE id = ? AND deleted_at IS NULL",
+		"SELECT id, name, code, category, unit, min_stock, current_stock, location, room_id, price, funding_source, fiscal_year, photo_url, supplier, invoice_no, serial_number, brand, model, acquisition_type, created_at, updated_at FROM inventory_items WHERE id = ? AND deleted_at IS NULL",
 		id,
 	))
 	if err != nil {
@@ -602,15 +684,47 @@ func (r *InventoryRepository) GetItemByID(id string) (*models.InventoryItem, []m
 func (r *InventoryRepository) CreateItem(i models.InventoryItem) (*models.InventoryItem, error) {
 	id := cuid2.Generate()
 	now := time.Now().UnixMilli()
-	query := `INSERT INTO inventory_items (id, name, code, category, unit, min_stock, current_stock, location, room_id, price, funding_source, fiscal_year, photo_url, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	_, err := r.DB.Exec(query, id, i.Name, i.Code, i.Category, i.Unit, i.MinStock, i.CurrentStock, i.Location, i.RoomID, i.Price, i.FundingSource, i.FiscalYear, i.PhotoUrl, now, now)
+
+	tx, err := r.DB.Begin()
 	if err != nil {
 		return nil, err
 	}
-	r.logInventoryAudit("CREATE", "ITEM", id, []map[string]interface{}{
+	defer tx.Rollback()
+
+	// Kode barang otomatis bila pemanggil tidak mengisinya (format sama dengan
+	// aset; lihat InventoryCodeGenerator).
+	code := i.Code
+	if code == nil || strings.TrimSpace(ptrStringOr(code, "")) == "" {
+		year := time.Now().Year()
+		if i.FiscalYear != nil {
+			year = *i.FiscalYear
+		}
+		prefix, ok := categoryPrefixTx(tx, i.Category, "ITEM")
+		if !ok {
+			prefix = kodeKategoriFallback
+		}
+		generated, _, err := r.nextInventoryCode(tx, "inventory_items", prefix, year)
+		if err != nil {
+			return nil, err
+		}
+		code = &generated
+	}
+
+	query := `INSERT INTO inventory_items (id, name, code, category, unit, min_stock, current_stock, location, room_id, price, funding_source, fiscal_year, photo_url, supplier, invoice_no, serial_number, brand, model, acquisition_type, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	_, err = tx.Exec(query, id, i.Name, code, i.Category, i.Unit, i.MinStock, i.CurrentStock, i.Location, i.RoomID, i.Price, i.FundingSource, i.FiscalYear, i.PhotoUrl, i.Supplier, i.InvoiceNo, i.SerialNumber, i.Brand, i.Model, i.AcquisitionType, now, now)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.logInventoryAuditTx(tx, "CREATE", "ITEM", id, []map[string]interface{}{
 		{"field": "name", "oldValue": nil, "newValue": i.Name},
 		{"field": "currentStock", "oldValue": nil, "newValue": i.CurrentStock},
-	}, nil)
+		{"field": "code", "oldValue": nil, "newValue": ptrStringOr(code, "")},
+	}, nil); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
 	return r.getItemOnlyByID(id)
 }
 
@@ -618,9 +732,9 @@ func (r *InventoryRepository) UpdateItem(id string, i models.InventoryItem) (*mo
 	now := time.Now().UnixMilli()
 	result, err := r.DB.Exec(`
 		UPDATE inventory_items
-		SET name = ?, code = ?, category = ?, unit = ?, min_stock = ?, current_stock = ?, location = ?, room_id = ?, price = ?, funding_source = ?, fiscal_year = ?, photo_url = ?, updated_at = ?
+		SET name = ?, code = ?, category = ?, unit = ?, min_stock = ?, current_stock = ?, location = ?, room_id = ?, price = ?, funding_source = ?, fiscal_year = ?, photo_url = ?, supplier = ?, invoice_no = ?, serial_number = ?, brand = ?, model = ?, acquisition_type = ?, updated_at = ?
 		WHERE id = ?
-	`, i.Name, i.Code, i.Category, i.Unit, i.MinStock, i.CurrentStock, i.Location, i.RoomID, i.Price, i.FundingSource, i.FiscalYear, i.PhotoUrl, now, id)
+	`, i.Name, i.Code, i.Category, i.Unit, i.MinStock, i.CurrentStock, i.Location, i.RoomID, i.Price, i.FundingSource, i.FiscalYear, i.PhotoUrl, i.Supplier, i.InvoiceNo, i.SerialNumber, i.Brand, i.Model, i.AcquisitionType, now, id)
 	if err != nil {
 		return nil, err
 	}
@@ -654,6 +768,7 @@ func (r *InventoryRepository) DeleteItem(id string) error {
 func (r *InventoryRepository) GetTransactions(limit int, itemID, trxType string) ([]models.InventoryTransaction, error) {
 	query := `
 		SELECT t.id, t.item_id, t.type, t.quantity, t.date, t.description, t.recipient, t.proof_image, t.user_id, t.created_at,
+		       t.supplier, t.invoice_no,
 		       i.id, i.name, i.code, i.category, i.unit, i.min_stock, i.current_stock, i.location, i.price, i.created_at, i.updated_at
 		FROM inventory_transactions t
 		LEFT JOIN inventory_items i ON t.item_id = i.id
@@ -682,13 +797,21 @@ func (r *InventoryRepository) GetTransactions(limit int, itemID, trxType string)
 		var t models.InventoryTransaction
 		var item models.InventoryItem
 		var desc, recipient, proof, userID, itemCode, itemLoc sql.NullString
+		var supplier, invoiceNo sql.NullString
 		var dateMi, createdMi, itemCreatedMi, itemUpdatedMi sql.NullInt64
 		err := rows.Scan(
 			&t.ID, &t.ItemID, &t.Type, &t.Quantity, &dateMi, &desc, &recipient, &proof, &userID, &createdMi,
+			&supplier, &invoiceNo,
 			&item.ID, &item.Name, &itemCode, &item.Category, &item.Unit, &item.MinStock, &item.CurrentStock, &itemLoc, &item.Price, &itemCreatedMi, &itemUpdatedMi,
 		)
 		if err != nil {
 			return nil, err
+		}
+		if supplier.Valid {
+			t.Supplier = &supplier.String
+		}
+		if invoiceNo.Valid {
+			t.InvoiceNo = &invoiceNo.String
 		}
 		if desc.Valid {
 			t.Description = &desc.String
@@ -770,9 +893,9 @@ func (r *InventoryRepository) CreateTransaction(t models.InventoryTransaction) e
 	}
 
 	_, err = tx.Exec(`
-		INSERT INTO inventory_transactions (id, item_id, type, quantity, date, description, recipient, proof_image, user_id, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, id, t.ItemID, t.Type, t.Quantity, dateMi, t.Description, t.Recipient, t.ProofImage, t.UserID, now)
+		INSERT INTO inventory_transactions (id, item_id, type, quantity, date, description, recipient, proof_image, user_id, supplier, invoice_no, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, id, t.ItemID, t.Type, t.Quantity, dateMi, t.Description, t.Recipient, t.ProofImage, t.UserID, t.Supplier, t.InvoiceNo, now)
 	if err != nil {
 		return err
 	}

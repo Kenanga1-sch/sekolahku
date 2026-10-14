@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/sekolahku/go-backend/internal/shared"
 	"github.com/sekolahku/go-backend/internal/models"
 	"github.com/sekolahku/go-backend/internal/repository"
+	"github.com/sekolahku/go-backend/internal/shared"
 )
 
 type InventoryHandler struct {
@@ -40,6 +40,13 @@ type inventoryAssetPayload struct {
 	FundingSource         *string `json:"fundingSource"`
 	FiscalYear            *int    `json:"fiscalYear"`
 	PhotoUrl              *string `json:"photoUrl"`
+	// Data perolehan (migrasi 000085).
+	Supplier        *string `json:"supplier"`
+	InvoiceNo       *string `json:"invoiceNo"`
+	SerialNumber    *string `json:"serialNumber"`
+	Brand           *string `json:"brand"`
+	Model           *string `json:"model"`
+	AcquisitionType *string `json:"acquisitionType"`
 }
 
 type inventoryTransactionPayload struct {
@@ -51,6 +58,16 @@ type inventoryTransactionPayload struct {
 	Description *string `json:"description"`
 	Recipient   *string `json:"recipient"`
 	ProofImage  *string `json:"proofImage"`
+	Supplier    *string `json:"supplier"`
+	InvoiceNo   *string `json:"invoiceNo"`
+}
+
+// inventoryCategoryPayload adalah payload CRUD kategori inventaris.
+type inventoryCategoryPayload struct {
+	Name       string  `json:"name"`
+	CodePrefix *string `json:"codePrefix"`
+	Kind       string  `json:"kind"`
+	SortOrder  int     `json:"sortOrder"`
 }
 
 type inventoryOpnamePayload struct {
@@ -165,6 +182,12 @@ func buildInventoryAsset(payload inventoryAssetPayload) (models.InventoryAsset, 
 		FundingSource:         normalizeStringPtr(payload.FundingSource),
 		FiscalYear:            payload.FiscalYear,
 		PhotoUrl:              normalizeStringPtr(payload.PhotoUrl),
+		Supplier:              normalizeStringPtr(payload.Supplier),
+		InvoiceNo:             normalizeStringPtr(payload.InvoiceNo),
+		SerialNumber:          normalizeStringPtr(payload.SerialNumber),
+		Brand:                 normalizeStringPtr(payload.Brand),
+		Model:                 normalizeStringPtr(payload.Model),
+		AcquisitionType:       normalizeStringPtr(payload.AcquisitionType),
 	}, nil
 }
 

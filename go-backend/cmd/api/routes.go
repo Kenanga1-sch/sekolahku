@@ -315,6 +315,10 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	// dikunci ke admin di level rute, bukan hanya mengandalkan handler.
 	auth.GET("/inventory/stats", h.Inventory.GetStats)
 	auth.GET("/inventory/data", h.Inventory.GetData)
+	// Kategori terkelola: baca terbuka (dipakai dropdown di form), tulis admin.
+	auth.GET("/inventory/categories", h.Inventory.GetCategories)
+	// Preview kode inventaris otomatis (INV/{PREFIX}-{TAHUN}-{URUT}).
+	auth.GET("/inventory/next-code", h.Inventory.GetNextCode)
 	auth.GET("/inventory/rooms", h.Inventory.GetRooms)
 	auth.GET("/inventory/rooms/:id", h.Inventory.GetRoom)
 	auth.PUT("/inventory/rooms/:id", h.Inventory.UpdateRoom) // PIC boleh sunting ruangannya
@@ -344,6 +348,11 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	// Struktur ruangan (membuat/menghapus ruangan = menentukan PIC): admin saja.
 	adminGroup.POST("/inventory/rooms", h.Inventory.CreateRoom)
 	adminGroup.DELETE("/inventory/rooms/:id", h.Inventory.DeleteRoom)
+
+	// Kategori inventaris: master data, hanya admin yang boleh mengubah.
+	adminGroup.POST("/inventory/categories", h.Inventory.CreateCategory)
+	adminGroup.PUT("/inventory/categories/:id", h.Inventory.UpdateCategory)
+	adminGroup.DELETE("/inventory/categories/:id", h.Inventory.DeleteCategory)
 
 	// Aset & barang: PIC boleh menambah/menghapus di ruangannya sendiri,
 	// dijaga oleh ensureAssetRoomScope / ensureItemLocationScope di handler.
