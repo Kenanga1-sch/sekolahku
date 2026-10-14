@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Printer, RefreshCw } from "lucide-react";
+import { ArrowLeft, Download, Printer, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +23,7 @@ import {
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { renderTemplatePdf, renderModuleReport, downloadBlob } from "@/lib/report-template-runner";
 import { formatCurrency } from "@/lib/utils";
+import { toast } from "sonner";
 import type { InventoryAsset, InventoryOpname, InventoryStats } from "@/types/inventory";
 
 const today = () =>
@@ -44,6 +45,7 @@ export default function LaporanPage() {
     const [loading, setLoading] = useState(true);
     const [selectedOpname, setSelectedOpname] = useState<string>("");
     const [exportingPdf, setExportingPdf] = useState(false);
+    const [exportingAsetPdf, setExportingAsetPdf] = useState(false);
     // Pencarian hanya untuk layar; hasil cetak tetap memuat seluruh data.
     const [query, setQuery] = useState("");
 
@@ -93,6 +95,172 @@ export default function LaporanPage() {
 
     const totalAtkValue = atkItems.reduce((s, i) => s + (i.currentStock || 0) * (i.price || 0), 0);
     const selected = opnames.find((o) => o.id === selectedOpname) || opnames[0];
+
+    /**
+     * Bangun data skalar + baris untuk mengisi template Inventaris (.xlsx)
+     * yang diunggah admin via Admin → Format Laporan. Nama variabel di sini
+     * HARUS sama dengan kamus (lib/config/report-variables.ts modul "inventaris").
+     */
+    function buildInventoryTemplateInput(paperSize?: string, orientation?: string) {
+        const signPlace = (settings?.school_address || "")
+            .match(/Kab\.\s*([^,]+)/)?.[1]
+            ?.trim() ||
+            (settings?.school_address || "").match(/Kota\s+([^,]+)/)?.[1]?.trim() ||
+            "";
+        return {
+            rows,
+            paperSize,
+            orientation,
+            scalars: {
+                sekolahNama: settings?.school_name,
+                sekolahAlamat: settings?.school_address,
+                sekolahTelepon: settings?.school_phone,
+                sekolahNpsn: settings?.school_npsn,
+                sekolahEmail: settings?.school_email,
+                sekolahWebsite: settings?.school_website,
+                kepalaSekolahNama: settings?.principal_name,
+                kepalaSekolahNip: settings?.principal_nip,
+                pengurusInventarisNama: settings?.principal_name,
+                pengurusInventarisNip: settings?.principal_nip,
+                periode: `Posisi per ${today()}`,
+                tanggalCetak: today(),
+                tempatTtd: signPlace,
+                totalUnit: totals.quantity,
+                totalNilaiAset: totals.value,
+                jumlahRuangan: groups.length,
+                jumlahJenis: rows.length,
+            },
+        };
+    }
+
+    /**
+     * Isi template Inventaris (.xlsx) yang diunggah admin dan kembalikan Blob
+     * Excel siap unduh — pola sama dengan ekspor Excel presensi:
+     *   1. ambil default modul inventaris (Admin → Format Laporan),
+     *   2. load template (style dipertahankan),
+     *   3. isi skalar + replikasi baris contoh per aset + geser formula,
+     *   4. kembalikan buffer xlsx.
+     * Melempar Error berisi pesan ramah bila template belum ada / tidak valid.
+     */
+    async function buildInventoryBlob(): Promise<{ blob: Blob; unknown: string[] }> {
+        const { resolveInventoryTemplateUrl, fillInventoryWorksheet } = await import(
+            "@/lib/inventory/inventory-excel"
+        );
+        const { url, paperSize, orientation, fromDefault } = await resolveInventoryTemplateUrl(
+            fetch,
+            process.env.NEXT_PUBLIC_API_URL || ""
+        );
+        if (!fromDefault || !url) {
+            throw new Error(
+                "Belum ada template laporan Inventaris — unggah berkas .xlsx via Admin → Format Laporan."
+            );
+        }
+        // Template unggahan admin = folder privat → butuh cookie sesi.
+        const res = await fetch(url, { credentials: "include" });
+        if (!res.ok) throw new Error("Berkas template tidak dapat diunduh dari server.");
+        const buf = await res.arrayBuffer();
+
+        const [{ default: ExcelJS }] = await Promise.all([import("exceljs")]);
+        const wb = new ExcelJS.Workbook();
+        await wb.xlsx.load(buf as never);
+        const ws = wb.worksheets[0];
+        if (!ws) throw new Error("Template Excel tidak valid (tanpa lembar).");
+        const { rowCount, unknown } = await fillInventoryWorksheet(ws as never, {
+            ...buildInventoryTemplateInput(paperSize, orientation),
+            paperSize: (paperSize || "A4").trim().toUpperCase(),
+            orientation: orientation || "landscape",
+        });
+        if (rowCount === 0) {
+            throw new Error(
+                "Template Excel tidak punya baris contoh. Tandai baris data dengan variabel seperti {{kode}} / {{nama}}."
+            );
+        }
+        const out = (await wb.xlsx.writeBuffer()) as ArrayBuffer;
+        return {
+            blob: new Blob([out], {
+                type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            }),
+            unknown,
+        };
+    }
+
+    /**
+     * Cadangan bila template Excel belum tersedia: unduh CSV seluruh baris aset
+     * supaya pengguna tetap mendapat data. Sama semangat dengan fallback CSV
+     * pada daftar hadir.
+     */
+    function downloadInventoryCsv() {
+        const header = [
+            "No", "Kode", "Nama", "Kategori", "Ruangan", "Jumlah",
+            "Baik", "Rusak Ringan", "Rusak Berat", "Hilang", "Belum Diklasifikasi",
+            "Sumber Dana", "Tahun Anggaran", "Tanggal Perolehan",
+            "Penyedia", "No. Nota", "No. Seri", "Merek", "Model", "Cara Perolehan",
+            "Harga", "Nilai",
+        ];
+        const esc = (v: string | number) => {
+            const s = String(v ?? "");
+            return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+        };
+        const lines = [header.map(esc).join(",")];
+        rows.forEach((r, i) => {
+            lines.push(
+                [
+                    i + 1, r.code, r.name, r.category, r.roomName, r.quantity,
+                    r.good, r.lightDamaged, r.heavyDamaged, r.lost, r.unclassified,
+                    r.fundingSource, r.fiscalYear ?? "", r.purchaseDate ?? "",
+                    r.supplier, r.invoiceNo, r.serialNumber, r.brand, r.model, r.acquisitionType,
+                    r.price, r.value,
+                ]
+                    .map(esc)
+                    .join(",")
+            );
+        });
+        const blob = new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+        downloadBlob(blob, "Laporan Aset Tetap.csv");
+    }
+
+    /** Ekspor laporan Aset Tetap sebagai PDF (xlsx → LibreOffice headless). */
+    async function handleExportAsetPdf() {
+        setExportingAsetPdf(true);
+        const toastId = toast.loading("Menyiapkan PDF laporan aset…");
+        try {
+            const { blob, unknown } = await buildInventoryBlob();
+            const { convertXlsxToPdf } = await import("@/lib/print-kit");
+            const buf = await blob.arrayBuffer();
+            const { blob: pdf } = await convertXlsxToPdf([buf], "Laporan Aset Tetap");
+            downloadBlob(pdf, "Laporan Aset Tetap");
+            toast.success("PDF berhasil diunduh", {
+                id: toastId,
+                description: unknown.length > 0 ? `Variabel tak dikenal dibiarkan: ${unknown.join(", ")}` : undefined,
+            });
+        } catch (err) {
+            console.error("Ekspor PDF aset gagal:", err);
+            toast.error("Template Excel belum tersedia — mengunduh CSV sebagai gantinya", { id: toastId });
+            downloadInventoryCsv();
+        } finally {
+            setExportingAsetPdf(false);
+        }
+    }
+
+    /** Ekspor laporan Aset Tetap sebagai berkas Excel (.xlsx) hasil isi template. */
+    async function handleExportAsetFile() {
+        setExportingAsetPdf(true);
+        const toastId = toast.loading("Menyiapkan berkas Excel laporan aset…");
+        try {
+            const { blob, unknown } = await buildInventoryBlob();
+            downloadBlob(blob, "Laporan Aset Tetap.xlsx");
+            toast.success("Excel berhasil diunduh", {
+                id: toastId,
+                description: unknown.length > 0 ? `Variabel tak dikenal dibiarkan: ${unknown.join(", ")}` : undefined,
+            });
+        } catch (err) {
+            console.error("Ekspor Excel aset gagal:", err);
+            toast.error("Template Excel belum tersedia — mengunduh CSV sebagai gantinya", { id: toastId });
+            downloadInventoryCsv();
+        } finally {
+            setExportingAsetPdf(false);
+        }
+    }
 
     /**
      * Ekspor stok habis pakai memakai format dari Studio Format Laporan.
@@ -312,6 +480,22 @@ export default function LaporanPage() {
                     {/* ================= ASET TETAP ================= */}
                     <TabsContent value="aset" className="space-y-4">
                         <Kop title="LAPORAN ASET TETAP" subtitle={`Posisi per ${today()}`} />
+
+                        <div className="flex flex-wrap justify-end gap-2 print:hidden">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleExportAsetFile}
+                                disabled={exportingAsetPdf}
+                            >
+                                <Download className="mr-2 h-4 w-4" />
+                                Unduh Excel (.xlsx)
+                            </Button>
+                            <Button size="sm" onClick={handleExportAsetPdf} disabled={exportingAsetPdf}>
+                                <Printer className={`mr-2 h-4 w-4 ${exportingAsetPdf ? "animate-pulse" : ""}`} />
+                                {exportingAsetPdf ? "Menyiapkan…" : "Ekspor PDF (Format Studio)"}
+                            </Button>
+                        </div>
 
                         {/* Ringkasan: kartu di layar, kotak padat di kertas.
                             Dulu hanya versi cetak yang ada, jadi layar tampak kosong. */}

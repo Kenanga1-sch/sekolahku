@@ -129,6 +129,92 @@ const SURAT: FillVariableModule = {
 };
 
 /**
+ * Modul: Inventaris Aset Tetap (lib/inventory/inventory-excel.ts).
+ *
+ * Dipakai template file .xlsx/.docx yang diunggah admin. Baris contoh yang
+ * memuat variabel baris (kelompok "Baris aset") direplikasi otomatis sejumlah
+ * aset, mengikuti pola presensi. Formula Excel (sel diawali "=") ikut digeser.
+ */
+const INVENTARIS: FillVariableModule = {
+  module: "inventaris",
+  label: "Inventaris (Aset Tetap)",
+  groups: [
+    {
+      label: "Sekolah",
+      variables: [
+        v("sekolah_nama", "Nama sekolah", "Nama resmi sekolah", "SDN 1 Kenanga"),
+        v("sekolah_alamat", "Alamat", "Alamat lengkap sekolah", "Jl. Kenanga No. 1, Kab. …"),
+        v("sekolah_telepon", "Telepon", "Nomor telepon sekolah", "0231-…"),
+        v("sekolah_npsn", "NPSN", "Nomor Pokok Sekolah Nasional", "20216609"),
+        v("sekolah_email", "Email", "Email sekolah", "sekolah@…"),
+        v("sekolah_website", "Website", "Website sekolah", "https://…"),
+      ],
+    },
+    {
+      label: "Pejabat",
+      variables: [
+        v("kepala_sekolah_nama", "Kepala sekolah", "Nama kepala sekolah", "Drs. H. …"),
+        v("kepala_sekolah_nip", "NIP kepala sekolah", "NIP kepala sekolah", "1965…"),
+        v("pengurus_inventaris_nama", "Pengurus inventaris", "Nama pengurus/penanggung jawab inventaris", "Ahmad …"),
+        v("pengurus_inventaris_nip", "NIP pengurus inventaris", "NIP pengurus inventaris", "1985…"),
+      ],
+    },
+    {
+      label: "Laporan & Periode",
+      variables: [
+        v("periode", "Periode", "Keterangan posisi laporan", "Posisi per 9 Oktober 2026"),
+        v("tanggal_cetak", "Tanggal cetak", "Tanggal file dibuat", "9 Oktober 2026"),
+        v("tempat_ttd", "Tempat tanda tangan", "Kota/kabupaten dari alamat sekolah", "Kab. Indramayu"),
+        v("total_unit", "Total unit aset", "Jumlah seluruh unit (quantity) aset", "128"),
+        v("total_nilai_aset", "Total nilai aset", "Jumlah seluruh nilai aset (Rp)", "25.000.000"),
+        v("jumlah_ruangan", "Jumlah ruangan", "Banyak ruangan berisi aset", "12"),
+        v("jumlah_jenis", "Jumlah jenis aset", "Banyak baris aset", "64"),
+      ],
+    },
+    {
+      label: "Baris aset (direplikasi per aset)",
+      variables: [
+        v("no", "No.", "Nomor urut aset", "1"),
+        v("kode", "Kode aset", "Kode inventaris", "INV/BK-2026-01"),
+        v("nama", "Nama aset", "Nama barang", "Laptop"),
+        v("kategori", "Kategori", "Kategori aset", "Elektronik"),
+        v("ruangan", "Ruangan", "Ruangan tempat aset berada", "Ruang Guru"),
+        v("jumlah", "Jumlah", "Banyak unit aset", "5"),
+        v("baik", "Kondisi baik", "Jumlah unit kondisi baik", "3"),
+        v("rusak_ringan", "Rusak ringan", "Jumlah unit rusak ringan", "1"),
+        v("rusak_berat", "Rusak berat", "Jumlah unit rusak berat", "1"),
+        v("hilang", "Hilang", "Jumlah unit hilang", "0"),
+        v("belum_diklasifikasi", "Belum diklasifikasi", "Unit yang kondisinya belum diisi", "0"),
+        v("harga", "Harga satuan", "Harga satuan aset (Rp)", "8.500.000"),
+        v("nilai", "Nilai total", "jumlah × harga (Rp)", "42.500.000"),
+        v("sumber_dana", "Sumber dana", "Sumber dana perolehan", "BOS"),
+        v("tahun_anggaran", "Tahun anggaran", "Tahun anggaran perolehan", "2026"),
+        v("tanggal_perolehan", "Tanggal perolehan", "Tanggal aset diperoleh", "15 Januari 2026"),
+        v("penyedia", "Penyedia", "Nama penyedia/toko", "CV Maju Jaya"),
+        v("no_nota", "No. nota/faktur", "Nomor nota atau faktur", "INV-2026-0001"),
+        v("no_seri", "No. seri", "Nomor seri barang", "SN-12345"),
+        v("merek", "Merk", "Merek barang", "Lenovo"),
+        v("model", "Tipe/model", "Tipe atau model barang", "ThinkPad E14"),
+        v("cara_perolehan", "Cara perolehan", "Pembelian/Hibah/Bantuan …", "Pembelian"),
+      ],
+    },
+    {
+      label: "Tanda Tangan (pagination)",
+      variables: [
+        v("ttd_mulai", "Mulai blok TTD", "Penanda baris awal blok tanda tangan — dikosongkan setelah fill", "(penanda)"),
+        v("ttd_selesai", "Selesai blok TTD", "Penanda baris akhir blok tanda tangan", "(penanda)"),
+      ],
+    },
+    {
+      label: "Rumus Excel",
+      variables: [
+        v("=…", "Formula hidup", "Sel diawali = di template tetap jadi formula; referensi baris contoh digeser otomatis ke baris aset", "=SUM(G8:G12)"),
+      ],
+    },
+  ],
+};
+
+/**
  * Modul lain: variabel dicatat sebagai rencana. Saat sistem template modul
  * ini dibuat, pindahkan ke status "siap" dan isi deskripsi lengkap.
  */
@@ -161,22 +247,9 @@ const RENCANA: FillVariableModule[] = [
       },
     ],
   },
-  {
-    module: "inventaris",
-    label: "Inventaris (rencana)",
-    groups: [
-      {
-        label: "Umum",
-        variables: [
-          v("sekolah_nama", "Nama sekolah", "Belum dieksekusi — sistem template modul belum ada", "SDN 1 Kenanga", "rencana"),
-          v("tahun_ajaran", "Tahun ajaran", "Belum dieksekusi", "2026/2027", "rencana"),
-        ],
-      },
-    ],
-  },
 ];
 
-export const FILL_VARIABLE_MODULES: FillVariableModule[] = [PRESENSI, SURAT, ...RENCANA];
+export const FILL_VARIABLE_MODULES: FillVariableModule[] = [PRESENSI, SURAT, INVENTARIS, ...RENCANA];
 
 /**
  * Nama variabel presensi yang dikenali `unknownVariables` —
@@ -186,4 +259,12 @@ export const PRESENSI_KNOWN_VARIABLES: string[] = [
   ...PRESENSI.groups.flatMap((g) => g.variables.map((x) => x.name)),
   // Varian tanggal: tgl_1..tgl_31 (kamus memakai "tgl_N").
   ...Array.from({ length: 31 }, (_, i) => `tgl_${i + 1}`),
+].sort();
+
+/**
+ * Nama variabel inventaris yang dikenali `unknownVariables` pada pengisian
+ * template aset (.xlsx/.docx). Satu sumber dengan kamus.
+ */
+export const INVENTARIS_KNOWN_VARIABLES: string[] = [
+  ...INVENTARIS.groups.flatMap((g) => g.variables.map((x) => x.name)),
 ].sort();
