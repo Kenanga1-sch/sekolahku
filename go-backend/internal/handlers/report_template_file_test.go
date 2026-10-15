@@ -184,6 +184,38 @@ func TestTemplateDefaultModule(t *testing.T) {
 	}
 }
 
+// TestTemplateDefaultModuleFallback memastikan bila modul punya template tetapi
+// tak satu pun ditandai default (mis. baru diunggah tanpa menekan "Jadikan
+// default"), endpoint mengembalikan template TERBARU alih-alih 404 — sehingga
+// laporan tidak gagal diam-diam.
+func TestTemplateDefaultModuleFallback(t *testing.T) {
+	db := openTemplateTestDB(t)
+	defer db.Close()
+	repo := repository.NewReportTemplateRepository(db)
+	h := NewReportTemplateHandler(repo)
+
+	a, _ := repo.Create(&models.CreateReportTemplateRequest{Code: "LAMA", Name: "Lama", Module: "inventaris"})
+	b, _ := repo.Create(&models.CreateReportTemplateRequest{Code: "BARU", Name: "Baru", Module: "inventaris"})
+
+	// Keduanya bukan default; yang diharapkan = yang terbaru (id terbesar).
+	if a.IsDefault || b.IsDefault {
+		t.Fatal("prasyarat gagal: seharusnya tak ada default")
+	}
+
+	code, resp := callHandler(t, h, h.GetDefaultModule, http.MethodGet, "/api/reports/templates/default/inventaris",
+		func(ctx echo.Context) {
+			ctx.SetParamNames("module")
+			ctx.SetParamValues("inventaris")
+		})
+	if code != http.StatusOK {
+		t.Fatalf("expected 200 fallback ke template terbaru, got %d: %v", code, resp)
+	}
+	data, _ := resp["data"].(map[string]interface{})
+	if data["code"] != "BARU" {
+		t.Fatalf("harus jatuh ke template terbaru BARU, got %v", data)
+	}
+}
+
 // TestTemplateUploadValidation menguji validasi berlapis UploadXLSX:
 // bukan-xlsx ditolak, xlsx tanpa marker baris ditolak, xlsx bervariabel
 // diterima dan file_path diperbarui.
