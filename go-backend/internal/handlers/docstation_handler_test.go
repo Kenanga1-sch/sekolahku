@@ -226,6 +226,49 @@ func TestDocStationPrintJobRejectsUnknownPrinter(t *testing.T) {
 	}
 }
 
+// TestDocStationPrintJobTidakMeneruskanPDFkeRaw9100 memastikan PDF yang gagal
+// dikirim via IPP TIDAK dijatuhkan ke RAW 9100 (yang mencetak byte biner sebagai
+// teks = simbol acak). Harus dibalas error 502 yang menyebut PDF.
+func TestDocStationPrintJobTidakMeneruskanPDFkeRaw9100(t *testing.T) {
+	// 127.0.0.1:631 tak ada listener → sendIPP gagal cepat tanpa fallback.
+	t.Setenv("DOCSTATION_PRINTERS", "127.0.0.1:Printer Uji")
+	t.Setenv("DOCSTATION_DEFAULT_PRINTER", "127.0.0.1")
+	h := NewDocStationHandler()
+	e := echo.New()
+
+	pdf := []byte("%PDF-1.4\n%fake pdf body\n")
+	req := httptest.NewRequest(http.MethodPost, "/api/docstation/print", bytes.NewReader(pdf))
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	if err := h.PrintJob(c); err != nil {
+		t.Fatalf("handler error: %v", err)
+	}
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("want 502 saat PDF gagal IPP, got %d (body=%s)", rec.Code, rec.Body.String())
+	}
+	body := decodeDocStationJSON(t, rec)
+	msg, _ := body["error"].(string)
+	if !strings.Contains(msg, "PDF") {
+		t.Errorf("pesan error harus menyebut PDF, got %q", msg)
+	}
+}
+
+// TestIPPStatusTextMemetakanKodeUmum memastikan kode status IPP penting (mis.
+// document-format-not-supported) diterjemahkan ke pesan yang bermakna.
+func TestIPPStatusTextMemetakanKodeUmum(t *testing.T) {
+	cases := map[int]string{
+		0x040A: "document-format-not-supported",
+		0x0400: "bad-request",
+		0x0502: "service-unavailable",
+	}
+	for code, want := range cases {
+		if got := ippStatusText(code); !strings.Contains(got, want) {
+			t.Errorf("ippStatusText(0x%04X) = %q, harus mengandung %q", code, got, want)
+		}
+	}
+}
+
 func TestBuildIPPPrintJobHeader(t *testing.T) {
 	payload := []byte("%PDF-1.4 fake")
 	body := buildIPPPrintJob("ipp://192.168.10.131/ipp/print", "DocStation_Job", "application/pdf", payload)

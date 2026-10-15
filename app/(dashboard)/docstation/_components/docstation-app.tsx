@@ -28,6 +28,7 @@ import { useDocStation } from "../_hooks/use-docstation";
 import { useOpenCV } from "../_hooks/use-opencv";
 import { loadPdfLib } from "@/lib/docstation/vendor-loader";
 import { createPdf } from "@/lib/docstation/pdf";
+import { pdfBytesToJpegFiles } from "@/lib/docstation/pdf-to-images";
 import {
   DEFAULT_PRINT_CONFIG,
   DEFAULT_SAVE_CONFIG,
@@ -183,13 +184,11 @@ export function DocStationApp() {
       fitMode: "contain",
       paper: { paperSize: printConfig.paperSize, customWidth: printConfig.customWidth, customHeight: printConfig.customHeight },
     });
-    return [
-      {
-        name: "Dokumen-Scan.pdf",
-        bytes,
-        contentType: "application/pdf" as const,
-      },
-    ];
+    // PDF di-render ulang menjadi gambar JPEG per halaman: banyak printer rumah
+    // (mis. Epson L6270) TIDAK mendukung `application/pdf` — mengirim PDF mentah
+    // membuat printer mencetak byte biner sebagai teks (simbol acak). `image/jpeg`
+    // didukung hampir semua printer IPP.
+    return pdfBytesToJpegFiles(bytes, { dpi: 200, quality: 0.92 });
   }, [doc.stateRef, printConfig.paperSize, printConfig.customWidth, printConfig.customHeight]);
 
   return (
@@ -357,13 +356,26 @@ export function DocStationApp() {
                         toast.error("Belum ada berkas untuk dicetak");
                         return;
                       }
-                      const printable = await Promise.all(
-                        printFiles.map(async (f) => ({
-                          name: f.name,
-                          bytes: await f.arrayBuffer(),
-                          contentType: f.type || "application/pdf",
-                        })),
-                      );
+                      // PDF unggahan diubah menjadi JPEG per halaman agar printer
+                      // yang tak mendukung PDF (mis. Epson L6270) tetap mencetak
+                      // benar — bukan mengeluarkan simbol acak.
+                      const printable = (
+                        await Promise.all(
+                          printFiles.map(async (f) => {
+                            const bytes = await f.arrayBuffer();
+                            if (f.type === "application/pdf") {
+                              return pdfBytesToJpegFiles(bytes, { dpi: 200, quality: 0.92 });
+                            }
+                            return [
+                              {
+                                name: f.name,
+                                bytes,
+                                contentType: f.type || "application/octet-stream",
+                              },
+                            ];
+                          }),
+                        )
+                      ).flat();
                       await doc.print(printable, printPrinterIp, printConfig.method);
                       toast.success(`${printable.length} pekerjaan cetak dikirim ke printer`);
                     } catch (err) {

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/xml"
 	"fmt"
@@ -725,21 +726,44 @@ func (h *DocStationHandler) PrintJob(c echo.Context) error {
 
 	docFormat := ""
 	var sendErr error
+	ctx := c.Request().Context()
 	switch {
 	case bytes.HasPrefix(body, []byte{0xFF, 0xD8}): // JPEG
 		docFormat = "image/jpeg"
-		sendErr = h.sendIPP(printerIP, secure, body, docFormat)
+		sendErr = h.sendIPP(ctx, printerIP, secure, body, docFormat)
 	case bytes.HasPrefix(body, []byte{0x89, 0x50, 0x4E, 0x47}): // PNG
 		docFormat = "image/png"
-		sendErr = h.sendIPP(printerIP, secure, body, docFormat)
+		sendErr = h.sendIPP(ctx, printerIP, secure, body, docFormat)
 	case bytes.HasPrefix(body, []byte("%PDF")): // PDF
+		// PENTING: JANGAN pernah meneruskan byte PDF mentah ke RAW 9100. Printer
+		// rumah (mis. Epson L6270) umumnya TIDAK punya interpreter PDF di port
+		// itu; byte biner dicetak sebagai teks sehingga keluar deretan simbol
+		// acak. Klien sudah mengubah PDF menjadi JPEG per halaman sebelum kirim;
+		// bila PDF benar-benar sampai ke sini (klien lama), coba IPP sekali lalu
+		// kembalikan pesan yang jelas — bukan mencetak sampah.
 		docFormat = "application/pdf"
-		sendErr = h.sendIPP(printerIP, secure, body, docFormat)
+		sendErr = h.sendIPP(ctx, printerIP, secure, body, docFormat)
 		if sendErr != nil {
-			sendErr = h.sendRaw9100(printerIP, body)
+			return c.JSON(http.StatusBadGateway, map[string]interface{}{
+				"success": false,
+				"error": fmt.Sprintf(
+					"Printer (%s) menolak dokumen PDF (%v). Format PDF tidak didukung — "+
+						"cetak ulang lewat aplikasi (akan dikonversi ke gambar) atau unggah gambar JPEG/PNG.",
+					printerIP, sendErr),
+			})
 		}
 	default:
-		sendErr = h.sendRaw9100(printerIP, body)
+		// Format tak dikenal: coba IPP generik, JANGAN kirim mentah ke RAW 9100.
+		sendErr = h.sendIPP(ctx, printerIP, secure, body, "application/octet-stream")
+		if sendErr != nil {
+			return c.JSON(http.StatusBadGateway, map[string]interface{}{
+				"success": false,
+				"error": fmt.Sprintf(
+					"Format dokumen tidak dikenali/tidak didukung printer (%s). "+
+						"Gunakan JPEG, PNG, atau cetak PDF lewat aplikasi.",
+					printerIP),
+			})
+		}
 	}
 
 	if sendErr != nil {
@@ -761,7 +785,11 @@ func (h *DocStationHandler) PrintIPP(c echo.Context) error {
 }
 
 // sendIPP membangun payload IPP dan mengirimnya via HTTP ke port 631.
-func (h *DocStationHandler) sendIPP(printerIP string, secure bool, payload []byte, docFormat string) error {
+//
+// Timeout dibatasi 30 dtk (bukan 90 dtk milik httpClient) agar kegagalan cetak
+// cepat terlihat; context diteruskan supaya pembatalan klien menghentikan
+// pengiriman (audit Critical #3).
+func (h *DocStationHandler) sendIPP(ctx context.Context, printerIP string, secure bool, payload []byte, docFormat string) error {
 	scheme := "http"
 	if secure {
 		scheme = "https"
@@ -770,7 +798,9 @@ func (h *DocStationHandler) sendIPP(printerIP string, secure bool, payload []byt
 	url := fmt.Sprintf("%s://%s:631/ipp/print", scheme, printerIP)
 
 	ippBody := buildIPPPrintJob(ippURI, "DocStation_Job", docFormat, payload)
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(ippBody))
+	sendCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(sendCtx, http.MethodPost, url, bytes.NewReader(ippBody))
 	if err != nil {
 		return err
 	}
@@ -789,22 +819,37 @@ func (h *DocStationHandler) sendIPP(printerIP string, secure bool, payload []byt
 		if statusCode == 0x0000 || statusCode == 0x0001 || statusCode == 0x0002 {
 			return nil
 		}
+		return fmt.Errorf("IPP menolak pekerjaan: %s", ippStatusText(statusCode))
 	}
-	return fmt.Errorf("IPP status HTTP %d", res.StatusCode)
+	return fmt.Errorf("IPP HTTP %d", res.StatusCode)
 }
 
-// sendRaw9100 mengirim payload mentah ke raw socket printer (port 9100).
-func (h *DocStationHandler) sendRaw9100(printerIP string, payload []byte) error {
-	conn, err := net.DialTimeout("tcp", net.JoinHostPort(printerIP, "9100"), 5*time.Second)
-	if err != nil {
-		return err
+// ippStatusText memetakan kode status IPP (RFC 8011) ke pesan yang bisa
+// ditindaklanjuti. Kode yang sering muncul saat cetak PDF ke printer yang tak
+// mendukungnya: 0x040A document-format-not-supported.
+func ippStatusText(code int) string {
+	switch code {
+	case 0x0400:
+		return "permintaan tidak valid (bad-request)"
+	case 0x0401:
+		return "tidak terautentikasi (unauthorized)"
+	case 0x0403:
+		return "dilarang (forbidden)"
+	case 0x0405:
+		return "dokumen tidak ditemukan (not-found)"
+	case 0x040A:
+		return "format dokumen tidak didukung (document-format-not-supported)"
+	case 0x040B:
+		return "kredensial perangkat tidak valid (attributes-or-values-not-supported)"
+	case 0x0500:
+		return "kesalahan internal printer (internal-error)"
+	case 0x0501:
+		return "operasi tidak didukung printer (operation-not-supported)"
+	case 0x0502:
+		return "printer sibuk / layanan tak tersedia (service-unavailable)"
+	default:
+		return fmt.Sprintf("kode 0x%04X", code)
 	}
-	defer conn.Close()
-	_ = conn.SetWriteDeadline(time.Now().Add(45 * time.Second))
-	if _, err := conn.Write(payload); err != nil {
-		return err
-	}
-	return nil
 }
 
 // buildIPPPrintJob menyusun payload IPP 1.1 "Print-Job" (mirip make_ipp_print_job di server.py).
