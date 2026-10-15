@@ -9,6 +9,34 @@
 
 import type { InventoryAsset } from "@/types/inventory";
 
+const BULAN_ID = [
+    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+];
+
+/**
+ * Ubah tanggal dari API (RFC3339, mis. "2026-04-15T00:00:00Z") menjadi tanggal
+ * Indonesia yang terbaca ("15 April 2026"). Nilai kosong/tak valid → "-".
+ *
+ * Penting: tanpa ini, kolom "Tanggal Beli" pada laporan menampilkan ISO mentah
+ * (2026-04-15T00:00:00Z) — bug yang terlihat pada ekspor Excel/PDF.
+ * Zona waktu diabaikan (tanggal disimpan pada tengah malam UTC) agar tidak
+ * bergeser satu hari.
+ */
+export function formatIndonesianDate(value?: string | null): string {
+    if (!value) return "-";
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+    if (!m) {
+        // Bukan ISO — mungkin sudah berupa teks tanggal; kembalikan apa adanya.
+        return value;
+    }
+    const day = Number(m[3]);
+    const month = Number(m[2]);
+    const year = Number(m[1]);
+    if (month < 1 || month > 12) return value;
+    return `${day} ${BULAN_ID[month - 1]} ${year}`;
+}
+
 /** Empat kondisi seperti yang disediakan GetConditionBreakdown. */
 export const CONDITIONS = ["Baik", "Rusak Ringan", "Rusak Berat", "Hilang"] as const;
 export type ConditionName = (typeof CONDITIONS)[number];
@@ -85,7 +113,7 @@ export function toAssetRows(assets: InventoryAsset[]): AssetRow[] {
             value: quantity * price,
             fundingSource: a.fundingSource || "-",
             fiscalYear: a.fiscalYear ?? null,
-            purchaseDate: a.purchase_date || null,
+            purchaseDate: a.purchase_date ? formatIndonesianDate(a.purchase_date) : null,
             supplier: a.supplier || "-",
             invoiceNo: a.invoiceNo || "-",
             serialNumber: a.serialNumber || "-",

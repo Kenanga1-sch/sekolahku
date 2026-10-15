@@ -115,6 +115,39 @@ const ROW_VAR_NAMES = [
   "model", "cara_perolehan",
 ];
 
+/**
+ * Variabel bernilai angka. Bila sebuah sel isinya HANYA satu token ini (boleh
+ * berisi spasi di ujung), sel diisi sebagai NUMBER — bukan string — supaya
+ * format angka template (mis. "Rp" #,##0 pada Harga Satuan / Jumlah Harga)
+ * benar-benar berlaku saat dibuka di Excel maupun saat dikonversi PDF.
+ * Tanpa ini, nilai rupiah tampil sebagai angka mentah (8500000) dan rata kiri.
+ */
+const NUMERIC_VAR_NAMES = new Set([
+  "no", "jumlah", "baik", "rusak_ringan", "rusak_berat", "hilang",
+  "belum_diklasifikasi", "harga", "nilai", "tahun_anggaran",
+  "total_unit", "total_nilai_aset", "jumlah_ruangan", "jumlah_jenis",
+]);
+
+/**
+ * Ganti variabel pada SATU sel. Bila isi sel persis satu variabel numerik,
+ * kembalikan number agar format angka template tetap berlaku; selain itu
+ * kembalikan string hasil substitusi (perilaku lama).
+ */
+export function substituteInventoryCell(
+  text: string,
+  values: Record<string, string | number>
+): string | number | boolean {
+  const m = /^\s*\{\{([a-zA-Z0-9_]+)\}\}\s*$/.exec(text);
+  if (m && m[1] in values && NUMERIC_VAR_NAMES.has(m[1])) {
+    const raw = values[m[1]];
+    if (typeof raw === "number") return raw;
+    if (raw !== "" && raw !== null && raw !== undefined && !Number.isNaN(Number(raw))) {
+      return Number(raw);
+    }
+  }
+  return substituteInventory(text, values);
+}
+
 /** true bila sel berisi variabel baris {{...}} (penanda baris contoh). */
 export function isInventoryRowVariable(text: string): boolean {
   for (const name of ROW_VAR_NAMES) {
@@ -204,7 +237,7 @@ export async function fillInventoryWorksheet(
       const cell = row.getCell(c);
       if (typeof cell.value === "string" && cell.value.includes("{{")) {
         const before = cell.value;
-        cell.value = substituteInventory(before, scalars);
+        cell.value = substituteInventoryCell(before, scalars);
         for (const v of unknownInventoryVariables([before])) unknown.add(v);
       }
     }
@@ -260,7 +293,7 @@ export async function fillInventoryWorksheet(
       }
       if (typeof cell.value === "string" && cell.value.includes("{{")) {
         const before = cell.value;
-        cell.value = substituteInventory(before, vals);
+        cell.value = substituteInventoryCell(before, vals);
         for (const v of unknownInventoryVariables([before])) unknown.add(v);
       }
     }

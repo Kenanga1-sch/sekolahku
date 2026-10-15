@@ -6,6 +6,7 @@ import {
   isInventoryRowVariable,
   shiftInventoryFormulaRows,
   substituteInventory,
+  substituteInventoryCell,
   unknownInventoryVariables,
   type InventoryExcelInput,
 } from "./inventory-excel";
@@ -125,6 +126,34 @@ describe("substituteInventory", () => {
   });
 });
 
+describe("substituteInventoryCell", () => {
+  it("mengubah sel bernilai numerik murni menjadi NUMBER agar format angka berlaku", () => {
+    expect(substituteInventoryCell("{{harga}}", { harga: 8_500_000 })).toBe(8_500_000);
+    expect(substituteInventoryCell("{{jumlah}}", { jumlah: 5 })).toBe(5);
+    expect(substituteInventoryCell("{{nilai}}", { nilai: 42_500_000 })).toBe(42_500_000);
+    expect(substituteInventoryCell("{{total_nilai_aset}}", { total_nilai_aset: 57_500_000 })).toBe(
+      57_500_000
+    );
+    // Spasi di ujung tetap dianggap sel numerik murni.
+    expect(substituteInventoryCell(" {{jumlah}} ", { jumlah: 3 })).toBe(3);
+  });
+
+  it("menormalkan string angka numerik menjadi NUMBER", () => {
+    expect(substituteInventoryCell("{{tahun_anggaran}}", { tahun_anggaran: "2026" })).toBe(2026);
+  });
+
+  it("tetap string untuk sel bertoken non-numerik atau gabungan teks", () => {
+    expect(substituteInventoryCell("{{nama}}", { nama: "Laptop" })).toBe("Laptop");
+    expect(substituteInventoryCell("NIP. {{nip}}", { nip: "19650101" })).toBe("NIP. 19650101");
+    expect(substituteInventoryCell(" {{nama}}", { nama: "Laptop" })).toBe(" Laptop");
+  });
+
+  it("membiarkan sel non-numerik bernilai kosong tetap string kosong", () => {
+    // {{jumlah}} bernilai "" → tetap string (bukan 0) supaya sel kosong tampil kosong.
+    expect(substituteInventoryCell("{{jumlah}}", { jumlah: "" })).toBe("");
+  });
+});
+
 describe("isInventoryRowVariable", () => {
   it("mengenali variabel baris dan menolak skalar", () => {
     expect(isInventoryRowVariable("{{kode}}")).toBe(true);
@@ -198,8 +227,9 @@ describe("fillInventoryWorksheet", () => {
     expect(ws.getRow(2).getCell(1).value).toBe("Periode: Posisi per 9 Oktober 2026");
     // Baris data: pertama di baris contoh (3), kedua tergantung fakeSheet
     // (duplicateRow tidak benar-benar menyalin di fake) — cukup pastikan
-    // baris contoh terisi benar.
-    expect(ws.getRow(3).getCell(1).value).toBe("1");
+    // baris contoh terisi benar. Kolom {{no}} kini berupa NUMBER (bukan string)
+    // agar format angka template tetap berlaku saat dibuka di Excel/PDF.
+    expect(ws.getRow(3).getCell(1).value).toBe(1);
     expect(ws.getRow(3).getCell(2).value).toBe("INV/EL-2026-01");
   });
 

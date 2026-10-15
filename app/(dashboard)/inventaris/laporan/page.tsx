@@ -29,6 +29,25 @@ import type { InventoryAsset, InventoryOpname, InventoryStats } from "@/types/in
 const today = () =>
     new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
 
+/**
+ * Unduh Blob dengan nama berkas apa adanya (ekstensi dipertahankan).
+ *
+ * `downloadBlob` dari report-template-runner selalu memaksa akhiran ".pdf",
+ * sehingga mengunduh Excel/CSV lewatnya menghasilkan "….xlsx.pdf". Helper ini
+ * dipakai untuk berkas non-PDF.
+ */
+function downloadAs(blob: Blob, fileName: string): void {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
 function formatDate(d?: string | null) {
     if (!d) return "-";
     const dt = new Date(d);
@@ -216,7 +235,7 @@ export default function LaporanPage() {
             );
         });
         const blob = new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
-        downloadBlob(blob, "Laporan Aset Tetap.csv");
+        downloadAs(blob, "Laporan Aset Tetap.csv");
     }
 
     /** Ekspor laporan Aset Tetap sebagai PDF (xlsx → LibreOffice headless). */
@@ -248,7 +267,7 @@ export default function LaporanPage() {
         const toastId = toast.loading("Menyiapkan berkas Excel laporan aset…");
         try {
             const { blob, unknown } = await buildInventoryBlob();
-            downloadBlob(blob, "Laporan Aset Tetap.xlsx");
+            downloadAs(blob, "Laporan Aset Tetap.xlsx");
             toast.success("Excel berhasil diunduh", {
                 id: toastId,
                 description: unknown.length > 0 ? `Variabel tak dikenal dibiarkan: ${unknown.join(", ")}` : undefined,

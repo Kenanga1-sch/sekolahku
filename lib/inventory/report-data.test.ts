@@ -7,6 +7,7 @@ import {
     grandTotals,
     filterRows,
     renumber,
+    formatIndonesianDate,
 } from "./report-data";
 import type { InventoryAsset } from "@/types/inventory";
 
@@ -58,7 +59,8 @@ describe("report-data", () => {
         expect(row.acquisitionType).toBe("Pembelian");
         expect(row.fundingSource).toBe("BOSP Reguler");
         expect(row.fiscalYear).toBe(2026);
-        expect(row.purchaseDate).toBe("2026-01-15T00:00:00Z");
+        // Tanggal ISO dari API diformat ke bahasa Indonesia untuk laporan.
+        expect(row.purchaseDate).toBe("15 Januari 2026");
     });
 
     it("memakai '-' untuk data perolehan yang kosong", () => {
@@ -159,5 +161,23 @@ describe("report-data", () => {
         expect(filterRows(rows, "KUR-01").map((r) => r.id)).toEqual(["2"]);
         expect(filterRows(rows, "  ").map((r) => r.id)).toEqual(["1", "2"]);
         expect(filterRows(rows, "zzz")).toEqual([]);
+    });
+});
+
+describe("formatIndonesianDate", () => {
+    it("mengubah ISO API menjadi tanggal Indonesia", () => {
+        expect(formatIndonesianDate("2026-01-15T00:00:00Z")).toBe("15 Januari 2026");
+        expect(formatIndonesianDate("2026-08-01T17:00:00Z")).toBe("1 Agustus 2026");
+        expect(formatIndonesianDate("2025-12-31")).toBe("31 Desember 2025");
+    });
+
+    it("mengembalikan '-' untuk nilai kosong", () => {
+        expect(formatIndonesianDate(null)).toBe("-");
+        expect(formatIndonesianDate(undefined)).toBe("-");
+        expect(formatIndonesianDate("")).toBe("-");
+    });
+
+    it("mengembalikan apa adanya bila bukan ISO", () => {
+        expect(formatIndonesianDate("15 Januari 2026")).toBe("15 Januari 2026");
     });
 });
