@@ -38,7 +38,7 @@ const today = () =>
  * NIP sengaja dikosongkan sampai penunjukan resmi tersedia.
  */
 const DEFAULT_PENGURUS_INVENTARIS_NAMA = "Lucki Hari Munnandar";
-const DEFAULT_PENGURUS_INVENTARIS_NIP = "";
+const DEFAULT_PENGURUS_INVENTARIS_NIP = "199903092025211053";
 
 /**
  * Unduh Blob dengan nama berkas apa adanya (ekstensi dipertahankan).
