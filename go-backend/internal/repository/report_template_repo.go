@@ -191,10 +191,24 @@ func (r *ReportTemplateRepository) SetDefault(id int64) (*models.ReportTemplate,
 	return r.GetByID(id)
 }
 
-// GetDefaultModule mengembalikan template default sebuah modul (nil bila kosong).
+// GetDefaultModule mengembalikan template default sebuah modul.
+//
+// Prioritas: template dengan is_default = 1. Bila modul punya template namun
+// tak satu pun ditandai default (mis. baru diunggah tanpa menekan "Jadikan
+// default"), jatuh ke template terbaru (id terbesar) supaya laporan tetap
+// berjalan alih-alih gagal diam-diam dengan pesan "belum tersedia". Nilai nil
+// hanya dikembalikan bila modul benar-benar kosong.
 func (r *ReportTemplateRepository) GetDefaultModule(module string) (*models.ReportTemplate, error) {
 	query := `SELECT ` + reportTemplateColumns + ` FROM report_templates WHERE module = ? AND is_default = 1 ORDER BY id DESC LIMIT 1`
 	t, err := scanReportTemplate(r.db.QueryRow(query, module))
+	if err == nil {
+		return t, nil
+	}
+	if err != sql.ErrNoRows {
+		return nil, err
+	}
+	fallback := `SELECT ` + reportTemplateColumns + ` FROM report_templates WHERE module = ? ORDER BY id DESC LIMIT 1`
+	t, err = scanReportTemplate(r.db.QueryRow(fallback, module))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
