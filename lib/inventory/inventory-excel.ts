@@ -191,15 +191,32 @@ export function shiftInventoryFormulaRows(formula: string, templateRow: number, 
   });
 }
 
+type CellLike = {
+  value: unknown;
+  formula?: string;
+  font?: unknown;
+  fill?: unknown;
+  style?: unknown;
+  alignment?: { wrapText?: boolean; vertical?: string; horizontal?: string };
+};
+
+type RowLike = {
+  getCell(c: number): CellLike;
+  eachCell(
+    o: { includeEmpty?: boolean },
+    cb: (cell: CellLike, col: number) => void
+  ): void;
+  height?: number;
+};
+
 type WsLike = {
   rowCount: number;
   columnCount?: number;
-  getRow(n: number): {
-    getCell(c: number): { value: unknown; formula?: string; font?: unknown; fill?: unknown; style?: unknown };
-    eachCell(o: { includeEmpty?: boolean }, cb: (cell: { value: unknown; font?: unknown; fill?: unknown; style?: unknown }, col: number) => void): void;
-  };
-  eachRow(cb: (row: { getCell(c: number): { value: unknown; font?: unknown; fill?: unknown; style?: unknown } }, n: number) => void): void;
+  getRow(n: number): RowLike;
+  eachRow(cb: (row: RowLike, n: number) => void): void;
   duplicateRow(n: number, count: number, insert: boolean): void;
+  getColumn?(c: number): { width?: number };
+  getColumnCount?(): number;
 };
 
 /**
@@ -302,6 +319,12 @@ export async function fillInventoryWorksheet(
   // 5. Baris Jumlah opsional (hanya bila template menyediakannya).
   fillOptionalSumRow(ws, tplRowNum, input.rows, maxCol, tplSnapshot);
 
+  // 5b. Tinggi baris menyesuaikan teks yang membungkus (wrapText). Excel asli
+  //     menyesuaikan otomatis saat dibuka, tetapi LibreOffice saat konversi PDF
+  //     TIDAK — sehingga baris ber-nama panjang terpotong/bertumpuk. Kita hitung
+  //     perkiraan jumlah baris teks dan set tinggi baris secara eksplisit.
+  autoFitDataRowHeights(ws, tplRowNum, input.rows.length, maxCol);
+
   // 6. Pagination: blok TTD tidak boleh terpotong (dipertahankan agar setara
   //    dengan jalur cetak lain). Diabaikan bila template tak punya penanda TTD.
   //    applyPagination dipanggil hanya bila ada blok TTD (fungsi print-kit).
@@ -396,6 +419,83 @@ function fillOptionalSumRow(
       formula: `SUM(${L}${first}:${L}${last})`,
       result: sum,
     } as never;
+  }
+}
+
+/**
+ * Perkiraan jumlah baris teks yang dibutuhkan sel wrapText pada kolom selebar
+ * `widthChars`. Lebar kolom Excel dinyatakan dalam satuan karakter (≈ lebar
+ * digit font default); kita pakai sebagai aproksimasi kapasitas per baris.
+ */
+function estimateWrappedLines(text: string, widthChars: number): number {
+  if (!text) return 1;
+  const cap = Math.max(4, Math.floor(widthChars));
+  let lines = 0;
+  // Pecah kasar per kata agar mendekati pembungkusan nyata Excel/LibreOffice.
+  for (const segment of text.split("\n")) {
+    const words = segment.split(/\s+/).filter(Boolean);
+    if (words.length === 0) {
+      lines += 1;
+      continue;
+    }
+    let cur = 0;
+    let used = 1;
+    for (const w of words) {
+      const need = cur === 0 ? w.length : w.length + 1;
+      if (cur + need <= cap) {
+        cur += need;
+      } else {
+        used += 1;
+        cur = w.length > cap ? cap : w.length; // kata panjang terpotong paksa
+      }
+    }
+    lines += used;
+  }
+  return Math.max(1, lines);
+}
+
+/**
+ * Set tinggi baris data agar teks yang membungkus (wrapText) tidak terpotong
+ * saat dikonversi ke PDF. Excel menyesuaikan otomatis ketika dibuka, tetapi
+ * LibreOffice headless memakai tinggi tersimpan — tanpa ini nama panjang
+ * menumpuk/terpotong dan layout berantakan.
+ *
+ * Hanya menyentuh baris data (mulai dari baris contoh sejauh jumlah aset).
+ * Kolom non-wrap diabaikan. Tinggi minimum dijaga agar tak mengecilkan baris
+ * yang sudah cukup tinggi di template.
+ */
+function autoFitDataRowHeights(
+  ws: WsLike,
+  tplRowNum: number,
+  rowCount: number,
+  maxCol: number
+): void {
+  if (rowCount === 0 || typeof ws.getColumn !== "function") return;
+  const LINE_PT = 15; // ≈ tinggi satu baris teks 11pt
+  const MIN_PT = 16;
+  const MAX_PT = 120; // batas atas wajar (8 baris)
+
+  // Kapasitas karakter tiap kolom dari lebar template (fallback 9 = default).
+  const caps = new Map<number, number>();
+  for (let c = 1; c <= maxCol; c++) {
+    const w = ws.getColumn?.(c)?.width;
+    caps.set(c, typeof w === "number" && w > 0 ? w : 9);
+  }
+
+  for (let i = 0; i < rowCount; i++) {
+    const n = tplRowNum + i;
+    const row = ws.getRow(n);
+    let maxLines = 1;
+    for (let c = 1; c <= maxCol; c++) {
+      const cell = row.getCell(c);
+      if (!cell.alignment?.wrapText) continue;
+      const v = cell.value;
+      if (typeof v !== "string" || !v) continue;
+      maxLines = Math.max(maxLines, estimateWrappedLines(v, caps.get(c) ?? 9));
+    }
+    if (maxLines <= 1) continue;
+    const h = Math.min(MAX_PT, Math.max(MIN_PT, maxLines * LINE_PT));
+    row.height = h;
   }
 }
 

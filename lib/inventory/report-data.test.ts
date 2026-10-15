@@ -59,8 +59,8 @@ describe("report-data", () => {
         expect(row.acquisitionType).toBe("Pembelian");
         expect(row.fundingSource).toBe("BOSP Reguler");
         expect(row.fiscalYear).toBe(2026);
-        // Tanggal ISO dari API diformat ke bahasa Indonesia untuk laporan.
-        expect(row.purchaseDate).toBe("15 Januari 2026");
+        // Tanggal ISO dari API diformat ke dd/mm/yyyy agar muat di kolom.
+        expect(row.purchaseDate).toBe("15/01/2026");
     });
 
     it("memakai '-' untuk data perolehan yang kosong", () => {
@@ -165,10 +165,14 @@ describe("report-data", () => {
 });
 
 describe("formatIndonesianDate", () => {
-    it("mengubah ISO API menjadi tanggal Indonesia", () => {
-        expect(formatIndonesianDate("2026-01-15T00:00:00Z")).toBe("15 Januari 2026");
-        expect(formatIndonesianDate("2026-08-01T17:00:00Z")).toBe("1 Agustus 2026");
-        expect(formatIndonesianDate("2025-12-31")).toBe("31 Desember 2025");
+    it("mengubah ISO API menjadi dd/mm/yyyy", () => {
+        expect(formatIndonesianDate("2026-01-15T00:00:00Z")).toBe("15/01/2026");
+        expect(formatIndonesianDate("2026-08-01T17:00:00Z")).toBe("01/08/2026");
+        expect(formatIndonesianDate("2025-12-31")).toBe("31/12/2025");
+    });
+
+    it("zero-pad hari dan bulan di bawah sepuluh", () => {
+        expect(formatIndonesianDate("2026-04-05T00:00:00Z")).toBe("05/04/2026");
     });
 
     it("mengembalikan '-' untuk nilai kosong", () => {

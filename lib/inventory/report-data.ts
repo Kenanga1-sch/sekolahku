@@ -9,19 +9,16 @@
 
 import type { InventoryAsset } from "@/types/inventory";
 
-const BULAN_ID = [
-    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-    "Juli", "Agustus", "September", "Oktober", "November", "Desember",
-];
-
 /**
  * Ubah tanggal dari API (RFC3339, mis. "2026-04-15T00:00:00Z") menjadi tanggal
- * Indonesia yang terbaca ("15 April 2026"). Nilai kosong/tak valid → "-".
+ * format dd/mm/yyyy ("15/04/2026") agar ringkas dan muat di kolom "Tanggal
+ * Beli". Nilai kosong/tak valid → "-".
  *
- * Penting: tanpa ini, kolom "Tanggal Beli" pada laporan menampilkan ISO mentah
- * (2026-04-15T00:00:00Z) — bug yang terlihat pada ekspor Excel/PDF.
- * Zona waktu diabaikan (tanggal disimpan pada tengah malam UTC) agar tidak
- * bergeser satu hari.
+ * Penting: tanpa ini, kolom "Tanggal Beli" menampilkan ISO mentah
+ * (2026-04-15T00:00:00Z). Format dd/mm/yyyy dipilih (bukan "15 April 2026")
+ * karena tanggal panjang membuat teks membungkus dua baris dan merusak tinggi
+ * baris. Zona waktu diabaikan (tanggal disimpan pada tengah malam UTC) agar
+ * tidak bergeser satu hari.
  */
 export function formatIndonesianDate(value?: string | null): string {
     if (!value) return "-";
@@ -34,7 +31,7 @@ export function formatIndonesianDate(value?: string | null): string {
     const month = Number(m[2]);
     const year = Number(m[1]);
     if (month < 1 || month > 12) return value;
-    return `${day} ${BULAN_ID[month - 1]} ${year}`;
+    return `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}`;
 }
 
 /** Empat kondisi seperti yang disediakan GetConditionBreakdown. */

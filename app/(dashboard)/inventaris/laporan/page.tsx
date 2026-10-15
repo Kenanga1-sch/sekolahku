@@ -30,6 +30,17 @@ const today = () =>
     new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
 
 /**
+ * Pengelola Barang / Bendahara BOS pada blok tanda tangan laporan inventaris.
+ *
+ * SEMENTARA: belum ada UI untuk menunjuk pengelola barang, jadi nama ini
+ * di-hardcode. Ketika fitur penunjukan pejabat dibuat (mis. di pengaturan
+ * sekolah), ganti dengan nilai dari sana dan hapus konstanta ini.
+ * NIP sengaja dikosongkan sampai penunjukan resmi tersedia.
+ */
+const DEFAULT_PENGURUS_INVENTARIS_NAMA = "Lucki Hari Munnandar";
+const DEFAULT_PENGURUS_INVENTARIS_NIP = "";
+
+/**
  * Unduh Blob dengan nama berkas apa adanya (ekstensi dipertahankan).
  *
  * `downloadBlob` dari report-template-runner selalu memaksa akhiran ".pdf",
@@ -139,8 +150,8 @@ export default function LaporanPage() {
                 sekolahWebsite: settings?.school_website,
                 kepalaSekolahNama: settings?.principal_name,
                 kepalaSekolahNip: settings?.principal_nip,
-                pengurusInventarisNama: settings?.principal_name,
-                pengurusInventarisNip: settings?.principal_nip,
+                pengurusInventarisNama: DEFAULT_PENGURUS_INVENTARIS_NAMA,
+                pengurusInventarisNip: DEFAULT_PENGURUS_INVENTARIS_NIP,
                 periode: `Posisi per ${today()}`,
                 tanggalCetak: today(),
                 tempatTtd: signPlace,
