@@ -761,14 +761,20 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	guruGroup.GET("/gtk-attendance/monthly", h.AttendanceGTK.GetGTKMonthly)
 	// Rekap tahunan/semester presensi GTK (agregat rentang bulan).
 	guruGroup.GET("/gtk-attendance/range", h.AttendanceGTK.GetGTKRange)
-	bendaharaGroup.GET("/attendance/points", h.AttendanceGTK.ListPoints)
-	bendaharaGroup.POST("/attendance/points", h.AttendanceGTK.CreatePoint)
-	bendaharaGroup.PUT("/attendance/points/:id", h.AttendanceGTK.UpdatePoint)
-	bendaharaGroup.DELETE("/attendance/points/:id", h.AttendanceGTK.DeletePoint)
+	// Titik presensi GTK (lokasi absen): GET harus dapat dibaca guru/staff yang
+	// memindai presensi (halaman scan-gtk/employee-form memuat daftar titik);
+	// mutasi (buat/ubah/hapus) khusus admin — titik presensi dikelola di
+	// Pengaturan, bukan tugas bendahara.
+	guruGroup.GET("/attendance/points", h.AttendanceGTK.ListPoints)
+	adminGroup.POST("/attendance/points", h.AttendanceGTK.CreatePoint)
+	adminGroup.PUT("/attendance/points/:id", h.AttendanceGTK.UpdatePoint)
+	adminGroup.DELETE("/attendance/points/:id", h.AttendanceGTK.DeletePoint)
+	// Pembina ekskul: list bisa dibaca guru/staff (dipakai form GTK & scan),
+	// penugasan/ubah/hapus khusus admin (pengelolaan di Direktori GTK).
 	guruGroup.GET("/attendance/ekskul-teachers", h.AttendanceGTK.ListEkskul)
-	bendaharaGroup.POST("/attendance/ekskul-teachers", h.AttendanceGTK.AssignEkskul)
-	bendaharaGroup.PUT("/attendance/ekskul-teachers/:id", h.AttendanceGTK.UpdateEkskul)
-	bendaharaGroup.DELETE("/attendance/ekskul-teachers/:id", h.AttendanceGTK.RemoveEkskul)
+	adminGroup.POST("/attendance/ekskul-teachers", h.AttendanceGTK.AssignEkskul)
+	adminGroup.PUT("/attendance/ekskul-teachers/:id", h.AttendanceGTK.UpdateEkskul)
+	adminGroup.DELETE("/attendance/ekskul-teachers/:id", h.AttendanceGTK.RemoveEkskul)
 	guruGroup.POST("/scan/resolve", h.ScanResolve.Resolve)
 	// PDF presensi: LibreOffice headless (satu-satunya mesin sejak 2026-10-08);
 	// 503 bila binary tak terpasang → frontend mengarahkan ke export Excel.

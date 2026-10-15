@@ -6,7 +6,7 @@
  * halaman ini fokus: scan QR GTK + validasi radius lokasi (GPS) di server.
  *
  * PNS/PPPK/P3K ditolak backend (tidak wajib presensi). Scan di luar radius
- * juga ditolak kecuali override oleh admin/bendahara (dengan alasan).
+ * juga ditolak kecuali override oleh admin (dengan alasan).
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -85,7 +85,7 @@ export default function ScanGtkPage() {
   const [stats, setStats] = useState({ recorded: 0, already: 0, rejected: 0 });
   const lastScanRef = useRef<{ code: string; at: number } | null>(null);
 
-  const isPrivileged = user?.role === "admin" || user?.role === "superadmin" || user?.role === "bendahara";
+  const isPrivileged = user?.role === "admin" || user?.role === "superadmin";
 
   // Muat titik & pengajar ekskul.
   const loadData = useCallback(async () => {
@@ -326,7 +326,7 @@ export default function ScanGtkPage() {
             <div className="sm:col-span-2 space-y-2 rounded-lg border border-amber-200 bg-amber-50/40 p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-semibold text-amber-800">Override Radius (Admin/Bendahara)</p>
+                  <p className="text-xs font-semibold text-amber-800">Override Radius (Admin)</p>
                   <p className="text-[11px] text-amber-700/80">Catat kehadiran walau di luar radius. Alasan wajib.</p>
                 </div>
                 <Switch checked={override} onCheckedChange={setOverride} />

@@ -160,13 +160,23 @@ func (r *SavingsRepository) TransferBrankas(req models.TransferBrankasRequest) e
 	return tx.Commit()
 }
 
-// GetSavingsTreasurer returns the currently active treasurer/bendahara
+// GetSavingsTreasurer returns the currently active treasurer/bendahara.
+//
+// `school_settings.savings_treasurer_id` bisa berisi users.id ATAU
+// employee_details.id: UI penunjukan (tab-sistem/treasurer-selector) mengirim
+// employee.id, sedangkan konsumen frontend (isTreasurer) membandingkannya
+// dengan user.id. Resolusi di sini toleran terhadap keduanya — bila nilainya
+// kebetulan employee_details.id, dipetakan ke employee_details.user_id; bila
+// sudah users.id, COALESCE jatuh ke nilai aslinya. Hasil SELALU users.id agar
+// `treasurer?.id === user?.id` di frontend cocok.
 func (r *SavingsRepository) GetSavingsTreasurer() (*models.User, error) {
 	var u models.User
 	err := r.DB.QueryRow(`
 		SELECT u.id, u.name, u.email, u.role
 		FROM school_settings s
-		JOIN users u ON s.savings_treasurer_id = u.id
+		LEFT JOIN employee_details ed ON ed.id = s.savings_treasurer_id
+		JOIN users u ON u.id = COALESCE(ed.user_id, s.savings_treasurer_id)
+		WHERE s.savings_treasurer_id IS NOT NULL AND s.savings_treasurer_id <> ''
 		LIMIT 1
 	`).Scan(&u.ID, &u.Name, &u.Email, &u.Role)
 	if err != nil {
@@ -178,7 +188,9 @@ func (r *SavingsRepository) GetSavingsTreasurer() (*models.User, error) {
 	return &u, nil
 }
 
-// UpdateSavingsTreasurer sets a user as treasurer
+// UpdateSavingsTreasurer sets a user as treasurer.
+// Nilai disimpan apa adanya (boleh users.id maupun employee_details.id);
+// resolusi ke users.id dilakukan saat baca di GetSavingsTreasurer.
 func (r *SavingsRepository) UpdateSavingsTreasurer(userId string) error {
 	_, err := r.DB.Exec("UPDATE school_settings SET savings_treasurer_id = ?, updated_at = ?", userId, UnixMilli())
 	return err
