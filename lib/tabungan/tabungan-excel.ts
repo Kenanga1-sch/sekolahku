@@ -14,7 +14,7 @@
  *   5. mengembalikan workbook siap unduh (PDF menyusul via LibreOffice).
  *
  * Daftar variabel lengkap & deskripsi ada di kamus:
- *   lib/config/report-variables.ts (tab Kamus Variabel di /admin/laporan-format),
+ *   lib/config/report-variables.ts (tab Kamus Variabel di /pengaturan?tab=laporan-format&sub=kamus),
  *   modul "tabungan". Nama di sini HARUS sama dengan nama di kamus —
  *   TABUNGAN_KNOWN_VARIABLES dipakai untuk deteksi variabel tak dikenal.
  */

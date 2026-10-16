@@ -16,7 +16,7 @@
  *
  * Modul sengaja dipisah dari "inventaris" karena default modul itu sudah
  * dipakai laporan Aset Tetap. Daftar variabel ada di kamus:
- *   lib/config/report-variables.ts (tab Kamus Variabel di /admin/laporan-format),
+ *   lib/config/report-variables.ts (tab Kamus Variabel di /pengaturan?tab=laporan-format&sub=kamus),
  *   modul "inventaris-atk".
  */
 

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Activity, Bot, Database, LayoutTemplate, Settings, Sparkles, Users } from "lucide-react";
+import { Activity, Bot, Database, FileText, LayoutTemplate, Settings, Sparkles, Users } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import TabUsers from "./tab-users";
@@ -13,6 +13,7 @@ import TabProfil from "./tab-profil";
 import TabLandingSections from "./tab-landing-sections";
 import TabVisiMisi from "./tab-visi-misi";
 import TabAIProvider from "./tab-ai-provider";
+import TabLaporanFormat from "./tab-laporan-format";
 
 export default function PengaturanPage() {
     const router = useRouter();
@@ -25,6 +26,33 @@ export default function PengaturanPage() {
     useEffect(() => {
         forceUpdate({});
     }, [user?.role]);
+
+    // Tab aktif terkontrol agar mendukung deep-link ?tab=...&sub=...
+    const [activeTab, setActiveTab] = useState("profil");
+    const [initialSub, setInitialSub] = useState<"format" | "kamus">("format");
+    useEffect(() => {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const valid = ["profil", "users", "system-logs", "backup", "visi-misi", "landing", "ai-provider", "laporan-format"];
+            const t = params.get("tab");
+            if (t && valid.includes(t)) setActiveTab(t);
+            setInitialSub(params.get("sub") === "kamus" ? "kamus" : "format");
+        } catch {
+            /* abaikan */
+        }
+    }, []);
+    const handleTabChange = (v: string) => {
+        setActiveTab(v);
+        try {
+            const url = new URL(window.location.href);
+            if (v === "profil") url.searchParams.delete("tab");
+            else url.searchParams.set("tab", v);
+            if (v !== "laporan-format") url.searchParams.delete("sub");
+            window.history.replaceState(null, "", url.toString());
+        } catch {
+            /* abaikan */
+        }
+    };
     
     if (authLoading || !user) {
         return (
@@ -45,11 +73,11 @@ export default function PengaturanPage() {
             <div className="flex flex-col gap-2">
                 <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Pengaturan</h1>
                 <p className="text-sm text-muted-foreground">
-                    Kelola data sekolah, profil, pengguna, aktivitas sistem, dan backup Telegram.
+                    Kelola data sekolah, profil, pengguna, aktivitas sistem, backup Telegram, dan format laporan.
                 </p>
             </div>
 
-            <Tabs defaultValue="profil" className="w-full">
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
                 <TabsList className="w-full max-w-full h-auto flex-nowrap overflow-x-auto [scrollbar-width:thin] rounded-xl bg-slate-100/80 dark:bg-zinc-900/80 border-slate-200/40 dark:border-zinc-800/40 p-1">
                     <TabsTrigger value="profil" className="min-w-[140px] shrink-0 rounded-lg px-3 py-2 text-xs font-semibold">
                         <Settings className="h-4 w-4" />
@@ -79,6 +107,10 @@ export default function PengaturanPage() {
                         <Bot className="h-4 w-4" />
                         AI &amp; LLM
                     </TabsTrigger>
+                    <TabsTrigger value="laporan-format" className="min-w-[140px] shrink-0 rounded-lg px-3 py-2 text-xs font-semibold">
+                        <FileText className="h-4 w-4" />
+                        Format Laporan
+                    </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="profil" className="pt-4">
@@ -101,6 +133,9 @@ export default function PengaturanPage() {
                 </TabsContent>
                 <TabsContent value="ai-provider" className="pt-4">
                     <TabAIProvider />
+                </TabsContent>
+                <TabsContent value="laporan-format" className="pt-4">
+                    <TabLaporanFormat initialSub={initialSub} />
                 </TabsContent>
             </Tabs>
         </div>

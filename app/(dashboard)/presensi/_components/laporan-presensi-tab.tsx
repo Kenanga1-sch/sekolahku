@@ -356,7 +356,7 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
 
   /**
    * Unduh Excel berbasis template. Sumber template berlapis:
-   *   1. default modul presensi (admin/laporan-format → tombol Default),
+   *   1. default modul presensi (Pengaturan → Format Laporan → tombol Default),
    *   2. bawaan public/templates/daftar-hadir-bulanan-v1.xlsx,
    *   3. CSV bila keduanya tak bisa diunduh.
    * Template berisi variabel {{...}}: skalar diganti info sekolah/kelas/

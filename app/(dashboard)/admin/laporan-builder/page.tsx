@@ -18,7 +18,7 @@ export default function LaporanBuilderRedirectPage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/admin/laporan-format");
+    router.replace("/pengaturan?tab=laporan-format");
   }, [router]);
 
   return (

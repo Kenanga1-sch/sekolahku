@@ -136,7 +136,6 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/konten-informasi": "Pusat Informasi",
   "/admin/halaman-depan": "Halaman Depan",
   "/admin/notifikasi": "Notifikasi",
-  "/admin/laporan-format": "Format Laporan",
   "/admin": "Administrasi",
   // Bank Soal
   "/bank-soal/soal/baru": "Buat Soal",
@@ -244,12 +243,6 @@ const navGroups: NavGroup[] = [
     label: "Komunikasi & Konten",
     items: [
       { href: "/admin/konten-informasi", label: "Pusat Informasi", icon: Megaphone, roles: ADMIN_ROLES },
-    ],
-  },
-  {
-    label: "Laporan",
-    items: [
-      { href: "/admin/laporan-format", label: "Format Laporan", icon: FileText, roles: ADMIN_ROLES },
     ],
   },
 ];

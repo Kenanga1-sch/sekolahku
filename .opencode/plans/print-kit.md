@@ -77,7 +77,7 @@ saat implementasi (opsional, jangan dipaksakan).
 
 `docs/cetak-format-baru.md` (bahasa Indonesia, langkah praktis):
 
-1. Buat record template (admin → laporan-format): module, kertas (A4/F4),
+1. Buat record template (Pengaturan → Format Laporan): module, kertas (A4/F4),
    orientasi.
 2. Desain .xlsx: token {{…}} yang dikenali, baris contoh untuk tabel ({{no}},
    {{nama}}, {{tgl_n}}), jangan set ukuran kertas sendiri (form admin +

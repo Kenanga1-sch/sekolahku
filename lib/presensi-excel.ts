@@ -11,7 +11,7 @@
  *   4. mengembalikan workbook siap unduh.
  *
  * Variabel yang dikenali — daftar lengkap & deskripsi ada di kamus:
- *   lib/config/report-variables.ts (tab Kamus Variabel di /admin/laporan-format).
+ *   lib/config/report-variables.ts (tab Kamus Variabel di /pengaturan?tab=laporan-format&sub=kamus).
  *   Skalar : {{sekolah_nama}} {{sekolah_alamat}} {{sekolah_telepon}}
  *            {{sekolah_npsn}} {{sekolah_email}} {{sekolah_website}}
  *            {{kepala_sekolah_nama}} {{kepala_sekolah_nip}}
