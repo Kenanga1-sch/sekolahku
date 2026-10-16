@@ -6,6 +6,9 @@ import {
     unclassifiedTotal,
     grandTotals,
     filterRows,
+    filterAssetRows,
+    hasActiveAssetFilter,
+    EMPTY_ASSET_REPORT_FILTER,
     renumber,
     formatIndonesianDate,
 } from "./report-data";
@@ -161,6 +164,53 @@ describe("report-data", () => {
         expect(filterRows(rows, "KUR-01").map((r) => r.id)).toEqual(["2"]);
         expect(filterRows(rows, "  ").map((r) => r.id)).toEqual(["1", "2"]);
         expect(filterRows(rows, "zzz")).toEqual([]);
+    });
+
+    it("membawa id ruangan ke baris laporan", () => {
+        const [row] = toAssetRows([asset({ expand: { room: { id: "r1", name: "Perpustakaan" } } })]);
+        expect(row.roomId).toBe("r1");
+        const [noRoom] = toAssetRows([asset({ expand: undefined })]);
+        expect(noRoom.roomId).toBeNull();
+    });
+});
+
+describe("filterAssetRows", () => {
+    const rows = () =>
+        toAssetRows([
+            asset({ id: "1", category: "Mebel", fiscalYear: 2024, expand: { room: { id: "r1", name: "Perpustakaan" } } }),
+            asset({ id: "2", category: "Elektronik", fiscalYear: 2024, expand: { room: { id: "r2", name: "Lab" } } }),
+            asset({ id: "3", category: "Mebel", fiscalYear: 2025, expand: { room: { id: "r1", name: "Perpustakaan" } } }),
+            asset({ id: "4", category: "Mebel", fiscalYear: null, expand: { room: { id: "r1", name: "Perpustakaan" } } }),
+            asset({ id: "5", category: "Mebel", fiscalYear: 2024, expand: undefined }),
+        ]);
+    const ids = (f: Parameters<typeof filterAssetRows>[1]) => filterAssetRows(rows(), f).map((r) => r.id);
+
+    it("tanpa filter mengembalikan semua", () => {
+        expect(ids(EMPTY_ASSET_REPORT_FILTER)).toEqual(["1", "2", "3", "4", "5"]);
+    });
+
+    it("menyaring menurut tahun anggaran; aset tanpa tahun disembunyikan", () => {
+        expect(ids({ ...EMPTY_ASSET_REPORT_FILTER, fiscalYear: 2024 })).toEqual(["1", "2", "5"]);
+        expect(ids({ ...EMPTY_ASSET_REPORT_FILTER, fiscalYear: 2025 })).toEqual(["3"]);
+    });
+
+    it("menyaring menurut kategori", () => {
+        expect(ids({ ...EMPTY_ASSET_REPORT_FILTER, category: "Elektronik" })).toEqual(["2"]);
+    });
+
+    it("menyaring menurut ruangan (id); aset tanpa ruangan disembunyikan", () => {
+        expect(ids({ ...EMPTY_ASSET_REPORT_FILTER, roomId: "r1" })).toEqual(["1", "3", "4"]);
+    });
+
+    it("menggabungkan ketiga filter", () => {
+        expect(ids({ fiscalYear: 2024, category: "Mebel", roomId: "r1" })).toEqual(["1"]);
+    });
+
+    it("mendeteksi filter aktif", () => {
+        expect(hasActiveAssetFilter(EMPTY_ASSET_REPORT_FILTER)).toBe(false);
+        expect(hasActiveAssetFilter({ ...EMPTY_ASSET_REPORT_FILTER, fiscalYear: 2024 })).toBe(true);
+        expect(hasActiveAssetFilter({ ...EMPTY_ASSET_REPORT_FILTER, category: "Mebel" })).toBe(true);
+        expect(hasActiveAssetFilter({ ...EMPTY_ASSET_REPORT_FILTER, roomId: "r1" })).toBe(true);
     });
 });
 

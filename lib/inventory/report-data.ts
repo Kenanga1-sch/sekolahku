@@ -44,6 +44,8 @@ export interface AssetRow {
     name: string;
     category: string;
     roomName: string;
+    /** Id ruangan (expand.room.id) untuk filter; null bila tanpa ruangan. */
+    roomId: string | null;
     quantity: number;
     good: number;
     lightDamaged: number;
@@ -100,6 +102,7 @@ export function toAssetRows(assets: InventoryAsset[]): AssetRow[] {
             name: a.name || "-",
             category: a.category || "-",
             roomName: a.expand?.room?.name || "Tanpa Ruangan",
+            roomId: a.expand?.room?.id ?? null,
             quantity,
             good,
             lightDamaged: light,
@@ -175,6 +178,52 @@ export function grandTotals(rows: AssetRow[]) {
         quantity: rows.reduce((s, r) => s + r.quantity, 0),
         value: rows.reduce((s, r) => s + r.value, 0),
     };
+}
+
+/**
+ * Filter laporan aset tetap: tahun anggaran, kategori, dan ruangan.
+ *
+ * Berbeda dengan `filterRows` (pencarian layar bebas), filter ini dipakai
+ * untuk MEMBATASI ISI LAPORAN — semua output (cetak, Excel, PDF, CSV)
+ * mengikuti hasilnya. Nilai "all"/kosong berarti tanpa batas.
+ * Aset tanpa tahun anggaran (`fiscalYear` null) disembunyikan saat filter
+ * tahun aktif, agar laporan "TA 2024" benar-benar murni TA tersebut.
+ */
+export interface AssetReportFilter {
+    fiscalYear?: number | "all";
+    category?: string;
+    roomId?: string;
+}
+
+/** Nilai filter kosong = tanpa batas (semua data). */
+export const EMPTY_ASSET_REPORT_FILTER: AssetReportFilter = {
+    fiscalYear: "all",
+    category: "all",
+    roomId: "all",
+};
+
+/** True bila ada setidaknya satu filter aktif. */
+export function hasActiveAssetFilter(f: AssetReportFilter): boolean {
+    return (
+        (f.fiscalYear !== undefined && f.fiscalYear !== "all") ||
+        (f.category !== undefined && f.category !== "all" && f.category !== "") ||
+        (f.roomId !== undefined && f.roomId !== "all" && f.roomId !== "")
+    );
+}
+
+export function filterAssetRows(rows: AssetRow[], f: AssetReportFilter): AssetRow[] {
+    return rows.filter((r) => {
+        if (f.fiscalYear !== undefined && f.fiscalYear !== "all" && r.fiscalYear !== f.fiscalYear) {
+            return false;
+        }
+        if (f.category !== undefined && f.category !== "all" && f.category !== "" && r.category !== f.category) {
+            return false;
+        }
+        if (f.roomId !== undefined && f.roomId !== "all" && f.roomId !== "" && r.roomId !== f.roomId) {
+            return false;
+        }
+        return true;
+    });
 }
 
 /**

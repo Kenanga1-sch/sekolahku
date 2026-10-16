@@ -8,14 +8,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { KopSurat } from "@/components/reports/kop-surat";
 import { goGet } from "@/lib/api-client";
-import { getAllAssets } from "@/lib/inventory";
+import { getAllAssets, getAllRooms, getCategories } from "@/lib/inventory";
 import {
     conditionTotals,
+    filterAssetRows,
     filterRows,
     grandTotals,
     groupByRoom,
+    hasActiveAssetFilter,
     renumber,
     toAssetRows,
     unclassifiedTotal,
@@ -24,7 +33,7 @@ import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { renderTemplatePdf, renderModuleReport, downloadBlob } from "@/lib/report-template-runner";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
-import type { InventoryAsset, InventoryOpname, InventoryStats } from "@/types/inventory";
+import type { InventoryAsset, InventoryCategory, InventoryOpname, InventoryRoom, InventoryStats } from "@/types/inventory";
 
 const today = () =>
     new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
@@ -76,8 +85,16 @@ export default function LaporanPage() {
     const [selectedOpname, setSelectedOpname] = useState<string>("");
     const [exportingPdf, setExportingPdf] = useState(false);
     const [exportingAsetPdf, setExportingAsetPdf] = useState(false);
-    // Pencarian hanya untuk layar; hasil cetak tetap memuat seluruh data.
+    // Pencarian hanya untuk layar; hasil cetak/ekspor mengikuti filter
+    // laporan (tahun/kategori/ruangan), bukan pencarian.
     const [query, setQuery] = useState("");
+    // Filter isi laporan (berlaku ke cetak, Excel, PDF, CSV): tahun anggaran,
+    // kategori, dan ruangan. "all" berarti tanpa batas.
+    const [filterYear, setFilterYear] = useState<string>("all");
+    const [filterCategory, setFilterCategory] = useState<string>("all");
+    const [filterRoom, setFilterRoom] = useState<string>("all");
+    const [rooms, setRooms] = useState<InventoryRoom[]>([]);
+    const [categories, setCategories] = useState<string[]>([]);
 
     async function loadData() {
         setLoading(true);
@@ -98,6 +115,15 @@ export default function LaporanPage() {
             const list: InventoryOpname[] = resOp?.items || [];
             setOpnames(list);
             setSelectedOpname((prev) => prev || (list[0]?.id ?? ""));
+
+            // Opsi filter laporan: seluruh ruangan + kategori aset terkelola.
+            // Gagal memuat bukan fatal — dropdown tetap berfungsi dengan opsi
+            // "Semua" (kategori jatuh kembali ke nilai yang ada di data).
+            try {
+                setRooms(await getAllRooms());
+            } catch {
+                /* abaikan */
+            }
         } catch (error) {
             console.error("Gagal memuat data laporan:", error);
         } finally {
@@ -109,7 +135,78 @@ export default function LaporanPage() {
         loadData();
     }, []);
 
-    const rows = useMemo(() => toAssetRows(assets), [assets]);
+    useEffect(() => {
+        getCategories("ASSET")
+            .then((cats: InventoryCategory[]) => {
+                const names = cats.map((c) => c.name).filter(Boolean);
+                if (names.length > 0) setCategories(names);
+            })
+            .catch(() => { /* fallback: dari data */ });
+    }, []);
+
+    // Opsi tahun anggaran dari data aktual (urut menurun) + kategori cadangan
+    // dari data bila kategori terkelola gagal dimuat.
+    const yearOptions = useMemo(() => {
+        const set = new Set<number>();
+        for (const a of assets) if (a.fiscalYear != null) set.add(a.fiscalYear);
+        return Array.from(set).sort((a, b) => b - a);
+    }, [assets]);
+    const categoryOptions = useMemo(() => {
+        if (categories.length > 0) return categories;
+        const set = new Set<string>();
+        for (const a of assets) if (a.category) set.add(a.category);
+        return Array.from(set).sort((a, b) => a.localeCompare(b, "id"));
+    }, [categories, assets]);
+
+    // Filter MEMBATASI ISI LAPORAN: semua output (cetak, Excel, PDF, CSV)
+    // memakai rows terfilter. Pencarian layar (query) dilapiskan di atasnya
+    // khusus tampilan.
+    const reportFilter = useMemo(
+        () => ({
+            fiscalYear: filterYear === "all" ? ("all" as const) : Number(filterYear),
+            category: filterCategory,
+            roomId: filterRoom,
+        }),
+        [filterYear, filterCategory, filterRoom]
+    );
+    const filterActive = useMemo(() => hasActiveAssetFilter(reportFilter), [reportFilter]);
+    const rows = useMemo(() => filterAssetRows(toAssetRows(assets), reportFilter), [assets, reportFilter]);
+    // Aset tanpa tahun anggaran yang tersembunyi saat filter tahun aktif.
+    const hiddenNoYear = useMemo(
+        () =>
+            filterYear !== "all"
+                ? toAssetRows(assets).filter(
+                      (r) =>
+                          r.fiscalYear == null &&
+                          (filterCategory === "all" || r.category === filterCategory) &&
+                          (filterRoom === "all" || r.roomId === filterRoom)
+                  ).length
+                : 0,
+        [assets, filterYear, filterCategory, filterRoom]
+    );
+    // Label filter untuk subjudul cetak + nama berkas unduhan.
+    const filterLabels = useMemo(() => {
+        const parts: string[] = [];
+        if (filterYear !== "all") parts.push(`TA ${filterYear}`);
+        if (filterCategory !== "all") parts.push(filterCategory);
+        if (filterRoom !== "all") parts.push(rooms.find((r) => r.id === filterRoom)?.name || "");
+        return parts.filter(Boolean);
+    }, [filterYear, filterCategory, filterRoom, rooms]);
+    const reportSubtitle = useMemo(
+        () => `Posisi per ${today()}${filterLabels.length > 0 ? ` — ${filterLabels.join(" · ")}` : ""}`,
+        [filterLabels]
+    );
+    const fileSuffix = useMemo(
+        () => (filterLabels.length > 0 ? ` ${filterLabels.join(" ")}` : ""),
+        [filterLabels]
+    );
+
+    function resetReportFilter() {
+        setFilterYear("all");
+        setFilterCategory("all");
+        setFilterRoom("all");
+        setQuery("");
+    }
 
     // Pencarian hanya memengaruhi tampilan layar. Yang dicetak tetap seluruh
     // data, karena laporan fisik harus lengkap.
@@ -152,7 +249,7 @@ export default function LaporanPage() {
                 kepalaSekolahNip: settings?.principal_nip,
                 pengurusInventarisNama: DEFAULT_PENGURUS_INVENTARIS_NAMA,
                 pengurusInventarisNip: DEFAULT_PENGURUS_INVENTARIS_NIP,
-                periode: `Posisi per ${today()}`,
+                periode: reportSubtitle,
                 tanggalCetak: today(),
                 tempatTtd: signPlace,
                 totalUnit: totals.quantity,
@@ -246,7 +343,7 @@ export default function LaporanPage() {
             );
         });
         const blob = new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
-        downloadAs(blob, "Laporan Aset Tetap.csv");
+        downloadAs(blob, `Laporan Aset Tetap${fileSuffix}.csv`);
     }
 
     /** Ekspor laporan Aset Tetap sebagai PDF (xlsx → LibreOffice headless). */
@@ -257,8 +354,8 @@ export default function LaporanPage() {
             const { blob, unknown } = await buildInventoryBlob();
             const { convertXlsxToPdf } = await import("@/lib/print-kit");
             const buf = await blob.arrayBuffer();
-            const { blob: pdf } = await convertXlsxToPdf([buf], "Laporan Aset Tetap");
-            downloadBlob(pdf, "Laporan Aset Tetap");
+            const { blob: pdf } = await convertXlsxToPdf([buf], `Laporan Aset Tetap${fileSuffix}`);
+            downloadBlob(pdf, `Laporan Aset Tetap${fileSuffix}`);
             toast.success("PDF berhasil diunduh", {
                 id: toastId,
                 description: unknown.length > 0 ? `Variabel tak dikenal dibiarkan: ${unknown.join(", ")}` : undefined,
@@ -278,7 +375,7 @@ export default function LaporanPage() {
         const toastId = toast.loading("Menyiapkan berkas Excel laporan aset…");
         try {
             const { blob, unknown } = await buildInventoryBlob();
-            downloadAs(blob, "Laporan Aset Tetap.xlsx");
+            downloadAs(blob, `Laporan Aset Tetap${fileSuffix}.xlsx`);
             toast.success("Excel berhasil diunduh", {
                 id: toastId,
                 description: unknown.length > 0 ? `Variabel tak dikenal dibiarkan: ${unknown.join(", ")}` : undefined,
@@ -509,7 +606,64 @@ export default function LaporanPage() {
 
                     {/* ================= ASET TETAP ================= */}
                     <TabsContent value="aset" className="space-y-4">
-                        <Kop title="LAPORAN ASET TETAP" subtitle={`Posisi per ${today()}`} />
+                        <Kop title="LAPORAN ASET TETAP" subtitle={reportSubtitle} />
+
+                        {/* Filter isi laporan: berlaku ke cetak, Excel, PDF, CSV. */}
+                        <div className="flex flex-wrap items-end gap-2 print:hidden">
+                            <div className="grid gap-1">
+                                <Label className="text-xs">Tahun Anggaran</Label>
+                                <Select value={filterYear} onValueChange={setFilterYear}>
+                                    <SelectTrigger className="w-full sm:w-[170px]" aria-label="Tahun anggaran">
+                                        <SelectValue placeholder="Semua tahun" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Semua tahun</SelectItem>
+                                        {yearOptions.map((y) => (
+                                            <SelectItem key={y} value={String(y)}>TA {y}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="grid gap-1">
+                                <Label className="text-xs">Kategori</Label>
+                                <Select value={filterCategory} onValueChange={setFilterCategory}>
+                                    <SelectTrigger className="w-full sm:w-[190px]" aria-label="Kategori aset">
+                                        <SelectValue placeholder="Semua kategori" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Semua kategori</SelectItem>
+                                        {categoryOptions.map((c) => (
+                                            <SelectItem key={c} value={c}>{c}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="grid gap-1">
+                                <Label className="text-xs">Ruangan</Label>
+                                <Select value={filterRoom} onValueChange={setFilterRoom}>
+                                    <SelectTrigger className="w-full sm:w-[190px]" aria-label="Ruangan">
+                                        <SelectValue placeholder="Semua ruangan" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Semua ruangan</SelectItem>
+                                        {rooms.map((r) => (
+                                            <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            {filterActive ? (
+                                <Button variant="ghost" size="sm" onClick={resetReportFilter}>
+                                    Reset filter
+                                </Button>
+                            ) : null}
+                        </div>
+                        {filterActive ? (
+                            <p className="text-xs text-muted-foreground">
+                                Laporan dibatasi: {filterLabels.join(" · ")} — {rows.length} dari {assets.length} jenis aset.
+                                {hiddenNoYear > 0 ? ` ${hiddenNoYear} aset tanpa tahun anggaran tidak ditampilkan.` : ""}
+                            </p>
+                        ) : null}
 
                         <div className="flex flex-wrap justify-end gap-2 print:hidden">
                             <Button
@@ -533,7 +687,7 @@ export default function LaporanPage() {
                             <Card>
                                 <CardContent className="p-4">
                                     <p className="text-xs text-muted-foreground">Jenis Aset</p>
-                                    <p className="text-2xl font-bold">{assets.length}</p>
+                                    <p className="text-2xl font-bold">{rows.length}</p>
                                 </CardContent>
                             </Card>
                             <Card>
@@ -558,7 +712,7 @@ export default function LaporanPage() {
 
                         <div className="hidden print:block summary-grid">
                             <div className="summary-item">
-                                <div className="summary-value">{assets.length}</div>
+                                <div className="summary-value">{rows.length}</div>
                                 <div className="summary-label">Jenis Aset</div>
                             </div>
                             <div className="summary-item">
@@ -577,8 +731,10 @@ export default function LaporanPage() {
 
                         {/* Bila ringkasan server berbeda dari hasil hitung daftar,
                             tampilkan di layar supaya ketidakkonsistenan tidak
-                            luput — misalnya aset aktif yang tak ikut terdaftar. */}
-                        {stats && stats.totalAssets !== rows.length ? (
+                            luput — misalnya aset aktif yang tak ikut terdaftar.
+                            Disembunyikan saat filter aktif karena selisihnya
+                            memang disengaja. */}
+                        {!filterActive && stats && stats.totalAssets !== rows.length ? (
                             <p className="print:hidden text-xs text-amber-700">
                                 Catatan: server melaporkan {stats.totalAssets} aset, sedangkan daftar
                                 memuat {rows.length}. Periksa data yang belum lengkap.
@@ -627,8 +783,8 @@ export default function LaporanPage() {
                             </table>
                         </div>
 
-                        {/* Pencarian — layar saja. Tombol ini ikut tersembunyi
-                            saat cetak, dan hasil cetak tetap memuat semua data. */}
+                        {/* Pencarian — layar saja. Hasil cetak/ekspor mengikuti
+                            filter laporan, bukan pencarian. */}
                         <div className="flex flex-wrap items-center gap-2 print:hidden">
                             <Input
                                 value={query}
