@@ -17,7 +17,7 @@ pilih kertas (A4/F4) dan orientasi. Record ini yang dibaca
 ### 2. Desain .xlsx (template)
 
 - Isi variabel `{{...}}` yang dikenali. Daftar lengkap & deskripsi per modul:
-  halaman admin **Kamus Variabel** (`/admin/kamus-variabel`), sumber kode di
+  tab **Kamus Variabel** di halaman admin Format Laporan (`/admin/laporan-format?tab=kamus`), sumber kode di
   `lib/config/report-variables.ts` (satu-satunya sistem kamus; katalog Report
   Builder lama sudah dibongkar 2026-10-16).
 - Untuk tabel berbaris: sediakan SATU baris contoh berisi variabel baris

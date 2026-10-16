@@ -37,7 +37,6 @@ import {
   Backpack,
   Printer,
   Cloud,
-  Braces,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
@@ -138,7 +137,6 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/halaman-depan": "Halaman Depan",
   "/admin/notifikasi": "Notifikasi",
   "/admin/laporan-format": "Format Laporan",
-  "/admin/kamus-variabel": "Kamus Variabel",
   "/admin": "Administrasi",
   // Bank Soal
   "/bank-soal/soal/baru": "Buat Soal",
@@ -252,7 +250,6 @@ const navGroups: NavGroup[] = [
     label: "Laporan",
     items: [
       { href: "/admin/laporan-format", label: "Format Laporan", icon: FileText, roles: ADMIN_ROLES },
-      { href: "/admin/kamus-variabel", label: "Kamus Variabel", icon: Braces, roles: ADMIN_ROLES },
     ],
   },
 ];

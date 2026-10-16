@@ -15,6 +15,8 @@ import {
   Upload,
   Download,
   FileSpreadsheet,
+  BookOpen,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,7 +36,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { goGet, goPost, goPut, goDelete } from "@/lib/api-client";
-import { FILL_VARIABLE_MODULES, getFillVariableModule } from "@/lib/config/report-variables";
+import {
+  FILL_VARIABLE_MODULES,
+  getFillVariableModule,
+  type FillVariable,
+} from "@/lib/config/report-variables";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface TemplateRow {
   id: number | string;
@@ -68,6 +76,7 @@ export default function LaporanFormatPage() {
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"format" | "kamus">("format");
 
   const [form, setForm] = useState({
     name: "",
@@ -97,6 +106,27 @@ export default function LaporanFormatPage() {
   useEffect(() => {
     void load();
   }, []);
+
+  useEffect(() => {
+    try {
+      const tab = new URLSearchParams(window.location.search).get("tab");
+      if (tab === "kamus") setActiveTab("kamus");
+    } catch {
+      /* abaikan */
+    }
+  }, []);
+
+  const handleTabChange = (v: "format" | "kamus") => {
+    setActiveTab(v);
+    try {
+      const url = new URL(window.location.href);
+      if (v === "kamus") url.searchParams.set("tab", "kamus");
+      else url.searchParams.delete("tab");
+      window.history.replaceState(null, "", url.toString());
+    } catch {
+      /* abaikan */
+    }
+  };
 
   const grouped = useMemo(() => {
     const map = new Map<string, TemplateRow[]>();
@@ -307,7 +337,7 @@ export default function LaporanFormatPage() {
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Kelola format laporan per modul: template file (.xlsx rekap / .docx naratif)
-            diunggah–diunduh di sini; template grid lama dibuka di Studio Format.
+            diunggah–diunduh di sini; token {"{{...}}"} untuk template ada di tab Kamus Variabel.
           </p>
         </div>
         <Button className="gap-1.5" onClick={() => setCreateOpen(true)}>
@@ -315,6 +345,16 @@ export default function LaporanFormatPage() {
         </Button>
       </div>
 
+      <Tabs value={activeTab} onValueChange={(v) => handleTabChange(v as "format" | "kamus")}>
+        <TabsList>
+          <TabsTrigger value="format" className="gap-1.5">
+            <FileText className="h-3.5 w-3.5" /> Daftar Format
+          </TabsTrigger>
+          <TabsTrigger value="kamus" className="gap-1.5">
+            <BookOpen className="h-3.5 w-3.5" /> Kamus Variabel
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="format">
       {loading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
           <Loader2 className="h-6 w-6 animate-spin" />
@@ -450,6 +490,11 @@ export default function LaporanFormatPage() {
           ))}
         </div>
       )}
+        </TabsContent>
+        <TabsContent value="kamus">
+          <KamusVariabelPanel />
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-md">
@@ -607,6 +652,162 @@ export default function LaporanFormatPage() {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/** Entri token kamus variabel ({{...}}) siap salin. */
+interface KamusEntry {
+  token: string;
+  label: string;
+  hint: string;
+  status?: "siap" | "rencana";
+}
+
+const KAMUS_TABS = FILL_VARIABLE_MODULES.map((m) => ({ key: m.module, label: m.label }));
+
+function kamusEntries(module: string): KamusEntry[] {
+  const mod = FILL_VARIABLE_MODULES.find((m) => m.module === module);
+  if (!mod) return [];
+  const out: KamusEntry[] = [];
+  for (const g of mod.groups) {
+    for (const v of g.variables as FillVariable[]) {
+      out.push({
+        token: v.name === "=..." ? "=SUM(...)" : `{{${v.name}}}`,
+        label: `${g.label} · ${v.label}`,
+        hint: v.description,
+        status: v.status,
+      });
+    }
+  }
+  return out;
+}
+
+function KamusEntryRow({ e }: { e: KamusEntry }) {
+  const copy = () => {
+    navigator.clipboard.writeText(e.token).then(
+      () => toast.success(`Disalin: ${e.token}`),
+      () => toast.error("Gagal menyalin")
+    );
+  };
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      className="flex w-full items-start gap-3 rounded-md border px-3 py-2 text-left transition-colors hover:bg-muted/50"
+    >
+      <code className="mt-0.5 shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+        {e.token}
+      </code>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium">{e.label}</span>
+        <span className="block text-xs text-muted-foreground">{e.hint}</span>
+      </span>
+      <span className="mt-0.5 flex shrink-0 items-center gap-1">
+        <Badge variant={e.status === "rencana" ? "outline" : "secondary"} className="text-[10px]">
+          {e.status === "rencana" ? "Rencana" : "Siap"}
+        </Badge>
+        <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+      </span>
+    </button>
+  );
+}
+
+function KamusVariabelPanel() {
+  const [query, setQuery] = useState("");
+  const searching = query.trim().length > 0;
+  const q = query.trim().toLowerCase();
+  const searchResults = useMemo(() => {
+    if (!searching) return [];
+    const out: { module: string; moduleLabel: string; entries: KamusEntry[] }[] = [];
+    for (const t of KAMUS_TABS) {
+      const entries = kamusEntries(t.key).filter(
+        (e) =>
+          e.token.toLowerCase().includes(q) ||
+          e.label.toLowerCase().includes(q) ||
+          e.hint.toLowerCase().includes(q)
+      );
+      if (entries.length === 0) continue;
+      out.push({ module: t.key, moduleLabel: t.label, entries });
+    }
+    return out;
+  }, [q, searching]);
+  return (
+    <div className="space-y-4 rounded-xl border bg-card p-4">
+      <div className="flex items-center gap-2">
+        <BookOpen className="h-4 w-4 text-primary" />
+        <p className="text-sm text-muted-foreground">
+          Daftar token yang bisa dipakai di template. Klik untuk menyalin.
+        </p>
+      </div>
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Cari variabel..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+      {searching ? (
+        <div className="space-y-4">
+          {searchResults.length === 0 && (
+            <p className="text-sm text-muted-foreground">Tidak ada variabel yang cocok.</p>
+          )}
+          {searchResults.map((r) => (
+            <Card key={r.module}>
+              <CardContent className="space-y-2 pt-4">
+                <h2 className="text-sm font-semibold">{r.moduleLabel}</h2>
+                <div className="grid gap-2 md:grid-cols-2">
+                  {r.entries.map((e) => (
+                    <KamusEntryRow key={`${r.module}-${e.token}`} e={e} />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Tabs defaultValue={KAMUS_TABS[0]?.key}>
+          <TabsList className="h-auto flex-wrap">
+            {KAMUS_TABS.map((t) => (
+              <TabsTrigger key={t.key} value={t.key} className="text-xs">
+                {t.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          {KAMUS_TABS.map((t) => {
+            const entries = kamusEntries(t.key);
+            return (
+              <TabsContent key={t.key} value={t.key} className="space-y-4">
+                <Card>
+                  <CardContent className="space-y-2 pt-4">
+                    <h2 className="text-sm font-semibold">
+                      Template Excel &amp; Surat{" "}
+                      <span className="font-normal text-muted-foreground">(substitusi {"{{...}}"})</span>
+                    </h2>
+                    {entries.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        Belum ada variabel terdaftar untuk modul ini.
+                      </p>
+                    ) : (
+                      <div className="grid gap-2 md:grid-cols-2">
+                        {entries.map((e) => (
+                          <KamusEntryRow key={e.token} e={e} />
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            );
+          })}
+        </Tabs>
+      )}
+      <p className="text-xs text-muted-foreground">
+        Template memakai sintaks {"{{nama}}"} (mis. {"{{sekolah_nama}}"}, {"{{nama}}"}). Variabel
+        berstatus &quot;Rencana&quot; belum dieksekusi — hanya referensi untuk format baru.
+      </p>
     </div>
   );
 }

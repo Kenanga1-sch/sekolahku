@@ -13,7 +13,7 @@
  *   5. mengembalikan workbook siap unduh (PDF menyusul via LibreOffice).
  *
  * Daftar variabel lengkap & deskripsi ada di kamus:
- *   lib/config/report-variables.ts (halaman admin /admin/kamus-variabel),
+ *   lib/config/report-variables.ts (tab Kamus Variabel di /admin/laporan-format),
  *   modul "inventaris". Nama di sini HARUS sama dengan nama di kamus —
  *   INVENTARIS_KNOWN_VARIABLES dipakai untuk deteksi variabel tak dikenal.
  */

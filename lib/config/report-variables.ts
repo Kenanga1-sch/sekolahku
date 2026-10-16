@@ -2,7 +2,7 @@
  * Kamus variabel template laporan — satu sumber untuk:
  *   - `unknownVariables` (presensi-excel.ts) agar daftar variabel tak
  *     dikenal selalu sinkron,
- *   - halaman admin `/admin/kamus-variabel` (tab per modul).
+ *   - tab Kamus Variabel di halaman admin `/admin/laporan-format`.
  *
  * Modul dengan status "siap" benar-benar mengeksekusi variabel saat fill
  * (presensi via scalarMap, surat via LETTER_VARIABLES). Status "rencana"
