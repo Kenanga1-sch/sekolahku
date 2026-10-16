@@ -137,7 +137,6 @@ const PAGE_TITLES: Record<string, string> = {
   "/admin/konten-informasi": "Pusat Informasi",
   "/admin/halaman-depan": "Halaman Depan",
   "/admin/notifikasi": "Notifikasi",
-  "/admin/laporan-builder": "Laporan Builder",
   "/admin/laporan-format": "Format Laporan",
   "/admin/kamus-variabel": "Kamus Variabel",
   "/admin": "Administrasi",

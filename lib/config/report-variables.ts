@@ -382,6 +382,12 @@ const RENCANA: FillVariableModule[] = [
 
 export const FILL_VARIABLE_MODULES: FillVariableModule[] = [PRESENSI, SURAT, INVENTARIS, INVENTARIS_ATK, TABUNGAN, ...RENCANA];
 
+/** Modul fill berdasarkan kode modul (undefined bila tak ada). */
+export function getFillVariableModule(module: string | undefined): FillVariableModule | undefined {
+  if (!module) return undefined;
+  return FILL_VARIABLE_MODULES.find((m) => m.module === module);
+}
+
 /**
  * Nama variabel presensi yang dikenali `unknownVariables` —
  * satu sumber dengan kamus, agar tidak ada daftar hardcode terpisah.

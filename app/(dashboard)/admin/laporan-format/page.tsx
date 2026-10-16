@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   FileText,
@@ -35,8 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { goGet, goPost, goPut, goDelete } from "@/lib/api-client";
-import { REPORT_VARIABLE_MODULES, getVariableModule } from "@/lib/report-variables";
-import type { ReportVariableGroup } from "@/lib/report-variables";
+import { FILL_VARIABLE_MODULES, getFillVariableModule } from "@/lib/config/report-variables";
 
 interface TemplateRow {
   id: number | string;
@@ -63,10 +61,9 @@ const kindBadge = (t: TemplateRow) => {
 };
 
 /** Modul yang bisa dipilih saat membuat format (di luar "umum"). */
-const SELECTABLE_MODULES = REPORT_VARIABLE_MODULES;
+const SELECTABLE_MODULES = FILL_VARIABLE_MODULES;
 
 export default function LaporanFormatPage() {
-  const router = useRouter();
   const [templates, setTemplates] = useState<TemplateRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
@@ -110,13 +107,13 @@ export default function LaporanFormatPage() {
       map.set(key, arr);
     }
     // Urutkan mengikuti urutan katalog modul, lalu sisa modul tak dikenal.
-    const known = REPORT_VARIABLE_MODULES.map((m) => m.module);
+    const known = FILL_VARIABLE_MODULES.map((m) => m.module);
     return Array.from(map.entries()).sort(
       (a, b) => known.indexOf(a[0]) - known.indexOf(b[0]),
     );
   }, [templates]);
 
-  const moduleLabel = (module: string) => getVariableModule(module).label;
+  const moduleLabel = (module: string) => getFillVariableModule(module)?.label ?? module;
 
   /** Buat slot template file (.xlsx/.docx) — berkas diunggah setelahnya via tombol Upload. */
   const handleCreate = async () => {
@@ -195,15 +192,6 @@ export default function LaporanFormatPage() {
     } catch {
       toast.error("Gagal memperbarui format");
     }
-  };
-
-  const handleOpen = (t: TemplateRow) => {
-    // Studio hanya untuk template grid lama; file-based dikelola via upload/unduh.
-    if (isFileBased(t)) {
-      handleDownloadTemplate(t);
-      return;
-    }
-    router.push(`/admin/laporan-builder?id=${t.id}`);
   };
 
   const handleDuplicate = async (t: TemplateRow) => {
@@ -425,9 +413,9 @@ export default function LaporanFormatPage() {
                         />
                       </label>
                       {isFileBased(t) ? null : (
-                        <Button variant="outline" size="sm" className="h-7 gap-1 text-[11px]" onClick={() => handleOpen(t)}>
-                          <Pencil className="h-3.5 w-3.5" /> Buka
-                        </Button>
+                        <span className="text-[10px] text-amber-700">
+                          Format lama (grid) tak lagi didukung — unggah file .xlsx/.docx
+                        </span>
                       )}
                       <Button variant="outline" size="sm" className="h-7 gap-1 text-[11px]" title="Pengaturan (ukuran kertas, orientasi, nama)" onClick={() => handleOpenEdit(t)}>
                         <Pencil className="h-3.5 w-3.5" /> Edit
@@ -625,23 +613,27 @@ export default function LaporanFormatPage() {
 
 /** Pratinjau variabel yang tersedia untuk sebuah modul. */
 function VariablePreview({ module }: { module: string }) {
-  const def = getVariableModule(module);
+  const def = getFillVariableModule(module);
+  if (!def) {
+    return (
+      <div className="border-b bg-muted/30 px-4 py-3 text-[11px] text-muted-foreground">
+        Belum ada variabel terdaftar untuk modul ini.
+      </div>
+    );
+  }
   return (
     <div className="space-y-2 border-b bg-muted/30 px-4 py-3">
-      {def.groups.map((g: ReportVariableGroup) => (
-        <div key={`${g.scope}-${g.label}`}>
+      {def.groups.map((g) => (
+        <div key={g.label}>
           <div className="mb-1 text-[10px] font-semibold uppercase text-muted-foreground">
-            {g.label} {g.scope === "rekap" ? "· rekap" : "· baris"}
+            {g.label}
           </div>
           <div className="flex flex-wrap gap-1">
-            {g.fields.map((f) => {
-              const token = g.scope === "row" ? `{${f.token}}` : `{{${f.token}}}`;
-              return (
-                <Badge key={f.token} variant="outline" className="font-mono text-[10px]">
-                  {token}
-                </Badge>
-              );
-            })}
+            {g.variables.map((v) => (
+              <Badge key={v.name} variant="outline" className="font-mono text-[10px]">
+                {v.name === "=..." ? "=SUM(...)" : `{{${v.name}}}`}
+              </Badge>
+            ))}
           </div>
         </div>
       ))}
