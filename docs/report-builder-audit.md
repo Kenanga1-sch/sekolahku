@@ -1,4 +1,10 @@
-# Audit Modul Report Builder ("Studio Format Laporan")
+# [ARSIP — HISTORIS] Audit Modul Report Builder ("Studio Format Laporan")
+
+> **Status 2026-10-16: Modul ini SUDAH DIBONGKAR (commit 3bd9f0b).**
+> Editor grid, mesin lib, runner, dan katalog builder dihapus dari repo.
+> Satu-satunya metode pembuatan laporan kini template file .xlsx/.docx
+> (Admin → Format Laporan). Dokumen ini dipertahankan sebagai arsip keputusan,
+> bukan panduan aktif.
 
 Tanggal audit: 2026-10-01
 Repo: `/home/chitchat/sekolahku`
