@@ -138,6 +138,36 @@ export const REPORT_VARIABLE_MODULES: ReportVariableModule[] = [
     ],
   },
   {
+    module: "inventaris-atk",
+    label: "Inventaris — Stok Habis Pakai",
+    groups: [
+      {
+        label: "Baris Barang (ATK)",
+        scope: "row",
+        dataset: "data",
+        fields: [
+          row("data", "code", "Kode Barang"),
+          row("data", "name", "Nama Barang"),
+          row("data", "category", "Kategori"),
+          row("data", "unit", "Satuan"),
+          row("data", "currentStock", "Stok Saat Ini"),
+          row("data", "minStock", "Stok Minimum"),
+          row("data", "price", "Harga Satuan"),
+          row("data", "nilai", "Nilai Persediaan"),
+        ],
+      },
+      {
+        label: "Ringkasan Stok",
+        scope: "rekap",
+        fields: [
+          rekap("laporan.periode", "Periode Laporan", "Diisi pemanggil saat cetak"),
+          rekap("laporan.total_jenis", "Total Jenis Barang"),
+          rekap("laporan.total_nilai", "Total Nilai Persediaan"),
+        ],
+      },
+    ],
+  },
+  {
     module: "tabungan",
     label: "Tabungan",
     reportCode: "RPT_TABUNGAN_REKAP",

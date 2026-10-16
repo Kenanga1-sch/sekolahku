@@ -30,7 +30,7 @@ import {
     unclassifiedTotal,
 } from "@/lib/inventory/report-data";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
-import { renderTemplatePdf, renderModuleReport, downloadBlob } from "@/lib/report-template-runner";
+import { downloadPdf } from "@/lib/print-kit";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 import type { InventoryAsset, InventoryCategory, InventoryOpname, InventoryRoom, InventoryStats } from "@/types/inventory";
@@ -52,9 +52,9 @@ const DEFAULT_PENGURUS_INVENTARIS_NIP = "199903092025211053";
 /**
  * Unduh Blob dengan nama berkas apa adanya (ekstensi dipertahankan).
  *
- * `downloadBlob` dari report-template-runner selalu memaksa akhiran ".pdf",
- * sehingga mengunduh Excel/CSV lewatnya menghasilkan "….xlsx.pdf". Helper ini
- * dipakai untuk berkas non-PDF.
+ * Helper `downloadPdf` (print-kit) memaksa akhiran ".pdf", sehingga mengunduh
+ * Excel/CSV lewatnya menghasilkan "....xlsx.pdf". Helper ini dipakai untuk
+ * berkas non-PDF.
  */
 function downloadAs(blob: Blob, fileName: string): void {
     const url = URL.createObjectURL(blob);
@@ -355,7 +355,7 @@ export default function LaporanPage() {
             const { convertXlsxToPdf } = await import("@/lib/print-kit");
             const buf = await blob.arrayBuffer();
             const { blob: pdf } = await convertXlsxToPdf([buf], `Laporan Aset Tetap${fileSuffix}`);
-            downloadBlob(pdf, `Laporan Aset Tetap${fileSuffix}`);
+            downloadPdf({ blob: pdf, filename: `Laporan Aset Tetap${fileSuffix}.pdf` }, `Laporan Aset Tetap${fileSuffix}`);
             toast.success("PDF berhasil diunduh", {
                 id: toastId,
                 description: unknown.length > 0 ? `Variabel tak dikenal dibiarkan: ${unknown.join(", ")}` : undefined,
@@ -390,50 +390,157 @@ export default function LaporanPage() {
     }
 
     /**
-     * Ekspor stok habis pakai memakai format dari Studio Format Laporan.
-     * Prioritas: format default modul Inventaris (dapat diatur admin di halaman
-     * "Laporan & Format"), lalu template berkode RPT_INVENTARIS_HABIS_PAKAI.
-     * Bila keduanya tak ada / gagal, jatuh kembali ke cetak HTML (window.print).
+     * Bangun baris + skalar untuk mengisi template Inventaris ATK (.xlsx) yang
+     * diunggah admin via Admin → Format Laporan (modul "inventaris-atk").
+     * Nama variabel HARUS sama dengan kamus (lib/config/report-variables.ts).
      */
+    function buildAtkTemplateInput(paperSize?: string, orientation?: string) {
+        const signPlace = (settings?.school_address || "")
+            .match(/Kab\.\s*([^,]+)/)?.[1]
+            ?.trim() ||
+            (settings?.school_address || "").match(/Kota\s+([^,]+)/)?.[1]?.trim() ||
+            "";
+        const rows = atkItems.map((i) => ({
+            code: i.code || "-",
+            name: i.name || "-",
+            category: i.category || "-",
+            unit: i.unit || "-",
+            currentStock: i.currentStock ?? 0,
+            minStock: i.minStock ?? 0,
+            price: i.price ?? 0,
+            nilai: (i.currentStock || 0) * (i.price || 0),
+        }));
+        return {
+            rows,
+            paperSize,
+            orientation,
+            scalars: {
+                sekolahNama: settings?.school_name,
+                sekolahAlamat: settings?.school_address,
+                sekolahTelepon: settings?.school_phone,
+                sekolahNpsn: settings?.school_npsn,
+                sekolahEmail: settings?.school_email,
+                sekolahWebsite: settings?.school_website,
+                kepalaSekolahNama: settings?.principal_name,
+                kepalaSekolahNip: settings?.principal_nip,
+                pengurusInventarisNama: DEFAULT_PENGURUS_INVENTARIS_NAMA,
+                pengurusInventarisNip: DEFAULT_PENGURUS_INVENTARIS_NIP,
+                periode: `Posisi per ${today()}`,
+                tanggalCetak: today(),
+                tempatTtd: signPlace,
+                totalJenis: atkItems.length,
+                totalNilai: totalAtkValue,
+            },
+        };
+    }
+
+    /**
+     * Isi template Inventaris ATK (.xlsx) yang diunggah admin dan kembalikan
+     * Blob Excel siap unduh — pola sama dengan ekspor aset tetap. Melempar
+     * Error berisi pesan ramah bila template belum ada / tidak valid.
+     */
+    async function buildAtkBlob(): Promise<{ blob: Blob; unknown: string[] }> {
+        const { resolveAtkTemplateUrl, fillAtkWorksheet } = await import(
+            "@/lib/inventory/inventory-atk-excel"
+        );
+        const { url, paperSize, orientation, fromDefault } = await resolveAtkTemplateUrl(
+            fetch,
+            process.env.NEXT_PUBLIC_API_URL || ""
+        );
+        if (!fromDefault || !url) {
+            throw new Error(
+                "Belum ada template laporan Stok Habis Pakai — unggah berkas .xlsx via Admin → Format Laporan (modul Inventaris — Stok Habis Pakai)."
+            );
+        }
+        const res = await fetch(url, { credentials: "include" });
+        if (!res.ok) throw new Error("Berkas template tidak dapat diunduh dari server.");
+        const buf = await res.arrayBuffer();
+
+        const [{ default: ExcelJS }] = await Promise.all([import("exceljs")]);
+        const wb = new ExcelJS.Workbook();
+        await wb.xlsx.load(buf as never);
+        const ws = wb.worksheets[0];
+        if (!ws) throw new Error("Template Excel tidak valid (tanpa lembar).");
+        const { rowCount, unknown } = await fillAtkWorksheet(ws as never, {
+            ...buildAtkTemplateInput(paperSize, orientation),
+            paperSize: (paperSize || "A4").trim().toUpperCase(),
+            orientation: orientation || "portrait",
+        });
+        if (rowCount === 0) {
+            throw new Error(
+                "Template Excel tidak punya baris contoh. Tandai baris data dengan variabel seperti {{kode}} / {{nama}}."
+            );
+        }
+        const out = (await wb.xlsx.writeBuffer()) as ArrayBuffer;
+        return {
+            blob: new Blob([out], {
+                type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            }),
+            unknown,
+        };
+    }
+
+    /** Cadangan bila template Excel ATK belum tersedia: unduh CSV. */
+    function downloadAtkCsv() {
+        const header = ["No", "Kode", "Nama Barang", "Kategori", "Stok", "Min", "Satuan", "Harga", "Nilai"];
+        const esc = (v: string | number) => {
+            const s = String(v ?? "");
+            return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+        };
+        const lines = [header.map(esc).join(",")];
+        atkItems.forEach((i, idx) => {
+            lines.push(
+                [
+                    idx + 1, i.code || "-", i.name || "-", i.category || "-",
+                    i.currentStock ?? 0, i.minStock ?? 0, i.unit || "-",
+                    i.price ?? 0, (i.currentStock || 0) * (i.price || 0),
+                ]
+                    .map(esc)
+                    .join(",")
+            );
+        });
+        const blob = new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+        downloadAs(blob, "Laporan Stok Barang Habis Pakai.csv");
+    }
+
+    /** Ekspor laporan ATK sebagai berkas Excel (.xlsx) hasil isi template. */
+    async function handleExportAtkFile() {
+        setExportingPdf(true);
+        const toastId = toast.loading("Menyiapkan berkas Excel stok habis pakai...");
+        try {
+            const { blob, unknown } = await buildAtkBlob();
+            downloadAs(blob, "Laporan Stok Barang Habis Pakai.xlsx");
+            toast.success("Excel berhasil diunduh", {
+                id: toastId,
+                description: unknown.length > 0 ? `Variabel tak dikenal dibiarkan: ${unknown.join(", ")}` : undefined,
+            });
+        } catch (err) {
+            console.error("Ekspor Excel ATK gagal:", err);
+            toast.error("Template Excel belum tersedia — mengunduh CSV sebagai gantinya", { id: toastId });
+            downloadAtkCsv();
+        } finally {
+            setExportingPdf(false);
+        }
+    }
+
+    /** Ekspor laporan ATK sebagai PDF (xlsx → LibreOffice headless). */
     async function handleExportAtkPdf() {
         setExportingPdf(true);
+        const toastId = toast.loading("Menyiapkan PDF stok habis pakai...");
         try {
-            const dataset = atkItems.map((i) => ({
-                code: i.code || "-",
-                name: i.name,
-                category: i.category || "-",
-                currentStock: i.currentStock ?? 0,
-                minStock: i.minStock ?? 0,
-                unit: i.unit || "-",
-                price: i.price ?? 0,
-                nilai: (i.currentStock || 0) * (i.price || 0),
-                isLow: (i.currentStock || 0) <= (i.minStock || 0),
-            }));
-            const global = {
-                laporan: {
-                    periode: `Posisi per ${today()}`,
-                    total_jenis: atkItems.length,
-                    total_nilai: totalAtkValue,
-                },
-            };
-            let blob = await renderModuleReport({
-                module: "inventaris",
-                dataset,
-                global,
-                settings,
-                fileName: "Laporan Stok Barang Habis Pakai",
+            const { blob, unknown } = await buildAtkBlob();
+            const { convertXlsxToPdf } = await import("@/lib/print-kit");
+            const buf = await blob.arrayBuffer();
+            const { blob: pdf } = await convertXlsxToPdf([buf], "Laporan Stok Barang Habis Pakai");
+            downloadPdf({ blob: pdf, filename: "Laporan Stok Barang Habis Pakai.pdf" }, "Laporan Stok Barang Habis Pakai");
+            toast.success("PDF berhasil diunduh", {
+                id: toastId,
+                description: unknown.length > 0 ? `Variabel tak dikenal dibiarkan: ${unknown.join(", ")}` : undefined,
             });
-            if (!blob) {
-                blob = await renderTemplatePdf({
-                    code: "RPT_INVENTARIS_HABIS_PAKAI",
-                    dataset,
-                    global,
-                    settings,
-                    fileName: "Laporan Stok Barang Habis Pakai",
-                    fallback: () => window.print(),
-                });
-            }
-            if (blob) downloadBlob(blob, "Laporan Stok Barang Habis Pakai");
+        } catch (err) {
+            console.error("Ekspor PDF ATK gagal:", err);
+            toast.error("Template Excel belum tersedia — mengunduh CSV sebagai gantinya", { id: toastId });
+            downloadAtkCsv();
         } finally {
             setExportingPdf(false);
         }
@@ -905,10 +1012,19 @@ export default function LaporanPage() {
                     <TabsContent value="atk" className="space-y-4">
                         <Kop title="LAPORAN STOK BARANG HABIS PAKAI" subtitle={`Posisi per ${today()}`} />
 
-                        <div className="flex justify-end print:hidden">
+                        <div className="flex flex-wrap justify-end gap-2 print:hidden">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleExportAtkFile}
+                                disabled={exportingPdf}
+                            >
+                                <Download className="mr-2 h-4 w-4" />
+                                Unduh Excel (.xlsx)
+                            </Button>
                             <Button size="sm" onClick={handleExportAtkPdf} disabled={exportingPdf}>
                                 <Printer className={`mr-2 h-4 w-4 ${exportingPdf ? "animate-pulse" : ""}`} />
-                                {exportingPdf ? "Menyiapkan PDF..." : "Ekspor PDF (Format Studio)"}
+                                {exportingPdf ? "Menyiapkan..." : "Ekspor PDF (Format Studio)"}
                             </Button>
                         </div>
 

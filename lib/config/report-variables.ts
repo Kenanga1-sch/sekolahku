@@ -205,10 +205,83 @@ const INVENTARIS: FillVariableModule = {
         v("ttd_selesai", "Selesai blok TTD", "Penanda baris akhir blok tanda tangan", "(penanda)"),
       ],
     },
+{
+      label: "Rumus Excel",
+      variables: [
+        v("=...", "Formula hidup", "Sel diawali = di template tetap jadi formula; referensi baris contoh digeser otomatis ke baris aset", "=SUM(G8:G12)"),
+      ],
+    },
+  ],
+};
+
+/**
+ * Modul: Inventaris — Stok Habis Pakai (ATK)
+ * (lib/inventory/inventory-atk-excel.ts).
+ *
+ * Dipakai template file .xlsx yang diunggah admin. Baris contoh yang memuat
+ * variabel baris (kelompok "Baris barang") direplikasi otomatis sejumlah
+ * barang ATK, mengikuti pola inventaris/tabungan. Modul dipisah dari
+ * "inventaris" karena default modul itu sudah dipakai laporan Aset Tetap.
+ */
+const INVENTARIS_ATK: FillVariableModule = {
+  module: "inventaris-atk",
+  label: "Inventaris — Stok Habis Pakai",
+  groups: [
+    {
+      label: "Sekolah",
+      variables: [
+        v("sekolah_nama", "Nama sekolah", "Nama resmi sekolah", "SDN 1 Kenanga"),
+        v("sekolah_alamat", "Alamat", "Alamat lengkap sekolah", "Jl. Kenanga No. 1, Kab. …"),
+        v("sekolah_telepon", "Telepon", "Nomor telepon sekolah", "0231-…"),
+        v("sekolah_npsn", "NPSN", "Nomor Pokok Sekolah Nasional", "20216609"),
+        v("sekolah_email", "Email", "Email sekolah", "sekolah@…"),
+        v("sekolah_website", "Website", "Website sekolah", "https://…"),
+      ],
+    },
+    {
+      label: "Pejabat",
+      variables: [
+        v("kepala_sekolah_nama", "Kepala sekolah", "Nama kepala sekolah", "Drs. H. …"),
+        v("kepala_sekolah_nip", "NIP kepala sekolah", "NIP kepala sekolah", "1965…"),
+        v("pengurus_inventaris_nama", "Pengurus inventaris", "Nama pengurus/penanggung jawab inventaris", "Ahmad …"),
+        v("pengurus_inventaris_nip", "NIP pengurus inventaris", "NIP pengurus inventaris", "1985…"),
+      ],
+    },
+    {
+      label: "Laporan & Periode",
+      variables: [
+        v("periode", "Periode", "Keterangan posisi laporan", "Posisi per 16 Oktober 2026"),
+        v("tanggal_cetak", "Tanggal cetak", "Tanggal file dibuat", "16 Oktober 2026"),
+        v("tempat_ttd", "Tempat tanda tangan", "Kota/kabupaten dari alamat sekolah", "Kab. Indramayu"),
+        v("total_jenis", "Total jenis barang", "Banyak jenis barang ATK", "45"),
+        v("total_nilai", "Total nilai persediaan", "Jumlah seluruh nilai persediaan (Rp)", "12.500.000"),
+      ],
+    },
+    {
+      label: "Baris barang (direplikasi per barang)",
+      variables: [
+        v("no", "No.", "Nomor urut barang", "1"),
+        v("kode", "Kode barang", "Kode ATK", "ATK-2026-01"),
+        v("nama", "Nama barang", "Nama barang habis pakai", "Kertas HVS A4"),
+        v("kategori", "Kategori", "Kategori barang", "Alat Tulis"),
+        v("satuan", "Satuan", "Satuan barang", "Rim"),
+        v("stok", "Stok saat ini", "Jumlah stok tersedia", "25"),
+        v("stok_minimum", "Stok minimum", "Batas minimum stok", "10"),
+        v("harga", "Harga satuan", "Harga satuan barang (Rp)", "55.000"),
+        v("nilai", "Nilai persediaan", "stok × harga (Rp)", "1.375.000"),
+      ],
+    },
+    {
+      label: "Tanda Tangan (pagination)",
+      variables: [
+        v("ttd_mulai", "Mulai blok TTD", "Penanda baris awal blok tanda tangan — dikosongkan setelah fill", "(penanda)"),
+        v("ttd_selesai", "Selesai blok TTD", "Penanda baris akhir blok tanda tangan", "(penanda)"),
+      ],
+    },
     {
       label: "Rumus Excel",
       variables: [
-        v("=…", "Formula hidup", "Sel diawali = di template tetap jadi formula; referensi baris contoh digeser otomatis ke baris aset", "=SUM(G8:G12)"),
+        v("=...", "Formula hidup", "Sel diawali = di template tetap jadi formula; referensi baris contoh digeser otomatis ke baris barang", "=SUM(H8:H12)"),
       ],
     },
   ],
@@ -307,7 +380,7 @@ const RENCANA: FillVariableModule[] = [
   },
 ];
 
-export const FILL_VARIABLE_MODULES: FillVariableModule[] = [PRESENSI, SURAT, INVENTARIS, TABUNGAN, ...RENCANA];
+export const FILL_VARIABLE_MODULES: FillVariableModule[] = [PRESENSI, SURAT, INVENTARIS, INVENTARIS_ATK, TABUNGAN, ...RENCANA];
 
 /**
  * Nama variabel presensi yang dikenali `unknownVariables` —
@@ -333,4 +406,12 @@ export const INVENTARIS_KNOWN_VARIABLES: string[] = [
  */
 export const TABUNGAN_KNOWN_VARIABLES: string[] = [
   ...TABUNGAN.groups.flatMap((g) => g.variables.map((x) => x.name)),
+].sort();
+
+/**
+ * Nama variabel Inventaris ATK yang dikenali pada pengisian template (.xlsx).
+ * Satu sumber dengan kamus.
+ */
+export const INVENTARIS_ATK_KNOWN_VARIABLES: string[] = [
+  ...INVENTARIS_ATK.groups.flatMap((g) => g.variables.map((x) => x.name)),
 ].sort();
