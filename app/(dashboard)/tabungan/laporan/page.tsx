@@ -23,8 +23,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { showSuccess, showError } from "@/lib/toast";
+import { toast } from "sonner";
 import { goGet } from "@/lib/api-client";
-import { renderModuleReport, downloadBlob } from "@/lib/report-template-runner";
+import { downloadPdf } from "@/lib/print-kit";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { KopSurat } from "@/components/reports/kop-surat";
 import type { TabunganStats, TabunganTransaksiWithRelations, TabunganKelas } from "@/types/tabungan";
@@ -170,40 +171,179 @@ export default function TabunganLaporanPage() {
     };
 
     /**
-     * Cetak memakai format default modul Tabungan (diatur admin di halaman
-     * "Laporan & Format"). Bila modul belum punya format, cetak HTML biasa.
+     * Unduh dengan nama berkas apa adanya (ekstensi dipertahankan).
      */
-    const handlePrintFormatted = async () => {
-        const dataset = transactions.map((t) => ({
-            tanggal: new Date(t.createdAt || "").toLocaleDateString("id-ID"),
+    function downloadAs(blob: Blob, fileName: string): void {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        a.style.display = "none";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    function formatTanggalID(v?: string | number | null): string {
+        if (!v && v !== 0) return "-";
+        const dt = new Date(typeof v === "number" ? v : v as string);
+        if (Number.isNaN(dt.getTime())) return "-";
+        return dt.toLocaleDateString("id-ID");
+    }
+
+    function todayLong(): string {
+        return new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+    }
+
+    function signPlace(): string {
+        const addr = settings?.school_address || "";
+        return (
+            addr.match(/Kab\.\s*([^,]+)/)?.[1]?.trim() ||
+            addr.match(/Kota\s+([^,]+)/)?.[1]?.trim() ||
+            ""
+        );
+    }
+
+    /**
+     * Bangun baris + skalar untuk mengisi template Tabungan (.xlsx) yang
+     * diunggah admin via Admin → Format Laporan. Nama variabel HARUS sama
+     * dengan kamus (lib/config/report-variables.ts modul "tabungan").
+     */
+    function buildTabunganTemplateInput(paperSize?: string, orientation?: string) {
+        const rows = transactions.map((t) => ({
+            tanggal: formatTanggalID(t.createdAt || ""),
             siswa: t.siswa?.nama || "-",
             kelas: t.siswa?.kelas?.nama || "-",
-            tipe: t.tipe,
-            nominal: t.nominal,
-            status: t.status,
-            petugas: (t as any).petugas || (t as any).createdBy || "-",
+            tipe: t.tipe === "setor" ? "Setor" : "Tarik",
+            nominal: t.nominal ?? 0,
+            status: t.status || "-",
+            petugas: t.user?.name || "-",
         }));
-        const global = {
-            laporan: {
-                periode: periodLabels[period],
-                total_saldo: stats?.totalSaldo ?? 0,
-                total_setoran: periodStats.totalSetor,
-                total_penarikan: periodStats.totalTarik,
-                jumlah_siswa: stats?.totalSiswa ?? 0,
+        return {
+            rows,
+            paperSize,
+            orientation,
+            scalars: {
+                sekolahNama: settings?.school_name,
+                sekolahAlamat: settings?.school_address,
+                sekolahTelepon: settings?.school_phone,
+                sekolahNpsn: settings?.school_npsn,
+                sekolahEmail: settings?.school_email,
+                sekolahWebsite: settings?.school_website,
+                kepalaSekolahNama: settings?.principal_name,
+                kepalaSekolahNip: settings?.principal_nip,
+                bendaharaNama: "",
+                periode: `${periodLabels[period]} (${periodeTeks})`,
+                tanggalCetak: todayLong(),
+                tempatTtd: signPlace(),
+                totalSaldo: stats?.totalSaldo ?? 0,
+                totalSiswa: stats?.totalSiswa ?? 0,
+                totalSetoran: periodStats.totalSetor,
+                totalPenarikan: periodStats.totalTarik,
+                jumlahTransaksi: periodStats.jumlahTransaksi,
             },
         };
+    }
+
+    /**
+     * Isi template Tabungan (.xlsx) yang diunggah admin dan kembalikan Blob
+     * Excel siap unduh — pola sama dengan ekspor Excel inventaris/presensi:
+     *   1. ambil default modul tabungan (Admin → Format Laporan),
+     *   2. load template (style dipertahankan),
+     *   3. isi skalar + replikasi baris contoh per transaksi + geser formula,
+     *   4. kembalikan buffer xlsx.
+     * Melempar Error berisi pesan ramah bila template belum ada / tidak valid.
+     */
+    async function buildTabunganBlob(): Promise<{ blob: Blob; unknown: string[] }> {
+        const { resolveTabunganTemplateUrl, fillTabunganWorksheet } = await import(
+            "@/lib/tabungan/tabungan-excel"
+        );
+        const { url, paperSize, orientation, fromDefault } = await resolveTabunganTemplateUrl(
+            fetch,
+            process.env.NEXT_PUBLIC_API_URL || ""
+        );
+        if (!fromDefault || !url) {
+            throw new Error(
+                "Belum ada template laporan Tabungan — unggah berkas .xlsx via Admin → Format Laporan."
+            );
+        }
+        // Template unggahan admin = folder privat → butuh cookie sesi.
+        const res = await fetch(url, { credentials: "include" });
+        if (!res.ok) throw new Error("Berkas template tidak dapat diunduh dari server.");
+        const buf = await res.arrayBuffer();
+
+        const [{ default: ExcelJS }] = await Promise.all([import("exceljs")]);
+        const wb = new ExcelJS.Workbook();
+        await wb.xlsx.load(buf as never);
+        const ws = wb.worksheets[0];
+        if (!ws) throw new Error("Template Excel tidak valid (tanpa lembar).");
+        const { rowCount, unknown } = await fillTabunganWorksheet(ws as never, {
+            ...buildTabunganTemplateInput(paperSize, orientation),
+            paperSize: (paperSize || "A4").trim().toUpperCase(),
+            orientation: orientation || "portrait",
+        });
+        if (rowCount === 0) {
+            throw new Error(
+                "Template Excel tidak punya baris contoh. Tandai baris data dengan variabel seperti {{tanggal}} / {{siswa}}."
+            );
+        }
+        const out = (await wb.xlsx.writeBuffer()) as ArrayBuffer;
+        return {
+            blob: new Blob([out], {
+                type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            }),
+            unknown,
+        };
+    }
+
+    /**
+     * Cetak memakai template .xlsx modul Tabungan (diatur admin di halaman
+     * "Laporan & Format"). Bila template belum ada, unduh CSV sebagai
+     * gantinya; cetak HTML tetap tersedia via tombol "Cetak / PDF".
+     */
+    const [exportingFormat, setExportingFormat] = useState(false);
+    const handleExportXlsx = async () => {
+        if (transactions.length === 0) return;
+        setExportingFormat(true);
+        const toastId = toast.loading("Menyiapkan berkas Excel laporan tabungan…");
         try {
-            const blob = await renderModuleReport({
-                module: "tabungan",
-                dataset,
-                global,
-                settings,
-                fileName: `Laporan Tabungan ${periodLabels[period]}`,
-                fallback: () => window.print(),
+            const { blob, unknown } = await buildTabunganBlob();
+            downloadAs(blob, `Laporan Tabungan ${periodLabels[period]}.xlsx`);
+            toast.success("Excel berhasil diunduh", {
+                id: toastId,
+                description: unknown.length > 0 ? `Variabel tak dikenal dibiarkan: ${unknown.join(", ")}` : undefined,
             });
-            if (blob) downloadBlob(blob, `Laporan Tabungan ${periodLabels[period]}`);
-        } catch {
-            window.print();
+        } catch (err) {
+            console.error("Ekspor Excel tabungan gagal:", err);
+            toast.error("Template Excel belum tersedia — mengunduh CSV sebagai gantinya", { id: toastId });
+            handleExport();
+        } finally {
+            setExportingFormat(false);
+        }
+    };
+
+    const handlePrintFormatted = async () => {
+        if (transactions.length === 0) return;
+        setExportingFormat(true);
+        const toastId = toast.loading("Menyiapkan PDF laporan tabungan…");
+        try {
+            const { blob, unknown } = await buildTabunganBlob();
+            const { convertXlsxToPdf } = await import("@/lib/print-kit");
+            const buf = await blob.arrayBuffer();
+            const fileName = `Laporan Tabungan ${periodLabels[period]}`;
+            const { blob: pdf } = await convertXlsxToPdf([buf], fileName);
+            downloadPdf({ blob: pdf, filename: `${fileName}.pdf` }, fileName);
+            toast.success("PDF berhasil diunduh", {
+                id: toastId,
+                description: unknown.length > 0 ? `Variabel tak dikenal dibiarkan: ${unknown.join(", ")}` : undefined,
+            });
+        } catch (err) {
+            console.error("Ekspor PDF tabungan gagal:", err);
+            toast.error("Template Excel belum tersedia — mengunduh CSV sebagai gantinya", { id: toastId });
+            handleExport();
+        } finally {
+            setExportingFormat(false);
         }
     };
 
@@ -301,13 +441,17 @@ export default function TabunganLaporanPage() {
                         <Download className="h-4 w-4 mr-2" />
                         Export CSV
                     </Button>
+                    <Button variant="outline" onClick={handleExportXlsx} disabled={transactions.length === 0 || exportingFormat}>
+                        <Download className="h-4 w-4 mr-2" />
+                        {exportingFormat ? "Menyiapkan…" : "Unduh Excel"}
+                    </Button>
                     <Button variant="outline" onClick={() => window.print()} disabled={transactions.length === 0}>
                         <Printer className="h-4 w-4 mr-2" />
                         Cetak / PDF
                     </Button>
-                    <Button variant="outline" onClick={handlePrintFormatted} disabled={transactions.length === 0}>
+                    <Button variant="outline" onClick={handlePrintFormatted} disabled={transactions.length === 0 || exportingFormat}>
                         <Printer className="h-4 w-4 mr-2" />
-                        Cetak Format
+                        {exportingFormat ? "Menyiapkan…" : "Cetak Format"}
                     </Button>
                 </div>
             </div>

@@ -215,25 +215,83 @@ const INVENTARIS: FillVariableModule = {
 };
 
 /**
+ * Modul: Tabungan (lib/tabungan/tabungan-excel.ts).
+ *
+ * Dipakai template file .xlsx yang diunggah admin. Baris contoh yang memuat
+ * variabel baris (kelompok "Baris transaksi") direplikasi otomatis sejumlah
+ * transaksi, mengikuti pola presensi/inventaris. Formula Excel (sel diawali
+ * "=") ikut digeser.
+ */
+const TABUNGAN: FillVariableModule = {
+  module: "tabungan",
+  label: "Tabungan",
+  groups: [
+    {
+      label: "Sekolah",
+      variables: [
+        v("sekolah_nama", "Nama sekolah", "Nama resmi sekolah", "SDN 1 Kenanga"),
+        v("sekolah_alamat", "Alamat", "Alamat lengkap sekolah", "Jl. Kenanga No. 1, Kab. …"),
+        v("sekolah_telepon", "Telepon", "Nomor telepon sekolah", "0231-…"),
+        v("sekolah_npsn", "NPSN", "Nomor Pokok Sekolah Nasional", "20216609"),
+        v("sekolah_email", "Email", "Email sekolah", "sekolah@…"),
+        v("sekolah_website", "Website", "Website sekolah", "https://…"),
+      ],
+    },
+    {
+      label: "Pejabat",
+      variables: [
+        v("kepala_sekolah_nama", "Kepala sekolah", "Nama kepala sekolah", "Drs. H. …"),
+        v("kepala_sekolah_nip", "NIP kepala sekolah", "NIP kepala sekolah", "1965…"),
+        v("bendahara_nama", "Bendahara", "Nama bendahara tabungan", "Siti …"),
+      ],
+    },
+    {
+      label: "Laporan & Periode",
+      variables: [
+        v("periode", "Periode", "Keterangan periode laporan", "Bulan Ini (1 Okt 2026 s.d. …)"),
+        v("tanggal_cetak", "Tanggal cetak", "Tanggal file dibuat", "16 Oktober 2026"),
+        v("tempat_ttd", "Tempat tanda tangan", "Kota/kabupaten dari alamat sekolah", "Kab. Indramayu"),
+        v("total_saldo", "Total saldo", "Jumlah seluruh saldo tabungan (Rp)", "12.500.000"),
+        v("total_siswa", "Total siswa", "Banyak siswa penabung", "120"),
+        v("total_setoran", "Total setoran", "Jumlah setoran periode ini (Rp)", "3.000.000"),
+        v("total_penarikan", "Total penarikan", "Jumlah penarikan periode ini (Rp)", "500.000"),
+        v("jumlah_transaksi", "Jumlah transaksi", "Banyak transaksi periode ini", "85"),
+      ],
+    },
+    {
+      label: "Baris transaksi (direplikasi per transaksi)",
+      variables: [
+        v("no", "No.", "Nomor urut transaksi", "1"),
+        v("tanggal", "Tanggal", "Tanggal transaksi", "16/10/2026"),
+        v("siswa", "Siswa", "Nama siswa", "Budi Santoso"),
+        v("kelas", "Kelas", "Nama kelas siswa", "Kelas 1"),
+        v("tipe", "Tipe", "Setor atau Tarik", "Setor"),
+        v("nominal", "Nominal", "Nominal transaksi (Rp)", "50.000"),
+        v("status", "Status", "Status transaksi", "verified"),
+        v("petugas", "Petugas", "Nama petugas pencatat", "Siti …"),
+      ],
+    },
+    {
+      label: "Tanda Tangan (pagination)",
+      variables: [
+        v("ttd_mulai", "Mulai blok TTD", "Penanda baris awal blok tanda tangan — dikosongkan setelah fill", "(penanda)"),
+        v("ttd_selesai", "Selesai blok TTD", "Penanda baris akhir blok tanda tangan", "(penanda)"),
+      ],
+    },
+    {
+      label: "Rumus Excel",
+      variables: [
+        v("=…", "Formula hidup", "Sel diawali = di template tetap jadi formula; referensi baris contoh digeser otomatis ke baris transaksi", "=SUM(F8:F12)"),
+      ],
+    },
+  ],
+};
+
+/**
  * Modul lain: variabel dicatat sebagai rencana. Saat sistem template modul
  * ini dibuat, pindahkan ke status "siap" dan isi deskripsi lengkap.
  */
 const RENCANA: FillVariableModule[] = [
-  {
-    module: "tabungan",
-    label: "Tabungan (rencana)",
-    groups: [
-      {
-        label: "Umum",
-        variables: [
-          v("sekolah_nama", "Nama sekolah", "Belum dieksekusi — sistem template modul belum ada", "SDN 1 Kenanga", "rencana"),
-          v("bulan", "Bulan", "Belum dieksekusi", "Oktober", "rencana"),
-          v("siswa_nama", "Nama siswa", "Belum dieksekusi", "Budi Santoso", "rencana"),
-          v("nis", "NIS", "Belum dieksekusi", "100123", "rencana"),
-        ],
-      },
-    ],
-  },
   {
     module: "perpustakaan",
     label: "Perpustakaan (rencana)",
@@ -249,7 +307,7 @@ const RENCANA: FillVariableModule[] = [
   },
 ];
 
-export const FILL_VARIABLE_MODULES: FillVariableModule[] = [PRESENSI, SURAT, INVENTARIS, ...RENCANA];
+export const FILL_VARIABLE_MODULES: FillVariableModule[] = [PRESENSI, SURAT, INVENTARIS, TABUNGAN, ...RENCANA];
 
 /**
  * Nama variabel presensi yang dikenali `unknownVariables` —
@@ -267,4 +325,12 @@ export const PRESENSI_KNOWN_VARIABLES: string[] = [
  */
 export const INVENTARIS_KNOWN_VARIABLES: string[] = [
   ...INVENTARIS.groups.flatMap((g) => g.variables.map((x) => x.name)),
+].sort();
+
+/**
+ * Nama variabel tabungan yang dikenali `unknownTabunganVariables` pada
+ * pengisian template (.xlsx). Satu sumber dengan kamus.
+ */
+export const TABUNGAN_KNOWN_VARIABLES: string[] = [
+  ...TABUNGAN.groups.flatMap((g) => g.variables.map((x) => x.name)),
 ].sort();
