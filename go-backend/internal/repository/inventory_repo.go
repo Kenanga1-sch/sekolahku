@@ -45,10 +45,50 @@ const notDeleted = "deleted_at IS NULL"
 // ke 404, bukan 500 dengan pesan SQL mentah.
 var ErrInventoryNotFound = errors.New("data inventaris tidak ditemukan")
 
+// assetRoomScopeSQL membangun klausa WHERE tambahan untuk membatasi aset
+// ke daftar ruangan wewenang user. Slice kosong berarti tanpa pembatasan (admin).
+func assetRoomScopeSQL(roomIds []string) (string, []interface{}) {
+	placeholders := make([]string, 0)
+	args := make([]interface{}, 0)
+	for _, id := range roomIds {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		placeholders = append(placeholders, "?")
+		args = append(args, id)
+	}
+	if len(placeholders) == 0 {
+		return "", nil
+	}
+	// Aset tanpa ruangan tetap dianggap umum — tidak disembunyikan dari PIC.
+	return " AND (room_id IS NULL OR room_id IN (" + strings.Join(placeholders, ",") + "))", args
+}
+
+// itemRoomScopeSQL sama dengan assetRoomScopeSQL tetapi untuk barang habis pakai.
+// Barang tanpa room_id (stok gudang pusat) tetap dianggap umum.
+func itemRoomScopeSQL(roomIds []string) (string, []interface{}) {
+	placeholders := make([]string, 0)
+	args := make([]interface{}, 0)
+	for _, id := range roomIds {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		placeholders = append(placeholders, "?")
+		args = append(args, id)
+	}
+	if len(placeholders) == 0 {
+		return "", nil
+	}
+	return " AND (room_id IS NULL OR room_id IN (" + strings.Join(placeholders, ",") + "))", args
+}
+
 // Stats
-func (r *InventoryRepository) GetStats() (*models.InventoryStats, error) {
+func (r *InventoryRepository) GetStats(roomIds ...string) (*models.InventoryStats, error) {
 	stats := &models.InventoryStats{}
 
+	roomClause, roomArgs := assetRoomScopeSQL(roomIds)
 	// Assets stats
 	query := `
 		SELECT 
@@ -59,12 +99,11 @@ func (r *InventoryRepository) GetStats() (*models.InventoryStats, error) {
 			SUM(condition_light_damaged + condition_heavy_damaged),
 			SUM(condition_lost)
 		FROM inventory_assets
-		WHERE status = 'ACTIVE' AND deleted_at IS NULL
-	`
+		WHERE status = 'ACTIVE' AND deleted_at IS NULL` + roomClause
 	var totalVal sql.NullFloat64
 	var tAssets, tQty, tGood, tDamaged, tLost sql.NullInt64
 
-	err := r.DB.QueryRow(query).Scan(&tAssets, &totalVal, &tQty, &tGood, &tDamaged, &tLost)
+	err := r.DB.QueryRow(query, roomArgs...).Scan(&tAssets, &totalVal, &tQty, &tGood, &tDamaged, &tLost)
 	if err != nil {
 		// Sebelumnya error ditelan dan menghasilkan statistik nol semua, sehingga
 		// kegagalan query tidak bisa dibedakan dari "belum ada inventaris".
@@ -627,7 +666,7 @@ func scanInventoryItem(scanner inventoryRowScanner) (*models.InventoryItem, erro
 	return &i, nil
 }
 
-func (r *InventoryRepository) GetItems(page, limit int, search, category string) ([]models.InventoryItem, int, error) {
+func (r *InventoryRepository) GetItems(page, limit int, search, category string, roomIds ...string) ([]models.InventoryItem, int, error) {
 	offset := (page - 1) * limit
 	query := "SELECT id, name, code, category, unit, min_stock, current_stock, location, room_id, price, funding_source, fiscal_year, photo_url, supplier, invoice_no, serial_number, brand, model, acquisition_type, created_at, updated_at FROM inventory_items WHERE deleted_at IS NULL"
 	var args []interface{}
@@ -641,6 +680,9 @@ func (r *InventoryRepository) GetItems(page, limit int, search, category string)
 		query += " AND category = ?"
 		args = append(args, category)
 	}
+	itemClause, itemArgs := itemRoomScopeSQL(roomIds)
+	query += itemClause
+	args = append(args, itemArgs...)
 
 	var total int
 	countQuery := "SELECT COUNT(*) FROM (" + query + ")"
@@ -1743,14 +1785,16 @@ type CategoryDistributionItem struct {
 }
 
 // GetCategoryDistribution mengembalikan jumlah aset per kategori
-func (r *InventoryRepository) GetCategoryDistribution() ([]CategoryDistributionItem, error) {
-	rows, err := r.DB.Query(`
+func (r *InventoryRepository) GetCategoryDistribution(roomIds ...string) ([]CategoryDistributionItem, error) {
+	roomClause, roomArgs := assetRoomScopeSQL(roomIds)
+	base := `
 		SELECT category, COUNT(*) AS total
 		FROM inventory_assets
-		WHERE status = 'ACTIVE' OR status IS NULL
+		WHERE (status = 'ACTIVE' OR status IS NULL)` + roomClause + `
 		GROUP BY category
 		ORDER BY total DESC
-	`)
+	`
+	rows, err := r.DB.Query(base, roomArgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -1788,17 +1832,25 @@ type ConditionBreakdownItem struct {
 }
 
 // GetConditionBreakdown mengembalikan jumlah aset per kondisi
-func (r *InventoryRepository) GetConditionBreakdown() ([]ConditionBreakdownItem, error) {
+func (r *InventoryRepository) GetConditionBreakdown(roomIds ...string) ([]ConditionBreakdownItem, error) {
+	roomClause, roomArgs := assetRoomScopeSQL(roomIds)
+	conds := []struct {
+		name, col, color string
+	}{
+		{"Baik", "condition_good", "#10b981"},
+		{"Rusak Ringan", "condition_light_damaged", "#f59e0b"},
+		{"Rusak Berat", "condition_heavy_damaged", "#ef4444"},
+		{"Hilang", "condition_lost", "#6b7280"},
+	}
 	// SQLite UNION untuk menggabungkan 4 kondisi
-	rows, err := r.DB.Query(`
-		SELECT 'Baik' AS name, COALESCE(SUM(condition_good), 0) AS total, '#10b981' AS color FROM inventory_assets WHERE (status = 'ACTIVE' OR status IS NULL)
-		UNION ALL
-		SELECT 'Rusak Ringan' AS name, COALESCE(SUM(condition_light_damaged), 0) AS total, '#f59e0b' AS color FROM inventory_assets WHERE (status = 'ACTIVE' OR status IS NULL)
-		UNION ALL
-		SELECT 'Rusak Berat' AS name, COALESCE(SUM(condition_heavy_damaged), 0) AS total, '#ef4444' AS color FROM inventory_assets WHERE (status = 'ACTIVE' OR status IS NULL)
-		UNION ALL
-		SELECT 'Hilang' AS name, COALESCE(SUM(condition_lost), 0) AS total, '#6b7280' AS color FROM inventory_assets WHERE (status = 'ACTIVE' OR status IS NULL)
-	`)
+	var parts []string
+	for _, c := range conds {
+		parts = append(parts, fmt.Sprintf(
+			`SELECT '%s' AS name, COALESCE(SUM(%s), 0) AS total, '%s' AS color FROM inventory_assets WHERE (status = 'ACTIVE' OR status IS NULL)%s`,
+			c.name, c.col, c.color, roomClause,
+		))
+	}
+	rows, err := r.DB.Query(strings.Join(parts, "\n\t\tUNION ALL\n\t\t"), roomArgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -1824,11 +1876,12 @@ type TopRoomItem struct {
 }
 
 // GetTopRoomsByValue mengembalikan ruangan dengan total nilai aset tertinggi
-func (r *InventoryRepository) GetTopRoomsByValue(limit int) ([]TopRoomItem, error) {
+func (r *InventoryRepository) GetTopRoomsByValue(limit int, roomIds ...string) ([]TopRoomItem, error) {
 	if limit <= 0 {
 		limit = 5
 	}
-	rows, err := r.DB.Query(`
+	roomClause, roomArgs := assetRoomScopeSQL(roomIds)
+	q := `
 		SELECT
 			COALESCE(rm.id, '') AS room_id,
 			COALESCE(rm.name, 'Tanpa Ruangan') AS room_name,
@@ -1836,12 +1889,14 @@ func (r *InventoryRepository) GetTopRoomsByValue(limit int) ([]TopRoomItem, erro
 			COALESCE(SUM(a.price * a.quantity), 0) AS total_value
 		FROM inventory_assets a
 		LEFT JOIN inventory_rooms rm ON rm.id = a.room_id
-		WHERE a.deleted_at IS NULL AND (a.status = 'ACTIVE' OR a.status IS NULL)
+		WHERE a.deleted_at IS NULL AND (a.status = 'ACTIVE' OR a.status IS NULL)` + roomClause + `
 		GROUP BY rm.id, rm.name
 		HAVING COUNT(a.id) > 0
 		ORDER BY total_value DESC, asset_count DESC
 		LIMIT ?
-	`, limit)
+	`
+	args := append(append([]interface{}{}, roomArgs...), limit)
+	rows, err := r.DB.Query(q, args...)
 	if err != nil {
 		return nil, err
 	}

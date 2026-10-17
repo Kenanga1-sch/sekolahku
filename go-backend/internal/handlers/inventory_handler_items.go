@@ -16,7 +16,12 @@ func (h *InventoryHandler) GetItems(c echo.Context) error {
 	search := c.QueryParam("search")
 	category := c.QueryParam("category")
 
-	items, total, err := h.Repo.GetItems(page, limit, search, category)
+	scope, err := h.resolveScope(c)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+	}
+
+	items, total, err := h.Repo.GetItems(page, limit, search, category, scope.RoomIDs...)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}

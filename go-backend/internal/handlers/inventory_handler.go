@@ -194,7 +194,11 @@ func buildInventoryAsset(payload inventoryAssetPayload) (models.InventoryAsset, 
 // ============ Stats & Analytics ============
 
 func (h *InventoryHandler) GetStats(c echo.Context) error {
-	stats, err := h.Repo.GetStats()
+	scope, err := h.resolveScope(c)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+	}
+	stats, err := h.Repo.GetStats(scope.RoomIDs...)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
@@ -207,18 +211,23 @@ func (h *InventoryHandler) GetStats(c echo.Context) error {
 func (h *InventoryHandler) GetData(c echo.Context) error {
 	dataType := c.QueryParam("type")
 
+	scope, serr := h.resolveScope(c)
+	if serr != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+	}
+
 	var data interface{}
 	var err error
 
 	switch dataType {
 	case "category-distribution":
-		data, err = h.Repo.GetCategoryDistribution()
+		data, err = h.Repo.GetCategoryDistribution(scope.RoomIDs...)
 	case "condition-breakdown":
-		data, err = h.Repo.GetConditionBreakdown()
+		data, err = h.Repo.GetConditionBreakdown(scope.RoomIDs...)
 	case "recent-audit":
 		data, err = h.Repo.GetRecentAudit(10)
 	case "top-rooms":
-		data, err = h.Repo.GetTopRoomsByValue(5)
+		data, err = h.Repo.GetTopRoomsByValue(5, scope.RoomIDs...)
 	default:
 		// Tipe tidak dikenal => minta klien memperbaiki, jangan pura-pura "tidak ada data".
 		return c.JSON(http.StatusBadRequest, map[string]string{
