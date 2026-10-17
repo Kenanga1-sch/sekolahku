@@ -10,6 +10,7 @@ import {
     Filter,
     ArrowLeft,
     HandHeart,
+    Home,
     Printer,
 } from "lucide-react";
 import Link from "next/link";
@@ -40,6 +41,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
     getAssets,
@@ -90,6 +92,8 @@ export default function AsetPage() {
     const [totalPages, setTotalPages] = useState(1);
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [editingAsset, setEditingAsset] = useState<InventoryAsset | null>(null);
+    const [selectedRoom, setSelectedRoom] = useState(""); // Room filter manual override
+    const [viewMode, setViewMode] = useState<"my" | "other">("my"); // Tab: ruangan sendiri vs lain
     const [borrowTarget, setBorrowTarget] = useState<InventoryAsset | null>(null);
     const [borrowForm, setBorrowForm] = useState({ quantity: "1", reason: "" });
     const [borrowSubmitting, setBorrowSubmitting] = useState(false);
@@ -132,16 +136,31 @@ export default function AsetPage() {
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
-            // Load Rooms for filter/form
+            // Load Rooms untuk filter/form
             const allRooms = await getAllRooms();
             setRooms(allRooms);
+
+            // Tentukan rooms yang bisa dilihat user berdasarkan role & PIC assignment
+            const visibleRooms = isAdmin 
+                ? allRooms 
+                : allRooms.filter(r => r.picId === user?.id || r.pic?.id === user?.id);
+
+            // Default filter: guru lihat aset di ruangannya sendiri (room pertama jika multi-room)
+            const myRoomId = !isAdmin && visibleRooms.length > 0 ? visibleRooms[0].id : "";
+
+            const selectedRoomId = selectedRoom === "all" ? "" : (selectedRoom || myRoomId);
+            
+            // Tab "Aset Ruangan Lain": kirim excludeMyRoom=true ke API
+            const excludeMyRoom = viewMode === "other";
 
             // Filter dikirim sebagai parameter terpisah. Sebelumnya dirakit jadi
             // string bergaya PocketBase lalu dipotong-potong lagi dengan regex,
             // dan category tidak pernah sampai ke API (dropdown berubah, daftar tidak).
-            const filter = {
+            const filter: any = {
                 search: searchQuery,
                 category: categoryFilter !== "all" ? categoryFilter : "",
+                roomId: excludeMyRoom ? "" : selectedRoomId,
+                excludeMyRoom,
             };
 
             const result = await getAssets(page, 20, filter);
@@ -153,13 +172,13 @@ export default function AsetPage() {
         } finally {
             setLoading(false);
         }
-    }, [page, searchQuery, categoryFilter]);
+    }, [page, searchQuery, categoryFilter, selectedRoom, viewMode, user?.id, isAdmin]);
 
     useEffect(() => {
         // Filter baru memulai dari halaman 1, jika tidak pengguna bisa mendarat
         // di halaman kosong di luar jangkauan.
         setPage(1);
-    }, [searchQuery, categoryFilter]);
+    }, [searchQuery, categoryFilter, selectedRoom, viewMode]);
 
     useEffect(() => {
         loadData();
@@ -353,12 +372,14 @@ export default function AsetPage() {
                         resetForm();
                     }
                 }}>
-                    <DialogTrigger asChild>
-                        <Button className="gap-2">
-                            <Plus className="h-4 w-4" />
-                            Tambah Aset
-                        </Button>
-                    </DialogTrigger>
+                    {viewMode === "my" && (
+                        <DialogTrigger asChild>
+                            <Button className="gap-2">
+                                <Plus className="h-4 w-4" />
+                                Tambah Aset
+                            </Button>
+                        </DialogTrigger>
+                    )}
                     <DialogContent className="max-w-2xl">
                         <form onSubmit={handleSubmit}>
                             <DialogHeader>
@@ -426,7 +447,6 @@ export default function AsetPage() {
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {rooms.filter(r => {
-                                                    const isAdmin = ["superadmin", "admin"].includes(user?.role || "");
                                                     if (isAdmin) return true;
                                                     return (r.picId || r.pic?.id) === user?.id;
                                                 }).map((room) => (
@@ -677,6 +697,19 @@ export default function AsetPage() {
                 </Dialog>
             </div>
 
+            {!isAdmin && (
+                <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "my" | "other")}>
+                    <TabsList>
+                        <TabsTrigger value="my" className="gap-1.5">
+                            Aset Ruangan Saya
+                        </TabsTrigger>
+                        <TabsTrigger value="other" className="gap-1.5">
+                            Aset Ruangan Lain
+                        </TabsTrigger>
+                    </TabsList>
+                </Tabs>
+            )}
+
             {/* Filters */}
             <Card>
                 <CardContent className="p-4">
@@ -690,6 +723,20 @@ export default function AsetPage() {
                                 className="pl-9"
                             />
                         </div>
+                        {(isAdmin || viewMode === "my") && (
+                            <Select value={selectedRoom} onValueChange={setSelectedRoom}>
+                                <SelectTrigger className="w-[180px]">
+                                    <Home className="h-4 w-4 mr-2" />
+                                    <SelectValue placeholder={isAdmin ? "Semua Ruangan" : "Ruangan Saya"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {isAdmin && <SelectItem value="all">Semua Ruangan</SelectItem>}
+                                    {rooms.filter(r => isAdmin || (r.picId || r.pic?.id) === user?.id).map((room) => (
+                                        <SelectItem key={room.id} value={room.id}>{room.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
                         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                             <SelectTrigger className="w-[180px]">
                                 <Filter className="h-4 w-4 mr-2" />
@@ -735,7 +782,7 @@ export default function AsetPage() {
                     }
                 }}
                 emptyTitle="Belum ada aset"
-                emptyDescription='Belum ada aset. Klik "Tambah Aset" untuk menambahkan.'
+                emptyDescription={viewMode === 'other' ? 'Tidak ada aset dari ruangan lain.' : 'Belum ada aset. Klik "Tambah Aset" untuk menambahkan.'}
                 columns={[
                     {
                         key: "name",
@@ -788,27 +835,36 @@ export default function AsetPage() {
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => openEditDialog(asset)}>
-                                <Pencil className="h-4 w-4 mr-2" />
-                                Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => window.open(`/inventaris/label?assets=${asset.id}`, '_blank')}>
-                                <Printer className="h-4 w-4 mr-2" />
-                                Cetak Label
-                            </DropdownMenuItem>
-                            {!isMyRoom(asset) && (
-                                <DropdownMenuItem onClick={() => openBorrowDialog(asset)}>
-                                    <HandHeart className="h-4 w-4 mr-2" />
-                                    Ajukan Peminjaman
-                                </DropdownMenuItem>
+                            {isMyRoom(asset) ? (
+                                <>
+                                    <DropdownMenuItem onClick={() => openEditDialog(asset)}>
+                                        <Pencil className="h-4 w-4 mr-2" />
+                                        Edit
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => window.open(`/inventaris/label?assets=${asset.id}`, '_blank')}>
+                                        <Printer className="h-4 w-4 mr-2" />
+                                        Cetak Label
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        className="text-red-600"
+                                        onClick={() => handleDelete(asset.id)}
+                                    >
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Hapus
+                                    </DropdownMenuItem>
+                                </>
+                            ) : (
+                                <>
+                                    <DropdownMenuItem onClick={() => window.open(`/inventaris/label?assets=${asset.id}`, '_blank')}>
+                                        <Printer className="h-4 w-4 mr-2" />
+                                        Cetak Label
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => openBorrowDialog(asset)}>
+                                        <HandHeart className="h-4 w-4 mr-2" />
+                                        Ajukan Peminjaman
+                                    </DropdownMenuItem>
+                                </>
                             )}
-                            <DropdownMenuItem
-                                className="text-red-600"
-                                onClick={() => handleDelete(asset.id)}
-                            >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Hapus
-                            </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 )}

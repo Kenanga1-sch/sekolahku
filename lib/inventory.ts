@@ -73,6 +73,8 @@ export interface AssetFilter {
     roomId?: string;
     search?: string;
     category?: string;
+    /** Tab "Aset Ruangan Lain": minta API mengecualikan ruangan wewenang user. */
+    excludeMyRoom?: boolean;
 }
 
 export async function getAssets(
@@ -87,6 +89,7 @@ export async function getAssets(
         search: filter.search ?? "",
         category: filter.category ?? "",
     });
+    if (filter.excludeMyRoom) query.set("excludeMyRoom", "true");
     return await goGet(`/api/inventory/assets?${query}`);
 }
 

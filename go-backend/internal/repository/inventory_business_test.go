@@ -378,7 +378,7 @@ func TestSoftDeleteHidesFromReads(t *testing.T) {
 	if got, err := r.GetAssetByID("a-1"); err != nil || got != nil {
 		t.Errorf("aset terhapus masih terbaca: %+v %v", got, err)
 	}
-	items, _, err := r.GetAssets(1, 20, "", "", "")
+	items, _, err := r.GetAssets(1, 20, "", "", "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -483,5 +483,64 @@ func TestGetOpnamesNoDeadlock(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("GetOpnames menggantung (deadlock koneksi tunggal)")
+	}
+}
+
+// ============ Scope PIC Ruangan (excludeMyRoom) ============
+
+func TestGetAssetsExcludeMyRoom(t *testing.T) {
+	db := setupInventorySchemaFromMigrations(t)
+	defer db.Close()
+	seedInventoryBase(t, db)
+	r := newRepo(db)
+
+	// Guru hanya memegang r-1; exclude r-1 harus menyisakan aset di r-2.
+	items, total, err := r.GetAssets(1, 20, "", "", "", []string{"r-1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 1 || len(items) != 1 || items[0].ID != "a-2" {
+		t.Errorf("expected hanya a-2, got total=%d items=%v", total, items)
+	}
+
+	// Tanpa exclusion: kedua aset terlihat.
+	_, totalAll, err := r.GetAssets(1, 20, "", "", "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if totalAll != 2 {
+		t.Errorf("expected 2 tanpa exclusion, got %d", totalAll)
+	}
+}
+
+func TestGetAssetsExcludeKeepsGeneralAssets(t *testing.T) {
+	db := setupInventorySchemaFromMigrations(t)
+	defer db.Close()
+	seedInventoryBase(t, db)
+	r := newRepo(db)
+
+	// Aset umum (tanpa ruangan) tidak boleh ikut tereksklusi.
+	genID, err := r.CreateAsset(models.InventoryAsset{
+		Name: "Papan Tulis Umum", Category: "Lainnya",
+		Quantity: 1, ConditionGood: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, _, err := r.GetAssets(1, 20, "", "", "", []string{"r-1", "r-2"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, it := range items {
+		if it.ID == genID {
+			found = true
+		}
+		if it.RoomID != nil && *it.RoomID != "" {
+			t.Errorf("aset ber-rooman bocor saat semua room dieksklusi: %s/%v", it.ID, it.RoomID)
+		}
+	}
+	if !found {
+		t.Error("aset umum (room_id NULL) hilang saat exclusion")
 	}
 }

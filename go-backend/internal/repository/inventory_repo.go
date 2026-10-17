@@ -384,7 +384,7 @@ func (r *InventoryRepository) GetAssetByID(id string) (*models.InventoryAsset, e
 	return &a, nil
 }
 
-func (r *InventoryRepository) GetAssets(page, limit int, roomId, search, category string) ([]models.InventoryAsset, int, error) {
+func (r *InventoryRepository) GetAssets(page, limit int, roomId, search, category string, excludeRoomIds []string) ([]models.InventoryAsset, int, error) {
 	offset := (page - 1) * limit
 
 	// Bangun filter sekali, pakai untuk count maupun daftar.
@@ -406,6 +406,19 @@ func (r *InventoryRepository) GetAssets(page, limit int, roomId, search, categor
 	if category != "" && category != "all" {
 		where = append(where, "a.category = ?")
 		args = append(args, category)
+	}
+	placeholders := make([]string, 0)
+	for _, id := range excludeRoomIds {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		placeholders = append(placeholders, "?")
+		args = append(args, id)
+	}
+	if len(placeholders) > 0 {
+		// Aset tanpa ruangan (NULL) dianggap umum — tetap ditampilkan.
+		where = append(where, "(a.room_id IS NULL OR a.room_id NOT IN ("+strings.Join(placeholders, ",")+"))")
 	}
 	clause := " WHERE " + strings.Join(where, " AND ")
 

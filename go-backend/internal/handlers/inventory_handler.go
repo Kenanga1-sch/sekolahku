@@ -245,8 +245,47 @@ func (h *InventoryHandler) GetAssets(c echo.Context) error {
 	roomId := c.QueryParam("roomId")
 	search := c.QueryParam("search")
 	category := c.QueryParam("category")
+	excludeMyRoom := c.QueryParam("excludeMyRoom") == "true"
 
-	items, total, err := h.Repo.GetAssets(page, limit, roomId, search, category)
+	scope, err := h.resolveScope(c)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+	}
+
+	// Guru/staff: auto-filter berdasarkan scope PIC ruangan.
+	// Admin bebas pilih semua atau spesifik.
+	var effectiveRoomId string
+	var excludeRoomIds []string
+
+	if !scope.IsAdmin {
+		if len(scope.RoomIDs) == 0 {
+			// Bukan PIC mana pun — kembalikan kosong kecuali admin minta lihat semua.
+			return c.JSON(http.StatusOK, map[string]interface{}{
+				"items":      []models.InventoryAsset{},
+				"totalItems": 0,
+				"totalPages": 0,
+			})
+		}
+
+		if excludeMyRoom {
+			// Tab "Aset Ruangan Lain": tampilkan aset DI LUAR ruangan user.
+			excludeRoomIds = scope.RoomIDs
+		} else if roomId != "" {
+			// Filter manual oleh klien — validasi bahwa room tersebut dalam scope.
+			if !scope.IsPICOf(roomId) {
+				return scopeDeny(c)
+			}
+			effectiveRoomId = roomId
+		} else {
+			// Default: hanya aset di ruangan user (ambil room pertama jika multi-room).
+			effectiveRoomId = scope.RoomIDs[0]
+		}
+	} else {
+		// Admin: hormati filter klien apa adanya.
+		effectiveRoomId = roomId
+	}
+
+	items, total, err := h.Repo.GetAssets(page, limit, effectiveRoomId, search, category, excludeRoomIds)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	}
