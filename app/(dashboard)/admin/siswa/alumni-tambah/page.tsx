@@ -14,6 +14,11 @@ import { alumniFormSchema, type AlumniFormData } from "./alumni-tambah-schema";
 import { AlumniIdentitasTab } from "./_components/identitas-tab";
 import { AlumniAkademikTab } from "./_components/akademik-tab";
 import { AlumniKeluargaTab } from "./_components/keluarga-tab";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
+
+type AlumniFormTab = "identitas" | "akademik" | "keluarga";
+
+const ALUMNI_FORM_TABS: AlumniFormTab[] = ["identitas", "akademik", "keluarga"];
 
 export default function TambahAlumniPage() {
   const router = useRouter();
@@ -21,6 +26,10 @@ export default function TambahAlumniPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [entryType, setEntryType] = useState<"tk" | "mutasi">("tk");
+  // Tab aktif tersimpan di URL (?tab=...) agar tetap terbuka setelah refresh.
+  const [activeTab, setActiveTab] = useTabParam<AlumniFormTab>("identitas", {
+    validTabs: ALUMNI_FORM_TABS,
+  });
   const formRef = useRef<HTMLFormElement>(null);
 
   const {
@@ -178,7 +187,7 @@ export default function TambahAlumniPage() {
       )}
 
       <form ref={formRef} onKeyDown={handleFormKeyDown} onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        <Tabs defaultValue="identitas" className="w-full space-y-6">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as AlumniFormTab)} className="w-full space-y-6">
           <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3">
             <TabsTrigger value="identitas">Identitas Siswa</TabsTrigger>
             <TabsTrigger value="akademik">Status & Akademik</TabsTrigger>

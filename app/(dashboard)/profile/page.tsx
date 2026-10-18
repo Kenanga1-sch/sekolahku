@@ -38,6 +38,11 @@ import { siteConfig } from "@/lib/config";
 import { getActionIcon, getFriendlyActionBadge } from "./_components/profile-helpers";
 import { SecurityTipsCard } from "./_components/security-tips-card";
 import { ProfileHeader } from "./_components/profile-header";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
+
+type ProfileTab = "personal" | "security" | "activity";
+
+const PROFILE_TABS: ProfileTab[] = ["personal", "security", "activity"];
 
 export default function ProfilePage() {
     const router = useRouter();
@@ -50,7 +55,10 @@ export default function ProfilePage() {
     const [error, setError] = useState<string | null>(null);
     const [passwordError, setPasswordError] = useState<string | null>(null);
     const [passwordSuccess, setPasswordSuccess] = useState(false);
-    const [activeTab, setActiveTab] = useState("personal");
+    // Tab aktif tersimpan di URL (?tab=...) agar tetap terbuka setelah refresh.
+    const [activeTab, setActiveTab] = useTabParam<ProfileTab>("personal", {
+        validTabs: PROFILE_TABS,
+    });
 
     // Profile state
     const [profile, setProfile] = useState({
@@ -331,7 +339,7 @@ export default function ProfilePage() {
             />
 
 
-            <Tabs defaultValue="personal" onValueChange={setActiveTab} className="w-full">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ProfileTab)} className="w-full">
                 <div className="relative mb-6">
                     <TabsList className="w-full justify-start gap-1.5 bg-slate-100/80 dark:bg-zinc-900/80 border border-slate-200/40 dark:border-zinc-800/40 p-1.5 rounded-xl h-auto">
                         <TabsTrigger value="personal" className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg transition-all cursor-pointer whitespace-nowrap text-xs">

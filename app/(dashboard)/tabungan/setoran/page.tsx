@@ -34,6 +34,11 @@ import { showSuccess, showError } from "@/lib/toast";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { goGet, goPost } from "@/lib/api-client";
 import type { TabunganTransaksiWithRelations, TabunganSetoranWithRelations } from "@/types/tabungan";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
+
+type SetoranTab = "new" | "history";
+
+const SETORAN_TABS: SetoranTab[] = ["new", "history"];
 
 function formatRupiah(amount: number): string {
     return new Intl.NumberFormat("id-ID", {
@@ -56,6 +61,10 @@ function formatDateTime(date: string | Date | null): string {
 
 export default function TabunganSetoranPage() {
     const { user } = useAuthStore();
+    // Tab aktif tersimpan di URL (?tab=...) agar tetap terbuka setelah refresh.
+    const [activeTab, setActiveTab] = useTabParam<SetoranTab>("new", {
+        validTabs: SETORAN_TABS,
+    });
     const [transactions, setTransactions] = useState<TabunganTransaksiWithRelations[]>([]);
     const [history, setHistory] = useState<TabunganSetoranWithRelations[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -161,7 +170,7 @@ export default function TabunganSetoranPage() {
                 </div>
             </div>
 
-            <Tabs defaultValue="new" className="w-full">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as SetoranTab)} className="w-full">
                 <TabsList className="grid w-full grid-cols-2 mb-4">
                     <TabsTrigger value="new">Setoran Baru</TabsTrigger>
                     <TabsTrigger value="history">Riwayat Setoran</TabsTrigger>

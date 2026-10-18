@@ -16,8 +16,18 @@ import { BookingsTab } from "./_components/bookings-tab";
 import { ReportsTab } from "./_components/reports-tab";
 import { QuotasTab } from "./_components/quotas-tab";
 import { HistoryTab } from "./_components/history-tab";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
+
+type KomputerTab = "stations" | "bookings" | "reports" | "quotas" | "history";
+
+const KOMPUTER_TABS: KomputerTab[] = ["stations", "bookings", "reports", "quotas", "history"];
 
 export default function KomputerPage() {
+  // Tab aktif tersimpan di URL (?tab=...) agar tetap terbuka setelah refresh.
+  const [activeTab, setActiveTab] = useTabParam<KomputerTab>("stations", {
+    validTabs: KOMPUTER_TABS,
+  });
+
   return (
     <div className="max-w-6xl mx-auto space-y-6 p-4 sm:p-6">
       <div className="flex items-center gap-4">
@@ -34,7 +44,7 @@ export default function KomputerPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="stations" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as KomputerTab)} className="space-y-4">
         <TabsList className="w-full h-auto justify-start gap-1 overflow-x-auto scrollbar-none whitespace-nowrap sm:grid sm:grid-cols-5">
           <TabsTrigger value="stations" className="gap-1.5 shrink-0">
             <Monitor className="h-4 w-4" /> Komputer

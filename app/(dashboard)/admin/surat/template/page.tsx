@@ -33,9 +33,18 @@ import { ImportDialog } from "@/components/letters/import-dialog";
 import { goDelete, goGet, goPost } from "@/lib/api-client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TemplateGroupList } from "./template-group-list";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
+
+type TemplateTab = "tunggal" | "grup";
+
+const TEMPLATE_TABS: TemplateTab[] = ["tunggal", "grup"];
 
 export default function TemplateListPage() {
   const router = useRouter();
+  // Tab aktif tersimpan di URL (?tab=...) agar tetap terbuka setelah refresh.
+  const [activeTab, setActiveTab] = useTabParam<TemplateTab>("tunggal", {
+    validTabs: TEMPLATE_TABS,
+  });
   const [templates, setTemplates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -161,7 +170,7 @@ export default function TemplateListPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="tunggal" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TemplateTab)} className="space-y-6">
         <TabsList>
           <TabsTrigger value="tunggal">Template Tunggal</TabsTrigger>
           <TabsTrigger value="grup">Grup / Paket Surat</TabsTrigger>

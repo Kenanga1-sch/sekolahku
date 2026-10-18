@@ -29,6 +29,11 @@ import { PreviewStep } from "@/components/letters/generator/preview-step";
 import { DeprecationBanner } from "@/components/letters/deprecation-banner";
 import { formatLetterNumber } from "./letter-generator-helpers";
 import { useLetterGenerator } from "./use-letter-generator";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
+
+type SuratBuatTab = "tunggal" | "grup";
+
+const SURAT_BUAT_TABS: SuratBuatTab[] = ["tunggal", "grup"];
 
 function LetterGeneratorContent() {
   const {
@@ -66,6 +71,11 @@ function LetterGeneratorContent() {
     submitting,
     router,
   } = useLetterGenerator();
+
+  // Tab aktif tersimpan di URL (?tab=...) agar tetap terbuka setelah refresh.
+  const [activeTab, setActiveTab] = useTabParam<SuratBuatTab>("tunggal", {
+    validTabs: SURAT_BUAT_TABS,
+  });
 
   return (
     <div className={cn("mx-auto space-y-6 pb-20 transition-all duration-300", step === 3 ? "max-w-5xl" : "max-w-4xl")}>
@@ -152,7 +162,7 @@ function LetterGeneratorContent() {
       </div>
 
       {step === 1 && (
-        <Tabs defaultValue="tunggal" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as SuratBuatTab)} className="space-y-6">
           <TabsList className="bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl">
             <TabsTrigger value="tunggal" className="rounded-lg">Template Tunggal</TabsTrigger>
             <TabsTrigger value="grup" className="rounded-lg">Paket Surat (Grup)</TabsTrigger>

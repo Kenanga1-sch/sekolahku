@@ -1842,15 +1842,21 @@ func (r *InventoryRepository) GetConditionBreakdown(roomIds ...string) ([]Condit
 		{"Rusak Berat", "condition_heavy_damaged", "#ef4444"},
 		{"Hilang", "condition_lost", "#6b7280"},
 	}
-	// SQLite UNION untuk menggabungkan 4 kondisi
+	// SQLite UNION untuk menggabungkan 4 kondisi.
+	// Tiap cabang SELECT menyisipkan roomClause sendiri, jadi placeholder ?-nya
+	// juga berulang per cabang — roomArgs wajib diulang mengikuti. Tanpa ini
+	// jumlah argumen tidak cocok dan query gagal HANYA untuk user ber-scoped
+	// (admin lolos karena clause kosong) — pernah bikin grafik kondisi 500.
 	var parts []string
+	args := make([]interface{}, 0, len(conds)*len(roomArgs))
 	for _, c := range conds {
 		parts = append(parts, fmt.Sprintf(
 			`SELECT '%s' AS name, COALESCE(SUM(%s), 0) AS total, '%s' AS color FROM inventory_assets WHERE (status = 'ACTIVE' OR status IS NULL)%s`,
 			c.name, c.col, c.color, roomClause,
 		))
+		args = append(args, roomArgs...)
 	}
-	rows, err := r.DB.Query(strings.Join(parts, "\n\t\tUNION ALL\n\t\t"), roomArgs...)
+	rows, err := r.DB.Query(strings.Join(parts, "\n\t\tUNION ALL\n\t\t"), args...)
 	if err != nil {
 		return nil, err
 	}

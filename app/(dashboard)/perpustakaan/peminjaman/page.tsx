@@ -11,7 +11,7 @@ import {
     ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,10 +48,19 @@ import { showError, showSuccess } from "@/lib/toast";
 import { goGet, goPost } from "@/lib/api-client";
 import type { LibraryLoan, LibraryItem, LibraryMember } from "@/types/library";
 import { FINE_PER_DAY } from "@/types/library";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
+
+type PeminjamanTab = "active" | "overdue";
+
+const PEMINJAMAN_TABS: PeminjamanTab[] = ["active", "overdue"];
 
 export default function PeminjamanPage() {
-  const searchParams = useSearchParams();
-  const initialTab = searchParams.get("filter") === "overdue" ? "overdue" : "active";
+  // Tab aktif tersimpan di URL (?filter=...) agar tetap terbuka setelah refresh
+  // dan tautan lama seperti ?filter=overdue tetap berfungsi.
+  const [activeTab, setActiveTab] = useTabParam<PeminjamanTab>("active", {
+    param: "filter",
+    validTabs: PEMINJAMAN_TABS,
+  });
     const [activeLoans, setActiveLoans] = useState<LibraryLoan[]>([]);
     const [overdueLoans, setOverdueLoans] = useState<LibraryLoan[]>([]);
     const [loading, setLoading] = useState(true);
@@ -374,7 +383,7 @@ export default function PeminjamanPage() {
             </Card>
 
             {/* Tabs */}
-            <Tabs defaultValue={initialTab}>
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as PeminjamanTab)}>
                 <TabsList className="w-full h-auto justify-start gap-1 overflow-x-auto scrollbar-none whitespace-nowrap sm:w-auto">
                     <TabsTrigger value="active" className="gap-2 shrink-0">
                         <BookMarked className="h-4 w-4" />

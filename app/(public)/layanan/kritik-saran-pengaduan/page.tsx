@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -81,6 +82,10 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 export default function KritikSaranPengaduanPage() {
+  // Tab aktif tersimpan di URL (?tab=...) agar tetap terbuka setelah refresh.
+  const [activeTab, setActiveTab] = useTabParam<"kirim" | "status">("kirim", {
+    validTabs: ["kirim", "status"],
+  });
   const [category, setCategory] = useState<CategoryId>("saran");
   const [loading, setLoading] = useState(false);
   const [ticket, setTicket] = useState<string | null>(null);
@@ -219,7 +224,7 @@ export default function KritikSaranPengaduanPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="kirim">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "kirim" | "status")}>
         <TabsList className="grid w-full grid-cols-2 mb-4">
           <TabsTrigger value="kirim">
             <Send className="mr-2 h-4 w-4" /> Kirim

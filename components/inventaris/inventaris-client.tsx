@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import dynamic from "next/dynamic";
+import { useEffect, useState } from "react";
+import Link from "next/link";import dynamic from "next/dynamic";
 import {
     Package,
     AlertTriangle,
@@ -22,6 +21,11 @@ import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import type { InventoryStats } from "@/types/inventory";
 import { useRouter } from "next/navigation";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
+
+type InventarisTab = "aset" | "atk";
+
+const INVENTARIS_TABS: InventarisTab[] = ["aset", "atk"];
 
 // Lazy load heavy components
 
@@ -79,7 +83,17 @@ interface InventarisClientProps {
 export default function InventarisClient({ initialStats, initialConsumableStats, userRole, onReload }: InventarisClientProps) {
     const [refreshing, setRefreshing] = useState(false);
 
+    // Tab aktif tersimpan di URL (?tab=...) agar tetap terbuka setelah refresh.
+    const [activeTab, setActiveTab] = useTabParam<InventarisTab>("aset", {
+        validTabs: INVENTARIS_TABS,
+    });
+
     const isAdmin = ["superadmin", "admin"].includes(userRole || "");
+
+    // Tab "atk" hanya untuk admin -> jatuh ke "aset" bila tidak berhak.
+    useEffect(() => {
+        if (activeTab === "atk" && !isAdmin) setActiveTab("aset");
+    }, [activeTab, isAdmin, setActiveTab]);
 
     // router.refresh() tidak mengefek untuk modul ini (data diambil lewat useEffect
     // di client, bukan RSC), jadi tombol refresh memutar 1 detik tanpa memuat apa pun.
@@ -165,7 +179,7 @@ export default function InventarisClient({ initialStats, initialConsumableStats,
                 </Button>
             </div>
 
-            <Tabs defaultValue="aset" className="space-y-6">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as InventarisTab)} className="space-y-6">
                 <TabsList className={`grid w-full ${isAdmin ? "grid-cols-2" : "grid-cols-1"} lg:w-[400px]`}>
                     <TabsTrigger value="aset">Aset Tetap</TabsTrigger>
                     {isAdmin && <TabsTrigger value="atk">Barang Habis Pakai</TabsTrigger>}

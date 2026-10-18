@@ -31,7 +31,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, Info } from "lucide-react";
+import { Plus, Pencil, Trash2, Info, Hash } from "lucide-react";
 import { showSuccess, showError } from "@/lib/toast";
 import { goGet, goPost, goPut, goDelete } from "@/lib/api-client";
 
@@ -62,6 +62,8 @@ export default function TabKelas() {
     const [isSaving, setIsSaving] = useState(false);
     const [inheritedFrom, setInheritedFrom] = useState<string>("");
     const [deletingItem, setDeletingItem] = useState<AcademicClass | null>(null);
+    const [nisTarget, setNisTarget] = useState<AcademicClass | null>(null);
+    const [isIssuingNIS, setIsIssuingNIS] = useState(false);
 
     // Form
     const [formData, setFormData] = useState({
@@ -183,6 +185,25 @@ export default function TabKelas() {
         }
     };
 
+    const handleIssueNIS = async (item: AcademicClass) => {
+        setIsIssuingNIS(true);
+        try {
+            const res: any = await goPost("/api/master/students/issue-nis", { classId: item.id });
+            const count = res?.data?.count ?? 0;
+            if (count > 0) {
+                showSuccess(`${count} NIS diterbitkan untuk ${item.name} (urut nama)`);
+            } else {
+                showSuccess(`Semua siswa di ${item.name} sudah memiliki NIS`);
+            }
+            setNisTarget(null);
+            fetchData();
+        } catch (error: any) {
+            showError(error?.message || "Gagal menerbitkan NIS");
+        } finally {
+            setIsIssuingNIS(false);
+        }
+    };
+
     const handleDelete = async (item: AcademicClass) => {
         setDeletingItem(null);
         try {
@@ -256,6 +277,14 @@ export default function TabKelas() {
                         ]}
                         actions={(c) => (
                             <div className="flex justify-end gap-2">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    title="Terbitkan NIS"
+                                    onClick={() => setNisTarget(c)}
+                                >
+                                    <Hash className="h-4 w-4" />
+                                </Button>
                                 <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(c)}>
                                     <Pencil className="h-4 w-4" />
                                 </Button>
@@ -359,6 +388,30 @@ export default function TabKelas() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <AlertDialog open={!!nisTarget} onOpenChange={(open) => !open && setNisTarget(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Terbitkan NIS kelas {nisTarget?.name}?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Siswa di kelas ini yang belum memiliki NIS akan diberi NIS otomatis, diurutkan
+                            menurut nama (A → nomor terkecil). NIS yang sudah ada tidak akan diubah.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isIssuingNIS}>Batal</AlertDialogCancel>
+                        <AlertDialogAction
+                            disabled={isIssuingNIS}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                if (nisTarget) handleIssueNIS(nisTarget);
+                            }}
+                        >
+                            {isIssuingNIS ? "Memproses..." : "Terbitkan NIS"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             <AlertDialog open={!!deletingItem} onOpenChange={(open) => !open && setDeletingItem(null)}>
                 <AlertDialogContent>

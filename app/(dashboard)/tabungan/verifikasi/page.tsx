@@ -40,6 +40,11 @@ type SetoranWithRelations = TabunganSetoran & {
 
 // Add import for Tabs
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
+
+type VerifikasiTab = "pending" | "history";
+
+const VERIFIKASI_TABS: VerifikasiTab[] = ["pending", "history"];
 
 function formatRupiah(amount: number): string {
     return new Intl.NumberFormat("id-ID", {
@@ -62,6 +67,10 @@ function formatDateTime(date: string | Date | null): string {
 
 export default function TabunganVerifikasiPage() {
     const { user } = useAuthStore();
+    // Tab aktif tersimpan di URL (?tab=...) agar tetap terbuka setelah refresh.
+    const [activeTab, setActiveTab] = useTabParam<VerifikasiTab>("pending", {
+        validTabs: VERIFIKASI_TABS,
+    });
     const [setoranList, setSetoranList] = useState<SetoranWithRelations[]>([]);
     const [historyList, setHistoryList] = useState<SetoranWithRelations[]>([]); // New state for history
     const [isLoading, setIsLoading] = useState(true);
@@ -177,7 +186,7 @@ export default function TabunganVerifikasiPage() {
                 </Button>
             </div>
 
-            <Tabs defaultValue="pending" className="space-y-4">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as VerifikasiTab)} className="space-y-4">
                 <TabsList>
                     <TabsTrigger value="pending" className="relative">
                         Perlu Verifikasi

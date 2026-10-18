@@ -29,6 +29,11 @@ import Link from "next/link";
 import { showSuccess, showError } from "@/lib/toast";
 import { goGet, goPost, goPut, goDelete } from "@/lib/api-client";
 import type { TabunganKelasWithRelations } from "@/types/tabungan";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
+
+type PenggunaTab = "wali-kelas" | "bendahara";
+
+const PENGGUNA_TABS: PenggunaTab[] = ["wali-kelas", "bendahara"];
 
 interface SimpleUser {
     id: string;
@@ -45,7 +50,10 @@ interface BrankasData {
 }
 
 export default function TabunganPenggunaPage() {
-    const [activeTab, setActiveTab] = useState("wali-kelas");
+    // Tab aktif tersimpan di URL (?tab=...) agar tetap terbuka setelah refresh.
+    const [activeTab, setActiveTab] = useTabParam<PenggunaTab>("wali-kelas", {
+        validTabs: PENGGUNA_TABS,
+    });
     const [isLoading, setIsLoading] = useState(true);
     
     // Data State
@@ -206,7 +214,7 @@ export default function TabunganPenggunaPage() {
                 </div>
             </div>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as PenggunaTab)} className="w-full">
                 <TabsList className="grid w-full md:w-[400px] grid-cols-2">
                     <TabsTrigger value="wali-kelas">Wali Kelas</TabsTrigger>
                     <TabsTrigger value="bendahara">Bendahara (Brankas)</TabsTrigger>

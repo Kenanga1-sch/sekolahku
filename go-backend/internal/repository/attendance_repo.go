@@ -113,15 +113,24 @@ func reportTimeString(t *time.Time) *string {
 	return &value
 }
 
-func (r *AttendanceRepository) GetStats() (*models.AttendanceStats, error) {
+// GetStats mengembalikan statistik presensi hari ini. className != ""
+// membatasi hitungan ke satu kelas (untuk guru wali); className kosong =
+// seluruh sekolah (admin/staff).
+func (r *AttendanceRepository) GetStats(className string) (*models.AttendanceStats, error) {
 	today := today()
 
 	var stats models.AttendanceStats
-	if err := r.DB.QueryRow("SELECT COUNT(*) FROM students WHERE status = 'active' OR is_active = 1").Scan(&stats.TotalStudents); err != nil {
+	statsQuery := "SELECT COUNT(*) FROM students WHERE (status = 'active' OR is_active = 1)"
+	args := []interface{}{}
+	if className != "" {
+		statsQuery += " AND class_name = ?"
+		args = append(args, className)
+	}
+	if err := r.DB.QueryRow(statsQuery, args...).Scan(&stats.TotalStudents); err != nil {
 		return nil, err
 	}
 
-	err := r.DB.QueryRow(`
+	recordQuery := `
 		SELECT
 			COUNT(CASE WHEN ar.status = 'hadir' THEN 1 END),
 			COUNT(CASE WHEN ar.status = 'sakit' THEN 1 END),
@@ -130,7 +139,13 @@ func (r *AttendanceRepository) GetStats() (*models.AttendanceStats, error) {
 		FROM attendance_records ar
 		JOIN attendance_sessions s ON ar.session_id = s.id
 		WHERE s.date = ?
-	`, today).Scan(&stats.Stats.Hadir, &stats.Stats.Sakit, &stats.Stats.Izin, &stats.Stats.Alpha)
+	`
+	recordArgs := []interface{}{today}
+	if className != "" {
+		recordQuery += " AND s.class_name = ?"
+		recordArgs = append(recordArgs, className)
+	}
+	err := r.DB.QueryRow(recordQuery, recordArgs...).Scan(&stats.Stats.Hadir, &stats.Stats.Sakit, &stats.Stats.Izin, &stats.Stats.Alpha)
 	if err != nil {
 		return nil, err
 	}
@@ -142,6 +157,7 @@ func (r *AttendanceRepository) GetStats() (*models.AttendanceStats, error) {
 	if stats.TotalStudents > 0 {
 		stats.Stats.PersenKehadiran = math.Round(float64(stats.Stats.Hadir) / float64(stats.TotalStudents) * 100)
 	}
+	stats.ClassName = className
 
 	return &stats, nil
 }

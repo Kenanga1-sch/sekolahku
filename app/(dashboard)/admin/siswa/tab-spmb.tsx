@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { differenceInYears, differenceInMonths } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -64,19 +63,18 @@ import { calculateSPMBDomisiliPriority } from "@/lib/spmb-priority";
 import { useSortableData } from "@/hooks/use-sortable-data";
 import { normalizePeriod, getAgePriorityLabel, getAgePriorityClass } from "./types-spmb";
 import type { Registrant, SPMBStats as Stats, Period, GlobalSettings, SPMBRegistrantsResponse, SPMBStatsResponse } from "./types-spmb";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
+
+type SPMBTab = "registrants" | "periods";
+
+const SPMB_TABS: SPMBTab[] = ["registrants", "periods"];
 
 export default function TabSPMB() {
-  const searchParams = useSearchParams();
-  const subTab = searchParams.get("sub") as "registrants" | "periods" | null;
-
-  // Tabs State
-  const [activeTab, setActiveTab] = useState<"registrants" | "periods">("registrants");
-
-  useEffect(() => {
-    if (subTab === "registrants" || subTab === "periods") {
-      setActiveTab(subTab);
-    }
-  }, [subTab]);
+  // Tab tersimpan di URL (?sub=...) agar tetap terbuka setelah refresh.
+  const [activeTab, setActiveTab] = useTabParam<SPMBTab>("registrants", {
+    param: "sub",
+    validTabs: SPMB_TABS,
+  });
 
   // Registrants State
   const [registrants, setRegistrants] = useState<Registrant[]>([]);

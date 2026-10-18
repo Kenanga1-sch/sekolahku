@@ -24,10 +24,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { showSuccess, showError } from "@/lib/toast";
 import { goGet, goPost, goPut, goDelete } from "@/lib/api-client";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
+
+type RefTab = "years" | "subjects";
+
+const REF_TABS: RefTab[] = ["years", "subjects"];
 
 export default function TabReferensi() {
+    // Sub-tab tersimpan di URL (?rtab=...) agar tetap terbuka setelah refresh.
+    const [activeTab, setActiveTab] = useTabParam<RefTab>("years", {
+        param: "rtab",
+        validTabs: REF_TABS,
+    });
+
     return (
-        <Tabs defaultValue="years" className="space-y-4">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as RefTab)} className="space-y-4">
             <TabsList>
                 <TabsTrigger value="years">Tahun Ajaran</TabsTrigger>
                 <TabsTrigger value="subjects">Mata Pelajaran</TabsTrigger>

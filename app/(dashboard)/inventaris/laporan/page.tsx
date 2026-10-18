@@ -34,6 +34,11 @@ import { downloadPdf } from "@/lib/print-kit";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 import type { InventoryAsset, InventoryCategory, InventoryOpname, InventoryRoom, InventoryStats } from "@/types/inventory";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
+
+type InventoryLaporanTab = "aset" | "atk" | "dir" | "ba";
+
+const INVENTORY_LAPORAN_TABS: InventoryLaporanTab[] = ["aset", "atk", "dir", "ba"];
 
 const today = () =>
     new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
@@ -77,6 +82,10 @@ function formatDate(d?: string | null) {
 
 export default function LaporanPage() {
     const { settings } = useSchoolSettings();
+    // Tab aktif tersimpan di URL (?tab=...) agar tetap terbuka setelah refresh.
+    const [activeTab, setActiveTab] = useTabParam<InventoryLaporanTab>("aset", {
+        validTabs: INVENTORY_LAPORAN_TABS,
+    });
     const [stats, setStats] = useState<InventoryStats | null>(null);
     const [assets, setAssets] = useState<InventoryAsset[]>([]);
     const [atkItems, setAtkItems] = useState<any[]>([]);
@@ -703,7 +712,7 @@ export default function LaporanPage() {
                     </Card>
                 ) : null}
 
-                <Tabs defaultValue="aset" className="space-y-6">
+                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as InventoryLaporanTab)} className="space-y-6">
                     <TabsList className="print:hidden">
                         <TabsTrigger value="aset">Laporan Aset Tetap</TabsTrigger>
                         <TabsTrigger value="atk">Stok Habis Pakai</TabsTrigger>

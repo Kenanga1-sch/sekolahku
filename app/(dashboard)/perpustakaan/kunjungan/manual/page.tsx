@@ -12,10 +12,20 @@ import { toast } from "sonner";
 import AsyncSelect from "react-select/async";
 import { goGet } from "@/lib/api-client";
 import { recordVisit, getLibraryMembers } from "@/lib/library";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
+
+type VisitTab = "member" | "guest";
+
+const VISIT_TABS: VisitTab[] = ["member", "guest"];
 
 export default function ManualVisitPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
+
+    // Tab aktif tersimpan di URL (?tab=...) agar tetap terbuka setelah refresh.
+    const [visitTab, setVisitTab] = useTabParam<VisitTab>("member", {
+        validTabs: VISIT_TABS,
+    });
     
     // Member State
     const [selectedMember, setSelectedMember] = useState<any>(null);
@@ -97,7 +107,7 @@ export default function ManualVisitPage() {
                 </div>
             </div>
 
-            <Tabs defaultValue="member" className="w-full">
+            <Tabs value={visitTab} onValueChange={(v) => setVisitTab(v as VisitTab)} className="w-full">
                 <TabsList className="w-full h-auto justify-start gap-1 overflow-x-auto scrollbar-none whitespace-nowrap sm:grid sm:grid-cols-2 mb-4">
                     <TabsTrigger value="member" className="gap-2 shrink-0">
                         <Users className="h-4 w-4" />

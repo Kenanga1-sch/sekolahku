@@ -28,6 +28,7 @@ import { showError, showSuccess } from "@/lib/toast";
 import type { LoanReportItem, VisitReportItem } from "@/types/library";
 import { goGet } from "@/lib/api-client";
 import { getDDCLabel } from "@/lib/library/ddc-mapping";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
@@ -129,12 +130,19 @@ function getDatePreset(preset: string) {
 // Main Component
 // ==========================================
 
+type LaporanTab = "peminjaman" | "kunjungan" | "keterlambatan" | "inventaris";
+
+const LAPORAN_TABS: LaporanTab[] = ["peminjaman", "kunjungan", "keterlambatan", "inventaris"];
+
 export default function LaporanPage() {
     const { settings } = useSchoolSettings();
     const defaults = getDefaultDates();
     const [startDate, setStartDate] = useState(defaults.startDate);
     const [endDate, setEndDate] = useState(defaults.endDate);
-    const [activeTab, setActiveTab] = useState("peminjaman");
+    // Tab aktif tersimpan di URL (?tab=...) agar tetap terbuka setelah refresh.
+    const [activeTab, setActiveTab] = useTabParam<LaporanTab>("peminjaman", {
+        validTabs: LAPORAN_TABS,
+    });
 
     const [loanData, setLoanData] = useState<LoanReportItem[]>([]);
     const [loanTotal, setLoanTotal] = useState(0);
@@ -474,9 +482,9 @@ export default function LaporanPage() {
                 </div>
 
                 <Tabs
-                    defaultValue="peminjaman"
+                    value={activeTab}
                     onValueChange={(v) => {
-                        setActiveTab(v);
+                        setActiveTab(v as LaporanTab);
                         setHasSearched(false);
                     }}
                     className="space-y-6"

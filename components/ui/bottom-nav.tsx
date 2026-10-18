@@ -50,7 +50,7 @@ const allItems: BottomNavItem[] = [
     label: "Siswa",
     icon: Users,
     matchPaths: ["/admin/siswa", "/admin/akademik", "/admin/master"],
-    roles: ["admin", "superadmin"],
+    roles: ["admin", "superadmin", "guru"],
   },
   {
     href: "/perpustakaan",

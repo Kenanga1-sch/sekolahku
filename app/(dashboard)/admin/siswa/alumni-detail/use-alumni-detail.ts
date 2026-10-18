@@ -13,6 +13,19 @@ import type {
 } from "./types-alumni";
 import { scoreToLetter } from "./alumni-spreadsheet-helpers";
 import { useTranscriptGrid } from "./use-transcript-grid";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
+
+type AlumniTab = "documents" | "transcripts" | "attendance" | "achievements" | "health" | "pickups" | "info";
+
+const ALUMNI_TABS: AlumniTab[] = [
+  "documents",
+  "transcripts",
+  "attendance",
+  "achievements",
+  "health",
+  "pickups",
+  "info",
+];
 
 export { scoreToLetter, getAcademicYearOptions } from "./alumni-spreadsheet-helpers";
 export type { ColumnDef, SavedTemplate } from "./alumni-spreadsheet-helpers";
@@ -23,7 +36,10 @@ export function useAlumniDetail() {
 
   const [alumni, setAlumni] = useState<AlumniDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("documents");
+  // Tab aktif tersimpan di URL (?tab=...) agar tetap terbuka setelah refresh.
+  const [activeTab, setActiveTab] = useTabParam<AlumniTab>("documents", {
+    validTabs: ALUMNI_TABS,
+  });
   const [submitting, setSubmitting] = useState(false);
   const [savingTranscripts, setSavingTranscripts] = useState(false);
 
@@ -75,11 +91,6 @@ export function useAlumniDetail() {
       fetchAlumni();
     }
   }, [searchParams.get("id"), fetchAlumni]);
-
-  useEffect(() => {
-    const tab = searchParams.get("tab");
-    if (tab) setActiveTab(tab);
-  }, [searchParams.get("tab")]);
 
   // --- Spreadsheet sub-hook (kolom, baris, template lokal) ---
   const grid = useTranscriptGrid(alumni);

@@ -32,6 +32,9 @@ type AttendanceRecord struct {
 type AttendanceStats struct {
 	TotalStudents int        `json:"totalStudents"`
 	Stats         DailyStats `json:"stats"`
+	// ClassName terisi hanya saat statistik di-scope ke satu kelas
+	// (guru wali kelas); kosong untuk data seluruh sekolah (admin).
+	ClassName string `json:"className,omitempty"`
 }
 
 type DailyStats struct {

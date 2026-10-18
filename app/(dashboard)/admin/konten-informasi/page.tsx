@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { MessageSquare, Newspaper, Camera, BarChart3 } from "lucide-react";
 
@@ -10,8 +9,11 @@ import { useGallery } from "./use-gallery";
 import { MessagesTab } from "./messages-tab";
 import { AnnouncementsTab } from "./announcements-tab";
 import { GalleryTab } from "./gallery-tab";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
 
 type TabKey = "pesan" | "pengumuman" | "galeri";
+
+const TAB_KEYS: TabKey[] = ["pesan", "pengumuman", "galeri"];
 
 const tabs: { id: TabKey; label: string; icon: React.ReactNode }[] = [
   { id: "pesan", label: "Pesan Masuk", icon: <MessageSquare className="h-4 w-4" /> },
@@ -20,7 +22,10 @@ const tabs: { id: TabKey; label: string; icon: React.ReactNode }[] = [
 ];
 
 export default function KontenInformasiPage() {
-  const [activeTab, setActiveTab] = useState<TabKey>("pesan");
+  // Tab aktif tersimpan di URL (?tab=...) agar tetap terbuka setelah refresh.
+  const [activeTab, setActiveTab] = useTabParam<TabKey>("pesan", {
+    validTabs: TAB_KEYS,
+  });
   const messages = useMessages();
   const announcements = useAnnouncements(activeTab === "pengumuman");
   const gallery = useGallery(activeTab === "galeri");

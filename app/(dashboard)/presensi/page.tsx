@@ -8,11 +8,11 @@
  * /holidays) tetap ada dan merender komponen tab yang sama.
  */
 
-import { useState, useEffect, Suspense, lazy } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, Suspense, lazy } from "react";
 import { ClipboardList, CalendarDays, FileText, Loader2, LayoutDashboard, IdCard, FileSpreadsheet } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { canManageHolidays } from "@/lib/presensi-access";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
 
 const PresensiDashboardTab = lazy(() =>
   import("./_components/presensi-dashboard-tab").then((m) => ({ default: m.PresensiDashboardTab }))
@@ -44,6 +44,8 @@ const TABS: { id: TabType; label: string; icon: any }[] = [
   { id: "libur", label: "Hari Libur", icon: CalendarDays },
 ];
 
+const TAB_IDS: TabType[] = ["ringkasan", "pengajuan", "laporan", "gtk", "laporan-gtk", "libur"];
+
 function TabFallback() {
   return (
     <div className="flex items-center justify-center min-h-[300px]">
@@ -53,22 +55,21 @@ function TabFallback() {
 }
 
 function PresensiTabsContent() {
-  const searchParams = useSearchParams();
-  const queryTab = searchParams.get("tab") as TabType | null;
   const { user } = useAuthStore();
 
-  const [activeTab, setActiveTab] = useState<TabType>("ringkasan");
+  // Tab aktif tersimpan di URL (?tab=...) agar tetap terbuka setelah refresh.
+  const [activeTab, setActiveTab] = useTabParam<TabType>("ringkasan", {
+    validTabs: TAB_IDS,
+  });
 
   const canLibur = canManageHolidays(user?.role);
   const visibleTabs = TABS.filter((t) => t.id !== "libur" || canLibur);
 
+  // Tab "libur" tidak boleh diakses non-admin -> jatuh ke "ringkasan".
   useEffect(() => {
-    if (queryTab === "ringkasan" || queryTab === "pengajuan" || queryTab === "laporan" || queryTab === "gtk" || queryTab === "laporan-gtk" || (queryTab === "libur" && canLibur)) {
-      setActiveTab(queryTab);
-    }
-  }, [queryTab, canLibur]);
+    if (activeTab === "libur" && !canLibur) setActiveTab("ringkasan");
+  }, [activeTab, canLibur, setActiveTab]);
 
-  // Tab "libur" tidak terlihat untuk non-admin -> jatuh ke "ringkasan"
   const active = visibleTabs.some((t) => t.id === activeTab) ? activeTab : "ringkasan";
 
   return (

@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
 import { BookOpen, ArrowRight, Library } from "lucide-react";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
 
 import TabKelas from "../tab-kelas";
 import TabKenaikan from "../tab-kenaikan";
@@ -10,17 +9,14 @@ import TabReferensi from "../tab-ref";
 
 type TabType = "kelas" | "kenaikan" | "referensi";
 
-export function AkademikTabsContent() {
-  const searchParams = useSearchParams();
-  const queryTab = searchParams.get("tab") as TabType | null;
+const TAB_IDS: TabType[] = ["kelas", "kenaikan", "referensi"];
 
-  const [activeTab, setActiveTab] = useState<TabType>("kelas");
-
-  useEffect(() => {
-    if (queryTab === "kelas" || queryTab === "kenaikan" || queryTab === "referensi") {
-      setActiveTab(queryTab);
-    }
-  }, [queryTab]);
+export function AkademikTabsContent({ param = "tab" }: { param?: string } = {}) {
+  // Tab aktif tersimpan di URL (?<param>=...) agar tetap terbuka setelah refresh.
+  const [activeTab, setActiveTab] = useTabParam<TabType>("kelas", {
+    param,
+    validTabs: TAB_IDS,
+  });
 
   return (
     <div className="space-y-6">

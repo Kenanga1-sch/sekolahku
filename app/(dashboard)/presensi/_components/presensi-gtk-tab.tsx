@@ -16,6 +16,11 @@ import {
   formatDistance,
   type GtkAttendanceRow,
 } from "@/lib/presensi-gtk";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
+
+type GtkSubTab = "gtk" | "ekskul";
+
+const GTK_SUB_TABS: GtkSubTab[] = ["gtk", "ekskul"];
 
 function AttendanceList({ rows, empty }: { rows: GtkAttendanceRow[]; empty: string }) {
   if (rows.length === 0) {
@@ -63,6 +68,11 @@ function AttendanceList({ rows, empty }: { rows: GtkAttendanceRow[]; empty: stri
 }
 
 export function PresensiGtkTab() {
+  // Sub-tab tersimpan di URL (?gtab=...) agar tetap terbuka setelah refresh.
+  const [activeTab, setActiveTab] = useTabParam<GtkSubTab>("gtk", {
+    param: "gtab",
+    validTabs: GTK_SUB_TABS,
+  });
   const [rows, setRows] = useState<GtkAttendanceRow[]>([]);
   const [ekskulRows, setEkskulRows] = useState<GtkAttendanceRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -117,7 +127,7 @@ export function PresensiGtkTab() {
         {loading ? (
           <p className="p-6 text-sm text-muted-foreground">Memuat...</p>
         ) : (
-          <Tabs defaultValue="gtk" className="w-full">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as GtkSubTab)} className="w-full">
             <div className="px-4 pt-4">
               <TabsList>
                 <TabsTrigger value="gtk" className="gap-1.5">

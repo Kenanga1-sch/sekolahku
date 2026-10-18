@@ -269,18 +269,30 @@ func (r *MutasiRepository) UpdateMutasiRequestStatus(id string, status string, t
 
 		studentID := cuid2.Generate()
 		var className string
+		var nis *string
 		if classIDToUse != nil && *classIDToUse != "" {
 			if err := tx.QueryRow("SELECT name FROM student_classes WHERE id = ?", *classIDToUse).Scan(&className); err != nil && !errlib.Is(err, sql.ErrNoRows) {
 				return fmt.Errorf("gagal mengambil nama kelas: %w", err)
+			}
+			// NIS otomatis untuk siswa mutasi masuk: tahun ajaran + tingkat
+			// kelas tujuan + nomor urut berikutnya (tidak pernah dipakai ulang).
+			var grade int
+			var academicYear string
+			if err := tx.QueryRow("SELECT grade, academic_year FROM student_classes WHERE id = ?", *classIDToUse).Scan(&grade, &academicYear); err == nil {
+				if generated, genErr := NextNIS(tx, academicYear, grade, *classIDToUse); genErr == nil {
+					nis = &generated
+				} else {
+					log.Printf("ERROR generate NIS mutasi masuk %s: %v", req.NISN, genErr)
+				}
 			}
 		}
 
 		_, err = tx.Exec(`
 			INSERT INTO students (
-				id, nisn, full_name, gender, class_name, class_id,
+				id, nisn, nis, full_name, gender, class_name, class_id,
 				status, qr_code, is_active, created_at, updated_at
-			) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, 1, ?, ?)
-		`, studentID, req.NISN, req.StudentName, req.Gender, className, classIDToUse, NewStudentQRCode(nil, studentID), now, now)
+			) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, 1, ?, ?)
+		`, studentID, req.NISN, nis, req.StudentName, req.Gender, className, classIDToUse, NewStudentQRCode(nil, studentID), now, now)
 		if err != nil {
 			return err
 		}

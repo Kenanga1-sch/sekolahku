@@ -27,6 +27,25 @@ func NewStudentHandler(repo *repository.StudentRepository, db ...*sql.DB) *Stude
 	return h
 }
 
+// forcedWaliClass mengembalikan nama kelas wali user jika role == "guru".
+// Role lain (admin/staff/bendahara) tidak di-scope (data sekolah penuh).
+// Guru tanpa wali kelas -> ("", true) -> handler mengembalikan kosong.
+func (h *StudentHandler) forcedWaliClass(c echo.Context) (string, bool) {
+	userRole, _ := c.Get("user_role").(string)
+	if userRole != "guru" {
+		return "", false
+	}
+	userID, _ := c.Get("user_id").(string)
+	var className string
+	err := h.DB.QueryRow(
+		`SELECT name FROM student_classes WHERE wali_user_id = ? AND is_active = 1`, userID,
+	).Scan(&className)
+	if err != nil || className == "" {
+		return "", true
+	}
+	return className, true
+}
+
 func (h *StudentHandler) GetStudents(c echo.Context) error {
 	page, _ := strconv.Atoi(c.QueryParam("page"))
 	if page < 1 {
@@ -54,7 +73,19 @@ func (h *StudentHandler) GetStudents(c echo.Context) error {
 		classID = c.QueryParam("className")
 	}
 
-	res, err := h.Repo.GetStudents(page, limit, query, status, classID)
+	// Guru hanya melihat siswa kelas yang dipegang; guru tanpa wali -> kosong.
+	scopeClass, scoped := h.forcedWaliClass(c)
+	if scoped {
+		if scopeClass == "" {
+			return c.JSON(http.StatusOK, map[string]interface{}{
+				"success": true,
+				"data":    emptyStudentResponse(page, limit),
+			})
+		}
+		classID = scopeClass
+	}
+
+	res, err := h.Repo.GetStudentsScoped(page, limit, query, status, classID, scopeClass)
 	if err != nil {
 		log.Printf("GetStudents ERROR: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
@@ -63,6 +94,18 @@ func (h *StudentHandler) GetStudents(c echo.Context) error {
 		"success": true,
 		"data":    res,
 	})
+}
+
+// emptyStudentResponse membangun respons daftar siswa kosong (tanpa scope kelas).
+func emptyStudentResponse(page, limit int) *models.StudentResponse {
+	return &models.StudentResponse{
+		Data:       []models.Student{},
+		Pagination: models.StudentPagination{Page: page, Limit: limit, Total: 0, TotalPages: 1},
+		Summary: models.StudentSummary{
+			Total: 0, Active: 0, Male: 0, Female: 0,
+			ByClass: []models.StudentByClass{},
+		},
+	}
 }
 
 func (h *StudentHandler) GetStudentHealth(c echo.Context) error {
@@ -80,8 +123,15 @@ func (h *StudentHandler) GetStudentByID(c echo.Context) error {
 	userID, _ := c.Get("user_id").(string)
 
 	s, err := h.Repo.GetStudentByID(id)
-	if err != nil {
+	if err != nil || s == nil {
 		return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Siswa tidak ditemukan"})
+	}
+
+	// Guru hanya boleh membuka siswa kelas yang dipegang.
+	if scopeClass, scoped := h.forcedWaliClass(c); scoped {
+		if scopeClass == "" || s.ClassName == nil || *s.ClassName != scopeClass {
+			return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Siswa tidak ditemukan"})
+		}
 	}
 
 	// Sertakan data Buku Induk (jika ada) agar halaman cetak siswa aktif
@@ -131,6 +181,14 @@ func (h *StudentHandler) CreateStudent(c echo.Context) error {
 
 	if s.FullName == "" {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Nama lengkap harus diisi"})
+	}
+
+	// NIS otomatis: bila admin tidak mengisi manual, terbitkan NIS berikutnya
+	// sesuai kelas yang dipilih (tahun ajaran + tingkat + nomor urut).
+	if (s.NIS == nil || strings.TrimSpace(*s.NIS) == "") && s.ClassID != nil && strings.TrimSpace(*s.ClassID) != "" {
+		if nis, nisErr := h.Repo.NextNISForStudent(*s.ClassID); nisErr == nil && nis != "" {
+			s.NIS = &nis
+		}
 	}
 
 	id, err := h.Repo.CreateStudent(s)
@@ -285,6 +343,15 @@ func (h *StudentHandler) UpdateStudent(c echo.Context) error {
 
 func (h *StudentHandler) DeleteStudent(c echo.Context) error {
 	id := c.Param("id")
+
+	// Guru hanya boleh menghapus siswa kelas yang dipegang.
+	if scopeClass, scoped := h.forcedWaliClass(c); scoped {
+		s, serr := h.Repo.GetStudentByID(id)
+		if serr != nil || s == nil || scopeClass == "" || s.ClassName == nil || *s.ClassName != scopeClass {
+			return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Siswa tidak ditemukan"})
+		}
+	}
+
 	err := h.Repo.DeleteStudent(id)
 	if err != nil {
 		log.Printf("DeleteStudent ERROR: %v", err)
@@ -317,6 +384,19 @@ func (h *StudentHandler) GetStudentsForPrint(c echo.Context) error {
 	if err != nil {
 		log.Printf("GetStudentsForPrint ERROR: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+
+	// Guru hanya boleh mencetak siswa kelas yang dipegang.
+	if scopeClass, scoped := h.forcedWaliClass(c); scoped {
+		filtered := make([]models.Student, 0, len(students))
+		if scopeClass != "" {
+			for _, s := range students {
+				if s.ClassName != nil && *s.ClassName == scopeClass {
+					filtered = append(filtered, s)
+				}
+			}
+		}
+		students = filtered
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
@@ -359,12 +439,61 @@ func (h *StudentHandler) GetClasses(c echo.Context) error {
 func (h *StudentHandler) SimpleSearch(c echo.Context) error {
 	q := c.QueryParam("q")
 	className := c.QueryParam("className")
+
+	// Guru hanya mencari siswa kelas yang dipegang; tanpa wali -> kosong.
+	if scopeClass, scoped := h.forcedWaliClass(c); scoped {
+		if scopeClass == "" {
+			return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": []models.Student{}})
+		}
+		className = scopeClass
+	}
+
 	students, err := h.Repo.SimpleSearch(q, className)
 	if err != nil {
 		log.Printf("SimpleSearch ERROR: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true, "data": students})
+}
+
+// GetNextNIS mengembalikan NIS berikutnya untuk kelas yang dipilih (preview,
+// tanpa menyimpan). Dipakai form Tambah Siswa untuk mengisi otomatis.
+func (h *StudentHandler) GetNextNIS(c echo.Context) error {
+	classID := strings.TrimSpace(c.QueryParam("classId"))
+	if classID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "classId diperlukan"})
+	}
+	nis, err := h.Repo.NextNISForStudent(classID)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data":    map[string]string{"nis": nis},
+	})
+}
+
+// IssueNIS menerbitkan NIS untuk seluruh siswa di satu kelas yang belum
+// memiliki NIS, diurutkan menurut nama (A -> nomor terkecil).
+func (h *StudentHandler) IssueNIS(c echo.Context) error {
+	var req struct {
+		ClassID string `json:"classId"`
+	}
+	if err := c.Bind(&req); err != nil || strings.TrimSpace(req.ClassID) == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "classId diperlukan"})
+	}
+	assignments, err := h.Repo.IssueNISForClass(req.ClassID)
+	if err != nil {
+		log.Printf("IssueNIS ERROR: %v", err)
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data": map[string]interface{}{
+			"assigned": assignments,
+			"count":    len(assignments),
+		},
+	})
 }
 
 // SyncBukuInduk synchronizes all students to the Buku Induk table

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"database/sql"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -164,6 +165,74 @@ func TestUpdateMutasiRequestStatusRejectsExistingNISN(t *testing.T) {
 	err = repo.UpdateMutasiRequestStatus(id, "principal_approved", &classID)
 	if err == nil || !strings.Contains(err.Error(), "sudah terdaftar") {
 		t.Fatalf("expected NISN-duplicate rejection, got: %v", err)
+	}
+}
+
+// Mutasi masuk yang disetujui harus otomatis mendapat NIS dengan tahun
+// ajaran + tingkat kelas tujuan + nomor urut lanjutan (tidak dipakai ulang).
+func TestUpdateMutasiRequestStatusAssignsNIS(t *testing.T) {
+	db := newMutasiRegTestDB(t)
+	defer db.Close()
+
+	schema := []string{
+		`CREATE TABLE students (
+			id TEXT PRIMARY KEY, nisn TEXT, nis TEXT, full_name TEXT, gender TEXT,
+			class_name TEXT, class_id TEXT, status TEXT, qr_code TEXT,
+			is_active INTEGER DEFAULT 1, created_at INTEGER, updated_at INTEGER
+		)`,
+		`CREATE TABLE mutasi_logs (
+			id TEXT PRIMARY KEY, mutasi_type TEXT, student_id TEXT,
+			student_name TEXT, nisn TEXT, gender TEXT, origin_or_destination TEXT,
+			origin_nis TEXT, origin_class TEXT, approval_date TEXT, approval_no TEXT,
+			letter_no TEXT, destination_class TEXT, mutation_date INTEGER,
+			reason TEXT, created_at INTEGER
+		)`,
+		`CREATE TABLE student_classes (
+			id TEXT PRIMARY KEY, name TEXT, grade INTEGER, academic_year TEXT
+		)`,
+		`CREATE TABLE student_class_history (
+			id TEXT PRIMARY KEY, student_id TEXT, class_id TEXT, class_name TEXT,
+			academic_year TEXT, grade INTEGER, status TEXT, record_date INTEGER
+		)`,
+	}
+	for _, s := range schema {
+		if _, err := db.Exec(s); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := db.Exec(`INSERT INTO student_classes (id, name, grade, academic_year) VALUES ('c2', 'Kelas 2', 2, '2026/2027')`); err != nil {
+		t.Fatal(err)
+	}
+	// Angkatan yang kini di kelas 2 masuk saat kelas 1 di 2025/2026.
+	for i := 1; i <= 28; i++ {
+		nis := fmt.Sprintf("252601%03d", i)
+		if _, err := db.Exec(`INSERT INTO students (id, full_name, nis, class_id, status, is_active) VALUES (?, ?, ?, 'c2', 'active', 1)`, nis, "Siswa "+nis, nis); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	repo := NewMutasiRepository(db)
+	req := testMutasiReq()
+	regNum, err := repo.CreateMutasiRequest(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var id string
+	if err := db.QueryRow("SELECT id FROM mutasi_requests WHERE registration_number = ?", regNum).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+
+	classID := "c2"
+	if err := repo.UpdateMutasiRequestStatus(id, "principal_approved", &classID); err != nil {
+		t.Fatalf("approve: %v", err)
+	}
+
+	var gotNIS string
+	if err := db.QueryRow("SELECT COALESCE(nis, '') FROM students WHERE nisn = ?", req.NISN).Scan(&gotNIS); err != nil {
+		t.Fatal(err)
+	}
+	if gotNIS != "262702029" {
+		t.Fatalf("expected NIS 262702029, got %q", gotNIS)
 	}
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
 import {
     Plus,
     Search,
@@ -93,7 +94,10 @@ export default function AsetPage() {
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [editingAsset, setEditingAsset] = useState<InventoryAsset | null>(null);
     const [selectedRoom, setSelectedRoom] = useState(""); // Room filter manual override
-    const [viewMode, setViewMode] = useState<"my" | "other">("my"); // Tab: ruangan sendiri vs lain
+    // Tab: ruangan sendiri vs lain. Tersimpan di URL (?tab=...) agar tahan refresh.
+    const [viewMode, setViewMode] = useTabParam<"my" | "other">("my", {
+        validTabs: ["my", "other"],
+    });
     const [borrowTarget, setBorrowTarget] = useState<InventoryAsset | null>(null);
     const [borrowForm, setBorrowForm] = useState({ quantity: "1", reason: "" });
     const [borrowSubmitting, setBorrowSubmitting] = useState(false);

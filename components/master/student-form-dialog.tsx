@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -47,6 +47,9 @@ interface StudentFormDialogProps {
 export function StudentFormDialog({ open, onOpenChange, studentId, onSuccess }: StudentFormDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [classes, setClasses] = useState<{id: string, name: string}[]>([]);
+  // NIS yang diisikan otomatis dari kelas; dipakai agar pengetikan manual
+  // oleh admin tidak ditimpa saat kelas berubah.
+  const autoNisRef = useRef<string>("");
 
   const form = useForm<StudentFormValues>({
     resolver: zodResolver(studentSchema) as any,
@@ -85,8 +88,31 @@ export function StudentFormDialog({ open, onOpenChange, studentId, onSuccess }: 
             .finally(() => setIsLoading(false));
     } else if (open) {
         form.reset({ fullName: "", gender: "L" }); // Reset for create
+        autoNisRef.current = "";
     }
   }, [studentId, open, form]);
+
+  // NIS otomatis: saat kelas dipilih (mode tambah) dan NIS masih kosong /
+  // bekas hasil auto, isi dengan NIS berikutnya. Nilai manual dipertahankan.
+  const watchedClassId = form.watch("classId");
+  useEffect(() => {
+    if (!open || studentId) return; // hanya mode tambah
+    if (!watchedClassId) return;
+    const current = (form.getValues("nis") || "").trim();
+    if (current !== "" && current !== autoNisRef.current) return; // manual
+    let cancelled = false;
+    goGet(`/api/master/students/next-nis?classId=${encodeURIComponent(watchedClassId)}`)
+      .then((res: any) => {
+        if (cancelled) return;
+        const next = res?.data?.nis;
+        if (next) {
+          autoNisRef.current = next;
+          form.setValue("nis", next, { shouldDirty: false });
+        }
+      })
+      .catch(() => { /* biarkan admin mengisi manual */ });
+    return () => { cancelled = true; };
+  }, [watchedClassId, open, studentId, form]);
 
   const onSubmit = async (data: StudentFormValues) => {
     setIsLoading(true);
@@ -165,6 +191,7 @@ export function StudentFormDialog({ open, onOpenChange, studentId, onSuccess }: 
                                 <FormItem>
                                     <FormLabel>NIS (Lokal)</FormLabel>
                                     <FormControl><Input {...field} /></FormControl>
+                                    <FormDescription>Terisi otomatis sesuai kelas &amp; urutan nama; tetap bisa diubah.</FormDescription>
                                     <FormMessage />
                                 </FormItem>
                             )}

@@ -30,6 +30,8 @@ import { canManageHolidays } from "@/lib/presensi-access";
 
 interface Stats {
   totalStudents: number;
+  /** Terisi hanya untuk guru wali kelas — angka di badi ini per-kelas. */
+  className?: string;
   stats: {
     hadir: number;
     sakit: number;
@@ -105,6 +107,11 @@ export function PresensiDashboardTab() {
         <div>
           <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
             Presensi Siswa Harian
+            {stats?.className && (
+              <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-sm font-medium text-primary">
+                {formatClassName(stats.className)}
+              </span>
+            )}
           </h2>
           <p className="text-muted-foreground text-sm">
             {format(new Date(), "EEEE, d MMMM yyyy", { locale: localeId })}
@@ -193,9 +200,15 @@ export function PresensiDashboardTab() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Pilih Kelas Hari Ini</CardTitle>
+            <CardTitle>
+              {classes.length === 1
+                ? "Lembar Absensi Hari Ini"
+                : "Pilih Kelas Hari Ini"}
+            </CardTitle>
             <CardDescription>
-              Klik kelas untuk membuka lembar absensi harian
+              {classes.length === 1
+                ? "Buka lembar absensi harian kelas Anda"
+                : "Klik kelas untuk membuka lembar absensi harian"}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -220,7 +233,9 @@ export function PresensiDashboardTab() {
                         <div>
                           <p className="font-medium">{formatClassName(cls.name)}</p>
                           <p className="text-sm text-muted-foreground">
-                            {cls.teacherName || cls.waliUserName || "Wali Kelas"}
+                            {classes.length === 1
+                              ? "Klik untuk membuka lembar absensi"
+                              : cls.teacherName || cls.waliUserName || "Wali Kelas"}
                           </p>
                         </div>
                       </div>

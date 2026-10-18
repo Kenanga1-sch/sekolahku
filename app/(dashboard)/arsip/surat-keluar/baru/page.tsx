@@ -21,9 +21,19 @@ import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { goGet } from "@/lib/api-client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
+
+type BuatSuratTab = "modular" | "tunggal" | "grup" | "umum";
+
+const BUAT_SURAT_TABS: BuatSuratTab[] = ["modular", "tunggal", "grup", "umum"];
 
 export default function SuratKeluarBaruPage() {
   const router = useRouter();
+
+  // Tab aktif tersimpan di URL (?tab=...) agar tetap terbuka setelah refresh.
+  const [activeTab, setActiveTab] = useTabParam<BuatSuratTab>("tunggal", {
+    validTabs: BUAT_SURAT_TABS,
+  });
   
   // States
   const [templates, setTemplates] = useState<any[]>([]);
@@ -93,7 +103,7 @@ export default function SuratKeluarBaruPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="tunggal" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as BuatSuratTab)} className="space-y-6">
         <TabsList>
           <TabsTrigger value="modular" className="flex gap-2 items-center">
             <Blocks className="h-4 w-4" />

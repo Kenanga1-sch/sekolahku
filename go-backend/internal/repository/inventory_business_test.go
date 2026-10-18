@@ -544,3 +544,42 @@ func TestGetAssetsExcludeKeepsGeneralAssets(t *testing.T) {
 		t.Error("aset umum (room_id NULL) hilang saat exclusion")
 	}
 }
+
+// GetConditionBreakdown membangun 4 SELECT UNION yang masing-masing membawa
+// roomClause; tanpa pengulangan roomArgs, user ber-scoped mendapat error
+// jumlah argumen (grafik kondisi 500 sementara admin tetap normal).
+func TestGetConditionBreakdownScoped(t *testing.T) {
+	db := setupInventorySchemaFromMigrations(t)
+	defer db.Close()
+	seedInventoryBase(t, db)
+	r := newRepo(db)
+
+	// Scoped ke r-1: hanya a-1 (5 baik) yang boleh terhitung.
+	scoped, err := r.GetConditionBreakdown("r-1")
+	if err != nil {
+		t.Fatalf("scoped breakdown: %v", err)
+	}
+	got := map[string]int{}
+	for _, it := range scoped {
+		got[it.Name] = it.Value
+	}
+	if got["Baik"] != 5 {
+		t.Errorf("scoped Baik: want 5, got %d", got["Baik"])
+	}
+	if len(scoped) != 4 {
+		t.Errorf("scoped harus menghasilkan 4 baris kondisi, got %d", len(scoped))
+	}
+
+	// Tanpa scope: kedua aset (5+3) ikut terhitung.
+	all, err := r.GetConditionBreakdown()
+	if err != nil {
+		t.Fatalf("unscoped breakdown: %v", err)
+	}
+	gotAll := map[string]int{}
+	for _, it := range all {
+		gotAll[it.Name] = it.Value
+	}
+	if gotAll["Baik"] != 8 {
+		t.Errorf("unscoped Baik: want 8, got %d", gotAll["Baik"])
+	}
+}

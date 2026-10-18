@@ -18,6 +18,11 @@ import Link from "next/link";
 import { goGet, goPost, goDelete } from "@/lib/api-client";
 import { PayHutangDialog } from "./_components/pay-hutang-dialog";
 import type { Hutang, Siswa, PaymentHistoryItem } from "./_components/types";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
+
+type HutangTab = "list" | "create" | "batch";
+
+const HUTANG_TABS: HutangTab[] = ["list", "create", "batch"];
 
 const KATEGORI_OPTIONS = [
     { value: "atribut", label: "Atribut" },
@@ -56,7 +61,10 @@ const formatDateTime = (timestamp: number) => {
 };
 
 export default function HutangManagementPage() {
-    const [activeTab, setActiveTab] = useState("list");
+    // Tab aktif tersimpan di URL (?tab=...) agar tetap terbuka setelah refresh.
+    const [activeTab, setActiveTab] = useTabParam<HutangTab>("list", {
+        validTabs: HUTANG_TABS,
+    });
     const [hutangList, setHutangList] = useState<Hutang[]>([]);
     const [siswaList, setSiswaList] = useState<Siswa[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -428,7 +436,7 @@ export default function HutangManagementPage() {
                 </Card>
             </div>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as HutangTab)} className="space-y-4">
                 <TabsList>
                     <TabsTrigger value="list">Daftar Hutang</TabsTrigger>
                     <TabsTrigger value="create">

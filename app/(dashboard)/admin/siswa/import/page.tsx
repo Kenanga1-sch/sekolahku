@@ -50,12 +50,18 @@ import {
   autoDetectMappings,
 } from "./import-constants";
 import type { ImportType, ActiveTab } from "./import-constants";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
+
+const IMPORT_TABS: ActiveTab[] = ["excel", "bridge"];
 
 export default function ImportWizardPage() {
   const router = useRouter();
 
   // Tab Navigation: excel = File-based Excel Import, bridge = API Bridge
-  const [activeTab, setActiveTab] = useState<ActiveTab>("excel");
+  // Tersimpan di URL (?tab=...) agar tetap terbuka setelah refresh.
+  const [activeTab, setActiveTab] = useTabParam<ActiveTab>("excel", {
+    validTabs: IMPORT_TABS,
+  });
 
   // ==========================================
   // TAB 1: EXCEL IMPORT STATE

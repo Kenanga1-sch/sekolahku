@@ -27,6 +27,11 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import LoanManager from "@/components/loans/loan-manager";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
+
+type BrankasTab = "overview" | "hutang" | "mutasi";
+
+const BRANKAS_TABS: BrankasTab[] = ["overview", "hutang", "mutasi"];
 
 function formatRupiah(amount: number): string {
     return new Intl.NumberFormat("id-ID", {
@@ -72,7 +77,10 @@ export default function TabunganBrankasPage() {
 
     // Placeholder data for debt/accounting
     // In future this will be fetched from API
-    const [activeTab, setActiveTab] = useState("overview");
+    // Tab aktif tersimpan di URL (?tab=...) agar tetap terbuka setelah refresh.
+    const [activeTab, setActiveTab] = useTabParam<BrankasTab>("overview", {
+        validTabs: BRANKAS_TABS,
+    });
 
     const fetchData = async () => {
         setIsLoading(true);

@@ -1,11 +1,11 @@
 ﻿"use client";
 
-import { useState } from "react";
 import { ArrowRightLeft } from "lucide-react";
 
 import TabMutasiMasuk from "./TabMutasiMasuk";
 import TabMutasiKeluar from "./TabMutasiKeluar";
 import TabBukuMutasi from "./TabBukuMutasi";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
 
 type MutasiTab = "masuk" | "keluar" | "buku";
 
@@ -16,7 +16,11 @@ const TABS: { key: MutasiTab; label: string; content: React.ReactNode }[] = [
 ];
 
 export default function TabMutasi() {
-  const [activeTab, setActiveTab] = useState<MutasiTab>("masuk");
+  // Sub-tab tersimpan di URL (?mtab=...) agar tetap terbuka setelah refresh.
+  const [activeTab, setActiveTab] = useTabParam<MutasiTab>("masuk", {
+    param: "mtab",
+    validTabs: ["masuk", "keluar", "buku"],
+  });
 
   return (
     <div className="space-y-6">

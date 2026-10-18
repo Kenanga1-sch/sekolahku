@@ -19,6 +19,7 @@ import { StudentFormDialog } from "@/components/master/student-form-dialog";
 import { StudentImportDialog } from "@/components/master/student-import-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuthStore } from "@/lib/stores/auth-store";
 import Link from "next/link";
 
 type Student = {
@@ -33,6 +34,10 @@ type Student = {
 };
 
 export default function TabDirektori() {
+    const { user } = useAuthStore();
+    // Guru hanya melihat siswa kelas yang dipegang; tombol kelola admin
+    // (tambah/import/edit) disembunyikan karena endpoint-nya admin-only.
+    const isGuru = (user?.role || "").toLowerCase() === "guru";
     const [students, setStudents] = useState<Student[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
@@ -175,14 +180,16 @@ export default function TabDirektori() {
             {/* Header Area */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-zinc-50">Direktori Siswa</h2>
-                <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
-                    <Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)} className="w-full sm:w-auto shadow-sm font-medium">
-                        <FileDown className="mr-2 h-4 w-4 text-slate-500" /> Import Excel
-                    </Button>
-                    <Button size="sm" onClick={handleCreate} className="w-full sm:w-auto shadow-sm font-medium bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white border-0 transition-all">
-                        <Plus className="mr-2 h-4 w-4" /> Tambah Siswa Baru
-                    </Button>
-                </div>
+                {!isGuru && (
+                    <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+                        <Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)} className="w-full sm:w-auto shadow-sm font-medium">
+                            <FileDown className="mr-2 h-4 w-4 text-slate-500" /> Import Excel
+                        </Button>
+                        <Button size="sm" onClick={handleCreate} className="w-full sm:w-auto shadow-sm font-medium bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white border-0 transition-all">
+                            <Plus className="mr-2 h-4 w-4" /> Tambah Siswa Baru
+                        </Button>
+                    </div>
+                )}
             </div>
 
             {/* Stats Dashboard Grid */}
@@ -303,19 +310,21 @@ export default function TabDirektori() {
                             />
                         </div>
                         <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 w-full sm:w-auto">
-                            <Select value={classFilter} onValueChange={(val) => setClassFilter(val === "all" ? "" : val)}>
-                                <SelectTrigger className="w-full sm:w-[140px] bg-background">
-                                    <SelectValue placeholder="Semua Kelas" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Semua Kelas</SelectItem>
-                                    {uniqueClasses.map((cls) => (
-                                        <SelectItem key={cls} value={cls}>
-                                            {cls}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            {!isGuru && (
+                                <Select value={classFilter} onValueChange={(val) => setClassFilter(val === "all" ? "" : val)}>
+                                    <SelectTrigger className="w-full sm:w-[140px] bg-background">
+                                        <SelectValue placeholder="Semua Kelas" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Semua Kelas</SelectItem>
+                                        {uniqueClasses.map((cls) => (
+                                            <SelectItem key={cls} value={cls}>
+                                                {cls}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            )}
 
                             <Select value={statusFilter} onValueChange={setStatusFilter}>
                                 <SelectTrigger className="w-full sm:w-[140px] bg-background">
@@ -465,14 +474,18 @@ export default function TabDirektori() {
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-40">
-                                    <DropdownMenuItem onClick={() => handleEdit(student.id)} className="cursor-pointer font-medium text-xs">
-                                        <Pencil className="mr-2 h-3.5 w-3.5" /> Edit Detail
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem asChild className="cursor-pointer font-medium text-xs">
-                                        <Link href="/admin/akademik?tab=kenaikan" className="flex items-center">
-                                            Promosi / Kenaikan
-                                        </Link>
-                                    </DropdownMenuItem>
+                                    {!isGuru && (
+                                        <DropdownMenuItem onClick={() => handleEdit(student.id)} className="cursor-pointer font-medium text-xs">
+                                            <Pencil className="mr-2 h-3.5 w-3.5" /> Edit Detail
+                                        </DropdownMenuItem>
+                                    )}
+                                    {!isGuru && (
+                                        <DropdownMenuItem asChild className="cursor-pointer font-medium text-xs">
+                                            <Link href="/admin/akademik?tab=kenaikan" className="flex items-center">
+                                                Promosi / Kenaikan
+                                            </Link>
+                                        </DropdownMenuItem>
+                                    )}
                                     <DropdownMenuItem className="text-red-600 cursor-pointer font-medium text-xs" onClick={() => handleDelete(student.id)}>
                                         <Trash2 className="mr-2 h-3.5 w-3.5" /> Hapus Permanen
                                     </DropdownMenuItem>

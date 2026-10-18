@@ -1,8 +1,9 @@
 "use client";
 
-import React, { Suspense, useState, useEffect } from "react";
+import React, { Suspense } from "react";
 import { BookOpen, Layers, HelpCircle, FileStack, Printer, FolderOpen, ClipboardCheck, BarChart3 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
 
 const TabBab = React.lazy(() => import("./tab-bab"));
 const TabBank = React.lazy(() => import("./tab-bank"));
@@ -12,7 +13,9 @@ const TabCetak = React.lazy(() => import("./tab-cetak"));
 const TabPenilaian = React.lazy(() => import("./tab-penilaian"));
 const TabAnalitik = React.lazy(() => import("./tab-analitik"));
 
-const tabs = [
+type BankSoalTab = "bab" | "bank" | "soal" | "paket" | "cetak" | "penilaian" | "analitik";
+
+const tabs: { id: BankSoalTab; label: string; icon: typeof Layers }[] = [
   { id: "bab", label: "Bab / Chapter", icon: Layers },
   { id: "bank", label: "Bank Soal", icon: FolderOpen },
   { id: "soal", label: "Kelola Soal", icon: HelpCircle },
@@ -32,15 +35,12 @@ function TabSkeleton() {
 }
 
 export default function BankSoalPage() {
-  const [activeTab, setActiveTab] = useState("bab");
-
-  // Buka tab spesifik via hash (mis. /bank-soal#bank) untuk deep-link
-  useEffect(() => {
-    const hash = window.location.hash.replace("#", "");
-    if (hash && tabs.some((t) => t.id === hash)) {
-      setActiveTab(hash);
-    }
-  }, []);
+  // Tab aktif tersimpan di hash URL (#bank) agar tetap terbuka setelah
+  // refresh sekaligus mempertahankan deep-link lama (mis. /bank-soal#bank).
+  const [activeTab, setActiveTab] = useTabParam<BankSoalTab>("bab", {
+    hash: true,
+    validTabs: tabs.map((t) => t.id),
+  });
 
   return (
     <div className="space-y-6">

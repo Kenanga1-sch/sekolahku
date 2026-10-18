@@ -18,6 +18,11 @@ import type { TabunganStats } from "@/types/tabungan";
 import { goGet } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { getSavingsTreasurer } from "@/actions/savings-admin";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
+
+type TabunganTab = "dashboard" | "bendahara" | "gtk";
+
+const TABUNGAN_TABS: TabunganTab[] = ["dashboard", "bendahara", "gtk"];
 
 // Lazy load heavy components
 const QuickActionsPanel = dynamic(
@@ -62,7 +67,10 @@ export default function TabunganDashboardPage() {
     // Auth & Otorisasi
     const [treasurer, setTreasurer] = useState<any>(null);
     const [isCheckingRights, setIsCheckingRights] = useState(true);
-    const [activeTab, setActiveTab] = useState<"dashboard" | "bendahara" | "gtk">("dashboard");
+    // Tab aktif tersimpan di URL (?tab=...) agar tetap terbuka setelah refresh.
+    const [activeTab, setActiveTab] = useTabParam<TabunganTab>("dashboard", {
+        validTabs: TABUNGAN_TABS,
+    });
 
     const fetchStats = useCallback(async () => {
         try {

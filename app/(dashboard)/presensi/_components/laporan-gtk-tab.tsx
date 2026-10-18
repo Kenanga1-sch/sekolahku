@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { showError, showSuccess } from "@/lib/toast";
 import { goGet } from "@/lib/api-client";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
 import {
   gtkAttendanceApi,
   gtkAttendancePct,
@@ -79,7 +80,11 @@ interface SchoolInfo {
 
 export function LaporanGtkTab() {
   const now = new Date();
-  const [mode, setMode] = useState<"bulanan" | "rentang">("bulanan");
+  // Tab tersimpan di URL (?mgtk=...) agar tetap terbuka setelah refresh.
+  const [mode, setMode] = useTabParam<"bulanan" | "rentang">("bulanan", {
+    param: "mgtk",
+    validTabs: ["bulanan", "rentang"],
+  });
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [semester, setSemester] = useState<keyof typeof SEMESTERS>("ganjil");

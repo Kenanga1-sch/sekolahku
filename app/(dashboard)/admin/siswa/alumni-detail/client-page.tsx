@@ -65,7 +65,7 @@ export default function AlumniDetailPage() {
           transition={{ delay: 0.1 }}
           className="w-full"
         >
-          <Tabs value={ctx.activeTab} onValueChange={ctx.setActiveTab}>
+          <Tabs value={ctx.activeTab} onValueChange={(v) => ctx.setActiveTab(v as typeof ctx.activeTab)}>
             <div className="relative">
               <TabsList className="w-full h-auto justify-start gap-1 bg-muted p-1 rounded-lg overflow-x-auto scrollbar-none whitespace-nowrap lg:grid lg:grid-cols-7 lg:h-10 lg:overflow-visible">
                 <TabsTrigger value="documents" className="shrink-0 text-xs md:text-sm">Dokumen</TabsTrigger>

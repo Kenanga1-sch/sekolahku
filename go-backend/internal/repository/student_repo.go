@@ -281,6 +281,13 @@ func mergeStudentDefaults(next *models.Student, existing *models.Student) {
 }
 
 func (r *StudentRepository) GetStudents(page, limit int, query, status, classID string) (*models.StudentResponse, error) {
+	return r.GetStudentsScoped(page, limit, query, status, classID, "")
+}
+
+// GetStudentsScoped seperti GetStudents, tetapi bila scopeClass != "" maka
+// daftar DAN ringkasan (summary) dibatasi ke kelas tersebut. Dipakai guru wali
+// kelas agar kartu statistik & daftar hanya berisi siswa kelasnya.
+func (r *StudentRepository) GetStudentsScoped(page, limit int, query, status, classID, scopeClass string) (*models.StudentResponse, error) {
 	offset := (page - 1) * limit
 
 	where := []string{"1=1"}
@@ -387,20 +394,28 @@ func (r *StudentRepository) GetStudents(page, limit int, query, status, classID 
 		students = append(students, s)
 	}
 
-	// Summary
+	// Summary — dibatasi ke scopeClass bila ada (guru wali kelas) agar kartu
+	// statistik ikut hanya menghitung siswa kelasnya.
+	summaryWhere := ""
+	summaryArgs := []interface{}{}
+	if scopeClass != "" {
+		summaryWhere = " AND (class_id = ? OR class_name = ? OR class_name = (SELECT name FROM student_classes WHERE id = ?))"
+		summaryArgs = []interface{}{scopeClass, scopeClass, scopeClass}
+	}
+
 	var totalActive int
-	r.DB.QueryRow("SELECT COUNT(*) FROM students WHERE status = 'active'").Scan(&totalActive)
+	r.DB.QueryRow("SELECT COUNT(*) FROM students WHERE status = 'active'"+summaryWhere, summaryArgs...).Scan(&totalActive)
 
 	var totalMale, totalFemale int
-	r.DB.QueryRow("SELECT COUNT(*) FROM students WHERE status = 'active' AND gender = 'L'").Scan(&totalMale)
-	r.DB.QueryRow("SELECT COUNT(*) FROM students WHERE status = 'active' AND gender = 'P'").Scan(&totalFemale)
+	r.DB.QueryRow("SELECT COUNT(*) FROM students WHERE status = 'active' AND gender = 'L'"+summaryWhere, summaryArgs...).Scan(&totalMale)
+	r.DB.QueryRow("SELECT COUNT(*) FROM students WHERE status = 'active' AND gender = 'P'"+summaryWhere, summaryArgs...).Scan(&totalFemale)
 
 	countRows, _ := r.DB.Query(`
 		SELECT class_name, COUNT(*) as count 
 		FROM students 
-		WHERE status = 'active' AND class_name IS NOT NULL 
+		WHERE status = 'active' AND class_name IS NOT NULL`+summaryWhere+`
 		GROUP BY class_name
-	`)
+	`, summaryArgs...)
 	byClass := []models.StudentByClass{}
 	if countRows != nil {
 		defer countRows.Close()

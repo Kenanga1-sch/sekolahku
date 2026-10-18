@@ -25,7 +25,14 @@ func NewAttendanceHandler(repo *repository.AttendanceRepository, parentNotify *n
 }
 
 func (h *AttendanceHandler) GetStats(c echo.Context) error {
-	stats, err := h.Repo.GetStats()
+	className, isGuru := h.forcedWaliClass(c)
+	if isGuru && className == "" {
+		// Guru tanpa wali kelas: tidak punya kelas yang boleh dilihat —
+		// statistik kosong (konsisten dengan GetDailyClass/GetReport).
+		return c.JSON(http.StatusOK, &models.AttendanceStats{Stats: models.DailyStats{}})
+	}
+
+	stats, err := h.Repo.GetStats(className)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal memuat statistik"})
 	}

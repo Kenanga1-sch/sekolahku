@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect, Suspense, lazy } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, lazy } from "react";
 import { IdCard, Printer, Loader2 } from "lucide-react";
-import { useAuthStore } from "@/lib/stores/auth-store";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
 
 const TabDirektori = lazy(() => import("./tab-direkturi"));
 const TabCetakKartu = lazy(() => import("./tab-cetak-kartu"));
@@ -40,21 +39,10 @@ export default function MasterGTKPage() {
 }
 
 function GTKTabsContent() {
-  const searchParams = useSearchParams();
-  const queryTab = searchParams.get("tab") as TabType | null;
-  const { isLoading: authLoading } = useAuthStore();
-
-  const [activeTab, setActiveTab] = useState<TabType>("direktori");
-
-  useEffect(() => {
-    if (!authLoading) setActiveTab("direktori");
-  }, [authLoading]);
-
-  useEffect(() => {
-    if (queryTab && ALL_TAB_IDS.includes(queryTab)) {
-      setActiveTab(queryTab);
-    }
-  }, [queryTab]);
+  // Tab aktif tersimpan di URL (?tab=...) agar tetap terbuka setelah refresh.
+  const [activeTab, setActiveTab] = useTabParam<TabType>("direktori", {
+    validTabs: ALL_TAB_IDS,
+  });
 
   return (
     <div className="space-y-6">

@@ -9,6 +9,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2, ArrowUp, ArrowDown, Eye, Target, Calendar, Award, BookOpen, GraduationCap, Sparkles } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TabLandingSections from "./tab-landing-sections";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
+
+type VisiMisiTab = "visimisi" | "sejarah" | "kurikulum" | "landing";
+
+const VISI_MISI_TABS: VisiMisiTab[] = ["visimisi", "sejarah", "kurikulum", "landing"];
 
 interface TabVisiMisiProps {
   settings: any;
@@ -16,6 +21,11 @@ interface TabVisiMisiProps {
 }
 
 export default function TabVisiMisi({ settings, setSettings }: TabVisiMisiProps) {
+  // Sub-tab tersimpan di URL (?vtab=...) agar tetap terbuka setelah refresh.
+  const [activeTab, setActiveTab] = useTabParam<VisiMisiTab>("visimisi", {
+    param: "vtab",
+    validTabs: VISI_MISI_TABS,
+  });
   // Parse initial states
   const [missions, setMissions] = useState<string[]>([]);
   const [indicators, setIndicators] = useState<any[]>([]);
@@ -233,7 +243,7 @@ export default function TabVisiMisi({ settings, setSettings }: TabVisiMisiProps)
   };
 
   return (
-    <Tabs defaultValue="visimisi" className="space-y-6">
+    <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as VisiMisiTab)} className="space-y-6">
       <TabsList className="bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl w-full">
         <TabsTrigger value="visimisi" className="rounded-lg whitespace-nowrap text-xs px-2">
           <span className="hidden sm:inline">Visi, Misi & Indikator</span>

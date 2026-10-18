@@ -53,7 +53,7 @@ export function SPMBPromoteDialog({
         class_id: selectedClassId,
       });
 
-      showSuccess("Siswa berhasil dipromosikan ke Master Data");
+      showSuccess("Siswa berhasil dipromosikan. Terbitkan NIS di Akademik › Kelas (ikon #) bila belum ada.");
       onOpenChange(false);
       onSuccess?.();
     } catch (error: any) {

@@ -24,6 +24,11 @@ import { showSuccess, showError } from "@/lib/toast";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { compressImage } from "@/lib/utils";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
+
+type DetailTab = "profile" | "savings" | "library" | "documents" | "parents";
+
+const DETAIL_TABS: DetailTab[] = ["profile", "savings", "library", "documents", "parents"];
 
 export default function StudentDetailPage() {
     const searchParams = useSearchParams();
@@ -34,8 +39,10 @@ export default function StudentDetailPage() {
     const [documents, setDocuments] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     
-    // Active Tab State
-    const [activeTab, setActiveTab] = useState("profile");
+    // Active Tab State — disimpan di URL (?tab=...) agar tahan refresh
+    const [activeTab, setActiveTab] = useTabParam<DetailTab>("profile", {
+        validTabs: DETAIL_TABS,
+    });
 
     // Savings State
     const [savingsAccount, setSavingsAccount] = useState<any>(null);
@@ -357,7 +364,7 @@ export default function StudentDetailPage() {
                 </div>
             </div>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as DetailTab)}>
                 <TabsList className="w-full h-auto justify-start gap-1 overflow-x-auto scrollbar-none whitespace-nowrap sm:grid sm:grid-cols-5 sm:max-w-2xl">
                     <TabsTrigger value="profile" className="shrink-0">Profil</TabsTrigger>
                     <TabsTrigger value="savings" className="shrink-0">Tabungan</TabsTrigger>

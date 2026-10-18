@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, Suspense, lazy } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, Suspense, lazy } from "react";
 import { Users, Printer, ArrowRightLeft, GraduationCap, UserCheck, Loader2, BookOpen, Sprout, BarChart3, Backpack } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
 
 const TabDirektori = lazy(() => import("./tab-direktori"));
 const TabKartu = lazy(() => import("./tab-kartu"));
@@ -33,8 +33,10 @@ interface TabDef {
   guruAccess?: boolean;
 }
 
-// Tab khusus guru (guru melihat tab ini saja, di samping tab admin bila admin).
+// Tab yang dibuka untuk guru (di samping tab admin bila admin).
 const GURU_TABS: TabDef[] = [
+  { id: "direktori", label: "Direktori Siswa", icon: Users },
+  { id: "alumni", label: "Buku Induk", icon: GraduationCap },
   { id: "skrining", label: "Skrining", icon: Sprout, guruAccess: true },
   { id: "agregat", label: "Agregat", icon: BarChart3, guruAccess: true },
   { id: "tugas", label: "Tugas", icon: Backpack, guruAccess: true },
@@ -65,33 +67,43 @@ function TabFallback() {
 }
 
 function SiswaTabsContent() {
-  const searchParams = useSearchParams();
-  const queryTab = searchParams.get("tab") as TabType | null;
   const { user, isLoading: authLoading } = useAuthStore();
 
   const role = (user?.role || "").toLowerCase();
   const isAdmin = role === "admin" || role === "superadmin";
-  // Guru hanya boleh tab Skrining/Agregat/Tugas. Role lain (mis. staff)
-  // memakai tampilan admin penuh seperti sebelumnya.
+  // Guru melihat tab sendiri (termasuk Direktori & Buku Induk). Role lain
+  // (mis. staff) memakai tampilan admin penuh seperti sebelumnya.
   const isGuruOnly = role === "guru";
 
   const tabs = isGuruOnly ? GURU_TABS : ADMIN_TABS;
   const defaultTab: TabType = isGuruOnly ? "skrining" : "direktori";
 
-  const [activeTab, setActiveTab] = useState<TabType>(defaultTab);
+  // Tab aktif tersimpan di URL (?tab=...) agar tetap terbuka setelah refresh.
+  const [activeTab, setActiveTab] = useTabParam<TabType>(defaultTab, {
+    validTabs: ALL_TAB_IDS,
+  });
 
-  // Sinkronkan tab default setelah role diketahui.
+  // Terapkan tab default sesuai role setelah auth selesai. URL tetap menang
+  // selama tab di dalamnya valid & diizinkan untuk role tersebut.
   useEffect(() => {
-    if (!authLoading) setActiveTab(defaultTab);
-  }, [authLoading, defaultTab]);
-
-  useEffect(() => {
-    if (queryTab && ALL_TAB_IDS.includes(queryTab)) {
-      // Guru tidak boleh membuka tab selain miliknya meski lewat URL.
-      if (isGuruOnly && !GURU_TABS.some((t) => t.id === queryTab)) return;
-      setActiveTab(queryTab);
+    if (authLoading) return;
+    let urlTab: TabType | null = null;
+    try {
+      urlTab = new URL(window.location.href).searchParams.get("tab") as TabType | null;
+    } catch {
+      /* abaikan */
     }
-  }, [queryTab, isGuruOnly]);
+    const allowed =
+      !!urlTab && (isGuruOnly ? GURU_TABS.some((t) => t.id === urlTab) : ALL_TAB_IDS.includes(urlTab));
+    if (!allowed) setActiveTab(defaultTab);
+  }, [authLoading, defaultTab, isGuruOnly, setActiveTab]);
+
+  // Guard: guru tidak boleh membuka tab selain miliknya meski lewat URL/store.
+  useEffect(() => {
+    if (isGuruOnly && !GURU_TABS.some((t) => t.id === activeTab)) {
+      setActiveTab(defaultTab);
+    }
+  }, [isGuruOnly, activeTab, defaultTab, setActiveTab]);
 
   return (
     <div className="space-y-6">
@@ -151,7 +163,7 @@ function SiswaTabsContent() {
         {activeTab === "akademik" && (
           <Suspense fallback={<TabFallback />}>
             <div className="bg-white dark:bg-zinc-950 rounded-xl p-4 sm:p-6 border border-slate-200/60 dark:border-zinc-800">
-              <AkademikTabsContent />
+              <AkademikTabsContent param="atab" />
             </div>
           </Suspense>
         )}

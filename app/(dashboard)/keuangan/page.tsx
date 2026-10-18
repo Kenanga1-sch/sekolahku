@@ -72,6 +72,11 @@ import {
   exportMonthlyExcel,
 } from "@/lib/keuangan/export";
 import { TransaksiDialog, type TxForm } from "./_components/transaksi-dialog";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
+
+type KeuanganTab = "ringkasan" | "transaksi" | "unit" | "kategori" | "laporan";
+
+const KEUANGAN_TABS: KeuanganTab[] = ["ringkasan", "transaksi", "unit", "kategori", "laporan"];
 
 function fmtDate(iso?: string) {
   if (!iso) return "-";
@@ -88,6 +93,11 @@ function toDateInput(iso?: string) {
 }
 
 export default function KeuanganPage() {
+  // Tab aktif tersimpan di URL (?tab=...) agar tetap terbuka setelah refresh.
+  const [activeTab, setActiveTab] = useTabParam<KeuanganTab>("ringkasan", {
+    validTabs: KEUANGAN_TABS,
+  });
+
   return (
     <div className="max-w-6xl mx-auto space-y-6 p-4 sm:p-6">
       <div className="flex items-center gap-4">
@@ -104,7 +114,7 @@ export default function KeuanganPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="ringkasan" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as KeuanganTab)} className="space-y-4">
         <TabsList className="grid grid-cols-2 sm:grid-cols-5 w-full h-auto gap-1">
           <TabsTrigger value="ringkasan" className="gap-1.5">
             <Wallet className="h-4 w-4" /> Ringkasan

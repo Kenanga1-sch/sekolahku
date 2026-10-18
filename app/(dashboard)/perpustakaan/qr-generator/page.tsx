@@ -36,6 +36,11 @@ import {
     layoutToInput,
     type StickerPresetRecord,
 } from "@/lib/library/sticker-presets";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
+
+type QrTab = "generate" | "history";
+
+const QR_TABS: QrTab[] = ["generate", "history"];
 
 interface QrBatch {
     id: string;
@@ -51,7 +56,10 @@ export default function QRGeneratorPage() {
     const router = useRouter();
 
     // State
-    const [activeTab, setActiveTab] = useState("generate");
+    // Tab aktif tersimpan di URL (?tab=...) agar tetap terbuka setelah refresh.
+    const [activeTab, setActiveTab] = useTabParam<QrTab>("generate", {
+        validTabs: QR_TABS,
+    });
     const [count, setCount] = useState(12);
     const [prefix, setPrefix] = useState("BK");
     const [isGenerating, setIsGenerating] = useState(false);
@@ -462,7 +470,7 @@ export default function QRGeneratorPage() {
                 </div>
             </div>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as QrTab)}>
                 <TabsList className="w-full h-auto justify-start gap-1 overflow-x-auto scrollbar-none whitespace-nowrap sm:w-auto">
                     <TabsTrigger value="generate" className="shrink-0">Generate Baru</TabsTrigger>
                     <TabsTrigger value="history" className="shrink-0">Riwayat & Download Ulang</TabsTrigger>

@@ -12,6 +12,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { ShieldCheck, Loader2 } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
+
+type BendaharaTab = "brankas" | "verifikasi" | "hutang" | "struktur";
+
+const BENDAHARA_TABS: BendaharaTab[] = ["brankas", "verifikasi", "hutang", "struktur"];
 
 const emptyBrankasData = { vaults: [], recentTransactions: [] };
 
@@ -37,6 +42,11 @@ interface TabBendaharaProps {
 
 export default function TabBendahara({ onChanged }: TabBendaharaProps) {
     const { user } = useAuthStore();
+    // Sub-tab tersimpan di URL (?btab=...) agar tetap terbuka setelah refresh.
+    const [activeTab, setActiveTab] = useTabParam<BendaharaTab>("brankas", {
+        param: "btab",
+        validTabs: BENDAHARA_TABS,
+    });
     const [data, setData] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -100,7 +110,7 @@ export default function TabBendahara({ onChanged }: TabBendaharaProps) {
     const isAdmin = user?.role === "admin" || user?.role === "superadmin";
 
     return (
-        <Tabs defaultValue="brankas" className="space-y-4">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as BendaharaTab)} className="space-y-4">
             <TabsList className="grid w-full grid-cols-2 sm:grid-cols-2 md:grid-cols-4 bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl">
                 <TabsTrigger value="brankas" className="rounded-lg text-xs sm:text-sm">Brankas & Saldo</TabsTrigger>
                 <TabsTrigger value="verifikasi" className="rounded-lg text-xs sm:text-sm">Verifikasi Setoran</TabsTrigger>

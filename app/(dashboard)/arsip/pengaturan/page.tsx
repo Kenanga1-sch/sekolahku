@@ -30,10 +30,19 @@ import { previewLetterNumber, extractSequenceNumber } from "./pengaturan-helpers
 import { CreateClassificationDialog } from "./_components/create-classification-dialog";
 import { EditClassificationDialog } from "./_components/edit-classification-dialog";
 import { DeleteClassificationDialog } from "./_components/delete-classification-dialog";
+import { useTabParam } from "@/lib/hooks/use-tab-param";
+
+type PengaturanArsipTab = "format" | "klasifikasi" | "pemberkasan";
+
+const PENGATURAN_ARSIP_TABS: PengaturanArsipTab[] = ["format", "klasifikasi", "pemberkasan"];
 
 export default function PengaturanPersuratanPage() {
     const router = useRouter();
     const { settings: schoolSettings, refresh: refreshSettings } = useSchoolSettings();
+    // Tab aktif tersimpan di URL (?tab=...) agar tetap terbuka setelah refresh.
+    const [activeTab, setActiveTab] = useTabParam<PengaturanArsipTab>("format", {
+        validTabs: PENGATURAN_ARSIP_TABS,
+    });
     const [isLoadingData, setIsLoadingData] = useState(true);
 
     // Inputs States
@@ -331,7 +340,7 @@ export default function PengaturanPersuratanPage() {
                 </div>
             </div>
 
-            <Tabs defaultValue="format" className="space-y-6">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as PengaturanArsipTab)} className="space-y-6">
                 <TabsList className="bg-slate-100 dark:bg-zinc-950 p-1 rounded-lg">
                     <TabsTrigger value="format" className="flex items-center gap-2">
                         <Settings className="h-4 w-4" />
