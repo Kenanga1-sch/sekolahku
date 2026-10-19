@@ -10,6 +10,7 @@ import { ZXingConfig } from "@/components/zxing-config";
 import { UpdateBanner } from "@/components/update-banner";
 import { PwaBannerClient } from "@/components/pwa-banner-client";
 import { APP_VERSION } from "@/lib/api-client";
+import { plusJakarta, sourceSerif } from "@/lib/fonts";
 import "./globals.css";
 
 const SITE_URL = "https://sdn1kenanga.sch.id";
@@ -163,7 +164,7 @@ export default function RootLayout({
   // to ensure compatibility with static export (output: "export").
 
   return (
-    <html lang="id" suppressHydrationWarning>
+    <html lang="id" className={`${plusJakarta.variable} ${sourceSerif.variable}`} suppressHydrationWarning>
       <head>
         <meta name="theme-color" content="#3b82f6" />
         <meta name="mobile-web-app-capable" content="yes" />
