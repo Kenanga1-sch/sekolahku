@@ -110,7 +110,12 @@ func (n *ParentNotifier) NotifyAllParents(category, nType, title, body, targetUR
 	if n == nil || n.Parents == nil {
 		return
 	}
-	rows, err := n.Parents.DB.Query(`SELECT DISTINCT user_id FROM parent_students WHERE is_active = 1`)
+	rows, err := n.Parents.DB.Query(`
+		SELECT DISTINCT ps.user_id
+		FROM parent_students ps
+		JOIN users u ON u.id = ps.user_id
+		WHERE ps.is_active = 1 AND u.role = 'orangtua' AND u.is_active = 1
+	`)
 	if err != nil {
 		log.Printf("[NOTIFY-ORTU] gagal ambil semua ortu: %v", err)
 		return

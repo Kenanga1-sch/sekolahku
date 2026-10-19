@@ -192,8 +192,16 @@ func (r *ParentRepository) ListParentsOfStudent(studentID string) ([]models.Pare
 }
 
 // GetParentUserIDs daftar akun ortu aktif untuk satu siswa (fan-out push).
+// Hanya akun ber-role "orangtua" yang aktif: tautan lama ke akun guru/staff
+// tidak boleh menerima notifikasi portal ortu (target URL-nya /parent/*).
 func (r *ParentRepository) GetParentUserIDs(studentID string) ([]string, error) {
-	rows, err := r.DB.Query(`SELECT user_id FROM parent_students WHERE student_id = ? AND is_active = 1`, studentID)
+	rows, err := r.DB.Query(`
+		SELECT ps.user_id
+		FROM parent_students ps
+		JOIN users u ON u.id = ps.user_id
+		WHERE ps.student_id = ? AND ps.is_active = 1
+		  AND u.role = 'orangtua' AND u.is_active = 1
+	`, studentID)
 	if err != nil {
 		return nil, err
 	}

@@ -598,9 +598,12 @@ func (h *ParentHandler) GetChildAttendance(c echo.Context) error {
 	}})
 }
 
-// LinkParent menautkan akun (menurut nomor HP / user id) ke siswa.
+// LinkParent menautkan akun orang tua (menurut nomor HP / user id) ke siswa.
+// Hanya akun ber-role "orangtua" yang boleh ditautkan: akun guru/staff yang
+// juga orang tua wajib memakai akun ortu terpisah (lihat /daftar-ortu),
+// karena portal ortu dijaga RoleMiddleware(orangtua).
 func (h *ParentHandler) LinkParent(c echo.Context) error {
-	studentID := c.Param("id")
+	studentID := strings.TrimSpace(c.Param("id"))
 	var req struct {
 		Phone    string `json:"phone"`
 		UserID   string `json:"userId"`
@@ -609,16 +612,40 @@ func (h *ParentHandler) LinkParent(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Data tidak valid"})
 	}
-	targetUserID := strings.TrimSpace(req.UserID)
-	if targetUserID == "" {
-		// Cari user berdasarkan nomor HP (username).
-		user, err := h.Users.GetUserByEmail(strings.TrimSpace(req.Phone))
-		if err != nil || user == nil {
-			return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Akun dengan nomor tersebut tidak ditemukan"})
-		}
-		targetUserID = user.ID
+	if studentID == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Siswa wajib dipilih"})
 	}
-	if err := h.Repo.LinkParent(targetUserID, studentID, req.Relation); err != nil {
+	phone := strings.TrimSpace(req.Phone)
+	targetUserID := strings.TrimSpace(req.UserID)
+	if targetUserID == "" && phone == "" {
+		return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Nomor HP atau akun orang tua wajib diisi"})
+	}
+
+	var user *models.User
+	var err error
+	if targetUserID != "" {
+		user, err = h.Users.GetUserByID(targetUserID)
+	} else {
+		// Cari user berdasarkan nomor HP (username).
+		user, err = h.Users.GetUserByEmail(phone)
+	}
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Terjadi kesalahan internal"})
+	}
+	if user == nil {
+		return c.JSON(http.StatusNotFound, map[string]interface{}{"success": false, "error": "Akun dengan nomor tersebut tidak ditemukan"})
+	}
+	if !user.IsActive {
+		return c.JSON(http.StatusForbidden, map[string]interface{}{"success": false, "error": "Akun tersebut tidak aktif"})
+	}
+	if user.Role != "orangtua" {
+		return c.JSON(http.StatusConflict, map[string]interface{}{
+			"success": false,
+			"error":   "Akun ini bukan akun orang tua. Guru/wali yang juga orang tua perlu akun terpisah — daftar di /daftar-ortu.",
+		})
+	}
+
+	if err := h.Repo.LinkParent(user.ID, studentID, req.Relation); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal menautkan"})
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{"success": true})

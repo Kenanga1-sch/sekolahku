@@ -19,7 +19,7 @@ func setupParentTestDB(t *testing.T) *sql.DB {
 		`CREATE TABLE students (id TEXT PRIMARY KEY, full_name TEXT, nisn TEXT, class_id TEXT, class_name TEXT, photo TEXT, birth_date TEXT, status TEXT, is_active INTEGER DEFAULT 1)`,
 		`CREATE TABLE tabungan_siswa (id TEXT PRIMARY KEY, student_id TEXT, saldo_terakhir INTEGER DEFAULT 0)`,
 		`CREATE TABLE parent_students (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, student_id TEXT NOT NULL, relation TEXT DEFAULT 'orangtua', is_active INTEGER DEFAULT 1, created_at INTEGER, updated_at INTEGER, UNIQUE(user_id, student_id))`,
-		`CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, phone TEXT, username TEXT)`,
+		`CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT, phone TEXT, username TEXT, role TEXT DEFAULT 'orangtua', is_active INTEGER DEFAULT 1)`,
 		`CREATE TABLE leave_requests (id TEXT PRIMARY KEY, student_id TEXT, parent_user_id TEXT, type TEXT DEFAULT 'izin', start_date TEXT, end_date TEXT, reason TEXT, attachment_path TEXT, status TEXT DEFAULT 'pending', reviewed_by TEXT, reviewed_at INTEGER, review_note TEXT, created_at INTEGER, updated_at INTEGER)`,
 		`INSERT INTO students (id, full_name, nisn, class_id, class_name, birth_date, status, is_active) VALUES ('st1','Ani Lestari','1234567890','c1','Kelas 1','2018-05-01','active',1)`,
 		`INSERT INTO students (id, full_name, nisn, class_name, birth_date, status, is_active) VALUES ('st2','Budi Santoso','1234567891','Kelas 2','2017-03-02','active',1)`,
@@ -148,5 +148,37 @@ func TestParentLeaveFlow(t *testing.T) {
 	ids, _ := repo.GetParentUserIDs("st1")
 	if len(ids) != 1 || ids[0] != "pu1" {
 		t.Fatalf("parent ids: %v", ids)
+	}
+}
+
+// Tautan lama ke akun non-orangtua / nonaktif tidak boleh menerima notifikasi
+// portal ortu (target URL-nya /parent/*).
+func TestGetParentUserIDsOnlyActiveOrangtua(t *testing.T) {
+	db := setupParentTestDB(t)
+	defer db.Close()
+	repo := NewParentRepository(db)
+
+	stmts := []string{
+		`INSERT INTO users (id, name, phone, username, role, is_active) VALUES
+			('guru1','Guru Ortu','081111111111','081111111111','guru',1),
+			('ortuoff','Ortu Nonaktif','082222222222','082222222222','orangtua',0),
+			('ortu2','Ortu Kedua','083333333333','083333333333','orangtua',1)`,
+		`INSERT INTO parent_students (id, user_id, student_id, relation) VALUES
+			('ps-guru','guru1','st1','orangtua'),
+			('ps-off','ortuoff','st1','orangtua'),
+			('ps-2','ortu2','st1','ayah')`,
+	}
+	for _, s := range stmts {
+		if _, err := db.Exec(s); err != nil {
+			t.Fatalf("exec %q: %v", s, err)
+		}
+	}
+
+	ids, err := repo.GetParentUserIDs("st1")
+	if err != nil {
+		t.Fatalf("GetParentUserIDs: %v", err)
+	}
+	if len(ids) != 1 || ids[0] != "ortu2" {
+		t.Fatalf("hanya ortu aktif yang boleh, dapat: %v", ids)
 	}
 }

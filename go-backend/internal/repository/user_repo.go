@@ -392,6 +392,25 @@ func (r *UserRepository) CountUserReferences(id string) (map[string]int, error) 
 	return found, nil
 }
 
+// CountActiveParentLinks menghitung tautan orang tua aktif milik user.
+// Dipakai untuk menolak perubahan role menjadi non-orangtua selama akun
+// masih tertaut ke siswa (portal ortu dijaga RoleMiddleware orangtua).
+func (r *UserRepository) CountActiveParentLinks(userID string) (int, error) {
+	var n int
+	err := r.DB.QueryRow(
+		`SELECT COUNT(*) FROM parent_students WHERE user_id = ? AND is_active = 1`,
+		userID,
+	).Scan(&n)
+	if err != nil {
+		// Skema lama/tanpa tabel parent_students: anggap tidak tertaut.
+		if strings.Contains(strings.ToLower(err.Error()), "no such table") {
+			return 0, nil
+		}
+		return 0, err
+	}
+	return n, nil
+}
+
 // SetUserActive menyalakan atau mematikan akun tanpa menghapus datanya.
 // Dipakai jalur soft delete karena UpdateUser sengaja mempertahankan
 // nilai is_active lama.

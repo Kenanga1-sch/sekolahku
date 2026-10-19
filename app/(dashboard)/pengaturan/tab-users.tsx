@@ -331,14 +331,19 @@ export default function TabUsers() {
                 fetchUsers();
                 resetForm();
             } else {
-                if (!formData.email.trim()) {
+                const isParent = formData.role === "orangtua";
+                if (!isParent && !formData.email.trim()) {
                     showError("Email wajib diisi");
+                    return;
+                }
+                if (isParent && !formData.username.trim() && !formData.phone.trim()) {
+                    showError("Nomor HP wajib diisi untuk akun orang tua");
                     return;
                 }
 
                 const res: any = await goPost("/api/users", {
                     name: formData.name.trim(),
-                    username: formData.username.trim(),
+                    username: formData.username.trim() || (isParent ? formData.phone.trim() : ""),
                     email: formData.email.trim(),
                     phone: formData.phone.trim(),
                     role: formData.role,
@@ -816,17 +821,21 @@ export default function TabUsers() {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="email">Email</Label>
+                                    <Label htmlFor="email">
+                                        Email{formData.role === "orangtua" ? " (opsional)" : ""}
+                                    </Label>
                                     <Input
                                         id="email"
                                         type="email"
                                         value={formData.email}
                                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                        placeholder="email@example.com"
+                                        placeholder={formData.role === "orangtua" ? "Boleh dikosongkan" : "email@example.com"}
                                         disabled={!!editingId || !!selectedGtkId}
                                     />
-                                    {(editingId || selectedGtkId) && (
+                                    {(editingId || selectedGtkId) ? (
                                         <p className="text-xs text-muted-foreground">Email tidak dapat diubah</p>
+                                    ) : formData.role === "orangtua" && (
+                                        <p className="text-xs text-muted-foreground">Akun orang tua bisa login dengan nomor HP.</p>
                                     )}
                                 </div>
                                 <div className="space-y-2">
@@ -835,7 +844,7 @@ export default function TabUsers() {
                                         id="username"
                                         value={formData.username}
                                         onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                                        placeholder="username (opsional)"
+                                        placeholder={formData.role === "orangtua" ? "Kosongkan untuk memakai nomor HP" : "username (opsional)"}
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -858,7 +867,9 @@ export default function TabUsers() {
                                     </Select>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="phone">Nomor Telepon</Label>
+                                    <Label htmlFor="phone">
+                                        Nomor Telepon{formData.role === "orangtua" ? " (untuk login)" : ""}
+                                    </Label>
                                     <Input
                                         id="phone"
                                         value={formData.phone}
@@ -916,7 +927,7 @@ export default function TabUsers() {
                                 <Button variant="outline" onClick={resetForm}>
                                     Batal
                                 </Button>
-                                <Button onClick={handleSubmit} disabled={isSaving || !formData.name || !formData.email}>
+                                <Button onClick={handleSubmit} disabled={isSaving || !formData.name || (!formData.email && formData.role !== "orangtua")}>
                                     {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                                     {editingId ? "Simpan" : "Buat Akun"}
                                 </Button>

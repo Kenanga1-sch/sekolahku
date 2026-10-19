@@ -143,11 +143,23 @@ func (h *UserHandler) CreateUser(c echo.Context) error {
 	if req.Name == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Nama wajib diisi"})
 	}
-	if req.Email == "" || !strings.Contains(req.Email, "@") {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Email tidak valid"})
-	}
 	if !ok {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Role tidak valid"})
+	}
+	if req.Email != "" && !strings.Contains(req.Email, "@") {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Email tidak valid"})
+	}
+	if role == "orangtua" {
+		// Akun ortu tidak wajib punya email: login memakai nomor HP
+		// (username). Sama seperti pendaftaran mandiri di /daftar-ortu.
+		if req.Username == "" {
+			req.Username = req.Phone
+		}
+		if req.Username == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Nomor HP wajib diisi untuk akun orang tua"})
+		}
+	} else if req.Email == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Email tidak valid"})
 	}
 	if len(password) < 8 {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Password minimal 8 karakter"})
@@ -237,6 +249,21 @@ func (h *UserHandler) UpdateUser(c echo.Context) error {
 	}
 	if req.Password != "" && len(req.Password) < 8 {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Password minimal 8 karakter"})
+	}
+
+	// Akun yang masih tertaut sebagai orang tua tidak boleh diubah ke role
+	// lain: portal ortu dijaga RoleMiddleware(orangtua) dan tautan
+	// parent_students akan menjadi tidak terpakai tanpa peringatan.
+	if role != "orangtua" {
+		links, err := h.UserRepo.CountActiveParentLinks(id)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+		}
+		if links > 0 {
+			return c.JSON(http.StatusConflict, map[string]string{
+				"error": "Akun ini masih tertaut sebagai orang tua. Lepas tautan di detail siswa sebelum mengubah role.",
+			})
+		}
 	}
 
 	var username *string

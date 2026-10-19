@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { Link2, Loader2, Phone, Trash2, UserPlus } from "lucide-react";
 
@@ -74,7 +75,9 @@ export function ParentLinkCard({ studentId }: { studentId: string }) {
           <Link2 className="h-5 w-5 text-primary" /> Akun Orang Tua
         </CardTitle>
         <CardDescription>
-          Tautkan akun orang tua (dibuat di menu Pengguna atau daftar mandiri) ke siswa ini.
+          Tautkan <span className="font-medium">akun orang tua</span> (dibuat di menu Pengguna atau
+          daftar mandiri) ke siswa ini. Akun guru/staff tidak dapat ditautkan — guru yang juga orang
+          tua perlu akun terpisah.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -102,7 +105,7 @@ export function ParentLinkCard({ studentId }: { studentId: string }) {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-end border-t pt-4">
           <div className="space-y-1.5 sm:col-span-1">
-            <Label>Nomor HP Orang Tua</Label>
+            <Label>Nomor HP Akun Orang Tua</Label>
             <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="08xxxxxxxxxx" inputMode="tel" />
           </div>
           <div className="space-y-1.5">
@@ -123,6 +126,13 @@ export function ParentLinkCard({ studentId }: { studentId: string }) {
             Tautkan
           </Button>
         </div>
+        <p className="text-xs text-muted-foreground">
+          Belum punya akun ortu?{" "}
+          <Link href="/daftar-ortu" className="underline font-medium text-primary" target="_blank">
+            Daftar akun orang tua
+          </Link>
+          .
+        </p>
       </CardContent>
     </Card>
   );
