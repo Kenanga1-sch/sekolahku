@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -74,7 +75,7 @@ export function PeriodDialog({
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
             <Label htmlFor="start-date" className="sm:text-right">Tanggal Mulai</Label>
-            <Input
+            <DateInput
               id="start-date"
               type="date"
               value={formData.startDate}
@@ -84,7 +85,7 @@ export function PeriodDialog({
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-4 sm:items-center gap-2 sm:gap-4">
             <Label htmlFor="end-date" className="sm:text-right">Tanggal Selesai</Label>
-            <Input
+            <DateInput
               id="end-date"
               type="date"
               value={formData.endDate}

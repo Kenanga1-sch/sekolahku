@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { goGet, goPost } from "@/lib/api-client";
 import { toast } from "sonner";
@@ -119,7 +120,7 @@ export function DialogMutasiKeluar() {
 
           <div className="space-y-1.5">
             <Label>Tanggal Mutasi *</Label>
-            <Input
+            <DateInput
               type="date"
               value={form.mutationDate}
               onChange={(e) => setForm({...form, mutationDate: e.target.value})}

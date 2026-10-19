@@ -17,6 +17,7 @@ import {
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Card, CardContent } from "@/components/ui/card";
 import { DataTable, TablePagination } from "@/components/data-table";
 import {
@@ -464,7 +465,7 @@ export default function AsetPage() {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="grid gap-2">
                                         <Label htmlFor="purchase_date">Tanggal Beli</Label>
-                                        <Input
+                                        <DateInput
                                             id="purchase_date"
                                             type="date"
                                             value={formData.purchase_date ?? ""}

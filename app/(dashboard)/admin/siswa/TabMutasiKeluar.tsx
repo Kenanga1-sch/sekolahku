@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { goGet, goPatch } from "@/lib/api-client";
 import type { MutasiRequest, LiabilityData } from "./types-mutasi";
 import { DialogMutasiKeluar } from "./DialogMutasiKeluar";
@@ -130,7 +131,7 @@ export default function TabMutasiKeluar() {
             />
           </div>
 
-          <Input
+          <DateInput
             type="month"
             value={monthOut === "all" ? "" : monthOut}
             onChange={(e) => setMonthOut(e.target.value || "all")}

@@ -9,6 +9,7 @@ import {
   FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { 
@@ -153,7 +154,7 @@ export default function StudentForm({ form }: StudentFormProps) {
                   <FormLabel>Tanggal Lahir</FormLabel>
                   <FormControl>
                     <div className="relative group/btn">
-                      <Input type="date" {...field} className={inputClass} />
+                      <DateInput type="date" {...field} className={inputClass} />
                       <BottomGradient />
                     </div>
                   </FormControl>

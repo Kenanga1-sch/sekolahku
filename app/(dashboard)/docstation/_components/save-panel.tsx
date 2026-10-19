@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -348,7 +349,7 @@ export function SavePanel({
                   <Label htmlFor="arsip-date" className="mb-1.5 block text-xs font-bold uppercase tracking-wider">
                     Tanggal Surat
                   </Label>
-                  <Input
+                  <DateInput
                     id="arsip-date"
                     type="date"
                     value={config.archive.dateOfLetter}
@@ -360,7 +361,7 @@ export function SavePanel({
                     <Label htmlFor="arsip-received" className="mb-1.5 block text-xs font-bold uppercase tracking-wider">
                       Tanggal Diterima
                     </Label>
-                    <Input
+                    <DateInput
                       id="arsip-received"
                       type="date"
                       value={config.archive.receivedAt}

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Save, Upload, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -260,7 +261,7 @@ export default function CreateSuratMasukPage() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <Label>Tanggal Surat *</Label>
-                                    <Input 
+                                    <DateInput 
                                         type="date"
                                         value={formData.dateOfLetter}
                                         onChange={e => setFormData({...formData, dateOfLetter: e.target.value})}
@@ -269,7 +270,7 @@ export default function CreateSuratMasukPage() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Tanggal Diterima *</Label>
-                                    <Input 
+                                    <DateInput 
                                         type="date"
                                         value={formData.receivedAt}
                                         onChange={e => setFormData({...formData, receivedAt: e.target.value})}

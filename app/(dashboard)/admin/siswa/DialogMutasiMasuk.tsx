@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { goPost } from "@/lib/api-client";
 import { toast } from "sonner";
@@ -188,7 +189,7 @@ export function DialogMutasiMasuk({ classStats }: Props) {
             </div>
             <div className="space-y-1.5">
               <Label>Tanggal Surat Persetujuan</Label>
-              <Input
+              <DateInput
                 type="date"
                 value={form.approvalDate}
                 onChange={(e) => setForm({...form, approvalDate: e.target.value})}
@@ -196,7 +197,7 @@ export function DialogMutasiMasuk({ classStats }: Props) {
             </div>
             <div className="space-y-1.5">
               <Label>Tanggal Mutasi *</Label>
-              <Input
+              <DateInput
                 type="date"
                 value={form.mutationDate}
                 onChange={(e) => setForm({...form, mutationDate: e.target.value})}

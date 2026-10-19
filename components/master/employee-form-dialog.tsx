@@ -8,6 +8,7 @@ import * as z from "zod";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -424,7 +425,7 @@ export function EmployeeFormDialog({ open, onOpenChange, employeeId, onSuccess }
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Tanggal Mulai Tugas</FormLabel>
-                                <FormControl><Input type="date" {...field} /></FormControl>
+                                <FormControl><DateInput type="date" {...field} /></FormControl>
                                 <FormMessage />
                             </FormItem>
                         )}

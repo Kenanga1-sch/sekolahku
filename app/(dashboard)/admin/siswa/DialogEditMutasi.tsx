@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { goPut } from "@/lib/api-client";
 import { toast } from "sonner";
 import type { MutasiLog } from "./types-mutasi";
@@ -96,7 +97,7 @@ export function DialogEditMutasi({ log }: Props) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Tanggal Mutasi *</Label>
-              <Input
+              <DateInput
                 type="date"
                 value={form.mutationDate}
                 onChange={(e) => setForm({ ...form, mutationDate: e.target.value })}
@@ -137,7 +138,7 @@ export function DialogEditMutasi({ log }: Props) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Tanggal Surat Persetujuan</Label>
-                  <Input
+                  <DateInput
                     type="date"
                     value={form.approvalDate}
                     onChange={(e) => setForm({ ...form, approvalDate: e.target.value })}

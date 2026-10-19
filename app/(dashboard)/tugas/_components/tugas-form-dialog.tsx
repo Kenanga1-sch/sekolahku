@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -200,7 +201,7 @@ export function TugasFormDialog({ open, onOpenChange, tugas, onSaved }: TugasFor
 
           <div className="space-y-2">
             <Label htmlFor="tugas-due">Batas Waktu Pengumpulan</Label>
-            <Input
+            <DateInput
               id="tugas-due"
               type="datetime-local"
               value={form.dueAt}

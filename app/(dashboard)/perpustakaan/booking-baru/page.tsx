@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Calendar, Clock, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -121,7 +122,7 @@ function BookingForm() {
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="borrowDate">Tanggal Pinjam *</Label>
-                <Input
+                <DateInput
                   id="borrowDate"
                   type="date"
                   value={formData.borrowDate}
@@ -136,7 +137,7 @@ function BookingForm() {
 
               <div className="space-y-2">
                 <Label htmlFor="dueDate">Jatuh Tempo *</Label>
-                <Input
+                <DateInput
                   id="dueDate"
                   type="date"
                   value={formData.dueDate}

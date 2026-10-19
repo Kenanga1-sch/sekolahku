@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Plus, Pencil, Trash2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { DataTable } from "@/components/data-table";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -228,11 +229,11 @@ function AcademicYearsTab() {
                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="grid gap-2">
                                 <Label>Mulai</Label>
-                                <Input type="date" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} />
+                                <DateInput type="date" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} />
                             </div>
                             <div className="grid gap-2">
                                 <Label>Selesai</Label>
-                                <Input type="date" value={formData.endDate} onChange={e => setFormData({...formData, endDate: e.target.value})} />
+                                <DateInput type="date" value={formData.endDate} onChange={e => setFormData({...formData, endDate: e.target.value})} />
                             </div>
                         </div>
                         <div className="flex items-center space-x-2 py-2">

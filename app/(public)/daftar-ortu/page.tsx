@@ -3,9 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { toast } from "sonner";
 import {
+  AlertCircle,
   CheckCircle2,
+  Eye,
+  EyeOff,
   KeyRound,
   Loader2,
   Phone,
@@ -17,6 +19,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Reveal } from "@/components/public/motion";
@@ -34,6 +37,47 @@ const stepTitles: Record<1 | 2 | 3, string> = {
   3: "Pendaftaran Selesai",
 };
 
+type FieldErrors = {
+  nisn?: string;
+  birthDate?: string;
+  name?: string;
+  phone?: string;
+  password?: string;
+  form?: string;
+};
+
+const fieldClass = "h-11 rounded-xl";
+
+function todayISO() {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
+function FormError({ message }: { message?: string }) {
+  if (!message) return null;
+  const showLogin = message.toLowerCase().includes("sudah terdaftar");
+  return (
+    <div
+      role="alert"
+      className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+    >
+      <div className="flex items-start gap-2">
+        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+        <div className="space-y-1">
+          <p>{message}</p>
+          {showLogin && (
+            <Link href="/login" className="font-semibold underline underline-offset-4">
+              Masuk ke akun yang sudah ada
+            </Link>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DaftarOrtuPage() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [busy, setBusy] = useState(false);
@@ -43,66 +87,97 @@ export default function DaftarOrtuPage() {
   const [studentName, setStudentName] = useState("");
 
   const [name, setName] = useState("");
+  const [relation, setRelation] = useState("orangtua");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
-  const verify = async () => {
-    if (nisn.trim().length < 10) {
-      toast.error("NISN harus 10 digit");
-      return;
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const today = todayISO();
+
+  const clearError = (field: keyof FieldErrors) => {
+    setErrors((prev) => {
+      if (!prev[field] && !prev.form) return prev;
+      return { ...prev, [field]: undefined, form: undefined };
+    });
+  };
+
+  const validateStep1 = () => {
+    const next: FieldErrors = {};
+    if (!/^\d{10}$/.test(nisn)) {
+      next.nisn = "NISN harus tepat 10 digit angka.";
     }
     if (!birthDate) {
-      toast.error("Tanggal lahir wajib diisi");
-      return;
+      next.birthDate = "Tanggal lahir wajib diisi.";
+    } else if (birthDate > today) {
+      next.birthDate = "Tanggal lahir tidak boleh di masa depan.";
     }
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const validateStep2 = () => {
+    const next: FieldErrors = {};
+    if (name.trim().length < 3) {
+      next.name = "Nama minimal 3 karakter.";
+    }
+    if (!/^08\d{8,13}$/.test(phone)) {
+      next.phone = "Nomor HP tidak valid (contoh: 081234567890).";
+    }
+    if (password.length < 6) {
+      next.password = "Password minimal 6 karakter.";
+    }
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const verify = async () => {
+    if (busy || !validateStep1()) return;
     setBusy(true);
     try {
-      const res = await verifyStudentAction(nisn.trim(), birthDate);
+      const res = await verifyStudentAction(nisn, birthDate);
       if (res.success) {
         setStudentName((res.data as { studentName?: string })?.studentName || "Siswa");
+        setErrors({});
         setStep(2);
       } else {
-        toast.error(res.error || "Data siswa tidak ditemukan");
+        setErrors({ form: res.error || "Data siswa tidak ditemukan." });
       }
     } catch (err: any) {
-      toast.error(err?.message || "Gagal memverifikasi data");
+      setErrors({ form: err?.message || "Gagal memverifikasi data. Coba lagi." });
     } finally {
       setBusy(false);
     }
   };
 
   const register = async () => {
-    if (name.trim().length < 3) {
-      toast.error("Nama minimal 3 karakter");
-      return;
-    }
-    if (!/^08\d{8,13}$/.test(phone.trim())) {
-      toast.error("Nomor HP tidak valid (contoh: 081234567890)");
-      return;
-    }
-    if (password.length < 6) {
-      toast.error("Password minimal 6 karakter");
-      return;
-    }
+    if (busy || !validateStep2()) return;
     setBusy(true);
     try {
       const res = await registerParentAction({
-        nisn: nisn.trim(),
+        nisn,
         birthDate,
         name: name.trim(),
-        phone: phone.trim(),
+        phone,
         password,
+        relation,
       });
       if (res.success) {
+        setErrors({});
         setStep(3);
       } else {
-        toast.error(res.error || "Gagal membuat akun");
+        setErrors({ form: res.error || "Gagal membuat akun." });
       }
     } catch (err: any) {
-      toast.error(err?.message || "Gagal membuat akun");
+      setErrors({ form: err?.message || "Gagal membuat akun. Coba lagi." });
     } finally {
       setBusy(false);
     }
+  };
+
+  const backToStep1 = () => {
+    setErrors({});
+    setStep(1);
   };
 
   return (
@@ -199,44 +274,90 @@ export default function DaftarOrtuPage() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3 }}
-                  className="space-y-4"
                 >
-                  <div className="space-y-2">
-                    <Label htmlFor="nisn">NISN Anak</Label>
-                    <Input
-                      id="nisn"
-                      inputMode="numeric"
-                      autoComplete="off"
-                      placeholder="Masukkan 10 digit NISN"
-                      value={nisn}
-                      onChange={(e) => setNisn(e.target.value)}
-                      aria-label="NISN anak"
-                      aria-describedby="nisn-help"
-                    />
-                    <p id="nisn-help" className="text-xs text-muted-foreground dark:text-muted-foreground">
-                      NISN tertera pada kartu pelajar atau rapor anak.
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="tgl">Tanggal Lahir Anak</Label>
-                    <Input
-                      id="tgl"
-                      type="date"
-                      autoComplete="bday"
-                      value={birthDate}
-                      onChange={(e) => setBirthDate(e.target.value)}
-                      aria-label="Tanggal lahir anak"
-                    />
-                  </div>
-                  <Button
-                    onClick={verify}
-                    disabled={busy}
-                    aria-label="Verifikasi data anak"
-                    className="w-full h-11 rounded-xl bg-gradient-to-r from-primary to-primary-hover text-white font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 active:scale-[0.98] transition-all"
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void verify();
+                    }}
+                    noValidate
+                    className="space-y-4"
                   >
-                    {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <Search className="mr-2 h-4 w-4" aria-hidden="true" />}
-                    Verifikasi Data
-                  </Button>
+                    <FormError message={errors.form} />
+
+                    <div className="space-y-2">
+                      <Label htmlFor="nisn">NISN Anak</Label>
+                      <Input
+                        id="nisn"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        placeholder="Masukkan 10 digit NISN"
+                        value={nisn}
+                        onChange={(e) => {
+                          setNisn(e.target.value.replace(/\D/g, "").slice(0, 10));
+                          clearError("nisn");
+                        }}
+                        maxLength={10}
+                        pattern="[0-9]{10}"
+                        autoFocus
+                        aria-label="NISN anak"
+                        aria-invalid={Boolean(errors.nisn)}
+                        aria-describedby={errors.nisn ? "nisn-error" : "nisn-help"}
+                        className={fieldClass}
+                      />
+                      {errors.nisn ? (
+                        <p id="nisn-error" role="alert" className="text-xs text-destructive">
+                          {errors.nisn}
+                        </p>
+                      ) : (
+                        <p id="nisn-help" className="text-xs text-muted-foreground dark:text-muted-foreground">
+                          NISN tertera pada kartu pelajar atau rapor anak.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="tgl">Tanggal Lahir Anak</Label>
+                      <DateInput
+                        id="tgl"
+                        autoComplete="bday"
+                        value={birthDate}
+                        onChange={(e) => {
+                          setBirthDate(e.target.value);
+                          clearError("birthDate");
+                        }}
+                        max={today}
+                        aria-label="Tanggal lahir anak"
+                        aria-invalid={Boolean(errors.birthDate)}
+                        aria-describedby={errors.birthDate ? "tgl-error" : undefined}
+                        className={fieldClass}
+                      />
+                      {errors.birthDate && (
+                        <p id="tgl-error" role="alert" className="text-xs text-destructive">
+                          {errors.birthDate}
+                        </p>
+                      )}
+                    </div>
+
+                    <Button
+                      type="submit"
+                      disabled={busy}
+                      aria-label="Verifikasi data anak"
+                      className="w-full h-11 rounded-xl bg-gradient-to-r from-primary to-primary-hover text-white font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 active:scale-[0.98] transition-all"
+                    >
+                      {busy ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                          Memverifikasi...
+                        </>
+                      ) : (
+                        <>
+                          <Search className="mr-2 h-4 w-4" aria-hidden="true" />
+                          Verifikasi Data
+                        </>
+                      )}
+                    </Button>
+                  </form>
                 </motion.div>
               )}
 
@@ -246,74 +367,163 @@ export default function DaftarOrtuPage() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3 }}
-                  className="space-y-4"
                 >
-                  <div
-                    className="rounded-2xl border border-green-200 bg-green-50/80 backdrop-blur-sm dark:border-green-900/40 dark:bg-green-950/20 px-4 py-3 text-sm text-green-800 dark:text-green-300 flex items-center gap-2"
-                    role="status"
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void register();
+                    }}
+                    noValidate
+                    className="space-y-4"
                   >
-                    <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
-                    <span>Data ditemukan: <strong>{studentName}</strong></span>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="nama">Nama Anda</Label>
-                    <Input
-                      id="nama"
-                      autoComplete="name"
-                      placeholder="Nama orang tua/wali"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      aria-label="Nama orang tua atau wali"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="hp">Nomor HP</Label>
-                    <Input
-                      id="hp"
-                      inputMode="tel"
-                      autoComplete="tel"
-                      placeholder="081234567890"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      aria-label="Nomor HP orang tua"
-                      aria-describedby="hp-help"
-                    />
-                    <p id="hp-help" className="text-xs text-muted-foreground dark:text-muted-foreground">
-                      Nomor ini menjadi nama pengguna saat masuk.
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="pass">Password</Label>
-                    <Input
-                      id="pass"
-                      type="password"
-                      autoComplete="new-password"
-                      placeholder="Minimal 6 karakter"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      aria-label="Password akun"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => setStep(1)}
-                      disabled={busy}
-                      aria-label="Kembali ke langkah verifikasi data anak"
-                      className="h-11 rounded-xl active:scale-[0.98] transition-all"
+                    <div
+                      className="rounded-2xl border border-green-200 bg-green-50/80 backdrop-blur-sm dark:border-green-900/40 dark:bg-green-950/20 px-4 py-3 text-sm text-green-800 dark:text-green-300 flex items-center gap-2"
+                      role="status"
                     >
-                      Kembali
-                    </Button>
-                    <Button
-                      onClick={register}
-                      disabled={busy}
-                      aria-label="Buat akun orang tua"
-                      className="flex-1 h-11 rounded-xl bg-gradient-to-r from-primary to-primary-hover text-white font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 active:scale-[0.98] transition-all"
-                    >
-                      {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <UserPlus className="mr-2 h-4 w-4" aria-hidden="true" />}
-                      Buat Akun
-                    </Button>
-                  </div>
+                      <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+                      <span>Data ditemukan: <strong>{studentName}</strong></span>
+                    </div>
+
+                    <FormError message={errors.form} />
+
+                    <div className="space-y-2">
+                      <Label htmlFor="nama">Nama Anda</Label>
+                      <Input
+                        id="nama"
+                        autoComplete="name"
+                        placeholder="Nama orang tua/wali"
+                        value={name}
+                        onChange={(e) => {
+                          setName(e.target.value);
+                          clearError("name");
+                        }}
+                        autoFocus
+                        aria-label="Nama orang tua atau wali"
+                        aria-invalid={Boolean(errors.name)}
+                        aria-describedby={errors.name ? "nama-error" : undefined}
+                        className={fieldClass}
+                      />
+                      {errors.name && (
+                        <p id="nama-error" role="alert" className="text-xs text-destructive">
+                          {errors.name}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="relation">Hubungan dengan Anak</Label>
+                      <select
+                        id="relation"
+                        value={relation}
+                        onChange={(e) => setRelation(e.target.value)}
+                        className="h-11 w-full rounded-xl border border-input bg-transparent px-3 text-sm shadow-xs outline-none transition-[color,box-shadow] [color-scheme:light] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] dark:bg-input/30 dark:[color-scheme:dark]"
+                      >
+                        <option value="orangtua">Orang Tua</option>
+                        <option value="ayah">Ayah</option>
+                        <option value="ibu">Ibu</option>
+                        <option value="wali">Wali</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="hp">Nomor HP</Label>
+                      <Input
+                        id="hp"
+                        inputMode="tel"
+                        autoComplete="tel"
+                        placeholder="081234567890"
+                        value={phone}
+                        onChange={(e) => {
+                          setPhone(e.target.value.replace(/\D/g, "").slice(0, 15));
+                          clearError("phone");
+                        }}
+                        maxLength={15}
+                        aria-label="Nomor HP orang tua"
+                        aria-invalid={Boolean(errors.phone)}
+                        aria-describedby={errors.phone ? "hp-error" : "hp-help"}
+                        className={fieldClass}
+                      />
+                      {errors.phone ? (
+                        <p id="hp-error" role="alert" className="text-xs text-destructive">
+                          {errors.phone}
+                        </p>
+                      ) : (
+                        <p id="hp-help" className="text-xs text-muted-foreground dark:text-muted-foreground">
+                          Nomor ini menjadi nama pengguna saat masuk.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="pass">Password</Label>
+                      <div className="relative">
+                        <Input
+                          id="pass"
+                          type={showPassword ? "text" : "password"}
+                          autoComplete="new-password"
+                          placeholder="Minimal 6 karakter"
+                          value={password}
+                          onChange={(e) => {
+                            setPassword(e.target.value);
+                            clearError("password");
+                          }}
+                          aria-label="Password akun"
+                          aria-invalid={Boolean(errors.password)}
+                          aria-describedby={errors.password ? "pass-error" : undefined}
+                          className={`${fieldClass} pr-11`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((value) => !value)}
+                          aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+                          aria-pressed={showPassword}
+                          className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" aria-hidden="true" />
+                          ) : (
+                            <Eye className="h-4 w-4" aria-hidden="true" />
+                          )}
+                        </button>
+                      </div>
+                      {errors.password && (
+                        <p id="pass-error" role="alert" className="text-xs text-destructive">
+                          {errors.password}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={backToStep1}
+                        disabled={busy}
+                        aria-label="Kembali ke langkah verifikasi data anak"
+                        className="h-11 rounded-xl active:scale-[0.98] transition-all"
+                      >
+                        Kembali
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={busy}
+                        aria-label="Buat akun orang tua"
+                        className="flex-1 h-11 rounded-xl bg-gradient-to-r from-primary to-primary-hover text-white font-semibold shadow-lg shadow-primary/25 hover:shadow-primary/40 active:scale-[0.98] transition-all"
+                      >
+                        {busy ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                            Membuat Akun...
+                          </>
+                        ) : (
+                          <>
+                            <UserPlus className="mr-2 h-4 w-4" aria-hidden="true" />
+                            Buat Akun
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </form>
                 </motion.div>
               )}
 

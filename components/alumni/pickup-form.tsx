@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -220,7 +221,7 @@ export function PickupForm({ alumniId, onPickupComplete }: PickupFormProps) {
           {/* Pickup Date */}
           <div className="space-y-2">
             <Label>Tanggal Pengambilan</Label>
-            <Input
+            <DateInput
               type="date"
               value={pickupDate}
               onChange={(e) => setPickupDate(e.target.value)}

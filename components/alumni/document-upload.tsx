@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -261,7 +262,7 @@ export function DocumentUpload({ alumniId, onUploadComplete }: DocumentUploadPro
           {/* Issue Date */}
           <div className="space-y-2">
             <Label htmlFor="issueDate">Tanggal Terbit</Label>
-            <Input
+            <DateInput
               id="issueDate"
               type="date"
               value={issueDate}

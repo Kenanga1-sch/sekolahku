@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -337,7 +338,7 @@ export default function TabCetak() {
               </div>
               <div className="space-y-2">
                 <Label>Tanggal Ujian (Opsional)</Label>
-                <Input
+                <DateInput
                   type="date"
                   value={examDate}
                   onChange={(e) => setExamDate(e.target.value)}

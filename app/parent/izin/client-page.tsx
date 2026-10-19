@@ -7,7 +7,7 @@ import { CalendarPlus, Loader2, Stethoscope, FileText } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -193,11 +193,11 @@ export default function IzinClientPage() {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="mulai">Dari Tanggal</Label>
-              <Input id="mulai" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              <DateInput id="mulai" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="selesai">Sampai Tanggal</Label>
-              <Input id="selesai" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              <DateInput id="selesai" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
             </div>
           </div>
 

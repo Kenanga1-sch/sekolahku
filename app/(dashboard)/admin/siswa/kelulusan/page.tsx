@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -348,7 +349,7 @@ export default function KelulusanPage() {
 
                 <div className="space-y-2">
                   <Label>Tanggal Kelulusan</Label>
-                  <Input
+                  <DateInput
                     type="date"
                     value={graduationDate}
                     onChange={(e) => setGraduationDate(e.target.value)}

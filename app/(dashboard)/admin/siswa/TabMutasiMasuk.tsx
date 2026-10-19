@@ -35,6 +35,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { goGet, goPatch } from "@/lib/api-client";
 import { useSchoolSettings } from "@/lib/hooks/use-settings";
 import type { ClassStatsItem, MutasiRequest } from "./types-mutasi";
@@ -177,7 +178,7 @@ export default function TabMutasiMasuk() {
             />
           </div>
 
-          <Input
+          <DateInput
             type="month"
             value={monthIn === "all" ? "" : monthIn}
             onChange={(e) => setMonthIn(e.target.value || "all")}

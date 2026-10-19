@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { toast } from "sonner";
 import { formatDate, normalizePublicPath } from "@/lib/utils";
 import { goGet, goPost } from "@/lib/api-client";
@@ -311,7 +312,7 @@ export default function SuratMasukDetailPage() {
                             </div>
                             <div className="space-y-2">
                                 <Label>Tenggat Waktu (Opsional)</Label>
-                                <Input 
+                                <DateInput 
                                     type="date" 
                                     value={dispForm.deadline}
                                     onChange={(e) => setDispForm({...dispForm, deadline: e.target.value})}
@@ -524,7 +525,7 @@ export default function SuratMasukDetailPage() {
                         </div>
                         <div className="space-y-2">
                             <Label>Tenggat Waktu (Opsional)</Label>
-                            <Input
+                            <DateInput
                                 type="date"
                                 value={dispForm.deadline}
                                 onChange={(e) => setDispForm({ ...dispForm, deadline: e.target.value })}

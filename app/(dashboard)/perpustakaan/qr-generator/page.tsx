@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
@@ -716,7 +717,7 @@ export default function QRGeneratorPage() {
                                             onKeyDown={(e) => e.key === "Enter" && fetchHistory()}
                                             className="max-w-sm"
                                         />
-                                        <Input 
+                                        <DateInput 
                                             type="date"
                                             value={searchDate}
                                             onChange={(e) => setSearchDate(e.target.value)}

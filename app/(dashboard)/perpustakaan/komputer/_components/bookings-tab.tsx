@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -202,7 +203,7 @@ export function BookingsTab() {
             </div>
             <div>
               <Label htmlFor="bk-start">Waktu mulai</Label>
-              <Input
+              <DateInput
                 id="bk-start"
                 type="datetime-local"
                 value={form.slotStart}

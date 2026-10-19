@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CurrencyInput } from "@/components/ui/currency-input";
@@ -166,7 +167,7 @@ export function TransaksiDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Tanggal</Label>
-              <Input type="date" value={form.txDate} onChange={(e) => onChange({ ...form, txDate: e.target.value })} />
+              <DateInput type="date" value={form.txDate} onChange={(e) => onChange({ ...form, txDate: e.target.value })} />
             </div>
             <div className="space-y-2">
               <Label>{sampahMode ? "Pengepul / Pembeli" : "Pihak"}</Label>

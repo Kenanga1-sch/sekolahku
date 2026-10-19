@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -221,7 +222,7 @@ export default function BarangKeluarPage() {
                   </div>
                   <div className="space-y-2">
                      <Label htmlFor="tanggal">Tanggal</Label>
-                     <Input id="tanggal" 
+                     <DateInput id="tanggal" 
                         type="date"
                         value={date}
                         onChange={(e) => setDate(e.target.value)}

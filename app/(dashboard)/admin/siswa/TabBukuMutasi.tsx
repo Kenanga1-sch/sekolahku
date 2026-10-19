@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { goGet } from "@/lib/api-client";
 import { useSchoolSettings } from "@/lib/hooks/use-settings";
 import type { ClassStatsItem, MutasiLog, RekapRow } from "./types-mutasi";
@@ -309,7 +309,7 @@ export default function TabBukuMutasi() {
               ))}
             </SelectContent>
           </Select>
-          <Input
+          <DateInput
             type="month"
             value={reportMonth}
             onChange={(e) => setReportMonth(e.target.value)}

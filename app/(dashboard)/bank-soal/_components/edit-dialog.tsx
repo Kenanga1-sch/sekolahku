@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -102,7 +103,7 @@ export function EditDialog({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-2">
                   <Label>Mulai (Opsional)</Label>
-                  <Input
+                  <DateInput
                     type="datetime-local"
                     value={editForm.availableFrom}
                     onChange={(e) => onChange({ ...editForm, availableFrom: e.target.value })}
@@ -110,7 +111,7 @@ export function EditDialog({
                 </div>
                 <div className="space-y-2">
                   <Label>Selesai (Opsional)</Label>
-                  <Input
+                  <DateInput
                     type="datetime-local"
                     value={editForm.availableUntil}
                     onChange={(e) => onChange({ ...editForm, availableUntil: e.target.value })}

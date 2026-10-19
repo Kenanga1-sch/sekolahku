@@ -19,7 +19,7 @@ import Link from "next/link";
 import { siteConfig } from "@/lib/config";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -538,7 +538,7 @@ export default function LaporanPage() {
                                 <div className="flex flex-wrap items-end gap-3">
                                     <div className="grid gap-1">
                                         <Label className="text-xs">Dari</Label>
-                                        <Input
+                                        <DateInput
                                             type="date"
                                             value={startDate}
                                             onChange={(e) => setStartDate(e.target.value)}
@@ -547,7 +547,7 @@ export default function LaporanPage() {
                                     </div>
                                     <div className="grid gap-1">
                                         <Label className="text-xs">Sampai</Label>
-                                        <Input
+                                        <DateInput
                                             type="date"
                                             value={endDate}
                                             onChange={(e) => setEndDate(e.target.value)}

@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -103,7 +104,7 @@ export function IdentitasTab({
                   </div>
                   <div>
                     <Label htmlFor="birthDate">Tanggal Lahir</Label>
-                    <Input id="birthDate" type="date" {...register("birthDate")} />
+                    <DateInput id="birthDate" type="date" {...register("birthDate")} />
                   </div>
                   <div>
                     <Label htmlFor="religion">Agama</Label>

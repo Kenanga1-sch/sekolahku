@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { ArrowLeft, Printer, Loader2, FileText, Download, Check, ChevronsUpDown } from "lucide-react";
@@ -202,7 +202,7 @@ export default function RekeningKoranPage() {
                         </div>
                         <div className="space-y-2">
                             <Label>Dari Tanggal</Label>
-                            <Input
+                            <DateInput
                                 type="date"
                                 value={startDate}
                                 onChange={(e) => setStartDate(e.target.value)}
@@ -210,7 +210,7 @@ export default function RekeningKoranPage() {
                         </div>
                         <div className="space-y-2">
                             <Label>Sampai Tanggal</Label>
-                            <Input
+                            <DateInput
                                 type="date"
                                 value={endDate}
                                 onChange={(e) => setEndDate(e.target.value)}

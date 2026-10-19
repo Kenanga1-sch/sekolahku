@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -601,7 +602,7 @@ export default function BuatSuratModularPage() {
     <div className="space-y-2 border-b p-3">
       <div className="space-y-1">
         <Label className="text-xs">Tanggal Surat</Label>
-        <Input
+        <DateInput
           type="date"
           className="h-8 text-sm"
           value={meta.dateOfLetter}

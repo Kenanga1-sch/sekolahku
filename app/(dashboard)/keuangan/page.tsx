@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -453,8 +454,8 @@ function TransaksiTab() {
             <option value="in">Pemasukan</option>
             <option value="out">Pengeluaran</option>
           </select>
-          <Input type="date" aria-label="Dari tanggal" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} className="h-10 sm:w-40" />
-          <Input type="date" aria-label="Sampai tanggal" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} className="h-10 sm:w-40" />
+          <DateInput type="date" aria-label="Dari tanggal" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} className="h-10 sm:w-40" />
+          <DateInput type="date" aria-label="Sampai tanggal" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} className="h-10 sm:w-40" />
           <div className="relative flex-1 min-w-[140px]">
             <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input

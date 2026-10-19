@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -108,7 +109,7 @@ export function AlumniAkademikTab({
                       </div>
                       <div>
                         <Label htmlFor="previousSchoolCertDate">Tanggal STTB TK</Label>
-                        <Input id="previousSchoolCertDate" type="date" {...register("previousSchoolCertDate")} />
+                        <DateInput id="previousSchoolCertDate" type="date" {...register("previousSchoolCertDate")} />
                       </div>
                     </div>
                   ) : (
@@ -127,7 +128,7 @@ export function AlumniAkademikTab({
                       </div>
                       <div className="md:col-span-4">
                         <Label htmlFor="mutasiMasukDiterimaTanggal">Diterima Tanggal</Label>
-                        <Input id="mutasiMasukDiterimaTanggal" type="date" {...register("mutasiMasukDiterimaTanggal")} />
+                        <DateInput id="mutasiMasukDiterimaTanggal" type="date" {...register("mutasiMasukDiterimaTanggal")} />
                       </div>
                     </div>
                   )}
@@ -143,7 +144,7 @@ export function AlumniAkademikTab({
                     </div>
                     <div>
                       <Label htmlFor="graduationDate">Tanggal Kelulusan</Label>
-                      <Input id="graduationDate" type="date" {...register("graduationDate")} />
+                      <DateInput id="graduationDate" type="date" {...register("graduationDate")} />
                     </div>
                     <div>
                       <Label htmlFor="nextSchool">Melanjutkan Ke Sekolah (SMP/MTs)</Label>
@@ -168,7 +169,7 @@ export function AlumniAkademikTab({
                     </div>
                     <div>
                       <Label htmlFor="mutationOutDate">Tanggal Pindah</Label>
-                      <Input id="mutationOutDate" type="date" {...register("mutationOutDate")} />
+                      <DateInput id="mutationOutDate" type="date" {...register("mutationOutDate")} />
                     </div>
                   </div>
                 )}
@@ -177,7 +178,7 @@ export function AlumniAkademikTab({
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t pt-4 animate-in slide-in-from-top-2 duration-300">
                     <div>
                       <Label htmlFor="droppedOutDate">Tanggal Keluar</Label>
-                      <Input id="droppedOutDate" type="date" {...register("droppedOutDate")} />
+                      <DateInput id="droppedOutDate" type="date" {...register("droppedOutDate")} />
                     </div>
                     <div className="md:col-span-2">
                       <Label htmlFor="droppedOutReason">Alasan Keluar / Putus Sekolah</Label>

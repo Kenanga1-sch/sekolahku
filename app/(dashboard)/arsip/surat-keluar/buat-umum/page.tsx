@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { goPost } from "@/lib/api-client";
@@ -152,7 +153,7 @@ export default function BuatSuratUmumPage() {
           </div>
           <div className="space-y-2">
             <Label>Tanggal Surat</Label>
-            <Input 
+            <DateInput 
               required
               type="date"
               value={formData.dateOfLetter}

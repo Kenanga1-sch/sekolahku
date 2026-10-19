@@ -17,6 +17,7 @@ import {
     ArchiveRestore
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -291,20 +292,20 @@ export default function SuratMasukPage() {
                     </Select>
                     <div className="flex items-center gap-1 rounded-md border px-2 h-9">
                         <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <input
-                            type="date"
+                        <DateInput
                             value={filterDateFrom}
                             onChange={(e) => { setFilterDateFrom(e.target.value); setPage(1); }}
-                            className="h-7 bg-transparent text-xs outline-none"
+                            className="h-7 w-[7.5rem] border-0 bg-transparent px-0 text-xs shadow-none focus-visible:ring-0 dark:bg-transparent"
                             title="Dari tanggal"
+                            aria-label="Dari tanggal"
                         />
                         <span className="text-muted-foreground text-xs">–</span>
-                        <input
-                            type="date"
+                        <DateInput
                             value={filterDateTo}
                             onChange={(e) => { setFilterDateTo(e.target.value); setPage(1); }}
-                            className="h-7 bg-transparent text-xs outline-none"
+                            className="h-7 w-[7.5rem] border-0 bg-transparent px-0 text-xs shadow-none focus-visible:ring-0 dark:bg-transparent"
                             title="Sampai tanggal"
+                            aria-label="Sampai tanggal"
                         />
                     </div>
                     {(filterStatus || filterDateFrom || filterDateTo) && (
