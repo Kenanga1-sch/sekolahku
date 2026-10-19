@@ -121,6 +121,6 @@ Catatan:
 ## Baseline artifacts
 
 - `docs/design-baseline/report.json` — hasil Playwright + axe + metrik.
-- `docs/design-baseline/login.json` — hasil khusus login.
+- `docs/design-baseline/login-page.json` — hasil khusus login.
 - `docs/design-baseline/impeccable.json` — 28 temuan detektor.
 - Screenshot lengkap: `/tmp/opencode/baseline/*.png` (tidak di-commit karena halaman dashboard memuat data produksi).

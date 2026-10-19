@@ -1,0 +1,47 @@
+{
+  "widths": {
+    "375": {
+      "title": "SDN 1 Kenanga — SD Negeri Sindang Indramayu, SPMB & Layanan Siswa",
+      "h1": ["Selamat Datang"],
+      "metrics": {
+        "domNodes": 211,
+        "scrollHeight": 900
+      }
+    },
+    "768": {
+      "title": "SDN 1 Kenanga — SD Negeri Sindang Indramayu, SPMB & Layanan Siswa",
+      "h1": ["Selamat Datang"],
+      "metrics": {
+        "domNodes": 201,
+        "scrollHeight": 900
+      }
+    },
+    "1024": {
+      "title": "SDN 1 Kenanga — SD Negeri Sindang Indramayu, SPMB & Layanan Siswa",
+      "h1": ["Selamat Datang"],
+      "metrics": {
+        "domNodes": 209,
+        "scrollHeight": 900
+      }
+    },
+    "1440": {
+      "title": "SDN 1 Kenanga — SD Negeri Sindang Indramayu, SPMB & Layanan Siswa",
+      "h1": ["Selamat Datang"],
+      "metrics": {
+        "domNodes": 209,
+        "scrollHeight": 900
+      }
+    }
+  },
+  "axe": {
+    "violations": 1,
+    "items": [
+      {
+        "id": "color-contrast",
+        "impact": "serious",
+        "nodes": 6,
+        "help": "Elements must meet minimum color contrast ratio thresholds"
+      }
+    ]
+  }
+}
