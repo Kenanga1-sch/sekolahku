@@ -1,0 +1,298 @@
+[
+  {
+    "antipattern": "ai-color-palette",
+    "name": "AI color palette",
+    "description": "Purple/violet gradients and cyan-on-dark are the most recognizable tells of AI-generated UIs. A gradient in one of those hues is the tell on its own; flat neon ink on a dark ground is charged once a second tell hue joins it. Choose a distinctive, intentional palette.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/home/chitchat/sekolahku/app/(dashboard)/admin/halaman-depan/page.tsx",
+    "line": 152,
+    "snippet": "from-indigo-500 gradient"
+  },
+  {
+    "antipattern": "border-accent-on-rounded",
+    "name": "Border accent on rounded element",
+    "description": "Thick accent border on a rounded card — the border clashes with the rounded corners. Remove the border or the border-radius.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/home/chitchat/sekolahku/app/(dashboard)/admin/master/gtk/cetak-kartu/kartu-preview.tsx",
+    "line": 73,
+    "snippet": "border-t-2",
+    "importedBy": ["kartu-preview.test.tsx", "page.tsx"]
+  },
+  {
+    "antipattern": "border-accent-on-rounded",
+    "name": "Border accent on rounded element",
+    "description": "Thick accent border on a rounded card — the border clashes with the rounded corners. Remove the border or the border-radius.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/home/chitchat/sekolahku/app/(dashboard)/admin/master/gtk/cetak-kartu/kartu-preview.tsx",
+    "line": 75,
+    "snippet": "border-b-2",
+    "importedBy": ["kartu-preview.test.tsx", "page.tsx"]
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/home/chitchat/sekolahku/app/(dashboard)/admin/notifikasi/page.tsx",
+    "line": 152,
+    "snippet": "border-l-4"
+  },
+  {
+    "antipattern": "border-accent-on-rounded",
+    "name": "Border accent on rounded element",
+    "description": "Thick accent border on a rounded card — the border clashes with the rounded corners. Remove the border or the border-radius.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/home/chitchat/sekolahku/app/(dashboard)/admin/siswa/cetak-kartu/kartu-preview.tsx",
+    "line": 84,
+    "snippet": "border-t-2",
+    "importedBy": ["kartu-preview.test.tsx", "page.tsx"]
+  },
+  {
+    "antipattern": "border-accent-on-rounded",
+    "name": "Border accent on rounded element",
+    "description": "Thick accent border on a rounded card — the border clashes with the rounded corners. Remove the border or the border-radius.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/home/chitchat/sekolahku/app/(dashboard)/admin/siswa/cetak-kartu/kartu-preview.tsx",
+    "line": 86,
+    "snippet": "border-b-2",
+    "importedBy": ["kartu-preview.test.tsx", "page.tsx"]
+  },
+  {
+    "antipattern": "ai-color-palette",
+    "name": "AI color palette",
+    "description": "Purple/violet gradients and cyan-on-dark are the most recognizable tells of AI-generated UIs. A gradient in one of those hues is the tell on its own; flat neon ink on a dark ground is charged once a second tell hue joins it. Choose a distinctive, intentional palette.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/home/chitchat/sekolahku/app/(dashboard)/admin/siswa/import/page.tsx",
+    "line": 823,
+    "snippet": "text-indigo-600 on heading"
+  },
+  {
+    "antipattern": "ai-color-palette",
+    "name": "AI color palette",
+    "description": "Purple/violet gradients and cyan-on-dark are the most recognizable tells of AI-generated UIs. A gradient in one of those hues is the tell on its own; flat neon ink on a dark ground is charged once a second tell hue joins it. Choose a distinctive, intentional palette.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/home/chitchat/sekolahku/app/(dashboard)/admin/siswa/import/page.tsx",
+    "line": 823,
+    "snippet": "text-indigo-400 on heading"
+  },
+  {
+    "antipattern": "bounce-easing",
+    "name": "Bounce or elastic easing",
+    "description": "Bounce and elastic easing feel dated and tacky. Real objects decelerate smoothly — use exponential easing (ease-out-quart/quint/expo) instead.",
+    "severity": "advisory",
+    "category": "slop",
+    "file": "/home/chitchat/sekolahku/app/(dashboard)/admin/siswa/import/page.tsx",
+    "line": 741,
+    "snippet": "animate-bounce (Tailwind)",
+    "advisory": true
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/home/chitchat/sekolahku/app/(dashboard)/arsip/surat-keluar/detail/client-page.tsx",
+    "line": 242,
+    "snippet": "border-l-4",
+    "importedBy": ["page.tsx"]
+  },
+  {
+    "antipattern": "bounce-easing",
+    "name": "Bounce or elastic easing",
+    "description": "Bounce and elastic easing feel dated and tacky. Real objects decelerate smoothly — use exponential easing (ease-out-quart/quint/expo) instead.",
+    "severity": "advisory",
+    "category": "slop",
+    "file": "/home/chitchat/sekolahku/app/(dashboard)/arsip/surat-masuk/baru/page.tsx",
+    "line": 205,
+    "snippet": "animate-bounce (Tailwind)",
+    "advisory": true
+  },
+  {
+    "antipattern": "overused-font",
+    "name": "Overused font",
+    "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/home/chitchat/sekolahku/app/(dashboard)/inventaris/label/client-page.tsx",
+    "line": 215,
+    "snippet": "font-family: Arial",
+    "importedBy": ["page.tsx"]
+  },
+  {
+    "antipattern": "ai-color-palette",
+    "name": "AI color palette",
+    "description": "Purple/violet gradients and cyan-on-dark are the most recognizable tells of AI-generated UIs. A gradient in one of those hues is the tell on its own; flat neon ink on a dark ground is charged once a second tell hue joins it. Choose a distinctive, intentional palette.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/home/chitchat/sekolahku/app/(dashboard)/pengaturan/tab-ai-provider.tsx",
+    "line": 241,
+    "snippet": "from-purple-500 gradient",
+    "importedBy": ["page.tsx"]
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/home/chitchat/sekolahku/app/(dashboard)/pengaturan/tab-sistem.tsx",
+    "line": 310,
+    "snippet": "border-l-4",
+    "importedBy": ["tab-sekolah.tsx"]
+  },
+  {
+    "antipattern": "ai-color-palette",
+    "name": "AI color palette",
+    "description": "Purple/violet gradients and cyan-on-dark are the most recognizable tells of AI-generated UIs. A gradient in one of those hues is the tell on its own; flat neon ink on a dark ground is charged once a second tell hue joins it. Choose a distinctive, intentional palette.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/home/chitchat/sekolahku/app/(dashboard)/perpustakaan/binding/page.tsx",
+    "line": 857,
+    "snippet": "from-purple-500 gradient"
+  },
+  {
+    "antipattern": "ai-color-palette",
+    "name": "AI color palette",
+    "description": "Purple/violet gradients and cyan-on-dark are the most recognizable tells of AI-generated UIs. A gradient in one of those hues is the tell on its own; flat neon ink on a dark ground is charged once a second tell hue joins it. Choose a distinctive, intentional palette.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/home/chitchat/sekolahku/app/(dashboard)/ruang-tumbuh/_components/games/game-shell.tsx",
+    "line": 34,
+    "snippet": "from-violet-50 gradient",
+    "importedBy": ["ingat-urutannya.tsx", "jangan-terkecoh.tsx", "mcq-game.tsx"]
+  },
+  {
+    "antipattern": "ai-color-palette",
+    "name": "AI color palette",
+    "description": "Purple/violet gradients and cyan-on-dark are the most recognizable tells of AI-generated UIs. A gradient in one of those hues is the tell on its own; flat neon ink on a dark ground is charged once a second tell hue joins it. Choose a distinctive, intentional palette.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/home/chitchat/sekolahku/app/(dashboard)/ruang-tumbuh/_components/games/game-shell.tsx",
+    "line": 34,
+    "snippet": "from-violet-950 gradient",
+    "importedBy": ["ingat-urutannya.tsx", "jangan-terkecoh.tsx", "mcq-game.tsx"]
+  },
+  {
+    "antipattern": "ai-color-palette",
+    "name": "AI color palette",
+    "description": "Purple/violet gradients and cyan-on-dark are the most recognizable tells of AI-generated UIs. A gradient in one of those hues is the tell on its own; flat neon ink on a dark ground is charged once a second tell hue joins it. Choose a distinctive, intentional palette.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/home/chitchat/sekolahku/app/(dashboard)/ruang-tumbuh/_components/games/jangan-terkecoh.tsx",
+    "line": 141,
+    "snippet": "from-violet-100 gradient",
+    "importedBy": ["game-runner.tsx"]
+  },
+  {
+    "antipattern": "ai-color-palette",
+    "name": "AI color palette",
+    "description": "Purple/violet gradients and cyan-on-dark are the most recognizable tells of AI-generated UIs. A gradient in one of those hues is the tell on its own; flat neon ink on a dark ground is charged once a second tell hue joins it. Choose a distinctive, intentional palette.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/home/chitchat/sekolahku/app/(dashboard)/ruang-tumbuh/_components/games/jangan-terkecoh.tsx",
+    "line": 141,
+    "snippet": "from-violet-950 gradient",
+    "importedBy": ["game-runner.tsx"]
+  },
+  {
+    "antipattern": "gradient-text",
+    "name": "Gradient text",
+    "description": "Gradient text is decorative rather than meaningful — a common AI tell, especially on headings and metrics. Use solid colors for text.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/home/chitchat/sekolahku/app/(dashboard)/ruang-tumbuh/page.tsx",
+    "line": 34,
+    "snippet": "bg-clip-text + bg-gradient"
+  },
+  {
+    "antipattern": "ai-color-palette",
+    "name": "AI color palette",
+    "description": "Purple/violet gradients and cyan-on-dark are the most recognizable tells of AI-generated UIs. A gradient in one of those hues is the tell on its own; flat neon ink on a dark ground is charged once a second tell hue joins it. Choose a distinctive, intentional palette.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/home/chitchat/sekolahku/app/(dashboard)/tabungan/page.tsx",
+    "line": 144,
+    "snippet": "from-purple-500 gradient"
+  },
+  {
+    "antipattern": "bounce-easing",
+    "name": "Bounce or elastic easing",
+    "description": "Bounce and elastic easing feel dated and tacky. Real objects decelerate smoothly — use exponential easing (ease-out-quart/quint/expo) instead.",
+    "severity": "advisory",
+    "category": "slop",
+    "file": "/home/chitchat/sekolahku/components/chat/message-list.tsx",
+    "line": 159,
+    "snippet": "animate-bounce (Tailwind)",
+    "advisory": true
+  },
+  {
+    "antipattern": "ai-color-palette",
+    "name": "AI color palette",
+    "description": "Purple/violet gradients and cyan-on-dark are the most recognizable tells of AI-generated UIs. A gradient in one of those hues is the tell on its own; flat neon ink on a dark ground is charged once a second tell hue joins it. Choose a distinctive, intentional palette.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/home/chitchat/sekolahku/components/gallery/stats-cards.tsx",
+    "line": 51,
+    "snippet": "from-purple-500 gradient"
+  },
+  {
+    "antipattern": "gradient-text",
+    "name": "Gradient text",
+    "description": "Gradient text is decorative rather than meaningful — a common AI tell, especially on headings and metrics. Use solid colors for text.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/home/chitchat/sekolahku/components/inventaris/inventaris-client.tsx",
+    "line": 164,
+    "snippet": "bg-clip-text + bg-gradient"
+  },
+  {
+    "antipattern": "gradient-text",
+    "name": "Gradient text",
+    "description": "Gradient text is decorative rather than meaningful — a common AI tell, especially on headings and metrics. Use solid colors for text.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/home/chitchat/sekolahku/components/perpustakaan/perpustakaan-client.tsx",
+    "line": 95,
+    "snippet": "bg-clip-text + bg-gradient"
+  },
+  {
+    "antipattern": "ai-color-palette",
+    "name": "AI color palette",
+    "description": "Purple/violet gradients and cyan-on-dark are the most recognizable tells of AI-generated UIs. A gradient in one of those hues is the tell on its own; flat neon ink on a dark ground is charged once a second tell hue joins it. Choose a distinctive, intentional palette.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/home/chitchat/sekolahku/components/perpustakaan/perpustakaan-client.tsx",
+    "line": 59,
+    "snippet": "from-purple-500 gradient"
+  },
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "/home/chitchat/sekolahku/components/rich-text-editor.tsx",
+    "line": 236,
+    "snippet": "border-l-4"
+  },
+  {
+    "antipattern": "bounce-easing",
+    "name": "Bounce or elastic easing",
+    "description": "Bounce and elastic easing feel dated and tacky. Real objects decelerate smoothly — use exponential easing (ease-out-quart/quint/expo) instead.",
+    "severity": "advisory",
+    "category": "slop",
+    "file": "/home/chitchat/sekolahku/components/scan/unified-qr-workbench.tsx",
+    "line": 809,
+    "snippet": "animate-bounce (Tailwind)",
+    "advisory": true
+  }
+]

@@ -15,6 +15,8 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "audit:ui": "node scripts/design-audit.mjs",
+    "audit:design": "npx impeccable detect app components",
     "prepare": "husky || true"
   },
   "lint-staged": {

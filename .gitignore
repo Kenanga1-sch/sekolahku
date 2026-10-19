@@ -121,3 +121,6 @@ go-backend/internal/repository/public/
 /go-backend/public/uploads/
 /go-backend/uploads/
 .cloudflared-token
+
+# Audit UI lokal (screenshot + report)
+docs/design-baseline/run/
