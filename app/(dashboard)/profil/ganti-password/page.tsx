@@ -93,7 +93,7 @@ export default function GantiPasswordPage() {
                 <Card className="max-w-md w-full mx-4 text-center">
                     <CardContent className="pt-12 pb-8 space-y-4">
                         <div className="mx-auto w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                            <ShieldCheck className="h-8 w-8 text-green-600 dark:text-green-400" />
+                            <ShieldCheck className="h-8 w-8 text-success dark:text-green-400" />
                         </div>
                         <CardTitle className="text-xl">Password Berhasil Diubah!</CardTitle>
                         <CardDescription>
@@ -163,7 +163,7 @@ export default function GantiPasswordPage() {
                                         </div>
                                         <span className={cn(
                                             "text-xs font-medium",
-                                            strength.score >= 3 ? "text-green-600 dark:text-green-400" :
+                                            strength.score >= 3 ? "text-success dark:text-green-400" :
                                             strength.score === 2 ? "text-yellow-600 dark:text-yellow-400" :
                                             "text-red-600 dark:text-red-400"
                                         )}>
@@ -180,7 +180,7 @@ export default function GantiPasswordPage() {
                                                     ) : (
                                                         <XCircle className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-600 shrink-0" />
                                                     )}
-                                                    <span className={ok ? "text-green-700 dark:text-green-400" : "text-muted-foreground"}>
+                                                    <span className={ok ? "text-success dark:text-green-400" : "text-muted-foreground"}>
                                                         {item.label}
                                                     </span>
                                                 </div>

@@ -78,7 +78,7 @@ const STATUS_LABEL: Record<string, string> = {
 const STATUS_COLOR: Record<string, string> = {
   baru: "bg-blue-100 text-blue-700",
   diproses: "bg-amber-100 text-amber-700",
-  selesai: "bg-green-100 text-green-700",
+  selesai: "bg-green-100 text-success",
 };
 
 export default function KritikSaranPengaduanPage() {
@@ -239,7 +239,7 @@ export default function KritikSaranPengaduanPage() {
             <Card className="border-t-4 border-t-green-600 shadow-xl">
               <CardHeader className="text-center pb-2">
                 <div className="mx-auto bg-green-100 p-3 rounded-full w-16 h-16 flex items-center justify-center mb-4">
-                  <ShieldCheck className="h-8 w-8 text-green-600" />
+                  <ShieldCheck className="h-8 w-8 text-success" />
                 </div>
                 <CardTitle>Pesan Terkirim</CardTitle>
                 <CardDescription>
@@ -274,7 +274,7 @@ export default function KritikSaranPengaduanPage() {
             <Card className="shadow-xl">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
-                  <HeartHandshake className="h-5 w-5 text-green-600" /> Sampaikan Pesan Anda
+                  <HeartHandshake className="h-5 w-5 text-success" /> Sampaikan Pesan Anda
                 </CardTitle>
                 <CardDescription>
                   Nama, email, dan nomor HP opsional. Kosongkan semuanya untuk mengirim secara anonim.
@@ -455,7 +455,7 @@ export default function KritikSaranPengaduanPage() {
                     </div>
                   </div>
                   {(statusResult.resolutionCount ?? 0) > 0 && (
-                    <div className="rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900/40 px-3 py-2 text-sm text-green-700 dark:text-green-300">
+                    <div className="rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900/40 px-3 py-2 text-sm text-success dark:text-green-300">
                       Sekolah telah mengunggah {statusResult.resolutionCount} bukti tindak lanjut untuk laporan ini.
                     </div>
                   )}

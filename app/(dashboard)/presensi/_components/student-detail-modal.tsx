@@ -59,7 +59,7 @@ export function StudentDetailModal({
                   header: "Hadir",
                   card: "field",
                   render: (d) => (
-                    <span className="text-green-700 font-medium text-center block">{d.hadir}</span>
+                    <span className="text-success font-medium text-center block">{d.hadir}</span>
                   ),
                 },
                 {

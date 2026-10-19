@@ -237,7 +237,7 @@ export default function SuratMasukDetailPage() {
                     {(data.status === "Terdisposisi" || data.status === "Menunggu Disposisi") && (
                         <Button
                             variant="outline"
-                            className="gap-2 border-green-300 text-green-700 hover:bg-green-50"
+                            className="gap-2 border-green-300 text-success hover:bg-green-50"
                             onClick={() => handleStatusChange("Selesai")}
                             disabled={statusActing}
                         >
@@ -425,7 +425,7 @@ export default function SuratMasukDetailPage() {
                                                 </div>
 
                                                 {disp.isCompleted ? (
-                                                    <div className="flex items-start gap-2 text-sm text-green-700 bg-green-50 dark:bg-green-900/20 p-2 rounded">
+                                                    <div className="flex items-start gap-2 text-sm text-success bg-green-50 dark:bg-green-900/20 p-2 rounded">
                                                         <CheckCircle2 className="h-4 w-4 mt-0.5" />
                                                         <div>
                                                             <p className="font-medium">Selesai dikerjakan</p>
@@ -455,7 +455,7 @@ export default function SuratMasukDetailPage() {
                                                             <Button
                                                                 size="sm"
                                                                 variant="outline"
-                                                                className="h-7 text-xs gap-1 border-green-300 text-green-700 hover:bg-green-50"
+                                                                className="h-7 text-xs gap-1 border-green-300 text-success hover:bg-green-50"
                                                                 onClick={() => handleCompleteDisposisi(disp.id)}
                                                             >
                                                                 <CheckCircle2 className="h-3.5 w-3.5" />

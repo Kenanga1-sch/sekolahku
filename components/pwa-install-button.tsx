@@ -73,7 +73,7 @@ export function PwaInstallButton({ className, iconOnly = false }: PwaInstallButt
   if (isInstalled) {
     if (iconOnly) return null;
     return (
-      <div className={cn("flex items-center gap-2 text-sm text-green-600 dark:text-green-400", className)}>
+      <div className={cn("flex items-center gap-2 text-sm text-success dark:text-green-400", className)}>
         <CheckCircle className="h-4 w-4" />
         Aplikasi terpasang
       </div>

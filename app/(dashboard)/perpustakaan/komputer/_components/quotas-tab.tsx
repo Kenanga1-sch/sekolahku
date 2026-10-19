@@ -145,7 +145,7 @@ export function QuotasTab() {
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     <span className="text-sm">
-                      <span className="font-semibold text-green-700">{q.remainingMinutes}</span>
+                      <span className="font-semibold text-success">{q.remainingMinutes}</span>
                       <span className="text-muted-foreground"> / {q.totalMinutes} menit</span>
                     </span>
                     <Button

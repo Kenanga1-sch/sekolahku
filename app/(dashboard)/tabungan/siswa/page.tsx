@@ -319,8 +319,8 @@ export default function TabunganSiswaPage() {
                         card: "field",
                         render: (s) => (
                             <div className="flex items-center gap-1">
-                                <Wallet className="h-3 w-3 text-green-600" />
-                                <span className="font-medium text-green-600">
+                                <Wallet className="h-3 w-3 text-success" />
+                                <span className="font-medium text-success">
                                     {formatRupiah(s.saldoTerakhir)}
                                 </span>
                             </div>

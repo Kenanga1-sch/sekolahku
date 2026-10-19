@@ -215,7 +215,7 @@ export default function TabBackup() {
                         
                         {successMsg && (
                             <Alert className="bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800 animate-in fade-in slide-in-from-top-1 text-xs">
-                                <CheckCircle className="h-4 w-4 text-green-600" />
+                                <CheckCircle className="h-4 w-4 text-success" />
                                 <AlertDescription className="font-semibold text-green-800 dark:text-green-200">{successMsg}</AlertDescription>
                             </Alert>
                         )}

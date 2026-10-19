@@ -250,7 +250,7 @@ export default function ArsipDashboard() {
                         <h2 className="text-base font-bold text-slate-800 dark:text-zinc-200 flex items-center gap-2">
                             <Send className="h-4 w-4 text-green-500" /> Surat Keluar Terbaru
                         </h2>
-                        <Link href="/arsip/surat-keluar" className="text-xs font-semibold text-green-600 dark:text-green-400 hover:underline flex items-center gap-0.5">
+                        <Link href="/arsip/surat-keluar" className="text-xs font-semibold text-success dark:text-green-400 hover:underline flex items-center gap-0.5">
                             Lihat Semua <ArrowRight className="h-3 w-3" />
                         </Link>
                     </div>
@@ -278,11 +278,11 @@ export default function ArsipDashboard() {
                                     className="flex items-center justify-between p-3 rounded-lg border border-slate-100 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/40 shadow-sm hover:bg-slate-50 dark:hover:bg-zinc-900/80 transition-all group"
                                 >
                                     <div className="flex items-start gap-3 min-w-0">
-                                        <div className="h-9 w-9 rounded-full bg-green-50 text-green-600 dark:bg-green-950/40 dark:text-green-400 flex items-center justify-center shrink-0">
+                                        <div className="h-9 w-9 rounded-full bg-green-50 text-success dark:bg-green-950/40 dark:text-green-400 flex items-center justify-center shrink-0">
                                             <Send className="h-4.5 w-4.5" />
                                         </div>
                                         <div className="min-w-0">
-                                            <p className="text-xs font-bold text-slate-800 dark:text-zinc-100 truncate group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">
+                                            <p className="text-xs font-bold text-slate-800 dark:text-zinc-100 truncate group-hover:text-success dark:group-hover:text-green-400 transition-colors">
                                                 {letter.subject}
                                             </p>
                                             <p className="text-[10px] text-muted-foreground font-medium mt-0.5 truncate">

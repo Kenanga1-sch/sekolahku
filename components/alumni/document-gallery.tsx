@@ -51,7 +51,7 @@ interface DocumentGalleryProps {
 
 const statusConfig = {
   pending: { label: "Menunggu", icon: Clock, color: "bg-yellow-100 text-yellow-700 border-yellow-200" },
-  verified: { label: "Terverifikasi", icon: CheckCircle, color: "bg-green-100 text-green-700 border-green-200" },
+  verified: { label: "Terverifikasi", icon: CheckCircle, color: "bg-green-100 text-success border-green-200" },
   rejected: { label: "Ditolak", icon: XCircle, color: "bg-red-100 text-red-700 border-red-200" },
 };
 
@@ -183,7 +183,7 @@ export function DocumentGallery({ documents, onRefresh }: DocumentGalleryProps) 
                       {doc.verificationStatus === "pending" && (
                         <>
                           <DropdownMenuItem onClick={() => handleVerify(doc.id, "verified")}>
-                            <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
+                            <CheckCircle className="h-4 w-4 mr-2 text-success" />
                             Verifikasi
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleVerify(doc.id, "rejected")}>

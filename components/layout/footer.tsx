@@ -26,7 +26,7 @@ export default function Footer() {
               </div>
               <div>
                 <p className="font-bold text-lg text-white">{settings?.school_name || "SDN 1 Kenanga"}</p>
-                <p className="text-xs text-white/60">Website Sekolah Terpadu</p>
+                <p className="text-xs text-white/75">Website Sekolah Terpadu</p>
               </div>
             </div>
             <p className="text-sm text-white/70 leading-relaxed max-w-xs">
@@ -70,7 +70,7 @@ export default function Footer() {
         </div>
 
         <div className="mt-10 pt-6 border-t border-white/10 text-center">
-          <p className="text-xs text-white/50">
+          <p className="text-xs text-white/75">
             &copy; {currentYear} {settings?.school_name || "SDN 1 Kenanga"}. Hak cipta dilindungi.
           </p>
         </div>

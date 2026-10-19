@@ -115,7 +115,7 @@ export default function BookDetailClient() {
               <div className={`p-3 rounded-lg ${isAvailable ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"}`}>
                 <div className="flex items-center gap-2 mb-2">
                   {isAvailable ? (
-                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    <CheckCircle2 className="h-5 w-5 text-success" />
                   ) : (
                     <X className="h-5 w-5 text-red-600" />
                   )}

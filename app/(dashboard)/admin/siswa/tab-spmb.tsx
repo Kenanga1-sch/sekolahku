@@ -532,9 +532,9 @@ export default function TabSPMB() {
             <Card className="p-4 flex flex-col justify-between space-y-2">
               <div className="flex flex-row items-center justify-between space-y-0 pb-2">
                  <div className="text-sm font-medium text-muted-foreground">Diterima</div>
-                 <UserCheck className="h-4 w-4 text-green-600" />
+                 <UserCheck className="h-4 w-4 text-success" />
               </div>
-              <div className="text-2xl font-bold text-green-600">{isLoading ? <Skeleton className="h-8 w-12" /> : stats.accepted}</div>
+              <div className="text-2xl font-bold text-success">{isLoading ? <Skeleton className="h-8 w-12" /> : stats.accepted}</div>
             </Card>
             <Card className="p-4 flex flex-col justify-between space-y-2">
               <div className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -682,7 +682,7 @@ export default function TabSPMB() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="text-green-700 border-green-200 bg-green-50/50 hover:bg-green-100 dark:text-green-400 dark:border-green-900/50 dark:bg-green-900/20 dark:hover:bg-green-900/40"
+                      className="text-success border-green-200 bg-green-50/50 hover:bg-green-100 dark:text-green-400 dark:border-green-900/50 dark:bg-green-900/20 dark:hover:bg-green-900/40"
                       onClick={() => handleBatchUpdate("accepted")}
                       disabled={batchLoading}
                     >
@@ -772,7 +772,7 @@ export default function TabSPMB() {
                       const years = differenceInYears(referenceDate, dob);
                       const months = differenceInMonths(referenceDate, dob) % 12;
                       return (
-                          <span className={years >= 7 ? "text-green-600 font-medium" : "text-amber-600"}>
+                          <span className={years >= 7 ? "text-success font-medium" : "text-amber-600"}>
                               {years} Thn {months} Bln
                           </span>
                       );
@@ -793,7 +793,7 @@ export default function TabSPMB() {
                       const isInReceptionArea = (r.distanceToSchool || 0) <= maxDistance;
                       return (
                         <Badge
-                          className={isInReceptionArea ? "bg-green-100 text-green-700 hover:bg-green-100" : "bg-amber-100 text-amber-700 hover:bg-amber-100"}
+                          className={isInReceptionArea ? "bg-green-100 text-success hover:bg-green-100" : "bg-amber-100 text-amber-700 hover:bg-amber-100"}
                         >
                           {isInReceptionArea ? "Dalam Wilayah" : "Luar Wilayah"}
                         </Badge>
@@ -849,7 +849,7 @@ export default function TabSPMB() {
                       )}
                       {(r.status === "pending" || r.status === "verified") && (
                         <DropdownMenuItem
-                          className="text-green-600"
+                          className="text-success"
                           onClick={() => handleUpdateStatus(r.id, "accepted")}
                         >
                           <UserCheck className="mr-2 h-4 w-4" />
@@ -965,7 +965,7 @@ export default function TabSPMB() {
                   header: "Status",
                   card: "field",
                   render: (p) => (
-                    <Badge className={p.isActive ? "bg-green-100 text-green-700 hover:bg-green-100" : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 hover:bg-zinc-100"}>
+                    <Badge className={p.isActive ? "bg-green-100 text-success hover:bg-green-100" : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 hover:bg-zinc-100"}>
                       {p.isActive ? "Aktif" : "Tidak Aktif"}
                     </Badge>
                   ),

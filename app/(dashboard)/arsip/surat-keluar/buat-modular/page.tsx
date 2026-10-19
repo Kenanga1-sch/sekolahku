@@ -74,7 +74,7 @@ type Step = "jenis" | "rakit";
 const CATEGORY_COLORS: Record<string, string> = {
   Kepegawaian: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
   Umum: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-  Kesiswaan: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+  Kesiswaan: "bg-green-100 text-success dark:bg-green-900/30 dark:text-green-300",
   Kurikulum: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
   Akademik: "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
 };

@@ -119,7 +119,7 @@ export function RecentTransactionsFeed() {
                                         </p>
                                     </div>
                                     <div className="text-right">
-                                        <p className={`text-sm font-semibold ${tx.type === "setor" ? "text-green-600" : "text-red-600"}`}>
+                                        <p className={`text-sm font-semibold ${tx.type === "setor" ? "text-success" : "text-red-600"}`}>
                                             {tx.type === "setor" ? "+" : "-"}{formatRupiah(tx.nominal)}
                                         </p>
                                         <p className="text-[10px] text-muted-foreground">

@@ -70,6 +70,13 @@
 
   --color-public-bg: var(--public-bg);
   --color-public-border: var(--public-border);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-line: var(--border-subtle);
 
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -179,7 +186,7 @@
   --secondary-foreground: #04222B;
 
   --muted: #D9F1EC;
-  --muted-foreground: #1D8B94;
+  --muted-foreground: #0F6B72;
 
   --accent: #4FB8B4;
   --accent-foreground: #04222B;
@@ -212,6 +219,14 @@
   /* Palet khusus halaman publik: mint (#E2F4F0), border tebal #0E5564 (mix border+primary). */
   --public-bg: #E2F4F0;
   --public-border: #0E5564;
+
+  --border-subtle: #B8D9D3;
+  --success: #166534;
+  --success-foreground: #ffffff;
+  --warning: #B45309;
+  --warning-foreground: #ffffff;
+  --info: #1D4ED8;
+  --info-foreground: #ffffff;
 }
 
 .dark {
@@ -258,6 +273,14 @@
   --sidebar-accent-foreground: #98D8D0;
   --sidebar-border: #10606F;
   --sidebar-ring: #4FB8B4;
+
+  --border-subtle: #155E63;
+  --success: #4ADE80;
+  --success-foreground: #04222B;
+  --warning: #FBBF24;
+  --warning-foreground: #04222B;
+  --info: #60A5FA;
+  --info-foreground: #04222B;
 }
 
 @layer base {

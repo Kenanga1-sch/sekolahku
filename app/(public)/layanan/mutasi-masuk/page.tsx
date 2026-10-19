@@ -94,7 +94,7 @@ export default function MutasiMasukPage() {
                 </div>
               </div>
               <div className="space-y-2 px-4">
-                <h3 className="text-2xl font-bold text-green-700 dark:text-green-500">Permohonan Berhasil!</h3>
+                <h3 className="text-2xl font-bold text-success dark:text-green-500">Permohonan Berhasil!</h3>
                 <p className="text-muted-foreground">
                   Data Anda telah kami terima dan akan segera diproses oleh tim administrasi.
                 </p>

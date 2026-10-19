@@ -415,7 +415,7 @@ export function DebtManager({ receivables = [], payables = [], employees = [], o
                                     <Badge className="bg-orange-100 text-orange-800 border-none">Menunggu</Badge>
                                 )}
                                 {loan.status === "APPROVED" && loan.remainingAmount > 0 && (
-                                    <Button size="sm" variant="outline" className="h-8 border-green-200 text-green-700 hover:bg-green-50" onClick={() => openPayDialog(loan)}>
+                                    <Button size="sm" variant="outline" className="h-8 border-green-200 text-success hover:bg-green-50" onClick={() => openPayDialog(loan)}>
                                         Bayar
                                     </Button>
                                 )}

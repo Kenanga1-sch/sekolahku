@@ -87,7 +87,7 @@ export default function TabunganSayaPage() {
               <CardContent className="flex items-center justify-between p-4">
                 <div className="flex items-center gap-3">
                   {t.tipe === "setoran" ? (
-                    <ArrowUpCircle className="h-5 w-5 text-green-600" />
+                    <ArrowUpCircle className="h-5 w-5 text-success" />
                   ) : (
                     <ArrowDownCircle className="h-5 w-5 text-red-600" />
                   )}
@@ -96,7 +96,7 @@ export default function TabunganSayaPage() {
                     <div className="text-xs text-muted-foreground">{formatDate(t.createdAt)}</div>
                   </div>
                 </div>
-                <div className={`font-semibold ${t.tipe === "setoran" ? "text-green-600" : "text-red-600"}`}>
+                <div className={`font-semibold ${t.tipe === "setoran" ? "text-success" : "text-red-600"}`}>
                   {t.tipe === "setoran" ? "+" : "-"}{formatRupiah(t.nominal)}
                 </div>
               </CardContent>

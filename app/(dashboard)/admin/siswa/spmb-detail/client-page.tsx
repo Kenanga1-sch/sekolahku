@@ -131,7 +131,7 @@ interface RegistrantDetail {
 function StatusIcon({ status }: { status: string }) {
     switch (status) {
         case "accepted":
-            return <CheckCircle className="h-8 w-8 text-green-600" />;
+            return <CheckCircle className="h-8 w-8 text-success" />;
         case "rejected":
             return <XCircle className="h-8 w-8 text-red-600" />;
         case "verified":
@@ -351,7 +351,7 @@ export default function RegistrantDetailPage() {
                             
                             <div className="md:col-span-2 flex gap-4 mt-2">
                                 {registrant.hasKip && <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">Penerima KIP</Badge>}
-                                {registrant.hasKpsPkh && <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">Penerima KPS/PKH</Badge>}
+                                {registrant.hasKpsPkh && <Badge variant="outline" className="border-green-200 bg-green-50 text-success">Penerima KPS/PKH</Badge>}
                             </div>
                         </CardContent>
                     </Card>
@@ -380,7 +380,7 @@ export default function RegistrantDetailPage() {
                                     <p className="text-sm text-muted-foreground">Jarak ke Sekolah</p>
                                     <div className="flex items-center gap-2">
                                         <span className="font-bold text-lg">{registrant.distanceToSchool?.toFixed(2) || "0.00"} km</span>
-                                        <Badge className={isInReceptionArea ? "bg-green-100 text-green-700 hover:bg-green-100" : "bg-amber-100 text-amber-700 hover:bg-amber-100"}>
+                                        <Badge className={isInReceptionArea ? "bg-green-100 text-success hover:bg-green-100" : "bg-amber-100 text-amber-700 hover:bg-amber-100"}>
                                             {isInReceptionArea ? "Dalam Wilayah Domisili" : "Luar Wilayah Domisili"}
                                         </Badge>
                                         <span className="text-xs text-muted-foreground whitespace-nowrap">(Max: {maxDistance} km)</span>

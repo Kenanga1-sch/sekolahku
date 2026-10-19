@@ -63,7 +63,7 @@ const STATUS_LABEL: Record<string, string> = {
 const STATUS_STYLE: Record<string, string> = {
   draft: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
   processed: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-  completed: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+  completed: "bg-green-100 text-success dark:bg-green-900/30 dark:text-green-300",
 };
 
 const REASON_LABEL: Record<string, string> = {
@@ -299,7 +299,7 @@ export default function ParentMutasiClientPage() {
           <CardContent className="p-6 space-y-4">
             <div className="flex flex-col items-center text-center gap-2">
               <CheckCircle className="h-12 w-12 text-green-500" />
-              <h3 className="font-bold text-green-700 dark:text-green-400">Berhasil!</h3>
+              <h3 className="font-bold text-success dark:text-green-400">Berhasil!</h3>
               <p className="text-sm text-muted-foreground">
                 Surat permohonan telah terunduh dan tercatat di sistem sekolah.
               </p>

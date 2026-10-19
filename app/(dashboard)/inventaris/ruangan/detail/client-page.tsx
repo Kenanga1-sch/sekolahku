@@ -86,7 +86,7 @@ export default function RoomDetailPage() {
                         <CardTitle className="text-sm font-medium text-muted-foreground">Kondisi Baik</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-green-600">
+                        <div className="text-2xl font-bold text-success">
                             {assets.filter(a => assetCondition(a) === 'good').length}
                         </div>
                     </CardContent>

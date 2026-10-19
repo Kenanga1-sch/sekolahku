@@ -47,7 +47,7 @@ interface DocumentViewerProps {
 
 const statusConfig = {
   pending: { label: "Menunggu Verifikasi", icon: Clock, color: "bg-yellow-100 text-yellow-700" },
-  verified: { label: "Terverifikasi", icon: CheckCircle, color: "bg-green-100 text-green-700" },
+  verified: { label: "Terverifikasi", icon: CheckCircle, color: "bg-green-100 text-success" },
   rejected: { label: "Ditolak", icon: XCircle, color: "bg-red-100 text-red-700" },
 };
 

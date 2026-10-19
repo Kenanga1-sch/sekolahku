@@ -89,10 +89,10 @@ export default function VerifyStatementPage() {
                         <div className="space-y-6">
                             <div className="flex flex-col items-center gap-4">
                                 <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center">
-                                    <CheckCircle2 className="h-12 w-12 text-green-600" />
+                                    <CheckCircle2 className="h-12 w-12 text-success" />
                                 </div>
                                 <div className="text-center">
-                                    <h1 className="text-xl font-bold text-green-700">Dokumen Valid</h1>
+                                    <h1 className="text-xl font-bold text-success">Dokumen Valid</h1>
                                     <p className="text-sm text-gray-500">{result.message}</p>
                                 </div>
                             </div>

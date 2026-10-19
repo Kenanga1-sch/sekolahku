@@ -72,7 +72,7 @@ export default function ParentNotifikasiPage() {
   const icon = (t: string) => {
     if (t === "warning") return <AlertTriangle className="h-5 w-5 text-amber-600" />;
     if (t === "error") return <AlertCircle className="h-5 w-5 text-red-600" />;
-    if (t === "success") return <CheckCircle2 className="h-5 w-5 text-green-600" />;
+    if (t === "success") return <CheckCircle2 className="h-5 w-5 text-success" />;
     return <Info className="h-5 w-5 text-blue-600" />;
   };
 

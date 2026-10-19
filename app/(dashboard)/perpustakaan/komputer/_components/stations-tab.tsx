@@ -121,7 +121,7 @@ export function StationsTab() {
                     Dipakai: {s.activeSession.studentName}
                   </Badge>
                 ) : (
-                  <Badge variant="outline" className="text-green-700 border-green-300">
+                  <Badge variant="outline" className="text-success border-green-300">
                     Tersedia
                   </Badge>
                 )}

@@ -172,7 +172,7 @@ export default function LoanManager() {
                                     <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setLoanToReject(loan)}>
                                         <X className="h-4 w-4" />
                                     </Button>
-                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => setLoanToApprove(loan)}>
+                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-success hover:text-success hover:bg-green-50" onClick={() => setLoanToApprove(loan)}>
                                         <Check className="h-4 w-4" />
                                     </Button>
                                 </div>

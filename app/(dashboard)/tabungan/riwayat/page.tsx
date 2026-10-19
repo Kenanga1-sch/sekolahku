@@ -50,7 +50,7 @@ function formatDateTime(date: Date | string | null): string {
 const statusConfig: Record<TransactionStatus, { label: string; icon: React.ElementType; color: string }> = {
     pending: { label: "Pending", icon: Clock, color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
     collected: { label: "Terkumpul", icon: Clock, color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" },
-    verified: { label: "Verified", icon: CheckCircle2, color: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" },
+    verified: { label: "Verified", icon: CheckCircle2, color: "bg-green-100 text-success dark:bg-green-900/30 dark:text-green-400" },
     rejected: { label: "Ditolak", icon: XCircle, color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" },
 };
 
@@ -231,7 +231,7 @@ export default function TabunganRiwayatPage() {
                                 variant="outline"
                                 className={
                                     t.tipe === "setor"
-                                        ? "border-green-500 text-green-600"
+                                        ? "border-green-500 text-success"
                                         : "border-red-500 text-red-600"
                                 }
                             >

@@ -167,7 +167,7 @@ export function PushToggle({ showTest = true }: PushToggleProps) {
           <div className="flex flex-wrap items-center gap-2">
             {status.subscribed ? (
               <>
-                <span className="inline-flex items-center gap-1.5 text-sm text-green-600 dark:text-green-400">
+                <span className="inline-flex items-center gap-1.5 text-sm text-success dark:text-green-400">
                   <BellRing className="h-4 w-4" /> Aktif di {status.devices} perangkat
                 </span>
                 <Button variant="outline" size="sm" onClick={handleDisable} disabled={busy}>

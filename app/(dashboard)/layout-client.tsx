@@ -368,7 +368,7 @@ function DashboardLayoutChrome({
       { value: "staff", label: "Staff", color: "bg-cyan-100 text-cyan-700" },
       { value: "bendahara", label: "Bendahara", color: "bg-indigo-100 text-indigo-700" },
       { value: "user", label: "User", color: "bg-zinc-100 text-zinc-700" },
-      { value: "siswa", label: "Siswa", color: "bg-green-100 text-green-700" },
+      { value: "siswa", label: "Siswa", color: "bg-green-100 text-success" },
       { value: "calon_siswa", label: "Calon Siswa", color: "bg-teal-100 text-teal-700" },
       { value: "orangtua", label: "Orang Tua", color: "bg-rose-100 text-rose-700" },
     ];
@@ -494,7 +494,7 @@ function DashboardLayoutChrome({
                 ))
               )}
               <div className="mt-auto pt-4 pb-2 px-2">
-                <span className="text-[10px] text-muted-foreground/30 font-mono tracking-widest select-none print:hidden">
+                <span className="text-[10px] text-muted-foreground/70 font-mono tracking-widest select-none print:hidden">
                   {APP_VERSION}
                 </span>
               </div>

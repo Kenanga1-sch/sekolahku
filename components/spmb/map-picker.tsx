@@ -359,7 +359,7 @@ export default function MapPicker({
                 {!hasSelectedLocation ? (
                     <MapPin className="h-5 w-5 text-blue-600" />
                 ) : isWithinZone ? (
-                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    <CheckCircle className="h-5 w-5 text-success" />
                 ) : (
                     <AlertTriangle className="h-5 w-5 text-red-600" />
                 )}
@@ -367,7 +367,7 @@ export default function MapPicker({
                     <p className="text-sm text-muted-foreground">Jarak ke sekolah:</p>
                     <p
                     className={`text-lg font-bold ${
-                        !hasSelectedLocation ? "text-blue-600" : isWithinZone ? "text-green-600" : "text-red-600"
+                        !hasSelectedLocation ? "text-blue-600" : isWithinZone ? "text-success" : "text-red-600"
                     }`}
                     >
                     {currentDistance === null ? "Belum dihitung" : formatDistance(currentDistance)}
@@ -393,7 +393,7 @@ export default function MapPicker({
 
       {hasSelectedLocation && isWithinZone && (
         <Alert className="border-green-200 bg-green-50">
-          <CheckCircle className="h-4 w-4 text-green-600" />
+          <CheckCircle className="h-4 w-4 text-success" />
           <AlertDescription className="text-green-800">
             <strong>Dalam Wilayah Domisili:</strong> Lokasi rumah Anda berada dalam
             wilayah penerimaan yang dikonfigurasi sekolah.
@@ -410,7 +410,7 @@ export default function MapPicker({
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-green-600" />
+          <MapPin className="h-4 w-4 text-success" />
           <span>
             Rumah: {hasSelectedLocation ? `${homePosition.lat.toFixed(6)}, ${homePosition.lng.toFixed(6)}` : "Belum ditentukan"}
           </span>

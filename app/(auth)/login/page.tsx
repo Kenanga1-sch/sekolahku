@@ -319,7 +319,7 @@ export default function LoginPage() {
               {/* Forgot Password - arahkan ke halaman bantuan */}
               <Link
                 href="/lupa-password"
-                className="text-sm text-cyan-600 dark:text-cyan-400 hover:text-cyan-800 dark:hover:text-cyan-300 transition-colors"
+                className="text-sm font-medium text-primary hover:underline underline-offset-4"
               >
                 Lupa password?
               </Link>
@@ -362,7 +362,7 @@ export default function LoginPage() {
       </div>
 
       <div className="text-center">
-        <span className="text-xs text-muted-foreground/40 font-mono tracking-widest select-none">
+        <span className="text-xs text-muted-foreground/70 font-mono tracking-widest select-none">
           {APP_VERSION}
         </span>
       </div>

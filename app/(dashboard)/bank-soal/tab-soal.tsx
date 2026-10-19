@@ -60,7 +60,7 @@ const questionTypes = [
 ];
 
 const difficulties = [
-  { value: "easy", label: "Mudah", color: "bg-green-100 text-green-700" },
+  { value: "easy", label: "Mudah", color: "bg-green-100 text-success" },
   { value: "medium", label: "Sedang", color: "bg-amber-100 text-amber-700" },
   { value: "hard", label: "Sulit", color: "bg-red-100 text-red-700" },
 ];

@@ -27,7 +27,7 @@ export function StudentCards({
             {monthName} {year} • {matrix.length} siswa • Hari efektif {effectiveDays} hari
           </p>
         </div>
-        <span className={`text-sm font-bold ${pctKelas !== null && pctKelas < 75 ? "text-red-600" : "text-green-700"}`}>
+        <span className={`text-sm font-bold ${pctKelas !== null && pctKelas < 75 ? "text-red-600" : "text-success"}`}>
           {pctKelas === null ? "–" : `${pctKelas}%`}
         </span>
       </div>
@@ -50,7 +50,7 @@ export function StudentCards({
               </div>
               <span
                 className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-bold ${
-                  warn ? "bg-red-50 text-red-600 ring-1 ring-red-200" : "bg-green-50 text-green-700 ring-1 ring-green-200"
+                  warn ? "bg-red-50 text-red-600 ring-1 ring-red-200" : "bg-green-50 text-success ring-1 ring-green-200"
                 }`}
               >
                 {pct === null ? "–" : `${pct}%`}
@@ -74,7 +74,7 @@ export function StudentCards({
                   );
                 }
                 const tone =
-                  status === "H" ? "border-green-300 bg-green-50 text-green-700"
+                  status === "H" ? "border-green-300 bg-green-50 text-success"
                   : status === "S" ? "border-amber-300 bg-amber-50 text-amber-700"
                   : status === "I" ? "border-blue-300 bg-blue-50 text-blue-700"
                   : status === "A" ? "border-red-300 bg-red-50 text-red-700"
@@ -92,7 +92,7 @@ export function StudentCards({
             <div className="mt-2 flex items-center justify-between border-t pt-2 text-[11px]">
               <span className="text-slate-500">Rekap</span>
               <span className="flex gap-2.5 tabular-nums">
-                <span><b className="text-green-700">H</b> {s.totalHadir}</span>
+                <span><b className="text-success">H</b> {s.totalHadir}</span>
                 <span><b className="text-amber-700">S</b> {s.totalSakit}</span>
                 <span><b className="text-blue-700">I</b> {s.totalIzin}</span>
                 <span><b className="text-red-700">A</b> {s.totalAlpha}</span>

@@ -365,7 +365,7 @@ export default function TabLandingSections({ settings, setSettings }: TabLanding
                     className="h-7 w-32 text-xs"
                   />
                   <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={saveAsPreset} disabled={presetSaving || !presetName.trim()}>
-                    <Check className="h-3.5 w-3.5 text-green-600" />
+                    <Check className="h-3.5 w-3.5 text-success" />
                   </Button>
                 </div>
               ) : (

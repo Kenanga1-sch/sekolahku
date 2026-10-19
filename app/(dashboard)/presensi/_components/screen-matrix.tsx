@@ -32,7 +32,7 @@ export function ScreenMatrix({
             {monthName} {year} • {totalSiswa} siswa • Hari efektif {effectiveDays} hari
           </p>
         </div>
-        <span className={`text-sm font-bold ${pctKelas !== null && pctKelas < 75 ? "text-red-600" : "text-green-700"}`}>
+        <span className={`text-sm font-bold ${pctKelas !== null && pctKelas < 75 ? "text-red-600" : "text-success"}`}>
           {pctKelas === null ? "–" : `${pctKelas}%`}
         </span>
       </div>

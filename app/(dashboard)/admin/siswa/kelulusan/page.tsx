@@ -415,7 +415,7 @@ export default function KelulusanPage() {
             <CardContent className="pt-12 pb-12">
               <div className="text-center space-y-4">
                 <div className="h-20 w-20 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto">
-                  <CheckCircle className="h-10 w-10 text-green-600" />
+                  <CheckCircle className="h-10 w-10 text-success" />
                 </div>
                 <h2 className="text-2xl font-bold">Kelulusan Berhasil!</h2>
                 <p className="text-muted-foreground max-w-md mx-auto">

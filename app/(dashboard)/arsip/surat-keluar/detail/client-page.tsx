@@ -203,7 +203,7 @@ export default function SuratKeluarDetailPage() {
                                  </div>
                                 {data.status === "Terverifikasi" && (
                                     <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg border border-green-200 dark:border-green-800 space-y-2">
-                                        <p className="text-xs text-green-700 dark:text-green-400 font-semibold uppercase">Verifikasi</p>
+                                        <p className="text-xs text-success dark:text-green-400 font-semibold uppercase">Verifikasi</p>
                                         {data.agendaNumber && (
                                             <div>
                                                 <p className="text-muted-foreground text-xs">Agenda Number</p>

@@ -91,7 +91,7 @@ export function ChatLayout({ conversationId, basePath }: ChatLayoutProps) {
                   <p
                     className={cn(
                       "text-[10px]",
-                      online ? "text-green-600" : "text-muted-foreground"
+                      online ? "text-success" : "text-muted-foreground"
                     )}
                   >
                     {online ? "Sedang online" : "Offline"}

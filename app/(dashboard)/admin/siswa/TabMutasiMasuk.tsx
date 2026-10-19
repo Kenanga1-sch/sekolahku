@@ -362,7 +362,7 @@ export default function TabMutasiMasuk() {
                                 href={`https://wa.me/${encodeURIComponent(req.whatsappNumber)}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-green-600 hover:underline flex items-center"
+                                className="text-success hover:underline flex items-center"
                               >
                                 {req.whatsappNumber} <MessageCircle className="h-3 w-3 ml-1" />
                               </a>
@@ -427,7 +427,7 @@ export default function TabMutasiMasuk() {
                                 </SelectContent>
                               </Select>
                               {currentClassStats && (
-                                <p className={`text-xs ${currentClassStats.studentCount >= currentClassStats.capacity ? "text-red-500" : "text-green-600"}`}>
+                                <p className={`text-xs ${currentClassStats.studentCount >= currentClassStats.capacity ? "text-red-500" : "text-success"}`}>
                                   Sisa Kuota: {currentClassStats.capacity - currentClassStats.studentCount}
                                 </p>
                               )}
@@ -455,7 +455,7 @@ export default function TabMutasiMasuk() {
                         )}
 
                         {req.statusApproval === "principal_approved" && (
-                          <div className="flex items-center gap-2 text-green-600">
+                          <div className="flex items-center gap-2 text-success">
                             <Check className="h-5 w-5" /> Mutasi telah disetujui/dicatat. Silakan unduh surat keterangan jika diperlukan.
                           </div>
                         )}

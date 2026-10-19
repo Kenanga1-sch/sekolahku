@@ -184,7 +184,7 @@ export function PublicLabelDetailClient() {
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Baik</span>
-                <span className="font-medium text-green-600">{data.condition.good}</span>
+                <span className="font-medium text-success">{data.condition.good}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Rusak Ringan</span>

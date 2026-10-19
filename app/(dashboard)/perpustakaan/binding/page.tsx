@@ -770,7 +770,7 @@ export default function LibraryBindingPage() {
                                             )}
                                         </div>
                                         {catalog.localFound && isbnCandidates.length === 0 && (
-                                            <p className="text-[10px] text-green-600 font-medium">
+                                            <p className="text-[10px] text-success font-medium">
                                                 Sudah ada {catalog.totalExemplars} eksemplar di koleksi. Ini akan menjadi eksemplar ke-{Number(catalog.totalExemplars) + 1}.
                                             </p>
                                         )}

@@ -42,7 +42,7 @@ interface QRScannerProps {
 }
 
 const STATUS_COLORS = {
-  hadir: "bg-green-100 text-green-700 border-green-200",
+  hadir: "bg-green-100 text-success border-green-200",
   sakit: "bg-yellow-100 text-yellow-700 border-yellow-200",
   izin: "bg-blue-100 text-blue-700 border-blue-200",
   alpha: "bg-red-100 text-red-700 border-red-200",
@@ -219,7 +219,7 @@ export function QRScanner({ sessionId, onScanSuccess, onScanError }: QRScannerPr
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   {lastResult.success ? (
-                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    <CheckCircle className="h-5 w-5 text-success" />
                   ) : lastResult.alreadyRecorded ? (
                     <AlertCircle className="h-5 w-5 text-yellow-600" />
                   ) : (
@@ -228,7 +228,7 @@ export function QRScanner({ sessionId, onScanSuccess, onScanError }: QRScannerPr
                   <span
                     className={
                       lastResult.success
-                        ? "text-green-700 font-medium"
+                        ? "text-success font-medium"
                         : lastResult.alreadyRecorded
                         ? "text-yellow-700 font-medium"
                         : "text-red-700 font-medium"

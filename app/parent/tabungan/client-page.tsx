@@ -163,7 +163,7 @@ export default function ParentTabunganClient() {
                           t.tipe === "setor" ? "bg-green-100 dark:bg-green-900/30" : "bg-red-100 dark:bg-red-900/30",
                         )}>
                           {t.tipe === "setor" ? (
-                            <ArrowDownCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                            <ArrowDownCircle className="h-4 w-4 text-success dark:text-green-400" />
                           ) : (
                             <ArrowUpCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
                           )}
@@ -175,7 +175,7 @@ export default function ParentTabunganClient() {
                       </div>
                       <p className={cn(
                         "text-sm font-semibold shrink-0",
-                        t.tipe === "setor" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400",
+                        t.tipe === "setor" ? "text-success dark:text-green-400" : "text-red-600 dark:text-red-400",
                       )}>
                         {t.tipe === "setor" ? "+" : "-"}{formatRupiah(t.nominal)}
                       </p>

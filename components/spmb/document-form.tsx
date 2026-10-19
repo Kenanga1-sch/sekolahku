@@ -78,7 +78,7 @@ function SingleUpload({ label, description, required, value, onChange, accept = 
         <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
           {label} {required && <span className="text-destructive">*</span>}
         </label>
-        {value && <span className="text-xs text-green-600 flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Terupload</span>}
+        {value && <span className="text-xs text-success flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Terupload</span>}
       </div>
       
       {description && <p className="text-[0.8rem] text-muted-foreground">{description}</p>}

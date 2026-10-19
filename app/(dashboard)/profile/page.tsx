@@ -375,7 +375,7 @@ export default function ProfilePage() {
                                 <CardContent className="space-y-5">
                                     {saved && (
                                         <Alert className="bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800 animate-in fade-in slide-in-from-top-1">
-                                            <CheckCircle className="h-4 w-4 text-green-600" />
+                                            <CheckCircle className="h-4 w-4 text-success" />
                                             <AlertDescription className="text-green-800 dark:text-green-200 text-xs font-semibold">
                                                 Profil berhasil disimpan!
                                             </AlertDescription>
@@ -508,7 +508,7 @@ export default function ProfilePage() {
                                         </div>
                                         <div className="flex justify-between items-center bg-slate-50/50 dark:bg-zinc-900/50 p-3 rounded-lg border border-slate-100 dark:border-zinc-800/60">
                                             <span className="text-slate-500 dark:text-slate-400 font-semibold text-xs">Verifikasi Email</span>
-                                            <span className="font-bold text-green-600 dark:text-green-400 text-xs flex items-center gap-1.5">
+                                            <span className="font-bold text-success dark:text-green-400 text-xs flex items-center gap-1.5">
                                                 <CheckCircle className="h-4 w-4" /> TERVERIFIKASI
                                             </span>
                                         </div>
@@ -557,7 +557,7 @@ export default function ProfilePage() {
                                 <CardContent className="space-y-4">
                                     {passwordSuccess && (
                                         <Alert className="bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800 animate-in fade-in slide-in-from-top-1">
-                                            <CheckCircle className="h-4 w-4 text-green-600" />
+                                            <CheckCircle className="h-4 w-4 text-success" />
                                             <AlertDescription className="text-green-800 dark:text-green-200 text-xs font-semibold">
                                                 Password berhasil diperbarui!
                                             </AlertDescription>

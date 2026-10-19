@@ -776,7 +776,7 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
           {!loadingBulanan && matrix.length > 0 && (
             <div className="no-print grid grid-cols-2 md:grid-cols-6 gap-3">
               <Card><CardContent className="py-3"><p className="text-xl font-bold">{matrix.length}</p><p className="text-xs text-muted-foreground">Total Siswa</p></CardContent></Card>
-              <Card className="border-green-200"><CardContent className="py-3"><p className="text-xl font-bold text-green-700">{matrix.reduce((sum, s) => sum + s.totalHadir, 0)}</p><p className="text-xs text-green-600">Total Hadir</p></CardContent></Card>
+              <Card className="border-green-200"><CardContent className="py-3"><p className="text-xl font-bold text-success">{matrix.reduce((sum, s) => sum + s.totalHadir, 0)}</p><p className="text-xs text-success">Total Hadir</p></CardContent></Card>
               <Card className="border-yellow-200"><CardContent className="py-3"><p className="text-xl font-bold text-yellow-700">{matrix.reduce((sum, s) => sum + s.totalSakit, 0)}</p><p className="text-xs text-yellow-600">Total Sakit</p></CardContent></Card>
               <Card className="border-blue-200"><CardContent className="py-3"><p className="text-xl font-bold text-blue-700">{matrix.reduce((sum, s) => sum + s.totalIzin, 0)}</p><p className="text-xs text-blue-600">Total Izin</p></CardContent></Card>
               <Card className="border-red-200"><CardContent className="py-3"><p className="text-xl font-bold text-red-700">{matrix.reduce((sum, s) => sum + s.totalAlpha, 0)}</p><p className="text-xs text-red-600">Total Alpha</p></CardContent></Card>
@@ -788,7 +788,7 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
           {!loadingBulanan && matrix.length > 0 && (
             <div className="no-print flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
               <span className="font-medium text-foreground">Keterangan:</span>
-              <span className="inline-flex items-center gap-1"><span className="font-bold text-green-700">H</span> Hadir</span>
+              <span className="inline-flex items-center gap-1"><span className="font-bold text-success">H</span> Hadir</span>
               <span className="inline-flex items-center gap-1"><span className="font-bold text-amber-700">S</span> Sakit</span>
               <span className="inline-flex items-center gap-1"><span className="font-bold text-blue-700">I</span> Izin</span>
               <span className="inline-flex items-center gap-1"><span className="font-bold text-red-700">A</span> Alpha</span>

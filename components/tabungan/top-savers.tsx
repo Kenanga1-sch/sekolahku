@@ -113,7 +113,7 @@ export function TopSaversWidget() {
                                         </p>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-sm font-semibold text-green-600">
+                                        <p className="text-sm font-semibold text-success">
                                             {formatRupiah(saver.saldo)}
                                         </p>
                                     </div>

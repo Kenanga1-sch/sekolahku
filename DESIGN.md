@@ -16,23 +16,27 @@ saat menambah/mengubah UI. Keputusan produk ada di `PRODUCT.md`.
 
 Sumber: `app/globals.css` + injeksi brand `lib/theme.ts`.
 
-| Peran            | Nilai saat ini              | Catatan                            |
-| ---------------- | --------------------------- | ---------------------------------- |
-| Primary          | `#0A3D4A`                   | Bisa diganti admin (runtime).      |
-| Secondary        | `#98D8D0`                   | Aksen lembut.                      |
-| Accent           | `#4FB8B4`                   | Sorotan/hover.                     |
-| Background       | `#E2F4F0`                   | Mint terang.                       |
-| Foreground       | `#04222B`                   | Teks utama.                        |
-| Muted foreground | `#1D8B94`                   | Hati-hati kontras pada teks kecil. |
-| Border/input     | `#10606F`                   | Kuat; turunkan untuk divider.      |
-| Destructive      | `oklch(0.577 0.245 27.325)` | Aksi berbahaya.                    |
+| Peran            | Nilai saat ini              | Catatan                         |
+| ---------------- | --------------------------- | ------------------------------- |
+| Primary          | `#0A3D4A`                   | Bisa diganti admin (runtime).   |
+| Secondary        | `#98D8D0`                   | Aksen lembut.                   |
+| Accent           | `#4FB8B4`                   | Sorotan/hover.                  |
+| Background       | `#E2F4F0`                   | Mint terang.                    |
+| Foreground       | `#04222B`                   | Teks utama.                     |
+| Muted foreground | `#0F6B72`                   | Dinaikkan agar lolos kontras.   |
+| Border/input     | `#10606F`                   | Kuat; turunkan untuk divider.   |
+| Destructive      | `oklch(0.577 0.245 27.325)` | Aksi berbahaya.                 |
+| Success          | `#166534` / dark `#4ADE80`  | Status positif, nominal masuk.  |
+| Warning          | `#B45309` / dark `#FBBF24`  | Peringatan, data belum lengkap. |
+| Info             | `#1D4ED8` / dark `#60A5FA`  | Informasi netral.               |
+| Border subtle    | `#B8D9D3` / dark `#155E63`  | Divider dan garis kartu.        |
 
 Dark mode: surface `#04222B`, card `#0A3D4A`, primary `#4FB8B4`. Token brand
 runtime hanya mengganti primary di dark mode; surface gelap tetap milik globals.
 
 **Aturan:** jangan menambah hex/`zinc` baru di komponen. Pakai token semantik.
-Token yang direncanakan: `surface`, `surface-raised`, `border-subtle`,
-`border-strong`, `success`, `warning`, `info`, `focus-ring`.
+Gunakan `text-success`/`text-warning`/`text-info`, `border-line`, dan `ring-ring`;
+jangan memakai `green-600`, `blue-600/70`, atau `neutral-500` untuk teks.
 
 ## Tipografi
 

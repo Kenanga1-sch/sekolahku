@@ -73,7 +73,7 @@ const STATUS_LABEL: Record<string, string> = {
 const STATUS_STYLE: Record<string, string> = {
   baru: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
   diproses: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  selesai: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+  selesai: "bg-green-100 text-success dark:bg-green-900/30 dark:text-green-300",
 };
 
 const formatBytes = (n: number) => {
@@ -359,7 +359,7 @@ export default function PesanDetailClientPage() {
         <CardContent className="p-6 space-y-3">
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-medium flex items-center gap-1.5">
-              <CheckCircle2 className="h-4 w-4 text-green-600" /> Bukti Tindak Lanjut ({resolutions.length})
+              <CheckCircle2 className="h-4 w-4 text-success" /> Bukti Tindak Lanjut ({resolutions.length})
             </p>
             <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
               {uploading ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <Upload className="mr-2 h-3 w-3" />}

@@ -97,13 +97,13 @@ export default function MutasiTrackingPage() {
     },
     approved: {
       label: "Disetujui",
-      color: "bg-green-100 text-green-700 border-green-200",
+      color: "bg-green-100 text-success border-green-200",
       icon: CheckCircle2,
       desc: "Permohonan disetujui! Surat Keterangan Diterima sedang diproses."
     },
     principal_approved: {
       label: "Disetujui Kepala Sekolah",
-      color: "bg-green-100 text-green-700 border-green-200",
+      color: "bg-green-100 text-success border-green-200",
       icon: CheckCircle2,
       desc: "Permohonan telah disetujui secara resmi oleh Kepala Sekolah."
     },

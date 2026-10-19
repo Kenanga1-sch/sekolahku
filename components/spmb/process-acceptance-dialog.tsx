@@ -65,7 +65,7 @@ interface ProcessAcceptanceDialogProps {
 function getPriorityGroupBadge(group: number) {
   switch (group) {
     case 1:
-      return <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">7-12 thn</Badge>;
+      return <Badge className="bg-green-100 text-success dark:bg-green-900/30 dark:text-green-400">7-12 thn</Badge>;
     case 2:
       return <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">6 thn</Badge>;
     case 3:
@@ -227,7 +227,7 @@ export function ProcessAcceptanceDialog({
                   <div className="text-xs text-muted-foreground">Total Pendaftar</div>
                 </div>
                 <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3 text-center">
-                  <div className="text-2xl font-bold text-green-600">{result?.accepted ?? Math.min((preview?.totalRegistrants || 0), quota)}</div>
+                  <div className="text-2xl font-bold text-success">{result?.accepted ?? Math.min((preview?.totalRegistrants || 0), quota)}</div>
                   <div className="text-xs text-muted-foreground">Akan Diterima</div>
                 </div>
                 <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3 text-center">
@@ -251,7 +251,7 @@ export function ProcessAcceptanceDialog({
                       header: "Rank",
                       card: "title",
                       render: (item) => (
-                        <span className={`font-bold ${item.rank <= quota ? "text-green-600" : "text-muted-foreground"}`}>
+                        <span className={`font-bold ${item.rank <= quota ? "text-success" : "text-muted-foreground"}`}>
                           #{item.rank}
                         </span>
                       ),
@@ -315,7 +315,7 @@ export function ProcessAcceptanceDialog({
           {/* Success Message */}
           {result && (
             <Alert className="bg-green-50 border-green-200 dark:bg-green-900/20">
-              <CheckCircle className="h-4 w-4 text-green-600" />
+              <CheckCircle className="h-4 w-4 text-success" />
               <AlertDescription className="text-green-800 dark:text-green-200">
                 <strong>Berhasil!</strong> {result.accepted} siswa diterima, {result.waitlist} masuk daftar tunggu, {result.rejected} ditolak.
               </AlertDescription>

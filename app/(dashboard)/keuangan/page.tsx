@@ -204,9 +204,9 @@ function RingkasanTab() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 text-muted-foreground text-sm">
-              <TrendingUp className="h-4 w-4 text-green-600" /> Total Pemasukan
+              <TrendingUp className="h-4 w-4 text-success" /> Total Pemasukan
             </div>
-            <p className="text-2xl font-bold mt-1 text-green-600">{formatRupiah(totals.tin)}</p>
+            <p className="text-2xl font-bold mt-1 text-success">{formatRupiah(totals.tin)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -251,7 +251,7 @@ function RingkasanTab() {
                 <CardContent className="space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Pemasukan</span>
-                    <span className="text-green-600">{formatRupiah(s.totalIn)}</span>
+                    <span className="text-success">{formatRupiah(s.totalIn)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Pengeluaran</span>
@@ -484,7 +484,7 @@ function TransaksiTab() {
             <div key={t.id} className="border rounded-lg p-3 flex items-start gap-3">
               <div
                 className={`mt-1 h-8 w-8 shrink-0 rounded-full flex items-center justify-center ${
-                  t.direction === "in" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                  t.direction === "in" ? "bg-green-100 text-success" : "bg-red-100 text-red-700"
                 }`}
               >
                 {t.direction === "in" ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
@@ -503,7 +503,7 @@ function TransaksiTab() {
                 {t.createdByName && <p className="text-[11px] text-muted-foreground">Diinput: {t.createdByName}</p>}
               </div>
               <div className="text-right shrink-0">
-                <p className={`font-semibold ${t.direction === "in" ? "text-green-600" : "text-red-600"}`}>
+                <p className={`font-semibold ${t.direction === "in" ? "text-success" : "text-red-600"}`}>
                   {t.direction === "in" ? "+" : "−"}
                   {formatRupiah(t.amount)}
                 </p>
@@ -1056,7 +1056,7 @@ function LaporanTab() {
               <Card>
                 <CardContent className="pt-6">
                   <p className="text-sm text-muted-foreground">Pemasukan</p>
-                  <p className="text-xl font-bold text-green-600">{formatRupiah(summary.totalIn)}</p>
+                  <p className="text-xl font-bold text-success">{formatRupiah(summary.totalIn)}</p>
                 </CardContent>
               </Card>
               <Card>
@@ -1120,7 +1120,7 @@ function LaporanTab() {
                   {monthly.map((m) => (
                     <div key={m.period} className="flex items-center gap-3 text-sm py-1 border-b last:border-0">
                       <span className="flex-1">{formatPeriod(m.period)}</span>
-                      <span className="text-green-600">+{formatRupiahShort(m.totalIn)}</span>
+                      <span className="text-success">+{formatRupiahShort(m.totalIn)}</span>
                       <span className="text-red-600">−{formatRupiahShort(m.totalOut)}</span>
                       <span className={`font-semibold w-28 text-right ${m.net >= 0 ? "" : "text-red-600"}`}>
                         {formatRupiah(m.net)}

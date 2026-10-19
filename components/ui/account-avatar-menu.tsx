@@ -88,7 +88,7 @@ export function AccountAvatarMenu({ placement, profileHref = "/profile", showSet
             </div>
             <div className="hidden md:flex flex-col items-start ml-2">
               <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200">{displayName}</span>
-              <span className="text-xs text-neutral-500 dark:text-neutral-400 capitalize">{normalizedRole}</span>
+              <span className="text-xs text-muted-foreground capitalize">{normalizedRole}</span>
             </div>
           </Button>
         ) : (

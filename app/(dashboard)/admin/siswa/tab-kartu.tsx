@@ -435,7 +435,7 @@ export default function TabKartu() {
                 card: "field",
                 render: (student) =>
                   student.isActive ? (
-                    <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                    <Badge className="bg-green-100 text-success dark:bg-green-900/30 dark:text-green-400">
                       Aktif
                     </Badge>
                   ) : (

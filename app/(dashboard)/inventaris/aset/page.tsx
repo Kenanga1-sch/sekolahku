@@ -487,7 +487,7 @@ export default function AsetPage() {
                                     <Label className="mb-2 block font-semibold">Kondisi & Jumlah</Label>
                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                                         <div className="grid gap-2">
-                                            <Label htmlFor="good" className="text-xs text-green-600">Baik</Label>
+                                            <Label htmlFor="good" className="text-xs text-success">Baik</Label>
                                             <Input
                                                 id="good"
                                                 type="number"
@@ -824,7 +824,7 @@ export default function AsetPage() {
                         card: "field",
                         render: (asset) => (
                             <div className="flex gap-2 text-xs">
-                                {(asset.condition_good ?? 0) > 0 && <span className="text-green-600 bg-green-100 px-2 py-0.5 rounded">{asset.condition_good ?? 0} B</span>}
+                                {(asset.condition_good ?? 0) > 0 && <span className="text-success bg-green-100 px-2 py-0.5 rounded">{asset.condition_good ?? 0} B</span>}
                                 {(asset.condition_light_damaged ?? 0) > 0 && <span className="text-yellow-600 bg-yellow-100 px-2 py-0.5 rounded">{asset.condition_light_damaged ?? 0} RR</span>}
                                 {(asset.condition_heavy_damaged ?? 0) > 0 && <span className="text-red-600 bg-red-100 px-2 py-0.5 rounded">{asset.condition_heavy_damaged ?? 0} RB</span>}
                                 {(asset.condition_lost ?? 0) > 0 && <span className="text-gray-600 bg-gray-100 px-2 py-0.5 rounded">{asset.condition_lost ?? 0} H</span>}

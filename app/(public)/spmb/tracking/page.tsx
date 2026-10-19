@@ -64,7 +64,7 @@ function TrackingContent() {
   const getStatusConfig = (status: string) => {
     switch (status) {
       case "accepted":
-        return { label: "Diterima", icon: CheckCircle2, color: "bg-green-100 text-green-700 border-green-200" };
+        return { label: "Diterima", icon: CheckCircle2, color: "bg-green-100 text-success border-green-200" };
       case "rejected":
         return { label: "Tidak Diterima", icon: XCircle, color: "bg-red-100 text-red-700 border-red-200" };
       case "pending":

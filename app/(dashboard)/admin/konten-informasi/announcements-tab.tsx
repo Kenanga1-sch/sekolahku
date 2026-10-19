@@ -35,7 +35,7 @@ function getCategoryColor(category: string) {
   switch (category) {
     case "spmb": return "bg-blue-100 text-blue-700";
     case "prestasi": return "bg-amber-100 text-amber-700";
-    case "kegiatan": return "bg-green-100 text-green-700";
+    case "kegiatan": return "bg-green-100 text-success";
     case "pengumuman": return "bg-purple-100 text-purple-700";
     default: return "bg-zinc-100 text-zinc-700";
   }
@@ -95,7 +95,7 @@ export function AnnouncementsTab(hook: AnnouncementsHook) {
             card: "field",
             render: (item) => (
               <div className="flex items-center gap-2">
-                <Badge variant="outline" className={item.isPublished ? "border-green-500 text-green-600" : ""}>
+                <Badge variant="outline" className={item.isPublished ? "border-green-500 text-success" : ""}>
                   {item.isPublished ? "Terbit" : "Draft"}
                 </Badge>
                 {item.isFeatured && <Star className="h-4 w-4 text-amber-500 fill-amber-500" />}

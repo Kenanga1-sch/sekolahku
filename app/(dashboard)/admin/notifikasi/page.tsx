@@ -93,7 +93,7 @@ export default function NotificationsPage() {
       case "error":
         return <AlertCircle className="h-5 w-5 text-red-600" />;
       case "success":
-        return <CheckCircle2 className="h-5 w-5 text-green-600" />;
+        return <CheckCircle2 className="h-5 w-5 text-success" />;
       default:
         return <Info className="h-5 w-5 text-blue-600" />;
     }

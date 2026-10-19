@@ -349,7 +349,7 @@ export default function LaporanAkhirTahunPage() {
                                         monthlyEntries.map(([month, data]) => (
                                             <TableRow key={month}>
                                                 <TableCell>{formatMonth(month, report.period.year)}</TableCell>
-                                                <TableCell className="text-right font-mono text-green-600">
+                                                <TableCell className="text-right font-mono text-success">
                                                     {data.setor > 0 ? formatRupiah(data.setor) : "-"}
                                                 </TableCell>
                                                 <TableCell className="text-right font-mono text-red-600">
@@ -363,7 +363,7 @@ export default function LaporanAkhirTahunPage() {
                                     )}
                                     <TableRow className="font-bold bg-muted/50 border-t">
                                         <TableCell>SUBTOTAL TABUNGAN</TableCell>
-                                        <TableCell className="text-right font-mono text-green-600">
+                                        <TableCell className="text-right font-mono text-success">
                                             {formatRupiah(report.tabungan.totalSetor)}
                                         </TableCell>
                                         <TableCell className="text-right font-mono text-red-600">
@@ -442,7 +442,7 @@ export default function LaporanAkhirTahunPage() {
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
                                 <div className="p-4 bg-green-50 rounded-lg dark:bg-green-900/20">
                                     <p className="text-sm text-muted-foreground">Saldo Tabungan</p>
-                                    <p className="text-xl font-bold text-green-600">{formatRupiah(report.tabungan.saldoAkhir)}</p>
+                                    <p className="text-xl font-bold text-success">{formatRupiah(report.tabungan.saldoAkhir)}</p>
                                 </div>
                                 <div className="p-4 bg-red-50 rounded-lg dark:bg-red-900/20">
                                     <p className="text-sm text-muted-foreground">Total Hutang</p>
@@ -457,7 +457,7 @@ export default function LaporanAkhirTahunPage() {
                                         {report.settlement.netBalance >= 0 ? "Sisa Diterima" : "Kurang Bayar"}
                                     </p>
                                     <p className={`text-2xl font-bold ${
-                                        report.settlement.netBalance >= 0 ? "text-green-600" : "text-red-600"
+                                        report.settlement.netBalance >= 0 ? "text-success" : "text-red-600"
                                     }`}>
                                         {formatRupiah(Math.abs(report.settlement.netBalance))}
                                     </p>

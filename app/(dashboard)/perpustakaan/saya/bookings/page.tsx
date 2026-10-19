@@ -52,7 +52,7 @@ export default function MyBookingsPage() {
       case "ready":
         return <Badge variant="default" className="bg-green-600">Siap Diambil</Badge>;
       case "completed":
-        return <Badge variant="outline" className="text-green-700 bg-green-50 border-green-300">Selesai</Badge>;
+        return <Badge variant="outline" className="text-success bg-green-50 border-green-300">Selesai</Badge>;
       case "cancelled":
         return <Badge variant="destructive">Dibatalkan</Badge>;
       case "expired":
@@ -101,7 +101,7 @@ export default function MyBookingsPage() {
               <div className="text-muted-foreground">Pending</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">
+              <div className="text-2xl font-bold text-success">
                 {bookings.filter(b => b.status === 'ready' || b.status === 'completed').length}
               </div>
               <div className="text-muted-foreground">Ready/Selesai</div>

@@ -116,7 +116,7 @@ export function NotificationPopover({ className }: { className?: string }) {
       case "error":
         return <AlertCircle className="h-4 w-4 text-red-600" />;
       case "success":
-        return <CheckCircle2 className="h-4 w-4 text-green-600" />;
+        return <CheckCircle2 className="h-4 w-4 text-success" />;
       default:
         return <Info className="h-4 w-4 text-blue-600" />;
     }

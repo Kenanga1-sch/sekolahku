@@ -173,7 +173,7 @@ export function ImportDialog({ open, onOpenChange, onImported }: ImportDialogPro
                                             <div className="flex items-center justify-between gap-2">
                                                 <code className="font-mono text-blue-600 font-bold flex-1 truncate">{item.value}</code>
                                                 {copiedVar === item.value && (
-                                                    <span className="flex items-center gap-1 text-green-600 dark:text-green-400 text-[10px] shrink-0">
+                                                    <span className="flex items-center gap-1 text-success dark:text-green-400 text-[10px] shrink-0">
                                                         <Check className="h-3 w-3" />
                                                         Tersalin
                                                     </span>

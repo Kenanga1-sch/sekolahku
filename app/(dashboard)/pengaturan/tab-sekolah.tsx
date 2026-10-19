@@ -185,7 +185,7 @@ export default function TabSekolah() {
 
       {saved && (
         <Alert className="bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800">
-          <CheckCircle className="h-4 w-4 text-green-600" />
+          <CheckCircle className="h-4 w-4 text-success" />
           <AlertDescription className="text-green-800 dark:text-green-200 text-xs">
             Seluruh pengaturan sekolah berhasil disimpan secara permanen ke database!
           </AlertDescription>

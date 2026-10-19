@@ -32,7 +32,7 @@ const STATUS_LABEL: Record<string, string> = {
 const STATUS_STYLE: Record<string, string> = {
   baru: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
   diproses: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-  selesai: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+  selesai: "bg-green-100 text-success dark:bg-green-900/30 dark:text-green-300",
 };
 
 const FILTERS = [
@@ -173,7 +173,7 @@ export function MessagesTab({ messages, loading, refreshing, error, pagination, 
                   </DropdownMenuContent>
                 </DropdownMenu>
                 {!msg.isRead && (
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-100 dark:hover:bg-green-900/20" onClick={() => handleMarkAsRead(msg.id)} title="Tandai sudah dibaca">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-success hover:text-success hover:bg-green-100 dark:hover:bg-green-900/20" onClick={() => handleMarkAsRead(msg.id)} title="Tandai sudah dibaca">
                     <Check className="h-4 w-4" />
                   </Button>
                 )}

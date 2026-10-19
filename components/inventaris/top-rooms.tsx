@@ -92,7 +92,7 @@ export function TopRoomsWidget() {
                                         </p>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-sm font-semibold text-green-600">
+                                        <p className="text-sm font-semibold text-success">
                                             {formatCurrency(room.totalValue)}
                                         </p>
                                     </div>

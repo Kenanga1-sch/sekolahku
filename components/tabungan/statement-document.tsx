@@ -124,8 +124,8 @@ export function StatementDocument({ statement, schoolName, schoolAddress }: Stat
               <p className="text-xl font-bold text-blue-700">{formatRupiah(statement.openingBalance)}</p>
             </div>
             <div className="bg-green-50 rounded-lg p-4 border border-green-100">
-              <p className="text-xs text-green-600 uppercase font-medium">Total Masuk (Kredit)</p>
-              <p className="text-xl font-bold text-green-700">+{formatRupiah(statement.summary.totalCredit)}</p>
+              <p className="text-xs text-success uppercase font-medium">Total Masuk (Kredit)</p>
+              <p className="text-xl font-bold text-success">+{formatRupiah(statement.summary.totalCredit)}</p>
             </div>
             <div className="bg-red-50 rounded-lg p-4 border border-red-100">
               <p className="text-xs text-red-600 uppercase font-medium">Total Keluar (Debit)</p>
@@ -148,7 +148,7 @@ export function StatementDocument({ statement, schoolName, schoolAddress }: Stat
                   <th className="text-left p-3 font-semibold">Ref</th>
                   <th className="text-left p-3 font-semibold">Keterangan</th>
                   <th className="text-right p-3 font-semibold text-red-600">Debit</th>
-                  <th className="text-right p-3 font-semibold text-green-600">Kredit</th>
+                  <th className="text-right p-3 font-semibold text-success">Kredit</th>
                   <th className="text-right p-3 font-semibold">Saldo</th>
                 </tr>
               </thead>
@@ -179,7 +179,7 @@ export function StatementDocument({ statement, schoolName, schoolAddress }: Stat
                       <td className="p-3 text-right font-mono text-red-600">
                         {m.debit > 0 ? formatRupiah(m.debit) : "-"}
                       </td>
-                      <td className="p-3 text-right font-mono text-green-600">
+                      <td className="p-3 text-right font-mono text-success">
                         {m.credit > 0 ? formatRupiah(m.credit) : "-"}
                       </td>
                       <td className="p-3 text-right font-mono font-semibold">{formatRupiah(m.balance)}</td>

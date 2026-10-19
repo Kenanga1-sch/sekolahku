@@ -86,7 +86,7 @@ const actionIcons: Record<AuditAction, ReactNode> = {
 };
 
 const actionColors: Record<AuditAction, string> = {
-    CREATE: "bg-green-100 text-green-700",
+    CREATE: "bg-green-100 text-success",
     UPDATE: "bg-blue-100 text-blue-700",
     DELETE: "bg-red-100 text-red-700",
     LOGIN: "bg-emerald-100 text-emerald-700",

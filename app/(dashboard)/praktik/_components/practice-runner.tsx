@@ -215,7 +215,7 @@ export function PracticeRunner({ practiceId }: { practiceId: string }) {
           <CardHeader>
             <div className="flex items-center gap-2">
               <Badge variant="outline">Soal {currentIdx + 1}</Badge>
-              <Badge className={currentQuestion.difficulty === "easy" ? "bg-green-100 text-green-700" : currentQuestion.difficulty === "hard" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}>
+              <Badge className={currentQuestion.difficulty === "easy" ? "bg-green-100 text-success" : currentQuestion.difficulty === "hard" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}>
                 {currentQuestion.difficulty === "easy" ? "Mudah" : currentQuestion.difficulty === "hard" ? "Sulit" : "Sedang"}
               </Badge>
               <span className="text-xs text-muted-foreground">{currentQuestion.points} poin</span>

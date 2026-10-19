@@ -272,7 +272,7 @@ export default function SuratKeluarPage() {
         switch (status) {
             case "Draft": return "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400";
             case "Menunggu Verifikasi": return "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
-            case "Terverifikasi": return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
+            case "Terverifikasi": return "bg-green-100 text-success dark:bg-green-900/30 dark:text-green-400";
             case "Revisi": return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
             default: return "bg-slate-100";
         }
@@ -374,7 +374,7 @@ export default function SuratKeluarPage() {
                             {item.status === "Menunggu Verifikasi" && (
                                 <>
                                     <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setVerifyDialog({ open: true, id: item.id }); }}>
-                                        <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
+                                        <CheckCircle className="h-4 w-4 mr-2 text-success" />
                                         Verifikasi & TTD
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setRevisionDialog({ open: true, id: item.id }); }}>

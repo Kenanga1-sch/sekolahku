@@ -295,7 +295,7 @@ export function OverviewClient({
                 <div>
                   <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Total Siswa Aktif</p>
                   <p className="mt-1 text-3xl font-bold text-blue-700 dark:text-blue-300">{totalActiveStudents}</p>
-                  <p className="mt-1 text-xs text-blue-600/70 dark:text-blue-400/70">{presensiHariIni} hadir hari ini</p>
+                  <p className="mt-1 text-xs text-info">{presensiHariIni} hadir hari ini</p>
                 </div>
                 <div className="rounded-full bg-blue-100 p-3 dark:bg-blue-900/50">
                   <Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />

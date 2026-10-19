@@ -47,7 +47,7 @@ export default function PeminjamanPage() {
 
     const statusBadge = (status: string) => {
         switch (status) {
-            case "approved": return <Badge className="bg-green-100 text-green-700 border-green-200"><CheckCircle2 className="h-3 w-3 mr-1" />Disetujui</Badge>;
+            case "approved": return <Badge className="bg-green-100 text-success border-green-200"><CheckCircle2 className="h-3 w-3 mr-1" />Disetujui</Badge>;
             case "rejected": return <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Ditolak</Badge>;
             default: return <Badge variant="outline" className="border-yellow-200 bg-yellow-50 text-yellow-700"><Clock className="h-3 w-3 mr-1" />Menunggu</Badge>;
         }

@@ -350,11 +350,11 @@ function RegistrationWizardContent({
         <Card className="max-w-xl mx-auto border-none shadow-2xl bg-white/50 dark:bg-zinc-900/50 backdrop-blur-xl">
           <CardContent className="pt-12 pb-12 flex flex-col items-center text-center space-y-6">
             <div className="w-24 h-24 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center animate-in zoom-in duration-500">
-              <Check className="h-12 w-12 text-green-600 dark:text-green-400" />
+              <Check className="h-12 w-12 text-success dark:text-green-400" />
             </div>
             
             <div className="space-y-2">
-              <h2 className="text-3xl font-bold text-green-600 dark:text-green-400">
+              <h2 className="text-3xl font-bold text-success dark:text-green-400">
                 {variant === "staff" ? "Data Pendaftar Tersimpan!" : "Pendaftaran Berhasil!"}
               </h2>
               <p className="text-muted-foreground text-lg">

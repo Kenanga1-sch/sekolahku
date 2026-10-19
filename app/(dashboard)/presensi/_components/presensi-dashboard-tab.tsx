@@ -148,16 +148,16 @@ export function PresensiDashboardTab() {
 
         <Card className="border-green-200 bg-green-50/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-green-700">
+            <CardTitle className="text-sm font-medium text-success">
               Hadir
             </CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
+            <CheckCircle className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-700">
+            <div className="text-2xl font-bold text-success">
               {stats?.stats.hadir || 0}
             </div>
-            <p className="text-xs text-green-600">
+            <p className="text-xs text-success">
               {stats?.stats.persenKehadiran || 0}% kehadiran
             </p>
           </CardContent>

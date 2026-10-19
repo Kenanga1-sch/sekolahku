@@ -471,7 +471,7 @@ export default function TabunganLaporanPage() {
                         {isLoading ? (
                             <Skeleton className="h-8 w-32" />
                         ) : (
-                            <div className="text-2xl font-bold text-green-600">
+                            <div className="text-2xl font-bold text-success">
                                 {formatRupiah(stats?.totalSaldo || 0)}
                             </div>
                         )}
@@ -543,13 +543,13 @@ export default function TabunganLaporanPage() {
                     <div className="grid md:grid-cols-3 gap-6">
                         <div className="p-6 bg-green-50 dark:bg-green-950/30 rounded-xl">
                             <div className="flex items-center gap-3 mb-2">
-                                <TrendingUp className="h-5 w-5 text-green-600" />
+                                <TrendingUp className="h-5 w-5 text-success" />
                                 <span className="text-sm text-muted-foreground">Total Setoran</span>
                             </div>
                             {isLoading ? (
                                 <Skeleton className="h-10 w-32" />
                             ) : (
-                                <p className="text-3xl font-bold text-green-600">
+                                <p className="text-3xl font-bold text-success">
                                     {formatRupiah(periodStats.totalSetor)}
                                 </p>
                             )}
@@ -597,7 +597,7 @@ export default function TabunganLaporanPage() {
                             ) : (
                                 <p
                                     className={`text-3xl font-bold ${periodStats.totalSetor - periodStats.totalTarik >= 0
-                                            ? "text-green-600"
+                                            ? "text-success"
                                             : "text-red-600"
                                         }`}
                                 >
@@ -613,7 +613,7 @@ export default function TabunganLaporanPage() {
                                 }`}
                         >
                             {periodStats.totalSetor - periodStats.totalTarik >= 0 ? (
-                                <TrendingUp className="h-8 w-8 text-green-600" />
+                                <TrendingUp className="h-8 w-8 text-success" />
                             ) : (
                                 <TrendingDown className="h-8 w-8 text-red-600" />
                             )}

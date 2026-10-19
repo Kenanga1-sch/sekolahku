@@ -193,7 +193,7 @@ export default function ReviewStep({ data, onEdit }: ReviewStepProps) {
                 key={key}
                 className="flex items-center gap-2 text-sm"
               >
-                <CheckCircle className="h-4 w-4 text-green-600" />
+                <CheckCircle className="h-4 w-4 text-success" />
                 <span className="font-medium min-w-[120px]">{labels[key] || key}:</span>
                 <span>{file.name}</span>
                 <span className="text-muted-foreground">

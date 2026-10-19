@@ -190,7 +190,7 @@ export default function RootLayout({
         />
       </head>
       <body className="font-sans antialiased" suppressHydrationWarning>
-        <div id="app-version" className="fixed bottom-1.5 right-2 z-[9999] text-[11px] font-mono text-black/20 pointer-events-none select-none print:hidden" aria-hidden="true">{APP_VERSION}</div>
+        <div id="app-version" className="fixed bottom-1.5 right-2 z-[9999] rounded bg-background/85 px-1.5 py-0.5 text-[11px] font-mono text-foreground/70 backdrop-blur-sm pointer-events-none select-none print:hidden" aria-hidden="true">{APP_VERSION}</div>
         <noscript>
           <div className="p-4 text-center bg-red-100 text-red-700">
              JavaScript diperlukan untuk menjalankan aplikasi ini dengan baik. Mohon aktifkan JavaScript di browser Anda.

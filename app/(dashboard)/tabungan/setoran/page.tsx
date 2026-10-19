@@ -190,7 +190,7 @@ export default function TabunganSetoranPage() {
                                 <CardTitle className="text-sm font-medium text-muted-foreground">Total Masuk (Setor)</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold text-green-600">
+                                <div className="text-2xl font-bold text-success">
                                     + {formatRupiah(totalSetor)}
                                 </div>
                             </CardContent>
@@ -254,7 +254,7 @@ export default function TabunganSetoranPage() {
                                             header: "Tipe",
                                             card: "field",
                                             render: (t) => (
-                                                <Badge variant={t.tipe === "setor" ? "outline" : "destructive"} className={t.tipe === "setor" ? "text-green-600 border-green-600" : ""}>
+                                                <Badge variant={t.tipe === "setor" ? "outline" : "destructive"} className={t.tipe === "setor" ? "text-success border-green-600" : ""}>
                                                     {t.tipe === "setor" ? "Setor" : "Tarik"}
                                                 </Badge>
                                             ),

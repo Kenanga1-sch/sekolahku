@@ -288,7 +288,7 @@ function ProofContent() {
                 {registrant.status === "accepted" && (
                     <div className="mt-8 mb-4 px-4 text-center">
                         <p className="text-lg font-bold">
-                             Dinyatakan: <span className="text-xl uppercase border-b-2 border-green-600 text-green-700">DITERIMA / LULUS SELEKSI</span>
+                             Dinyatakan: <span className="text-xl uppercase border-b-2 border-green-600 text-success">DITERIMA / LULUS SELEKSI</span>
                         </p>
                         <p className="mt-2 text-sm italic text-slate-700">
                              Sebagai Peserta Didik Baru Kelas 1 di {schoolName}.

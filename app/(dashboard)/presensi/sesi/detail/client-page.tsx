@@ -61,7 +61,7 @@ interface DailyDetail {
 }
 
 const STATUS_CONFIG = {
-  hadir: { label: "Hadir", color: "bg-green-100 text-green-700", icon: CheckCircle },
+  hadir: { label: "Hadir", color: "bg-green-100 text-success", icon: CheckCircle },
   sakit: { label: "Sakit", color: "bg-yellow-100 text-yellow-700", icon: AlertCircle },
   izin: { label: "Izin", color: "bg-blue-100 text-blue-700", icon: Clock },
   alpha: { label: "Alpha", color: "bg-red-100 text-red-700", icon: XCircle },
@@ -242,8 +242,8 @@ export default function SesiDetailPage() {
         </Card>
         <Card className="bg-green-50 border-green-200">
           <CardContent className="py-3 text-center">
-            <p className="text-2xl font-bold text-green-700">{stats.hadir}</p>
-            <p className="text-xs text-green-600">Hadir</p>
+            <p className="text-2xl font-bold text-success">{stats.hadir}</p>
+            <p className="text-xs text-success">Hadir</p>
           </CardContent>
         </Card>
         <Card className="bg-yellow-50 border-yellow-200">
