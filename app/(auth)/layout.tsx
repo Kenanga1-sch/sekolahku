@@ -3,7 +3,7 @@
 import { GraduationCap, Quote, Home, Briefcase, Newspaper, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { AuroraBackground } from "@/components/ui/aurora-background";
 import { WavyBackground } from "@/components/ui/wavy-background";

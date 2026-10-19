@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { loginFormSchema, type LoginFormValues } from "@/lib/validations/spmb";
 import { loginAction } from "@/actions/auth";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";

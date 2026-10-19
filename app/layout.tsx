@@ -4,6 +4,7 @@ import { AuthProvider } from "@/components/providers/auth-provider";
 import { SchoolSettingsProvider } from "@/lib/contexts/school-settings-context";
 import ThemeInjector from "@/components/theme-injector";
 import { SWRProvider } from "@/components/providers/swr-provider";
+import { MotionProvider } from "@/components/providers/motion-provider";
 import { Toaster } from "@/components/ui/toaster";
 import { SkipToContent } from "@/components/accessibility";
 import { ZXingConfig } from "@/components/zxing-config";
@@ -198,17 +199,19 @@ export default function RootLayout({
         </noscript>
         <ZXingConfig />
         <SkipToContent />
-          <ThemeProvider>
-            <SWRProvider>
-              <AuthProvider>
-                <SchoolSettingsProvider>
-                  <ThemeInjector />
-                  {children}
-                </SchoolSettingsProvider>
-              </AuthProvider>
-            </SWRProvider>
-            <Toaster />
-          </ThemeProvider>
+          <MotionProvider>
+            <ThemeProvider>
+              <SWRProvider>
+                <AuthProvider>
+                  <SchoolSettingsProvider>
+                    <ThemeInjector />
+                    {children}
+                  </SchoolSettingsProvider>
+                </AuthProvider>
+              </SWRProvider>
+              <Toaster />
+            </ThemeProvider>
+          </MotionProvider>
           <UpdateBanner />
           <PwaBannerClient />
         <script

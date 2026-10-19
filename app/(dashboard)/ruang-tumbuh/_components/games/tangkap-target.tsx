@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { TrialRecord } from "@/lib/ruang-tumbuh/types";
 
 // ══════════════════════════════════════════════════════════

@@ -2,7 +2,7 @@
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence } from "motion/react";
 import { GraduationCap, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ import { DocumentGallery } from "@/components/alumni/document-gallery";
 import { DocumentUpload } from "@/components/alumni/document-upload";
 import { ColumnsDialog, TemplatesDialog, TranscriptDialog, AttendanceDialog, AchievementDialog, EkskulDialog, HealthDialog } from "./dialogs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { TabsContent } from "@/components/ui/tabs";
 
 export default function AlumniDetailPage() {

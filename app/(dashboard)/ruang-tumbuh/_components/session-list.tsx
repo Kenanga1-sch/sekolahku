@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { goGet } from "@/lib/api-client";
 import { showError } from "@/lib/toast";

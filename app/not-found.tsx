@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Ghost, RefreshCw, ArrowLeft } from "lucide-react";
 import { AuroraBackground } from "@/components/ui/aurora-background";
 import { TypewriterEffect } from "@/components/ui/typewriter-effect";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { goBackOrHome } from "@/lib/nav-fallback";
 
 export default function NotFound() {

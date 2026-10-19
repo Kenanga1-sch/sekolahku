@@ -31,7 +31,7 @@ const nextConfig: NextConfig = {
       "@radix-ui/react-scroll-area",
       "recharts",
       "date-fns",
-      "framer-motion",
+      "motion",
     ],
   },
 

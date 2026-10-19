@@ -18,6 +18,7 @@ export default defineConfig({
       "e2e",
       "**/tests/*.test.ts",
       ".agents/**",
+      ".opencode/**",
       "agent/**",
     ],
     coverage: {
@@ -29,6 +30,8 @@ export default defineConfig({
         "**/*.d.ts",
         "**/*.config.*",
         "**/types/**",
+        ".opencode/**",
+        ".agents/**",
       ],
     },
   },

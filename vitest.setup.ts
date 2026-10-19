@@ -30,8 +30,8 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-// Mock framer-motion to avoid animation issues in tests
-vi.mock("framer-motion", () => ({
+// Mock motion/react to avoid animation issues in tests
+vi.mock("motion/react", () => ({
   motion: {
     div: (props: React.ComponentProps<"div">) => React.createElement("div", props),
     span: (props: React.ComponentProps<"span">) => React.createElement("span", props),

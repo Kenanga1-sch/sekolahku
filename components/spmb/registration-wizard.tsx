@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { ChevronRight, ChevronLeft, Check, Loader2, Send, Printer, UserPlus, RotateCcw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";

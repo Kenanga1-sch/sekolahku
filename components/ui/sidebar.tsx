@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, createContext, useContext, useEffect } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { IconMenu2, IconX } from "@tabler/icons-react";
+import { AnimatePresence, motion } from "motion/react";
+import { X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -158,9 +158,10 @@ export const MobileSidebar = ({
                 <span className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">Menu Navigasi</span>
                 <button
                   onClick={() => setOpen(false)}
+                  aria-label="Tutup menu"
                   className="p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
                 >
-                  <IconX className="h-5 w-5 text-neutral-600 dark:text-neutral-400" />
+                  <X className="h-5 w-5 text-neutral-600 dark:text-neutral-400" />
                 </button>
               </div>
               {/* Drawer Content */}

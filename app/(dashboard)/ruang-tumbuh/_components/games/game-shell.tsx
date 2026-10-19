@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import type { TrialRecord } from "@/lib/ruang-tumbuh/types";
 
 type Phase = "instruksi" | "hitung" | "main" | "selesai";
