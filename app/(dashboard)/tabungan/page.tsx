@@ -139,9 +139,9 @@ export default function TabunganDashboardPage() {
             title: "Transaksi Hari Ini",
             value: stats?.todayTransactions || 0,
             icon: TrendingUp,
-            color: "text-purple-500",
-            bgColor: "bg-purple-500/10",
-            gradient: "from-purple-500 to-pink-500",
+            color: "text-primary",
+            bgColor: "bg-primary/10",
+            gradient: "from-primary to-accent",
             desc: "Terverifikasi hari ini",
         },
     ];

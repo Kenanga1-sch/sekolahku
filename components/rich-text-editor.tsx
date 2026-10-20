@@ -233,7 +233,7 @@ export function RichTextEditor({
                 class: cn(
                     "prose prose-sm dark:prose-invert max-w-none min-h-[200px] p-4 focus:outline-none",
                     "[&_ul]:list-disc [&_ul]:ml-4 [&_ol]:list-decimal [&_ol]:ml-4",
-                    "[&_blockquote]:border-l-4 [&_blockquote]:border-primary/30 [&_blockquote]:pl-4 [&_blockquote]:italic"
+                    "[&_blockquote]:border-l-2 [&_blockquote]:border-primary/30 [&_blockquote]:pl-4 [&_blockquote]:italic"
                 ),
             },
         },

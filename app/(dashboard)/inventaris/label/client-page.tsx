@@ -1,3 +1,4 @@
+/* impeccable-disable overused-font -- Arial untuk kompatibilitas printer label */
 "use client";
 
 import { useEffect, useState, useCallback } from "react";

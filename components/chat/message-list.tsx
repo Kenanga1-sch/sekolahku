@@ -156,7 +156,7 @@ export function MessageList({ conversationId }: { conversationId: string }) {
                   {[0, 1, 2].map((i) => (
                     <span
                       key={i}
-                      className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60 animate-bounce"
+                      className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60 animate-pulse"
                       style={{ animationDelay: `${i * 150}ms` }}
                     />
                   ))}

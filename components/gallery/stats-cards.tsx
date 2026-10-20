@@ -48,9 +48,9 @@ const statConfig = [
     key: "storage",
     label: "Storage",
     icon: HardDrive,
-    color: "from-purple-500 to-pink-600",
-    bgColor: "bg-purple-500/10",
-    iconColor: "text-purple-600",
+    color: "from-primary to-accent",
+    bgColor: "bg-primary/10",
+    iconColor: "text-primary",
     isStorage: true,
   },
 ];

@@ -149,10 +149,10 @@ export default function HalamanDepanPage() {
       </div>
 
       {/* Theme Picker (Wallpaper Style) */}
-      <Card className="border-indigo-500/20 bg-gradient-to-r from-indigo-500/5 via-purple-500/5 to-pink-500/5">
+      <Card className="border-primary/20 bg-gradient-to-r from-primary/5 via-secondary/10 to-accent/5">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Layers className="h-5 w-5 text-indigo-500" />
+            <Layers className="h-5 w-5 text-primary" />
             Pilih Tema Tampilan Publik (Wallpaper Mode)
           </CardTitle>
           <CardDescription>

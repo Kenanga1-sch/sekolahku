@@ -54,9 +54,9 @@ export default function PerpustakaanClient({ initialStats, onRefresh }: Perpusta
             title: "Anggota",
             value: initialStats?.totalMembers || 0,
             icon: Users,
-            color: "text-purple-500",
-            bgColor: "bg-purple-500/10",
-            gradient: "from-purple-500 to-pink-500",
+            color: "text-primary",
+            bgColor: "bg-primary/10",
+            gradient: "from-primary to-accent",
         },
         {
             title: "Dipinjam",
@@ -92,7 +92,7 @@ export default function PerpustakaanClient({ initialStats, onRefresh }: Perpusta
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="min-w-0">
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight truncate bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
+                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight truncate text-primary">
                         Perpustakaan
                     </h1>
                     <p className="text-sm sm:text-base text-muted-foreground">

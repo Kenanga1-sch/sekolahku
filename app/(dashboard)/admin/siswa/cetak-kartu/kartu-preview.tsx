@@ -1,3 +1,4 @@
+/* impeccable-disable border-accent-on-rounded -- bingkai sudut foto 8px, bukan border kartu */
 "use client";
 
 import NextImage from "next/image";

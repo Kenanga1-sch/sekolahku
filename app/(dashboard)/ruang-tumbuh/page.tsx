@@ -31,7 +31,7 @@ export default function RuangTumbuhPage() {
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 p-4 md:p-6">
       <div className="text-center">
-        <h1 className="bg-gradient-to-r from-emerald-600 to-sky-600 bg-clip-text text-3xl font-bold text-transparent dark:from-emerald-400 dark:to-sky-400">
+        <h1 className="text-3xl font-bold text-primary">
           🌱 Ruang Tumbuh
         </h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">

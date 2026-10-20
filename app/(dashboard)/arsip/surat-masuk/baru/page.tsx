@@ -202,9 +202,9 @@ export default function CreateSuratMasukPage() {
                                         onChange={handleFileChange}
                                         required={!file}
                                     />
-                                    <Upload className={cn("h-10 w-10 mb-3 transition-colors", isDragOver ? "text-indigo-600 animate-bounce" : "text-muted-foreground")} />
+                                    <Upload className={cn("h-10 w-10 mb-3 transition-colors", isDragOver ? "text-primary animate-pulse" : "text-muted-foreground")} />
                                     {isDragOver ? (
-                                        <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">Lepaskan berkas untuk mengunggah...</p>
+                                        <p className="text-sm font-semibold text-primary dark:text-primary">Lepaskan berkas untuk mengunggah...</p>
                                     ) : (
                                         <>
                                             <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">

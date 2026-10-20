@@ -161,7 +161,7 @@ export default function InventarisClient({ initialStats, initialConsumableStats,
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
+                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-primary">
                         Inventaris & ATK
                     </h1>
                     <p className="text-muted-foreground text-sm sm:text-base">

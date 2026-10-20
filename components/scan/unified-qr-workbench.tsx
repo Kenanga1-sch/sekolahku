@@ -806,7 +806,7 @@ export function UnifiedQRWorkbench({
                 {/* 2. Feedback Error state */}
                 {phase === "feedback" && !currentScan && (
                   <div className="flex min-h-[220px] flex-col items-center justify-center rounded-lg border border-rose-200 bg-rose-50/30 p-6 text-center text-rose-800 dark:bg-rose-950/20 dark:text-rose-200">
-                    <ShieldAlert className="mb-3 h-10 w-10 text-rose-500 animate-bounce" />
+                    <ShieldAlert className="mb-3 h-10 w-10 text-rose-500" />
                     <p className="font-semibold text-sm">{feedback}</p>
                     <Button className="mt-4 border-rose-200 hover:bg-rose-100 text-rose-700" variant="outline" onClick={resetWorkbench}>
                       Scan Selanjutnya

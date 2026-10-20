@@ -138,7 +138,7 @@ function Play({ submit }: { submit: (trials: TrialRecord[]) => void }) {
 
       <div
         data-testid="jt-area"
-        className="relative flex h-[52vh] min-h-[300px] w-full touch-none items-center justify-center overflow-hidden rounded-3xl bg-gradient-to-b from-violet-100 via-fuchsia-50 to-pink-100 dark:from-violet-950 dark:via-fuchsia-950 dark:to-pink-950"
+        className="relative flex h-[52vh] min-h-[300px] w-full touch-none items-center justify-center overflow-hidden rounded-3xl bg-gradient-to-b from-teal-100 via-emerald-50 to-cyan-100 dark:from-teal-950 dark:via-emerald-950 dark:to-cyan-950"
         onPointerDown={handleClick}
       >
         <AnimatePresence mode="wait">

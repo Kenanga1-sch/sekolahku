@@ -239,7 +239,7 @@ export default function SuratKeluarDetailPage() {
                     </Card>
 
                     {/* Upload Section */}
-                    <Card className={`border-l-4 ${hasFinalFile ? "border-l-green-500" : "border-l-orange-500"}`}>
+                    <Card className={hasFinalFile ? "border-green-200" : "border-orange-200"}>
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 {hasFinalFile ? (

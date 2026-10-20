@@ -149,7 +149,7 @@ export default function NotificationsPage() {
                     "flex flex-col sm:flex-row gap-4 p-4 rounded-lg border transition-all cursor-pointer",
                     notification.isRead 
                       ? "bg-card hover:bg-muted/50" 
-                      : "bg-muted/30 border-l-4 border-l-blue-500 hover:bg-muted/60"
+                      : "bg-primary/5 border-primary/20 hover:bg-primary/10"
                   )}
                   onClick={() => handleMarkAsRead(notification.id, notification.targetUrl)}
                 >

@@ -492,7 +492,7 @@ export default function ImportWizardPage() {
           onClick={() => setActiveTab("excel")}
           className={`flex-1 py-2 px-4 text-xs md:text-sm font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer ${
             activeTab === "excel"
-              ? "bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/50 dark:border-zinc-800"
+              ? "bg-white dark:bg-zinc-900 text-primary dark:text-primary shadow-sm border border-slate-200/50 dark:border-zinc-800"
               : "text-muted-foreground hover:text-foreground hover:bg-slate-100/50 dark:hover:bg-zinc-900/30"
           }`}
         >
@@ -503,7 +503,7 @@ export default function ImportWizardPage() {
           onClick={() => setActiveTab("bridge")}
           className={`flex-1 py-2 px-4 text-xs md:text-sm font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer ${
             activeTab === "bridge"
-              ? "bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-sm border border-slate-200/50 dark:border-zinc-800"
+              ? "bg-white dark:bg-zinc-900 text-primary dark:text-primary shadow-sm border border-slate-200/50 dark:border-zinc-800"
               : "text-muted-foreground hover:text-foreground hover:bg-slate-100/50 dark:hover:bg-zinc-900/30"
           }`}
         >
@@ -547,7 +547,7 @@ export default function ImportWizardPage() {
                   </div>
                   <span
                     className={`text-[10px] font-semibold tracking-wider uppercase transition-colors duration-200 ${
-                      isActive || isDone ? "text-indigo-600 dark:text-indigo-400" : "text-slate-400 dark:text-zinc-500"
+                      isActive || isDone ? "text-primary dark:text-primary" : "text-slate-400 dark:text-zinc-500"
                     }`}
                   >
                     {item.label}
@@ -614,7 +614,7 @@ export default function ImportWizardPage() {
                         onChange={handleFileChange}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                       />
-                      <div className="h-16 w-16 rounded-full bg-indigo-50 dark:bg-indigo-950/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                      <div className="h-16 w-16 rounded-full bg-indigo-50 dark:bg-indigo-950/30 flex items-center justify-center text-primary dark:text-primary">
                         <FileSpreadsheet className="h-8 w-8" />
                       </div>
                       <div className="text-center">
@@ -738,7 +738,7 @@ export default function ImportWizardPage() {
                   <CardContent className="space-y-6">
                     {validationErrors.length > 0 ? (
                       <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 flex gap-3 text-red-700 dark:text-red-400">
-                        <AlertTriangle className="h-5 w-5 shrink-0 text-red-500 animate-bounce" />
+                        <AlertTriangle className="h-5 w-5 shrink-0 text-red-500" />
                         <div className="text-xs space-y-1.5 flex-1">
                           <span className="font-bold">Ditemukan {validationErrors.length} Masalah Validasi:</span>
                           <ul className="list-disc pl-4 space-y-0.5 max-h-[100px] overflow-y-auto leading-relaxed">
@@ -819,8 +819,8 @@ export default function ImportWizardPage() {
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-4 rounded-2xl bg-indigo-50/30 dark:bg-zinc-950/20 border border-slate-100 dark:border-zinc-800 text-center">
-                        <span className="text-3xl font-extrabold text-indigo-600 dark:text-indigo-400">
+                      <div className="p-4 rounded-2xl bg-primary/5 dark:bg-zinc-950/20 border border-slate-100 dark:border-zinc-800 text-center">
+                        <span className="text-3xl font-extrabold text-primary dark:text-primary">
                           {importResult?.inserted}
                         </span>
                         <p className="text-xs font-semibold text-muted-foreground mt-1">Data Baru Ditambahkan</p>

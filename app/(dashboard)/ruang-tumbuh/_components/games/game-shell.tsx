@@ -31,7 +31,7 @@ export function GameShell({
   const gradients: Record<string, string> = {
     sky: "from-sky-50 to-emerald-50 dark:from-sky-950 dark:to-emerald-950",
     amber: "from-amber-50 to-orange-50 dark:from-amber-950 dark:to-orange-950",
-    violet: "from-violet-50 to-fuchsia-50 dark:from-violet-950 dark:to-fuchsia-950",
+    violet: "from-teal-50 to-emerald-50 dark:from-teal-950 dark:to-emerald-950",
     rose: "from-rose-50 to-pink-50 dark:from-rose-950 dark:to-pink-950",
   };
   const grad = gradients[accent || "sky"];

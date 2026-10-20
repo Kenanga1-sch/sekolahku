@@ -307,7 +307,7 @@ export default function TabSistem({ settings, setSettings }: TabSistemProps) {
           </div>
 
           {/* Maintenance Mode */}
-          <div className={`flex items-center justify-between rounded-lg border-l-4 p-4 border-l-red-500 bg-red-50/50 dark:bg-red-950/10`}>
+          <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50/50 p-4 dark:border-red-900/40 dark:bg-red-950/10">
             <div className="space-y-1">
               <Label className="text-base font-semibold flex items-center gap-2 text-red-600">
                 <AlertTriangle className="h-5 w-5" /> Mode Pemeliharaan (Maintenance)

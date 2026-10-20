@@ -218,7 +218,7 @@ export default function TabAIProvider() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                     <h2 className="text-lg font-bold flex items-center gap-2">
-                        <Sparkles className="h-5 w-5 shrink-0 text-purple-600 dark:text-purple-400" />
+                        <Sparkles className="h-5 w-5 shrink-0 text-primary dark:text-purple-400" />
                         AI &amp; LLM
                     </h2>
                     <p className="mt-1 text-sm text-muted-foreground">
@@ -238,10 +238,10 @@ export default function TabAIProvider() {
             </div>
 
             {/* Preset strip — horizontal scroll khas mobile, 9Router dulu + aksen khusus */}
-            <Card className="border-purple-500/20 bg-gradient-to-r from-purple-500/5 via-indigo-500/5 to-pink-500/5">
+            <Card className="border-primary/20 bg-gradient-to-r from-primary/5 via-secondary/10 to-accent/5">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                        <Cpu className="h-4 w-4 text-purple-600" />
+                        <Cpu className="h-4 w-4 text-primary" />
                         Preset Cepat
                     </CardTitle>
                     <CardDescription className="text-xs">

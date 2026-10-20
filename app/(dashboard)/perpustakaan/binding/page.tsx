@@ -854,8 +854,8 @@ export default function LibraryBindingPage() {
                                     
                                     {/* AI Suggestion Card */}
                                     {aiEnabled && (aiRecommendation || aiLoading) && (
-                                        <div className="relative overflow-hidden rounded-xl border border-purple-500/20 bg-gradient-to-br from-purple-500/5 via-transparent to-indigo-500/5 p-4 backdrop-blur-sm shadow-sm space-y-3">
-                                            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-purple-500 via-indigo-500 to-pink-500 opacity-60" />
+                                        <div className="relative overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 via-transparent to-secondary/10 p-4 backdrop-blur-sm shadow-sm space-y-3">
+                                            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-primary via-accent to-secondary opacity-60" />
                                             
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
