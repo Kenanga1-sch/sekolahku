@@ -17,3 +17,11 @@ BASE_URL=http://localhost:8181 npm run audit:ui
 
 Token sesi (opsional, untuk halaman dashboard) hanya dibaca dari environment
 `SESSION_TOKEN` dan `USER_INFO`; jangan menulisnya ke file.
+
+## Snapshot terakhir
+
+Laman publik + dashboard (dengan sesi admin) diaudit pada 20 Oktober 2026 via Playwright
+
+- axe-core dan Impeccable v4.7.0. Hasil tersimpan di `run/report-2026-10-20.json`.
+
+Ringkasan hasil: **axe-violations = 0**, **impeccable-findings = 0**.

@@ -12,6 +12,28 @@ Artefak: `docs/design-baseline/` (JSON) + screenshot lokal di `/tmp/opencode/bas
 - Inventaris kode: impor ikon, file motion, komponen UI, ukuran build `out/`.
 - Ulangi dengan: `npm run audit:ui` dan `npm run audit:design` (lihat catatan di bawah).
 
+## Status implementasi (setelah Fase 1–4)
+
+Diperbarui 20 Oktober 2026. Verifikasi terakhir di dev `http://sdn1kenanga.sch.id:3001`
+dengan sesi admin; produksi belum dideploy ulang pada saat catatan ini dibuat.
+
+| Area              | Status          | Bukti                                                                                    |
+| ----------------- | --------------- | ---------------------------------------------------------------------------------------- |
+| Tipografi         | Selesai         | Plus Jakarta Sans + Source Serif 4 via `next/font/local`; `--font-inter` dihapus.        |
+| Kontras & label   | Selesai         | axe 0 pelanggaran (12 halaman), termasuk login dan dashboard.                            |
+| Heading           | Selesai         | H1 ganda di top bar dashboard dihapus; satu H1 per halaman.                              |
+| Motion            | Selesai         | `motion` 14 + `MotionConfig reducedMotion="user"`; 36 file memakai `motion/react`.       |
+| Ikon              | Selesai         | 354 file Lucide v1.59; 0 referensi Tabler; `@tabler/icons-react` dihapus.                |
+| Efek mati         | Selesai         | 9 komponen Aceternity tak terpakai dihapus; `components/ui` 58 → 49 file.                |
+| Detektor desain   | Selesai         | `npx impeccable detect app components` → **0 temuan** (sebelumnya 28).                   |
+| Hero landing      | Selesai         | Satu shader WebGL2 + poster fallback, pause offscreen/hidden, reduced-motion aman.       |
+| Bundle            | Sedikit membaik | 15,88 MB JS / 350,7 KB CSS mentah; 132 MB `out/` total.                                  |
+| Form              | Sebagian        | Select hubungan di `/daftar-ortu` memakai komponen shadcn; 28 `<select>` native tersisa. |
+| Tabel/empty state | Belum           | Masih tersebar per halaman; kandidat Fase 5.                                             |
+
+Angka baseline di bawah adalah kondisi **sebelum** perubahan dan disimpan sebagai
+pembanding.
+
 ## Ringkasan temuan
 
 | Area            | Temuan                                                                                                                                                                                                                   | Dampak                                      |
@@ -62,8 +84,8 @@ Catatan: `overused-font` pada label cetak adalah keputusan sadar (Arial untuk ko
 
 ## Inventaris teknis
 
-- **Ikon:** 352 file mengimpor `lucide-react`; 1 file mengimpor `@tabler/icons-react` (`components/ui/sidebar.tsx`, 2 ikon).
-- **Motion:** 40 file `framer-motion`; `useReducedMotion` hanya di landing, SPMB, dan `components/public/motion.tsx`; belum ada `MotionConfig`.
+- **Ikon (kini):** 354 file mengimpor `lucide-react` v1.59; 0 referensi Tabler.
+- **Motion (kini):** 36 file memakai `motion/react`; `MotionConfig reducedMotion="user"` di root; 5 file menangani reduced-motion eksplisit.
 - **Font:** tidak ada `next/font`; `out/fonts/Liberation*.ttf` hanya untuk PDF, bukan UI.
 - **Palet:** token teal + injeksi brand runtime (`lib/theme.ts`); utility glass masih memakai `zinc` di dark mode.
 - **Shadcn:** `components.json` valid (style `new-york`, Tailwind v4, icon lucide); CLI belum terpasang sebagai dependency.
@@ -117,6 +139,14 @@ Catatan:
 - `npx impeccable detect` mengembalikan exit code `2` bila ada temuan; itu normal untuk baseline.
 - Telemetry Impeccable dapat dimatikan dengan `npx impeccable telemetry off`.
 - Audit produksi hanya melakukan GET; tidak ada data yang diubah.
+
+## Hero shader
+
+- Komponen: `components/public/hero-shader.tsx`; sumber: `components/public/hero-shader-source.ts`.
+- Hanya di `/`; poster CSS menjadi fallback saat reduced-motion, WebGL gagal, atau context lost.
+- Canvas `aria-hidden`, `pointer-events-none`; scrim kiri `from-background/80` menjaga kontras.
+- Resolusi internal 0,7× desktop / 0,85× mobile, DPR ≤1,5, maks 1920 px; pause saat tab hidden/off-screen.
+- axe landing: 0 pelanggaran.
 
 ## Baseline artifacts
 

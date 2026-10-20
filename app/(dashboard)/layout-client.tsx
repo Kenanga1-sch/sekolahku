@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
@@ -344,6 +344,15 @@ function DashboardLayoutChrome({
   const router = useRouter();
   const pathname = usePathname();
   const pageTitle = getPageTitle(pathname);
+  const mainRef = useRef<HTMLElement>(null);
+  const previousPath = useRef(pathname);
+
+  useEffect(() => {
+    if (previousPath.current !== pathname) {
+      previousPath.current = pathname;
+      mainRef.current?.focus({ preventScroll: true });
+    }
+  }, [pathname]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -541,8 +550,11 @@ function DashboardLayoutChrome({
           </header>
 
           <main
+            ref={mainRef}
             id="main-content"
+            tabIndex={-1}
             className={cn(
+              "outline-none",
               "flex min-w-0 flex-1 flex-col gap-2 overflow-x-hidden px-3 pb-20 pt-2 sm:px-4 md:h-full md:overflow-y-auto md:rounded-tl-2xl md:px-5 md:pb-6 md:pt-4 lg:px-6 xl:px-8 print:h-auto print:overflow-visible [&>*]:w-full",
               immersive && "gap-0 p-0 md:rounded-none md:p-0"
             )}
