@@ -146,7 +146,7 @@ export default function ParentLayoutClient({ children }: { children: React.React
               </div>
             </div>
             <div className="mt-auto pt-4 pb-2 px-2">
-              <span className="text-[10px] text-muted-foreground/70 font-mono tracking-widest select-none print:hidden">
+              <span className="text-[10px] text-muted-foreground font-mono tracking-widest select-none print:hidden">
                 {APP_VERSION}
               </span>
             </div>

@@ -187,6 +187,7 @@ export default function TabunganDashboardPage() {
                 <Button
                     variant="outline"
                     size="icon"
+                    aria-label="Muat ulang data tabungan"
                     onClick={handleRefresh}
                     disabled={refreshing}
                     className="border-slate-200 hover:bg-slate-50 self-end sm:self-auto"

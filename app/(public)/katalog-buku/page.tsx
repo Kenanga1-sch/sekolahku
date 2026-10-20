@@ -153,7 +153,7 @@ export default function PublicCatalogPage() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="h-9 flex-1 min-w-[140px] text-sm">
+              <SelectTrigger aria-label="Filter kategori" className="h-9 flex-1 min-w-[140px] text-sm">
                 <SlidersHorizontal className="h-4 w-4 mr-1.5 shrink-0 text-muted-foreground" />
                 <SelectValue placeholder="Kategori" />
               </SelectTrigger>
@@ -174,7 +174,7 @@ export default function PublicCatalogPage() {
                 setPage(1);
               }}
             >
-              <SelectTrigger className="h-9 w-[104px] text-sm">
+              <SelectTrigger aria-label="Jumlah buku per halaman" className="h-9 w-[104px] text-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

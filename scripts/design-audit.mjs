@@ -73,7 +73,11 @@ const cookieJar = TOKEN
 
 await fs.mkdir(OUT, { recursive: true });
 
-const browser = await chromium.launch({ headless: true });
+const resolver = process.env.HOST_RESOLVER;
+const browser = await chromium.launch({
+  headless: true,
+  args: resolver ? [`--host-resolver-rules=MAP ${resolver}`] : [],
+});
 const report = { base: BASE, generatedAt: new Date().toISOString(), pages: [] };
 
 for (const [name, route] of pages) {

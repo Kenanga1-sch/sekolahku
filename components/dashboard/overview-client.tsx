@@ -307,12 +307,12 @@ export function OverviewClient({
             <CardContent className="p-4 sm:p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-sky-600 dark:text-sky-400">Laki-laki</p>
+                  <p className="text-sm font-medium text-sky-700 dark:text-sky-400">Laki-laki</p>
                   <p className="mt-1 text-3xl font-bold text-sky-700 dark:text-sky-300">{activeMale}</p>
                   <p className="mt-1 text-xs text-sky-600/70 dark:text-sky-400/70">{totalActiveStudents > 0 ? `${Math.round((activeMale / totalActiveStudents) * 100)}% dari total` : '-'}</p>
                 </div>
                 <div className="rounded-full bg-sky-100 p-3 dark:bg-sky-900/50">
-                  <span className="text-lg font-bold text-sky-600 dark:text-sky-400">L</span>
+                  <span className="text-lg font-bold text-sky-700 dark:text-sky-400">L</span>
                 </div>
               </div>
             </CardContent>
@@ -321,12 +321,12 @@ export function OverviewClient({
             <CardContent className="p-4 sm:p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-rose-600 dark:text-rose-400">Perempuan</p>
+                  <p className="text-sm font-medium text-rose-700 dark:text-rose-400">Perempuan</p>
                   <p className="mt-1 text-3xl font-bold text-rose-700 dark:text-rose-300">{activeFemale}</p>
                   <p className="mt-1 text-xs text-rose-600/70 dark:text-rose-400/70">{totalActiveStudents > 0 ? `${Math.round((activeFemale / totalActiveStudents) * 100)}% dari total` : '-'}</p>
                 </div>
                 <div className="rounded-full bg-rose-100 p-3 dark:bg-rose-900/50">
-                  <span className="text-lg font-bold text-rose-600 dark:text-rose-400">P</span>
+                  <span className="text-lg font-bold text-rose-700 dark:text-rose-400">P</span>
                 </div>
               </div>
             </CardContent>

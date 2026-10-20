@@ -777,9 +777,9 @@ export function LaporanPresensiTab({ hideHeader = false }: { hideHeader?: boolea
             <div className="no-print grid grid-cols-2 md:grid-cols-6 gap-3">
               <Card><CardContent className="py-3"><p className="text-xl font-bold">{matrix.length}</p><p className="text-xs text-muted-foreground">Total Siswa</p></CardContent></Card>
               <Card className="border-green-200"><CardContent className="py-3"><p className="text-xl font-bold text-success">{matrix.reduce((sum, s) => sum + s.totalHadir, 0)}</p><p className="text-xs text-success">Total Hadir</p></CardContent></Card>
-              <Card className="border-yellow-200"><CardContent className="py-3"><p className="text-xl font-bold text-yellow-700">{matrix.reduce((sum, s) => sum + s.totalSakit, 0)}</p><p className="text-xs text-yellow-600">Total Sakit</p></CardContent></Card>
+              <Card className="border-yellow-200"><CardContent className="py-3"><p className="text-xl font-bold text-yellow-700">{matrix.reduce((sum, s) => sum + s.totalSakit, 0)}</p><p className="text-xs text-warning">Total Sakit</p></CardContent></Card>
               <Card className="border-blue-200"><CardContent className="py-3"><p className="text-xl font-bold text-blue-700">{matrix.reduce((sum, s) => sum + s.totalIzin, 0)}</p><p className="text-xs text-blue-600">Total Izin</p></CardContent></Card>
-              <Card className="border-red-200"><CardContent className="py-3"><p className="text-xl font-bold text-red-700">{matrix.reduce((sum, s) => sum + s.totalAlpha, 0)}</p><p className="text-xs text-red-600">Total Alpha</p></CardContent></Card>
+              <Card className="border-red-200"><CardContent className="py-3"><p className="text-xl font-bold text-red-700">{matrix.reduce((sum, s) => sum + s.totalAlpha, 0)}</p><p className="text-xs text-destructive">Total Alpha</p></CardContent></Card>
               <Card className="border-purple-200"><CardContent className="py-3"><p className="text-xl font-bold text-purple-700">{(classPct(matrix, effectiveDays) ?? 0)}%</p><p className="text-xs text-purple-600">% Kehadiran (hari efektif)</p></CardContent></Card>
             </div>
           )}

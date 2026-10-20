@@ -312,7 +312,7 @@ export default function TabDirektori() {
                         <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 w-full sm:w-auto">
                             {!isGuru && (
                                 <Select value={classFilter} onValueChange={(val) => setClassFilter(val === "all" ? "" : val)}>
-                                    <SelectTrigger className="w-full sm:w-[140px] bg-background">
+                                    <SelectTrigger aria-label="Filter kelas" className="w-full sm:w-[140px] bg-background">
                                         <SelectValue placeholder="Semua Kelas" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -327,7 +327,7 @@ export default function TabDirektori() {
                             )}
 
                             <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                <SelectTrigger className="w-full sm:w-[140px] bg-background">
+                                <SelectTrigger aria-label="Filter status siswa" className="w-full sm:w-[140px] bg-background">
                                     <SelectValue placeholder="Semua Status" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -347,7 +347,7 @@ export default function TabDirektori() {
                                     setPage(1);
                                 }}
                             >
-                                <SelectTrigger className="col-span-2 sm:col-span-1 w-full sm:w-[110px] bg-background">
+                                <SelectTrigger aria-label="Jumlah baris per halaman" className="col-span-2 sm:col-span-1 w-full sm:w-[110px] bg-background">
                                     <SelectValue placeholder="Baris" />
                                 </SelectTrigger>
                                 <SelectContent>

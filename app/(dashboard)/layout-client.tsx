@@ -494,7 +494,7 @@ function DashboardLayoutChrome({
                 ))
               )}
               <div className="mt-auto pt-4 pb-2 px-2">
-                <span className="text-[10px] text-muted-foreground/70 font-mono tracking-widest select-none print:hidden">
+                <span className="text-[10px] text-muted-foreground font-mono tracking-widest select-none print:hidden">
                   {APP_VERSION}
                 </span>
               </div>
@@ -511,9 +511,9 @@ function DashboardLayoutChrome({
           )}>
             {/* Left: Page Title (mobile only) */}
             <div className="flex items-center gap-3 md:hidden pl-2">
-              <h1 className="text-lg font-bold text-neutral-800 dark:text-neutral-100 truncate">
+              <p className="text-lg font-bold text-neutral-800 dark:text-neutral-100 truncate">
                 {pageTitle}
-              </h1>
+              </p>
             </div>
 
             {/* Right: Actions */}

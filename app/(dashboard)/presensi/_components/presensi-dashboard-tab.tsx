@@ -168,13 +168,13 @@ export function PresensiDashboardTab() {
             <CardTitle className="text-sm font-medium text-yellow-700">
               Sakit/Izin
             </CardTitle>
-            <AlertCircle className="h-4 w-4 text-yellow-600" />
+            <AlertCircle className="h-4 w-4 text-warning" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-yellow-700">
               {(stats?.stats.sakit || 0) + (stats?.stats.izin || 0)}
             </div>
-            <p className="text-xs text-yellow-600">
+            <p className="text-xs text-warning">
               {stats?.stats.sakit || 0} sakit, {stats?.stats.izin || 0} izin
             </p>
           </CardContent>
@@ -185,13 +185,13 @@ export function PresensiDashboardTab() {
             <CardTitle className="text-sm font-medium text-red-700">
               Belum Presensi
             </CardTitle>
-            <Clock className="h-4 w-4 text-red-600" />
+            <Clock className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-700">
               {stats?.stats.belumAbsen || 0}
             </div>
-            <p className="text-xs text-red-600">siswa belum dipresensi</p>
+            <p className="text-xs text-destructive-strong">siswa belum dipresensi</p>
           </CardContent>
         </Card>
       </div>

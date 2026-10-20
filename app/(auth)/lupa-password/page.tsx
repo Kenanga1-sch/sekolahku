@@ -202,7 +202,7 @@ export default function LupaPasswordPage() {
       </div>
 
       <div className="text-center">
-        <span className="text-xs text-muted-foreground/70 font-mono tracking-widest select-none">
+        <span className="text-xs text-muted-foreground font-mono tracking-widest select-none">
           {APP_VERSION}
         </span>
       </div>
