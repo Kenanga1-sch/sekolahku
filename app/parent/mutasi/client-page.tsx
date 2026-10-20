@@ -98,6 +98,7 @@ export default function ParentMutasiClientPage() {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
+    mode: "onBlur",
     defaultValues: {
       destinationSchool: "",
       destinationStreet: "",

@@ -55,6 +55,7 @@ export default function LoanApprovalDialog({ loan, open, onOpenChange, onSuccess
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema) as any,
+    mode: "onBlur",
     defaultValues: {
       approvedAmount: loan?.amountRequested ?? 0,
       adminFee: 0,

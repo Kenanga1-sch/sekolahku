@@ -59,6 +59,7 @@ export default function LoanRequestDialog({ open, onOpenChange, onSuccess }: Loa
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema) as any,
+    mode: "onBlur",
     defaultValues: {
       employeeDetailId: "",
       type: "KASBON",

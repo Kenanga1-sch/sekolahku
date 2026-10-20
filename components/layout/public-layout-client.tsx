@@ -175,7 +175,7 @@ export default function PublicLayoutClient({
                 key={item.id}
                 href={item.href}
                 className={cn(
-                  "flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-colors active:scale-[0.95]",
+                  "flex min-h-11 flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-xl transition-colors active:scale-[0.95]",
                   isActive
                     ? "text-primary"
                     : "text-muted-foreground hover:text-primary"

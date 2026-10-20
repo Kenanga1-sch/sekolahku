@@ -80,6 +80,7 @@ export default function LoginPage() {
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
+    mode: "onBlur",
     defaultValues: {
       identity: "",
       password: "",

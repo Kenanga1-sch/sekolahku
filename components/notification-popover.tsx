@@ -140,7 +140,7 @@ export function NotificationPopover({ className }: { className?: string }) {
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
-          className={cn("relative h-10 w-10 rounded-full", className)}
+          className={cn("relative h-11 w-11 rounded-full", className)}
           size="icon"
         >
           <Bell className="h-5 w-5" />

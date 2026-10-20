@@ -54,6 +54,7 @@ export function StudentFormDialog({ open, onOpenChange, studentId, onSuccess }: 
 
   const form = useForm<StudentFormValues>({
     resolver: zodResolver(studentSchema) as any,
+    mode: "onBlur",
     defaultValues: {
       fullName: "",
       gender: "L",

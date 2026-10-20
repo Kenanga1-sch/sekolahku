@@ -159,7 +159,7 @@ export const MobileSidebar = ({
                 <button
                   onClick={() => setOpen(false)}
                   aria-label="Tutup menu"
-                  className="p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                  className="flex h-11 w-11 items-center justify-center rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
                 >
                   <X className="h-5 w-5 text-neutral-600 dark:text-neutral-400" />
                 </button>
@@ -191,7 +191,7 @@ export const SidebarLink = ({
     <Link
       href={link.href}
       className={cn(
-        "flex items-center justify-start gap-2  group/sidebar py-2",
+        "flex min-h-11 items-center justify-start gap-2 group/sidebar py-2 md:min-h-0",
         className
       )}
       onClick={props?.onClick || ((props as any)?.onClick)}

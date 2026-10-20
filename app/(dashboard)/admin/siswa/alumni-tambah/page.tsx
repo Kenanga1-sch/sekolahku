@@ -41,6 +41,7 @@ export default function TambahAlumniPage() {
     trigger,
   } = useForm<any>({
     resolver: zodResolver(alumniFormSchema),
+    mode: "onBlur",
     defaultValues: {
       status: "active",
       enrolledYear: new Date().getFullYear().toString(),

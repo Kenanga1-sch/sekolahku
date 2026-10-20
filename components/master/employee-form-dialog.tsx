@@ -115,6 +115,7 @@ export function EmployeeFormDialog({ open, onOpenChange, employeeId, onSuccess }
 
   const form = useForm<EmployeeFormValues>({
     resolver: zodResolver(employeeSchema) as any,
+    mode: "onBlur",
     defaultValues: {
       fullName: "",
       email: "",

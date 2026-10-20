@@ -44,6 +44,8 @@ import { getSchoolLogo } from "@/lib/school-logo";
 import { resolveUploadUrl } from "@/lib/upload-url";
 import { APP_VERSION } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
+import { getBreadcrumbItems, getPageTitle } from "@/lib/page-titles";
+import { BreadcrumbNav } from "@/components/breadcrumb-nav";
 import type { UserRole } from "@/types";
 import { Sidebar, SidebarBody, SidebarLink, useSidebar } from "@/components/ui/sidebar";
 import { BottomNav } from "@/components/ui/bottom-nav";
@@ -61,110 +63,6 @@ const NotificationPopover = dynamic(
   }
 );
 import type { SchoolSettings } from "@/types";
-
-// Page title mapping for mobile header (longest-prefix match)
-const PAGE_TITLES: Record<string, string> = {
-  "/overview": "Beranda",
-  // Keuangan
-  "/keuangan": "Keuangan",
-  // Perpustakaan
-  "/perpustakaan/buku": "Data Buku",
-  "/perpustakaan/anggota": "Anggota Perpustakaan",
-  "/perpustakaan/peminjaman": "Peminjaman Buku",
-  "/perpustakaan/kunjungan/manual": "Kunjungan Manual",
-  "/perpustakaan/binding": "Penjilidan Buku",
-  "/perpustakaan/qr-generator": "Generator QR Buku",
-  "/perpustakaan/laporan": "Laporan Perpustakaan",
-  "/perpustakaan": "Perpustakaan",
-  // Inventaris
-  "/inventaris/aset": "Daftar Aset",
-  "/inventaris/stok": "Barang Habis Pakai",
-  "/inventaris/ruangan": "Ruangan",
-  "/inventaris/kategori": "Kategori Inventaris",
-  "/inventaris/peminjaman": "Peminjaman Barang",
-  "/inventaris/opname": "Stok Opname",
-  "/inventaris/audit": "Audit Aset",
-  "/inventaris/laporan": "Laporan Inventaris",
-  "/inventaris": "Inventaris",
-  // Arsip
-  "/arsip/surat-masuk": "Surat Masuk",
-  "/arsip/surat-keluar": "Surat Keluar",
-  "/arsip/dokumen": "Dokumen",
-  "/arsip/laporan": "Laporan Arsip",
-  "/arsip/pengaturan": "Pengaturan Arsip",
-  "/arsip": "E-Arsip",
-  // DocStation
-  "/docstation": "DocStation",
-  // Cloud Storage
-  "/cloud-storage": "Cloud Storage",
-  // Tabungan
-  "/tabungan/riwayat": "Riwayat Transaksi",
-  "/tabungan/siswa": "Tabungan Siswa",
-  "/tabungan/setoran": "Setoran",
-  "/tabungan/penarikan": "Penarikan",
-  "/tabungan/verifikasi": "Verifikasi",
-  "/tabungan/pengguna": "Pengguna Tabungan",
-  "/tabungan/brankas": "Brankas",
-  "/tabungan/hutang": "Hutang Siswa",
-  "/tabungan/laporan": "Laporan Tabungan",
-  "/tabungan/scan": "Scan Tabungan",
-  "/tabungan": "Tabungan",
-  // Presensi
-  "/presensi/pengajuan": "Pengajuan Izin",
-  "/presensi/laporan": "Laporan Presensi",
-  "/presensi/scan": "Scan Presensi",
-  "/presensi/scan-gtk": "Scan Presensi GTK",
-  "/presensi/holidays": "Hari Libur",
-  "/presensi": "Presensi",
-  // Admin
-  "/admin/siswa/spmb-detail": "Detail Pendaftar SPMB",
-  "/admin/siswa/spmb-tambah": "Input Pendaftar SPMB",
-  "/admin/siswa/spmb-bukti": "Bukti Pendaftaran SPMB",
-  "/admin/siswa/buku-induk": "Buku Induk",
-  "/admin/siswa/import": "Import Siswa",
-  "/admin/siswa/kelulusan": "Kelulusan",
-  "/admin/siswa/alumni": "Alumni",
-  "/admin/siswa/cetak": "Cetak",
-  "/admin/siswa/detail": "Detail Siswa",
-  "/admin/siswa": "Manajemen Siswa",
-  "/admin/master/gtk/cetak-kartu": "Cetak Kartu GTK",
-  "/admin/master/gtk": "Direktori GTK",
-  "/admin/akademik": "Akademik",
-  "/admin/surat/jenis": "Jenis Surat",
-  "/admin/surat/template": "Template Surat",
-  "/admin/surat": "Surat",
-  "/admin/konten-informasi": "Pusat Informasi",
-  "/admin/halaman-depan": "Halaman Depan",
-  "/admin/notifikasi": "Notifikasi",
-  "/admin": "Administrasi",
-  // Bank Soal
-  "/bank-soal/soal/baru": "Buat Soal",
-  "/bank-soal/soal/edit": "Edit Soal",
-  "/bank-soal/soal": "Kelola Soal",
-  "/bank-soal/bab": "Kelola Bab",
-  "/bank-soal/paket": "Paket Soal",
-  "/bank-soal": "Bank Soal",
-  // Praktik
-  "/praktik/hasil": "Hasil Praktik",
-  "/praktik": "Latihan Soal",
-  // Profil
-  "/profil/ganti-password": "Ganti Password",
-  "/profile": "Profil",
-  "/pengaturan": "Pengaturan",
-};
-
-// Pre-compute sorted keys (longest first for prefix matching)
-const PAGE_TITLE_KEYS = Object.keys(PAGE_TITLES).sort((a, b) => b.length - a.length);
-
-function getPageTitle(pathname: string): string {
-  // Exact match first
-  if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
-  // Prefix match (using pre-sorted keys)
-  for (const key of PAGE_TITLE_KEYS) {
-    if (pathname.startsWith(key)) return PAGE_TITLES[key];
-  }
-  return "Dashboard";
-}
 
 // --- Navigation Config (Preserved) ---
 interface SubNavItem {
@@ -344,6 +242,7 @@ function DashboardLayoutChrome({
   const router = useRouter();
   const pathname = usePathname();
   const pageTitle = getPageTitle(pathname);
+  const breadcrumbItems = getBreadcrumbItems(pathname);
   const mainRef = useRef<HTMLElement>(null);
   const previousPath = useRef(pathname);
 
@@ -451,7 +350,7 @@ function DashboardLayoutChrome({
                             <div key={link.label} className="flex flex-col">
                               <button
                                 onClick={() => toggleMenu(link.label)}
-                                className="flex items-center justify-between w-full py-2 text-left group/sidebar cursor-pointer"
+                                className="flex min-h-11 md:min-h-0 items-center justify-between w-full py-2 text-left group/sidebar cursor-pointer"
                               >
                                 <div className="flex items-center gap-2">
                                   <link.icon className="text-neutral-700 dark:text-neutral-200 h-[18px] w-[18px] md:h-5 md:w-5 flex-shrink-0" />
@@ -559,6 +458,9 @@ function DashboardLayoutChrome({
               immersive && "gap-0 p-0 md:rounded-none md:p-0"
             )}
           >
+            {!immersive && breadcrumbItems.length > 0 && (
+              <BreadcrumbNav items={breadcrumbItems} className="hidden md:block" />
+            )}
             <React.Fragment key={pathname}>{children}</React.Fragment>
          </main>
       </div>

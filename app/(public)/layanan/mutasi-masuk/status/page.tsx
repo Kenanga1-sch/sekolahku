@@ -64,6 +64,7 @@ export default function MutasiTrackingPage() {
 
   const form = useForm<z.infer<typeof trackSchema>>({
     resolver: zodResolver(trackSchema),
+    mode: "onBlur",
     defaultValues: { registrationNumber: "", nisn: "" },
   });
 

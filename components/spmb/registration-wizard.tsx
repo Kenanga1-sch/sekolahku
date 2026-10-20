@@ -84,6 +84,7 @@ function RegistrationWizardContent({
   // Forms with explicit default values from props (Sync initialization)
   const studentForm = useForm<StudentFormValues>({
     resolver: zodResolver(studentFormSchema) as any,
+    mode: "onBlur",
     defaultValues: initialData.student || {
       full_name: "", nik: "", kk_number: "", birth_place: "", birth_date: "",
       gender: undefined, religion: undefined, special_needs: "Tidak",
@@ -97,6 +98,7 @@ function RegistrationWizardContent({
 
   const parentForm = useForm<ParentFormValues>({
     resolver: zodResolver(parentFormSchema),
+    mode: "onBlur",
     defaultValues: initialData.parent || {
       parent_phone: "", parent_email: "", address_street: "", address_rt: "",
       address_rw: "", address_village: "", postal_code: "",
@@ -111,6 +113,7 @@ function RegistrationWizardContent({
 
   const locationForm = useForm<LocationFormValues>({
     resolver: zodResolver(locationFormSchema),
+    mode: "onBlur",
     defaultValues: initialData.location || {
       home_lat: undefined,
       home_lng: undefined,

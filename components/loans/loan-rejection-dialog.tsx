@@ -40,6 +40,7 @@ interface LoanRejectionDialogProps {
 export default function LoanRejectionDialog({ loan, open, onOpenChange, onSuccess }: LoanRejectionDialogProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
+    mode: "onBlur",
     defaultValues: {
         reason: "",
     },

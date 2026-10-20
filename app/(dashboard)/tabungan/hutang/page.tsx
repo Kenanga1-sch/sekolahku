@@ -68,6 +68,7 @@ export default function HutangManagementPage() {
     const [hutangList, setHutangList] = useState<Hutang[]>([]);
     const [siswaList, setSiswaList] = useState<Siswa[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [fetchError, setFetchError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     // Filters
@@ -112,6 +113,7 @@ export default function HutangManagementPage() {
 
     const fetchHutang = useCallback(async () => {
         setIsLoading(true);
+        setFetchError(null);
         try {
             const params = new URLSearchParams();
             if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
@@ -119,9 +121,12 @@ export default function HutangManagementPage() {
             const data: any = await goGet(`/api/tabungan/hutang?${params}`);
             if (data.success) {
                 setHutangList(data.items || []);
+            } else {
+                setFetchError(data.error || "Gagal memuat data hutang siswa.");
             }
         } catch (error) {
             console.error("Failed to fetch hutang:", error);
+            setFetchError("Gagal memuat data hutang siswa. Periksa koneksi lalu coba lagi.");
         } finally {
             setIsLoading(false);
         }
@@ -487,6 +492,8 @@ export default function HutangManagementPage() {
                                 data={isLoading ? [] : filteredHutang}
                                 getRowId={(h) => h.id}
                                 loading={isLoading}
+                                error={fetchError}
+                                onRetry={fetchHutang}
                                 emptyTitle="Tidak ada data hutang ditemukan"
                                 emptyDescription="Tagihan hutang siswa akan muncul di sini."
                                 expandedRowIds={Object.keys(expandedRows)}

@@ -88,7 +88,7 @@ export function PwaInstallButton({ className, iconOnly = false }: PwaInstallButt
         <Button
           variant="ghost"
           size="icon"
-          className={cn("h-9 w-9 text-muted-foreground hover:bg-muted relative", className)}
+          className={cn("h-11 w-11 text-muted-foreground hover:bg-muted relative", className)}
           onClick={handleInstall}
           title="Pasang Aplikasi"
           aria-label="Pasang Aplikasi"

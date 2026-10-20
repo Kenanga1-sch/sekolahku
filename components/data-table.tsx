@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment as ReactFragment, ReactNode } from "react";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { AlertTriangle, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
     Table,
@@ -47,6 +47,8 @@ export interface DataTableProps<T> {
     columns: Column<T>[];
     getRowId: (row: T, index: number) => string;
     loading?: boolean;
+    error?: string | null;
+    onRetry?: () => void;
     emptyTitle?: string;
     emptyDescription?: string;
     emptyAction?: {
@@ -82,6 +84,8 @@ export function DataTable<T>({
     columns,
     getRowId,
     loading = false,
+    error,
+    onRetry,
     emptyTitle = "Tidak Ada Data",
     emptyDescription = "Belum ada data yang tersedia saat ini.",
     emptyAction,
@@ -203,6 +207,17 @@ export function DataTable<T>({
                             </Table>
                         </div>
                     </div>
+                ) : error ? (
+                    <EmptyState
+                        icon={AlertTriangle}
+                        title="Gagal memuat data"
+                        description={error}
+                        action={
+                            onRetry
+                                ? { label: "Coba Lagi", onClick: onRetry }
+                                : undefined
+                        }
+                    />
                 ) : data.length === 0 ? (
                     <EmptyState
                         variant="data"

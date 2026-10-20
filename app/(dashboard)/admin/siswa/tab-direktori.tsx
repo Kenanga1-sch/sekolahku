@@ -40,6 +40,7 @@ export default function TabDirektori() {
     const isGuru = (user?.role || "").toLowerCase() === "guru";
     const [students, setStudents] = useState<Student[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [fetchError, setFetchError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
     const [classFilter, setClassFilter] = useState("");
@@ -108,6 +109,7 @@ export default function TabDirektori() {
 
     const fetchStudents = async () => {
         setIsLoading(true);
+        setFetchError(null);
         try {
             const params = new URLSearchParams({
                 page: page.toString(),
@@ -129,7 +131,7 @@ export default function TabDirektori() {
             setByClass(result?.summary?.byClass ?? []);
         } catch (error) {
             console.error(error);
-            showError("Gagal memuat data siswa");
+            setFetchError("Gagal memuat data siswa. Periksa koneksi lalu coba lagi.");
         } finally {
             setIsLoading(false);
         }
@@ -376,6 +378,8 @@ export default function TabDirektori() {
                         data={isLoading ? [] : sortedStudents}
                         getRowId={(student) => student.id}
                         loading={isLoading}
+                        error={fetchError}
+                        onRetry={fetchStudents}
                         sortConfig={sortConfig}
                         onSort={requestSort}
                         emptyTitle="Tidak ada data siswa ditemukan"

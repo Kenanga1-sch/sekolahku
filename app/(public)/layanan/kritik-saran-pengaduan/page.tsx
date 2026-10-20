@@ -100,6 +100,7 @@ export default function KritikSaranPengaduanPage() {
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<SchemaType>({
     resolver: zodResolver(schema),
+    mode: "onBlur",
   });
 
   const clearFiles = () => {

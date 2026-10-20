@@ -50,6 +50,7 @@ export default function EditAlumniPage() {
     trigger,
   } = useForm<any>({
     resolver: zodResolver(alumniFormSchema),
+    mode: "onBlur",
   });
 
   const studentStatus = watch("status");
