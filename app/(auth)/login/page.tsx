@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -23,7 +22,6 @@ import {
   AlertCircle, 
   Mail, 
   Lock, 
-  GraduationCap, 
   Eye, 
   EyeOff,
   Info
@@ -33,18 +31,7 @@ import { loginAction } from "@/actions/auth";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/stores/auth-store";
-import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
-import { getSchoolLogo } from "@/lib/school-logo";
 import { APP_VERSION } from "@/lib/api-client";
-
-const BottomGradient = () => {
-  return (
-    <>
-      <span className="group-hover/btn:opacity-100 block transition duration-500 opacity-0 absolute h-px w-full -bottom-px inset-x-0 bg-gradient-to-r from-transparent via-cyan-500 to-transparent" />
-      <span className="group-hover/btn:opacity-100 blur-sm block transition duration-500 opacity-0 absolute h-px w-1/2 mx-auto -bottom-px inset-x-0 bg-gradient-to-r from-transparent via-cyan-500 to-transparent" />
-    </>
-  );
-};
 
 const LabelInputContainer = ({
   children,
@@ -64,9 +51,7 @@ const MAX_ATTEMPTS = 5;
 const LOCKOUT_TIME = 60000; // 1 minute in ms
 
 export default function LoginPage() {
-  const router = useRouter();
   const { refreshSession } = useAuthStore();
-  const { settings } = useSchoolSettings();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -74,9 +59,6 @@ export default function LoginPage() {
   const [attempts, setAttempts] = useState(0);
   const [lockoutUntil, setLockoutUntil] = useState<number>(0);
   const [timeLeft, setTimeLeft] = useState(0);
-
-  // Get school logo
-  const schoolLogo = getSchoolLogo(settings?.school_logo);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
@@ -211,10 +193,10 @@ export default function LoginPage() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="space-y-6 w-full max-w-md mx-auto p-8 rounded-2xl bg-white/50 dark:bg-black/30 backdrop-blur-md border border-zinc-200/50 dark:border-white/10 shadow-xl"
+      className="mx-auto w-full max-w-md space-y-6 rounded-2xl border border-line/70 bg-card p-6 shadow-sm sm:p-8"
     >
       <div className="space-y-2 text-center flex flex-col items-center">
-        <h1 className="text-3xl font-bold tracking-tight text-zinc-800 dark:text-white">Selamat Datang</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Selamat Datang</h1>
         <p className="text-muted-foreground text-sm">
           Masuk ke dashboard untuk mengelola data sekolah
         </p>
@@ -245,18 +227,17 @@ export default function LoginPage() {
               render={({ field }) => (
                 <FormItem id="login-identity">
                   <LabelInputContainer>
-                    <FormLabel className="text-stone-600 dark:text-stone-300">Username / Email</FormLabel>
+                    <FormLabel className="text-foreground/80">Username / Email</FormLabel>
                     <FormControl>
                       <div className="relative group/btn">
-                        <Mail className="absolute left-3 top-3 h-4 w-4 text-stone-400 dark:text-stone-500 z-10" />
+                        <Mail className="absolute left-3 top-3.5 z-10 h-4 w-4 text-text-soft" aria-hidden="true" />
                         <Input
                           placeholder="nama@email.com"
-                          className="pl-9 h-11 bg-stone-50/50 dark:bg-zinc-900/50 border-stone-200 dark:border-zinc-800 focus-visible:ring-0 focus-visible:border-cyan-500 transition-all duration-300"
+                          className="h-11 pl-10"
                           autoComplete="username"
                           disabled={isLockedOut || isLoading}
                           {...field}
                         />
-                        <BottomGradient />
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -271,14 +252,14 @@ export default function LoginPage() {
               render={({ field }) => (
                 <FormItem id="login-password">
                   <LabelInputContainer>
-                    <FormLabel className="text-stone-600 dark:text-stone-300">Password</FormLabel>
+                    <FormLabel className="text-foreground/80">Password</FormLabel>
                     <FormControl>
                       <div className="relative group/btn">
-                        <Lock className="absolute left-3 top-3 h-4 w-4 text-stone-400 dark:text-stone-500 z-10" />
+                        <Lock className="absolute left-3 top-3.5 z-10 h-4 w-4 text-text-soft" aria-hidden="true" />
                         <Input
                           type={showPassword ? "text" : "password"}
                           placeholder="••••••••"
-                          className="pl-9 pr-10 h-11 bg-stone-50/50 dark:bg-zinc-900/50 border-stone-200 dark:border-zinc-800 focus-visible:ring-0 focus-visible:border-cyan-500 transition-all duration-300"
+                          className="h-11 pl-10 pr-10"
                           autoComplete="current-password"
                           disabled={isLockedOut || isLoading}
                           {...field}
@@ -286,12 +267,11 @@ export default function LoginPage() {
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-3 h-4 w-4 text-stone-400 dark:text-stone-500 z-10 hover:text-stone-600 dark:hover:text-stone-300 transition-colors"
+                          className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded text-text-soft transition-colors hover:text-foreground"
                           aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
                         >
                           {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
-                        <BottomGradient />
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -311,7 +291,7 @@ export default function LoginPage() {
                 />
                 <label
                   htmlFor="remember"
-                  className="text-sm text-stone-600 dark:text-stone-300 cursor-pointer select-none"
+                  className="cursor-pointer select-none text-sm text-foreground/80"
                 >
                   Ingat saya
                 </label>
@@ -326,9 +306,10 @@ export default function LoginPage() {
               </Link>
             </div>
 
-            <Button 
-                type="submit" 
-                className="w-full h-11 bg-gradient-to-br from-black to-neutral-600 block dark:bg-zinc-800 dark:from-zinc-900 dark:to-zinc-900 text-white rounded-md font-medium shadow-[0px_1px_0px_0px_#ffffff40_inset,0px_-1px_0px_0px_#ffffff40_inset] dark:shadow-[0px_1px_0px_0px_var(--zinc-800)_inset,0px_-1px_0px_0px_var(--zinc-800)_inset] hover:opacity-90 transition-opacity"
+            <Button
+                type="submit"
+                size="lg"
+                className="h-11 w-full"
                 disabled={isLockedOut || isLoading}
             >
               {isLoading ? (
@@ -346,18 +327,17 @@ export default function LoginPage() {
                   <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                 </div>
               )}
-              <BottomGradient />
             </Button>
           </form>
         </Form>
       </div>
 
       <div 
-        className="text-center text-sm text-muted-foreground bg-stone-50/80 dark:bg-zinc-900/50 p-4 rounded-xl border border-dashed border-stone-200 dark:border-zinc-800"
+        className="rounded-xl border border-dashed border-line/80 bg-surface-muted/50 p-4 text-center text-sm text-muted-foreground"
         suppressHydrationWarning={true}
       >
-        <div className="font-medium text-stone-700 dark:text-stone-300">Orang tua siswa?</div>
-        <div className="text-xs mt-1 text-stone-500 dark:text-stone-500">
+        <div className="font-medium text-foreground">Orang tua siswa?</div>
+        <div className="mt-1 text-xs text-muted-foreground">
           <a href="/daftar-ortu" className="underline font-medium text-primary">Daftar akun orang tua</a> untuk memantau kehadiran, tabungan, dan pengumuman anak.
         </div>
       </div>

@@ -1,9 +1,19 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Wallet, ClipboardList, Calendar, BookOpen } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import {
+  ArrowRight,
+  BookOpen,
+  CalendarDays,
+  ClipboardList,
+  UserRound,
+  Wallet,
+} from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { PageHeader, SectionHeader } from "@/components/layout/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface StudentData {
   fullName: string;
@@ -24,11 +34,11 @@ const STATUS_LABELS: Record<string, string> = {
   alpha: "Alpha",
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  hadir: "bg-green-100 text-green-800",
-  sakit: "bg-yellow-100 text-yellow-800",
-  izin: "bg-blue-100 text-blue-800",
-  alpha: "bg-red-100 text-red-800",
+const STATUS_TONES: Record<string, string> = {
+  hadir: "bg-success/10 text-success",
+  sakit: "bg-warning/10 text-warning",
+  izin: "bg-info/10 text-info",
+  alpha: "bg-destructive/10 text-destructive",
 };
 
 function formatRupiah(amount: number): string {
@@ -38,6 +48,27 @@ function formatRupiah(amount: number): string {
     minimumFractionDigits: 0,
   }).format(amount);
 }
+
+const quickLinks = [
+  {
+    href: "/presensi/saya",
+    title: "Presensi Saya",
+    description: "Lihat riwayat kehadiran",
+    icon: CalendarDays,
+  },
+  {
+    href: "/tabungan/saya",
+    title: "Tabungan Saya",
+    description: "Riwayat setoran dan penarikan",
+    icon: Wallet,
+  },
+  {
+    href: "/profile",
+    title: "Profil Saya",
+    description: "Kelola informasi akun",
+    icon: UserRound,
+  },
+];
 
 export function SiswaOverview() {
   const [student, setStudent] = useState<StudentData | null>(null);
@@ -66,95 +97,146 @@ export function SiswaOverview() {
 
   if (loading) {
     return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="space-y-6" aria-busy="true" aria-label="Memuat beranda siswa">
+        <div className="space-y-3">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-9 w-64" />
+          <Skeleton className="h-4 w-48" />
+        </div>
+        <div className="grid gap-6 lg:grid-cols-12">
+          <Skeleton className="h-48 rounded-2xl lg:col-span-7" />
+          <Skeleton className="h-48 rounded-2xl lg:col-span-5" />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {[1, 2, 3].map((item) => (
+            <Skeleton key={item} className="h-28 rounded-2xl" />
+          ))}
+        </div>
       </div>
     );
   }
 
   if (!student) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center text-muted-foreground">
-        Data siswa tidak ditemukan.
-      </div>
+      <Card className="mx-auto max-w-md">
+        <CardContent className="flex flex-col items-center gap-3 px-6 py-10 text-center">
+          <span className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-muted">
+            <UserRound className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
+          </span>
+          <div>
+            <h1 className="text-lg font-semibold">Data siswa tidak ditemukan</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Hubungi administrator sekolah untuk memeriksa akun Anda.
+            </p>
+          </div>
+          <Button onClick={() => window.location.reload()} variant="outline">
+            Muat ulang
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Header greeting */}
-      <div>
-        <h1 className="text-2xl font-bold">Halo, {student.fullName} 👋</h1>
-        <p className="text-muted-foreground">
-          {student.className} &middot; NISN {student.nisn}
-        </p>
-      </div>
+      <PageHeader
+        eyebrow={`${student.className} · NISN ${student.nisn}`}
+        title={`Halo, ${student.fullName}`}
+        description="Ringkasan tabungan, presensi, dan akses cepatmu hari ini."
+      />
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Saldo Tabungan</CardTitle>
-            <Wallet className="h-4 w-4 text-muted-foreground" />
+      <div className="grid gap-6 lg:grid-cols-12">
+        <Card className="border-primary/20 bg-primary text-primary-foreground lg:col-span-7">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Wallet className="h-5 w-5" aria-hidden="true" />
+              Saldo tabungan
+            </CardTitle>
+            <CardDescription className="text-primary-foreground/70">
+              Saldo terkini rekening tabunganmu.
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="text-xl font-bold">{formatRupiah(student.balance)}</div>
+          <CardContent className="space-y-6">
+            <p className="text-4xl font-bold tracking-tight tabular-nums sm:text-5xl">
+              {formatRupiah(student.balance)}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild variant="secondary" size="sm">
+                <Link href="/tabungan/saya">
+                  Lihat riwayat <ArrowRight className="ml-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                </Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
-        {attendance.map((att) => (
-          <Card key={att.status}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">
-                {STATUS_LABELS[att.status] || att.status}
-              </CardTitle>
-              <ClipboardList className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{att.count}</div>
-              <Badge variant="secondary" className={STATUS_COLORS[att.status] || ""}>
-                {att.status}
-              </Badge>
-            </CardContent>
-          </Card>
+        <Card className="lg:col-span-5">
+          <CardHeader className="border-b border-line/60 pb-4">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ClipboardList className="h-4 w-4 text-primary" aria-hidden="true" />
+              Ringkasan presensi
+            </CardTitle>
+            <CardDescription>Rekap kehadiran yang tercatat.</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-5">
+            {attendance.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                Belum ada data presensi.
+              </p>
+            ) : (
+              <ul className="grid grid-cols-2 gap-3">
+                {attendance.map((att) => (
+                  <li
+                    key={att.status}
+                    className="rounded-xl border border-line/60 bg-surface-muted/40 p-3"
+                  >
+                    <span
+                      className={`inline-flex rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+                        STATUS_TONES[att.status] || "bg-surface-muted text-muted-foreground"
+                      }`}
+                    >
+                      {STATUS_LABELS[att.status] || att.status}
+                    </span>
+                    <p className="mt-2 text-2xl font-bold tabular-nums">{att.count}</p>
+                    <p className="text-xs text-muted-foreground">hari</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <SectionHeader
+        title="Akses cepat"
+        description="Pintasan ke halaman yang paling sering kamu buka."
+      />
+      <div className="grid gap-3 sm:grid-cols-3">
+        {quickLinks.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className="group flex items-start gap-3.5 rounded-2xl border border-line/70 bg-card p-4 shadow-[0_1px_2px_rgba(4,34,43,0.04)] transition-colors hover:border-primary/30 hover:bg-surface-muted/40"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-primary">
+              <item.icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center justify-between gap-2 text-sm font-semibold text-foreground">
+                {item.title}
+                <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden="true" />
+              </span>
+              <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
+                {item.description}
+              </span>
+            </span>
+          </Link>
         ))}
       </div>
 
-      {/* Quick links */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-        <a href="/presensi/saya" className="block">
-          <Card className="transition-colors hover:bg-accent">
-            <CardContent className="flex items-center gap-3 p-4">
-              <Calendar className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <div className="font-medium">Presensi Saya</div>
-                <div className="text-xs text-muted-foreground">Lihat riwayat kehadiran</div>
-              </div>
-            </CardContent>
-          </Card>
-        </a>
-        <a href="/tabungan/saya" className="block">
-          <Card className="transition-colors hover:bg-accent">
-            <CardContent className="flex items-center gap-3 p-4">
-              <Wallet className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <div className="font-medium">Tabungan Saya</div>
-                <div className="text-xs text-muted-foreground">Riwayat setoran & penarikan</div>
-              </div>
-            </CardContent>
-          </Card>
-        </a>
-        <a href="/profile" className="block">
-          <Card className="transition-colors hover:bg-accent">
-            <CardContent className="flex items-center gap-3 p-4">
-              <BookOpen className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <div className="font-medium">Profil Saya</div>
-                <div className="text-xs text-muted-foreground">Kelola akun</div>
-              </div>
-            </CardContent>
-          </Card>
-        </a>
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
+        Butuh bantuan? Hubungi wali kelas atau administrator sekolah.
       </div>
     </div>
   );

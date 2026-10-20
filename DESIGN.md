@@ -30,6 +30,10 @@ Sumber: `app/globals.css` + injeksi brand `lib/theme.ts`.
 | Warning          | `#B45309` / dark `#FBBF24`  | Peringatan, data belum lengkap. |
 | Info             | `#1D4ED8` / dark `#60A5FA`  | Informasi netral.               |
 | Border subtle    | `#B8D9D3` / dark `#155E63`  | Divider dan garis kartu.        |
+| Canvas           | `#F3F7F5` / dark `#031A21`  | Latar kerja dashboard.          |
+| Surface          | `#FFFFFF` / dark `#082C35`  | Sidebar, header, bottom nav.    |
+| Surface muted    | `#EAF3F0` / dark `#0A3D4A`  | Tile ikon dan area tertekan.    |
+| Text soft        | `#3D5C63` / dark `#A8CCC7`  | Label sekunder dan placeholder. |
 
 Dark mode: surface `#04222B`, card `#0A3D4A`, primary `#4FB8B4`. Token brand
 runtime hanya mengganti primary di dark mode; surface gelap tetap milik globals.
@@ -42,8 +46,9 @@ jangan memakai `green-600`, `blue-600/70`, atau `neutral-500` untuk teks.
 
 - **Plus Jakarta Sans** (variable, 200–800) untuk UI, dimuat via `next/font/local`
   dari `app/fonts/`, dengan fallback sistem dan `display: swap`.
-- **Source Serif 4** (variable, 200–900) untuk aksen editorial halaman publik;
-  `preload: false`, dimuat saat kelas `font-serif` dipakai.
+- **Source Serif 4** (variable, 200–900) untuk aksen editorial halaman publik
+  dan kutipan auth; `preload: false`, dimuat saat kelas `font-serif` dipakai.
+  Dashboard tetap sans-serif agar hierarki data tidak tercampur.
 - Skala: 12 / 14 / 16 / 18 / 24 / 32 px. Body minimal 14 px (publik 16 px).
 - Label minimal 12 px; hindari teks <12 px untuk informasi penting.
 - Line-height body 1.5–1.75; panjang baris 60–75 karakter di desktop.
@@ -59,6 +64,9 @@ jangan memakai `green-600`, `blue-600/70`, atau `neutral-500` untuk teks.
 ## Komponen
 
 - Basis: `components/ui` (shadcn, gaya `new-york`, Radix, Tailwind v4).
+- Card: permukaan solid, border halus, elevasi minimal; glass hanya untuk overlay publik.
+- Tombol: tanpa shimmer/gradient; hover tenang dan `active` halus.
+- Header halaman: gunakan `PageHeader` (`components/layout/page-header.tsx`).
 - Form: label terlihat, hint persisten, error di bawah field, `aria-describedby`.
 - Tabel: header sticky, empty/loading/error state, pagination, `aria-sort`.
 - Dialog: gunakan Radix focus trap; konfirmasi aksi destruktif.
@@ -116,5 +124,7 @@ jangan memakai `green-600`, `blue-600/70`, atau `neutral-500` untuk teks.
 
 - Gradien ungu/indigo, side-tab border, gradient text, bounce.
 - Glassmorphism berlapis di dalam kartu (card dalam card).
+- Shimmer, glow, atau gradient dekoratif pada tombol utama.
+- Mesh ungu/indigo pada background aplikasi.
 - Teks abu-abu di atas warna brand tanpa cek kontras.
 - Menambah dependency komponen baru (mis. daisyUI) tanpa keputusan eksplisit.

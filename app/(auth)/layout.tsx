@@ -5,8 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "motion/react";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
-import { AuroraBackground } from "@/components/ui/aurora-background";
-import { WavyBackground } from "@/components/ui/wavy-background";
 import { cn } from "@/lib/utils";
 
 export default function AuthLayout({
@@ -28,70 +26,64 @@ export default function AuthLayout({
   return (
     <div className="min-h-screen grid lg:grid-cols-2 bg-background">
       {/* Left Side - Visual & Branding */}
-      <div className="hidden lg:flex relative flex-col justify-between bg-zinc-900 text-white overflow-hidden">
-        <WavyBackground 
-             className="max-w-4xl mx-auto pb-40 flex flex-col justify-between h-full p-12"
-             colors={["#38bdf8", "#818cf8", "#c084fc", "#e879f9", "#22d3ee"]}
-             backgroundFill="#18181b" 
-        >
-            {/* Content Container - z-index handled by component but ensuring layout */}
-            <div className="relative z-10 flex flex-col h-full justify-between w-full">
-              <Link href="/" className="flex items-center gap-3 w-fit">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 backdrop-blur border border-white/20 overflow-hidden">
-                  {settings?.school_logo ? (
-                    <img 
-                      src={settings.school_logo.startsWith("http") || settings.school_logo.startsWith("/") 
-                        ? settings.school_logo 
-                        : `/uploads/${settings.school_logo}`} 
-                      alt="Logo" 
-                      className="h-full w-full object-contain p-1" 
-                    />
-                  ) : (
-                    <GraduationCap className="h-6 w-6" />
-                  )}
-                </div>
-                <div>
-                  <p className="font-bold text-lg leading-tight">{settings?.school_name || "Sekolah"}</p>
-                  <p className="text-xs text-white/70">Website Sekolah Terpadu</p>
-                </div>
-              </Link>
+      <div className="relative hidden overflow-hidden bg-primary text-primary-foreground lg:flex lg:flex-col">
+        <div className="pattern-dots pointer-events-none absolute inset-0 opacity-15" />
+        <div className="pattern-contour pointer-events-none absolute inset-0 opacity-25" />
+        <div className="relative z-10 flex h-full w-full flex-col justify-between p-12">
+          <Link href="/" className="flex w-fit items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl border border-white/20 bg-white/10">
+              {settings?.school_logo ? (
+                <img
+                  src={settings.school_logo.startsWith("http") || settings.school_logo.startsWith("/")
+                    ? settings.school_logo
+                    : `/uploads/${settings.school_logo}`}
+                  alt="Logo"
+                  className="h-full w-full object-contain p-1.5"
+                />
+              ) : (
+                <GraduationCap className="h-6 w-6" aria-hidden="true" />
+              )}
+            </div>
+            <div>
+              <p className="text-lg font-bold leading-tight">{settings?.school_name || "Sekolah"}</p>
+              <p className="text-xs text-primary-foreground/70">Website Sekolah Terpadu</p>
+            </div>
+          </Link>
 
-              <div className="space-y-6 max-w-lg">
-                <Quote className="h-10 w-10 text-white/50" />
-                <blockquote className="text-2xl font-medium leading-relaxed tracking-tight">
-                  &ldquo;Pendidikan bukan persiapan untuk hidup. Pendidikan adalah hidup itu sendiri.&rdquo;
-                </blockquote>
-                <div className="flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center font-bold">
-                    JD
-                  </div>
-                  <div className="text-sm">
-                    <p className="font-semibold">John Dewey</p>
-                    <p className="text-white/60">Filsuf Pendidikan</p>
-                  </div>
-                </div>
+          <div className="max-w-lg space-y-6">
+            <Quote className="h-10 w-10 text-secondary" aria-hidden="true" />
+            <blockquote className="font-serif text-3xl font-medium leading-[1.25] tracking-tight">
+              &ldquo;Pendidikan bukan persiapan untuk hidup. Pendidikan adalah hidup itu sendiri.&rdquo;
+            </blockquote>
+            <div className="flex items-center gap-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-sm font-bold">
+                JD
               </div>
-
-              <div className="text-xs text-white/70 flex justify-between items-center w-full">
-                <p>© {new Date().getFullYear()} {settings?.school_name || "Sekolah"}</p>
-                <div className="flex gap-4">
-                  <Link href="/spmb" className="hover:text-white transition-colors">SPMB</Link>
-                  <Link href="/layanan" className="hover:text-white transition-colors">Layanan</Link>
-                </div>
+              <div className="text-sm">
+                <p className="font-semibold">John Dewey</p>
+                <p className="text-primary-foreground/65">Filsuf Pendidikan</p>
               </div>
             </div>
-        </WavyBackground>
+          </div>
+
+          <div className="flex w-full items-center justify-between text-xs text-primary-foreground/65">
+            <p>© {new Date().getFullYear()} {settings?.school_name || "Sekolah"}</p>
+            <div className="flex gap-4">
+              <Link href="/spmb" className="transition-colors hover:text-white">SPMB</Link>
+              <Link href="/layanan" className="transition-colors hover:text-white">Layanan</Link>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Right Side - Form */}
-      <AuroraBackground className="min-h-screen w-full p-6 sm:p-12 lg:p-16 pb-24 md:pb-16 bg-background">
-        {/* Ambient gradient / aurora sesuai tema (dark mode aware) */}
+      <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-canvas p-6 pb-24 sm:p-12 md:pb-16 lg:p-16">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 overflow-hidden [-webkit-mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_75%)] [mask-image:radial-gradient(ellipse_at_center,black_30%,transparent_75%)]"
         >
-          <div className="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-primary/20 blur-3xl dark:bg-primary/25" />
-          <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-emerald-400/20 blur-3xl dark:bg-emerald-500/15" />
+          <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-secondary/30 blur-3xl" />
+          <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
         </div>
 
         <motion.div
@@ -120,9 +112,9 @@ export default function AuthLayout({
           {/* Slot untuk konten card (login / lupa password) */}
           {children}
         </motion.div>
-      </AuroraBackground>
+      </div>
       {/* Bottom Nav - Mobile Only */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-neutral-200 safe-area-pb">
+      <nav className="safe-area-pb fixed bottom-0 left-0 right-0 z-50 border-t border-line/60 bg-surface/95 backdrop-blur-xl md:hidden">
         <div className="flex items-center justify-around py-2">
           {navItems.map((item) => {
             const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));

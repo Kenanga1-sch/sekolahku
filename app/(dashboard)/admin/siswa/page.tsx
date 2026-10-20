@@ -4,6 +4,7 @@ import { useEffect, Suspense, lazy } from "react";
 import { Users, Printer, ArrowRightLeft, GraduationCap, UserCheck, Loader2, BookOpen, Sprout, BarChart3, Backpack } from "lucide-react";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { useTabParam } from "@/lib/hooks/use-tab-param";
+import { PageHeader } from "@/components/layout/page-header";
 
 const TabDirektori = lazy(() => import("./tab-direktori"));
 const TabKartu = lazy(() => import("./tab-kartu"));
@@ -189,16 +190,12 @@ function SiswaTabsContent() {
 
 export default function ManajemenSiswaPage() {
   return (
-    <div className="p-4 sm:p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-zinc-50 flex items-center gap-2.5">
-          <div className="p-1.5 sm:p-2 bg-blue-50 dark:bg-zinc-900 rounded-xl text-blue-600 dark:text-blue-400 border border-blue-100/30 dark:border-zinc-800 shrink-0">
-            <Users className="h-5 w-5 sm:h-6 sm:w-6" />
-          </div>
-          Manajemen Siswa
-        </h1>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        icon={Users}
+        title="Manajemen Siswa"
+        description="Kelola direktori siswa, kartu pelajar, mutasi, alumni, dan penerimaan siswa baru."
+      />
 
       <Suspense fallback={
         <div className="flex items-center justify-center min-h-[200px]">

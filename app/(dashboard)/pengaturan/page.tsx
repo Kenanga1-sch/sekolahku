@@ -14,6 +14,7 @@ import TabLandingSections from "./tab-landing-sections";
 import TabVisiMisi from "./tab-visi-misi";
 import TabAIProvider from "./tab-ai-provider";
 import TabLaporanFormat from "./tab-laporan-format";
+import { PageHeader } from "@/components/layout/page-header";
 
 export default function PengaturanPage() {
     const router = useRouter();
@@ -70,12 +71,11 @@ export default function PengaturanPage() {
 
     return (
         <div className="space-y-6 max-w-7xl mx-auto pb-10">
-            <div className="flex flex-col gap-2">
-                <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Pengaturan</h1>
-                <p className="text-sm text-muted-foreground">
-                    Kelola data sekolah, profil, pengguna, aktivitas sistem, backup Telegram, dan format laporan.
-                </p>
-            </div>
+            <PageHeader
+                icon={Settings}
+                title="Pengaturan"
+                description="Kelola data sekolah, pengguna, aktivitas sistem, backup Telegram, dan format laporan."
+            />
 
             <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
                 <TabsList className="w-full max-w-full h-auto flex-nowrap overflow-x-auto [scrollbar-width:thin] rounded-xl bg-slate-100/80 dark:bg-zinc-900/80 border-slate-200/40 dark:border-zinc-800/40 p-1">

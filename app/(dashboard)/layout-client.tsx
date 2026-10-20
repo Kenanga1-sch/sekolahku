@@ -290,15 +290,15 @@ function DashboardLayoutChrome({
 
   return (
     <div className={cn(
-      "flex min-w-0 flex-col md:flex-row bg-gray-100 dark:bg-neutral-800 w-full flex-1 overflow-x-hidden md:overflow-hidden",
-      "min-h-dvh md:h-dvh print:block print:h-auto print:min-h-0 print:overflow-visible"
+      "flex min-w-0 flex-col overflow-x-hidden bg-canvas md:flex-row md:overflow-hidden",
+      "min-h-dvh w-full flex-1 md:h-dvh print:block print:h-auto print:min-h-0 print:overflow-visible"
     )}>
       {/* Sidebar Toggle Button */}
       <button
         onClick={() => setSidebarVisible((prev) => !prev)}
         className={cn(
-          "print:hidden hidden md:flex fixed top-1/2 -translate-y-1/2 z-[60] h-12 w-5 rounded-r-md border border-l-0 border-neutral-200 dark:border-neutral-700 shadow-sm items-center justify-center transition-all cursor-pointer group",
-          "bg-white dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700",
+          "group fixed top-1/2 z-[60] hidden h-12 w-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-r-md border border-l-0 border-line/70 shadow-sm transition-all print:hidden md:flex",
+          "bg-surface hover:bg-surface-muted",
           sidebarVisible
             ? "left-64"
             : "left-0"
@@ -314,7 +314,7 @@ function DashboardLayoutChrome({
           <div className="flex flex-col flex-1 overflow-hidden">
             {/* Logo */}
             <div className="flex flex-col">
-                <Link href="/overview" className="font-normal flex space-x-2 items-center text-sm text-black py-1 relative z-20">
+                <Link href="/overview" className="relative z-20 flex items-center gap-2.5 rounded-lg py-1 text-sm text-foreground">
                     <div className={cn(
                         "h-6 w-6 relative flex-shrink-0 rounded-full flex items-center justify-center overflow-hidden",
                         !schoolLogo && "bg-black dark:bg-white"
@@ -343,6 +343,9 @@ function DashboardLayoutChrome({
               ) : (
                 filteredNav.map((group) => (
                    <div key={group.label} className="flex flex-col gap-1">
+                      <p className="px-2 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-text-soft first:pt-0">
+                        {group.label}
+                      </p>
                       {group.items.map((link) => {
                         if (link.items) {
                           const isOpen = !!openMenus[link.label];
@@ -350,22 +353,22 @@ function DashboardLayoutChrome({
                             <div key={link.label} className="flex flex-col">
                               <button
                                 onClick={() => toggleMenu(link.label)}
-                                className="flex min-h-11 md:min-h-0 items-center justify-between w-full py-2 text-left group/sidebar cursor-pointer"
+                                className="group/sidebar -mx-2 flex min-h-11 w-[calc(100%+1rem)] cursor-pointer items-center justify-between rounded-lg px-2 py-2 text-left text-foreground/80 transition-colors hover:bg-surface-muted/70 hover:text-foreground md:min-h-0"
                               >
-                                <div className="flex items-center gap-2">
-                                  <link.icon className="text-neutral-700 dark:text-neutral-200 h-[18px] w-[18px] md:h-5 md:w-5 flex-shrink-0" />
-                                  <span className="min-w-0 truncate text-neutral-700 dark:text-neutral-200 text-sm group-hover/sidebar:translate-x-1 transition duration-150 whitespace-pre">
+                                <div className="flex items-center gap-2.5">
+                                  <link.icon className="h-[18px] w-[18px] flex-shrink-0 md:h-5 md:w-5" />
+                                  <span className="min-w-0 truncate whitespace-pre text-sm transition-transform duration-150 group-hover/sidebar:translate-x-0.5">
                                     {link.label}
                                   </span>
                                 </div>
                                 {isOpen ? (
-                                  <ChevronUp className="h-4 w-4 text-neutral-500 dark:text-neutral-400 mr-1" />
+                                  <ChevronUp className="mr-1 h-4 w-4 text-muted-foreground" />
                                 ) : (
-                                  <ChevronDown className="h-4 w-4 text-neutral-500 dark:text-neutral-400 mr-1" />
+                                  <ChevronDown className="mr-1 h-4 w-4 text-muted-foreground" />
                                 )}
                               </button>
                               {isOpen && (
-                                <div className="pl-6 flex flex-col border-l border-neutral-200 dark:border-neutral-700 ml-3.5 gap-1 mt-1">
+                                <div className="ml-3.5 mt-1 flex flex-col gap-1 border-l border-line/70 pl-5">
                                   {link.items.map((subItem) => (
                                     <SidebarLink
                                       key={subItem.href}
@@ -373,9 +376,9 @@ function DashboardLayoutChrome({
                                         label: subItem.label,
                                         href: subItem.href,
                                         icon: subItem.icon ? (
-                                          <subItem.icon className="text-neutral-500 dark:text-neutral-400 h-4 w-4 flex-shrink-0" />
+                                          <subItem.icon className="h-4 w-4 flex-shrink-0" />
                                         ) : (
-                                          <div className="h-1.5 w-1.5 rounded-full bg-neutral-400 dark:bg-neutral-500 ml-1.5 mr-1 flex-shrink-0" />
+                                          <div className="mx-1 ml-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-current opacity-50" />
                                         ),
                                       }}
                                     />
@@ -392,7 +395,7 @@ function DashboardLayoutChrome({
                               label: link.label,
                               href: link.href!,
                               icon: (
-                                <link.icon className="text-neutral-700 dark:text-neutral-200 h-[18px] w-[18px] md:h-5 md:w-5 flex-shrink-0" />
+                                <link.icon className="h-[18px] w-[18px] flex-shrink-0 md:h-5 md:w-5" />
                               ),
                             }}
                           />
@@ -414,18 +417,27 @@ function DashboardLayoutChrome({
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           {/* Top Navigation Bar */}
           <header className={cn(
-            "print:hidden sticky top-0 md:static flex items-center justify-between gap-2 p-2.5 sm:p-3 md:p-4 w-full z-40 bg-gray-100/80 dark:bg-neutral-800/80 backdrop-blur-xl md:bg-transparent md:dark:bg-transparent border-b border-neutral-200/50 dark:border-neutral-700/50 md:border-0",
+            "print:hidden sticky top-0 z-40 flex w-full items-center justify-between gap-2 border-b border-line/50 bg-canvas/85 p-2.5 backdrop-blur-xl sm:p-3 md:static md:border-0 md:bg-transparent md:p-4 md:backdrop-blur-none",
             immersive && "hidden"
           )}>
-            {/* Left: Page Title (mobile only) */}
-            <div className="flex items-center gap-3 md:hidden pl-2">
-              <p className="text-lg font-bold text-neutral-800 dark:text-neutral-100 truncate">
+            {/* Left: breadcrumb desktop, page title mobile */}
+            <div className="hidden min-w-0 items-center gap-3 pl-1 md:flex">
+              <BreadcrumbNav
+                items={
+                  breadcrumbItems.length > 0
+                    ? breadcrumbItems
+                    : [{ label: "Beranda", href: "/overview", current: true }]
+                }
+              />
+            </div>
+            <div className="flex items-center gap-3 pl-2 md:hidden">
+              <p className="truncate text-lg font-bold text-foreground">
                 {pageTitle}
               </p>
             </div>
 
             {/* Right: Actions */}
-            <div className="flex items-center gap-1 sm:gap-3 md:gap-4 ml-auto">
+            <div className="ml-auto flex items-center gap-1 sm:gap-3 md:gap-4">
              {/* Install PWA */}
              <div className="flex items-center justify-center min-w-[44px] min-h-[44px]">
                 <PwaInstallButton iconOnly className="sm:hidden" />
@@ -434,7 +446,7 @@ function DashboardLayoutChrome({
 
              {/* Notification */}
              <div className="flex items-center justify-center min-w-[44px] min-h-[44px]">
-                <NotificationPopover className="h-5 w-5 text-neutral-700 dark:text-neutral-200 hover:text-neutral-900 dark:hover:text-white transition-colors" />
+                <NotificationPopover className="h-5 w-5 text-muted-foreground transition-colors hover:text-foreground" />
              </div>
 
               {/* Profile Dropdown (desktop only — mobile accesses akun via bottom nav) */}
@@ -454,13 +466,10 @@ function DashboardLayoutChrome({
             tabIndex={-1}
             className={cn(
               "outline-none",
-              "flex min-w-0 flex-1 flex-col gap-2 overflow-x-hidden px-3 pb-20 pt-2 sm:px-4 md:h-full md:overflow-y-auto md:rounded-tl-2xl md:px-5 md:pb-6 md:pt-4 lg:px-6 xl:px-8 print:h-auto print:overflow-visible [&>*]:w-full",
-              immersive && "gap-0 p-0 md:rounded-none md:p-0"
+              "flex min-w-0 flex-1 flex-col gap-6 overflow-x-hidden px-3 pb-24 pt-4 sm:px-5 md:h-full md:overflow-y-auto md:px-6 md:pb-8 md:pt-5 lg:px-8 xl:px-10 print:h-auto print:overflow-visible [&>*]:mx-auto [&>*]:w-full [&>*]:max-w-[1440px]",
+              immersive && "gap-0 p-0 md:p-0 [&>*]:max-w-none"
             )}
           >
-            {!immersive && breadcrumbItems.length > 0 && (
-              <BreadcrumbNav items={breadcrumbItems} className="hidden md:block" />
-            )}
             <React.Fragment key={pathname}>{children}</React.Fragment>
          </main>
       </div>

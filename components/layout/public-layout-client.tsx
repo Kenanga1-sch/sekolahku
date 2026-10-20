@@ -85,26 +85,30 @@ export default function PublicLayoutClient({
 
   return (
     <div className="flex flex-col bg-public-bg text-foreground w-full min-h-screen">
-      <header className="app-chrome hidden md:flex items-center justify-between px-6 py-4 sticky top-0 z-50 bg-public-bg/95 backdrop-blur-sm border-b border-public-border">
-        <Link href="/" className="flex items-center gap-2 font-bold text-lg text-primary">
+      <header className="app-chrome sticky top-0 z-50 hidden border-b border-line/60 bg-surface/85 backdrop-blur-xl md:block">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-6 px-6">
+        <Link href="/" className="flex items-center gap-2 text-base font-bold tracking-tight text-primary">
           {settings?.school_name || siteConfig.school.shortName}
         </Link>
         <nav className="flex items-center gap-1">
           {navItems.map((item) => {
             const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
             return (
-              <Link key={item.id} href={item.href}>
-                <Button
-                  variant="ghost"
-                  className={cn(
-                    "rounded-full px-4 h-9 text-sm font-medium transition-transform active:scale-[0.97]",
-                    isActive
-                      ? "bg-primary text-white hover:bg-primary"
-                      : "text-muted-foreground hover:text-primary hover:bg-secondary/50"
-                  )}
-                >
-                  {item.label}
-                </Button>
+              <Link
+                key={item.id}
+                href={item.href}
+                aria-current={isActive ? "page" : undefined}
+                className={cn(
+                  "relative rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  isActive
+                    ? "text-primary"
+                    : "text-muted-foreground hover:bg-surface-muted hover:text-foreground"
+                )}
+              >
+                {item.label}
+                {isActive && (
+                  <span className="absolute inset-x-3 -bottom-[13px] h-0.5 rounded-full bg-primary" />
+                )}
               </Link>
             );
           })}
@@ -150,12 +154,14 @@ export default function PublicLayoutClient({
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Link href="/login">
-              <Button className="rounded-full bg-primary text-white hover:bg-primary-hover px-5 h-9 text-sm font-medium active:scale-[0.97] transition-transform">
-                Masuk
-              </Button>
+            <Link
+              href="/login"
+              className="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary-hover"
+            >
+              Masuk
             </Link>
           )}
+        </div>
         </div>
       </header>
 
@@ -165,7 +171,7 @@ export default function PublicLayoutClient({
 
       <Footer />
 
-      <nav className="app-chrome md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-public-border safe-area-pb">
+      <nav className="app-chrome safe-area-pb fixed bottom-0 left-0 right-0 z-50 border-t border-line/60 bg-surface/95 backdrop-blur-xl md:hidden">
         <div className="flex items-center justify-around py-2">
           {navItems.map((item) => {
             const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
@@ -175,7 +181,7 @@ export default function PublicLayoutClient({
                 key={item.id}
                 href={item.href}
                 className={cn(
-                  "flex min-h-11 flex-col items-center justify-center gap-0.5 px-3 py-1.5 rounded-xl transition-colors active:scale-[0.95]",
+                  "flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-lg px-3 py-1.5 transition-colors active:scale-[0.98]",
                   isActive
                     ? "text-primary"
                     : "text-muted-foreground hover:text-primary"

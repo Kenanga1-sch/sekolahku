@@ -13,6 +13,7 @@ import { ClipboardList, CalendarDays, FileText, Loader2, LayoutDashboard, IdCard
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { canManageHolidays } from "@/lib/presensi-access";
 import { useTabParam } from "@/lib/hooks/use-tab-param";
+import { PageHeader } from "@/components/layout/page-header";
 
 const PresensiDashboardTab = lazy(() =>
   import("./_components/presensi-dashboard-tab").then((m) => ({ default: m.PresensiDashboardTab }))
@@ -136,15 +137,12 @@ function PresensiTabsContent() {
 
 export default function PresensiPage() {
   return (
-    <div className="p-4 sm:p-6 space-y-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-zinc-50 flex items-center gap-2.5">
-          <div className="p-1.5 sm:p-2 bg-blue-50 dark:bg-zinc-900 rounded-xl text-blue-600 dark:text-blue-400 border border-blue-100/30 dark:border-zinc-800 shrink-0">
-            <ClipboardList className="h-5 w-5 sm:h-6 sm:w-6" />
-          </div>
-          Presensi
-        </h1>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        icon={ClipboardList}
+        title="Presensi"
+        description="Pantau kehadiran siswa dan GTK, kelola izin, hari libur, serta laporan presensi."
+      />
 
       <Suspense fallback={<TabFallback />}>
         <PresensiTabsContent />

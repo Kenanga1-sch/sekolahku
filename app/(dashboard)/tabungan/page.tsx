@@ -19,6 +19,7 @@ import { goGet } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { getSavingsTreasurer } from "@/actions/savings-admin";
 import { useTabParam } from "@/lib/hooks/use-tab-param";
+import { PageHeader } from "@/components/layout/page-header";
 
 type TabunganTab = "dashboard" | "bendahara" | "gtk";
 
@@ -170,31 +171,23 @@ export default function TabunganDashboardPage() {
     }
 
     return (
-        <div className="space-y-6 p-4 sm:p-6">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="flex flex-col gap-1">
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-zinc-50 flex items-center gap-3">
-                        <div className="p-2 bg-emerald-50 dark:bg-zinc-900 rounded-xl text-emerald-600 dark:text-emerald-400 border border-emerald-100/30 dark:border-zinc-800">
-                            <Wallet className="h-5 w-5 sm:h-6 sm:w-6" />
-                        </div>
-                        Tabungan Siswa
-                    </h1>
-                    <p className="text-muted-foreground text-sm mt-1">
-                        Pusat kendali tabungan siswa sekolah terintegrasi.
-                    </p>
-                </div>
-                <Button
-                    variant="outline"
-                    size="icon"
-                    aria-label="Muat ulang data tabungan"
-                    onClick={handleRefresh}
-                    disabled={refreshing}
-                    className="border-slate-200 hover:bg-slate-50 self-end sm:self-auto"
-                >
-                    <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                </Button>
-            </div>
+        <div className="space-y-6">
+            <PageHeader
+                icon={Wallet}
+                title="Tabungan Siswa"
+                description="Pusat kendali tabungan siswa, setoran, verifikasi, dan laporan keuangan."
+                actions={
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        aria-label="Muat ulang data tabungan"
+                        onClick={handleRefresh}
+                        disabled={refreshing}
+                    >
+                        <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+                    </Button>
+                }
+            />
 
             {/* Main Tabs (only if Admin or Treasurer) */}
             {canManage && (

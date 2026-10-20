@@ -22,6 +22,7 @@ import { id } from "date-fns/locale";
 import type { InventoryStats } from "@/types/inventory";
 import { useRouter } from "next/navigation";
 import { useTabParam } from "@/lib/hooks/use-tab-param";
+import { PageHeader } from "@/components/layout/page-header";
 
 type InventarisTab = "aset" | "atk";
 
@@ -158,26 +159,22 @@ export default function InventarisClient({ initialStats, initialConsumableStats,
 
     return (
         <div className="space-y-8">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-primary">
-                        Inventaris & ATK
-                    </h1>
-                    <p className="text-muted-foreground text-sm sm:text-base">
-                        Sistem manajemen aset sekolah dan barang habis pakai (ATK)
-                    </p>
-                </div>
-                <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={handleRefresh}
-                    disabled={refreshing}
-                    className="self-end sm:self-auto"
-                >
-                    <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                </Button>
-            </div>
+            <PageHeader
+                icon={Package}
+                title="Inventaris & ATK"
+                description="Kelola aset tetap sekolah, ruangan, peminjaman, dan barang habis pakai."
+                actions={
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={handleRefresh}
+                        disabled={refreshing}
+                        aria-label="Muat ulang data inventaris"
+                    >
+                        <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+                    </Button>
+                }
+            />
 
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as InventarisTab)} className="space-y-6">
                 <TabsList className={`grid w-full ${isAdmin ? "grid-cols-2" : "grid-cols-1"} lg:w-[400px]`}>

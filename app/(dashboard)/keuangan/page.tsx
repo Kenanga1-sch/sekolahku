@@ -74,6 +74,7 @@ import {
 } from "@/lib/keuangan/export";
 import { TransaksiDialog, type TxForm } from "./_components/transaksi-dialog";
 import { useTabParam } from "@/lib/hooks/use-tab-param";
+import { PageHeader } from "@/components/layout/page-header";
 
 type KeuanganTab = "ringkasan" | "transaksi" | "unit" | "kategori" | "laporan";
 
@@ -100,20 +101,19 @@ export default function KeuanganPage() {
   });
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 p-4 sm:p-6">
-      <div className="flex items-center gap-4">
-        <Link href="/overview">
-          <Button variant="ghost" size="icon" aria-label="Kembali ke dasbor">
-            <ArrowLeft className="h-4 w-4" />
+    <div className="mx-auto max-w-6xl space-y-6">
+      <PageHeader
+        icon={Wallet}
+        title="Keuangan"
+        description="Catat dan kelola keuangan unit usaha sekolah: sampah, koperasi, dan lainnya."
+        actions={
+          <Button asChild variant="outline" size="sm">
+            <Link href="/overview">
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Beranda
+            </Link>
           </Button>
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Keuangan</h1>
-          <p className="text-muted-foreground text-sm">
-            Catat & kelola keuangan unit usaha sekolah: sampah, koperasi, dan lainnya.
-          </p>
-        </div>
-      </div>
+        }
+      />
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as KeuanganTab)} className="space-y-4">
         <TabsList className="grid grid-cols-2 sm:grid-cols-5 w-full h-auto gap-1">

@@ -1,214 +1,136 @@
 "use client";
 
 import {
-    AreaChart,
-    Area,
-    BarChart,
-    Bar,
-    PieChart,
-    Pie,
-    Cell,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-    ResponsiveContainer,
-    Legend,
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
-// Colors for charts
-const COLORS = {
-    primary: "#3b82f6",
-    secondary: "#64748b",
-    success: "#22c55e",
-    warning: "#f59e0b",
-    danger: "#ef4444",
-    info: "#06b6d4",
-};
-
-const STATUS_COLORS = {
-    pending: "#f59e0b",
-    verified: "#3b82f6",
-    accepted: "#22c55e",
-    rejected: "#ef4444",
+const BRAND = {
+  primary: "#0A3D4A",
+  accent: "#4FB8B4",
+  grid: "#D6E5E1",
+  tooltipBorder: "#B8D9D3",
 };
 
 interface RegistrationTrendProps {
-    data: { date: string; count: number }[];
+  data: { date: string; count: number }[];
 }
 
 export function RegistrationTrendChart({ data }: RegistrationTrendProps) {
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="text-lg">Tren Pendaftaran</CardTitle>
-                <CardDescription>Jumlah pendaftar per hari dalam 7 hari terakhir</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <div className="h-[250px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                            <defs>
-                                <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor={COLORS.primary} stopOpacity={0.3} />
-                                    <stop offset="95%" stopColor={COLORS.primary} stopOpacity={0} />
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                            <XAxis
-                                dataKey="date"
-                                tick={{ fontSize: 12 }}
-                                tickLine={false}
-                                axisLine={{ stroke: "#e5e7eb" }}
-                            />
-                            <YAxis
-                                tick={{ fontSize: 12 }}
-                                tickLine={false}
-                                axisLine={{ stroke: "#e5e7eb" }}
-                                allowDecimals={false}
-                            />
-                            <Tooltip
-                                contentStyle={{
-                                    borderRadius: 8,
-                                    border: "1px solid #e5e7eb",
-                                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)"
-                                }}
-                            />
-                            <Area
-                                type="monotone"
-                                dataKey="count"
-                                stroke={COLORS.primary}
-                                strokeWidth={2}
-                                fillOpacity={1}
-                                fill="url(#colorCount)"
-                                name="Pendaftar"
-                            />
-                        </AreaChart>
-                    </ResponsiveContainer>
-                </div>
-            </CardContent>
-        </Card>
-    );
+  return (
+    <div className="h-[215px] w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data} margin={{ top: 8, right: 6, left: -18, bottom: 0 }}>
+          <defs>
+            <linearGradient id="registration-trend-fill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={BRAND.accent} stopOpacity={0.32} />
+              <stop offset="95%" stopColor={BRAND.accent} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke={BRAND.grid} vertical={false} />
+          <XAxis
+            dataKey="date"
+            tick={{ fontSize: 11, fill: "#3D5C63" }}
+            tickLine={false}
+            axisLine={false}
+            dy={6}
+          />
+          <YAxis
+            tick={{ fontSize: 11, fill: "#3D5C63" }}
+            tickLine={false}
+            axisLine={false}
+            allowDecimals={false}
+            width={34}
+          />
+          <Tooltip
+            cursor={{ stroke: BRAND.grid }}
+            contentStyle={{
+              borderRadius: 10,
+              border: `1px solid ${BRAND.tooltipBorder}`,
+              boxShadow: "0 8px 24px rgba(4,34,43,0.08)",
+              fontSize: 12,
+            }}
+            labelStyle={{ color: "#3D5C63", marginBottom: 2 }}
+          />
+          <Area
+            type="monotone"
+            dataKey="count"
+            stroke={BRAND.primary}
+            strokeWidth={2}
+            fillOpacity={1}
+            fill="url(#registration-trend-fill)"
+            name="Pendaftar"
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
 }
 
 interface StatusDistributionProps {
-    data: { name: string; value: number; color: string }[];
+  data: { name: string; value: number; color: string }[];
 }
 
 export function StatusDistributionChart({ data }: StatusDistributionProps) {
-    const hasData = data.some((item) => item.value > 0);
+  const hasData = data.some((item) => item.value > 0);
 
+  if (!hasData) {
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="text-lg">Distribusi Status</CardTitle>
-                <CardDescription>Persentase status pendaftaran</CardDescription>
-            </CardHeader>
-            <CardContent>
-                {!hasData ? (
-                    <div className="flex h-[250px] items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
-                        Belum ada data status pendaftaran
-                    </div>
-                ) : (
-                <div className="h-[250px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                            <Pie
-                                data={data}
-                                cx="50%"
-                                cy="50%"
-                                innerRadius={60}
-                                outerRadius={90}
-                                paddingAngle={2}
-                                dataKey="value"
-                                label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
-                                labelLine={false}
-                            >
-                                {data.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                ))}
-                            </Pie>
-                            <Tooltip
-                                contentStyle={{
-                                    borderRadius: 8,
-                                    border: "1px solid #e5e7eb"
-                                }}
-                            />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </div>
-                )}
-                <div className="flex flex-wrap justify-center gap-4 mt-4">
-                    {data.map((item, index) => (
-                        <div key={index} className="flex items-center gap-2">
-                            <div
-                                className="w-3 h-3 rounded-full"
-                                style={{ backgroundColor: item.color }}
-                            />
-                            <span className="text-sm text-muted-foreground">{item.name}</span>
-                        </div>
-                    ))}
-                </div>
-            </CardContent>
-        </Card>
+      <div className="flex h-[215px] items-center justify-center rounded-lg border border-dashed border-line/80 text-center text-xs text-muted-foreground">
+        Belum ada data status pendaftaran
+      </div>
     );
-}
+  }
 
-interface ZoneDistributionProps {
-    data: { name: string; inZone: number; outZone: number }[];
+  return (
+    <div>
+      <div className="h-[160px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={data}
+              cx="50%"
+              cy="50%"
+              innerRadius={48}
+              outerRadius={70}
+              paddingAngle={3}
+              dataKey="value"
+              stroke="none"
+              label={({ percent }) => `${Math.round((percent ?? 0) * 100)}%`}
+              labelLine={false}
+            >
+              {data.map((entry) => (
+                <Cell key={entry.name} fill={entry.color} />
+              ))}
+            </Pie>
+            <Tooltip
+              contentStyle={{
+                borderRadius: 10,
+                border: `1px solid ${BRAND.tooltipBorder}`,
+                boxShadow: "0 8px 24px rgba(4,34,43,0.08)",
+                fontSize: 12,
+              }}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-2">
+        {data.map((item) => (
+          <span key={item.name} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} aria-hidden="true" />
+            {item.name}
+            <span className="font-semibold tabular-nums text-foreground">{item.value}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
 }
-
-export function ZoneDistributionChart({ data }: ZoneDistributionProps) {
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="text-lg">Statistik Domisili</CardTitle>
-                <CardDescription>Perbandingan pendaftar dalam dan luar zona per minggu</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <div className="h-[250px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                            <XAxis
-                                dataKey="name"
-                                tick={{ fontSize: 12 }}
-                                tickLine={false}
-                                axisLine={{ stroke: "#e5e7eb" }}
-                            />
-                            <YAxis
-                                tick={{ fontSize: 12 }}
-                                tickLine={false}
-                                axisLine={{ stroke: "#e5e7eb" }}
-                                allowDecimals={false}
-                            />
-                            <Tooltip
-                                contentStyle={{
-                                    borderRadius: 8,
-                                    border: "1px solid #e5e7eb"
-                                }}
-                            />
-                            <Legend />
-                            <Bar
-                                dataKey="inZone"
-                                name="Dalam Wilayah"
-                                fill={COLORS.success}
-                                radius={[4, 4, 0, 0]}
-                            />
-                            <Bar
-                                dataKey="outZone"
-                                name="Luar Wilayah"
-                                fill={COLORS.secondary}
-                                radius={[4, 4, 0, 0]}
-                            />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
-            </CardContent>
-        </Card>
-    );
-}
-
-// Export colors for use elsewhere
-export { COLORS, STATUS_COLORS };

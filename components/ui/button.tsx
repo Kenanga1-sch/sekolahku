@@ -7,25 +7,26 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-all duration-200 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive active:scale-95",
+  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium outline-none transition-[background-color,border-color,color,box-shadow,transform] duration-150 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/40 aria-invalid:border-destructive aria-invalid:ring-destructive/20 active:scale-[0.98] dark:aria-invalid:ring-destructive/40",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:bg-primary/90 hover:-translate-y-0.5 relative overflow-hidden after:absolute after:inset-0 after:z-10 after:h-full after:w-full after:translate-x-[-100%] after:bg-gradient-to-r after:from-transparent after:via-white/20 after:to-transparent hover:after:animate-shimmer",
+        default:
+          "bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover",
         destructive:
-          "bg-destructive text-white shadow-lg shadow-destructive/25 hover:bg-destructive/90 hover:shadow-destructive/40 hover:-translate-y-0.5",
+          "bg-destructive text-white shadow-sm hover:bg-destructive/90",
         outline:
-          "border border-input bg-background/50 shadow-sm hover:bg-accent hover:text-accent-foreground backdrop-blur-sm",
+          "border border-line bg-card text-foreground shadow-xs hover:border-primary/40 hover:bg-surface-muted",
         secondary:
-          "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
+          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
         ghost:
-          "hover:bg-accent/50 hover:text-accent-foreground",
+          "text-foreground hover:bg-surface-muted hover:text-foreground",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
         default: "h-10 px-5 py-2 has-[>svg]:px-4",
-        sm: "h-9 rounded-lg gap-1.5 px-3 has-[>svg]:px-2.5",
-        lg: "h-12 rounded-xl px-8 has-[>svg]:px-6 text-base",
+        sm: "h-9 gap-1.5 rounded-lg px-3 text-[13px] has-[>svg]:px-2.5",
+        lg: "h-12 rounded-xl px-8 text-base has-[>svg]:px-6",
         icon: "size-10",
         "icon-sm": "size-8 rounded-lg",
         "icon-lg": "size-12 rounded-xl",

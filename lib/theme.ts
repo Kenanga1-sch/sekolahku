@@ -114,6 +114,8 @@ html:not(.dark) {
   --sidebar-accent: var(--secondary);
   --primary-hover: color-mix(in srgb, var(--primary), #000 20%);
   --muted: color-mix(in srgb, var(--secondary) 20%, var(--background));
+  --canvas: color-mix(in srgb, var(--background) 34%, #fff);
+  --surface-muted: color-mix(in srgb, var(--secondary) 22%, #fff);
   --secondary-foreground: color-mix(in srgb, var(--primary), #000 12%);
   --accent-foreground: color-mix(in srgb, var(--primary), #000 12%);
   --public-border: color-mix(in srgb, var(--border), var(--primary) 30%);

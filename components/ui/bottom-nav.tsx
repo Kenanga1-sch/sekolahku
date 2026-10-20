@@ -154,22 +154,22 @@ export function BottomNav({ onMenuClick, userRole, items, profileHref }: BottomN
         href={item.href}
         aria-label={item.label}
         className={cn(
-          "flex flex-col items-center justify-center gap-1 flex-1 min-w-0 py-1 transition-all duration-200 active:scale-95",
+          "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 py-1 transition-colors duration-150 active:scale-[0.98]",
           active
-            ? "text-blue-600 dark:text-blue-400"
-            : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300"
+            ? "font-semibold text-primary"
+            : "text-muted-foreground hover:text-foreground"
         )}
       >
         <div
           className={cn(
-            "flex items-center justify-center w-12 h-9 rounded-full transition-all duration-200",
-            active ? "bg-blue-100 dark:bg-blue-900/40" : "bg-transparent"
+            "flex h-9 w-12 items-center justify-center rounded-lg transition-colors duration-150",
+            active ? "bg-surface-muted" : "bg-transparent"
           )}
         >
           <Icon
             className={cn(
-              "h-5 w-5 transition-all duration-200",
-              active ? "stroke-[2.5] scale-110" : "stroke-[2]"
+              "h-5 w-5 transition-colors duration-150",
+              active ? "stroke-[2.25]" : "stroke-[1.75]"
             )}
           />
         </div>
@@ -189,10 +189,10 @@ export function BottomNav({ onMenuClick, userRole, items, profileHref }: BottomN
     <nav
       className={cn(
         "fixed bottom-0 left-0 right-0 z-50 md:hidden",
-        "bg-white dark:bg-neutral-900",
-        "border-t border-neutral-200 dark:border-neutral-800",
+        "bg-surface/95 backdrop-blur-xl",
+        "border-t border-line/60",
         "pb-[env(safe-area-inset-bottom)]",
-        "shadow-[0_-4px_24px_rgba(0,0,0,0.06)] dark:shadow-[0_-4px_24px_rgba(0,0,0,0.4)]"
+        "shadow-[0_-8px_24px_rgba(4,34,43,0.06)]"
       )}
     >
       <div className="flex items-end justify-between h-[65px] px-2 max-w-md mx-auto relative pb-1">
@@ -208,11 +208,11 @@ export function BottomNav({ onMenuClick, userRole, items, profileHref }: BottomN
             className={cn(
               "absolute -top-6",
               "flex flex-col items-center justify-center",
-              "w-14 h-14 rounded-full",
-              "bg-gradient-to-tr from-blue-600 to-indigo-600",
-              "text-white shadow-lg shadow-blue-500/40 dark:shadow-blue-900/40",
-              "hover:scale-105 active:scale-95 transition-all duration-200",
-              "ring-4 ring-white dark:ring-neutral-900"
+              "h-14 w-14 rounded-full",
+              "bg-primary text-primary-foreground",
+              "shadow-lg shadow-primary/25",
+              "transition-transform duration-150 hover:scale-[1.03] active:scale-[0.97]",
+              "ring-4 ring-surface"
             )}
             aria-label="Menu"
           >

@@ -4,6 +4,7 @@ import React, { Suspense } from "react";
 import { BookOpen, Layers, HelpCircle, FileStack, Printer, FolderOpen, ClipboardCheck, BarChart3 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTabParam } from "@/lib/hooks/use-tab-param";
+import { PageHeader } from "@/components/layout/page-header";
 
 const TabBab = React.lazy(() => import("./tab-bab"));
 const TabBank = React.lazy(() => import("./tab-bank"));
@@ -44,20 +45,11 @@ export default function BankSoalPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3 border-b border-slate-100 dark:border-zinc-800/60 pb-4">
-        <div className="p-2 bg-blue-50 dark:bg-blue-950/40 rounded-lg text-blue-600 dark:text-blue-400">
-          <BookOpen className="h-5 w-5" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-zinc-50">
-            Bank Soal
-          </h1>
-          <p className="text-xs text-muted-foreground">
-            Kelola soal, bab, dan paket soal untuk latihan dan ujian
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        icon={BookOpen}
+        title="Bank Soal"
+        description="Kelola soal, bab, dan paket soal untuk latihan dan ujian."
+      />
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-slate-200 dark:border-zinc-800 overflow-x-auto no-scrollbar">
@@ -67,7 +59,7 @@ export default function BankSoalPage() {
             onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-[2px] whitespace-nowrap shrink-0 ${
               activeTab === tab.id
-                ? "border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400"
+                ? "border-primary text-primary"
                 : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >

@@ -3,6 +3,8 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeader } from "@/components/layout/page-header";
+import { Sprout } from "lucide-react";
 import { SessionList } from "./_components/session-list";
 import { GameRunner } from "./_components/game-runner";
 import { GameResult } from "./_components/game-result";
@@ -29,15 +31,12 @@ function RuangTumbuhContent() {
 
 export default function RuangTumbuhPage() {
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6 p-4 md:p-6">
-      <div className="text-center">
-        <h1 className="text-3xl font-bold text-primary">
-          🌱 Ruang Tumbuh
-        </h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Kenali kemampuanmu, tumbuh bersama.
-        </p>
-      </div>
+    <div className="mx-auto w-full max-w-3xl space-y-6">
+      <PageHeader
+        icon={Sprout}
+        title="Ruang Tumbuh"
+        description="Kenali kemampuanmu dan tumbuh bersama."
+      />
       <Suspense
         fallback={
           <div className="space-y-4">

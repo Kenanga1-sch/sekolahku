@@ -82,6 +82,10 @@
 
   --color-public-bg: var(--public-bg);
   --color-public-border: var(--public-border);
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-text-soft: var(--text-soft);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
@@ -234,6 +238,13 @@
   --public-bg: #E2F4F0;
   --public-border: #0E5564;
 
+  /* Permukaan aplikasi: kanvas netral-hangat, kartu solid, dan area tertekan.
+     Semua diturunkan dari keluarga teal agar tema brand tetap koheren. */
+  --canvas: #f3f7f5;
+  --surface: #ffffff;
+  --surface-muted: #eaf3f0;
+  --text-soft: #3d5c63;
+
   --border-subtle: #B8D9D3;
   --success: #166534;
   --success-foreground: #ffffff;
@@ -289,6 +300,11 @@
   --sidebar-border: #10606F;
   --sidebar-ring: #4FB8B4;
 
+  --canvas: #031a21;
+  --surface: #082c35;
+  --surface-muted: #0a3d4a;
+  --text-soft: #a8ccc7;
+
   --border-subtle: #155E63;
   --success: #4ADE80;
   --success-foreground: #04222B;
@@ -329,37 +345,33 @@
     font: inherit;
   }
 
-  /* Refined Background Mesh for Light Mode */
+  /* Cahaya brand yang tenang: dua sumber teal, tanpa ungu/indigo. */
   :root:not([class~="dark"]) body {
     background-image:
-      radial-gradient(at 0% 0%, hsla(253, 16%, 96%, 1) 0, transparent 50%),
-      radial-gradient(at 50% 0%, hsla(225, 39%, 96%, 1) 0, transparent 50%),
-      radial-gradient(at 100% 0%, hsla(339, 49%, 97%, 1) 0, transparent 50%);
+      radial-gradient(60% 45% at 0% 0%, rgb(152 216 208 / 0.24) 0%, transparent 70%),
+      radial-gradient(50% 40% at 100% 0%, rgb(79 184 180 / 0.12) 0%, transparent 72%);
+    background-attachment: fixed;
   }
 
-  /* Deep Cosmic Mesh for Dark Mode */
   :root[class~="dark"] body {
     background-image:
-      radial-gradient(at 0% 0%, oklch(0.15 0.05 260 / 0.6) 0, transparent 60%),
-      radial-gradient(
-        at 100% 100%,
-        oklch(0.15 0.05 280 / 0.4) 0,
-        transparent 50%
-      );
+      radial-gradient(55% 45% at 0% 0%, rgb(79 184 180 / 0.1) 0%, transparent 70%),
+      radial-gradient(45% 40% at 100% 100%, rgb(29 139 148 / 0.12) 0%, transparent 72%);
+    background-attachment: fixed;
   }
 }
 
 /* Enhanced Glass Utilities */
 @utility glass {
-  @apply backdrop-blur-xl bg-white/70 dark:bg-zinc-900/40 border border-white/40 dark:border-white/5 shadow-sm supports-[backdrop-filter]:bg-white/40 dark:supports-[backdrop-filter]:bg-zinc-900/40;
+  @apply border border-white/50 bg-white/75 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-neutral-900/50;
 }
 
 @utility glass-card {
-  @apply backdrop-blur-3xl bg-white/80 dark:bg-zinc-900/50 border border-white/50 dark:border-white/10 shadow-lg transition-all duration-300 hover:shadow-xl hover:bg-white/90 dark:hover:bg-zinc-900/60 hover:scale-[1.01] hover:-translate-y-1;
+  @apply border border-white/50 bg-white/80 shadow-sm backdrop-blur-xl transition-colors duration-200 hover:bg-white dark:border-white/10 dark:bg-neutral-900/60 dark:hover:bg-neutral-900/75;
 }
 
 @utility sidebar-glass {
-  @apply backdrop-blur-3xl bg-white/90 dark:bg-zinc-950/80 border-r border-zinc-200/50 dark:border-white/5;
+  @apply border-r border-line/70 bg-surface/95 backdrop-blur-xl dark:bg-surface/95;
 }
 
 @utility no-scrollbar {

@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate } from "@/lib/utils";
 import { QuickActionsPanel } from "@/components/arsip/quick-actions";
+import { PageHeader } from "@/components/layout/page-header";
 
 type Letter = {
     id: string;
@@ -118,20 +119,11 @@ export default function ArsipDashboard() {
 
     return (
         <div className="space-y-8 pb-12 animate-in fade-in duration-300">
-            {/* Header Title Area */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 dark:border-zinc-800 pb-5">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-zinc-50 flex items-center gap-3">
-                        <div className="p-2 bg-blue-50 dark:bg-zinc-900 rounded-xl text-blue-600 dark:text-blue-400 border border-blue-100/30 dark:border-zinc-800">
-                            <FileText className="h-6 w-6" />
-                        </div>
-                        Layanan E-Arsip
-                    </h1>
-                    <p className="text-muted-foreground text-sm mt-1 font-medium">
-                        Sistem Informasi Manajemen Persuratan Sekolah & Laporan Digital berbasis AI
-                    </p>
-                </div>
-            </div>
+            <PageHeader
+                icon={FileText}
+                title="Layanan E-Arsip"
+                description="Sistem informasi manajemen persuratan sekolah dan laporan digital."
+            />
 
             {/* Stats Cards Dashboard */}
             <div className="grid gap-4 grid-cols-1 md:grid-cols-3">

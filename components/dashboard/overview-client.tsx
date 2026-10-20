@@ -18,9 +18,10 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/layout/page-header";
 import { formatCurrency } from "@/lib/utils";
 import { SPMBStatusBadge } from "@/components/spmb/status-badge";
 
@@ -110,13 +111,6 @@ interface OverviewClientProps {
   userName?: string;
 }
 
-const accentClasses: Record<string, string> = {
-  blue: "bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-300",
-  amber: "bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-300",
-  emerald: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300",
-  purple: "bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-300",
-};
-
 function formatTrendDate(value: string) {
   const [year, month, day] = value.split("-").map(Number);
   const date = year && month && day ? new Date(year, month - 1, day) : new Date(value);
@@ -169,6 +163,8 @@ export function OverviewClient({
   const now = new Date();
   const quota = activePeriod?.quota || 100;
   const filledQuota = safeStats.accepted || 0;
+  const quotaPercent = Math.min(Math.round((filledQuota / Math.max(quota, 1)) * 100), 100);
+  const firstName = userName.split(" ")[0] || userName;
 
   const trendData = (registrationTrend.length > 0 ? registrationTrend : buildFallbackTrend()).map((item) => ({
     date: formatTrendDate(item.date),
@@ -176,36 +172,32 @@ export function OverviewClient({
   }));
 
   const statusData = [
-    { name: "Pending", value: safeStats.pending || 0, color: "#f59e0b" },
-    { name: "Terverifikasi", value: safeStats.verified || 0, color: "#3b82f6" },
-    { name: "Diterima", value: safeStats.accepted || 0, color: "#22c55e" },
-    { name: "Ditolak", value: safeStats.rejected || 0, color: "#ef4444" },
+    { name: "Pending", value: safeStats.pending || 0, color: "#B45309" },
+    { name: "Terverifikasi", value: safeStats.verified || 0, color: "#1D4ED8" },
+    { name: "Diterima", value: safeStats.accepted || 0, color: "#166534" },
+    { name: "Ditolak", value: safeStats.rejected || 0, color: "#B91C1C" },
   ].filter((item) => item.value > 0);
 
-  // ── KPI: satu pola tile untuk semua stat inti ──
   const kpiTiles = [
     {
       title: "Siswa Aktif",
-      value: totalActiveStudents,
+      value: totalActiveStudents.toLocaleString("id-ID"),
       hint: `${presensiHariIni} hadir hari ini`,
       icon: Users,
-      accent: "blue",
       link: "/admin/siswa",
     },
     {
       title: "Pendaftar SPMB",
-      value: safeStats.total,
+      value: safeStats.total.toLocaleString("id-ID"),
       hint: (safeStats.pending || 0) > 0 ? `${safeStats.pending} menunggu verifikasi` : "Tidak ada pending",
       icon: ClipboardCheck,
-      accent: "purple",
       link: "/admin/siswa?tab=spmb",
     },
     {
       title: "Buku Dipinjam",
-      value: perpus.activeLoans,
+      value: perpus.activeLoans.toLocaleString("id-ID"),
       hint: (perpus.overdueLoans || 0) > 0 ? `${perpus.overdueLoans} terlambat` : `${perpus.totalBooks} eksemplar tersedia`,
       icon: BookOpen,
-      accent: "amber",
       link: "/perpustakaan/peminjaman",
     },
     {
@@ -213,19 +205,16 @@ export function OverviewClient({
       value: formatCurrency(tabungan.totalSaldo || 0),
       hint: `${tabungan.totalStudents} penabung aktif`,
       icon: Wallet,
-      accent: "emerald",
       link: "/tabungan",
     },
   ];
 
-  // ── Panel "Perlu Tindakan": item nyata, hanya yang > 0 ──
   const actionItems = [
     (safeStats.pending || 0) > 0 && {
       id: "spmb",
       label: "Verifikasi SPMB",
       detail: `${safeStats.pending} pendaftar menunggu verifikasi`,
       icon: ClipboardCheck,
-      color: "text-purple-500",
       href: "/admin/siswa?tab=spmb",
     },
     (perpus.overdueLoans || 0) > 0 && {
@@ -233,15 +222,13 @@ export function OverviewClient({
       label: "Buku Terlambat",
       detail: `${perpus.overdueLoans} peminjaman melewati jatuh tempo`,
       icon: Clock,
-      color: "text-amber-500",
       href: "/perpustakaan/peminjaman?filter=overdue",
     },
     (tabungan.pendingSetoran || 0) > 0 && {
       id: "setoran",
       label: "Verifikasi Setoran",
-      detail: `${tabungan.pendingSetoran} setoran uang menunggu persetujuan bendahara`,
+      detail: `${tabungan.pendingSetoran} setoran menunggu persetujuan`,
       icon: Wallet,
-      color: "text-emerald-500",
       href: "/tabungan/setoran",
     },
     (inventaris.needsMaintenance || 0) > 0 && {
@@ -249,7 +236,6 @@ export function OverviewClient({
       label: "Aset Perlu Perbaikan",
       detail: `${inventaris.needsMaintenance} aset butuh perawatan`,
       icon: AlertTriangle,
-      color: "text-amber-500",
       href: "/inventaris",
     },
   ].filter(Boolean) as Array<{
@@ -257,272 +243,341 @@ export function OverviewClient({
     label: string;
     detail: string;
     icon: typeof Activity;
-    color: string;
     href: string;
   }>;
 
+  const genderTotal = Math.max(activeMale + activeFemale, 1);
+  const malePercent = Math.round((activeMale / genderTotal) * 100);
+  const femalePercent = 100 - malePercent;
+  const topClasses = [...studentsByClass]
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8);
+
   return (
-    <div className="w-full min-w-0 space-y-5 sm:space-y-6 lg:space-y-8">
-      {/* ── Header: salam, tanggal, periode SPMB ── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-            {getGreeting(now)}, {userName}
-          </h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground sm:text-base">
-            {now.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}{" "}
-            &middot; Ringkasan operasional sekolah hari ini.
-          </p>
-        </div>
-        {activePeriod && (
-          <Badge variant="secondary" className="w-fit shrink-0">
-            <Calendar className="mr-1 h-3.5 w-3.5" />
-            {activePeriod.name}
-          </Badge>
-        )}
-      </div>
+    <div className="w-full min-w-0 space-y-6">
+      <PageHeader
+        eyebrow={now.toLocaleDateString("id-ID", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })}
+        title={`${getGreeting(now)}, ${firstName}`}
+        description="Ringkasan operasional sekolah hari ini. Pantau antrean, siswa, dan layanan dalam satu tampilan."
+        actions={
+          activePeriod ? (
+            <Badge variant="outline" className="h-8 gap-1.5 px-3 text-xs">
+              <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
+              {activePeriod.name}
+            </Badge>
+          ) : undefined
+        }
+      />
 
-      {/* ── Rekap Siswa Aktif ── */}
-      <section>
-        <h2 className="mb-3 flex items-center gap-2 text-lg font-bold sm:mb-4 sm:text-xl">
-          <Users className="h-5 w-5 text-primary" />
-          Rekap Siswa Aktif
-        </h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:gap-6">
-          <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20">
-            <CardContent className="p-4 sm:p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Total Siswa Aktif</p>
-                  <p className="mt-1 text-3xl font-bold text-blue-700 dark:text-blue-300">{totalActiveStudents}</p>
-                  <p className="mt-1 text-xs text-info">{presensiHariIni} hadir hari ini</p>
-                </div>
-                <div className="rounded-full bg-blue-100 p-3 dark:bg-blue-900/50">
-                  <Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-sky-200 bg-sky-50/50 dark:border-sky-800 dark:bg-sky-950/20">
-            <CardContent className="p-4 sm:p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-sky-700 dark:text-sky-400">Laki-laki</p>
-                  <p className="mt-1 text-3xl font-bold text-sky-700 dark:text-sky-300">{activeMale}</p>
-                  <p className="mt-1 text-xs text-sky-600/70 dark:text-sky-400/70">{totalActiveStudents > 0 ? `${Math.round((activeMale / totalActiveStudents) * 100)}% dari total` : '-'}</p>
-                </div>
-                <div className="rounded-full bg-sky-100 p-3 dark:bg-sky-900/50">
-                  <span className="text-lg font-bold text-sky-700 dark:text-sky-400">L</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-rose-200 bg-rose-50/50 dark:border-rose-800 dark:bg-rose-950/20">
-            <CardContent className="p-4 sm:p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-rose-700 dark:text-rose-400">Perempuan</p>
-                  <p className="mt-1 text-3xl font-bold text-rose-700 dark:text-rose-300">{activeFemale}</p>
-                  <p className="mt-1 text-xs text-rose-600/70 dark:text-rose-400/70">{totalActiveStudents > 0 ? `${Math.round((activeFemale / totalActiveStudents) * 100)}% dari total` : '-'}</p>
-                </div>
-                <div className="rounded-full bg-rose-100 p-3 dark:bg-rose-900/50">
-                  <span className="text-lg font-bold text-rose-700 dark:text-rose-400">P</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Rekap per Kelas */}
-        {studentsByClass.length > 0 && (
-          <Card className="mt-4">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-bold">Siswa Aktif per Kelas</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
-                    <tr>
-                      <th className="px-4 py-2.5 text-left">Kelas</th>
-                      <th className="px-4 py-2.5 text-center">Jumlah</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {studentsByClass.map((cls) => (
-                      <tr key={cls.className} className="hover:bg-muted/30">
-                        <td className="px-4 py-2.5 font-medium">{formatClassName(cls.className || "")}</td>
-                        <td className="px-4 py-2.5 text-center font-semibold">{cls.count}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </section>
-
-      {/* ── KPI: 4 tile seragam ── */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 lg:gap-6">
-        {kpiTiles.map((tile) => (
-          <Link key={tile.title} href={tile.link} className="block">
-            <Card className="h-full transition-colors hover:border-primary/40 hover:bg-muted/20">
-              <CardContent className="flex h-full flex-col gap-3 p-4 sm:p-5">
-                <div className={`w-fit rounded-md p-2 ${accentClasses[tile.accent] || accentClasses.blue}`}>
-                  <tile.icon className="h-5 w-5" />
-                </div>
+      {/* ── KPI strip: satu permukaan, bukan empat kartu terpisah ── */}
+      <Card className="overflow-hidden">
+        <div className="grid grid-cols-2 gap-px bg-line/60 lg:grid-cols-4">
+          {kpiTiles.map((tile) => (
+            <Link
+              key={tile.title}
+              href={tile.link}
+              className="group flex min-h-[132px] flex-col justify-between bg-card p-4 transition-colors hover:bg-surface-muted/60 sm:p-5"
+            >
+              <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate text-2xl font-bold sm:text-3xl">{tile.value}</p>
-                  <p className="mt-0.5 text-sm font-medium">{tile.title}</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-text-soft">
+                    {tile.title}
+                  </p>
+                  <p className="mt-2 truncate text-xl font-bold tabular-nums text-foreground sm:text-2xl lg:text-[1.7rem]">
+                    {tile.value}
+                  </p>
                 </div>
-                <p className="mt-auto truncate text-xs text-muted-foreground">{tile.hint}</p>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </div>
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                  <tile.icon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+                </span>
+              </div>
+              <div className="mt-4 flex items-center justify-between gap-2">
+                <p className="truncate text-xs text-muted-foreground">{tile.hint}</p>
+                <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden="true" />
+              </div>
+            </Link>
+          ))}
+        </div>
+      </Card>
 
-      {/* ── Panel Perlu Tindakan ── */}
-      <section>
-        <h2 className="mb-3 flex items-center gap-2 text-lg font-bold sm:mb-4 sm:text-xl">
-          <Activity className="h-5 w-5 text-primary" />
-          Perlu Tindakan
-        </h2>
-        <Card>
-          <CardContent className="p-4 sm:p-5">
+      <div className="grid gap-6 xl:grid-cols-12">
+        {/* ── Antrean tindakan ── */}
+        <Card className="flex flex-col xl:col-span-7">
+          <CardHeader className="flex flex-row items-start justify-between gap-4 border-b border-line/60 pb-4">
+            <div>
+              <CardTitle className="text-base font-semibold">Perlu tindakan</CardTitle>
+              <CardDescription className="mt-1">
+                Pekerjaan yang menunggu perhatian hari ini.
+              </CardDescription>
+            </div>
+            {actionItems.length > 0 && (
+              <Badge variant="secondary" className="shrink-0">
+                {actionItems.length} item
+              </Badge>
+            )}
+          </CardHeader>
+          <CardContent className="flex flex-1 flex-col p-0">
             {actionItems.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-2 py-6 text-muted-foreground">
-                <CheckCircle2 className="h-10 w-10 text-emerald-500" />
-                <p className="text-sm font-medium">Tidak ada tugas tertunda. Semua beres hari ini.</p>
+              <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 py-12 text-center">
+                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-success/10">
+                  <CheckCircle2 className="h-6 w-6 text-success" aria-hidden="true" />
+                </span>
+                <p className="text-sm font-semibold text-foreground">Semua beres hari ini.</p>
+                <p className="max-w-xs text-xs text-muted-foreground">
+                  Tidak ada antrean verifikasi atau perawatan yang tertunda.
+                </p>
               </div>
             ) : (
-              <div className="divide-y">
+              <ul className="divide-y divide-line/60">
                 {actionItems.map((item) => (
-                  <Link
-                    key={item.id}
-                    href={item.href}
-                    className="flex items-center gap-4 py-3 transition-colors first:pt-0 last:pb-0 hover:bg-muted/30 sm:px-2 sm:py-3.5"
-                  >
-                    <div className={`rounded-md bg-muted p-2 ${item.color}`}>
-                      <item.icon className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold">{item.label}</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">{item.detail}</p>
-                    </div>
-                    <Badge variant="destructive" className="shrink-0">
-                      Tindakan
-                    </Badge>
-                    <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  </Link>
+                  <li key={item.id}>
+                    <Link
+                      href={item.href}
+                      className="group flex items-center gap-3.5 px-4 py-3.5 transition-colors hover:bg-surface-muted/50 sm:px-5"
+                    >
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-muted text-primary">
+                        <item.icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-foreground">{item.label}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">{item.detail}</p>
+                      </div>
+                      <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden="true" />
+                    </Link>
+                  </li>
                 ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* ── Demografi siswa ── */}
+        <Card className="xl:col-span-5">
+          <CardHeader className="border-b border-line/60 pb-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <CardTitle className="text-base font-semibold">Siswa aktif</CardTitle>
+                <CardDescription className="mt-1">Komposisi dan sebaran per kelas.</CardDescription>
+              </div>
+              <span className="text-right">
+                <span className="block text-2xl font-bold tabular-nums text-foreground">
+                  {totalActiveStudents.toLocaleString("id-ID")}
+                </span>
+                <span className="text-[11px] uppercase tracking-wider text-text-soft">total</span>
+              </span>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-5 pt-5">
+            <div>
+              <div className="flex h-3 overflow-hidden rounded-full bg-surface-muted">
+                <div
+                  className="h-full bg-primary transition-[width] duration-500"
+                  style={{ width: `${malePercent}%` }}
+                  title={`Laki-laki ${activeMale}`}
+                />
+                <div
+                  className="h-full bg-accent transition-[width] duration-500"
+                  style={{ width: `${femalePercent}%` }}
+                  title={`Perempuan ${activeFemale}`}
+                />
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-primary" aria-hidden="true" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Laki-laki</p>
+                    <p className="text-sm font-semibold tabular-nums">
+                      {activeMale} <span className="font-normal text-text-soft">({malePercent}%)</span>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-accent" aria-hidden="true" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Perempuan</p>
+                    <p className="text-sm font-semibold tabular-nums">
+                      {activeFemale} <span className="font-normal text-text-soft">({femalePercent}%)</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {topClasses.length > 0 && (
+              <div className="border-t border-line/60 pt-4">
+                <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-text-soft">
+                  Sebaran kelas
+                </p>
+                <ul className="space-y-2">
+                  {topClasses.map((cls) => {
+                    const width = Math.max((cls.count / Math.max(topClasses[0].count, 1)) * 100, 8);
+                    return (
+                      <li key={cls.className || "tanpa-kelas"} className="flex items-center gap-3 text-xs">
+                        <span className="w-20 shrink-0 truncate font-medium text-foreground">
+                          {formatClassName(cls.className || "")}
+                        </span>
+                        <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-muted">
+                          <span className="block h-full rounded-full bg-primary/70" style={{ width: `${width}%` }} />
+                        </span>
+                        <span className="w-8 shrink-0 text-right tabular-nums text-muted-foreground">
+                          {cls.count}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
             )}
           </CardContent>
         </Card>
-      </section>
-
-      {/* ── Grafik SPMB ── */}
-      <section>
-        <h2 className="mb-3 flex items-center gap-2 text-lg font-bold sm:mb-4 sm:text-xl">
-          <ClipboardCheck className="h-5 w-5 text-primary" />
-          Statistik SPMB
-        </h2>
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
-          <div className="lg:col-span-2">
-            <RegistrationTrendChart data={trendData} />
-          </div>
-          <StatusDistributionChart data={statusData} />
-        </div>
-      </section>
-
-      {/* ── Dua kolom: pendaftar terbaru + periode/aksi ── */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3 lg:gap-8">
-        <div className="space-y-4 lg:col-span-2">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-lg font-bold sm:text-xl">Pendaftar Terbaru</h2>
-            <Button asChild variant="ghost" className="w-fit text-primary hover:text-primary/80">
-              <Link href="/admin/siswa?tab=spmb">
-                Lihat Semua <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
-          </div>
-
-          <Card>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[620px] text-left text-sm">
-                <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-3">Nama Siswa</th>
-                    <th className="px-4 py-3">Nomor</th>
-                    <th className="px-4 py-3">Tanggal</th>
-                    <th className="px-4 py-3">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {recentRegistrants.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
-                        Belum ada pendaftar
-                      </td>
-                    </tr>
-                  ) : (
-                    recentRegistrants.map((item) => (
-                      <tr key={item.id || item.registrationNumber} className="transition-colors hover:bg-muted/30">
-                        <td className="px-4 py-3 font-medium">{item.fullName}</td>
-                        <td className="px-4 py-3 font-mono text-muted-foreground">{item.registrationNumber}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{formatDateValue(item.createdAt ?? item.created)}</td>
-                        <td className="px-4 py-3"><SPMBStatusBadge status={item.status} /></td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        </div>
-
-        <div className="space-y-6">
-          {/* Periode SPMB & kuota — dari bawah naik ke sini */}
-          <Card className="border-primary/20 bg-primary text-primary-foreground">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Info className="h-5 w-5" />
-                Periode SPMB
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {activePeriod ? (
-                <>
-                  <div className="flex items-center justify-between border-b border-white/20 pb-2">
-                    <span className="text-sm text-white/80">{activePeriod.name}</span>
-                    <Badge className="bg-white text-primary hover:bg-white/90">Aktif</Badge>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-sm">
-                      <span>Kuota Terisi</span>
-                      <span className="font-bold">
-                        {filledQuota}/{quota}
-                      </span>
-                    </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-black/20">
-                      <div
-                        className="h-full bg-white transition-all"
-                        style={{ width: `${Math.min((filledQuota / quota) * 100, 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <p className="text-sm text-white/80">Tidak ada periode aktif</p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
       </div>
 
-      {/* ── Status sistem: satu strip tenang di bawah ── */}
+      {/* ── Statistik SPMB ── */}
+      <Card>
+        <CardHeader className="flex flex-row items-start justify-between gap-4 border-b border-line/60 pb-4">
+          <div>
+            <CardTitle className="text-base font-semibold">Penerimaan siswa baru</CardTitle>
+            <CardDescription className="mt-1">
+              Tren pendaftaran tujuh hari terakhir dan distribusi status.
+            </CardDescription>
+          </div>
+          <Badge variant="outline" className="shrink-0">
+            {activePeriod ? "Periode aktif" : "Belum ada periode"}
+          </Badge>
+        </CardHeader>
+        <CardContent className="grid gap-6 pt-5 lg:grid-cols-[1.55fr_1fr]">
+          <div className="min-w-0">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-text-soft">
+              Pendaftar per hari
+            </p>
+            <RegistrationTrendChart data={trendData} />
+          </div>
+          <div className="min-w-0 border-t border-line/60 pt-5 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-text-soft">
+              Distribusi status
+            </p>
+            <StatusDistributionChart data={statusData} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-6 xl:grid-cols-12">
+        {/* ── Pendaftar terbaru ── */}
+        <Card className="xl:col-span-8">
+          <CardHeader className="flex flex-row items-center justify-between gap-4 border-b border-line/60 pb-4">
+            <div>
+              <CardTitle className="text-base font-semibold">Pendaftar terbaru</CardTitle>
+              <CardDescription className="mt-1">Pendaftaran SPMB yang terakhir masuk.</CardDescription>
+            </div>
+            <Button asChild variant="ghost" size="sm" className="shrink-0">
+              <Link href="/admin/siswa?tab=spmb">
+                Lihat semua <ArrowRight className="ml-1.5 h-3.5 w-3.5" aria-hidden="true" />
+              </Link>
+            </Button>
+          </CardHeader>
+          <CardContent className="p-0">
+            {recentRegistrants.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-2 px-6 py-12 text-center">
+                <CheckCircle2 className="h-8 w-8 text-muted-foreground/50" aria-hidden="true" />
+                <p className="text-sm font-medium text-foreground">Belum ada pendaftar</p>
+                <p className="text-xs text-muted-foreground">Pendaftar baru akan muncul di sini.</p>
+              </div>
+            ) : (
+              <>
+                <ul className="divide-y divide-line/60 md:hidden">
+                  {recentRegistrants.map((item) => (
+                    <li key={item.id || item.registrationNumber} className="space-y-2 px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold">{item.fullName}</p>
+                          <p className="mt-0.5 font-mono text-xs text-muted-foreground">
+                            {item.registrationNumber}
+                          </p>
+                        </div>
+                        <SPMBStatusBadge status={item.status} />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDateValue(item.createdAt ?? item.created)}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+                <div className="hidden overflow-x-auto md:block">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-surface-muted/60 text-[11px] uppercase tracking-wider text-text-soft">
+                      <tr>
+                        <th scope="col" className="px-5 py-3 font-semibold">Nama siswa</th>
+                        <th scope="col" className="px-5 py-3 font-semibold">Nomor</th>
+                        <th scope="col" className="px-5 py-3 font-semibold">Tanggal</th>
+                        <th scope="col" className="px-5 py-3 font-semibold">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-line/60">
+                      {recentRegistrants.map((item) => (
+                        <tr key={item.id || item.registrationNumber} className="transition-colors hover:bg-surface-muted/30">
+                          <td className="px-5 py-3 font-medium">{item.fullName}</td>
+                          <td className="px-5 py-3 font-mono text-xs text-muted-foreground">{item.registrationNumber}</td>
+                          <td className="px-5 py-3 text-muted-foreground">{formatDateValue(item.createdAt ?? item.created)}</td>
+                          <td className="px-5 py-3"><SPMBStatusBadge status={item.status} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* ── Kuota SPMB ── */}
+        <Card className="border-primary/20 bg-primary text-primary-foreground xl:col-span-4">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Info className="h-[18px] w-[18px]" aria-hidden="true" />
+              Kuota SPMB
+            </CardTitle>
+            <CardDescription className="text-primary-foreground/70">
+              {activePeriod ? activePeriod.name : "Tidak ada periode aktif"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {activePeriod ? (
+              <>
+                <div className="flex items-end justify-between gap-3">
+                  <div>
+                    <p className="text-3xl font-bold tabular-nums">{filledQuota}</p>
+                    <p className="text-xs text-primary-foreground/70">dari {quota} kuota terisi</p>
+                  </div>
+                  <Badge className="border-0 bg-white/15 text-white hover:bg-white/20">
+                    {quotaPercent}%
+                  </Badge>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-black/20">
+                  <div
+                    className="h-full rounded-full bg-secondary transition-[width] duration-500"
+                    style={{ width: `${quotaPercent}%` }}
+                  />
+                </div>
+                <Button asChild variant="secondary" size="sm" className="w-full">
+                  <Link href="/admin/siswa?tab=spmb">
+                    Kelola pendaftaran <ArrowRight className="ml-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                  </Link>
+                </Button>
+              </>
+            ) : (
+              <p className="text-sm leading-relaxed text-primary-foreground/75">
+                Aktifkan periode SPMB untuk mulai menerima pendaftaran dan memantau kuota.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       <SystemHealthStrip health={serverHealth} />
     </div>
   );
@@ -535,19 +590,19 @@ function SystemHealthStrip({ health }: { health: ServerHealth }) {
   const lastBackup = health.backup?.last_backup ? formatDateValue(health.backup.last_backup) : "—";
 
   return (
-    <div className="flex flex-col items-start justify-between gap-2 rounded-lg border px-4 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center">
-      <span className="flex items-center gap-1.5">
-        <Activity className={`h-3.5 w-3.5 ${isHealthy ? "text-emerald-500" : "text-amber-500"}`} />
+    <div className="flex flex-col items-start justify-between gap-3 rounded-xl border border-line/60 bg-surface/70 px-4 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center">
+      <span className="flex items-center gap-2">
+        <span className={isHealthy ? "h-2 w-2 rounded-full bg-success" : "h-2 w-2 rounded-full bg-warning"} aria-hidden="true" />
         Sistem {isHealthy ? "sehat" : "perlu dicek"} &middot; Uptime{" "}
         {health.system?.uptime_seconds ? (health.system.uptime_seconds / 3600).toFixed(1) : "0"} jam
       </span>
       <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
         <span className="flex items-center gap-1.5">
-          <Database className="h-3.5 w-3.5" />
+          <Database className="h-3.5 w-3.5" aria-hidden="true" />
           DB {health.database?.formatted_size || "N/A"}
         </span>
         <span className="flex items-center gap-1.5">
-          <HardDrive className="h-3.5 w-3.5" />
+          <HardDrive className="h-3.5 w-3.5" aria-hidden="true" />
           RAM {(health.system?.memory_usage_mb || 0).toFixed(1)} MB
         </span>
         <span>Backup: {lastBackup}</span>

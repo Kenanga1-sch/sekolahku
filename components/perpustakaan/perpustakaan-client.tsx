@@ -16,6 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { LibraryStats } from "@/types/library";
+import { PageHeader } from "@/components/layout/page-header";
 
 const QuickActionsPanel = dynamic(
     () => import("@/components/perpustakaan/quick-actions").then(mod => ({ default: mod.QuickActionsPanel })),
@@ -89,34 +90,30 @@ export default function PerpustakaanClient({ initialStats, onRefresh }: Perpusta
 
     return (
         <div className="space-y-6 md:space-y-8">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="min-w-0">
-                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight truncate text-primary">
-                        Perpustakaan
-                    </h1>
-                    <p className="text-sm sm:text-base text-muted-foreground">
-                        Kelola perpustakaan sekolah Anda
-                    </p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={handleRefresh}
-                        disabled={refreshing}
-                        className="shrink-0"
-                    >
-                        <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                    </Button>
-                    <Link href="/kiosk" className="flex-1 sm:flex-none">
-                        <Button variant="outline" className="gap-2 w-full">
-                            <BookMarked className="h-4 w-4" />
-                            Buka Kiosk
+            <PageHeader
+                icon={BookOpen}
+                title="Perpustakaan"
+                description="Kelola koleksi, anggota, peminjaman, dan kunjungan perpustakaan sekolah."
+                actions={
+                    <>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={handleRefresh}
+                            disabled={refreshing}
+                            aria-label="Muat ulang data perpustakaan"
+                        >
+                            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
                         </Button>
-                    </Link>
-                </div>
-            </div>
+                        <Button asChild variant="outline">
+                            <Link href="/kiosk">
+                                <BookMarked className="h-4 w-4" aria-hidden="true" />
+                                Buka Kiosk
+                            </Link>
+                        </Button>
+                    </>
+                }
+            />
 
             {/* Stats Grid */}
             <div className="grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">

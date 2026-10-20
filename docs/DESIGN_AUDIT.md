@@ -31,6 +31,7 @@ dengan sesi admin; produksi belum dideploy ulang pada saat catatan ini dibuat.
 | Form              | Sebagian        | Validasi on-blur di 15 form (RHF); select hubungan shadcn; 28 `<select>` native tersisa. |
 | Tabel/empty state | Selesai         | DataTable kini punya state loading, empty, error + retry; error boundary dashboard.      |
 | Navigasi          | Selesai         | Breadcrumb desktop, fokus setelah route change, target sentuh mobile ≥44 px.             |
+| Refresh visual    | Selesai         | Shell baru, Card solid, PageHeader, overview & landing dirombak, auth tanpa rainbow.     |
 
 Angka baseline di bawah adalah kondisi **sebelum** perubahan dan disimpan sebagai
 pembanding.
