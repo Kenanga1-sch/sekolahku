@@ -541,7 +541,7 @@ export function OverviewClient({
               <Info className="h-[18px] w-[18px]" aria-hidden="true" />
               Kuota SPMB
             </CardTitle>
-            <CardDescription className="text-primary-foreground/70">
+            <CardDescription className="text-primary-foreground-soft">
               {activePeriod ? activePeriod.name : "Tidak ada periode aktif"}
             </CardDescription>
           </CardHeader>
@@ -551,9 +551,9 @@ export function OverviewClient({
                 <div className="flex items-end justify-between gap-3">
                   <div>
                     <p className="text-3xl font-bold tabular-nums">{filledQuota}</p>
-                    <p className="text-xs text-primary-foreground/70">dari {quota} kuota terisi</p>
+                    <p className="text-xs text-primary-foreground-soft">dari {quota} kuota terisi</p>
                   </div>
-                  <Badge className="border-0 bg-white/15 text-white hover:bg-white/20">
+                  <Badge className="border-0 bg-primary-foreground text-primary hover:bg-primary-foreground/90">
                     {quotaPercent}%
                   </Badge>
                 </div>
@@ -570,7 +570,7 @@ export function OverviewClient({
                 </Button>
               </>
             ) : (
-              <p className="text-sm leading-relaxed text-primary-foreground/75">
+              <p className="text-sm leading-relaxed text-primary-foreground-soft">
                 Aktifkan periode SPMB untuk mulai menerima pendaftaran dan memantau kuota.
               </p>
             )}

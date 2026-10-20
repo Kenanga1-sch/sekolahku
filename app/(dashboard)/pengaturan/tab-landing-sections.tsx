@@ -13,18 +13,20 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Home, BookOpen, Layers, Star, Settings, Palette, Type, RotateCcw, Check, Bookmark } from "lucide-react";
+import { Plus, Trash2, Home, BookOpen, Layers, Star, Settings, Palette, Type, RotateCcw, Check } from "lucide-react";
 import {
   DEFAULT_BRAND,
   BRAND_KEYS,
   RADIUS_OPTIONS,
   parseBrandTheme,
   isHex,
+  pickReadableInk,
   type BrandTheme,
 } from "@/lib/theme";
 import { LOCAL_PRESETS, type ThemePreset } from "@/lib/theme-presets";
 import { goGet, goPost } from "@/lib/api-client";
 import { toast } from "sonner";
+import ThemePresetGallery from "./theme-preset-gallery";
 
 interface TabLandingSectionsProps {
   settings: any;
@@ -97,6 +99,7 @@ function ColorField({
           value={text}
           maxLength={7}
           spellCheck={false}
+          aria-label={`Kode hex ${label}`}
           onChange={(e) => {
             const v = e.target.value;
             setText(v);
@@ -111,11 +114,11 @@ function ColorField({
 }
 
 const SECTION_CONFIGS = [
-  { id: "hero", title: "Hero (Beranda)", icon: Home, desc: "Bagian paling atas halaman depan", color: "text-blue-600", bg: "bg-blue-100 dark:bg-blue-900/30" },
-  { id: "profil", title: "Profil Sekolah", icon: BookOpen, desc: "Sejarah, Visi, Misi", color: "text-emerald-600", bg: "bg-emerald-100 dark:bg-emerald-900/30" },
-  { id: "fasilitas", title: "Fasilitas & Ekosistem", icon: Star, desc: "Kurikulum & Fasilitas", color: "text-amber-600", bg: "bg-amber-100 dark:bg-amber-900/30" },
-  { id: "layanan", title: "Layanan Mandiri", icon: Settings, desc: "Layanan untuk siswa & admin", color: "text-purple-600", bg: "bg-purple-100 dark:bg-purple-900/30" },
-  { id: "spmb", title: "Portal SPMB", icon: Layers, desc: "Info penerimaan siswa baru", color: "text-rose-600", bg: "bg-rose-100 dark:bg-rose-900/30" },
+  { id: "hero", title: "Hero (Beranda)", icon: Home, desc: "Bagian paling atas halaman depan" },
+  { id: "profil", title: "Profil Sekolah", icon: BookOpen, desc: "Sejarah, Visi, Misi" },
+  { id: "fasilitas", title: "Fasilitas & Ekosistem", icon: Star, desc: "Kurikulum & Fasilitas" },
+  { id: "layanan", title: "Layanan Mandiri", icon: Settings, desc: "Layanan untuk siswa & admin" },
+  { id: "spmb", title: "Portal SPMB", icon: Layers, desc: "Info penerimaan siswa baru" },
 ];
 
 const DEFAULT_SECTION = { heading: "", subheading: "", button: { label: "", url: "" }, items: [] };
@@ -303,7 +306,7 @@ export default function TabLandingSections({ settings, setSettings }: TabLanding
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 mb-2">
-        <Palette className="h-5 w-5 text-indigo-600" />
+        <Palette className="h-5 w-5 text-primary" />
         <div>
           <p className="font-semibold text-sm">Atur Konten Halaman Depan</p>
           <p className="text-xs text-muted-foreground">Kelola tema warna, teks global, judul, deskripsi, tombol, dan kartu di tiap bagian landing page.</p>
@@ -315,7 +318,7 @@ export default function TabLandingSections({ settings, setSettings }: TabLanding
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600">
+              <div className="p-2 rounded-lg bg-surface-muted text-primary">
                 <Palette className="h-5 w-5" />
               </div>
               <div>
@@ -326,61 +329,45 @@ export default function TabLandingSections({ settings, setSettings }: TabLanding
               </div>
             </div>
             {themeDirty && (
-              <span className="text-[11px] font-medium text-amber-600 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded-full whitespace-nowrap">
+              <span className="text-[11px] font-medium text-warning bg-warning/10 px-2 py-0.5 rounded-full whitespace-nowrap">
                 Belum disimpan
               </span>
             )}
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Strip preset — scrollable horizontal di mobile, wrap di desktop */}
-          <div className="space-y-1.5">
-            <Label className="text-xs">Preset Cepat</Label>
-            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]">
-              {presets.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => applyPreset(p)}
-                  title={p.description}
-                  className="group flex shrink-0 flex-col gap-1 rounded-lg border p-2 text-left transition-all hover:border-indigo-400 hover:shadow-sm"
-                >
-                  <div className="flex gap-1">
-                    {[p.theme.primary, p.theme.secondary, p.theme.accent, p.theme.background].map((c, i) => (
-                      <span key={i} className="h-4 w-4 rounded border border-black/10" style={{ background: c }} />
-                    ))}
-                  </div>
-                  <span className="text-[11px] font-medium leading-none whitespace-nowrap">{p.name}</span>
-                </button>
-              ))}
-              {/* Tombol simpan preset */}
-              {showSavePreset ? (
-                <div className="flex shrink-0 items-center gap-1 rounded-lg border border-indigo-400 p-1.5">
-                  <Input
-                    autoFocus
-                    value={presetName}
-                    onChange={(e) => setPresetName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") saveAsPreset(); if (e.key === "Escape") setShowSavePreset(false); }}
-                    placeholder="Nama preset"
-                    className="h-7 w-32 text-xs"
-                  />
-                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={saveAsPreset} disabled={presetSaving || !presetName.trim()}>
-                    <Check className="h-3.5 w-3.5 text-success" />
-                  </Button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setShowSavePreset(true)}
-                  className="flex h-[52px] shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-dashed px-3 text-muted-foreground transition-all hover:border-indigo-400 hover:text-indigo-600"
-                >
-                  <Bookmark className="h-4 w-4" />
-                  <span className="text-[11px] font-medium leading-none whitespace-nowrap">Simpan preset</span>
-                </button>
-              )}
+          {/* Galeri preset — pencarian + filter keluarga warna */}
+          <ThemePresetGallery
+            presets={presets}
+            activeTheme={themeDraft}
+            onApply={applyPreset}
+            onSaveCurrent={() => setShowSavePreset(true)}
+            saving={presetSaving}
+          />
+
+          {/* Form nama preset kustom (muncul dari tombol galeri) */}
+          {showSavePreset && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/40 bg-surface-muted/40 p-2">
+              <Input
+                autoFocus
+                value={presetName}
+                onChange={(e) => setPresetName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveAsPreset();
+                  if (e.key === "Escape") setShowSavePreset(false);
+                }}
+                placeholder="Nama preset"
+                aria-label="Nama preset baru"
+                className="h-8 w-full text-xs sm:w-48"
+              />
+              <Button size="sm" onClick={saveAsPreset} disabled={presetSaving || !presetName.trim()}>
+                <Check className="mr-1 h-3.5 w-3.5" /> Simpan
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setShowSavePreset(false)}>
+                Batal
+              </Button>
             </div>
-            <p className="text-[10px] text-muted-foreground">Ketuk preset untuk mengisi draft (preview di bawah langsung berubah), lalu tekan <strong>Simpan Tema</strong> agar berlaku. Tekan <strong>⭐ Simpan preset</strong> untuk menyimpan warna ini agar bisa dipakai ulang.</p>
-          </div>
+          )}
 
           {/* ===== Mini-mock preview: 3 region berlabel (mobile-first) ===== */}
           <div className="space-y-2">
@@ -391,7 +378,7 @@ export default function TabLandingSections({ settings, setSettings }: TabLanding
               <div className="flex items-center justify-between gap-2 px-3 py-2">
                 <span className="text-[10px] font-semibold rounded-full px-2 py-0.5" style={{ background: "rgba(0,0,0,0.6)", color: "#fff" }}>① Bilah atas</span>
                 <span className="text-xs font-semibold truncate" style={{ color: themeDraft.foreground }}>Nama Sekolah</span>
-                <span className="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium" style={{ background: themeDraft.primary, color: "#ffffff" }}>
+                <span className="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium" style={{ background: themeDraft.primary, color: pickReadableInk(themeDraft.primary) }}>
                   Masuk
                 </span>
               </div>
@@ -404,7 +391,7 @@ export default function TabLandingSections({ settings, setSettings }: TabLanding
                 <span className="text-[10px] font-semibold rounded-full px-2 py-0.5" style={{ background: "rgba(0,0,0,0.6)", color: "#fff" }}>② Judul &amp; paragraf</span>
               </div>
               <div className="mb-1.5 flex items-center gap-2">
-                <span className="rounded-full px-2 py-0.5 text-[9px] font-semibold" style={{ background: themeDraft.secondary, color: themeDraft.primary }}>
+                <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: themeDraft.secondary, color: pickReadableInk(themeDraft.secondary) }}>
                   Tahun Ajaran
                 </span>
                 <span className="text-sm font-bold truncate" style={{ color: themeDraft.foreground }}>Judul halaman</span>
@@ -413,10 +400,10 @@ export default function TabLandingSections({ settings, setSettings }: TabLanding
                 Keterangan paragraf memakai teks keterangan…
               </p>
               <div className="flex gap-2 pt-2">
-                <span className="rounded-full px-3 py-1 text-[10px] font-medium" style={{ background: themeDraft.primary, color: "#ffffff" }}>
+                <span className="rounded-full px-3 py-1 text-[10px] font-medium" style={{ background: themeDraft.primary, color: pickReadableInk(themeDraft.primary) }}>
                   Tombol utama
                 </span>
-                <span className="rounded-full px-3 py-1 text-[10px] font-medium" style={{ background: themeDraft.secondary, color: themeDraft.primary }}>
+                <span className="rounded-full px-3 py-1 text-[10px] font-medium" style={{ background: themeDraft.secondary, color: pickReadableInk(themeDraft.secondary) }}>
                   Tombol pendukung
                 </span>
               </div>
@@ -430,11 +417,11 @@ export default function TabLandingSections({ settings, setSettings }: TabLanding
               <div className="grid grid-cols-3 gap-2 px-3 pb-3">
                 {[0, 1, 2].map((i) => (
                   <div key={i} className="rounded-lg p-2" style={{ background: "#ffffff", borderColor: themeDraft.border, borderWidth: 1, borderStyle: "solid" }}>
-                    <div className="mb-1 inline-block rounded px-1.5 py-0.5 text-[9px] font-semibold" style={{ background: themeDraft.accent, color: themeDraft.foreground }}>
+                    <div className="mb-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold" style={{ background: themeDraft.accent, color: pickReadableInk(themeDraft.accent) }}>
                       Badge
                     </div>
                     <p className="text-[10px] font-semibold truncate" style={{ color: themeDraft.foreground }}>Judul kartu</p>
-                    <p className="text-[9px] truncate" style={{ color: themeDraft.muted_foreground }}>Keterangan kecil</p>
+                    <p className="text-[10px] truncate" style={{ color: themeDraft.muted_foreground }}>Keterangan kecil</p>
                   </div>
                 ))}
               </div>
@@ -442,7 +429,7 @@ export default function TabLandingSections({ settings, setSettings }: TabLanding
 
             {/* Baris bawah — demo public_bg penuh lebar */}
             <div className="flex items-center justify-center rounded-lg py-1.5" style={{ background: themeDraft.public_bg }}>
-              <span className="text-[9px] font-medium rounded px-2 py-0.5" style={{ background: "rgba(0,0,0,0.6)", color: "#fff" }}>
+              <span className="text-[10px] font-medium rounded px-2 py-0.5" style={{ background: "rgba(0,0,0,0.6)", color: "#fff" }}>
                 Latar halaman publik
               </span>
             </div>
@@ -470,7 +457,7 @@ export default function TabLandingSections({ settings, setSettings }: TabLanding
                   onClick={() => patchTheme({ radius })}
                   className={`px-3 h-8 text-xs font-medium rounded-md border transition-colors ${
                     themeDraft.radius === radius
-                      ? "border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300"
+                      ? "border-primary bg-surface-muted text-primary"
                       : "border-input hover:bg-muted"
                   }`}
                 >
@@ -503,7 +490,7 @@ export default function TabLandingSections({ settings, setSettings }: TabLanding
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600">
+              <div className="p-2 rounded-lg bg-surface-muted text-primary">
                 <Type className="h-5 w-5" />
               </div>
               <div>
@@ -514,7 +501,7 @@ export default function TabLandingSections({ settings, setSettings }: TabLanding
               </div>
             </div>
             {contentDirty && (
-              <span className="text-[11px] font-medium text-amber-600 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded-full whitespace-nowrap">
+              <span className="text-[11px] font-medium text-warning bg-warning/10 px-2 py-0.5 rounded-full whitespace-nowrap">
                 Belum disimpan
               </span>
             )}
@@ -576,18 +563,18 @@ export default function TabLandingSections({ settings, setSettings }: TabLanding
           return (
             <Card
               key={config.id}
-              className="hover:border-indigo-400 hover:shadow-md transition-all cursor-pointer group relative"
+              className="hover:border-primary/40 transition-colors cursor-pointer group relative"
               onClick={() => openEditor(config.id)}
             >
               {hasData && (
-                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-green-500" title="Sudah dikonfigurasi" />
+                <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-success" title="Sudah dikonfigurasi" />
               )}
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${config.bg} ${config.color}`}>
+                  <div className="rounded-lg bg-surface-muted p-2 text-primary">
                     <config.icon className="h-5 w-5" />
                   </div>
-                  <CardTitle className="text-base group-hover:text-indigo-600 transition-colors">{config.title}</CardTitle>
+                  <CardTitle className="text-base transition-colors group-hover:text-primary">{config.title}</CardTitle>
                 </div>
               </CardHeader>
               <CardContent>

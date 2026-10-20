@@ -1,0 +1,2522 @@
+{
+  "source": "nextlevelbuilder/data/colors.csv (192 product palettes)",
+  "note": "Snapshot palet berlatar terang saja (148). primary dinormalisasi (hue dipertahankan, digelapkan) hingga >= 4.5:1 terhadap background, surface-muted, dan canvas, karena --primary dipakai sebagai warna teks sekaligus latar tombol. border diturunkan dari primary/background. Warna teks token lain dihitung otomatis oleh lib/theme.ts.",
+  "palettes": [
+    {
+      "id": "palette-saas-general",
+      "name": "SaaS (General)",
+      "family": "Biru",
+      "description": "Trust blue + orange CTA contrast [Accent adjusted from #F97316]",
+      "theme": {
+        "primary": "#2157d0",
+        "secondary": "#3B82F6",
+        "accent": "#EA580C",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#1E293B",
+        "muted_foreground": "#475569",
+        "border": "#adc1ed",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-micro-saas",
+      "name": "Micro SaaS",
+      "family": "Biru",
+      "description": "Indigo primary + emerald CTA [Accent adjusted from #10B981]",
+      "theme": {
+        "primary": "#5255c8",
+        "secondary": "#818CF8",
+        "accent": "#059669",
+        "background": "#F5F3FF",
+        "public_bg": "#F5F3FF",
+        "foreground": "#1E1B4B",
+        "muted_foreground": "#475569",
+        "border": "#bcbcec",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-e-commerce",
+      "name": "E-commerce",
+      "family": "Teal",
+      "description": "Success green + urgency orange [Accent adjusted from #F97316]",
+      "theme": {
+        "primary": "#057652",
+        "secondary": "#10B981",
+        "accent": "#EA580C",
+        "background": "#ECFDF5",
+        "public_bg": "#ECFDF5",
+        "foreground": "#064E3B",
+        "muted_foreground": "#475569",
+        "border": "#9bcebc",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-e-commerce-luxury",
+      "name": "E-commerce Luxury",
+      "family": "Netral",
+      "description": "Premium dark + gold accent [Accent adjusted from #CA8A04]",
+      "theme": {
+        "primary": "#1C1917",
+        "secondary": "#44403C",
+        "accent": "#A16207",
+        "background": "#FAFAF9",
+        "public_bg": "#FAFAF9",
+        "foreground": "#0C0A09",
+        "muted_foreground": "#475569",
+        "border": "#acabaa",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-b2b-service",
+      "name": "B2B Service",
+      "family": "Biru",
+      "description": "Professional navy + blue CTA",
+      "theme": {
+        "primary": "#0F172A",
+        "secondary": "#334155",
+        "accent": "#0369A1",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#020617",
+        "muted_foreground": "#475569",
+        "border": "#a6abb2",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-analytics-dashboard",
+      "name": "Analytics Dashboard",
+      "family": "Biru",
+      "description": "Blue data + amber highlights [Accent adjusted from #F59E0B]",
+      "theme": {
+        "primary": "#1E40AF",
+        "secondary": "#3B82F6",
+        "accent": "#D97706",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#1E3A8A",
+        "muted_foreground": "#475569",
+        "border": "#acb9e1",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-healthcare-app",
+      "name": "Healthcare App",
+      "family": "Teal",
+      "description": "Calm cyan + health green",
+      "theme": {
+        "primary": "#08718b",
+        "secondary": "#22D3EE",
+        "accent": "#059669",
+        "background": "#ECFEFF",
+        "public_bg": "#ECFEFF",
+        "foreground": "#164E63",
+        "muted_foreground": "#475569",
+        "border": "#9ccdd6",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-educational-app",
+      "name": "Educational App",
+      "family": "Biru",
+      "description": "Playful indigo + energetic orange [Accent adjusted from #F97316]",
+      "theme": {
+        "primary": "#4F46E5",
+        "secondary": "#818CF8",
+        "accent": "#EA580C",
+        "background": "#EEF2FF",
+        "public_bg": "#EEF2FF",
+        "foreground": "#1E1B4B",
+        "muted_foreground": "#475569",
+        "border": "#b6b6f6",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-creative-agency",
+      "name": "Creative Agency",
+      "family": "Pink",
+      "description": "Bold pink + cyan accent [Accent adjusted from #06B6D4]",
+      "theme": {
+        "primary": "#ad3570",
+        "secondary": "#F472B6",
+        "accent": "#0891B2",
+        "background": "#FDF2F8",
+        "public_bg": "#FDF2F8",
+        "foreground": "#831843",
+        "muted_foreground": "#475569",
+        "border": "#e1b0c8",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-portfolio-personal",
+      "name": "Portfolio/Personal",
+      "family": "Netral",
+      "description": "Monochrome + blue accent",
+      "theme": {
+        "primary": "#18181B",
+        "secondary": "#3F3F46",
+        "accent": "#2563EB",
+        "background": "#FAFAFA",
+        "public_bg": "#FAFAFA",
+        "foreground": "#09090B",
+        "muted_foreground": "#475569",
+        "border": "#ababac",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-government-public-service",
+      "name": "Government/Public Service",
+      "family": "Biru",
+      "description": "High contrast navy + blue",
+      "theme": {
+        "primary": "#0F172A",
+        "secondary": "#334155",
+        "accent": "#0369A1",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#020617",
+        "muted_foreground": "#475569",
+        "border": "#a6abb2",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-social-media-app",
+      "name": "Social Media App",
+      "family": "Merah",
+      "description": "Vibrant rose + engagement blue",
+      "theme": {
+        "primary": "#c71940",
+        "secondary": "#FB7185",
+        "accent": "#2563EB",
+        "background": "#FFF1F2",
+        "public_bg": "#FFF1F2",
+        "foreground": "#881337",
+        "muted_foreground": "#475569",
+        "border": "#eba5b4",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-productivity-tool",
+      "name": "Productivity Tool",
+      "family": "Teal",
+      "description": "Teal focus + action orange [Accent adjusted from #F97316]",
+      "theme": {
+        "primary": "#09746a",
+        "secondary": "#14B8A6",
+        "accent": "#EA580C",
+        "background": "#F0FDFA",
+        "public_bg": "#F0FDFA",
+        "foreground": "#134E4A",
+        "muted_foreground": "#475569",
+        "border": "#9fcdc8",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-design-system-component-library",
+      "name": "Design System/Component Library",
+      "family": "Biru",
+      "description": "Indigo brand + doc hierarchy [Accent adjusted from #F97316]",
+      "theme": {
+        "primary": "#4F46E5",
+        "secondary": "#6366F1",
+        "accent": "#EA580C",
+        "background": "#EEF2FF",
+        "public_bg": "#EEF2FF",
+        "foreground": "#312E81",
+        "muted_foreground": "#475569",
+        "border": "#b6b6f6",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-ai-chatbot-platform",
+      "name": "AI/Chatbot Platform",
+      "family": "Indigo",
+      "description": "AI purple + cyan interactions [Accent adjusted from #06B6D4]",
+      "theme": {
+        "primary": "#7C3AED",
+        "secondary": "#A78BFA",
+        "accent": "#0891B2",
+        "background": "#FAF5FF",
+        "public_bg": "#FAF5FF",
+        "foreground": "#1E1B4B",
+        "muted_foreground": "#475569",
+        "border": "#ceb4f9",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-creator-economy-platform",
+      "name": "Creator Economy Platform",
+      "family": "Pink",
+      "description": "Creator pink + engagement orange [Accent adjusted from #F97316]",
+      "theme": {
+        "primary": "#ad3570",
+        "secondary": "#F472B6",
+        "accent": "#EA580C",
+        "background": "#FDF2F8",
+        "public_bg": "#FDF2F8",
+        "foreground": "#831843",
+        "muted_foreground": "#475569",
+        "border": "#e1b0c8",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-remote-work-collaboration-tool",
+      "name": "Remote Work/Collaboration Tool",
+      "family": "Biru",
+      "description": "Calm indigo + success green [Accent adjusted from #10B981]",
+      "theme": {
+        "primary": "#5255c8",
+        "secondary": "#818CF8",
+        "accent": "#059669",
+        "background": "#F5F3FF",
+        "public_bg": "#F5F3FF",
+        "foreground": "#312E81",
+        "muted_foreground": "#475569",
+        "border": "#bcbcec",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-mental-health-app",
+      "name": "Mental Health App",
+      "family": "Indigo",
+      "description": "Calming lavender + wellness green [Accent adjusted from #10B981]",
+      "theme": {
+        "primary": "#7b51d9",
+        "secondary": "#C4B5FD",
+        "accent": "#059669",
+        "background": "#FAF5FF",
+        "public_bg": "#FAF5FF",
+        "foreground": "#4C1D95",
+        "muted_foreground": "#475569",
+        "border": "#cebcf2",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-pet-tech-app",
+      "name": "Pet Tech App",
+      "family": "Amber",
+      "description": "Playful orange + trust blue",
+      "theme": {
+        "primary": "#ac5010",
+        "secondary": "#FB923C",
+        "accent": "#2563EB",
+        "background": "#FFF7ED",
+        "public_bg": "#FFF7ED",
+        "foreground": "#9A3412",
+        "muted_foreground": "#475569",
+        "border": "#e2bda0",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-ev-charging-ecosystem",
+      "name": "EV/Charging Ecosystem",
+      "family": "Teal",
+      "description": "Electric cyan + eco green [Accent adjusted from #22C55E]",
+      "theme": {
+        "primary": "#08718b",
+        "secondary": "#22D3EE",
+        "accent": "#16A34A",
+        "background": "#ECFEFF",
+        "public_bg": "#ECFEFF",
+        "foreground": "#164E63",
+        "muted_foreground": "#475569",
+        "border": "#9ccdd6",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-subscription-box-service",
+      "name": "Subscription Box Service",
+      "family": "Pink",
+      "description": "Excitement purple + urgency orange [Accent adjusted from #F97316]",
+      "theme": {
+        "primary": "#9f34b0",
+        "secondary": "#E879F9",
+        "accent": "#EA580C",
+        "background": "#FDF4FF",
+        "public_bg": "#FDF4FF",
+        "foreground": "#86198F",
+        "muted_foreground": "#475569",
+        "border": "#dcb1e3",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-dating-app",
+      "name": "Dating App",
+      "family": "Merah",
+      "description": "Romantic rose + warm orange [Accent adjusted from #F97316]",
+      "theme": {
+        "primary": "#c71940",
+        "secondary": "#FB7185",
+        "accent": "#EA580C",
+        "background": "#FFF1F2",
+        "public_bg": "#FFF1F2",
+        "foreground": "#881337",
+        "muted_foreground": "#475569",
+        "border": "#eba5b4",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-micro-credentials-badges-platform",
+      "name": "Micro-Credentials/Badges Platform",
+      "family": "Biru",
+      "description": "Trust blue + achievement gold [Accent adjusted from #CA8A04]",
+      "theme": {
+        "primary": "#0369A1",
+        "secondary": "#0EA5E9",
+        "accent": "#A16207",
+        "background": "#F0F9FF",
+        "public_bg": "#F0F9FF",
+        "foreground": "#0C4A6E",
+        "muted_foreground": "#475569",
+        "border": "#9dc7de",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-knowledge-base-documentation",
+      "name": "Knowledge Base/Documentation",
+      "family": "Biru",
+      "description": "Neutral grey + link blue",
+      "theme": {
+        "primary": "#475569",
+        "secondary": "#64748B",
+        "accent": "#2563EB",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#1E293B",
+        "muted_foreground": "#475569",
+        "border": "#bac0c9",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-hyperlocal-services",
+      "name": "Hyperlocal Services",
+      "family": "Teal",
+      "description": "Location green + action orange [Accent adjusted from #F97316]",
+      "theme": {
+        "primary": "#057652",
+        "secondary": "#10B981",
+        "accent": "#EA580C",
+        "background": "#ECFDF5",
+        "public_bg": "#ECFDF5",
+        "foreground": "#064E3B",
+        "muted_foreground": "#475569",
+        "border": "#9bcebc",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-beauty-spa-wellness-service",
+      "name": "Beauty/Spa/Wellness Service",
+      "family": "Pink",
+      "description": "Soft pink + lavender luxury",
+      "theme": {
+        "primary": "#b83877",
+        "secondary": "#F9A8D4",
+        "accent": "#8B5CF6",
+        "background": "#FDF2F8",
+        "public_bg": "#FDF2F8",
+        "foreground": "#831843",
+        "muted_foreground": "#475569",
+        "border": "#e5b1cb",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-luxury-premium-brand",
+      "name": "Luxury/Premium Brand",
+      "family": "Netral",
+      "description": "Premium black + gold accent [Accent adjusted from #CA8A04]",
+      "theme": {
+        "primary": "#1C1917",
+        "secondary": "#44403C",
+        "accent": "#A16207",
+        "background": "#FAFAF9",
+        "public_bg": "#FAFAF9",
+        "foreground": "#0C0A09",
+        "muted_foreground": "#475569",
+        "border": "#acabaa",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-restaurant-food-service",
+      "name": "Restaurant/Food Service",
+      "family": "Merah",
+      "description": "Appetizing red + warm gold [Accent adjusted from #CA8A04]",
+      "theme": {
+        "primary": "#c32222",
+        "secondary": "#F87171",
+        "accent": "#A16207",
+        "background": "#FEF2F2",
+        "public_bg": "#FEF2F2",
+        "foreground": "#450A0A",
+        "muted_foreground": "#475569",
+        "border": "#e9a9a9",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-real-estate-property",
+      "name": "Real Estate/Property",
+      "family": "Teal",
+      "description": "Trust teal + professional blue",
+      "theme": {
+        "primary": "#0e6f67",
+        "secondary": "#14B8A6",
+        "accent": "#0369A1",
+        "background": "#F0FDFA",
+        "public_bg": "#F0FDFA",
+        "foreground": "#134E4A",
+        "muted_foreground": "#475569",
+        "border": "#a1cbc7",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-travel-tourism-agency",
+      "name": "Travel/Tourism Agency",
+      "family": "Biru",
+      "description": "Sky blue + adventure orange [Accent adjusted from #F97316]",
+      "theme": {
+        "primary": "#086b97",
+        "secondary": "#38BDF8",
+        "accent": "#EA580C",
+        "background": "#F0F9FF",
+        "public_bg": "#F0F9FF",
+        "foreground": "#0C4A6E",
+        "muted_foreground": "#475569",
+        "border": "#9fc7db",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-hotel-hospitality",
+      "name": "Hotel/Hospitality",
+      "family": "Biru",
+      "description": "Luxury navy + gold service [Accent adjusted from #CA8A04]",
+      "theme": {
+        "primary": "#1E3A8A",
+        "secondary": "#3B82F6",
+        "accent": "#A16207",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#1E40AF",
+        "muted_foreground": "#475569",
+        "border": "#acb7d4",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-wedding-event-planning",
+      "name": "Wedding/Event Planning",
+      "family": "Pink",
+      "description": "Romantic pink + elegant gold [Accent adjusted from #CA8A04]",
+      "theme": {
+        "primary": "#c22369",
+        "secondary": "#F472B6",
+        "accent": "#A16207",
+        "background": "#FDF2F8",
+        "public_bg": "#FDF2F8",
+        "foreground": "#831843",
+        "muted_foreground": "#475569",
+        "border": "#e8aac6",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-legal-services",
+      "name": "Legal Services",
+      "family": "Biru",
+      "description": "Authority navy + trust gold",
+      "theme": {
+        "primary": "#1E3A8A",
+        "secondary": "#1E40AF",
+        "accent": "#B45309",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#acb7d4",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-insurance-platform",
+      "name": "Insurance Platform",
+      "family": "Biru",
+      "description": "Security blue + protected green [Accent adjusted from #22C55E]",
+      "theme": {
+        "primary": "#0369A1",
+        "secondary": "#0EA5E9",
+        "accent": "#16A34A",
+        "background": "#F0F9FF",
+        "public_bg": "#F0F9FF",
+        "foreground": "#0C4A6E",
+        "muted_foreground": "#475569",
+        "border": "#9dc7de",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-banking-traditional-finance",
+      "name": "Banking/Traditional Finance",
+      "family": "Biru",
+      "description": "Trust navy + premium gold [Accent adjusted from #CA8A04]",
+      "theme": {
+        "primary": "#0F172A",
+        "secondary": "#1E3A8A",
+        "accent": "#A16207",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#020617",
+        "muted_foreground": "#475569",
+        "border": "#a6abb2",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-online-course-e-learning",
+      "name": "Online Course/E-learning",
+      "family": "Teal",
+      "description": "Progress teal + achievement orange [Accent adjusted from #F97316]",
+      "theme": {
+        "primary": "#09746a",
+        "secondary": "#2DD4BF",
+        "accent": "#EA580C",
+        "background": "#F0FDFA",
+        "public_bg": "#F0FDFA",
+        "foreground": "#134E4A",
+        "muted_foreground": "#475569",
+        "border": "#9fcdc8",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-non-profit-charity",
+      "name": "Non-profit/Charity",
+      "family": "Teal",
+      "description": "Compassion blue + action orange [Accent adjusted from #F97316]",
+      "theme": {
+        "primary": "#08718b",
+        "secondary": "#22D3EE",
+        "accent": "#EA580C",
+        "background": "#ECFEFF",
+        "public_bg": "#ECFEFF",
+        "foreground": "#164E63",
+        "muted_foreground": "#475569",
+        "border": "#9ccdd6",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-job-board-recruitment",
+      "name": "Job Board/Recruitment",
+      "family": "Biru",
+      "description": "Professional blue + success green [Accent adjusted from #22C55E]",
+      "theme": {
+        "primary": "#0369A1",
+        "secondary": "#0EA5E9",
+        "accent": "#16A34A",
+        "background": "#F0F9FF",
+        "public_bg": "#F0F9FF",
+        "foreground": "#0C4A6E",
+        "muted_foreground": "#475569",
+        "border": "#9dc7de",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-marketplace-p2p",
+      "name": "Marketplace (P2P)",
+      "family": "Indigo",
+      "description": "Trust purple + transaction green [Accent adjusted from #22C55E]",
+      "theme": {
+        "primary": "#7C3AED",
+        "secondary": "#A78BFA",
+        "accent": "#16A34A",
+        "background": "#FAF5FF",
+        "public_bg": "#FAF5FF",
+        "foreground": "#4C1D95",
+        "muted_foreground": "#475569",
+        "border": "#ceb4f9",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-logistics-delivery",
+      "name": "Logistics/Delivery",
+      "family": "Biru",
+      "description": "Tracking blue + delivery orange [Accent adjusted from #F97316]",
+      "theme": {
+        "primary": "#2157d0",
+        "secondary": "#3B82F6",
+        "accent": "#EA580C",
+        "background": "#EFF6FF",
+        "public_bg": "#EFF6FF",
+        "foreground": "#1E40AF",
+        "muted_foreground": "#475569",
+        "border": "#a7beef",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-agriculture-farm-tech",
+      "name": "Agriculture/Farm Tech",
+      "family": "Hijau",
+      "description": "Earth green + harvest gold [Accent adjusted from #CA8A04]",
+      "theme": {
+        "primary": "#147839",
+        "secondary": "#22C55E",
+        "accent": "#A16207",
+        "background": "#F0FDF4",
+        "public_bg": "#F0FDF4",
+        "foreground": "#14532D",
+        "muted_foreground": "#475569",
+        "border": "#a3ceb3",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-construction-architecture",
+      "name": "Construction/Architecture",
+      "family": "Biru",
+      "description": "Industrial grey + safety orange [Accent adjusted from #F97316]",
+      "theme": {
+        "primary": "#58667b",
+        "secondary": "#94A3B8",
+        "accent": "#EA580C",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#334155",
+        "muted_foreground": "#475569",
+        "border": "#c0c6cf",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-automotive-car-dealership",
+      "name": "Automotive/Car Dealership",
+      "family": "Biru",
+      "description": "Premium dark + action red",
+      "theme": {
+        "primary": "#1E293B",
+        "secondary": "#334155",
+        "accent": "#DC2626",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#acb1b8",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-coworking-space",
+      "name": "Coworking Space",
+      "family": "Amber",
+      "description": "Energetic amber + booking blue",
+      "theme": {
+        "primary": "#956108",
+        "secondary": "#FBBF24",
+        "accent": "#2563EB",
+        "background": "#FFFBEB",
+        "public_bg": "#FFFBEB",
+        "foreground": "#78350F",
+        "muted_foreground": "#475569",
+        "border": "#dac59c",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-home-services-plumber-electrician",
+      "name": "Home Services (Plumber/Electrician)",
+      "family": "Biru",
+      "description": "Professional blue + urgent orange [Accent adjusted from #F97316]",
+      "theme": {
+        "primary": "#1E40AF",
+        "secondary": "#3B82F6",
+        "accent": "#EA580C",
+        "background": "#EFF6FF",
+        "public_bg": "#EFF6FF",
+        "foreground": "#1E3A8A",
+        "muted_foreground": "#475569",
+        "border": "#a6b6e3",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-childcare-daycare",
+      "name": "Childcare/Daycare",
+      "family": "Pink",
+      "description": "Soft pink + safe green [Accent adjusted from #22C55E]",
+      "theme": {
+        "primary": "#a84f7d",
+        "secondary": "#FBCFE8",
+        "accent": "#16A34A",
+        "background": "#FDF2F8",
+        "public_bg": "#FDF2F8",
+        "foreground": "#9D174D",
+        "muted_foreground": "#475569",
+        "border": "#dfb9cd",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-senior-care-elderly",
+      "name": "Senior Care/Elderly",
+      "family": "Biru",
+      "description": "Calm blue + reassuring green [Accent adjusted from #22C55E]",
+      "theme": {
+        "primary": "#0369A1",
+        "secondary": "#38BDF8",
+        "accent": "#16A34A",
+        "background": "#F0F9FF",
+        "public_bg": "#F0F9FF",
+        "foreground": "#0C4A6E",
+        "muted_foreground": "#475569",
+        "border": "#9dc7de",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-medical-clinic",
+      "name": "Medical Clinic",
+      "family": "Teal",
+      "description": "Medical teal + health green [Accent adjusted from #22C55E]",
+      "theme": {
+        "primary": "#08718b",
+        "secondary": "#22D3EE",
+        "accent": "#16A34A",
+        "background": "#F0FDFA",
+        "public_bg": "#F0FDFA",
+        "foreground": "#134E4A",
+        "muted_foreground": "#475569",
+        "border": "#9fccd3",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-pharmacy-drug-store",
+      "name": "Pharmacy/Drug Store",
+      "family": "Hijau",
+      "description": "Pharmacy green + trust blue",
+      "theme": {
+        "primary": "#147839",
+        "secondary": "#22C55E",
+        "accent": "#0369A1",
+        "background": "#F0FDF4",
+        "public_bg": "#F0FDF4",
+        "foreground": "#14532D",
+        "muted_foreground": "#475569",
+        "border": "#a3ceb3",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-dental-practice",
+      "name": "Dental Practice",
+      "family": "Biru",
+      "description": "Fresh blue + smile yellow [Accent adjusted from #FBBF24]",
+      "theme": {
+        "primary": "#086b97",
+        "secondary": "#38BDF8",
+        "accent": "#0EA5E9",
+        "background": "#F0F9FF",
+        "public_bg": "#F0F9FF",
+        "foreground": "#0C4A6E",
+        "muted_foreground": "#475569",
+        "border": "#9fc7db",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-veterinary-clinic",
+      "name": "Veterinary Clinic",
+      "family": "Teal",
+      "description": "Caring teal + warm orange [Accent adjusted from #F97316]",
+      "theme": {
+        "primary": "#09746a",
+        "secondary": "#14B8A6",
+        "accent": "#EA580C",
+        "background": "#F0FDFA",
+        "public_bg": "#F0FDFA",
+        "foreground": "#134E4A",
+        "muted_foreground": "#475569",
+        "border": "#9fcdc8",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-florist-plant-shop",
+      "name": "Florist/Plant Shop",
+      "family": "Hijau",
+      "description": "Natural green + floral pink",
+      "theme": {
+        "primary": "#147839",
+        "secondary": "#22C55E",
+        "accent": "#EC4899",
+        "background": "#F0FDF4",
+        "public_bg": "#F0FDF4",
+        "foreground": "#14532D",
+        "muted_foreground": "#475569",
+        "border": "#a3ceb3",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-bakery-cafe",
+      "name": "Bakery/Cafe",
+      "family": "Amber",
+      "description": "Warm brown + cream white [Accent adjusted from #F8FAFC]",
+      "theme": {
+        "primary": "#92400E",
+        "secondary": "#B45309",
+        "accent": "#92400E",
+        "background": "#FEF3C7",
+        "public_bg": "#FEF3C7",
+        "foreground": "#78350F",
+        "muted_foreground": "#475569",
+        "border": "#d8b486",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-brewery-winery",
+      "name": "Brewery/Winery",
+      "family": "Amber",
+      "description": "Deep burgundy + craft gold [Accent adjusted from #CA8A04]",
+      "theme": {
+        "primary": "#7C2D12",
+        "secondary": "#B91C1C",
+        "accent": "#A16207",
+        "background": "#FEF2F2",
+        "public_bg": "#FEF2F2",
+        "foreground": "#450A0A",
+        "muted_foreground": "#475569",
+        "border": "#d0ada4",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-airline",
+      "name": "Airline",
+      "family": "Biru",
+      "description": "Sky blue + booking orange [Accent adjusted from #F97316]",
+      "theme": {
+        "primary": "#1E3A8A",
+        "secondary": "#3B82F6",
+        "accent": "#EA580C",
+        "background": "#EFF6FF",
+        "public_bg": "#EFF6FF",
+        "foreground": "#1E40AF",
+        "muted_foreground": "#475569",
+        "border": "#a6b4d6",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-news-media-platform",
+      "name": "News/Media Platform",
+      "family": "Merah",
+      "description": "Breaking red + link blue",
+      "theme": {
+        "primary": "#b72020",
+        "secondary": "#EF4444",
+        "accent": "#1E40AF",
+        "background": "#FEF2F2",
+        "public_bg": "#FEF2F2",
+        "foreground": "#450A0A",
+        "muted_foreground": "#475569",
+        "border": "#e5a8a8",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-magazine-blog",
+      "name": "Magazine/Blog",
+      "family": "Netral",
+      "description": "Editorial black + accent pink",
+      "theme": {
+        "primary": "#18181B",
+        "secondary": "#3F3F46",
+        "accent": "#EC4899",
+        "background": "#FAFAFA",
+        "public_bg": "#FAFAFA",
+        "foreground": "#09090B",
+        "muted_foreground": "#475569",
+        "border": "#ababac",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-freelancer-platform",
+      "name": "Freelancer Platform",
+      "family": "Biru",
+      "description": "Creative indigo + hire green [Accent adjusted from #22C55E]",
+      "theme": {
+        "primary": "#5255c8",
+        "secondary": "#818CF8",
+        "accent": "#16A34A",
+        "background": "#EEF2FF",
+        "public_bg": "#EEF2FF",
+        "foreground": "#312E81",
+        "muted_foreground": "#475569",
+        "border": "#b7bbec",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-marketing-agency",
+      "name": "Marketing Agency",
+      "family": "Pink",
+      "description": "Bold pink + creative cyan [Accent adjusted from #06B6D4]",
+      "theme": {
+        "primary": "#ad3570",
+        "secondary": "#F472B6",
+        "accent": "#0891B2",
+        "background": "#FDF2F8",
+        "public_bg": "#FDF2F8",
+        "foreground": "#831843",
+        "muted_foreground": "#475569",
+        "border": "#e1b0c8",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-event-management",
+      "name": "Event Management",
+      "family": "Indigo",
+      "description": "Excitement purple + action orange [Accent adjusted from #F97316]",
+      "theme": {
+        "primary": "#7C3AED",
+        "secondary": "#A78BFA",
+        "accent": "#EA580C",
+        "background": "#FAF5FF",
+        "public_bg": "#FAF5FF",
+        "foreground": "#4C1D95",
+        "muted_foreground": "#475569",
+        "border": "#ceb4f9",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-membership-community",
+      "name": "Membership/Community",
+      "family": "Indigo",
+      "description": "Community purple + join green [Accent adjusted from #22C55E]",
+      "theme": {
+        "primary": "#7C3AED",
+        "secondary": "#A78BFA",
+        "accent": "#16A34A",
+        "background": "#FAF5FF",
+        "public_bg": "#FAF5FF",
+        "foreground": "#4C1D95",
+        "muted_foreground": "#475569",
+        "border": "#ceb4f9",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-newsletter-platform",
+      "name": "Newsletter Platform",
+      "family": "Biru",
+      "description": "Trust blue + subscribe orange [Accent adjusted from #F97316]",
+      "theme": {
+        "primary": "#0369A1",
+        "secondary": "#0EA5E9",
+        "accent": "#EA580C",
+        "background": "#F0F9FF",
+        "public_bg": "#F0F9FF",
+        "foreground": "#0C4A6E",
+        "muted_foreground": "#475569",
+        "border": "#9dc7de",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-digital-products-downloads",
+      "name": "Digital Products/Downloads",
+      "family": "Biru",
+      "description": "Digital indigo + buy green [Accent adjusted from #22C55E]",
+      "theme": {
+        "primary": "#5255c8",
+        "secondary": "#818CF8",
+        "accent": "#16A34A",
+        "background": "#EEF2FF",
+        "public_bg": "#EEF2FF",
+        "foreground": "#312E81",
+        "muted_foreground": "#475569",
+        "border": "#b7bbec",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-church-religious-organization",
+      "name": "Church/Religious Organization",
+      "family": "Indigo",
+      "description": "Spiritual purple + warm gold [Accent adjusted from #CA8A04]",
+      "theme": {
+        "primary": "#7C3AED",
+        "secondary": "#A78BFA",
+        "accent": "#A16207",
+        "background": "#FAF5FF",
+        "public_bg": "#FAF5FF",
+        "foreground": "#4C1D95",
+        "muted_foreground": "#475569",
+        "border": "#ceb4f9",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-sports-team-club",
+      "name": "Sports Team/Club",
+      "family": "Merah",
+      "description": "Team red + championship gold [Accent adjusted from #FBBF24]",
+      "theme": {
+        "primary": "#b72020",
+        "secondary": "#EF4444",
+        "accent": "#DC2626",
+        "background": "#FEF2F2",
+        "public_bg": "#FEF2F2",
+        "foreground": "#7F1D1D",
+        "muted_foreground": "#475569",
+        "border": "#e5a8a8",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-museum-gallery",
+      "name": "Museum/Gallery",
+      "family": "Netral",
+      "description": "Gallery black + white space [Accent adjusted from #F8FAFC]",
+      "theme": {
+        "primary": "#18181B",
+        "secondary": "#27272A",
+        "accent": "#18181B",
+        "background": "#FAFAFA",
+        "public_bg": "#FAFAFA",
+        "foreground": "#09090B",
+        "muted_foreground": "#475569",
+        "border": "#ababac",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-language-learning-app",
+      "name": "Language Learning App",
+      "family": "Biru",
+      "description": "Learning indigo + progress green [Accent adjusted from #22C55E]",
+      "theme": {
+        "primary": "#4F46E5",
+        "secondary": "#818CF8",
+        "accent": "#16A34A",
+        "background": "#EEF2FF",
+        "public_bg": "#EEF2FF",
+        "foreground": "#312E81",
+        "muted_foreground": "#475569",
+        "border": "#b6b6f6",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-biotech-life-sciences",
+      "name": "Biotech / Life Sciences",
+      "family": "Biru",
+      "description": "DNA blue + life green [Accent adjusted from #10B981]",
+      "theme": {
+        "primary": "#08658e",
+        "secondary": "#0284C7",
+        "accent": "#059669",
+        "background": "#F0F9FF",
+        "public_bg": "#F0F9FF",
+        "foreground": "#0C4A6E",
+        "muted_foreground": "#475569",
+        "border": "#9fc5d7",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-architecture-interior",
+      "name": "Architecture / Interior",
+      "family": "Netral",
+      "description": "Minimal black + accent gold [Accent adjusted from #D4AF37]",
+      "theme": {
+        "primary": "#171717",
+        "secondary": "#404040",
+        "accent": "#A16207",
+        "background": "#FFFFFF",
+        "public_bg": "#FFFFFF",
+        "foreground": "#171717",
+        "muted_foreground": "#475569",
+        "border": "#aeaeae",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-biohacking-longevity-app",
+      "name": "Biohacking / Longevity App",
+      "family": "Merah",
+      "description": "Bio red/blue + vitality green [Accent adjusted from #00E676]",
+      "theme": {
+        "primary": "#b03535",
+        "secondary": "#4D94FF",
+        "accent": "#059669",
+        "background": "#F5F5F7",
+        "public_bg": "#F5F5F7",
+        "foreground": "#1C1C1E",
+        "muted_foreground": "#475569",
+        "border": "#ddb2b3",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-generative-art-platform",
+      "name": "Generative Art Platform",
+      "family": "Netral",
+      "description": "Canvas neutral + creative pink",
+      "theme": {
+        "primary": "#18181B",
+        "secondary": "#3F3F46",
+        "accent": "#EC4899",
+        "background": "#FAFAFA",
+        "public_bg": "#FAFAFA",
+        "foreground": "#09090B",
+        "muted_foreground": "#475569",
+        "border": "#ababac",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-sustainable-energy-climate-tech",
+      "name": "Sustainable Energy / Climate Tech",
+      "family": "Teal",
+      "description": "Nature green + solar gold [Accent adjusted from #FBBF24]",
+      "theme": {
+        "primary": "#057652",
+        "secondary": "#10B981",
+        "accent": "#059669",
+        "background": "#ECFDF5",
+        "public_bg": "#ECFDF5",
+        "foreground": "#064E3B",
+        "muted_foreground": "#475569",
+        "border": "#9bcebc",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-chat-messaging-app",
+      "name": "Chat & Messaging App",
+      "family": "Biru",
+      "description": "Messenger blue + online green",
+      "theme": {
+        "primary": "#2157d0",
+        "secondary": "#6366F1",
+        "accent": "#059669",
+        "background": "#FFFFFF",
+        "public_bg": "#FFFFFF",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#b1c4ef",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-notes-writing-app",
+      "name": "Notes & Writing App",
+      "family": "Netral",
+      "description": "Warm ink + amber accent on cream",
+      "theme": {
+        "primary": "#6a6460",
+        "secondary": "#A8A29E",
+        "accent": "#D97706",
+        "background": "#FFFBEB",
+        "public_bg": "#FFFBEB",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#cbc6ba",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-habit-tracker",
+      "name": "Habit Tracker",
+      "family": "Amber",
+      "description": "Streak amber + habit green",
+      "theme": {
+        "primary": "#9f5706",
+        "secondary": "#F59E0B",
+        "accent": "#059669",
+        "background": "#FFFBEB",
+        "public_bg": "#FFFBEB",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#ddc29b",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-food-delivery-on-demand",
+      "name": "Food Delivery / On-Demand",
+      "family": "Amber",
+      "description": "Appetizing orange + trust blue",
+      "theme": {
+        "primary": "#ac4108",
+        "secondary": "#F97316",
+        "accent": "#2563EB",
+        "background": "#FFF7ED",
+        "public_bg": "#FFF7ED",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#e2b79d",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-recipe-cooking-app",
+      "name": "Recipe & Cooking App",
+      "family": "Amber",
+      "description": "Warm terracotta + fresh green",
+      "theme": {
+        "primary": "#9A3412",
+        "secondary": "#C2410C",
+        "accent": "#059669",
+        "background": "#FFFBEB",
+        "public_bg": "#FFFBEB",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#dcb59f",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-meditation-mindfulness",
+      "name": "Meditation & Mindfulness",
+      "family": "Indigo",
+      "description": "Calm lavender + mindful green",
+      "theme": {
+        "primary": "#7537df",
+        "secondary": "#8B5CF6",
+        "accent": "#059669",
+        "background": "#FAF5FF",
+        "public_bg": "#FAF5FF",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#cbb2f4",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-weather-app",
+      "name": "Weather App",
+      "family": "Biru",
+      "description": "Sky blue + sun amber",
+      "theme": {
+        "primary": "#02679b",
+        "secondary": "#0EA5E9",
+        "accent": "#F59E0B",
+        "background": "#F0F9FF",
+        "public_bg": "#F0F9FF",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#9dc6dc",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-diary-journal-app",
+      "name": "Diary & Journal App",
+      "family": "Amber",
+      "description": "Warm journal brown + ink violet",
+      "theme": {
+        "primary": "#92400E",
+        "secondary": "#A16207",
+        "accent": "#6366F1",
+        "background": "#FFFBEB",
+        "public_bg": "#FFFBEB",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#d9ba9e",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-crm-client-management",
+      "name": "CRM & Client Management",
+      "family": "Biru",
+      "description": "Professional blue + deal green",
+      "theme": {
+        "primary": "#2157d0",
+        "secondary": "#3B82F6",
+        "accent": "#059669",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#adc1ed",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-inventory-stock-management",
+      "name": "Inventory & Stock Management",
+      "family": "Biru",
+      "description": "Industrial slate + stock green",
+      "theme": {
+        "primary": "#334155",
+        "secondary": "#475569",
+        "accent": "#059669",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#b3b9c2",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-flashcard-study-tool",
+      "name": "Flashcard & Study Tool",
+      "family": "Indigo",
+      "description": "Study purple + correct green",
+      "theme": {
+        "primary": "#7537df",
+        "secondary": "#8B5CF6",
+        "accent": "#059669",
+        "background": "#FAF5FF",
+        "public_bg": "#FAF5FF",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#cbb2f4",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-booking-appointment-app",
+      "name": "Booking & Appointment App",
+      "family": "Biru",
+      "description": "Calendar blue + available green",
+      "theme": {
+        "primary": "#02679b",
+        "secondary": "#0EA5E9",
+        "accent": "#059669",
+        "background": "#F0F9FF",
+        "public_bg": "#F0F9FF",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#9dc6dc",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-invoice-billing-tool",
+      "name": "Invoice & Billing Tool",
+      "family": "Biru",
+      "description": "Navy professional + paid green",
+      "theme": {
+        "primary": "#1E3A5F",
+        "secondary": "#2563EB",
+        "accent": "#059669",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#acb7c5",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-grocery-shopping-list",
+      "name": "Grocery & Shopping List",
+      "family": "Teal",
+      "description": "Fresh green + food amber",
+      "theme": {
+        "primary": "#057652",
+        "secondary": "#10B981",
+        "accent": "#D97706",
+        "background": "#ECFDF5",
+        "public_bg": "#ECFDF5",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#9bcebc",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-parenting-baby-tracker",
+      "name": "Parenting & Baby Tracker",
+      "family": "Pink",
+      "description": "Soft pink + trust blue",
+      "theme": {
+        "primary": "#ad3570",
+        "secondary": "#F472B6",
+        "accent": "#0284C7",
+        "background": "#FDF2F8",
+        "public_bg": "#FDF2F8",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#e1b0c8",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-scanner-document-manager",
+      "name": "Scanner & Document Manager",
+      "family": "Biru",
+      "description": "Document grey + scan blue",
+      "theme": {
+        "primary": "#1E293B",
+        "secondary": "#334155",
+        "accent": "#2563EB",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#acb1b8",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-calendar-scheduling-app",
+      "name": "Calendar & Scheduling App",
+      "family": "Biru",
+      "description": "Calendar blue + event green",
+      "theme": {
+        "primary": "#2157d0",
+        "secondary": "#3B82F6",
+        "accent": "#059669",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#adc1ed",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-expense-splitter-bill-split",
+      "name": "Expense Splitter / Bill Split",
+      "family": "Teal",
+      "description": "Balance green + owe red",
+      "theme": {
+        "primary": "#057652",
+        "secondary": "#10B981",
+        "accent": "#DC2626",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#a3ccc0",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-voice-recorder-memo",
+      "name": "Voice Recorder & Memo",
+      "family": "Merah",
+      "description": "Recording red + waveform blue",
+      "theme": {
+        "primary": "#b72020",
+        "secondary": "#EF4444",
+        "accent": "#2563EB",
+        "background": "#FFFFFF",
+        "public_bg": "#FFFFFF",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#e6b1b1",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-bookmark-read-later",
+      "name": "Bookmark & Read-Later",
+      "family": "Amber",
+      "description": "Warm amber + link blue",
+      "theme": {
+        "primary": "#9f5706",
+        "secondary": "#F59E0B",
+        "accent": "#2563EB",
+        "background": "#FFFBEB",
+        "public_bg": "#FFFBEB",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#ddc29b",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-translator-app",
+      "name": "Translator App",
+      "family": "Biru",
+      "description": "Global blue + teal + accent orange",
+      "theme": {
+        "primary": "#2157d0",
+        "secondary": "#0891B2",
+        "accent": "#EA580C",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#adc1ed",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-file-manager-transfer",
+      "name": "File Manager & Transfer",
+      "family": "Biru",
+      "description": "Folder blue + file amber",
+      "theme": {
+        "primary": "#2157d0",
+        "secondary": "#3B82F6",
+        "accent": "#D97706",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#adc1ed",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-email-client",
+      "name": "Email Client",
+      "family": "Biru",
+      "description": "Inbox blue + priority red",
+      "theme": {
+        "primary": "#2157d0",
+        "secondary": "#3B82F6",
+        "accent": "#DC2626",
+        "background": "#FFFFFF",
+        "public_bg": "#FFFFFF",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#b1c4ef",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-casual-puzzle-game",
+      "name": "Casual Puzzle Game",
+      "family": "Pink",
+      "description": "Cheerful pink + reward gold",
+      "theme": {
+        "primary": "#ad3570",
+        "secondary": "#8B5CF6",
+        "accent": "#F59E0B",
+        "background": "#FDF2F8",
+        "public_bg": "#FDF2F8",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#e1b0c8",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-trivia-quiz-game",
+      "name": "Trivia & Quiz Game",
+      "family": "Biru",
+      "description": "Quiz blue + gold leaderboard",
+      "theme": {
+        "primary": "#2157d0",
+        "secondary": "#7C3AED",
+        "accent": "#F59E0B",
+        "background": "#EFF6FF",
+        "public_bg": "#EFF6FF",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#a7beef",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-idle-clicker-game",
+      "name": "Idle & Clicker Game",
+      "family": "Amber",
+      "description": "Coin gold + prestige purple",
+      "theme": {
+        "primary": "#9f5706",
+        "secondary": "#F59E0B",
+        "accent": "#7C3AED",
+        "background": "#FFFBEB",
+        "public_bg": "#FFFBEB",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#ddc29b",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-word-crossword-game",
+      "name": "Word & Crossword Game",
+      "family": "Hijau",
+      "description": "Word green + letter amber",
+      "theme": {
+        "primary": "#137136",
+        "secondary": "#059669",
+        "accent": "#D97706",
+        "background": "#FFFFFF",
+        "public_bg": "#FFFFFF",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#accdb9",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-meme-sticker-maker",
+      "name": "Meme & Sticker Maker",
+      "family": "Pink",
+      "description": "Viral pink + comedy yellow + share blue",
+      "theme": {
+        "primary": "#b83877",
+        "secondary": "#F59E0B",
+        "accent": "#2563EB",
+        "background": "#FFFFFF",
+        "public_bg": "#FFFFFF",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#e6b9cf",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-ai-photo-avatar-generator",
+      "name": "AI Photo & Avatar Generator",
+      "family": "Indigo",
+      "description": "AI purple + generation pink",
+      "theme": {
+        "primary": "#7537df",
+        "secondary": "#6366F1",
+        "accent": "#EC4899",
+        "background": "#FAF5FF",
+        "public_bg": "#FAF5FF",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#cbb2f4",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-link-in-bio-page-builder",
+      "name": "Link-in-Bio Page Builder",
+      "family": "Biru",
+      "description": "Brand blue + creator purple",
+      "theme": {
+        "primary": "#2157d0",
+        "secondary": "#7C3AED",
+        "accent": "#EC4899",
+        "background": "#FFFFFF",
+        "public_bg": "#FFFFFF",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#b1c4ef",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-wardrobe-outfit-planner",
+      "name": "Wardrobe & Outfit Planner",
+      "family": "Pink",
+      "description": "Fashion rose + gold accent",
+      "theme": {
+        "primary": "#BE185D",
+        "secondary": "#EC4899",
+        "accent": "#D97706",
+        "background": "#FDF2F8",
+        "public_bg": "#FDF2F8",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#e7a6c2",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-plant-care-tracker",
+      "name": "Plant Care Tracker",
+      "family": "Hijau",
+      "description": "Nature green + sun yellow",
+      "theme": {
+        "primary": "#137136",
+        "secondary": "#059669",
+        "accent": "#D97706",
+        "background": "#F0FDF4",
+        "public_bg": "#F0FDF4",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#a3ccb2",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-book-reading-tracker",
+      "name": "Book & Reading Tracker",
+      "family": "Netral",
+      "description": "Book brown + page amber",
+      "theme": {
+        "primary": "#5e5855",
+        "secondary": "#92400E",
+        "accent": "#D97706",
+        "background": "#FFFBEB",
+        "public_bg": "#FFFBEB",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#c7c2b6",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-couple-relationship-app",
+      "name": "Couple & Relationship App",
+      "family": "Pink",
+      "description": "Romance rose + love red",
+      "theme": {
+        "primary": "#BE185D",
+        "secondary": "#EC4899",
+        "accent": "#DC2626",
+        "background": "#FDF2F8",
+        "public_bg": "#FDF2F8",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#e7a6c2",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-family-calendar-chores",
+      "name": "Family Calendar & Chores",
+      "family": "Biru",
+      "description": "Family blue + chore green",
+      "theme": {
+        "primary": "#2157d0",
+        "secondary": "#059669",
+        "accent": "#D97706",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#adc1ed",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-mood-tracker",
+      "name": "Mood Tracker",
+      "family": "Indigo",
+      "description": "Mood purple + insight amber",
+      "theme": {
+        "primary": "#7537df",
+        "secondary": "#6366F1",
+        "accent": "#D97706",
+        "background": "#FAF5FF",
+        "public_bg": "#FAF5FF",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#cbb2f4",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-gift-wishlist",
+      "name": "Gift & Wishlist",
+      "family": "Merah",
+      "description": "Gift red + gold + surprise pink",
+      "theme": {
+        "primary": "#c32222",
+        "secondary": "#D97706",
+        "accent": "#EC4899",
+        "background": "#FFF1F2",
+        "public_bg": "#FFF1F2",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#eaa9a9",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-yoga-stretching-guide",
+      "name": "Yoga & Stretching Guide",
+      "family": "Netral",
+      "description": "Sage neutral + calm teal",
+      "theme": {
+        "primary": "#595f6a",
+        "secondary": "#78716C",
+        "accent": "#0891B2",
+        "background": "#F5F5F0",
+        "public_bg": "#F5F5F0",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#bec0c1",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-calorie-nutrition-counter",
+      "name": "Calorie & Nutrition Counter",
+      "family": "Teal",
+      "description": "Healthy green + macro orange",
+      "theme": {
+        "primary": "#057652",
+        "secondary": "#10B981",
+        "accent": "#EA580C",
+        "background": "#ECFDF5",
+        "public_bg": "#ECFDF5",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#9bcebc",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-period-cycle-tracker",
+      "name": "Period & Cycle Tracker",
+      "family": "Pink",
+      "description": "Blush rose + fertility lavender",
+      "theme": {
+        "primary": "#BE185D",
+        "secondary": "#EC4899",
+        "accent": "#7C3AED",
+        "background": "#FDF2F8",
+        "public_bg": "#FDF2F8",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#e7a6c2",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-medication-pill-reminder",
+      "name": "Medication & Pill Reminder",
+      "family": "Biru",
+      "description": "Medical blue + alert red",
+      "theme": {
+        "primary": "#02679b",
+        "secondary": "#0891B2",
+        "accent": "#DC2626",
+        "background": "#F0F9FF",
+        "public_bg": "#F0F9FF",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#9dc6dc",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-water-hydration-reminder",
+      "name": "Water & Hydration Reminder",
+      "family": "Biru",
+      "description": "Refreshing blue + water cyan",
+      "theme": {
+        "primary": "#026ea5",
+        "secondary": "#06B6D4",
+        "accent": "#0891B2",
+        "background": "#F0F9FF",
+        "public_bg": "#F0F9FF",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#9dc8e0",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-local-events-discovery",
+      "name": "Local Events & Discovery",
+      "family": "Amber",
+      "description": "Event orange + map blue",
+      "theme": {
+        "primary": "#ac4108",
+        "secondary": "#F97316",
+        "accent": "#2563EB",
+        "background": "#FFF7ED",
+        "public_bg": "#FFF7ED",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#e2b79d",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-study-together-virtual-coworking",
+      "name": "Study Together / Virtual Coworking",
+      "family": "Biru",
+      "description": "Focus blue + session green",
+      "theme": {
+        "primary": "#2157d0",
+        "secondary": "#3B82F6",
+        "accent": "#059669",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#adc1ed",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-kids-learning-abc-math",
+      "name": "Kids Learning (ABC & Math)",
+      "family": "Biru",
+      "description": "Learning blue + play yellow + fun pink",
+      "theme": {
+        "primary": "#235ddd",
+        "secondary": "#F59E0B",
+        "accent": "#EC4899",
+        "background": "#EFF6FF",
+        "public_bg": "#EFF6FF",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#a8c0f3",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-music-instrument-learning",
+      "name": "Music Instrument Learning",
+      "family": "Merah",
+      "description": "Musical red + warm amber",
+      "theme": {
+        "primary": "#ac1e1e",
+        "secondary": "#9A3412",
+        "accent": "#D97706",
+        "background": "#FFFBEB",
+        "public_bg": "#FFFBEB",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#e2aea3",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-parking-finder",
+      "name": "Parking Finder",
+      "family": "Biru",
+      "description": "Available blue/green + occupied red",
+      "theme": {
+        "primary": "#2157d0",
+        "secondary": "#059669",
+        "accent": "#DC2626",
+        "background": "#F0F9FF",
+        "public_bg": "#F0F9FF",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#a8c0ef",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-public-transit-guide",
+      "name": "Public Transit Guide",
+      "family": "Biru",
+      "description": "Transit blue + line colors",
+      "theme": {
+        "primary": "#2157d0",
+        "secondary": "#0891B2",
+        "accent": "#EA580C",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#adc1ed",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-road-trip-planner",
+      "name": "Road Trip Planner",
+      "family": "Amber",
+      "description": "Adventure orange + map teal",
+      "theme": {
+        "primary": "#ac4108",
+        "secondary": "#0891B2",
+        "accent": "#D97706",
+        "background": "#FFF7ED",
+        "public_bg": "#FFF7ED",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#e2b79d",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-emergency-sos-safety",
+      "name": "Emergency SOS & Safety",
+      "family": "Merah",
+      "description": "Alert red + safety blue",
+      "theme": {
+        "primary": "#b72020",
+        "secondary": "#EF4444",
+        "accent": "#2563EB",
+        "background": "#FFF1F2",
+        "public_bg": "#FFF1F2",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#e6a8a8",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-wallpaper-theme-app",
+      "name": "Wallpaper & Theme App",
+      "family": "Indigo",
+      "description": "Aesthetic purple + trending pink",
+      "theme": {
+        "primary": "#7537df",
+        "secondary": "#EC4899",
+        "accent": "#2563EB",
+        "background": "#FAF5FF",
+        "public_bg": "#FAF5FF",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#cbb2f4",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-home-decoration-interior-design",
+      "name": "Home Decoration & Interior Design",
+      "family": "Netral",
+      "description": "Interior warm grey + gold accent",
+      "theme": {
+        "primary": "#6a6460",
+        "secondary": "#A8A29E",
+        "accent": "#D97706",
+        "background": "#FAF5F2",
+        "public_bg": "#FAF5F2",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#c8c2bf",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-academic-journal-scholarly-publishing",
+      "name": "Academic Journal / Scholarly Publishing",
+      "family": "Biru",
+      "description": "Scholarly navy + citation gold + serif accent",
+      "theme": {
+        "primary": "#1E3A5F",
+        "secondary": "#334155",
+        "accent": "#B45309",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#acb7c5",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-forum-discussion-board",
+      "name": "Forum / Discussion Board",
+      "family": "Biru",
+      "description": "Neutral grey + topic accent + unread indicator",
+      "theme": {
+        "primary": "#475569",
+        "secondary": "#64748B",
+        "accent": "#2563EB",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#1E293B",
+        "muted_foreground": "#475569",
+        "border": "#bac0c9",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-directory-listing-site",
+      "name": "Directory / Listing Site",
+      "family": "Teal",
+      "description": "Category green + verified badge + map accent",
+      "theme": {
+        "primary": "#057652",
+        "secondary": "#10B981",
+        "accent": "#D97706",
+        "background": "#ECFDF5",
+        "public_bg": "#ECFDF5",
+        "foreground": "#064E3B",
+        "muted_foreground": "#475569",
+        "border": "#9bcebc",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-status-page-incident-management",
+      "name": "Status Page / Incident Management",
+      "family": "Hijau",
+      "description": "Operational green + incident red + maintenance amber",
+      "theme": {
+        "primary": "#117737",
+        "secondary": "#22C55E",
+        "accent": "#DC2626",
+        "background": "#F0FDF4",
+        "public_bg": "#F0FDF4",
+        "foreground": "#14532D",
+        "muted_foreground": "#475569",
+        "border": "#a2ceb2",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-wiki-encyclopedia",
+      "name": "Wiki / Encyclopedia",
+      "family": "Biru",
+      "description": "Knowledge blue + link purple + clean white",
+      "theme": {
+        "primary": "#1E3A8A",
+        "secondary": "#3B82F6",
+        "accent": "#7C3AED",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#1E40AF",
+        "muted_foreground": "#475569",
+        "border": "#acb7d4",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-changelog-release-notes",
+      "name": "Changelog / Release Notes",
+      "family": "Biru",
+      "description": "Feature green + fix blue + breaking red badges",
+      "theme": {
+        "primary": "#475569",
+        "secondary": "#64748B",
+        "accent": "#059669",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#1E293B",
+        "muted_foreground": "#475569",
+        "border": "#bac0c9",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-citizen-science-platform",
+      "name": "Citizen Science Platform",
+      "family": "Hijau",
+      "description": "Discovery green + volunteer badge + data neutral",
+      "theme": {
+        "primary": "#147839",
+        "secondary": "#22C55E",
+        "accent": "#D97706",
+        "background": "#F0FDF4",
+        "public_bg": "#F0FDF4",
+        "foreground": "#14532D",
+        "muted_foreground": "#475569",
+        "border": "#a3ceb3",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-classifieds-buy-sell",
+      "name": "Classifieds / Buy-Sell",
+      "family": "Biru",
+      "description": "Listing blue + price green + seller badge",
+      "theme": {
+        "primary": "#2157d0",
+        "secondary": "#3B82F6",
+        "accent": "#16A34A",
+        "background": "#EFF6FF",
+        "public_bg": "#EFF6FF",
+        "foreground": "#1E40AF",
+        "muted_foreground": "#475569",
+        "border": "#a7beef",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-conference-symposium-landing-page",
+      "name": "Conference / Symposium Landing Page",
+      "family": "Biru",
+      "description": "Academic navy + gold keynote + track chips",
+      "theme": {
+        "primary": "#1E3A5F",
+        "secondary": "#2563EB",
+        "accent": "#A16207",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#acb7c5",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-crowdfunding-platform",
+      "name": "Crowdfunding Platform",
+      "family": "Amber",
+      "description": "Funding progress amber + goal green + urgency",
+      "theme": {
+        "primary": "#9f5706",
+        "secondary": "#F59E0B",
+        "accent": "#16A34A",
+        "background": "#FFFBEB",
+        "public_bg": "#FFFBEB",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#ddc29b",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-e-signature-document-workflow",
+      "name": "E-signature / Document Workflow",
+      "family": "Biru",
+      "description": "Trust navy + signature green + audit trail",
+      "theme": {
+        "primary": "#1E3A5F",
+        "secondary": "#2563EB",
+        "accent": "#16A34A",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#acb7c5",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-government-portal-civic-services",
+      "name": "Government Portal / Civic Services",
+      "family": "Biru",
+      "description": "Professional blue + service green + accessibility",
+      "theme": {
+        "primary": "#1E40AF",
+        "secondary": "#3B82F6",
+        "accent": "#16A34A",
+        "background": "#EFF6FF",
+        "public_bg": "#EFF6FF",
+        "foreground": "#1E3A8A",
+        "muted_foreground": "#475569",
+        "border": "#a6b6e3",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-grant-funding-portal",
+      "name": "Grant / Funding Portal",
+      "family": "Biru",
+      "description": "Institution navy + funding green + deadline urgency",
+      "theme": {
+        "primary": "#1E3A5F",
+        "secondary": "#2563EB",
+        "accent": "#16A34A",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#acb7c5",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-lms-learning-management-system",
+      "name": "LMS (Learning Management System)",
+      "family": "Teal",
+      "description": "Education teal + course amber + grade green",
+      "theme": {
+        "primary": "#09746a",
+        "secondary": "#2DD4BF",
+        "accent": "#D97706",
+        "background": "#F0FDFA",
+        "public_bg": "#F0FDFA",
+        "foreground": "#134E4A",
+        "muted_foreground": "#475569",
+        "border": "#9fcdc8",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-no-code-low-code-builder",
+      "name": "No-code / Low-code Builder",
+      "family": "Indigo",
+      "description": "Builder purple + component pink + canvas neutral",
+      "theme": {
+        "primary": "#7C3AED",
+        "secondary": "#A78BFA",
+        "accent": "#EC4899",
+        "background": "#FAF5FF",
+        "public_bg": "#FAF5FF",
+        "foreground": "#4C1D95",
+        "muted_foreground": "#475569",
+        "border": "#ceb4f9",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-patient-portal-health-records",
+      "name": "Patient Portal / Health Records",
+      "family": "Biru",
+      "description": "Clinical blue + health green + alert red",
+      "theme": {
+        "primary": "#02679b",
+        "secondary": "#0891B2",
+        "accent": "#16A34A",
+        "background": "#F0F9FF",
+        "public_bg": "#F0F9FF",
+        "foreground": "#0C4A6E",
+        "muted_foreground": "#475569",
+        "border": "#9dc6dc",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-patent-ip-database",
+      "name": "Patent / IP Database",
+      "family": "Biru",
+      "description": "Formal neutral + patent type chips + status badges",
+      "theme": {
+        "primary": "#475569",
+        "secondary": "#64748B",
+        "accent": "#A16207",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#1E293B",
+        "muted_foreground": "#475569",
+        "border": "#bac0c9",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-q-a-community-platform",
+      "name": "Q&A Community Platform",
+      "family": "Biru",
+      "description": "Knowledge blue + accepted green + reputation gold",
+      "theme": {
+        "primary": "#2157d0",
+        "secondary": "#0891B2",
+        "accent": "#D97706",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#adc1ed",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-research-lab-university-department",
+      "name": "Research Lab / University Department",
+      "family": "Biru",
+      "description": "Institutional navy + research accent + serif headings",
+      "theme": {
+        "primary": "#1E3A5F",
+        "secondary": "#2563EB",
+        "accent": "#A16207",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#acb7c5",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-resume-cv-builder",
+      "name": "Resume / CV Builder",
+      "family": "Biru",
+      "description": "Professional navy + section accent + success green",
+      "theme": {
+        "primary": "#1E3A5F",
+        "secondary": "#2563EB",
+        "accent": "#16A34A",
+        "background": "#F8FAFC",
+        "public_bg": "#F8FAFC",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#acb7c5",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-review-platform",
+      "name": "Review Platform",
+      "family": "Amber",
+      "description": "Star gold + positive green + negative red",
+      "theme": {
+        "primary": "#956108",
+        "secondary": "#FBBF24",
+        "accent": "#16A34A",
+        "background": "#FFFBEB",
+        "public_bg": "#FFFBEB",
+        "foreground": "#0F172A",
+        "muted_foreground": "#475569",
+        "border": "#dac59c",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-survey-form-builder",
+      "name": "Survey / Form Builder",
+      "family": "Teal",
+      "description": "Question teal + progress green + submit blue",
+      "theme": {
+        "primary": "#09746a",
+        "secondary": "#2DD4BF",
+        "accent": "#D97706",
+        "background": "#F0FDFA",
+        "public_bg": "#F0FDFA",
+        "foreground": "#134E4A",
+        "muted_foreground": "#475569",
+        "border": "#9fcdc8",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-telemedicine-platform",
+      "name": "Telemedicine Platform",
+      "family": "Teal",
+      "description": "Medical teal + video green + waiting amber",
+      "theme": {
+        "primary": "#08718b",
+        "secondary": "#22D3EE",
+        "accent": "#16A34A",
+        "background": "#F0FDFA",
+        "public_bg": "#F0FDFA",
+        "foreground": "#134E4A",
+        "muted_foreground": "#475569",
+        "border": "#9fccd3",
+        "radius": "0.75rem"
+      }
+    },
+    {
+      "id": "palette-testimonial-social-proof-widget",
+      "name": "Testimonial & Social Proof Widget",
+      "family": "Indigo",
+      "description": "Trust purple + quote gold + verified blue",
+      "theme": {
+        "primary": "#7C3AED",
+        "secondary": "#A78BFA",
+        "accent": "#F59E0B",
+        "background": "#FAF5FF",
+        "public_bg": "#FAF5FF",
+        "foreground": "#4C1D95",
+        "muted_foreground": "#475569",
+        "border": "#ceb4f9",
+        "radius": "0.75rem"
+      }
+    }
+  ]
+}

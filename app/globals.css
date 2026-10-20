@@ -89,6 +89,7 @@
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
+  --color-primary-foreground-soft: var(--primary-foreground-soft);
   --color-warning-foreground: var(--warning-foreground);
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
@@ -198,6 +199,7 @@
 
   --primary: #0A3D4A;
   --primary-foreground: #ffffff;
+  --primary-foreground-soft: #c7e3e5;
 
   --secondary: #98D8D0;
   --secondary-foreground: #04222B;
@@ -248,7 +250,7 @@
   --border-subtle: #B8D9D3;
   --success: #166534;
   --success-foreground: #ffffff;
-  --warning: #B45309;
+  --warning: #92400E;
   --warning-foreground: #ffffff;
   --info: #1D4ED8;
   --info-foreground: #ffffff;
@@ -268,6 +270,7 @@
   /* Primary terang utk tombol/heading di atas dark surface. */
   --primary: #4FB8B4;
   --primary-foreground: #04222B;
+  --primary-foreground-soft: #12414b;
 
   --secondary: #0A3D4A;
   --secondary-foreground: #98D8D0;

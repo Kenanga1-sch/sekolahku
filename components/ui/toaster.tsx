@@ -13,14 +13,13 @@ export function Toaster() {
                     description: "text-muted-foreground text-sm",
                     actionButton: "bg-primary text-primary-foreground",
                     cancelButton: "bg-muted text-muted-foreground",
-                    success: "border-green-500/50 bg-green-50 dark:bg-green-950/50 text-success dark:text-green-300",
-                    error: "border-red-500/50 bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300",
-                    warning: "border-amber-500/50 bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300",
-                    info: "border-blue-500/50 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300",
+                    success: "border-success/40 bg-success/10 text-success",
+                    error: "border-destructive/40 bg-destructive/10 text-destructive-strong",
+                    warning: "border-warning/40 bg-warning/10 text-warning",
+                    info: "border-info/40 bg-info/10 text-info",
                 },
             }}
             closeButton
-            richColors
         />
     );
 }

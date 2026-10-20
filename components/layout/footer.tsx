@@ -16,7 +16,7 @@ export default function Footer() {
   if (pathname?.startsWith("/kiosk")) return null;
 
   return (
-    <footer className="app-chrome bg-primary text-white/90 w-full">
+    <footer className="app-chrome w-full bg-primary text-primary-foreground">
       <div className="max-w-6xl mx-auto px-4 py-12 md:py-16">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-8">
           <div className="space-y-4">
@@ -25,43 +25,43 @@ export default function Footer() {
                 <Image src={schoolLogo} alt="Logo" fill className="object-contain p-0.5" />
               </div>
               <div>
-                <p className="font-bold text-lg text-white">{settings?.school_name || "SDN 1 Kenanga"}</p>
-                <p className="text-xs text-white/75">Website Sekolah Terpadu</p>
+                <p className="text-lg font-bold text-primary-foreground">{settings?.school_name || "SDN 1 Kenanga"}</p>
+                <p className="text-xs text-primary-foreground-soft">Website Sekolah Terpadu</p>
               </div>
             </div>
-            <p className="text-sm text-white/70 leading-relaxed max-w-xs">
+            <p className="text-sm text-primary-foreground-soft leading-relaxed max-w-xs">
               Membangun generasi cerdas dan berkarakter melalui pendidikan berkualitas.
             </p>
           </div>
 
           <div className="space-y-4">
-            <h3 className="font-semibold text-white text-sm uppercase tracking-wider">Tautan Cepat</h3>
+            <h3 className="font-semibold text-sm uppercase tracking-wider text-primary-foreground">Tautan Cepat</h3>
             <div className="flex flex-col gap-2.5">
-              <Link href="/" className="text-sm text-white/70 hover:text-secondary transition-colors">Beranda</Link>
-              <Link href="/spmb" className="text-sm text-white/70 hover:text-secondary transition-colors">Pendaftaran Siswa Baru</Link>
-              <Link href="/layanan" className="text-sm text-white/70 hover:text-secondary transition-colors">Layanan</Link>
-              <Link href="/login" className="text-sm text-white/70 hover:text-secondary transition-colors">Masuk Dashboard</Link>
+              <Link href="/" className="text-sm text-primary-foreground-soft hover:text-primary-foreground transition-colors">Beranda</Link>
+              <Link href="/spmb" className="text-sm text-primary-foreground-soft hover:text-primary-foreground transition-colors">Pendaftaran Siswa Baru</Link>
+              <Link href="/layanan" className="text-sm text-primary-foreground-soft hover:text-primary-foreground transition-colors">Layanan</Link>
+              <Link href="/login" className="text-sm text-primary-foreground-soft hover:text-primary-foreground transition-colors">Masuk Dashboard</Link>
             </div>
           </div>
 
           <div className="space-y-4">
-            <h3 className="font-semibold text-white text-sm uppercase tracking-wider">Kontak</h3>
+            <h3 className="font-semibold text-sm uppercase tracking-wider text-primary-foreground">Kontak</h3>
             <div className="flex flex-col gap-3">
               {settings?.school_address && (
-                <div className="flex items-start gap-2.5 text-sm text-white/70">
-                  <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-secondary" />
+                <div className="flex items-start gap-2.5 text-sm text-primary-foreground-soft">
+                  <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-primary-foreground-soft" />
                   <span>{settings.school_address}</span>
                 </div>
               )}
               {settings?.school_phone && (
-                <div className="flex items-center gap-2.5 text-sm text-white/70">
-                  <Phone className="h-4 w-4 shrink-0 text-secondary" />
+                <div className="flex items-center gap-2.5 text-sm text-primary-foreground-soft">
+                  <Phone className="h-4 w-4 shrink-0 text-primary-foreground-soft" />
                   <span>{settings.school_phone}</span>
                 </div>
               )}
               {settings?.school_email && (
-                <div className="flex items-center gap-2.5 text-sm text-white/70">
-                  <Mail className="h-4 w-4 shrink-0 text-secondary" />
+                <div className="flex items-center gap-2.5 text-sm text-primary-foreground-soft">
+                  <Mail className="h-4 w-4 shrink-0 text-primary-foreground-soft" />
                   <span>{settings.school_email}</span>
                 </div>
               )}
@@ -69,8 +69,8 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="mt-10 pt-6 border-t border-white/10 text-center">
-          <p className="text-xs text-white/75">
+        <div className="mt-10 pt-6 border-t border-primary-foreground/20 text-center">
+          <p className="text-xs text-primary-foreground-soft">
             &copy; {currentYear} {settings?.school_name || "SDN 1 Kenanga"}. Hak cipta dilindungi.
           </p>
         </div>

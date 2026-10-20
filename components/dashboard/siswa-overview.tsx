@@ -152,7 +152,7 @@ export function SiswaOverview() {
               <Wallet className="h-5 w-5" aria-hidden="true" />
               Saldo tabungan
             </CardTitle>
-            <CardDescription className="text-primary-foreground/70">
+            <CardDescription className="text-primary-foreground-soft">
               Saldo terkini rekening tabunganmu.
             </CardDescription>
           </CardHeader>

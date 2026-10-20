@@ -6,6 +6,12 @@ import {
   isHex,
   parseBrandTheme,
   buildBrandThemeCss,
+  contrastRatio,
+  mixHex,
+  pickReadableInk,
+  readableInkTokens,
+  softenInk,
+  relativeLuminance,
 } from "./theme";
 
 describe("isHex", () => {
@@ -76,9 +82,29 @@ describe("buildBrandThemeCss", () => {
     expect(css).toContain("--public-border: color-mix(in srgb, var(--border), var(--primary) 30%);");
   });
 
+  it("warna teks token dihitung dari kontras, bukan diturunkan dari primary", () => {
+    expect(css).toContain("--primary-foreground: #FFFFFF;");
+    expect(css).toContain("--primary-foreground-soft: #");
+    expect(css).not.toContain("--primary-foreground-soft: color-mix");
+    expect(css).toContain("--secondary-foreground: #04222B;");
+    expect(css).toContain("--accent-foreground: #04222B;");
+    expect(css).not.toContain("--secondary-foreground: color-mix");
+    expect(css).not.toContain("--accent-foreground: color-mix");
+  });
+
+  it("menurunkan border-subtle, text-soft, dan ramp chart dari brand", () => {
+    expect(css).toContain("--border-subtle: color-mix(in srgb, var(--border) 45%, var(--background));");
+    expect(css).toContain(`--text-soft: ${mixHex(DEFAULT_BRAND.muted_foreground, DEFAULT_BRAND.foreground, 0.5)};`);
+    for (const n of [1, 2, 3, 4, 5]) {
+      expect(css).toContain(`--chart-${n}: #`);
+    }
+    expect(css).not.toContain("--chart-3: var(--secondary);");
+  });
+
   it("mode gelap HANYA meng-override primary (surface dibiarkan globals .dark)", () => {
     const darkBlock = css.slice(css.indexOf(".dark {"));
-    expect(darkBlock).toContain("--primary: color-mix(in srgb, var(--brand-primary), #fff 45%);");
+    expect(darkBlock).toContain(`--primary: ${mixHex(DEFAULT_BRAND.primary, "#FFFFFF", 0.45)};`);
+    expect(darkBlock).toContain("--primary-foreground: #04222B;");
     expect(darkBlock).not.toContain("--background");
     expect(darkBlock).not.toContain("--foreground");
     expect(darkBlock).not.toContain("--secondary:");
@@ -95,5 +121,57 @@ describe("buildBrandThemeCss", () => {
   it("nilai default persis muncul (reset = identik globals)", () => {
     expect(css).toContain(`--brand-primary: ${DEFAULT_BRAND.primary};`);
     expect(css).toContain(`--radius: ${DEFAULT_BRAND.radius};`);
+  });
+});
+
+describe("mixHex", () => {
+  it("weight 1/0 mengembalikan warna asli", () => {
+    expect(mixHex("#123456", "#FFFFFF", 1)).toBe("#123456");
+    expect(mixHex("#123456", "#FFFFFF", 0)).toBe("#ffffff");
+  });
+
+  it("menghasilkan titik tengah", () => {
+    expect(mixHex("#000000", "#FFFFFF", 0.5)).toBe("#808080");
+  });
+
+  it("meng-clamp weight di luar 0–1", () => {
+    expect(mixHex("#000000", "#FFFFFF", -1)).toBe("#ffffff");
+    expect(mixHex("#000000", "#FFFFFF", 2)).toBe("#000000");
+  });
+});
+
+describe("kontras WCAG", () => {
+  it("luminance ekstrem", () => {
+    expect(relativeLuminance("#000000")).toBe(0);
+    expect(relativeLuminance("#FFFFFF")).toBeCloseTo(1, 5);
+  });
+
+  it("rasio hitam/putih = 21", () => {
+    expect(contrastRatio("#000000", "#FFFFFF")).toBeCloseTo(21, 5);
+    expect(contrastRatio("#123456", "#123456")).toBeCloseTo(1, 5);
+  });
+
+  it("pickReadableInk memilih sisi dengan kontras lebih tinggi", () => {
+    expect(pickReadableInk("#0A3D4A")).toBe("#FFFFFF");
+    expect(pickReadableInk("#E2F4F0")).toBe("#04222B");
+    expect(pickReadableInk("#2563EB")).toBe("#FFFFFF");
+  });
+
+  it("softenInk tetap ≥ 4.5:1 dan lebih redup dari ink asli", () => {
+    const ink = readableInkTokens(DEFAULT_BRAND);
+    const soft = softenInk(ink.primary, DEFAULT_BRAND.primary);
+    expect(contrastRatio(soft, DEFAULT_BRAND.primary)).toBeGreaterThanOrEqual(4.5);
+    expect(soft).not.toBe(ink.primary);
+  });
+
+  it("softenInk mengembalikan ink asli bila tidak ada yang lolos", () => {
+    expect(softenInk("#FFFFFF", "#FFFFFF")).toBe("#FFFFFF");
+  });
+
+  it("readableInkTokens selalu ≥ 4.5:1 untuk ketiga peran", () => {
+    const ink = readableInkTokens(DEFAULT_BRAND);
+    expect(contrastRatio(ink.primary, DEFAULT_BRAND.primary)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(ink.secondary, DEFAULT_BRAND.secondary)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(ink.accent, DEFAULT_BRAND.accent)).toBeGreaterThanOrEqual(4.5);
   });
 });

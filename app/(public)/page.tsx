@@ -253,7 +253,7 @@ export default function PublicHomepage() {
                     <p className="mt-6 max-w-xs text-balance font-serif text-2xl font-medium leading-snug">
                       Belajar dengan tenang, tumbuh dengan percaya diri.
                     </p>
-                    <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary-foreground/60">
+                    <p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary-foreground-soft">
                       Sekolah dasar negeri
                     </p>
                   </div>
@@ -336,13 +336,13 @@ export default function PublicHomepage() {
                 <div className="pattern-contour pointer-events-none absolute inset-0 opacity-30" />
                 <div className="relative grid gap-8 md:grid-cols-[1.15fr_0.85fr] md:items-center">
                   <div>
-                    <Badge className="border-0 bg-white/15 text-white hover:bg-white/20">
+                    <Badge className="border-0 bg-primary-foreground text-primary hover:bg-primary-foreground/90">
                       Pendaftaran dibuka
                     </Badge>
                     <h2 className="mt-4 text-balance text-2xl font-bold leading-tight md:text-3xl">
                       {data?.activePeriod?.name || "Penerimaan Siswa Baru"}
                     </h2>
-                    <p className="mt-3 max-w-[52ch] text-sm leading-relaxed text-primary-foreground/80">
+                    <p className="mt-3 max-w-[52ch] text-sm leading-relaxed text-primary-foreground-soft">
                       Segera daftarkan putra-putri Anda untuk tahun ajaran{" "}
                       {data?.activePeriod?.academic_year || academicYear}. Kuota terbatas dan
                       proses pendaftaran dilakukan secara bertahap.
@@ -367,7 +367,7 @@ export default function PublicHomepage() {
                         key={item.label}
                         className="rounded-2xl border border-white/15 bg-white/10 p-4"
                       >
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary-foreground/60">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary-foreground-soft">
                           {item.label}
                         </p>
                         <p className="mt-1.5 text-xl font-bold">{item.value}</p>
@@ -419,7 +419,7 @@ export default function PublicHomepage() {
                   <div className="absolute inset-0 bg-gradient-to-t from-primary/90 via-primary/35 to-transparent" />
                   <div className="relative">
                     {news[0].category && (
-                      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-secondary">
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-primary-foreground-soft">
                         {news[0].category}
                       </span>
                     )}
@@ -427,7 +427,7 @@ export default function PublicHomepage() {
                       {news[0].title}
                     </h3>
                     {news[0].excerpt && (
-                      <p className="mt-2 line-clamp-2 max-w-lg text-sm leading-relaxed text-primary-foreground/80">
+                      <p className="mt-2 line-clamp-2 max-w-lg text-sm leading-relaxed text-primary-foreground-soft">
                         {news[0].excerpt}
                       </p>
                     )}
@@ -582,13 +582,13 @@ export default function PublicHomepage() {
               <div className="pattern-contour pointer-events-none absolute inset-0 opacity-30" />
               <div className="relative flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary-foreground/60">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary-foreground-soft">
                     Bergabung bersama kami
                   </p>
                   <h2 className="mt-2 text-balance text-2xl font-bold leading-tight md:text-3xl">
                     Siap menjadi bagian dari {schoolName}?
                   </h2>
-                  <p className="mt-2 max-w-[52ch] text-sm leading-relaxed text-primary-foreground/80">
+                  <p className="mt-2 max-w-[52ch] text-sm leading-relaxed text-primary-foreground-soft">
                     Mulai langkah pendaftaran atau hubungi sekolah untuk informasi lebih lanjut.
                   </p>
                 </div>

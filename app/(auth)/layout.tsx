@@ -46,7 +46,7 @@ export default function AuthLayout({
             </div>
             <div>
               <p className="text-lg font-bold leading-tight">{settings?.school_name || "Sekolah"}</p>
-              <p className="text-xs text-primary-foreground/70">Website Sekolah Terpadu</p>
+              <p className="text-xs text-primary-foreground-soft">Website Sekolah Terpadu</p>
             </div>
           </Link>
 
@@ -61,12 +61,12 @@ export default function AuthLayout({
               </div>
               <div className="text-sm">
                 <p className="font-semibold">John Dewey</p>
-                <p className="text-primary-foreground/65">Filsuf Pendidikan</p>
+                <p className="text-primary-foreground-soft">Filsuf Pendidikan</p>
               </div>
             </div>
           </div>
 
-          <div className="flex w-full items-center justify-between text-xs text-primary-foreground/65">
+          <div className="flex w-full items-center justify-between text-xs text-primary-foreground-soft">
             <p>© {new Date().getFullYear()} {settings?.school_name || "Sekolah"}</p>
             <div className="flex gap-4">
               <Link href="/spmb" className="transition-colors hover:text-white">SPMB</Link>

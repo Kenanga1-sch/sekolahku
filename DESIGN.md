@@ -27,7 +27,7 @@ Sumber: `app/globals.css` + injeksi brand `lib/theme.ts`.
 | Border/input     | `#10606F`                   | Kuat; turunkan untuk divider.   |
 | Destructive      | `oklch(0.577 0.245 27.325)` | Aksi berbahaya.                 |
 | Success          | `#166534` / dark `#4ADE80`  | Status positif, nominal masuk.  |
-| Warning          | `#B45309` / dark `#FBBF24`  | Peringatan, data belum lengkap. |
+| Warning          | `#92400E` / dark `#FBBF24`  | Peringatan, data belum lengkap. |
 | Info             | `#1D4ED8` / dark `#60A5FA`  | Informasi netral.               |
 | Border subtle    | `#B8D9D3` / dark `#155E63`  | Divider dan garis kartu.        |
 | Canvas           | `#F3F7F5` / dark `#031A21`  | Latar kerja dashboard.          |
@@ -41,6 +41,29 @@ runtime hanya mengganti primary di dark mode; surface gelap tetap milik globals.
 **Aturan:** jangan menambah hex/`zinc` baru di komponen. Pakai token semantik.
 Gunakan `text-success`/`text-warning`/`text-info`, `border-line`, dan `ring-ring`;
 jangan memakai `green-600`, `blue-600/70`, atau `neutral-500` untuk teks.
+
+### Preset tema
+
+Preset warna dipilih di **Pengaturan → Landing Halaman → Tema Warna**.
+
+- 3 preset bawaan (Teal Classic, Green Classic, Blue Fresh) adalah seed tabel
+  `saved_themes` (migration `000071`); nilainya harus identik dengan
+  `lib/theme-presets.ts`.
+- 148 palet galeri di-vendor dari katalog desain
+  `nextlevelbuilder/data/colors.csv` ke `lib/theme-palettes.json` (hanya palet
+  berlatar terang). File JSON ikut repo karena folder `.agents/` di-gitignore.
+- Preset galeri tidak disimpan ke `saved_themes`; tabel itu hanya untuk preset
+  kustom admin. UI menggabungkan keduanya berdasarkan `id`.
+- Warna teks `--primary-foreground`, `--secondary-foreground`, dan
+  `--accent-foreground` **dihitung otomatis** oleh `pickReadableInk()` dari
+  kontras, bukan diturunkan dari `primary`. Jangan meng-hardcode warna teks
+  untuk tombol/badge.
+- `--border-subtle`, `--text-soft`, dan `--chart-1..5` juga diturunkan dari
+  brand di `buildBrandThemeCss()` supaya preset non-teal tidak menyisakan garis
+  atau grafik teal.
+- Setiap preset wajib lolos `lib/theme-presets.test.ts`: hex valid, radius dari
+  whitelist, dan teks ≥ 4.5:1 pada peran foreground, muted, serta ink untuk
+  primary/secondary/accent.
 
 ## Tipografi
 

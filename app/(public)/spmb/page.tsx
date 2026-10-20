@@ -170,7 +170,7 @@ export default function SPMBLandingPage() {
             {steps.map((step, i) => (
               <Reveal key={step.title} delay={i * 0.06}>
                 <div className="relative p-5 rounded-2xl bg-white border border-public-border shadow-sm h-full">
-                  <span className="absolute top-4 right-4 text-3xl font-bold text-secondary">{String(i + 1).padStart(2, "0")}</span>
+                  <span className="absolute top-4 right-4 text-3xl font-bold text-muted-foreground/60" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
                   <div className="h-10 w-10 rounded-xl bg-primary text-white flex items-center justify-center mb-4">
                     <step.icon className="h-5 w-5" />
                   </div>
