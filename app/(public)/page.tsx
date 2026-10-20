@@ -23,6 +23,7 @@ import { formatNamaGtk } from "@/lib/gtk-name";
 import { useAuthStore } from "@/lib/stores/auth-store";
 import { siteConfig } from "@/lib/config";
 import { Reveal, EASE_OUT } from "@/components/public/motion";
+import { HeroShader } from "@/components/public/hero-shader";
 
 interface HomepageData {
   success?: boolean;
@@ -117,14 +118,9 @@ export default function PublicHomepage() {
   return (
     <div className="flex flex-col bg-public-bg">
       <section className="relative min-h-[90dvh] md:min-h-[85dvh] flex items-center overflow-hidden">
-        {/* Mesh gradient layer (14s loop, reduced-motion guard) */}
-        <div className="absolute inset-0 mesh-hero opacity-60 pointer-events-none" />
-        {/* Pattern dots — depth nyata, bukan blur-blob */}
-        <div className="absolute inset-0 pattern-dots pointer-events-none" />
-        {/* Kontour garis diagonal (overlay sekunder) */}
-        <div className="absolute inset-0 pattern-contour pointer-events-none" />
-        {/* Blob blur tetap ada tapi lebih kecil untuk hint saja */}
-        <div className="absolute top-0 right-0 w-[50vw] h-[50vw] max-w-[600px] max-h-[600px] rounded-full bg-secondary/30 blur-[80px] pointer-events-none" />
+        {/* Satu hero shader dekoratif; poster statis saat reduced-motion/WebGL gagal. */}
+        <HeroShader />
+        <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-r from-background/80 via-background/30 to-transparent" />
 
         <div className="relative z-10 max-w-6xl mx-auto px-4 py-20 md:py-24 w-full">
           <div className="max-w-2xl space-y-6">

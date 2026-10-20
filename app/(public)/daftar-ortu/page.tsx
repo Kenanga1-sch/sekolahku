@@ -22,6 +22,13 @@ import { Badge } from "@/components/ui/badge";
 import { DateInput } from "@/components/ui/date-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Reveal } from "@/components/public/motion";
 import { registerParentAction, verifyStudentAction } from "@/actions/parent";
 
@@ -412,17 +419,21 @@ export default function DaftarOrtuPage() {
 
                     <div className="space-y-2">
                       <Label htmlFor="relation">Hubungan dengan Anak</Label>
-                      <select
-                        id="relation"
-                        value={relation}
-                        onChange={(e) => setRelation(e.target.value)}
-                        className="h-11 w-full rounded-xl border border-input bg-transparent px-3 text-sm shadow-xs outline-none transition-[color,box-shadow] [color-scheme:light] focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] dark:bg-input/30 dark:[color-scheme:dark]"
-                      >
-                        <option value="orangtua">Orang Tua</option>
-                        <option value="ayah">Ayah</option>
-                        <option value="ibu">Ibu</option>
-                        <option value="wali">Wali</option>
-                      </select>
+                      <Select value={relation} onValueChange={setRelation}>
+                        <SelectTrigger
+                          id="relation"
+                          aria-label="Hubungan dengan anak"
+                          className="h-11 w-full rounded-xl"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="orangtua">Orang Tua</SelectItem>
+                          <SelectItem value="ayah">Ayah</SelectItem>
+                          <SelectItem value="ibu">Ibu</SelectItem>
+                          <SelectItem value="wali">Wali</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div className="space-y-2">

@@ -75,7 +75,8 @@ jangan memakai `green-600`, `blue-600/70`, atau `neutral-500` untuk teks.
 
 ## Motion
 
-- Paket: `motion` (migrasi dari `framer-motion`), import `motion/react`.
+- Paket: `motion` 14, import `motion/react` (migrasi dari `framer-motion` selesai).
+- `MotionProvider` memasang `MotionConfig reducedMotion="user"` di root.
 - Durasi: fast 120 ms, base 180 ms, slow 240 ms; exit 60–70% durasi enter.
 - Hanya `transform`/`opacity`; jangan animasi width/height.
 - Wajib menghormati `prefers-reduced-motion`; sediakan keadaan akhir statis.
@@ -92,11 +93,15 @@ jangan memakai `green-600`, `blue-600/70`, atau `neutral-500` untuk teks.
 
 ## Hero publik dan shader
 
-- Landing boleh memakai **satu** hero shader (WebGL2, poster fallback).
+- Landing memakai satu hero shader WebGL2 di `components/public/hero-shader.tsx`
+  dengan sumber terbundel `hero-shader-source.ts` (dibuat dengan shader-skills).
+- Motif: bidang mint dengan arus teal dan cahaya hangat, tenang di kolom baca
+  (kiri) dan lebih kaya di kanan. Bukan galaksi/space atau gradien ungu.
 - Shader hanya latar dekoratif: `aria-hidden`, `pointer-events-none`, tanpa
-  informasi penting; teks tetap di atas scrim yang menjaga kontras.
-- Wajib: pause saat tab hidden/keluar viewport, DPR ≤1.5, fallback poster saat
-  reduced-motion atau WebGL tidak tersedia.
+  informasi penting; scrim `from-background/80` menjaga kontras teks.
+- Perilaku wajib: pause saat tab hidden/keluar viewport, DPR ≤1.5, resolusi
+  internal 0.7× (0.85× mobile, maks 1920 px), poster statis saat reduced-motion
+  atau WebGL gagal/context lost.
 - Tidak ada shader di dashboard atau halaman transaksional.
 
 ## Aksesibilitas

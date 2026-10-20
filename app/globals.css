@@ -5,6 +5,18 @@
 /* react-day-picker base style (v10) */
 @import "react-day-picker/style.css";
 
+.hero-shader-poster {
+  background-color: #e2f4f0;
+  background-image:
+    radial-gradient(70% 85% at 82% 30%, rgb(79 184 180 / 38%) 0%, transparent 62%),
+    radial-gradient(55% 70% at 88% 72%, rgb(244 201 122 / 20%) 0%, transparent 68%),
+    linear-gradient(120deg, #e2f4f0 0%, #d8f0ea 55%, #cbe9e1 100%);
+}
+
+.hero-shader-canvas {
+  image-rendering: auto;
+}
+
 .holiday-calendar {
   --rdp-accent-color: var(--primary);
   --rdp-accent-background-color: var(--accent);
