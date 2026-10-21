@@ -14,7 +14,7 @@ export interface StudentDoc {
     id: string;
     title: string;
     type: string;
-    uploadedAt: string;
+    uploadedAt: string | number;
     fileUrl: string;
 }
 

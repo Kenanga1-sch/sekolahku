@@ -34,6 +34,8 @@ type Repositories struct {
 	Announcement       *repository.AnnouncementRepository
 	AuditLog           *repository.AuditLogRepository
 	Notification       *repository.NotificationRepository
+	PasswordReset      *repository.PasswordResetRepository
+	StudentDocument    *repository.StudentDocumentRepository
 	TelegramBackup     *repository.TelegramBackupRepository
 	Dashboard          *repository.DashboardRepository
 	Public             *repository.PublicRepository
@@ -66,58 +68,59 @@ type Repositories struct {
 
 // AllHandlers holds all HTTP handler instances.
 type AllHandlers struct {
-	Auth           *handlers.AuthHandler
-	Academic       *handlers.AcademicHandler
-	Inventory      *handlers.InventoryHandler
-	SPMB           *handlers.SPMBHandler
-	Student        *handlers.StudentHandler
-	Employee       *handlers.EmployeeHandler
-	Savings        *handlers.SavingsHandler
-	SavingsGTK     *handlers.SavingsGTKHandler
-	Library        *handlers.LibraryHandler
-	EOffice        *handlers.EOfficeHandler
-	Attendance     *handlers.AttendanceHandler
-	AttendanceGTK  *handlers.AttendanceGTKHandler
-	ScanResolve    *handlers.ScanResolveHandler
-	Loan           *handlers.LoanHandler
-	Setting        *handlers.SettingHandler
-	Alumni         *handlers.AlumniHandler
-	Mutasi         *handlers.MutasiHandler
-	Gallery        *handlers.GalleryHandler
-	Announcement   *handlers.AnnouncementHandler
-	AuditLog       *handlers.AuditLogHandler
-	Notification   *handlers.NotificationHandler
-	TelegramBackup *handlers.TelegramBackupHandler
-	User           *handlers.UserHandler
-	Dashboard      *handlers.DashboardHandler
-	Public         *handlers.PublicHandler
-	PublicLibrary  *handlers.PublicLibraryHandler
-	Booking        *handlers.BookingHandler
-	Computer       *handlers.ComputerHandler
-	Finance        *handlers.FinanceHandler
-	StickerPreset  *handlers.StickerPresetHandler
-	FAQ            *handlers.FAQHandler
-	Contact        *handlers.ContactHandler
-	Upload         *handlers.UploadHandler
-	Integration    *handlers.IntegrationHandler
-	Document       *handlers.DocumentHandler
-	Sync           *handlers.SyncHandler
-	Push           *handlers.PushHandler
-	Parent         *handlers.ParentHandler
-	StudentMe      *handlers.StudentMeHandler
-	BankSoal       *handlers.BankSoalHandler
-	Kurikulum      *handlers.KurikulumHandler
-	Chat           *handlers.ChatHandler
-	Skrining       *handlers.SkriningHandler
-	Tugas          *handlers.TugasHandler
-	File           *handlers.FileHandler
-	DocStation     *handlers.DocStationHandler
-	CloudStorage   *handlers.CloudStorageHandler
-	ReportTemplate *handlers.ReportTemplateHandler
-	PrintSettings  *handlers.PrintSettingsHandler
-	AIProvider     *handlers.AIProviderHandler
-	ThemePreset    *handlers.ThemePresetHandler
-	PDF            *handlers.PDFHandler
+	Auth            *handlers.AuthHandler
+	Academic        *handlers.AcademicHandler
+	Inventory       *handlers.InventoryHandler
+	SPMB            *handlers.SPMBHandler
+	Student         *handlers.StudentHandler
+	Employee        *handlers.EmployeeHandler
+	Savings         *handlers.SavingsHandler
+	SavingsGTK      *handlers.SavingsGTKHandler
+	Library         *handlers.LibraryHandler
+	EOffice         *handlers.EOfficeHandler
+	Attendance      *handlers.AttendanceHandler
+	AttendanceGTK   *handlers.AttendanceGTKHandler
+	ScanResolve     *handlers.ScanResolveHandler
+	Loan            *handlers.LoanHandler
+	Setting         *handlers.SettingHandler
+	Alumni          *handlers.AlumniHandler
+	Mutasi          *handlers.MutasiHandler
+	Gallery         *handlers.GalleryHandler
+	Announcement    *handlers.AnnouncementHandler
+	AuditLog        *handlers.AuditLogHandler
+	Notification    *handlers.NotificationHandler
+	TelegramBackup  *handlers.TelegramBackupHandler
+	User            *handlers.UserHandler
+	Dashboard       *handlers.DashboardHandler
+	Public          *handlers.PublicHandler
+	PublicLibrary   *handlers.PublicLibraryHandler
+	Booking         *handlers.BookingHandler
+	Computer        *handlers.ComputerHandler
+	Finance         *handlers.FinanceHandler
+	StickerPreset   *handlers.StickerPresetHandler
+	FAQ             *handlers.FAQHandler
+	Contact         *handlers.ContactHandler
+	Upload          *handlers.UploadHandler
+	Integration     *handlers.IntegrationHandler
+	Document        *handlers.DocumentHandler
+	StudentDocument *handlers.StudentDocumentHandler
+	Sync            *handlers.SyncHandler
+	Push            *handlers.PushHandler
+	Parent          *handlers.ParentHandler
+	StudentMe       *handlers.StudentMeHandler
+	BankSoal        *handlers.BankSoalHandler
+	Kurikulum       *handlers.KurikulumHandler
+	Chat            *handlers.ChatHandler
+	Skrining        *handlers.SkriningHandler
+	Tugas           *handlers.TugasHandler
+	File            *handlers.FileHandler
+	DocStation      *handlers.DocStationHandler
+	CloudStorage    *handlers.CloudStorageHandler
+	ReportTemplate  *handlers.ReportTemplateHandler
+	PrintSettings   *handlers.PrintSettingsHandler
+	AIProvider      *handlers.AIProviderHandler
+	ThemePreset     *handlers.ThemePresetHandler
+	PDF             *handlers.PDFHandler
 	// PushSvc dipakai handler lain (absen, tabungan, pengumuman) untuk
 	// mengirim push ke orang tua.
 	PushSvc *push.Service
@@ -205,6 +208,11 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	server.GET("/api/csrf-token", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"csrf_token": authMiddleware.GetCSRFToken(c)})
 	})
+
+	// Reset password mandiri: token sekali pakai (60 menit) + notifikasi admin.
+	// Rate limit mengikuti form publik (5 permintaan / 15 menit per IP).
+	server.POST("/api/auth/forgot-password", h.Auth.ForgotPassword, publicFormLimit)
+	server.POST("/api/auth/reset-password", h.Auth.ResetPassword, publicFormLimit)
 
 	// Public routes with caching
 	publicGroup := server.Group("/api/public")
@@ -448,38 +456,38 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	savingsRead.GET("/students", h.Savings.GetSiswa)
 	auth.POST("/savings/students", h.Savings.CreateSiswa)
 	auth.POST("/savings/students/sync", h.Savings.SyncSavings)
-	savingsRead.GET("/savings/students/:id", h.Savings.GetDetailSiswa)
+	savingsRead.GET("/students/:id", h.Savings.GetDetailSiswa)
 	auth.PUT("/savings/students/:id", h.Savings.UpdateSiswa)
 	auth.DELETE("/savings/students/:id", h.Savings.DeleteSiswa)
-	savingsRead.GET("/savings/transactions", h.Savings.GetTransactions)
+	savingsRead.GET("/transactions", h.Savings.GetTransactions)
 	bendaharaGroup.POST("/savings/transactions", h.Savings.CreateTransaksi)
-	savingsRead.GET("/savings/setoran", h.Savings.GetSetoranList)
+	savingsRead.GET("/setoran", h.Savings.GetSetoranList)
 	bendaharaGroup.POST("/savings/setoran", h.Savings.CreateSetoran)
 	bendaharaGroup.POST("/savings/setoran/verify", h.Savings.VerifySetoran)
-	savingsRead.GET("/savings/brankas", h.Savings.GetBrankasStatus)
-	savingsRead.GET("/savings/brankas/summary", h.Savings.GetBrankasSummary)
+	savingsRead.GET("/brankas", h.Savings.GetBrankasStatus)
+	savingsRead.GET("/brankas/summary", h.Savings.GetBrankasSummary)
 	bendaharaGroup.POST("/savings/brankas", h.Savings.CreateBrankas)
 	bendaharaGroup.PUT("/savings/brankas/:id", h.Savings.UpdateBrankas)
 	bendaharaGroup.POST("/savings/brankas/transfer", h.Savings.TransferBrankas)
-	savingsRead.GET("/savings/hutang", h.Savings.GetHutangList)
+	savingsRead.GET("/hutang", h.Savings.GetHutangList)
 	bendaharaGroup.POST("/savings/hutang", h.Savings.CreateHutang)
 	bendaharaGroup.PUT("/savings/hutang/:id", h.Savings.UpdateHutang)
 	bendaharaGroup.DELETE("/savings/hutang/:id", h.Savings.CancelHutang)
 	bendaharaGroup.POST("/savings/hutang/:id/pay-cash", h.Savings.PayHutangCash)
 	bendaharaGroup.POST("/savings/hutang/:id/settle-savings", h.Savings.SettleHutangFromTabungan)
-	savingsRead.GET("/savings/hutang/:id/payments", h.Savings.GetHutangPayments)
-	savingsRead.GET("/savings/kelas", h.Savings.GetClassesWithReps)
+	savingsRead.GET("/hutang/:id/payments", h.Savings.GetHutangPayments)
+	savingsRead.GET("/kelas", h.Savings.GetClassesWithReps)
 	bendaharaGroup.POST("/savings/kelas", h.Savings.CreateKelas)
 	bendaharaGroup.PUT("/savings/kelas/:id", h.Savings.UpdateKelas)
 	bendaharaGroup.DELETE("/savings/kelas/:id", h.Savings.DeleteKelas)
-	savingsRead.GET("/savings/treasurer", h.Savings.GetTreasurer)
+	savingsRead.GET("/treasurer", h.Savings.GetTreasurer)
 	bendaharaGroup.POST("/savings/treasurer", h.Savings.AssignTreasurer)
 	bendaharaGroup.POST("/savings/kelas/:id/rep", h.Savings.AssignClassRep)
-	savingsRead.GET("/savings/classes/reps", h.Savings.GetClassesWithReps)
+	savingsRead.GET("/classes/reps", h.Savings.GetClassesWithReps)
 	bendaharaGroup.PUT("/savings/classes/:id/rep", h.Savings.AssignClassRep)
-	savingsRead.GET("/savings/reports/final", h.Savings.GetFinalReport)
-	savingsRead.GET("/savings/reports/statement", h.Savings.GetStatement)
-	savingsRead.GET("/savings/reports/verify", h.Savings.VerifyStatement)
+	savingsRead.GET("/reports/final", h.Savings.GetFinalReport)
+	savingsRead.GET("/reports/statement", h.Savings.GetStatement)
+	savingsRead.GET("/reports/verify", h.Savings.VerifyStatement)
 
 	// Tabungan route aliases
 	// Pembacaan finansial dibatasi untuk role yang sah memakai modul tabungan
@@ -1072,6 +1080,12 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	guruGroup.GET("/bank-soal/practices/:id/result", h.BankSoal.GetPracticeResult)
 	guruGroup.PUT("/bank-soal/practices/:id/answers/:questionId/grade", h.BankSoal.GradeAnswer)
 	// Tautan ortu <-> siswa (admin)
+	// Dokumen pribadi siswa (KK, akta, KIP, ijazah, pas foto). File disimpan
+	// di folder privat sehingga dibaca lewat /api/files/* (JWT + role).
+	guruGroup.GET("/master/students/:id/documents", h.StudentDocument.List)
+	adminGroup.POST("/master/students/:id/documents", h.StudentDocument.Upload)
+	adminGroup.DELETE("/master/students/:id/documents", h.StudentDocument.Delete)
+
 	adminGroup.GET("/master/students/:id/parents", h.Parent.GetStudentParents)
 	adminGroup.POST("/master/students/:id/parents", h.Parent.LinkParent)
 	adminGroup.DELETE("/master/students/:id/parents/:userId", h.Parent.UnlinkParent)

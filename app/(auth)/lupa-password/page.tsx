@@ -14,7 +14,7 @@ import { APP_VERSION, goPost } from "@/lib/api-client";
 // Pesan respons SELALU generik agar tidak bisa dipakai untuk menebak apakah
 // sebuah email terdaftar atau tidak (anti user-enumeration).
 const GENERIC_MESSAGE =
-  "Jika email terdaftar, kami telah mengirim tautan reset";
+  "Jika email terdaftar, permintaan reset telah diteruskan ke admin sekolah";
 const RATE_LIMIT_MESSAGE = "Terlalu banyak permintaan, coba lagi nanti";
 
 const BottomGradient = () => {

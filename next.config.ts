@@ -2,6 +2,11 @@ import type { NextConfig } from "next";
 
 const isProd = process.env.NODE_ENV === "production";
 
+// Backend tujuan `next dev`. Default staging (3001), BUKAN produksi (8181):
+// dev server memutasi data, jadi jangan pernah menunjuk ke DB produksi.
+const devBackend =
+  process.env.DEV_BACKEND_ORIGIN ?? "http://localhost:3001";
+
 const nextConfig: NextConfig = {
   // === STATIC EXPORT MODE ===
   // Required for embedding in Go binary via "out" folder
@@ -43,18 +48,18 @@ const nextConfig: NextConfig = {
   // Reduce build output size
   compress: true,
 
-  // Configure rewrites in development mode to proxy /api and /uploads requests to Go backend
+  // Rewrites hanya aktif saat dev: /api dan /uploads diproksikan ke staging
   ...(!isProd
     ? {
         async rewrites() {
           return [
             {
               source: "/api/:path*",
-              destination: "http://localhost:8181/api/:path*",
+              destination: `${devBackend}/api/:path*`,
             },
             {
               source: "/uploads/:path*",
-              destination: "http://localhost:8181/uploads/:path*",
+              destination: `${devBackend}/uploads/:path*`,
             },
           ];
         },

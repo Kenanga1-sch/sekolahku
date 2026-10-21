@@ -75,10 +75,12 @@ var folderRoleMatrix = map[string][]string{
 	"inventory":  {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff},
 	"docstation": {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff},
 	"alumni":     {middleware.RoleSuperadmin, middleware.RoleAdmin},
-	"chat":       {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff, middleware.RoleGuru, middleware.RoleSiswa, middleware.RoleOrangtua},
-	"tugas":      {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff, middleware.RoleGuru, middleware.RoleSiswa, middleware.RoleOrangtua},
-	"profiles":   {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff, middleware.RoleGuru, middleware.RoleSiswa, middleware.RoleOrangtua},
-	"bank-soal":  {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleGuru},
+	// Dokumen pribadi siswa (KK, akta, KIP, ijazah, pas foto).
+	"students":  {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleGuru, middleware.RoleStaff},
+	"chat":      {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff, middleware.RoleGuru, middleware.RoleSiswa, middleware.RoleOrangtua},
+	"tugas":     {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff, middleware.RoleGuru, middleware.RoleSiswa, middleware.RoleOrangtua},
+	"profiles":  {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleStaff, middleware.RoleGuru, middleware.RoleSiswa, middleware.RoleOrangtua},
+	"bank-soal": {middleware.RoleSuperadmin, middleware.RoleAdmin, middleware.RoleGuru},
 }
 
 // ServeFile menangani GET /api/files/*.

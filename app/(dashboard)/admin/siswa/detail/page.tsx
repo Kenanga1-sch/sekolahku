@@ -24,6 +24,7 @@ import { showSuccess, showError } from "@/lib/toast";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { compressImage } from "@/lib/utils";
+import { goDelete } from "@/lib/api-client";
 import { useTabParam } from "@/lib/hooks/use-tab-param";
 
 type DetailTab = "profile" | "savings" | "library" | "documents" | "parents";
@@ -249,10 +250,12 @@ export default function StudentDetailPage() {
 
     const fetchDocuments = async () => {
         try {
-            const resDocs = await fetch(`/api/master/students/${studentId}/documents`);
+            const resDocs = await fetch(`/api/master/students/${studentId}/documents`, {
+                credentials: "include",
+            });
             if (resDocs.ok) {
                 const dataDocs = await resDocs.json();
-                setDocuments(dataDocs);
+                setDocuments(Array.isArray(dataDocs) ? dataDocs : []);
             }
         } catch(e) { console.error(e); }
     };
@@ -277,19 +280,31 @@ export default function StudentDetailPage() {
         formData.append("type", docType);
 
         try {
+            // FormData wajib memakai fetch langsung, tetapi token CSRF harus
+            // ikut dikirim karena endpoint ini mutasi.
+            const csrf = document.cookie
+                .split(";")
+                .map((c) => c.trim())
+                .find((c) => c.startsWith("csrf_token="))
+                ?.split("=").slice(1).join("=");
             const res = await fetch(`/api/master/students/${studentId}/documents`, {
                 method: "POST",
-                body: formData
+                body: formData,
+                credentials: "include",
+                headers: csrf ? { "X-CSRF-Token": decodeURIComponent(csrf) } : undefined,
             });
 
-            if (!res.ok) throw new Error("Gagal upload");
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.error || "Gagal upload");
+            }
             
             showSuccess("Dokumen berhasil diupload");
             setUploadFile(null);
             setDocTitle("");
             await fetchDocuments();
-        } catch (error) {
-            showError("Gagal upload dokumen");
+        } catch (error: any) {
+            showError(error?.message || "Gagal upload dokumen");
         } finally {
             setIsUploading(false);
         }
@@ -298,16 +313,12 @@ export default function StudentDetailPage() {
     const handleDeleteDoc = async (docId: string) => {
         if(!confirm("Hapus dokumen ini?")) return;
         try {
-            const res = await fetch(`/api/master/students/${studentId}/documents?docId=${docId}`, {
-                method: "DELETE"
-            });
-            if(res.ok) {
-                showSuccess("Dokumen dihapus");
-                fetchDocuments();
-            } else {
-                showError("Gagal hapus");
-            }
-        } catch (e) { showError("Error"); }
+            await goDelete(`/api/master/students/${studentId}/documents?docId=${encodeURIComponent(docId)}`);
+            showSuccess("Dokumen dihapus");
+            fetchDocuments();
+        } catch (e: any) {
+            showError(e?.message || "Gagal hapus");
+        }
     };
 
     if (isLoading) return <div className="flex min-h-dvh items-center justify-center"><Loader2 className="animate-spin h-8 w-8" /></div>;

@@ -18,8 +18,10 @@ import (
 )
 
 type AuthHandler struct {
-	Repo      *repository.UserRepository
-	AuditRepo *repository.AuditLogRepository
+	Repo          *repository.UserRepository
+	AuditRepo     *repository.AuditLogRepository
+	ResetRepo     *repository.PasswordResetRepository
+	Notifications *repository.NotificationRepository
 }
 
 // SessionTTL: umur sesi login. JWT stateless + cookie persisten agar PWA
@@ -30,10 +32,12 @@ const sessionDays = 365
 const SessionTTL = sessionDays * 24 * time.Hour
 const sessionMaxAge = sessionDays * 24 * 3600
 
-func NewAuthHandler(repo *repository.UserRepository, auditRepo *repository.AuditLogRepository) *AuthHandler {
+func NewAuthHandler(repo *repository.UserRepository, auditRepo *repository.AuditLogRepository, resetRepo *repository.PasswordResetRepository, notifications *repository.NotificationRepository) *AuthHandler {
 	return &AuthHandler{
-		Repo:      repo,
-		AuditRepo: auditRepo,
+		Repo:          repo,
+		AuditRepo:     auditRepo,
+		ResetRepo:     resetRepo,
+		Notifications: notifications,
 	}
 }
 

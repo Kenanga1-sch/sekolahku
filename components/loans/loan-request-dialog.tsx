@@ -91,11 +91,6 @@ export default function LoanRequestDialog({ open, onOpenChange, onSuccess }: Loa
   const fetchEmployees = async () => {
         setIsLoadingEmployees(true);
         try {
-            // fetch from API
-            const res = await fetch("/api/users/employees"); // We assume this exists or create it?
-            // Existing endpoints: /api/users?role=guru?
-            // Let's try to hit /api/users/employees-options if I create it, or just use a Server Action.
-            // Using Server Action is safer for now.
             const result = await getEmployeeOptions();
             if(result.success && result.data) {
                 setEmployees(result.data as any[]);

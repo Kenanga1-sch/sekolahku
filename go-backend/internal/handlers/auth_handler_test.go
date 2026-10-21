@@ -75,7 +75,7 @@ func TestAuthHandlerLoginSuccess(t *testing.T) {
 	db := setupAuthTestDB(t)
 	defer db.Close()
 
-	handler := NewAuthHandler(repository.NewUserRepository(db), repository.NewAuditLogRepository(db))
+	handler := NewAuthHandler(repository.NewUserRepository(db), repository.NewAuditLogRepository(db), nil, nil)
 	e := echo.New()
 	body := `{"email":"admin@sekolah.sch.id","password":"password123"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(body))
@@ -124,7 +124,7 @@ func TestAuthHandlerLoginWrongPassword(t *testing.T) {
 	db := setupAuthTestDB(t)
 	defer db.Close()
 
-	handler := NewAuthHandler(repository.NewUserRepository(db), repository.NewAuditLogRepository(db))
+	handler := NewAuthHandler(repository.NewUserRepository(db), repository.NewAuditLogRepository(db), nil, nil)
 	e := echo.New()
 	body := `{"email":"admin@sekolah.sch.id","password":"wrongpass"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(body))
@@ -144,7 +144,7 @@ func TestAuthHandlerLoginUnknownUser(t *testing.T) {
 	db := setupAuthTestDB(t)
 	defer db.Close()
 
-	handler := NewAuthHandler(repository.NewUserRepository(db), repository.NewAuditLogRepository(db))
+	handler := NewAuthHandler(repository.NewUserRepository(db), repository.NewAuditLogRepository(db), nil, nil)
 	e := echo.New()
 	body := `{"email":"nonexistent@test.com","password":"password123"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(body))
@@ -174,7 +174,7 @@ func TestAuthHandlerLoginInactiveUser(t *testing.T) {
 		t.Fatalf("gagal menonaktifkan user: %v", err)
 	}
 
-	handler := NewAuthHandler(repository.NewUserRepository(db), repository.NewAuditLogRepository(db))
+	handler := NewAuthHandler(repository.NewUserRepository(db), repository.NewAuditLogRepository(db), nil, nil)
 	e := echo.New()
 	body := `{"email":"admin@sekolah.sch.id","password":"password123"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(body))
@@ -212,7 +212,7 @@ func TestAuthHandlerLoginActiveUserStillWorks(t *testing.T) {
 		t.Fatalf("gagal mengaktifkan user: %v", err)
 	}
 
-	handler := NewAuthHandler(repository.NewUserRepository(db), repository.NewAuditLogRepository(db))
+	handler := NewAuthHandler(repository.NewUserRepository(db), repository.NewAuditLogRepository(db), nil, nil)
 	e := echo.New()
 	body := `{"email":"admin@sekolah.sch.id","password":"password123"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(body))
@@ -232,7 +232,7 @@ func TestAuthHandlerLoginInvalidPayload(t *testing.T) {
 	db := setupAuthTestDB(t)
 	defer db.Close()
 
-	handler := NewAuthHandler(repository.NewUserRepository(db), repository.NewAuditLogRepository(db))
+	handler := NewAuthHandler(repository.NewUserRepository(db), repository.NewAuditLogRepository(db), nil, nil)
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodPost, "/api/auth/login", strings.NewReader(`invalid json`))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
