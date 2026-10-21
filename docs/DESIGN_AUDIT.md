@@ -118,6 +118,68 @@ Catatan: `overused-font` pada label cetak adalah keputusan sadar (Arial untuk ko
 13. Navigasi: breadcrumb, fokus setelah route change, target sentuh ≥44 px.
 14. axe di CI untuk 6 flow utama.
 
+## Rencana penyebaran token warna (belum dikerjakan)
+
+Diperbarui 21 Oktober 2026 setelah commit `77d1dcb` (galeri 148 preset tema +
+warna teks otomatis) live di dev `:3001` dan prod `:8181`.
+
+Perbaikan global (shell dashboard, header, sidebar, footer, kontras teks, preset
+tema) sudah aktif di semua halaman karena memakai token bersama. Yang belum
+seragam adalah modul yang masih menyimpan warna hardcoded: **309 file, 6.927
+kelas warna Tailwind, 323 hex** di `app/` dan `components/` (di luar
+`components/dashboard` dan `components/public` yang sudah bersih).
+
+Aturan penggantian: pakai token semantik `primary`, `secondary`, `accent`,
+`muted-foreground`, `text-soft`, `success`, `warning`, `info`, `destructive`,
+`border-line`, `border-subtle`, `chart-1..5`. Warna status boleh memakai token
+status, bukan `green-600`/`blue-600/70`/`zinc-500`. Hex baru tidak boleh
+ditambahkan; hex yang ada diganti token.
+
+Setiap fase = satu commit + deploy, dengan guardrail: `npx tsc --noEmit`,
+`npx vitest run`, `npm run audit:design` → 0 temuan, dan axe (WCAG AA) 0
+pelanggaran di halaman yang disentuh (desktop 1440 + mobile 390).
+
+| Fase | Area                                                        | File |    Hit |
+| ---- | ----------------------------------------------------------- | ---: | -----: |
+| 1    | Publik, auth, portal orang tua, SPMB, katalog perpustakaan  |   35 |   ±790 |
+| 2    | Admin (termasuk siswa) dan pengaturan                       |   75 |  2.116 |
+| 3    | Akademik: presensi, bank soal, ruang tumbuh, tugas, praktik |   57 | ±1.280 |
+| 4    | Operasional: keuangan, tabungan, inventaris, arsip, surat   |  107 | ±2.050 |
+| 5    | Sisa: profil, docstation, kiosk, halaman status, UI bersama |   38 |   ±810 |
+
+Angka per fase saling tumpang tindih sedikit (satu file bisa masuk dua cakupan);
+total terukur tetap 309 file / 6.927 hit.
+
+Catatan per fase:
+
+- Fase 1: `app/(public)`, `app/(auth)`, `app/parent`, `components/spmb`, dan
+  `components/perpustakaan`. Prioritaskan karena paling terlihat dan paling
+  sering dibuka dari ponsel.
+- Fase 2: `app/(dashboard)/admin` dan `app/(dashboard)/pengaturan` — dua area
+  dengan hit terbanyak dan paling sering dipakai admin.
+- Fase 3: `presensi` (301 hit), `bank-soal` (269), `ruang-tumbuh` (279),
+  `tugas` + `tugas-saya` (186), `perpustakaan` (139), `praktik` (108).
+- Fase 4: `arsip` (629 hit) dan `tabungan` (282) adalah sisa terbesar;
+  `components/letters` + `letters/generator` (391) sebaiknya dikerjakan bersama
+  karena saling impor. Termasuk `keuangan`, `inventaris`, `cloud-storage`,
+  `components/finance`, `components/tabungan`, `components/inventaris`,
+  `components/alumni`, `components/master`, `components/gallery`,
+  `components/arsip`, dan `components/loans`.
+- Fase 5: `profil`/`profile`, `docstation`, root `app/*` (layout, error,
+  not-found, maintenance, offline), `kiosk`, `kiosk-kelas`, `kiosk-komputer`,
+  `s`, `app/tabungan`, `components/ui`, `components/chat`,
+  `components/attendance`, `components/scan`, dan komponen bersama lain. Kiosk
+  (`app/kiosk`, `app/kiosk-kelas`) masing-masing 113 hit dan berbagi tampilan,
+  jadi kerjakan berurutan dalam satu commit.
+- Pengumuman ke pengguna sebaiknya setelah Fase 2, saat halaman tersibuk sudah
+  seragam.
+
+Cek progres cepat:
+
+```bash
+grep -roE "\b(bg|text|border|ring|from|to|via)-(red|green|blue|amber|emerald|indigo|rose|purple|violet|teal|cyan|orange|yellow|lime|sky|fuchsia|pink|slate|gray|zinc|neutral|stone)-[0-9]{2,3}" app components --include=*.tsx | wc -l
+```
+
 ## Cara menjalankan ulang
 
 ```bash

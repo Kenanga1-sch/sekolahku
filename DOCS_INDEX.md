@@ -26,6 +26,7 @@ These documents are intended for developers and system administrators.
 - [**API Documentation**](docs/API.md): API endpoints reference.
 - [**Architecture Overview**](docs/ARCHITECTURE.md): High-level system architecture.
 - [**Component Library**](docs/COMPONENTS.md): Documentation for reusable UI components.
+- [**Design Audit**](docs/DESIGN_AUDIT.md): UI/UX baseline, backlog, dan rencana penyebaran token warna.
 - [**Project Context**](docs/PROJECT_CONTEXT.md): Context for AI agents and new developers.
 - [**Workflows**](docs/WORKFLOWS.md): Detailed business logic workflows.
 - [**Low-Spec Deployment**](docs/LOW-SPEC-DEPLOYMENT.md): Guide for deploying on resource-constrained environments.
@@ -39,4 +40,4 @@ These documents are intended for developers and system administrators.
 
 ---
 
-*Note: This documentation is a living document and will be updated as the project evolves.*
+_Note: This documentation is a living document and will be updated as the project evolves._
