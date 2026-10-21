@@ -321,6 +321,56 @@ func (r *UserRepository) CreateUser(u models.User) (string, error) {
 	return u.ID, nil
 }
 
+// SetEmailIfEmpty mengisi kolom email pada akun yang belum punya email.
+// Dipakai saat menautkan identitas Google ke akun orang tua lama (yang
+// identifier-nya nomor HP). Email tidak diisi bila sudah dipakai akun lain
+// (kolom email UNIQUE) atau akun sudah punya email.
+func (r *UserRepository) SetEmailIfEmpty(userID, email string) (bool, error) {
+	normalized := strings.ToLower(strings.TrimSpace(email))
+	if normalized == "" {
+		return false, nil
+	}
+
+	var taken int
+	err := r.DB.QueryRow(`SELECT COUNT(*) FROM users WHERE LOWER(email) = ? AND id <> ?`, normalized, userID).Scan(&taken)
+	if err != nil {
+		return false, err
+	}
+	if taken > 0 {
+		return false, nil
+	}
+
+	res, err := r.DB.Exec(`UPDATE users SET email = ?, updated_at = ? WHERE id = ? AND COALESCE(email, '') = ''`,
+		normalized, time.Now().UnixMilli(), userID)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return n > 0, nil
+}
+
+// SetGoogleProfile menyimpan foto profil & status verifikasi email dari
+// Google. Foto hanya diisi bila masih kosong (avatar unggahan manual lebih
+// diprioritaskan) dan email_verified hanya diisi bila belum terisi.
+func (r *UserRepository) SetGoogleProfile(userID, image string, emailVerified bool) error {
+	// Kolom email_verified menyimpan epoch milidetik (dibaca lewat SafeTime).
+	var verifiedValue int64
+	if emailVerified {
+		verifiedValue = time.Now().UnixMilli()
+	}
+	_, err := r.DB.Exec(`
+		UPDATE users
+		SET image = CASE WHEN COALESCE(image, '') = '' THEN NULLIF(?, '') ELSE image END,
+		    email_verified = COALESCE(email_verified, NULLIF(?, 0)),
+		    updated_at = ?
+		WHERE id = ?
+	`, image, verifiedValue, time.Now().UnixMilli(), userID)
+	return err
+}
+
 func (r *UserRepository) UpdateUser(id string, u models.User) error {
 	existing, err := r.GetUserByID(id)
 	if err != nil {

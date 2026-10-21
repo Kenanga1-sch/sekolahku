@@ -590,19 +590,15 @@ func (h *AuthHandler) GoogleComplete(c echo.Context) error {
 			namePtr = "Orang Tua " + studentName
 		}
 		emailPtr := email
-		var imagePtr *string
-		if picture != "" {
-			imagePtr = &picture
-		}
-		now := time.Now()
+		// Catatan: CreateUser hanya menyimpan kolom dasar; foto profil dan
+		// penanda email terverifikasi ditulis terpisah lewat
+		// Repo.SetGoogleProfile di bawah.
 		userID, err := h.Repo.CreateUser(models.User{
-			Name:          &namePtr,
-			FullName:      &namePtr,
-			Email:         emailPtr,
-			EmailVerified: &now,
-			Image:         imagePtr,
-			Role:          "orangtua",
-			IsActive:      true,
+			Name:     &namePtr,
+			FullName: &namePtr,
+			Email:    emailPtr,
+			Role:     "orangtua",
+			IsActive: true,
 		})
 		if err != nil {
 			c.Logger().Errorf("google complete: buat akun: %v", err)
@@ -630,6 +626,25 @@ func (h *AuthHandler) GoogleComplete(c echo.Context) error {
 	}); err != nil {
 		c.Logger().Errorf("google complete: simpan identitas: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal menautkan akun Google"})
+	}
+
+	// Simpan foto profil + penanda email terverifikasi (hanya bila masih
+	// kosong, agar avatar unggahan manual tidak tertimpa).
+	if err := h.Repo.SetGoogleProfile(target.ID, picture, true); err != nil {
+		c.Logger().Errorf("google complete: simpan profil: %v", err)
+	}
+
+	// Akun orang tua lama identifier-nya nomor HP dan belum punya email.
+	// Sekalian isi email Google supaya akun itu bisa dipakai reset password
+	// dan tidak menyisakan akun tanpa alamat email.
+	if strings.TrimSpace(target.Email) == "" {
+		if filled, err := h.Repo.SetEmailIfEmpty(target.ID, email); err != nil {
+			c.Logger().Errorf("google complete: isi email: %v", err)
+		} else if filled {
+			if refreshed, err := h.Repo.GetUserByID(target.ID); err == nil && refreshed != nil {
+				target = refreshed
+			}
+		}
 	}
 
 	// Tiket sudah dipakai — hapus cookie agar tidak bisa diputar ulang.
@@ -719,6 +734,13 @@ func (h *AuthHandler) GoogleLink(c echo.Context) error {
 		EmailVerified:  true,
 	}); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal menautkan akun Google"})
+	}
+
+	// Foto profil + penanda email terverifikasi (hanya bila masih kosong).
+	if picture, _ := claims["picture"].(string); picture != "" {
+		_ = h.Repo.SetGoogleProfile(userID, picture, true)
+	} else {
+		_ = h.Repo.SetGoogleProfile(userID, "", true)
 	}
 
 	c.SetCookie(&http.Cookie{

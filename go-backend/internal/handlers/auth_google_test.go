@@ -285,6 +285,62 @@ func TestGoogleCompleteLinksExistingParentAccount(t *testing.T) {
 	if linkedUser != "ortu-lama" {
 		t.Errorf("identitas tertaut ke %q, ingin ortu-lama", linkedUser)
 	}
+
+	// Akun lama (tanpa email) harus mendapat email Google agar bisa dipakai
+	// reset password dan tidak menyisakan akun tanpa alamat.
+	var filledEmail string
+	if err := db.QueryRow(`SELECT email FROM users WHERE id = 'ortu-lama'`).Scan(&filledEmail); err != nil {
+		t.Fatalf("cek email akun lama: %v", err)
+	}
+	if filledEmail != "siti@example.com" {
+		t.Errorf("email akun lama = %q, ingin siti@example.com", filledEmail)
+	}
+}
+
+func TestGoogleCompleteFillsEmailOnLegacyParent(t *testing.T) {
+	os.Setenv("JWT_SECRET", "test-secret-key")
+	os.Setenv("COOKIE_SECURE", "false")
+	defer os.Unsetenv("JWT_SECRET")
+	defer os.Unsetenv("COOKIE_SECURE")
+
+	h, db := newGoogleTestHandler(t)
+	defer db.Close()
+
+	// Akun ortu lama tanpa email, tertaut ke st-2.
+	if _, err := db.Exec(`
+		INSERT INTO users (id, name, username, role, is_active, created_at, updated_at)
+		VALUES ('ortu-lama2', 'Bapak Budi', '081222222222', 'orangtua', 1, 1, 1);
+		INSERT INTO parent_students (id, user_id, student_id, relation, is_active)
+		VALUES ('ps-2', 'ortu-lama2', 'st-2', 'orangtua', 1);
+	`); err != nil {
+		t.Fatalf("seed ortu lama: %v", err)
+	}
+
+	e := echo.New()
+	ticket := signTestTicket(t, "google-sub-6", "budi@example.com", time.Now().Add(10*time.Minute))
+	ctx, rec := newJSONContext(e, http.MethodPost, "/api/auth/google/complete",
+		`{"nisn":"1234567891","birthDate":"2015-06-02"}`)
+	ctx.Request().AddCookie(&http.Cookie{Name: googleTicketCookie, Value: ticket})
+
+	if err := h.GoogleComplete(ctx); err != nil {
+		t.Fatalf("GoogleComplete error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("ingin 200, dapat %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var email, image sql.NullString
+	var verified sql.NullInt64
+	if err := db.QueryRow(`SELECT email, image, email_verified FROM users WHERE id = 'ortu-lama2'`).
+		Scan(&email, &image, &verified); err != nil {
+		t.Fatalf("cek akun: %v", err)
+	}
+	if email.String != "budi@example.com" {
+		t.Errorf("email = %q, ingin budi@example.com", email.String)
+	}
+	if verified.Int64 == 0 {
+		t.Errorf("email_verified belum diisi")
+	}
 }
 
 func TestGoogleCompleteRejectsAdminEmail(t *testing.T) {
