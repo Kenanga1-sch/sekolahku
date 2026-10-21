@@ -295,7 +295,7 @@ export default function DaftarOrtuPage() {
 
                     <GoogleButton
                       label="Daftar cepat dengan Google"
-                      redirect="/parent"
+                      mode="signup"
                     />
                     <AuthDivider text="atau daftar dengan NISN" />
 

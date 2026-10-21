@@ -87,7 +87,7 @@ export default function ParentProfilPage() {
 
       <NotifPreferences />
 
-      <GoogleLinkCard />
+      <GoogleLinkCard redirect="/parent/profil?google=link" />
 
       <Card>
         <CardHeader>

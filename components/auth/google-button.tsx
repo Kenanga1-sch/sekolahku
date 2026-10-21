@@ -16,16 +16,25 @@ import { cn } from "@/lib/utils";
  *
  * Bila kredensial OAuth belum diisi di server, backend melaporkan
  * `enabled: false` dan tombol tidak dirender sama sekali.
+ *
+ * Mode:
+ *  - "login"  (default): backend otomatis menautkan akun bila email Google
+ *    sama dengan email akun sekolah, lalu mengarahkan ke dashboard sesuai
+ *    role.
+ *  - "signup": pendaftaran mandiri orang tua (verifikasi NISN + tanggal
+ *    lahir anak).
  */
 export function GoogleButton({
   redirect,
   label = "Lanjutkan dengan Google",
   className,
+  mode = "login",
 }: {
   /** Path internal tujuan setelah pendaftaran selesai (opsional). */
   redirect?: string;
   label?: string;
   className?: string;
+  mode?: "login" | "signup";
 }) {
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
@@ -48,8 +57,11 @@ export function GoogleButton({
 
   const start = () => {
     setBusy(true);
-    const qs = redirect ? `?redirect=${encodeURIComponent(redirect)}` : "";
-    window.location.href = `/api/auth/google/start${qs}`;
+    const qs = new URLSearchParams();
+    if (redirect) qs.set("redirect", redirect);
+    if (mode === "signup") qs.set("mode", "signup");
+    const query = qs.toString();
+    window.location.href = `/api/auth/google/start${query ? `?${query}` : ""}`;
   };
 
   return (

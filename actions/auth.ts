@@ -3,7 +3,7 @@
  * These run in the browser and call the Go backend API.
  */
 
-import { goGet, goPost } from "@/lib/api-client";
+import { goDelete, goGet, goPost } from "@/lib/api-client";
 
 function readCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
@@ -157,23 +157,36 @@ export async function returnToAdminAction(): Promise<{ error?: string; success?:
   }
 }
 
-// ===== Pendaftaran / login Google (orang tua) =====
+// ===== Pendaftaran / login Google (semua role) =====
 
 export interface GooglePendingInfo {
   email: string;
   name?: string;
   picture?: string;
+  /** Role akun sekolah yang memakai email sama (kosong = email belum terdaftar). */
+  matchedRole?: string;
+  /** Nama akun yang cocok, bila ada. */
+  matchedName?: string;
 }
 
 /** Identitas Google yang sedang menunggu verifikasi NISN (dari cookie tiket). */
 export async function getGooglePendingAction(): Promise<GooglePendingInfo | null> {
   try {
-    const data = await goGet<{ email?: string; name?: string; picture?: string }>(
-      "/api/auth/google/pending",
-      { skipRetry: true },
-    );
+    const data = await goGet<{
+      email?: string;
+      name?: string;
+      picture?: string;
+      matchedRole?: string;
+      matchedName?: string;
+    }>("/api/auth/google/pending", { skipRetry: true });
     if (!data?.email) return null;
-    return { email: data.email, name: data.name, picture: data.picture };
+    return {
+      email: data.email,
+      name: data.name,
+      picture: data.picture,
+      matchedRole: data.matchedRole,
+      matchedName: data.matchedName,
+    };
   } catch {
     return null;
   }
@@ -221,6 +234,44 @@ export async function linkGoogleAccountAction(): Promise<{ success?: boolean; er
       return { success: true, email: (data as any).email };
     }
     return { error: (data as any).error || "Gagal menautkan akun Google" };
+  } catch (e: any) {
+    return { error: e.message || "Terjadi kesalahan pada server" };
+  }
+}
+
+/** Status tautan Google untuk akun yang sedang login. */
+export async function getGoogleLinkStatusAction(): Promise<{
+  linked?: boolean;
+  email?: string;
+  error?: string;
+}> {
+  try {
+    const data = await goGet<{ linked?: boolean; email?: string }>(
+      "/api/auth/google/link",
+      { skipRetry: true },
+    );
+    return { linked: Boolean(data?.linked), email: data?.email };
+  } catch {
+    return { linked: false };
+  }
+}
+
+/**
+ * Melepas tautan Google dari akun yang sedang login. Backend menolak untuk
+ * akun tanpa password (akun orang tua hasil daftar Google) supaya pengguna
+ * tidak terkunci dari akunnya.
+ */
+export async function unlinkGoogleAccountAction(): Promise<{ success?: boolean; error?: string }> {
+  try {
+    const csrf = getCSRFToken();
+    const data = await goDelete(
+      "/api/auth/google/link",
+      { skipRetry: true, headers: csrf ? { "X-CSRF-Token": csrf } : undefined },
+    );
+    if (data && (data as any).success) {
+      return { success: true };
+    }
+    return { error: (data as any).error || "Gagal melepas tautan Google" };
   } catch (e: any) {
     return { error: e.message || "Terjadi kesalahan pada server" };
   }

@@ -228,7 +228,7 @@ export default function LoginPage() {
           </Alert>
         )}
 
-        <GoogleButton label="Masuk dengan Google (orang tua)" redirect="/parent" />
+        <GoogleButton label="Masuk dengan Google" />
         <AuthDivider text="atau masuk dengan akun sekolah" />
 
         <Form {...form}>

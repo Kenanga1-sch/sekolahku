@@ -816,3 +816,421 @@ func TestGoogleStartSetsStateCookie(t *testing.T) {
 		t.Errorf("oauth_redirect = %q", decoded)
 	}
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Login Google untuk SEMUA role (auto-taut berdasarkan email)
+// ─────────────────────────────────────────────────────────────────────────────
+
+func TestGoogleHomeForRole(t *testing.T) {
+	cases := map[string]string{
+		"staff":      "/inventaris",
+		"orangtua":   "/parent",
+		"admin":      "/overview",
+		"superadmin": "/overview",
+		"guru":       "/overview",
+		"siswa":      "/overview",
+	}
+	for role, want := range cases {
+		if got := googleHomeForRole(role); got != want {
+			t.Errorf("googleHomeForRole(%q) = %q, ingin %q", role, got, want)
+		}
+	}
+}
+
+// googleMockServer menyiapkan mock endpoint token + userinfo Google.
+func googleMockServer(t *testing.T, sub, email, name string) {
+	t.Helper()
+	tokenSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{"access_token": "tok"})
+	}))
+	t.Cleanup(tokenSrv.Close)
+	infoSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"sub": sub, "email": email, "email_verified": true, "name": name,
+		})
+	}))
+	t.Cleanup(infoSrv.Close)
+
+	origToken, origInfo := googleTokenURL, googleUserInfoURL
+	googleTokenURL, googleUserInfoURL = tokenSrv.URL, infoSrv.URL
+	t.Cleanup(func() { googleTokenURL, googleUserInfoURL = origToken, origInfo })
+}
+
+func TestGoogleCallbackAutoLinksStaffByEmail(t *testing.T) {
+	os.Setenv("JWT_SECRET", "test-secret-key")
+	os.Setenv("COOKIE_SECURE", "false")
+	os.Setenv("GOOGLE_CLIENT_ID", "client-id")
+	os.Setenv("GOOGLE_CLIENT_SECRET", "client-secret")
+	defer os.Unsetenv("JWT_SECRET")
+	defer os.Unsetenv("COOKIE_SECURE")
+	defer os.Unsetenv("GOOGLE_CLIENT_ID")
+	defer os.Unsetenv("GOOGLE_CLIENT_SECRET")
+
+	googleMockServer(t, "g-staff", "guru@sekolah.sch.id", "Guru Uji")
+
+	h, db := newGoogleTestHandler(t)
+	defer db.Close()
+
+	if _, err := db.Exec(`
+		INSERT INTO users (id, name, email, role, is_active, created_at, updated_at)
+		VALUES ('guru-1', 'Guru Uji', 'guru@sekolah.sch.id', 'guru', 1, 1, 1);
+	`); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/api/auth/google/callback?state=s3&code=c3", nil)
+	req.AddCookie(&http.Cookie{Name: googleStateCookie, Value: "s3"})
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	if err := h.GoogleCallback(ctx); err != nil {
+		t.Fatalf("GoogleCallback error: %v", err)
+	}
+	if rec.Code != http.StatusFound {
+		t.Fatalf("ingin 302 (auto-taut), dapat %d: %s", rec.Code, rec.Body.String())
+	}
+	if loc := rec.Header().Get("Location"); loc != "/overview" {
+		t.Errorf("redirect = %q, ingin /overview (dashboard guru)", loc)
+	}
+
+	var linkedUser string
+	if err := db.QueryRow(`SELECT user_id FROM user_identities WHERE provider_user_id = 'g-staff'`).Scan(&linkedUser); err != nil {
+		t.Fatalf("identitas tidak tersimpan: %v", err)
+	}
+	if linkedUser != "guru-1" {
+		t.Errorf("identitas tertaut ke %q, ingin guru-1", linkedUser)
+	}
+
+	var hasSession bool
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == "session" && c.Value != "" {
+			hasSession = true
+		}
+	}
+	if !hasSession {
+		t.Errorf("sesi tidak diterbitkan setelah auto-taut")
+	}
+}
+
+func TestGoogleCallbackAutoLinkRedirectsToRoleHome(t *testing.T) {
+	os.Setenv("JWT_SECRET", "test-secret-key")
+	os.Setenv("COOKIE_SECURE", "false")
+	os.Setenv("GOOGLE_CLIENT_ID", "client-id")
+	os.Setenv("GOOGLE_CLIENT_SECRET", "client-secret")
+	defer os.Unsetenv("JWT_SECRET")
+	defer os.Unsetenv("COOKIE_SECURE")
+	defer os.Unsetenv("GOOGLE_CLIENT_ID")
+	defer os.Unsetenv("GOOGLE_CLIENT_SECRET")
+
+	googleMockServer(t, "g-staff2", "staf@sekolah.sch.id", "Staf Uji")
+
+	h, db := newGoogleTestHandler(t)
+	defer db.Close()
+
+	if _, err := db.Exec(`
+		INSERT INTO users (id, name, email, role, is_active, created_at, updated_at)
+		VALUES ('staf-1', 'Staf Uji', 'staf@sekolah.sch.id', 'staff', 1, 1, 1);
+	`); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/api/auth/google/callback?state=s4&code=c4", nil)
+	req.AddCookie(&http.Cookie{Name: googleStateCookie, Value: "s4"})
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	if err := h.GoogleCallback(ctx); err != nil {
+		t.Fatalf("GoogleCallback error: %v", err)
+	}
+	if loc := rec.Header().Get("Location"); loc != "/inventaris" {
+		t.Errorf("redirect role staff = %q, ingin /inventaris", loc)
+	}
+}
+
+func TestGoogleCallbackRejectsStudentEmailMatch(t *testing.T) {
+	os.Setenv("JWT_SECRET", "test-secret-key")
+	os.Setenv("COOKIE_SECURE", "false")
+	os.Setenv("GOOGLE_CLIENT_ID", "client-id")
+	os.Setenv("GOOGLE_CLIENT_SECRET", "client-secret")
+	defer os.Unsetenv("JWT_SECRET")
+	defer os.Unsetenv("COOKIE_SECURE")
+	defer os.Unsetenv("GOOGLE_CLIENT_ID")
+	defer os.Unsetenv("GOOGLE_CLIENT_SECRET")
+
+	googleMockServer(t, "g-siswa", "3181171148@sekolahku.id", "Siswa Uji")
+
+	h, db := newGoogleTestHandler(t)
+	defer db.Close()
+
+	if _, err := db.Exec(`
+		INSERT INTO users (id, name, email, role, is_active, created_at, updated_at)
+		VALUES ('siswa-1', 'Siswa Uji', '3181171148@sekolahku.id', 'siswa', 1, 1, 1);
+	`); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/api/auth/google/callback?state=s5&code=c5", nil)
+	req.AddCookie(&http.Cookie{Name: googleStateCookie, Value: "s5"})
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	if err := h.GoogleCallback(ctx); err != nil {
+		t.Fatalf("GoogleCallback error: %v", err)
+	}
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("akun siswa tidak boleh auto-taut: ingin 403, dapat %d: %s", rec.Code, rec.Body.String())
+	}
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM user_identities`).Scan(&count); err != nil {
+		t.Fatalf("hitung identitas: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("identitas tetap dibuat untuk akun siswa: %d baris", count)
+	}
+}
+
+func TestGoogleCallbackAutoLinkConflictWhenAlreadyLinked(t *testing.T) {
+	os.Setenv("JWT_SECRET", "test-secret-key")
+	os.Setenv("COOKIE_SECURE", "false")
+	os.Setenv("GOOGLE_CLIENT_ID", "client-id")
+	os.Setenv("GOOGLE_CLIENT_SECRET", "client-secret")
+	defer os.Unsetenv("JWT_SECRET")
+	defer os.Unsetenv("COOKIE_SECURE")
+	defer os.Unsetenv("GOOGLE_CLIENT_ID")
+	defer os.Unsetenv("GOOGLE_CLIENT_SECRET")
+
+	googleMockServer(t, "g-lain", "guru2@sekolah.sch.id", "Guru Dua")
+
+	h, db := newGoogleTestHandler(t)
+	defer db.Close()
+
+	if _, err := db.Exec(`
+		INSERT INTO users (id, name, email, role, is_active, created_at, updated_at)
+		VALUES ('guru-2', 'Guru Dua', 'guru2@sekolah.sch.id', 'guru', 1, 1, 1);
+		INSERT INTO user_identities (id, user_id, provider, provider_user_id, email, email_verified)
+		VALUES ('ident-lama', 'guru-2', 'google', 'g-sebelumnya', 'guru2@sekolah.sch.id', 1);
+	`); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/api/auth/google/callback?state=s6&code=c6", nil)
+	req.AddCookie(&http.Cookie{Name: googleStateCookie, Value: "s6"})
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	if err := h.GoogleCallback(ctx); err != nil {
+		t.Fatalf("GoogleCallback error: %v", err)
+	}
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("akun sudah tertaut Google lain: ingin 409, dapat %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestGoogleLinkAllowsStaffRoleAndFillsEmail(t *testing.T) {
+	os.Setenv("JWT_SECRET", "test-secret-key")
+	os.Setenv("COOKIE_SECURE", "false")
+	defer os.Unsetenv("JWT_SECRET")
+	defer os.Unsetenv("COOKIE_SECURE")
+
+	h, db := newGoogleTestHandler(t)
+	defer db.Close()
+
+	if _, err := db.Exec(`
+		INSERT INTO users (id, name, username, role, is_active, created_at, updated_at)
+		VALUES ('staf-hp', 'Staf HP', '081222222222', 'staff', 1, 1, 1);
+	`); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	e := echo.New()
+	ticket := signTestTicket(t, "g-staf-hp", "stafhp@example.com", time.Now().Add(10*time.Minute))
+	ctx, rec := newJSONContext(e, http.MethodPost, "/api/auth/google/link", "")
+	ctx.Request().AddCookie(&http.Cookie{Name: googleTicketCookie, Value: ticket})
+	ctx.Set("user_id", "staf-hp")
+	ctx.Set("user_role", "staff")
+
+	if err := h.GoogleLink(ctx); err != nil {
+		t.Fatalf("GoogleLink error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("role staff harus boleh menautkan: ingin 200, dapat %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var linkedUser string
+	if err := db.QueryRow(`SELECT user_id FROM user_identities WHERE provider_user_id = 'g-staf-hp'`).Scan(&linkedUser); err != nil {
+		t.Fatalf("identitas tidak tersimpan: %v", err)
+	}
+	if linkedUser != "staf-hp" {
+		t.Errorf("identitas tertaut ke %q, ingin staf-hp", linkedUser)
+	}
+
+	// Email akun yang sebelumnya kosong harus terisi dari Google.
+	var email sql.NullString
+	if err := db.QueryRow(`SELECT email FROM users WHERE id = 'staf-hp'`).Scan(&email); err != nil {
+		t.Fatalf("baca email: %v", err)
+	}
+	if email.String != "stafhp@example.com" {
+		t.Errorf("email akun = %q, ingin stafhp@example.com", email.String)
+	}
+}
+
+func TestGooglePendingReportsMatchedRole(t *testing.T) {
+	os.Setenv("JWT_SECRET", "test-secret-key")
+	os.Setenv("COOKIE_SECURE", "false")
+	defer os.Unsetenv("JWT_SECRET")
+	defer os.Unsetenv("COOKIE_SECURE")
+
+	h, db := newGoogleTestHandler(t)
+	defer db.Close()
+
+	if _, err := db.Exec(`
+		INSERT INTO users (id, name, email, role, is_active, created_at, updated_at)
+		VALUES ('guru-3', 'Guru Tiga', 'guru3@sekolah.sch.id', 'guru', 1, 1, 1);
+	`); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	e := echo.New()
+	ticket := signTestTicket(t, "g-pending", "guru3@sekolah.sch.id", time.Now().Add(10*time.Minute))
+	ctx, rec := newJSONContext(e, http.MethodGet, "/api/auth/google/pending", "")
+	ctx.Request().AddCookie(&http.Cookie{Name: googleTicketCookie, Value: ticket})
+
+	if err := h.GooglePending(ctx); err != nil {
+		t.Fatalf("GooglePending error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("ingin 200, dapat %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		MatchedRole string `json:"matchedRole"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.MatchedRole != "guru" {
+		t.Errorf("matchedRole = %q, ingin guru", resp.MatchedRole)
+	}
+}
+
+func TestGoogleLinkStatusReportsLinkedAccount(t *testing.T) {
+	os.Setenv("JWT_SECRET", "test-secret-key")
+	os.Setenv("COOKIE_SECURE", "false")
+	defer os.Unsetenv("JWT_SECRET")
+	defer os.Unsetenv("COOKIE_SECURE")
+
+	h, db := newGoogleTestHandler(t)
+	defer db.Close()
+
+	if _, err := db.Exec(`
+		INSERT INTO users (id, name, email, role, password_hash, is_active, created_at, updated_at)
+		VALUES ('staf-2', 'Staf Dua', 'staf2@example.com', 'staff', 'x', 1, 1, 1);
+		INSERT INTO user_identities (id, user_id, provider, provider_user_id, email, email_verified)
+		VALUES ('ident-s2', 'staf-2', 'google', 'g-staf-2', 'staf2@example.com', 1);
+	`); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	e := echo.New()
+	ctx, rec := newJSONContext(e, http.MethodGet, "/api/auth/google/link", "")
+	ctx.Set("user_id", "staf-2")
+	ctx.Set("user_role", "staff")
+
+	if err := h.GoogleLinkStatus(ctx); err != nil {
+		t.Fatalf("GoogleLinkStatus error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("ingin 200, dapat %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		Linked bool   `json:"linked"`
+		Email  string `json:"email"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if !resp.Linked || resp.Email != "staf2@example.com" {
+		t.Errorf("linked=%v email=%q, ingin true + staf2@example.com", resp.Linked, resp.Email)
+	}
+}
+
+func TestGoogleUnlinkRemovesIdentity(t *testing.T) {
+	os.Setenv("JWT_SECRET", "test-secret-key")
+	os.Setenv("COOKIE_SECURE", "false")
+	defer os.Unsetenv("JWT_SECRET")
+	defer os.Unsetenv("COOKIE_SECURE")
+
+	h, db := newGoogleTestHandler(t)
+	defer db.Close()
+
+	if _, err := db.Exec(`
+		INSERT INTO users (id, name, email, role, password_hash, is_active, created_at, updated_at)
+		VALUES ('guru-4', 'Guru Empat', 'guru4@example.com', 'guru', 'x', 1, 1, 1);
+		INSERT INTO user_identities (id, user_id, provider, provider_user_id, email, email_verified)
+		VALUES ('ident-g4', 'guru-4', 'google', 'g-guru-4', 'guru4@example.com', 1);
+	`); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	e := echo.New()
+	ctx, rec := newJSONContext(e, http.MethodDelete, "/api/auth/google/link", "")
+	ctx.Set("user_id", "guru-4")
+	ctx.Set("user_role", "guru")
+
+	if err := h.GoogleUnlink(ctx); err != nil {
+		t.Fatalf("GoogleUnlink error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("ingin 200, dapat %d: %s", rec.Code, rec.Body.String())
+	}
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM user_identities WHERE user_id = 'guru-4'`).Scan(&count); err != nil {
+		t.Fatalf("hitung identitas: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("identitas belum dilepas: %d baris", count)
+	}
+}
+
+func TestGoogleUnlinkRejectsAccountWithoutPassword(t *testing.T) {
+	os.Setenv("JWT_SECRET", "test-secret-key")
+	os.Setenv("COOKIE_SECURE", "false")
+	defer os.Unsetenv("JWT_SECRET")
+	defer os.Unsetenv("COOKIE_SECURE")
+
+	h, db := newGoogleTestHandler(t)
+	defer db.Close()
+
+	if _, err := db.Exec(`
+		INSERT INTO users (id, name, email, role, password_hash, is_active, created_at, updated_at)
+		VALUES ('ortu-g', 'Ortu Google', 'ortug@example.com', 'orangtua', NULL, 1, 1, 1);
+		INSERT INTO user_identities (id, user_id, provider, provider_user_id, email, email_verified)
+		VALUES ('ident-og', 'ortu-g', 'google', 'g-ortu-g', 'ortug@example.com', 1);
+	`); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	e := echo.New()
+	ctx, rec := newJSONContext(e, http.MethodDelete, "/api/auth/google/link", "")
+	ctx.Set("user_id", "ortu-g")
+	ctx.Set("user_role", "orangtua")
+
+	if err := h.GoogleUnlink(ctx); err != nil {
+		t.Fatalf("GoogleUnlink error: %v", err)
+	}
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("akun tanpa password tidak boleh dilepas: ingin 409, dapat %d: %s", rec.Code, rec.Body.String())
+	}
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM user_identities WHERE user_id = 'ortu-g'`).Scan(&count); err != nil {
+		t.Fatalf("hitung identitas: %v", err)
+	}
+	if count != 1 {
+		t.Errorf("identitas ikut terhapus: %d baris", count)
+	}
+}

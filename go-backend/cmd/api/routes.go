@@ -308,6 +308,8 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	auth.POST("/auth/return", h.Auth.ReturnToAdmin)
 	// Tautkan Google ke akun orang tua yang sedang login (akun lama tanpa email).
 	auth.POST("/auth/google/link", h.Auth.GoogleLink)
+	auth.GET("/auth/google/link", h.Auth.GoogleLinkStatus)
+	auth.DELETE("/auth/google/link", h.Auth.GoogleUnlink)
 
 	// Academic
 	auth.GET("/academic/active-year", h.Academic.GetActiveAcademicYear)

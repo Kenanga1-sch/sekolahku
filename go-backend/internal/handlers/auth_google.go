@@ -21,18 +21,27 @@ import (
 	"github.com/sekolahku/go-backend/internal/repository"
 )
 
-// Pendaftaran/login Google untuk ORANG TUA.
+// Pendaftaran/login Google untuk SEMUA role (orang tua, guru, staff, admin).
 //
 // Google hanya dipakai sebagai bukti kepemilikan email. Hak akses tetap
-// ditentukan role di tabel users, dan pendaftaran mandiri tetap wajib
-// memverifikasi NISN + tanggal lahir anak — sama seperti /daftar-ortu.
+// ditentukan role di tabel `users`.
 //
 // Alur:
 //  1. GET /api/auth/google/start     → set cookie state, redirect ke Google.
 //  2. GET /api/auth/google/callback  → tukar code, baca userinfo, set tiket
 //     (JWT 10 menit, HttpOnly), redirect ke halaman penyelesaian.
 //  3. POST /api/auth/google/complete → verifikasi NISN, tautkan/buat akun,
-//     terbitkan sesi.
+//     ter-issue sesi.
+//
+// AUTO-TAUT: bila email Google sama dengan email sebuah akun yang sudah ada
+// (kolom `users.email` UNIQUE), identitas Google langsung ditautkan ke akun
+// itu dan pengguna langsung masuk — tanpa verifikasi NISN. Daftar mandiri
+// (verifikasi NISN + tanggal lahir anak) hanya untuk peran ORANG TUA; akun
+// guru/staff/admin dibuat admin dari data kepegawaian, jadi tidak boleh
+// mendaftar sendiri.
+//
+// Role `siswa` dikecualikan dari auto-taut: email akun siswa bersifat
+// sintetis (NIS@sekolahku.id) dan tidak pernah terverifikasi oleh Google.
 //
 // Akun hasil pendaftaran Google TIDAK punya password (password_hash NULL);
 // password bisa dibuat kemudian lewat alur reset password yang sudah ada.
@@ -45,7 +54,25 @@ const (
 	googleTicketTyp    = "google_ticket"
 	googleDefaultPage  = "/daftar-ortu/google"
 	googleParentHome   = "/parent"
+	googleProfileLink  = "/profile?google=link"
+	googleChangePass   = "/profil/ganti-password"
+	// googleRoleSiswa dikecualikan dari auto-taut (email sintetis).
+	googleRoleSiswa = "siswa"
 )
+
+// googleHomeForRole mengembalikan dashboard sesuai role. Harus sama dengan
+// homeRouteForRole di frontend (actions/auth.ts) dan logika redirect halaman
+// login, supaya login Google mendarat di halaman yang sama dengan login biasa.
+func googleHomeForRole(role string) string {
+	switch role {
+	case "staff":
+		return "/inventaris"
+	case "orangtua":
+		return googleParentHome
+	default:
+		return "/overview"
+	}
+}
 
 // Endpoint Google dibuat variabel agar bisa diarahkan ke server uji pada
 // unit test (tanpa jaringan keluar).
@@ -145,11 +172,9 @@ func (h *AuthHandler) GoogleStart(c echo.Context) error {
 	})
 
 	// Target setelah selesai; disimpan di cookie (bukan query state) agar
-	// tidak bisa diubah lewat URL callback.
+	// tidak bisa diubah lewat URL callback. Nilai KOSONG berarti "otomatis":
+	// backend memilih halaman tujuan sesuai role akun (googleHomeForRole).
 	redirect := safeRedirectPath(c.QueryParam("redirect"))
-	if redirect == "" {
-		redirect = googleParentHome
-	}
 	c.SetCookie(&http.Cookie{
 		Name:     "oauth_redirect",
 		Value:    url.QueryEscape(redirect),
@@ -160,11 +185,16 @@ func (h *AuthHandler) GoogleStart(c echo.Context) error {
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	// mode=link: pengguna sudah login dan ingin MENAUTKAN Google ke akunnya,
-	// bukan mendaftar. Callback akan mengembalikan tiket ke halaman profil.
+	// mode:
+	//   ""       → login (default). Auto-taut by email bila email cocok.
+	//   "link"   → pengguna sudah login dan ingin MENAUTKAN Google ke akunnya.
+	//   "signup" → pendaftaran mandiri orang tua (verifikasi NISN).
 	mode := ""
-	if c.QueryParam("mode") == "link" {
+	switch c.QueryParam("mode") {
+	case "link":
 		mode = "link"
+	case "signup":
+		mode = "signup"
 	}
 	c.SetCookie(&http.Cookie{
 		Name:     "oauth_mode",
@@ -333,19 +363,47 @@ func (h *AuthHandler) GoogleCallback(c echo.Context) error {
 	email := strings.ToLower(strings.TrimSpace(info.Email))
 
 	// Tujuan setelah selesai (dari cookie oauth_redirect yang diset di start).
-	afterLogin := ""
+	// Kosong = "otomatis" → ditentukan dari role akun di bawah.
+	explicitRedirect := ""
 	if rc, err := c.Cookie("oauth_redirect"); err == nil {
 		if decoded, err := url.QueryUnescape(rc.Value); err == nil {
-			afterLogin = safeRedirectPath(decoded)
+			explicitRedirect = safeRedirectPath(decoded)
 		}
-	}
-	if afterLogin == "" {
-		afterLogin = googleParentHome
 	}
 	c.SetCookie(&http.Cookie{
 		Name: "oauth_redirect", Value: "", Path: "/api/auth/google",
 		MaxAge: -1, HttpOnly: true, Secure: secureCookie(), SameSite: http.SameSiteLaxMode,
 	})
+
+	// Mode alur: "" (login), "link" (taut ke akun yang sedang login),
+	// "signup" (pendaftaran mandiri orang tua).
+	mode := ""
+	if mc, err := c.Cookie("oauth_mode"); err == nil {
+		switch mc.Value {
+		case "link", "signup":
+			mode = mc.Value
+		}
+	}
+	c.SetCookie(&http.Cookie{
+		Name: "oauth_mode", Value: "", Path: "/api/auth/google",
+		MaxAge: -1, HttpOnly: true, Secure: secureCookie(), SameSite: http.SameSiteLaxMode,
+	})
+
+	// resolveRedirect menentukan tujuan akhir: redirect eksplisit kalau ada,
+	// selain itu dashboard sesuai role (dan ke halaman ganti password bila
+	// akun masih wajib mengganti password).
+	resolveRedirect := func(user *models.User) string {
+		if explicitRedirect != "" {
+			return explicitRedirect
+		}
+		if user != nil {
+			if user.MustChangePassword {
+				return googleChangePass
+			}
+			return googleHomeForRole(user.Role)
+		}
+		return googleParentHome
+	}
 
 	// Identitas sudah pernah ditautkan → langsung buat sesi (login biasa).
 	if h.Identities != nil {
@@ -362,19 +420,72 @@ func (h *AuthHandler) GoogleCallback(c echo.Context) error {
 			if !user.IsActive {
 				return c.JSON(http.StatusForbidden, map[string]string{"error": "Akun Anda tidak aktif. Silakan hubungi administrator."})
 			}
-			if user.Role != "orangtua" {
-				return c.JSON(http.StatusForbidden, map[string]string{"error": "Akun ini bukan akun orang tua"})
-			}
 			if _, err := h.issueSession(c, user, "", ""); err != nil {
 				c.Logger().Errorf("google oauth: issue session: %v", err)
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal membuat sesi"})
 			}
 			h.auditGoogle(c, "login_google", user.ID, &user.Email, "Login via Google")
-			return c.Redirect(http.StatusFound, afterLogin)
+			return c.Redirect(http.StatusFound, resolveRedirect(user))
 		}
 	}
 
-	ticket, err := h.signGoogleTicket(info, email, afterLogin)
+	// AUTO-TAUT: email Google sama dengan email akun yang sudah ada (kolom
+	// users.email UNIQUE) → tautkan identitas ke akun itu lalu langsung
+	// masuk. Ini membuat guru/staff/admin cukup klik tombol Google.
+	// Dilewati saat mode=link (pengguna menautkan ke akun yang sedang login).
+	if mode != "link" && h.Identities != nil {
+		byEmail, err := h.Repo.GetUserByEmailOnly(email)
+		if err != nil {
+			c.Logger().Errorf("google oauth: cek email: %v", err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+		}
+		if byEmail != nil {
+			if byEmail.Role == googleRoleSiswa {
+				return c.JSON(http.StatusForbidden, map[string]string{
+					"error": "Akun siswa belum dapat masuk memakai Google. Gunakan nomor HP dan password.",
+				})
+			}
+			if !byEmail.IsActive {
+				return c.JSON(http.StatusForbidden, map[string]string{
+					"error": "Akun dengan email ini tidak aktif. Hubungi administrator.",
+				})
+			}
+			// Akun ini sudah tertaut ke identitas Google lain → jangan
+			// dipindahkan diam-diam.
+			if own, err := h.Identities.GetByUserProvider(byEmail.ID, repository.ProviderGoogle); err != nil {
+				c.Logger().Errorf("google oauth: cek identitas akun: %v", err)
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+			} else if own != nil && own.ProviderUserID != info.Sub {
+				return c.JSON(http.StatusConflict, map[string]string{
+					"error": "Akun ini sudah tertaut ke akun Google lain. Hubungi administrator sekolah untuk melepasnya.",
+				})
+			}
+			if _, err := h.Identities.CreateIdentity(models.UserIdentity{
+				UserID:         byEmail.ID,
+				Provider:       repository.ProviderGoogle,
+				ProviderUserID: info.Sub,
+				Email:          &email,
+				EmailVerified:  true,
+			}); err != nil {
+				c.Logger().Errorf("google oauth: simpan identitas: %v", err)
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal menautkan akun Google"})
+			}
+			// Foto profil + penanda email terverifikasi (hanya bila kosong).
+			if err := h.Repo.SetGoogleProfile(byEmail.ID, info.Picture, true); err != nil {
+				c.Logger().Errorf("google oauth: simpan profil: %v", err)
+			}
+			h.auditGoogle(c, "link_google", byEmail.ID, &byEmail.Email,
+				"Akun Google ditautkan otomatis berdasarkan email ("+byEmail.Role+")")
+			h.notifyGoogleLink(c, byEmail, email)
+			if _, err := h.issueSession(c, byEmail, "", ""); err != nil {
+				c.Logger().Errorf("google oauth: issue session: %v", err)
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal membuat sesi"})
+			}
+			return c.Redirect(http.StatusFound, resolveRedirect(byEmail))
+		}
+	}
+
+	ticket, err := h.signGoogleTicket(info, email, explicitRedirect)
 	if err != nil {
 		c.Logger().Errorf("google oauth: tiket: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal membuat tiket pendaftaran"})
@@ -390,13 +501,13 @@ func (h *AuthHandler) GoogleCallback(c echo.Context) error {
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	// Alur penautan dari portal ortu: kembali ke profil, bukan ke pendaftaran.
-	if modeCookie, err := c.Cookie("oauth_mode"); err == nil && modeCookie.Value == "link" {
-		c.SetCookie(&http.Cookie{
-			Name: "oauth_mode", Value: "", Path: "/api/auth/google",
-			MaxAge: -1, HttpOnly: true, Secure: secureCookie(), SameSite: http.SameSiteLaxMode,
-		})
-		return c.Redirect(http.StatusFound, "/parent/profil?google=link")
+	// Alur penautan dari portal: kembali ke halaman profil, bukan pendaftaran.
+	if mode == "link" {
+		target := explicitRedirect
+		if target == "" {
+			target = googleProfileLink
+		}
+		return c.Redirect(http.StatusFound, target)
 	}
 
 	return c.Redirect(http.StatusFound, googleDefaultPage)
@@ -459,11 +570,29 @@ func (h *AuthHandler) GooglePending(c echo.Context) error {
 	email, _ := claims["email"].(string)
 	name, _ := claims["name"].(string)
 	picture, _ := claims["picture"].(string)
+
+	// Info kecocokan email: frontend memakainya untuk memberi tahu bahwa
+	// email tersebut sudah terdaftar sebagai akun sekolah (mis. guru/staf),
+	// sehingga pengguna diarahkan masuk, bukan mendaftar.
+	matchedRole := ""
+	matchedName := ""
+	if h.Repo != nil {
+		if byEmail, err := h.Repo.GetUserByEmailOnly(email); err == nil && byEmail != nil {
+			matchedRole = byEmail.Role
+			if byEmail.FullName != nil {
+				matchedName = *byEmail.FullName
+			} else if byEmail.Name != nil {
+				matchedName = *byEmail.Name
+			}
+		}
+	}
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"success": true,
-		"email":   email,
-		"name":    name,
-		"picture": picture,
+		"success":     true,
+		"email":       email,
+		"name":        name,
+		"picture":     picture,
+		"matchedRole": matchedRole,
+		"matchedName": matchedName,
 	})
 }
 
@@ -541,8 +670,18 @@ func (h *AuthHandler) GoogleComplete(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
 	} else if existing != nil {
 		user, err := h.Repo.GetUserByID(existing.UserID)
-		if err != nil || user == nil || !user.IsActive || user.Role != "orangtua" {
-			return c.JSON(http.StatusForbidden, map[string]string{"error": "Akun tertaut tidak tersedia"})
+		if err != nil || user == nil {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "Akun tertaut tidak ditemukan"})
+		}
+		if !user.IsActive {
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "Akun Anda tidak aktif. Silakan hubungi administrator."})
+		}
+		if user.Role != "orangtua" {
+			// Akun ini sudah dipakai role lain (guru/staf/admin) — jangan
+			// issuing sesi lewat endpoint pendaftaran orang tua.
+			return c.JSON(http.StatusConflict, map[string]string{
+				"error": "Email ini sudah tertaut ke akun " + user.Role + ". Silakan masuk memakai akun tersebut.",
+			})
 		}
 		return h.finishGoogleLogin(c, user, "login_google", "Login via Google", afterLogin)
 	}
@@ -573,7 +712,7 @@ func (h *AuthHandler) GoogleComplete(c echo.Context) error {
 		if byEmail != nil {
 			if byEmail.Role != "orangtua" {
 				return c.JSON(http.StatusConflict, map[string]string{
-					"error": "Email ini sudah terdaftar sebagai akun staf/admin. Silakan hubungi administrator sekolah.",
+					"error": "Email ini sudah terdaftar sebagai akun " + byEmail.Role + ". Silakan masuk memakai akun tersebut atau hubungi administrator sekolah.",
 				})
 			}
 			if !byEmail.IsActive {
@@ -675,9 +814,10 @@ func (h *AuthHandler) GoogleComplete(c echo.Context) error {
 	return h.finishGoogleLogin(c, target, "", "", afterLogin)
 }
 
-// GoogleLink menautkan identitas Google ke akun yang SEDANG login.
-// Dipakai akun orang tua lama (berbasis nomor HP, tanpa email) supaya bisa
-// masuk lewat Google tanpa membuat akun baru.
+// GoogleLink menautkan identitas Google ke akun yang SEDING login.
+// Dipakai akun lama (berbasis nomor HP, tanpa email) supaya bisa masuk lewat
+// Google tanpa membuat akun baru. Bisa dipakai SEMUA role: sesi yang sedang
+// aktif sudah membuktikan kepemilikan akun.
 func (h *AuthHandler) GoogleLink(c echo.Context) error {
 	if h.Identities == nil {
 		return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Fitur Google belum siap"})
@@ -687,9 +827,6 @@ func (h *AuthHandler) GoogleLink(c echo.Context) error {
 	role, _ := c.Get("user_role").(string)
 	if userID == "" {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Sesi tidak valid"})
-	}
-	if role != "orangtua" {
-		return c.JSON(http.StatusForbidden, map[string]string{"error": "Hanya akun orang tua yang dapat menautkan Google"})
 	}
 
 	ck, err := c.Cookie(googleTicketCookie)
@@ -743,18 +880,112 @@ func (h *AuthHandler) GoogleLink(c echo.Context) error {
 		_ = h.Repo.SetGoogleProfile(userID, "", true)
 	}
 
+	// Akun lama yang belum punya email (mis. staf/ortu berbasis nomor HP):
+	// isi email Google agar login berikutnya bisa memakai auto-taut by email.
+	if filled, err := h.Repo.SetEmailIfEmpty(userID, email); err != nil {
+		c.Logger().Errorf("google link: isi email: %v", err)
+	} else if filled {
+		c.Logger().Infof("google link: email akun %s diisi dari Google", userID)
+	}
+
 	c.SetCookie(&http.Cookie{
 		Name: googleTicketCookie, Value: "", Path: "/api/auth/google",
 		MaxAge: -1, HttpOnly: true, Secure: secureCookie(), SameSite: http.SameSiteLaxMode,
 	})
 
-	h.auditGoogle(c, "link_google", userID, &email, "Akun Google ditautkan dari portal orang tua")
+	h.auditGoogle(c, "link_google", userID, &email, "Akun Google ditautkan dari portal ("+role+")")
+
+	// Akun role privileged deserve notifikasi supaya admin tahu.
+	if user, err := h.Repo.GetUserByID(userID); err == nil && user != nil {
+		h.notifyGoogleLink(c, user, email)
+	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
 		"message": "Akun Google berhasil ditautkan. Anda bisa masuk memakai tombol Google.",
 		"email":   email,
 	})
+}
+
+// GoogleLinkStatus memberi tahu frontend apakah akun yang sedang login sudah
+// tertaut ke identitas Google, dan email mana yang dipakai.
+func (h *AuthHandler) GoogleLinkStatus(c echo.Context) error {
+	if h.Identities == nil {
+		return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Fitur Google belum siap"})
+	}
+	userID, _ := c.Get("user_id").(string)
+	if userID == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Sesi tidak valid"})
+	}
+	ident, err := h.Identities.GetByUserProvider(userID, repository.ProviderGoogle)
+	if err != nil {
+		c.Logger().Errorf("google link status: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Terjadi kesalahan internal"})
+	}
+	if ident == nil {
+		return c.JSON(http.StatusOK, map[string]interface{}{"linked": false})
+	}
+	email := ""
+	if ident.Email != nil {
+		email = *ident.Email
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"linked": true,
+		"email":  email,
+	})
+}
+
+// GoogleUnlink melepas tautan Google dari akun yang sedang login.
+// Hanya boleh untuk akun yang masih punya password — kalau tidak, pengguna
+// tidak punya cara masuk lagi (akun orang tua hasil daftar Google).
+func (h *AuthHandler) GoogleUnlink(c echo.Context) error {
+	if h.Identities == nil {
+		return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Fitur Google belum siap"})
+	}
+	userID, _ := c.Get("user_id").(string)
+	if userID == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Sesi tidak valid"})
+	}
+	user, err := h.Repo.GetUserByID(userID)
+	if err != nil || user == nil {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "Akun tidak ditemukan"})
+	}
+	if user.PasswordHash == nil || strings.TrimSpace(*user.PasswordHash) == "" {
+		return c.JSON(http.StatusConflict, map[string]string{
+			"error": "Akun ini tidak punya password, jadi tidak bisa dilepas tautan Google. Hubungi administrator sekolah.",
+		})
+	}
+	if err := h.Identities.DeleteByUserProvider(userID, repository.ProviderGoogle); err != nil {
+		c.Logger().Errorf("google unlink: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Gagal melepas tautan Google"})
+	}
+	h.auditGoogle(c, "unlink_google", userID, &user.Email, "Tautan Google dilepas oleh pemilik akun")
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Tautan Google dilepas. Anda tetap bisa masuk memakai nomor HP dan password.",
+	})
+}
+
+// notifyGoogleLink memberi tahu admin saat akun role privileged
+// (admin/superadmin) menautkan identitas Google — jejak audit untuk akun
+// sensitif. Role lain (guru/staff/orang tua) cukup tercatat di audit log.
+func (h *AuthHandler) notifyGoogleLink(c echo.Context, user *models.User, email string) {
+	if h.Notifications == nil || user == nil {
+		return
+	}
+	switch user.Role {
+	case "admin", "superadmin":
+	default:
+		return
+	}
+	targetURL := "/admin/master/gtk"
+	_ = h.Notifications.NotifyRoles(models.Notification{
+		Type:      "warning",
+		Category:  "account",
+		Title:     "Tautan Google pada Akun Admin",
+		Message:   "Akun " + user.Role + " (" + email + ") menautkan identitas Google ke akunnya.",
+		TargetURL: &targetURL,
+	}, "superadmin")
 }
 
 // finishGoogleLogin menerbitkan sesi + audit lalu mengembalikan tujuan redirect
@@ -768,7 +999,7 @@ func (h *AuthHandler) finishGoogleLogin(c echo.Context, user *models.User, actio
 		h.auditGoogle(c, action, user.ID, &user.Email, detail)
 	}
 	if redirect == "" {
-		redirect = googleParentHome
+		redirect = googleHomeForRole(user.Role)
 	}
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success":  true,

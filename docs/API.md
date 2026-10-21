@@ -25,11 +25,22 @@ All routes under `/api/*` except `/api/auth/*`, `/api/health`, and `/api/spmb/re
 
 ---
 
-## Google Sign-In / Sign-Up (orang tua)
+## Google Sign-In / Sign-Up (semua role)
 
 Login memakai cookie HttpOnly `session` (JWT). Google **hanya** dipakai
-sebagai bukti kepemilikan email — hak akses tetap ditentukan `users.role`,
-dan pendaftaran mandiri tetap wajib memverifikasi NISN + tanggal lahir anak.
+sebagai bukti kepemilikan email ??? hak akses tetap ditentukan `users.role`.
+
+- **Login** untuk semua role: bila email Google sama dengan email akun
+  sekolah (`users.email` UNIQUE), identitas otomatis ditautkan dan pengguna
+  langsung masuk ke dashboard sesuai role (`staff` ??? `/inventaris`,
+  `orangtua` ??? `/parent`, lainnya ??? `/overview`).
+- **Role `siswa` dikecualikan** dari auto-taut: email akun siswa sintetis
+  (`NIS@sekolahku.id`) dan tidak pernah terverifikasi Google.
+- **Pendaftaran mandiri** (verifikasi NISN + tanggal lahir anak) hanya untuk
+  peran **orang tua**. Akun guru/staff/admin dibuat admin dari data
+  kepegawaian, jadi tidak bisa mendaftar sendiri.
+- Password tetap dipertahankan sebagai cadangan; akun ortu hasil daftar
+  Google tidak punya password (`password_hash` NULL).
 
 Alur:
 
@@ -37,9 +48,10 @@ Alur:
 /login  --klik tombol-->  GET /api/auth/google/start
        --302 ke Google-->  accounts.google.com (consent)
        --302-->            GET /api/auth/google/callback
-                             ├─ identitas sudah tertaut → sesi dibuat → redirect /parent
-                             └─ identitas baru → cookie tiket (15 mnt) → /daftar-ortu/google
-/daftar-ortu/google  --NISN+tgl lahir-->  POST /api/auth/google/complete → sesi + /parent
+                             ?????? identitas sudah tertaut ??? sesi dibuat ??? dashboard sesuai role
+                             ?????? email cocok dengan akun sekolah ??? AUTO-TAUT ??? sesi ??? dashboard
+                             ?????? email baru ??? cookie tiket (15 mnt) ??? /daftar-ortu/google
+/daftar-ortu/google  --NISN+tgl lahir-->  POST /api/auth/google/complete ??? sesi + /parent
 ```
 
 #### GET /api/auth/google/status
@@ -54,8 +66,9 @@ Publik. Menentukan apakah tombol Google ditampilkan.
 
 #### GET /api/auth/google/start
 
-Publik. Query opsional: `redirect` (path internal, default `/parent`),
-`mode=link` (menautkan ke akun yang sedang login).
+Publik. Query opsional: `redirect` (path internal; kosong = otomatis sesuai
+role), `mode=link` (menautkan ke akun yang sedang login), `mode=signup`
+(pendaftaran mandiri orang tua).
 
 Menyetel cookie `oauth_state`, `oauth_redirect`, `oauth_mode` (HttpOnly,
 SameSite=Lax, 10 menit) lalu 302 ke Google. `503` bila kredensial kosong.
@@ -66,14 +79,22 @@ Publik. Memvalidasi `state` (harus sama dengan cookie, sekali pakai),
 menukar `code` di `oauth2.googleapis.com/token`, lalu membaca
 `www.googleapis.com/oauth2/v3/userinfo`.
 
-| Kondisi                             | Respons                                                            |
-| ----------------------------------- | ------------------------------------------------------------------ |
-| `state` tidak cocok / cookie hilang | `400`                                                              |
-| `email_verified=false`              | `403`                                                              |
-| Tukar kode gagal                    | `502`                                                              |
-| Identitas sudah tertaut             | `302` ke `redirect` + cookie `session`/`user_info`                 |
-| Identitas baru                      | `302` ke `/daftar-ortu/google` + cookie `google_ticket` (15 menit) |
-| `mode=link`                         | `302` ke `/parent/profil?google=link` + cookie `google_ticket`     |
+| Kondisi                             | Respons                                                                       |
+| ----------------------------------- | ----------------------------------------------------------------------------- |
+| `state` tidak cocok / cookie hilang | `400`                                                                         |
+| `email_verified=false`              | `403`                                                                         |
+| Tukar kode gagal                    | `502`                                                                         |
+| Email milik akun siswa              | `403` (akun siswa tidak boleh auto-taut)                                      |
+| Akun non-aktif                      | `403`                                                                         |
+| Akun sudah tertaut ke Google lain   | `409`                                                                         |
+| Identitas sudah tertaut             | `302` ke dashboard sesuai role + cookie `session`/`user_info`                 |
+| Email cocok dengan akun sekolah     | `302` (auto-taut) + cookie `session`/`user_info`                              |
+| Email baru                          | `302` ke `/daftar-ortu/google` + cookie `google_ticket` (15 menit)            |
+| `mode=link`                         | `302` ke `redirect` (default `/profile?google=link`) + cookie `google_ticket` |
+
+Auto-taut juga mengisi email akun yang masih kosong dan mencatat audit
+`link_google`. Untuk role `admin`/`superadmin` dikirim notifikasi in-app ke
+superadmin.
 
 #### GET /api/auth/google/pending
 
@@ -85,27 +106,31 @@ email/nama Google yang sedang menunggu verifikasi.
   "success": true,
   "email": "ortu@gmail.com",
   "name": "Nama",
-  "picture": "https://..."
+  "picture": "https://...",
+  "matchedRole": "orangtua",
+  "matchedName": "Orang Tua Contoh"
 }
 ```
 
-`404` bila tiket tidak ada/kedaluwarsa.
+`matchedRole` = role akun sekolah yang memakai email sama (kosong bila email
+belum terdaftar). `404` bila tiket tidak ada/kedaluwarsa.
 
 #### POST /api/auth/google/complete
 
-Publik, rate limit 5/15 menit per IP.
+Publik, rate limit 5/15 menit per IP. **Khusus pendaftaran orang tua.**
 
 ```json
 { "nisn": "1234567890", "birthDate": "2015-05-01", "relation": "ibu" }
 ```
 
-| Kondisi                                | Respons                                           |
-| -------------------------------------- | ------------------------------------------------- |
-| NISN/tanggal lahir tidak cocok         | `404`                                             |
-| Email Google milik akun **staf/admin** | `409` (tidak pernah auto-link ke akun privileged) |
-| Siswa sudah punya akun ortu aktif      | `200` — identitas ditautkan ke akun itu           |
-| Email sudah dipakai akun ortu lain     | `200` — ditautkan (orang tua banyak anak)         |
-| Belum ada akun                         | `200` — akun `orangtua` baru, **tanpa password**  |
+| Kondisi                                  | Respons                                            |
+| ---------------------------------------- | -------------------------------------------------- |
+| NISN/tanggal lahir tidak cocok           | `404`                                              |
+| Email Google milik akun guru/staf        | `409` (akun sudah ada; masuk memakai akun itu)     |
+| Identitas sudah tertaut ke akun non-ortu | `409`                                              |
+| Siswa sudah punya akun ortu aktif        | `200` ??? identitas ditautkan ke akun itu          |
+| Email sudah dipakai akun ortu lain       | `200` ??? ditautkan (orang tua banyak anak)        |
+| Belum ada akun                           | `200` ??? akun `orangtua` baru, **tanpa password** |
 
 Respons sukses: `{ "success": true, "user": {...}, "redirect": "/parent" }`
 plus cookie `session` + `user_info`. Akun baru memicu notifikasi in-app ke
@@ -113,11 +138,30 @@ superadmin/admin dan audit log `signup_google`.
 
 #### POST /api/auth/google/link
 
-Wajib login, role `orangtua`. Menautkan identitas Google (dari cookie tiket)
-ke akun yang sedang login — untuk akun lama berbasis nomor HP tanpa email.
+Wajib login, **semua role**. Menautkan identitas Google (dari cookie tiket)
+ke akun yang sedang login ??? untuk akun lama berbasis nomor HP tanpa email.
+Sesi yang aktif sudah membuktikan kepemilikan akun, jadi tidak perlu kode
+verifikasi tambahan. Email akun yang masih kosong ikut diisi dari Google.
 
 `409` bila akun Google sudah tertaut ke akun lain atau akun ini sudah punya
 identitas Google berbeda.
+
+#### GET /api/auth/google/link
+
+Wajib login, semua role. Status tautan Google milik akun yang sedang login.
+
+```json
+{ "linked": true, "email": "guru@sekolah.sch.id" }
+```
+
+`linked=false` bila akun belum tertaut.
+
+#### DELETE /api/auth/google/link
+
+Wajib login, semua role. Melepas tautan Google dari akun yang sedang login
+(untuk mengganti akun Google). `409` bila akun tidak punya password ??? akun
+orang tua hasil daftar Google tidak bisa dilepas supaya tidak terkunci dari
+akunnya. Audit log: `unlink_google`.
 
 ---
 

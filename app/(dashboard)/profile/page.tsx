@@ -37,6 +37,7 @@ import { resolveUploadUrl } from "@/lib/upload-url";
 import { siteConfig } from "@/lib/config";
 import { getActionIcon, getFriendlyActionBadge } from "./_components/profile-helpers";
 import { SecurityTipsCard } from "./_components/security-tips-card";
+import { GoogleLinkCard } from "@/components/auth/google-link-card";
 import { ProfileHeader } from "./_components/profile-header";
 import { useTabParam } from "@/lib/hooks/use-tab-param";
 
@@ -626,6 +627,11 @@ export default function ProfilePage() {
                                     </Button>
                                 </CardContent>
                             </Card>
+                        </div>
+
+                        <div>
+                            {/* Akun Google — tautkan agar bisa masuk tanpa password */}
+                            <GoogleLinkCard />
                         </div>
 
                         <div>

@@ -204,7 +204,36 @@ export default function DaftarOrtuGooglePage() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3 }}
+                  className="space-y-4"
                 >
+                  {pending.matchedRole && pending.matchedRole !== "orangtua" ? (
+                    <div
+                      role="alert"
+                      className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+                    >
+                      <p className="font-semibold">Email ini sudah terdaftar sebagai akun {pending.matchedRole}.</p>
+                      <p className="mt-1 text-xs opacity-90">
+                        Akun guru/staf/admin tidak bisa didaftarkan ulang. Tekan &ldquo;Masuk dengan akun ini&rdquo;
+                        untuk menautkan akun Google ke akun sekolah Anda yang sudah ada.
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="mt-3 h-10 w-full rounded-xl"
+                        onClick={() => {
+                          window.location.href = "/api/auth/google/start";
+                        }}
+                      >
+                        Masuk dengan akun ini
+                      </Button>
+                    </div>
+                  ) : !pending.matchedRole ? (
+                    <div className="rounded-xl border border-border bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
+                      Email ini belum terdaftar di sekolah. Untuk akun <strong>guru/staf/admin</strong>, masuk dulu
+                      memakai nomor HP dan password, lalu tautkan akun Google di menu <strong>Profil → Keamanan</strong>.
+                    </div>
+                  ) : null}
+
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
