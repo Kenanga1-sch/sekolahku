@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion } from "motion/react";
 import { AlertCircle, ArrowRight, CheckCircle2, KeyRound, Loader2, ShieldCheck } from "lucide-react";
@@ -12,7 +12,7 @@ import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
 import { getSchoolLogo } from "@/lib/school-logo";
 import { goPost } from "@/lib/api-client";
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const { settings } = useSchoolSettings();
   const schoolLogo = getSchoolLogo(settings?.school_logo);
   const searchParams = useSearchParams();
@@ -183,5 +183,21 @@ export default function ResetPasswordPage() {
         )}
       </div>
     </motion.div>
+  );
+}
+
+// useSearchParams() harus berada di dalam Suspense boundary agar halaman
+// bisa di-prerender saat static export (Next mewajibkan ini di app router).
+export default function ResetPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="w-full max-w-md mx-auto p-8 flex items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
+      <ResetPasswordForm />
+    </Suspense>
   );
 }
