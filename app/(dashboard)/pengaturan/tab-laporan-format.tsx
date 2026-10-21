@@ -398,7 +398,8 @@ export default function TabLaporanFormat({ initialSub = "format" }: { initialSub
                         ) : null}
                       </div>
                       <div className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">
-                        {t.code} · {t.category} · {t.paperSize} {t.orientation}
+                        {t.code} · {t.category} ·{" "}
+                        {kindBadge(t) === "Word" ? "halaman ikut file Word" : `${t.paperSize} ${t.orientation}`}
                         {t.filePath ? ` · 📄 ${t.filePath}` : ""}
                       </div>
                       <div className="mt-1 flex items-center gap-1">
@@ -526,7 +527,7 @@ export default function TabLaporanFormat({ initialSub = "format" }: { initialSub
                   }))
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger aria-label="Jenis template">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -538,35 +539,43 @@ export default function TabLaporanFormat({ initialSub = "format" }: { initialSub
                 Excel untuk rekap tabel (duplikasi baris + rumus hidup); Word untuk dokumen naratif (variabel + loop).
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1 block text-xs font-medium">Ukuran Kertas</label>
-                <Select value={form.paperSize} onValueChange={(v) => setForm((f) => ({ ...f, paperSize: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="A4">A4 (210×297)</SelectItem>
-                    <SelectItem value="F4">F4 / Folio (215×330)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium">Orientasi</label>
-                <Select value={form.orientation} onValueChange={(v) => setForm((f) => ({ ...f, orientation: v as "portrait" | "landscape" }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="portrait">Potret</SelectItem>
-                    <SelectItem value="landscape">Landscape</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <p className="text-[10px] text-muted-foreground">
-              Ukuran kertas dipakai saat cetak PDF (dialog browser) &amp; pengaturan cetak Excel.
-            </p>
+            {form.kind === "xlsx" ? (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium">Ukuran Kertas</label>
+                    <Select value={form.paperSize} onValueChange={(v) => setForm((f) => ({ ...f, paperSize: v }))}>
+                      <SelectTrigger aria-label="Ukuran kertas"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="A4">A4 (210×297)</SelectItem>
+                        <SelectItem value="F4">F4 / Folio (215×330)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium">Orientasi</label>
+                    <Select value={form.orientation} onValueChange={(v) => setForm((f) => ({ ...f, orientation: v as "portrait" | "landscape" }))}>
+                      <SelectTrigger aria-label="Orientasi"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="portrait">Potret</SelectItem>
+                        <SelectItem value="landscape">Landscape</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Ukuran kertas dipakai saat cetak PDF (dialog browser) &amp; pengaturan cetak Excel.
+                </p>
+              </>
+            ) : (
+              <p className="rounded-md bg-muted/50 px-3 py-2 text-[11px] text-muted-foreground">
+                Ukuran dan orientasi mengikuti pengaturan halaman di file Word; bagian potret dan landscape boleh dicampur.
+              </p>
+            )}
             <div>
               <label className="mb-1 block text-xs font-medium">Peruntukan Modul</label>
               <Select value={form.module} onValueChange={(v) => setForm((f) => ({ ...f, module: v }))}>
-                <SelectTrigger>
+                <SelectTrigger aria-label="Peruntukan modul">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -611,28 +620,34 @@ export default function TabLaporanFormat({ initialSub = "format" }: { initialSub
               <label className="mb-1 block text-xs font-medium">Kategori</label>
               <Input value={editForm.category} onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value }))} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1 block text-xs font-medium">Ukuran Kertas</label>
-                <Select value={editForm.paperSize} onValueChange={(v) => setEditForm((f) => ({ ...f, paperSize: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="A4">A4 (210×297)</SelectItem>
-                    <SelectItem value="F4">F4 / Folio (215×330)</SelectItem>
-                  </SelectContent>
-                </Select>
+            {editT && kindBadge(editT) === "Word" ? (
+              <p className="rounded-md bg-muted/50 px-3 py-2 text-[11px] text-muted-foreground">
+                Ukuran dan orientasi mengikuti pengaturan halaman di file Word (boleh campuran potret/landscape).
+              </p>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium">Ukuran Kertas</label>
+                  <Select value={editForm.paperSize} onValueChange={(v) => setEditForm((f) => ({ ...f, paperSize: v }))}>
+                    <SelectTrigger aria-label="Ukuran kertas"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="A4">A4 (210×297)</SelectItem>
+                      <SelectItem value="F4">F4 / Folio (215×330)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium">Orientasi</label>
+                  <Select value={editForm.orientation} onValueChange={(v) => setEditForm((f) => ({ ...f, orientation: v as "portrait" | "landscape" }))}>
+                    <SelectTrigger aria-label="Orientasi"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="portrait">Potret</SelectItem>
+                      <SelectItem value="landscape">Landscape</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div>
-                <label className="mb-1 block text-xs font-medium">Orientasi</label>
-                <Select value={editForm.orientation} onValueChange={(v) => setEditForm((f) => ({ ...f, orientation: v as "portrait" | "landscape" }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="portrait">Potret</SelectItem>
-                    <SelectItem value="landscape">Landscape</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+            )}
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setEditT(null)}>Batal</Button>
