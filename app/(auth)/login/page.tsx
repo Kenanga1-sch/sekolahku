@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { loginFormSchema, type LoginFormValues } from "@/lib/validations/spmb";
 import { loginAction } from "@/actions/auth";
+import { AuthDivider, GoogleButton } from "@/components/auth/google-button";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/stores/auth-store";
@@ -92,6 +93,14 @@ export default function LoginPage() {
     const savedAttempts = localStorage.getItem("login_attempts");
     if (savedAttempts) {
       setAttempts(parseInt(savedAttempts));
+    }
+
+    // Hasil alur Google yang dibatalkan/gagal (redirect dari backend).
+    // Dibaca dari window.location agar tidak perlu useSearchParams +
+    // Suspense (static export).
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("google") === "cancelled") {
+      setError("Pendaftaran dengan Google dibatalkan.");
     }
   }, [form]);
 
@@ -218,6 +227,9 @@ export default function LoginPage() {
             </AlertDescription>
           </Alert>
         )}
+
+        <GoogleButton label="Masuk dengan Google (orang tua)" redirect="/parent" />
+        <AuthDivider text="atau masuk dengan akun sekolah" />
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

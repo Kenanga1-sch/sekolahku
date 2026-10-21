@@ -212,6 +212,7 @@ func main() {
 	// Repositories
 	repos := &Repositories{
 		User:               repository.NewUserRepository(db),
+		UserIdentity:       repository.NewUserIdentityRepository(db),
 		Academic:           repository.NewAcademicRepository(db),
 		Inventory:          repository.NewInventoryRepository(db),
 		SPMB:               repository.NewSPMBRepository(db),
@@ -390,6 +391,11 @@ func main() {
 
 	// Pembersih thumbnail Cloud Storage berkala (harian).
 	h.CloudStorage.StartThumbCleaner()
+
+	// Alur pendaftaran/login Google (orang tua) membutuhkan repo identitas
+	// OAuth dan repo relasi orang tua–siswa.
+	h.Auth.Identities = repos.UserIdentity
+	h.Auth.Parents = repos.Parent
 
 	// EOffice memakai Cloud Storage untuk mengarsipkan hasil scan ke ruang
 	// arsip bersama (opsional — lewati bila cloud tak dikonfigurasi).

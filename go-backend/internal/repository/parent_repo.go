@@ -217,6 +217,27 @@ func (r *ParentRepository) GetParentUserIDs(studentID string) ([]string, error) 
 	return ids, nil
 }
 
+// FindActiveParentUserByStudent mencari akun orang tua aktif yang sudah
+// tertaut ke satu siswa. Dipakai alur pendaftaran Google: bila siswa sudah
+// punya akun ortu, identitas Google ditautkan ke akun itu (bukan membuat
+// akun duplikat). Akun non-orangtua sengaja diabaikan.
+func (r *ParentRepository) FindActiveParentUserByStudent(studentID string) (string, error) {
+	var userID string
+	err := r.DB.QueryRow(`
+		SELECT ps.user_id
+		FROM parent_students ps
+		JOIN users u ON u.id = ps.user_id
+		WHERE ps.student_id = ? AND ps.is_active = 1
+		  AND u.role = 'orangtua' AND u.is_active = 1
+		ORDER BY ps.created_at ASC
+		LIMIT 1
+	`, studentID).Scan(&userID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	return userID, err
+}
+
 // FindStudentForRegistration mencari siswa untuk verifikasi pendaftaran ortu.
 func (r *ParentRepository) FindStudentForRegistration(nisn, birthDate string) (studentID, fullName string, err error) {
 	err = r.DB.QueryRow(`

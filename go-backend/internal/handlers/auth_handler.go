@@ -22,6 +22,10 @@ type AuthHandler struct {
 	AuditRepo     *repository.AuditLogRepository
 	ResetRepo     *repository.PasswordResetRepository
 	Notifications *repository.NotificationRepository
+	// Identities + Parents dipakai alur pendaftaran/login Google.
+	// Boleh nil pada unit test yang tidak menguji OAuth.
+	Identities *repository.UserIdentityRepository
+	Parents    *repository.ParentRepository
 }
 
 // SessionTTL: umur sesi login. JWT stateless + cookie persisten agar PWA

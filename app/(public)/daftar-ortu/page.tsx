@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Reveal } from "@/components/public/motion";
+import { AuthDivider, GoogleButton } from "@/components/auth/google-button";
 import { registerParentAction, verifyStudentAction } from "@/actions/parent";
 
 const benefits = [
@@ -291,6 +292,12 @@ export default function DaftarOrtuPage() {
                     className="space-y-4"
                   >
                     <FormError message={errors.form} />
+
+                    <GoogleButton
+                      label="Daftar cepat dengan Google"
+                      redirect="/parent"
+                    />
+                    <AuthDivider text="atau daftar dengan NISN" />
 
                     <div className="space-y-2">
                       <Label htmlFor="nisn">NISN Anak</Label>

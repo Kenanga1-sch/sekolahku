@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PushToggle } from "@/components/push-toggle";
 import { NotifPreferences } from "@/components/notif-preferences";
+import { GoogleLinkCard } from "@/components/auth/google-link-card";
 import { goGet, goPatch } from "@/lib/api-client";
 
 interface Profile {
@@ -85,6 +86,8 @@ export default function ParentProfilPage() {
       <PushToggle />
 
       <NotifPreferences />
+
+      <GoogleLinkCard />
 
       <Card>
         <CardHeader>

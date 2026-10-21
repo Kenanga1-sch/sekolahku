@@ -25,6 +25,102 @@ All routes under `/api/*` except `/api/auth/*`, `/api/health`, and `/api/spmb/re
 
 ---
 
+## Google Sign-In / Sign-Up (orang tua)
+
+Login memakai cookie HttpOnly `session` (JWT). Google **hanya** dipakai
+sebagai bukti kepemilikan email — hak akses tetap ditentukan `users.role`,
+dan pendaftaran mandiri tetap wajib memverifikasi NISN + tanggal lahir anak.
+
+Alur:
+
+```
+/login  --klik tombol-->  GET /api/auth/google/start
+       --302 ke Google-->  accounts.google.com (consent)
+       --302-->            GET /api/auth/google/callback
+                             ├─ identitas sudah tertaut → sesi dibuat → redirect /parent
+                             └─ identitas baru → cookie tiket (15 mnt) → /daftar-ortu/google
+/daftar-ortu/google  --NISN+tgl lahir-->  POST /api/auth/google/complete → sesi + /parent
+```
+
+#### GET /api/auth/google/status
+
+Publik. Menentukan apakah tombol Google ditampilkan.
+
+```json
+{ "enabled": true }
+```
+
+`enabled=false` bila `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` kosong.
+
+#### GET /api/auth/google/start
+
+Publik. Query opsional: `redirect` (path internal, default `/parent`),
+`mode=link` (menautkan ke akun yang sedang login).
+
+Menyetel cookie `oauth_state`, `oauth_redirect`, `oauth_mode` (HttpOnly,
+SameSite=Lax, 10 menit) lalu 302 ke Google. `503` bila kredensial kosong.
+
+#### GET /api/auth/google/callback
+
+Publik. Memvalidasi `state` (harus sama dengan cookie, sekali pakai),
+menukar `code` di `oauth2.googleapis.com/token`, lalu membaca
+`www.googleapis.com/oauth2/v3/userinfo`.
+
+| Kondisi                             | Respons                                                            |
+| ----------------------------------- | ------------------------------------------------------------------ |
+| `state` tidak cocok / cookie hilang | `400`                                                              |
+| `email_verified=false`              | `403`                                                              |
+| Tukar kode gagal                    | `502`                                                              |
+| Identitas sudah tertaut             | `302` ke `redirect` + cookie `session`/`user_info`                 |
+| Identitas baru                      | `302` ke `/daftar-ortu/google` + cookie `google_ticket` (15 menit) |
+| `mode=link`                         | `302` ke `/parent/profil?google=link` + cookie `google_ticket`     |
+
+#### GET /api/auth/google/pending
+
+Publik. Membaca cookie tiket; dipakai halaman penyelesaian untuk menampilkan
+email/nama Google yang sedang menunggu verifikasi.
+
+```json
+{
+  "success": true,
+  "email": "ortu@gmail.com",
+  "name": "Nama",
+  "picture": "https://..."
+}
+```
+
+`404` bila tiket tidak ada/kedaluwarsa.
+
+#### POST /api/auth/google/complete
+
+Publik, rate limit 5/15 menit per IP.
+
+```json
+{ "nisn": "1234567890", "birthDate": "2015-05-01", "relation": "ibu" }
+```
+
+| Kondisi                                | Respons                                           |
+| -------------------------------------- | ------------------------------------------------- |
+| NISN/tanggal lahir tidak cocok         | `404`                                             |
+| Email Google milik akun **staf/admin** | `409` (tidak pernah auto-link ke akun privileged) |
+| Siswa sudah punya akun ortu aktif      | `200` — identitas ditautkan ke akun itu           |
+| Email sudah dipakai akun ortu lain     | `200` — ditautkan (orang tua banyak anak)         |
+| Belum ada akun                         | `200` — akun `orangtua` baru, **tanpa password**  |
+
+Respons sukses: `{ "success": true, "user": {...}, "redirect": "/parent" }`
+plus cookie `session` + `user_info`. Akun baru memicu notifikasi in-app ke
+superadmin/admin dan audit log `signup_google`.
+
+#### POST /api/auth/google/link
+
+Wajib login, role `orangtua`. Menautkan identitas Google (dari cookie tiket)
+ke akun yang sedang login — untuk akun lama berbasis nomor HP tanpa email.
+
+`409` bila akun Google sudah tertaut ke akun lain atau akun ini sudah punya
+identitas Google berbeda.
+
+---
+
 ## Endpoints
 
 ### Health & Monitoring
@@ -51,10 +147,11 @@ Health check endpoint for container orchestration.
 ```
 
 **Status Codes**
-| Code | Description |
-|------|-------------|
-| 200 | Healthy or degraded |
-| 503 | Unhealthy (critical failure) |
+
+| Code | Description                  |
+| ---- | ---------------------------- |
+| 200  | Healthy or degraded          |
+| 503  | Unhealthy (critical failure) |
 
 ---
 
@@ -63,8 +160,9 @@ Health check endpoint for container orchestration.
 Application metrics in Prometheus format.
 
 **Query Parameters**
-| Param | Type | Description |
-|-------|------|-------------|
+
+| Param  | Type   | Description                                      |
+| ------ | ------ | ------------------------------------------------ |
 | format | string | `json` for JSON format, omit for Prometheus text |
 
 ---

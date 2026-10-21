@@ -15,6 +15,7 @@ import (
 // Repositories holds all repository instances.
 type Repositories struct {
 	User               *repository.UserRepository
+	UserIdentity       *repository.UserIdentityRepository
 	Academic           *repository.AcademicRepository
 	Inventory          *repository.InventoryRepository
 	SPMB               *repository.SPMBRepository
@@ -214,6 +215,16 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	server.POST("/api/auth/forgot-password", h.Auth.ForgotPassword, publicFormLimit)
 	server.POST("/api/auth/reset-password", h.Auth.ResetPassword, publicFormLimit)
 
+	// Pendaftaran/login Google (khusus orang tua). Google hanya membuktikan
+	// kepemilikan email; hak akses tetap dari verifikasi NISN + role users.
+	// Tanpa kredensial GOOGLE_CLIENT_ID/SECRET endpoint mengembalikan 503 dan
+	// tombol di frontend tidak ditampilkan.
+	server.GET("/api/auth/google/status", h.Auth.GoogleStatus)
+	server.GET("/api/auth/google/start", h.Auth.GoogleStart)
+	server.GET("/api/auth/google/callback", h.Auth.GoogleCallback)
+	server.GET("/api/auth/google/pending", h.Auth.GooglePending)
+	server.POST("/api/auth/google/complete", h.Auth.GoogleComplete, publicFormLimit)
+
 	// Public routes with caching
 	publicGroup := server.Group("/api/public")
 	publicGroup.Use(authMiddleware.CacheMiddleware(authMiddleware.CacheConfig{
@@ -295,6 +306,8 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	// sedang di-impersonasi (klaim JWT imp) untuk kembali ke akun admin asal.
 	adminGroup.POST("/auth/switch", h.Auth.SwitchAccount, sensitiveLimit)
 	auth.POST("/auth/return", h.Auth.ReturnToAdmin)
+	// Tautkan Google ke akun orang tua yang sedang login (akun lama tanpa email).
+	auth.POST("/auth/google/link", h.Auth.GoogleLink)
 
 	// Academic
 	auth.GET("/academic/active-year", h.Academic.GetActiveAcademicYear)

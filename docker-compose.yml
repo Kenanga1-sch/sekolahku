@@ -17,6 +17,10 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
       # Asal request yang diizinkan (CORS + CSRF).
       EXTRA_ALLOWED_ORIGINS: ${EXTRA_ALLOWED_ORIGINS:-}
+      # Google Sign-In orang tua (kosong = fitur nonaktif).
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      OAUTH_PUBLIC_BASE_URL: ${OAUTH_PUBLIC_BASE_URL:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       TELEGRAM_API_URL: ${TELEGRAM_API_URL:-http://telegram-bot-api:8081}
       # DocStation: printer LAN (lihat .env.production.example). Volume uploads

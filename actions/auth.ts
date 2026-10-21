@@ -3,7 +3,7 @@
  * These run in the browser and call the Go backend API.
  */
 
-import { goPost } from "@/lib/api-client";
+import { goGet, goPost } from "@/lib/api-client";
 
 function readCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
@@ -152,6 +152,75 @@ export async function returnToAdminAction(): Promise<{ error?: string; success?:
     }
 
     return { error: (data as any).error || "Gagal kembali ke akun admin" };
+  } catch (e: any) {
+    return { error: e.message || "Terjadi kesalahan pada server" };
+  }
+}
+
+// ===== Pendaftaran / login Google (orang tua) =====
+
+export interface GooglePendingInfo {
+  email: string;
+  name?: string;
+  picture?: string;
+}
+
+/** Identitas Google yang sedang menunggu verifikasi NISN (dari cookie tiket). */
+export async function getGooglePendingAction(): Promise<GooglePendingInfo | null> {
+  try {
+    const data = await goGet<{ email?: string; name?: string; picture?: string }>(
+      "/api/auth/google/pending",
+      { skipRetry: true },
+    );
+    if (!data?.email) return null;
+    return { email: data.email, name: data.name, picture: data.picture };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Menyelesaikan pendaftaran Google: verifikasi NISN + tanggal lahir, lalu
+ * backend menautkan identitas Google ke akun ortu yang sudah ada atau
+ * membuat akun ortu baru tanpa password.
+ */
+export async function completeGoogleSignupAction(payload: {
+  nisn: string;
+  birthDate: string;
+  relation?: string;
+}): Promise<{ success?: boolean; error?: string; redirect?: string }> {
+  try {
+    const data = await goPost(
+      "/api/auth/google/complete",
+      payload,
+      { skipRetry: true },
+    );
+    if (data && (data as any).success) {
+      return { success: true, redirect: (data as any).redirect || "/parent" };
+    }
+    return { error: (data as any).error || "Gagal menyelesaikan pendaftaran" };
+  } catch (e: any) {
+    return { error: e.message || "Terjadi kesalahan pada server" };
+  }
+}
+
+/**
+ * Menautkan akun Google ke akun orang tua yang sedang login.
+ * `ticket` tidak dikirim dari klien: backend membacanya dari cookie HttpOnly
+ * yang diset saat callback OAuth.
+ */
+export async function linkGoogleAccountAction(): Promise<{ success?: boolean; error?: string; email?: string }> {
+  try {
+    const csrf = getCSRFToken();
+    const data = await goPost(
+      "/api/auth/google/link",
+      {},
+      { skipRetry: true, headers: csrf ? { "X-CSRF-Token": csrf } : undefined },
+    );
+    if (data && (data as any).success) {
+      return { success: true, email: (data as any).email };
+    }
+    return { error: (data as any).error || "Gagal menautkan akun Google" };
   } catch (e: any) {
     return { error: e.message || "Terjadi kesalahan pada server" };
   }
