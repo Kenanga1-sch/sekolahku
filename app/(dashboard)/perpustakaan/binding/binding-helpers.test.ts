@@ -1,7 +1,7 @@
 // Tes jaring pengaman untuk helper binding — mengunci normalisasi ISBN barcode
 // dan kunci cache AI. Ditulis sebelum pemecahan file agar perilaku tak berubah.
 import { describe, it, expect } from "vitest";
-import { normalizeISBNBarcode, aiCacheKey } from "./binding-helpers";
+import { normalizeISBNBarcode, aiCacheKey, resolveCoverState } from "./binding-helpers";
 
 describe("normalizeISBNBarcode — ISBN-13", () => {
   it("ISBN-13 valid (prefix 978) diterima apa adanya", () => {
@@ -64,6 +64,53 @@ describe("normalizeISBNBarcode — tidak valid", () => {
   it("teks non-numerik di-strip; panjang tak sesuai → valid=false", () => {
     const r = normalizeISBNBarcode("ABC-DEF");
     expect(r.valid).toBe(false);
+  });
+});
+
+describe("resolveCoverState — sampul milik per judul", () => {
+  it("sampul hasil unggahan dipakai apa adanya + overwrite", () => {
+    const r = resolveCoverState({
+      uploadedUrl: "/uploads/library/covers/abc.webp",
+      ownedUrl: "/uploads/library/covers/lama.webp",
+      isNewTitle: true,
+    });
+    expect(r).toEqual({
+      coverUrl: "/uploads/library/covers/abc.webp",
+      coverOverwrite: true,
+    });
+  });
+
+  it("judul baru TIDAK mewarisi sampul judul lain", () => {
+    const r = resolveCoverState({
+      uploadedUrl: undefined,
+      ownedUrl: "/uploads/library/covers/judul-lain.webp",
+      isNewTitle: true,
+    });
+    expect(r.coverUrl).toBeUndefined();
+    expect(r.coverOverwrite).toBe(false);
+  });
+
+  it("kandidat yang dipilih: pakai sampul miliknya, tanpa overwrite", () => {
+    const r = resolveCoverState({
+      uploadedUrl: undefined,
+      ownedUrl: "/uploads/library/covers/milik-kandidat.webp",
+      isNewTitle: false,
+    });
+    expect(r).toEqual({
+      coverUrl: "/uploads/library/covers/milik-kandidat.webp",
+      coverOverwrite: false,
+    });
+  });
+
+  it("tanpa sampul sama sekali -> undefined, bukan string kosong", () => {
+    const r = resolveCoverState({ isNewTitle: false });
+    expect(r.coverUrl).toBeUndefined();
+    expect(r.coverOverwrite).toBe(false);
+  });
+
+  it("spasi di URL diabaikan", () => {
+    const r = resolveCoverState({ uploadedUrl: "   ", isNewTitle: false, ownedUrl: "  "});
+    expect(r.coverUrl).toBeUndefined();
   });
 });
 

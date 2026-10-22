@@ -152,7 +152,7 @@ func (r *LibraryRepository) LookupISBN(isbn string) (*models.ISBNLookupResponse,
 			}
 		}
 		res.Candidates = append(res.Candidates, models.ISBNCandidate{
-			ID: id, Title: title, Author: author, TotalExemplars: exemplars,
+			ID: id, Title: title, Author: author, TotalExemplars: exemplars, Cover: cover,
 		})
 	}
 	if err := rows.Err(); err != nil {
@@ -298,13 +298,37 @@ func (r *LibraryRepository) BindAsset(qrCode, location string, catalog models.Ca
 		catalogID = r.findCatalogLoose(tx, isbn, title)
 	}
 
+	// Sampul hanya boleh menempel ke katalog ini bila benar-benar milik
+	// judul ini. Satu ISBN boleh dipakai banyak judul, jadi sampul milik
+	// judul lain tidak boleh ikut tersalin (bug lama: judul baru memakai
+	// sampul judul pertama). Dua penjaga:
+	//
+	//  1. CoverOverwrite = true -> klien JUSTRU mengunggah sampul untuk
+	//     judul ini pada sesi ini -> boleh menimpa.
+	//  2. tanpa flag itu -> sampul hanya boleh dipakai bila katalog ini
+	//     belum punya sampul DAN sampul itu belum dipakai katalog lain.
+	coverToApply := strings.TrimSpace(catalog.Cover)
+	if coverToApply != "" && !catalog.CoverOverwrite {
+		owned, err := coverUsedByOtherCatalog(tx, coverToApply, catalogID)
+		if err != nil {
+			return err
+		}
+		if owned {
+			coverToApply = ""
+		}
+	}
+	coverOverwrite := 0
+	if catalog.CoverOverwrite && coverToApply != "" {
+		coverOverwrite = 1
+	}
+
 	created := catalogID == ""
 	if created {
 		catalogID = cuid2.Generate()
 		_, err = tx.Exec(`
 			INSERT INTO library_catalog (id, isbn, title, author, publisher, year, category, description, cover, created_at, updated_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		`, catalogID, isbn, title, catalog.Author, catalog.Publisher, catalog.Year, category, catalog.Description, catalog.Cover, now, now)
+		`, catalogID, isbn, title, catalog.Author, catalog.Publisher, catalog.Year, category, catalog.Description, coverToApply, now, now)
 		if err != nil {
 			return err
 		}
@@ -318,10 +342,13 @@ func (r *LibraryRepository) BindAsset(qrCode, location string, catalog models.Ca
 				publisher = CASE WHEN publisher IS NULL OR TRIM(publisher) = '' THEN ? ELSE publisher END,
 				year = CASE WHEN year IS NULL OR year = 0 THEN ? ELSE year END,
 				description = CASE WHEN description IS NULL OR TRIM(description) = '' THEN ? ELSE description END,
-				cover = CASE WHEN cover IS NULL OR TRIM(cover) = '' THEN ? ELSE cover END,
+				cover = CASE
+					WHEN ? = 1 THEN ?
+					WHEN cover IS NULL OR TRIM(cover) = '' THEN ?
+					ELSE cover END,
 				updated_at = ?
 			WHERE id = ?
-		`, isbn, catalog.Author, catalog.Publisher, catalog.Year, catalog.Description, catalog.Cover, now, catalogID)
+		`, isbn, catalog.Author, catalog.Publisher, catalog.Year, catalog.Description, coverOverwrite, coverToApply, coverToApply, now, catalogID)
 		if err != nil {
 			return err
 		}
@@ -336,6 +363,21 @@ func (r *LibraryRepository) BindAsset(qrCode, location string, catalog models.Ca
 	}
 
 	return tx.Commit()
+}
+
+// coverUsedByOtherCatalog melaporkan apakah URL sampul tersebut sudah
+// dipakai katalog lain. Dipakai supaya sampul milik judul lain tidak
+// ikut tersalin ke judul baru yang memakai ISBN sama.
+func coverUsedByOtherCatalog(tx *sql.Tx, cover, excludeCatalogID string) (bool, error) {
+	var n int
+	err := tx.QueryRow(`
+		SELECT COUNT(*) FROM library_catalog
+		WHERE cover = ? AND TRIM(cover) <> '' AND id <> ?
+	`, cover, excludeCatalogID).Scan(&n)
+	if err != nil {
+		return false, err
+	}
+	return n > 0, nil
 }
 
 // ensureQRCodeTable membuat tabel penahan kode QR bila belum ada.

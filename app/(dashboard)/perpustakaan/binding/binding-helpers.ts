@@ -45,3 +45,46 @@ export function normalizeISBNBarcode(code: string): { isbn: string; valid: boole
 export function aiCacheKey(title: string, author: string): string {
   return `${title.trim().toLowerCase()}::${author.trim().toLowerCase()}`;
 }
+
+/**
+ * Keputusan sampul untuk satu katalog tujuan.
+ *
+ * - coverUrl: URL sampul yang boleh dikirim ke server (undefined = tanpa
+ *   sampul; jangan kirim string kosong).
+ * - coverOverwrite: true bila sampul itu JUSTRU diunggah user untuk
+ *   judul ini pada sesi ini, jadi server boleh menimpa sampul lama.
+ */
+export interface CoverState {
+  coverUrl?: string;
+  coverOverwrite: boolean;
+}
+
+export interface ResolveCoverInput {
+  /** Sampul hasil unggahan/pindai/rotasi milik judul ini (bila ada). */
+  uploadedUrl?: string | null;
+  /** Sampul milik kandidat/katalog yang dipilih user. */
+  ownedUrl?: string | null;
+  /** true = sedang membuat judul baru (bukan menambah eksemplar). */
+  isNewTitle: boolean;
+}
+
+/**
+ * Tentukan sampul untuk katalog tujuan.
+ *
+ * Satu ISBN boleh dipakai banyak judul, jadi aturan utamanya: sampul
+ * milik judul lain tidak boleh diwarisi judul baru (bug lama: judul baru
+ * memakai sampul judul pertama).
+ *
+ * 1. Sampul hasil unggahan pada sesi ini -> pakai apa adanya + overwrite.
+ * 2. Judul baru -> jangan mewarisi sampul judul lain.
+ * 3. Kandidat yang dipilih user -> sampul miliknya sendiri; server hanya
+ *    mengisinya bila katalog itu belum punya sampul.
+ */
+export function resolveCoverState(input: ResolveCoverInput): CoverState {
+  const uploaded = (input.uploadedUrl || "").trim();
+  if (uploaded) return { coverUrl: uploaded, coverOverwrite: true };
+  if (input.isNewTitle) return { coverUrl: undefined, coverOverwrite: false };
+  const owned = (input.ownedUrl || "").trim();
+  if (owned) return { coverUrl: owned, coverOverwrite: false };
+  return { coverUrl: undefined, coverOverwrite: false };
+}

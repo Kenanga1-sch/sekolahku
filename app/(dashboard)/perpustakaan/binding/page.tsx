@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getDDCLabel, getAllDDCCategories, getShelfByDDC, getAllShelves, type DDCCategory } from "@/lib/library/ddc-mapping";
 import { goGet, goPost } from "@/lib/api-client";
-import { normalizeISBNBarcode, aiCacheKey } from "./binding-helpers";
+import { normalizeISBNBarcode, aiCacheKey, resolveCoverState } from "./binding-helpers";
 import type { CatalogData } from "./binding-helpers";
 
 export default function LibraryBindingPage() {
@@ -47,6 +47,10 @@ export default function LibraryBindingPage() {
     // Kandidat multi-judul: 1 ISBN dipakai N katalog (dedup longgar).
     const [isbnCandidates, setIsbnCandidates] = useState<any[]>([]);
     const [selectedCatalogId, setSelectedCatalogId] = useState<string>("");
+    // Sampul hasil unggahan pada sesi ini + katalog tujuan unggahan itu.
+    // Unggahan hanya berlaku untuk judul yang sama; kalau target berubah,
+    // sampul unggahan lama dibuang (bukan diwarisi judul lain).
+    const [uploadedCover, setUploadedCover] = useState<{ url: string; catalogId: string } | null>(null);
     const finalCategory = (overrideCategory || catalog.ddcCategory || "UNSORTED") as DDCCategory;
     const location = getShelfByDDC(finalCategory);
     const lookupSeqRef = useRef(0);
@@ -92,6 +96,7 @@ export default function LibraryBindingPage() {
         // judul yang sudah ada, eksemplar baru masuk ke katalog itu (eksemplar
         // ke-2 dst.) — bukan membuat duplikat judul.
         setSelectedCatalogId(item.id ? String(item.id) : "");
+        setUploadedCover(null);
         setCatalog({
             title: item.title || "",
             author: item.author || "",
@@ -260,6 +265,7 @@ export default function LibraryBindingPage() {
                 // "+ Judul lain" tetap muncul: ISBN yang sudah dipakai 1 judul
                 // pun harus bisa dipakai untuk judul BARU.
                 setIsbnCandidates(candidates);
+                setUploadedCover(null);
                 setSelectedCatalogId(multi ? "" : (first?.id || data.id || ""));
                 setCatalog({
                     title: (multi || opts?.preferNewTitle) ? "" : (data.title || ""),
@@ -267,7 +273,7 @@ export default function LibraryBindingPage() {
                     publisher: (multi || opts?.preferNewTitle) ? "" : (data.publisher || ""),
                     year: data.year || new Date().getFullYear(),
                     isbn: isbnToLookup,
-                    coverUrl: multi ? undefined : (data.cover || data.coverUrl),
+                    coverUrl: (multi || opts?.preferNewTitle) ? undefined : (data.cover || data.coverUrl),
                     subjects: data.subjects || [],
                     ddcCategory: data.ddcCategory || "UNSORTED",
                     localFound: true,
@@ -302,6 +308,7 @@ export default function LibraryBindingPage() {
                 setLookupStatus('not_found');
                 setLookupSources([]);
                 setIsbnCandidates([]);
+                setUploadedCover(null);
                 setSelectedCatalogId("");
                 toast.info("ISBN belum ada di koleksi.", {
                     description: "Isi judul dan data buku secara manual.",
@@ -331,19 +338,26 @@ export default function LibraryBindingPage() {
 
     const pickCatalog = (c: any) => {
         setSelectedCatalogId(c.id);
+        // Sampul milik kandidat yang dipilih (bukan milik judul lain).
+        // Unggahan sebelumnya tidak berlaku karena target berubah.
+        setUploadedCover(null);
         setCatalog(prev => ({
             ...prev,
             title: c.title,
             author: c.author || prev.author,
             localFound: true,
             totalExemplars: c.totalExemplars,
+            coverUrl: c.cover || undefined,
         }));
         toast.success(`Eksemplar akan masuk ke "${c.title}".`);
     };
 
     const useNewTitle = () => {
         setSelectedCatalogId("");
-        setCatalog(prev => ({ ...prev, title: "", author: "", localFound: false, totalExemplars: undefined }));
+        setUploadedCover(null);
+        // Judul baru TIDAK mewarisi sampul judul lain (bug lama: judul baru
+        // memakai sampul judul pertama). User bisa unggah sampul sendiri.
+        setCatalog(prev => ({ ...prev, title: "", author: "", localFound: false, totalExemplars: undefined, coverUrl: undefined }));
         toast.info("Isi judul baru — akan tersimpan sebagai katalog terpisah dengan ISBN ini.");
     };
 
@@ -355,7 +369,8 @@ export default function LibraryBindingPage() {
         const manual = isbn.trim();
         if (!manual) {
             setSelectedCatalogId("");
-            setCatalog(prev => ({ ...prev, title: "", author: "", localFound: false, totalExemplars: undefined, isbn: "" }));
+            setUploadedCover(null);
+            setCatalog(prev => ({ ...prev, title: "", author: "", localFound: false, totalExemplars: undefined, isbn: "", coverUrl: undefined }));
             toast.info("Isi data judul baru di bawah. Tambahkan ISBN bila ada.");
             return;
         }
@@ -365,12 +380,25 @@ export default function LibraryBindingPage() {
     const handleSave = async () => {
         setLoading(true);
         try {
+            // Sampul hanya milik judul ini: judul baru tidak mewarisi
+            // sampul judul lain, sampul hasil unggahan sesi ini boleh
+            // menimpa (coverOverwrite = true).
+            const selectedCandidate = isbnCandidates.find((c: any) => c.id === selectedCatalogId);
+            const uploaded = uploadedCover && uploadedCover.catalogId === selectedCatalogId
+                ? uploadedCover.url
+                : undefined;
+            const coverState = resolveCoverState({
+                uploadedUrl: uploaded,
+                ownedUrl: selectedCandidate?.cover || (selectedCatalogId ? catalog.coverUrl : undefined),
+                isNewTitle: !selectedCatalogId,
+            });
             const result: any = await goPost("/api/library/assets/bind", {
                 qrCode,
                 location,
                 catalog: {
                     ...catalog,
-                    cover: catalog.coverUrl, // Map frontend coverUrl to backend cover
+                    cover: coverState.coverUrl, // Map frontend coverUrl to backend cover
+                    coverOverwrite: coverState.coverOverwrite,
                     category: overrideCategory || catalog.ddcCategory || "UNSORTED",
                     catalogId: selectedCatalogId || undefined,
                 }
@@ -401,6 +429,7 @@ export default function LibraryBindingPage() {
                 setStep(1);
                 setIsbnCandidates([]);
                 setSelectedCatalogId("");
+                setUploadedCover(null);
                 setLookupSources([]);
             } else {
                 toast.error(result.error || "Gagal menyimpan data.");
@@ -732,7 +761,11 @@ export default function LibraryBindingPage() {
                                 <CoverField
                                     coverUrl={catalog.coverUrl}
                                     isbn={catalog.isbn}
-                                    onCoverChange={(url) => setCatalog((prev) => ({ ...prev, coverUrl: url }))}
+                                    onCoverChange={(url) => {
+                                        // Unggahan berlaku untuk judul yang sedang dipilih.
+                                        setUploadedCover({ url, catalogId: selectedCatalogId });
+                                        setCatalog((prev) => ({ ...prev, coverUrl: url }));
+                                    }}
                                     size="fluid"
                                     wrapperClassName="md:col-span-1 space-y-2"
                                     caption={catalog.coverUrl ? "Unduh otomatis aktif" : "Opsional"}
@@ -793,6 +826,14 @@ export default function LibraryBindingPage() {
                                                                     : "border-amber-200 dark:border-amber-800 bg-white dark:bg-transparent hover:bg-amber-100/60"
                                                             }`}
                                                         >
+                                                            {c.cover && (
+                                                                <img
+                                                                    src={c.cover}
+                                                                    alt=""
+                                                                    className="w-5 h-7 rounded object-cover border border-border inline-block align-middle mr-1.5"
+                                                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                                                />
+                                                            )}
                                                             {c.title}
                                                             <span className="ml-1.5 text-[10px] text-muted-foreground">
                                                                 ({c.totalExemplars} eksemplar{c.author ? ` · ${c.author}` : ""})

@@ -76,6 +76,10 @@ type ISBNCandidate struct {
 	Title          string `json:"title"`
 	Author         string `json:"author,omitempty"`
 	TotalExemplars int    `json:"totalExemplars"`
+	// Cover: sampul milik kandidat ini. Satu ISBN boleh dipakai banyak
+	// judul, jadi tiap judul punya sampul sendiri dan picker perlu
+	// menampilkan sampul yang benar agar tidak tertukar.
+	Cover string `json:"cover,omitempty"`
 }
 
 // BookSearchResponse adalah hasil pencarian kandidat buku berdasarkan judul
@@ -161,6 +165,10 @@ type CatalogInput struct {
 	// CatalogID: katalog yang dipilih user saat ISBN dipakai banyak judul.
 	// Kosong = cocokkan (ISBN + judul) atau buat katalog baru.
 	CatalogID string `json:"catalogId,omitempty"`
+	// CoverOverwrite: true bila klien JUSTRU mengunggah sampul untuk
+	// judul ini pada sesi ini. Tanpa flag ini, sampul milik judul lain
+	// tidak boleh ikut tersalin ke judul baru.
+	CoverOverwrite bool `json:"coverOverwrite,omitempty"`
 }
 
 type BookDetail struct {

@@ -208,18 +208,20 @@ func (h *UploadHandler) LibraryCoverUpload(c echo.Context) error {
 	uploadDir := filepath.Join("public", "uploads", "library", "covers")
 	os.MkdirAll(uploadDir, 0755)
 
-	// Gunakan ISBN atau catalogId untuk penamaan, fallback ke timestamp.
-	// Sanitasi wajib: nilai form bisa mengandung traversal (../../...).
+	// Penamaan file WAJIB unik per unggahan.
+	// Satu ISBN boleh dipakai banyak judul dan tiap judul menyimpan
+	// sampul sendiri. Dulu nama file hanya berisi ISBN ("<isbn>.webp")
+	// sehingga unggahan kedua MENIMPA file sampul judul pertama.
 	baseName := isbn
 	if baseName == "" {
 		baseName = catalogId
 	}
 	baseName = sanitizeCoverName(baseName)
 	if baseName == "" {
-		baseName = fmt.Sprintf("%d", time.Now().UnixMilli())
+		baseName = "cover"
 	}
 	// Ekstensi mengikuti isi file yang terdeteksi, bukan asumsi .webp.
-	filename := baseName + "." + detectedExt
+	filename := generateCoverFilename(baseName, detectedExt)
 	dstPath := filepath.Join(uploadDir, filename)
 
 	dst, err := os.Create(dstPath)
@@ -266,4 +268,17 @@ func sanitizeCoverName(name string) string {
 		out = out[:64]
 	}
 	return out
+}
+
+// generateCoverFilename menyusun nama file sampul yang unik per unggahan.
+//
+// Uniqueness wajib: satu ISBN boleh dipakai banyak judul dan tiap judul
+// menyimpan sampul sendiri di library_catalog.cover. Bila nama file
+// hanya berisi ISBN, unggahan judul kedua menimpa file judul pertama
+// sehingga sampul judul pertama ikut berubah/tukar.
+func generateCoverFilename(base, ext string) string {
+	ext = strings.TrimPrefix(ext, ".")
+	b := make([]byte, 6)
+	rand.Read(b)
+	return fmt.Sprintf("%s-%d-%s.%s", base, time.Now().UnixMilli(), hex.EncodeToString(b), ext)
 }
