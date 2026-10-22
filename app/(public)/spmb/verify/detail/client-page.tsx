@@ -18,8 +18,8 @@ interface VerificationData {
   fullName: string;
   studentNik: string;
   status: string;
-  createdAt: string;
-  verifiedAt: string | null;
+  createdAt: number;
+  verifiedAt: number;
   periodName: string;
   academicYear: string;
 }
@@ -38,22 +38,26 @@ export default function VerificationPage() {
     const fetchVerification = async () => {
       try {
         const res = await fetch(`/api/public/spmb/registrants/${id}`);
-        const result = await res.json();
+        const payload = await res.json();
+        // API membungkus data: { success, data: {...} }
+        const result = payload?.data ?? payload;
 
-        if (res.ok) {
+        if (res.ok && result) {
           setData({
               id: result.id,
               registrationNumber: result.registrationNumber,
               fullName: result.fullName,
-              studentNik: result.studentNik,
+              // NIK disamarkan backend; sebelumnya field ini tidak pernah
+              // dikirim sehingga baris NIK selalu kosong.
+              studentNik: result.studentNikMasked || "-",
               status: result.status,
-              createdAt: result.createdAt,
-              verifiedAt: result.createdAt, // Mocking
-              periodName: "PPDB Utama",
-              academicYear: getCurrentAcademicYear()
+              createdAt: Number(result.createdAt) || 0,
+              verifiedAt: Number(result.verifiedAt) || 0,
+              periodName: result.periodName || "Periode Pendaftaran",
+              academicYear: result.academicYear || getCurrentAcademicYear()
           });
         } else {
-          setError(result.error || "Dokumen tidak valid");
+          setError(result?.error || "Dokumen tidak valid");
         }
       } catch (err) {
         setError("Gagal menghubungi server verifikasi");
@@ -185,10 +189,19 @@ export default function VerificationPage() {
                     <Calendar className="h-5 w-5 text-blue-500 mt-0.5" />
                      <div className="space-y-0.5">
                         <p className="text-sm font-medium text-muted-foreground">Tanggal Pendaftaran</p>
-                        <p className="text-base text-slate-700 dark:text-slate-300">{formatDate(data.createdAt)}</p>
+                        <p className="text-base text-slate-700 dark:text-slate-300">{formatDate(new Date(data.createdAt))}</p>
                     </div>
                 </div>
             </div>
+
+           {data.verifiedAt > 0 && (
+                <div className="text-center">
+                    <p className="text-xs text-muted-foreground">
+                        Tanggal verifikasi dokumen:
+                    </p>
+                    <p className="text-sm font-medium">{formatDate(new Date(data.verifiedAt))}</p>
+                </div>
+           )}
 
            <div className="text-center">
                 <p className="text-xs text-muted-foreground">

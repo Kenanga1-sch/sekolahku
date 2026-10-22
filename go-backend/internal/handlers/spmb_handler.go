@@ -532,9 +532,18 @@ func (h *SPMBHandler) GetPublicRegistrantStatus(c echo.Context) error {
 	if registrant == nil {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Pendaftar tidak ditemukan"})
 	}
+	publicStatus := registrant.ToPublicRegistrantStatus()
+	// Nama periode & tahun ajaran ikut diambil supaya halaman verifikasi
+	// publik tidak memakai teks hardcoded.
+	if registrant.PeriodID != "" {
+		if period, perr := h.Repo.GetPeriodByID(registrant.PeriodID); perr == nil && period != nil {
+			publicStatus.PeriodName = period.Name
+			publicStatus.AcademicYear = period.AcademicYear
+		}
+	}
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"success": true,
-		"data":    registrant.ToPublicRegistrantStatus(),
+		"data":    publicStatus,
 	})
 }
 

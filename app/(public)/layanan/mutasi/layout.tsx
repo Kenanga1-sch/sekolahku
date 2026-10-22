@@ -4,12 +4,12 @@ import { siteConfig } from "@/lib/config";
 export const metadata: Metadata = {
   title: "Layanan Mutasi Siswa — Mutasi Masuk & Keluar",
   description:
-    `Layanan mutasi siswa ${siteConfig.school.shortName} Sindang, Indramayu: pengajuan mutasi masuk, mutasi keluar, dan pengecekan status permohonan.`,
+    `Layanan mutasi siswa ${siteConfig.school.shortName} ${siteConfig.school.region}: pengajuan mutasi masuk, mutasi keluar, dan pengecekan status permohonan.`,
   alternates: { canonical: "/layanan/mutasi" },
   openGraph: {
     title: "Layanan Mutasi Siswa — Mutasi Masuk & Keluar",
     description:
-      `Pengajuan mutasi masuk/keluar dan cek status permohonan siswa ${siteConfig.school.shortName} Sindang, Indramayu.`,
+      `Pengajuan mutasi masuk/keluar dan cek status permohonan siswa ${siteConfig.school.shortName} ${siteConfig.school.region}.`,
     url: "/layanan/mutasi",
   },
 };

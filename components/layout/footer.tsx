@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Mail, Phone, MapPin } from "lucide-react";
 import { useSchoolSettings } from "@/lib/contexts/school-settings-context";
+import { siteConfig } from "@/lib/config";
 import { getSchoolLogo } from "@/lib/school-logo";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
@@ -25,7 +26,7 @@ export default function Footer() {
                 <Image src={schoolLogo} alt="Logo" fill className="object-contain p-0.5" />
               </div>
               <div>
-                <p className="text-lg font-bold text-primary-foreground">{settings?.school_name || "SDN 1 Kenanga"}</p>
+                <p className="text-lg font-bold text-primary-foreground">{settings?.school_name || siteConfig.school.shortName}</p>
                 <p className="text-xs text-primary-foreground-soft">Website Sekolah Terpadu</p>
               </div>
             </div>
@@ -71,7 +72,7 @@ export default function Footer() {
 
         <div className="mt-10 pt-6 border-t border-primary-foreground/20 text-center">
           <p className="text-xs text-primary-foreground-soft">
-            &copy; {currentYear} {settings?.school_name || "SDN 1 Kenanga"}. Hak cipta dilindungi.
+            &copy; {currentYear} {settings?.school_name || siteConfig.school.shortName}. Hak cipta dilindungi.
           </p>
         </div>
       </div>

@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { goGet } from "@/lib/api-client";
+import { getPublicLibraryStats, type PublicLibraryStats } from "@/lib/library/public-catalog";
 import { formatNamaGtk } from "@/lib/gtk-name";
 import { getSchoolLogo } from "@/lib/school-logo";
 import { useAuthStore } from "@/lib/stores/auth-store";
@@ -47,6 +48,10 @@ interface HomepageData {
     name?: string;
     academic_year?: string;
     quota?: number;
+    status?: string;
+    // API Go memakai json tag camelCase untuk tanggal periode.
+    startDate?: string;
+    endDate?: string;
   } | null;
   stats?: {
     studentCount?: number;
@@ -90,11 +95,28 @@ const services = [
   },
 ];
 
+/** Format tanggal id-ID; "-" bila kosong/tidak valid. */
+function formatTanggal(iso?: string | null): string {
+  if (!iso) return "-";
+  try {
+    return new Date(iso).toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  } catch {
+    return "-";
+  }
+}
+
 export default function PublicHomepage() {
   const { isAuthenticated, user } = useAuthStore();
   const [data, setData] = useState<HomepageData | null>(null);
   const [staff, setStaff] = useState<StaffItem[]>([]);
+  // Jumlah GTK sebenarnya (dari API), bukan jumlah kartu yang ditampilkan.
+  const [staffTotal, setStaffTotal] = useState<number | null>(null);
   const [gallery, setGallery] = useState<GalleryItem[]>([]);
+  const [libraryStats, setLibraryStats] = useState<PublicLibraryStats | null>(null);
 
   const dashboardHref =
     user?.role === "staff" ? "/inventaris" : user?.role === "orangtua" ? "/parent" : "/overview";
@@ -105,10 +127,21 @@ export default function PublicHomepage() {
       .catch(() => setData(null));
 
     goGet("/api/public/staff?perPage=8", { ttl: 300_000 })
-      .then((json: { data?: StaffItem[] }) =>
-        setStaff(Array.isArray(json?.data) ? json.data : [])
-      )
-      .catch(() => setStaff([]));
+      .then((json: { data?: StaffItem[]; total?: number }) => {
+        setStaff(Array.isArray(json?.data) ? json.data : []);
+        // PENTING: total = jumlah GTK sebenarnya. staff.length hanya
+        // menghitung 8 kartu yang ditampilkan (angka "8+" yang dulu
+        // muncul di beranda, padahal sebenarnya 10 orang).
+        setStaffTotal(typeof json?.total === "number" ? json.total : null);
+      })
+      .catch(() => {
+        setStaff([]);
+        setStaffTotal(null);
+      });
+
+    getPublicLibraryStats()
+      .then((s) => setLibraryStats(s))
+      .catch(() => setLibraryStats(null));
 
     goGet("/api/public/gallery?perPage=6", { ttl: 120_000 })
       .then((json: { data?: GalleryItem[] }) =>
@@ -126,6 +159,9 @@ export default function PublicHomepage() {
     siteConfig.academicYear.current;
   const spmbOpen = data?.settings?.spmb_is_open || !!data?.activePeriod;
   const studentCount = data?.stats?.studentCount ?? 0;
+  // Status pendaftaran dari API, bukan teks hardcoded.
+  const spmbStatusLabel =
+    (data?.activePeriod?.status || "").toLowerCase() === "active" ? "Dibuka" : "Ditutup";
   const news = (data?.news ?? []).slice(0, 4);
   const heroImage =
     gallery[0] ??
@@ -152,11 +188,17 @@ export default function PublicHomepage() {
       value: studentCount > 0 ? studentCount.toLocaleString("id-ID") : "—",
     },
     {
+      // Jumlah GTK dari API (total), bukan jumlah kartu yang ditampilkan.
       label: "Guru & staf",
-      value: staff.length > 0 ? `${staff.length}+` : "—",
+      value: staffTotal && staffTotal > 0 ? staffTotal.toLocaleString("id-ID") : "—",
+    },
+    {
+      label: "Buku di katalog",
+      value: libraryStats?.totalBooks
+        ? libraryStats.totalBooks.toLocaleString("id-ID")
+        : "—",
     },
     { label: "Tahun ajaran", value: academicYear },
-    { label: "Program", value: "SPMB" },
   ];
 
   return (
@@ -360,8 +402,8 @@ export default function PublicHomepage() {
                     {[
                       { label: "Kuota", value: data?.activePeriod?.quota ?? "—" },
                       { label: "Tahun ajaran", value: data?.activePeriod?.academic_year || academicYear },
-                      { label: "Jalur", value: "Domisili" },
-                      { label: "Status", value: "Dibuka" },
+                      { label: "Status", value: spmbStatusLabel },
+                      { label: "Batas akhir", value: formatTanggal(data?.activePeriod?.endDate) },
                     ].map((item) => (
                       <div
                         key={item.label}
@@ -535,6 +577,13 @@ export default function PublicHomepage() {
               <SectionHeader
                 title="Guru & tenaga kependidikan"
                 description="Tim pendidik yang mendampingi siswa setiap hari."
+                action={
+                  <Button asChild variant="ghost" size="sm">
+                    <Link href="/guru-staf">
+                      Lihat semua <ArrowRight className="ml-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                    </Link>
+                  </Button>
+                }
               />
             </Reveal>
 

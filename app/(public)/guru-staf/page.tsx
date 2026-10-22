@@ -20,13 +20,46 @@ interface StaffItem {
 
 export default function GuruStafPage() {
   const [staff, setStaff] = useState<StaffItem[]>([]);
+  const [staffTotal, setStaffTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    goGet("/api/public/staff?perPage=100", { ttl: 300_000 })
-      .then((json: { data?: StaffItem[] }) => setStaff(Array.isArray(json?.data) ? json.data : []))
-      .catch(() => setStaff([]))
-      .finally(() => setLoading(false));
+    // API publik membatasi perPage (maks 100), jadi halaman diambil
+    // bertahap sampai seluruh data terkumpul. Jumlah total dipakai
+    // untuk judul halaman agar tidak ada angka hardcoded.
+    const PER_PAGE = 100;
+    const MAX_PAGES = 20;
+    let cancelled = false;
+    (async () => {
+      const all: StaffItem[] = [];
+      let total = 0;
+      try {
+        for (let page = 1; page <= MAX_PAGES; page++) {
+          const json: { data?: StaffItem[]; total?: number } = await goGet(
+            `/api/public/staff?page=${page}&perPage=${PER_PAGE}`,
+            { ttl: 300_000 },
+          );
+          const rows = Array.isArray(json?.data) ? json.data : [];
+          total = typeof json?.total === "number" ? json.total : all.length + rows.length;
+          all.push(...rows);
+          if (rows.length < PER_PAGE || all.length >= total) break;
+        }
+        if (!cancelled) {
+          setStaff(all);
+          setStaffTotal(total || all.length);
+        }
+      } catch {
+        if (!cancelled) {
+          setStaff(all);
+          setStaffTotal(all.length);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const categoryLabel = (cat?: string) => {
@@ -49,7 +82,14 @@ export default function GuruStafPage() {
       <section className="py-12 md:py-20">
         <div className="max-w-6xl mx-auto px-4">
           <Reveal>
-            <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3">Guru &amp; Tenaga Kependidikan</h1>
+            <div className="flex flex-wrap items-center gap-3 mb-3">
+              <h1 className="text-3xl md:text-4xl font-bold text-foreground">Guru &amp;Tenaga Kependidikan</h1>
+              {!loading && staffTotal > 0 && (
+                <Badge variant="secondary" className="text-xs font-medium">
+                  {staffTotal} orang
+                </Badge>
+              )}
+            </div>
           </Reveal>
           <Reveal delay={0.08}>
             <p className="text-muted-foreground mb-10 max-w-[55ch]">

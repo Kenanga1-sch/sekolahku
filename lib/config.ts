@@ -9,6 +9,8 @@ export const siteConfig = {
         shortName: process.env.NEXT_PUBLIC_SCHOOL_SHORT || "SDN 1 Kenanga",
         npsn: process.env.NEXT_PUBLIC_SCHOOL_NPSN || "20216609",
         address: process.env.NEXT_PUBLIC_SCHOOL_ADDRESS || "Jl. Perindustrian Blok Dukuh, Desa Kenanga, Kec. Sindang, Kab. Indramayu, Jawa Barat 45226",
+        // Wilayah/kecamatan untuk metadata SEO (dulu hardcoded di tiap file layout).
+        region: process.env.NEXT_PUBLIC_SCHOOL_REGION || "Sindang, Indramayu, Jawa Barat",
         phone: process.env.NEXT_PUBLIC_SCHOOL_PHONE || "",
         email: process.env.NEXT_PUBLIC_SCHOOL_EMAIL || "uptdsdn1kenangasindang@gmail.com",
         website: process.env.NEXT_PUBLIC_SCHOOL_WEBSITE || "https://sdn1kenanga.sch.id",

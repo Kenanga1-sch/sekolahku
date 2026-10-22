@@ -27,11 +27,12 @@ interface LandingData {
   period?: {
     name?: string;
     academic_year?: string;
-    start_date?: string;
-    end_date?: string;
+    // JSON tag model Go (models.SPMBPeriod) memakai camelCase.
+    startDate?: string;
+    endDate?: string;
     quota?: number;
     registered?: number;
-    committee_name?: string;
+    committeeName?: string;
   } | null;
   settings?: {
     school_name?: string;
@@ -142,8 +143,8 @@ export default function SPMBLandingPage() {
               {[
                 { label: "Kuota", value: period.quota ?? "-", icon: Users },
                 { label: "Sudah Mendaftar", value: period.registered ?? 0, icon: CheckCircle2 },
-                { label: "Dibuka", value: formatDate(period.start_date), icon: CalendarDays },
-                { label: "Ditutup", value: formatDate(period.end_date), icon: Clock },
+                { label: "Dibuka", value: formatDate(period.startDate), icon: CalendarDays },
+                { label: "Ditutup", value: formatDate(period.endDate), icon: Clock },
               ].map((item, i) => (
                 <Reveal key={item.label} delay={i * 0.06}>
                   <div className="p-5 rounded-2xl bg-public-bg border border-public-border shadow-sm">
@@ -328,8 +329,8 @@ export default function SPMBLandingPage() {
               </h2>
               <p className="text-white/80 mb-8 max-w-md mx-auto">
                 {isOpen
-                  ? `Kuota terbatas. Bawa dokumen lengkap dan datang ke sekolah sebelum ${formatDate(period?.end_date)} untuk mendaftar.`
-                  : `Hubungi panitia ${period?.committee_name || "PPDB"} di sekolah untuk informasi lebih lanjut.`}
+                  ? `Kuota terbatas. Bawa dokumen lengkap dan datang ke sekolah sebelum ${formatDate(period?.endDate)} untuk mendaftar.`
+                  : `Hubungi panitia ${period?.committeeName || "PPDB"} di sekolah untuk informasi lebih lanjut.`}
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Link href="#persyaratan">

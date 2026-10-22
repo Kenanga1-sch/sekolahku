@@ -1,6 +1,7 @@
 package models
 
 import (
+	"strings"
 	"time"
 )
 
@@ -105,6 +106,11 @@ type PublicRegistrantStatus struct {
 	Notes              string `json:"notes"`
 	PeriodID           string `json:"periodId"`
 	CreatedAt          int64  `json:"createdAt"`
+	// Data nyata untuk halaman verifikasi publik (dulu di-mock di frontend).
+	StudentNIKMasked string `json:"studentNikMasked"`
+	VerifiedAt       int64  `json:"verifiedAt"`
+	PeriodName       string `json:"periodName"`
+	AcademicYear     string `json:"academicYear"`
 }
 
 // ToPublicRegistrantStatus memetakan SPMBRegistrant ke DTO publiknya.
@@ -117,7 +123,19 @@ func (r SPMBRegistrant) ToPublicRegistrantStatus() PublicRegistrantStatus {
 		Notes:              r.Notes,
 		PeriodID:           r.PeriodID,
 		CreatedAt:          r.CreatedAt,
+		StudentNIKMasked:   MaskPublicNIK(r.StudentNIK),
+		VerifiedAt:         r.VerifiedAt,
 	}
+}
+
+// MaskPublicNIK menyamarkan NIK untuk halaman publik: 4 digit awal,
+// 4 digit akhir, sisanya disembunyikan. NIK tidak boleh tampil utuh.
+func MaskPublicNIK(nik string) string {
+	nik = strings.TrimSpace(nik)
+	if len(nik) <= 8 {
+		return nik
+	}
+	return nik[:4] + strings.Repeat("*", len(nik)-8) + nik[len(nik)-4:]
 }
 
 type SPMBStats struct {
