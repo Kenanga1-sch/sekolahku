@@ -449,6 +449,7 @@ const BUKU_INDUK: FillVariableModule = {
       label: "Pendidikan sebelumnya & mutasi",
       variables: [
         r("asal_sekolah", "Asal sekolah", "Nama TK/asal sekolah", "TK Pertiwi"),
+        r("nama_tk", "Nama TK", "Nama TK asal sekolah", "TK Pertiwi"),
         r("alamat_asal_sekolah", "Alamat asal sekolah", "Alamat TK/asal sekolah", "Jl. …"),
         r("no_sttb", "No. STTB/SK", "Nomor SK/STTB TK", "421.1/…"),
         r("tanggal_sttb", "Tanggal STTB/SK", "Tanggal SK/STTB TK", "20 Juni 2020"),
@@ -465,6 +466,12 @@ const BUKU_INDUK: FillVariableModule = {
         r("tinggi_badan", "Tinggi badan", "Tinggi badan terakhir (cm)", "138"),
         r("penyakit", "Penyakit", "Riwayat penyakit", "Asma"),
         r("kelainan_jasmani", "Kelainan jasmani", "Kelainan jasmani", "-"),
+      ],
+    },
+    {
+      label: "Beasiswa",
+      variables: [
+        r("jenis_beasiswa", "Jenis beasiswa", "Jenis beasiswa yang diterima siswa", "Beasiswa Prestasi"),
       ],
     },
     {
@@ -496,6 +503,7 @@ const BUKU_INDUK: FillVariableModule = {
         r("pendidikan_terakhir", "Pendidikan terakhir", "Pendidikan terakhir alumni", "SMA"),
         r("institusi_saat_ini", "Institusi saat ini", "Institusi/sekolah saat ini", "SMAN 1 …"),
         r("pekerjaan_saat_ini", "Pekerjaan saat ini", "Pekerjaan alumni", "Karyawan"),
+        r("catatan", "Catatan", "Catatan bebas pada buku induk", "-"),
       ],
     },
     {
@@ -506,6 +514,10 @@ const BUKU_INDUK: FillVariableModule = {
         r("mata_pelajaran", "Mata pelajaran", "Nama mata pelajaran", "Matematika"),
         r("semester", "Semester", "Ganjil / Genap", "Ganjil"),
         r("nilai", "Nilai", "Nilai angka", "88"),
+        r("jumlah_nilai", "Jumlah nilai", "Jumlah nilai per mata pelajaran", "640"),
+        r("nilai_rata_rata", "Nilai rata-rata mapel", "Rata-rata nilai per mata pelajaran", "85,5"),
+        r("peringkat_kelas", "Peringkat kelas", "Peringkat kelas per mata pelajaran", "5"),
+        r("kenaikan_kelas", "Kenaikan tingkat", "Naik / tidak naik tingkat", "Naik"),
       ],
     },
     {
