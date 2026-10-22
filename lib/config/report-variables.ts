@@ -375,10 +375,168 @@ const r = (
   example: string
 ): FillVariable => v(name, label, description, example, "rencana");
 
-const BUKU_INDUK: FillVariableModule = {
-  module: "buku-induk",
-  label: "Buku Induk",
-  groups: [
+/**
+ * Token yang dieksekusi pengisian template Word Buku Induk.
+ *
+ * Mencakup token skalar, token berindeks kelas/semester (tahun_1..6,
+ * berat_1..6, n_<kelas>_<semester>, jumlah/rata, tahun_ajaran/kelas/naik_1..8)
+ * dan "mapel" di dalam loop {{#nilai}}. Daftar ini menentukan status "siap"
+ * di kamus; token di luar daftar tetap "rencana".
+ */
+export const BUKU_INDUK_EXECUTED_VARIABLES: string[] = [
+  "agama",
+  "alamat_asal_sekolah",
+  "alamat_orang_tua",
+  "alamat_siswa",
+  "alasan_keluar",
+  "asal_sekolah",
+  "ayah_nama",
+  "ayah_pekerjaan",
+  "ayah_pendidikan",
+  "bahasa_sehari_hari",
+  "berat_1",
+  "berat_2",
+  "berat_3",
+  "berat_4",
+  "berat_5",
+  "berat_6",
+  "berat_badan",
+  "catatan",
+  "golongan_darah",
+  "hubungan_wali",
+  "ibu_nama",
+  "ibu_pekerjaan",
+  "ibu_pendidikan",
+  "jenis_beasiswa",
+  "jenis_kelamin",
+  "jumlah_1_1",
+  "jumlah_1_2",
+  "jumlah_2_1",
+  "jumlah_2_2",
+  "jumlah_3_1",
+  "jumlah_3_2",
+  "jumlah_4_1",
+  "jumlah_4_2",
+  "jumlah_5_1",
+  "jumlah_5_2",
+  "jumlah_6_1",
+  "jumlah_6_2",
+  "jumlah_7_1",
+  "jumlah_7_2",
+  "jumlah_8_1",
+  "jumlah_8_2",
+  "kelainan_1",
+  "kelainan_2",
+  "kelainan_3",
+  "kelainan_4",
+  "kelainan_5",
+  "kelainan_6",
+  "kelainan_jasmani",
+  "kelas_1",
+  "kelas_2",
+  "kelas_3",
+  "kelas_4",
+  "kelas_5",
+  "kelas_6",
+  "kelas_7",
+  "kelas_8",
+  "keluar_tanggal",
+  "kewarganegaraan",
+  "mapel",
+  "melanjutkan_ke",
+  "mutasi_asal_sekolah",
+  "mutasi_dari_kelas",
+  "mutasi_diterima_tanggal",
+  "n_1_1",
+  "n_1_2",
+  "n_2_1",
+  "n_2_2",
+  "n_3_1",
+  "n_3_2",
+  "n_4_1",
+  "n_4_2",
+  "n_5_1",
+  "n_5_2",
+  "n_6_1",
+  "n_6_2",
+  "n_7_1",
+  "n_7_2",
+  "n_8_1",
+  "n_8_2",
+  "naik_1",
+  "naik_2",
+  "naik_3",
+  "naik_4",
+  "naik_5",
+  "naik_6",
+  "naik_7",
+  "naik_8",
+  "nama_lengkap",
+  "nama_tk",
+  "no_sttb",
+  "penyakit",
+  "penyakit_1",
+  "penyakit_2",
+  "penyakit_3",
+  "penyakit_4",
+  "penyakit_5",
+  "penyakit_6",
+  "peringkat_kelas",
+  "pindah_ke_kelas",
+  "pindah_ke_sekolah",
+  "pindah_tanggal",
+  "rata_1_1",
+  "rata_1_2",
+  "rata_2_1",
+  "rata_2_2",
+  "rata_3_1",
+  "rata_3_2",
+  "rata_4_1",
+  "rata_4_2",
+  "rata_5_1",
+  "rata_5_2",
+  "rata_6_1",
+  "rata_6_2",
+  "rata_7_1",
+  "rata_7_2",
+  "rata_8_1",
+  "rata_8_2",
+  "register_no",
+  "saudara_angkat",
+  "saudara_kandung",
+  "saudara_tiri",
+  "tahun_1",
+  "tahun_2",
+  "tahun_3",
+  "tahun_4",
+  "tahun_5",
+  "tahun_6",
+  "tahun_ajaran_1",
+  "tahun_ajaran_2",
+  "tahun_ajaran_3",
+  "tahun_ajaran_4",
+  "tahun_ajaran_5",
+  "tahun_ajaran_6",
+  "tahun_ajaran_7",
+  "tahun_ajaran_8",
+  "tamat_tahun",
+  "tanggal_lahir",
+  "tanggal_sttb",
+  "telepon_orang_tua",
+  "tempat_lahir",
+  "tinggi_1",
+  "tinggi_2",
+  "tinggi_3",
+  "tinggi_4",
+  "tinggi_5",
+  "tinggi_6",
+  "tinggi_badan",
+  "wali_nama",
+  "wali_pekerjaan",
+  "wali_pendidikan",
+];
+
+const BUKU_INDUK_GROUPS: FillVariableModule["groups"] = [
     {
       label: "Sekolah",
       variables: [
@@ -507,7 +665,7 @@ const BUKU_INDUK: FillVariableModule = {
       ],
     },
     {
-      label: "Nilai (loop {{#nilai}}…{{/nilai}})",
+      label: "Nilai (loop {{#nilai}})",
       variables: [
         r("kelas", "Kelas", "Kelas baris nilai", "Kelas I"),
         r("tahun_ajaran", "Tahun ajaran", "Tahun pelajaran baris nilai", "2020/2021"),
@@ -538,7 +696,68 @@ const BUKU_INDUK: FillVariableModule = {
         r("tempat_ttd", "Tempat tanda tangan", "Kota/kabupaten dari alamat sekolah", "Kab. Indramayu"),
       ],
     },
-  ],
+  ];
+
+// Status diturunkan dari daftar token yang benar-benar dieksekusi pengisian
+// template Word (satu sumber dengan lib/buku-induk-word.ts).
+const BUKU_INDUK_EXECUTED = new Set(BUKU_INDUK_EXECUTED_VARIABLES);
+
+
+/**
+ * Grup kamus untuk token berindeks (per kelas / per semester). Dibuat
+ * programatik supaya daftar token tidak pernah menyimpang dari template:
+ *   - Keadaan Jasmani: tahun/berat/tinggi/penyakit/kelainan_1..6
+ *   - C.2 Prestasi: tahun_ajaran/kelas/naik_1..8, n_<kelas>_<smt>,
+ *     jumlah_<kelas>_<smt>, rata_<kelas>_<smt>
+ */
+function bukuIndukIndexedGroups(): FillVariableModule["groups"] {
+  const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"];
+  const jasmani: FillVariable[] = [];
+  for (let i = 1; i <= 6; i++) {
+    const k = ROMAN[i - 1];
+    jasmani.push(
+      r(`tahun_${i}`, `Tahun (kelas ${k})`, `Label tahun/kelas kolom ${i} tabel Keadaan Jasmani`, `Kelas ${k}`),
+      r(`berat_${i}`, `Berat badan (kelas ${k})`, `Berat badan kelas ${k} (kg)`, "32"),
+      r(`tinggi_${i}`, `Tinggi badan (kelas ${k})`, `Tinggi badan kelas ${k} (cm)`, "138"),
+      r(`penyakit_${i}`, `Penyakit (kelas ${k})`, `Riwayat penyakit kelas ${k}`, "Asma"),
+      r(`kelainan_${i}`, `Kelainan jasmani (kelas ${k})`, `Kelainan jasmani kelas ${k}`, "-")
+    );
+  }
+
+  const prestasi: FillVariable[] = [
+    r("mapel", "Mata pelajaran", "Nama mapel pada baris loop nilai", "Matematika"),
+  ];
+  for (let i = 1; i <= 8; i++) {
+    const k = ROMAN[i - 1];
+    prestasi.push(
+      r(`tahun_ajaran_${i}`, `Tahun ajaran (kolom ${i})`, `Tahun pelajaran kolom ${k} tabel C.2`, "2020/2021"),
+      r(`kelas_${i}`, `Label kelas (kolom ${i})`, `Label kolom ${k} pada tabel C.2`, `KELAS ${k}`),
+      r(`naik_${i}`, `Kenaikan tingkat (kelas ${k})`, `Keterangan naik/tidak naik tingkat kelas ${k}`, "Naik")
+    );
+    for (const smt of [1, 2] as const) {
+      prestasi.push(
+        r(`n_${i}_${smt}`, `Nilai kelas ${k} smt ${smt}`, `Nilai mapel (baris loop nilai) kelas ${k} semester ${smt}`, "85"),
+        r(`jumlah_${i}_${smt}`, `Jumlah nilai kelas ${k} smt ${smt}`, `Jumlah seluruh mapel kelas ${k} semester ${smt}`, "962"),
+        r(`rata_${i}_${smt}`, `Rata-rata kelas ${k} smt ${smt}`, `Rata-rata seluruh mapel kelas ${k} semester ${smt}`, "80.2")
+      );
+    }
+  }
+
+  return [
+    { label: "Keadaan Jasmani (token per kelas)", variables: jasmani },
+    { label: "C.2 Prestasi Belajar (token per kelas/semester)", variables: prestasi },
+  ];
+}
+
+const BUKU_INDUK: FillVariableModule = {
+  module: "buku-induk",
+  label: "Buku Induk",
+  groups: [...BUKU_INDUK_GROUPS, ...bukuIndukIndexedGroups()].map((g) => ({
+    ...g,
+    variables: g.variables.map((item) =>
+      BUKU_INDUK_EXECUTED.has(item.name) ? { ...item, status: "siap" as const } : item
+    ),
+  })),
 };
 
 /**
@@ -601,4 +820,12 @@ export const TABUNGAN_KNOWN_VARIABLES: string[] = [
  */
 export const INVENTARIS_ATK_KNOWN_VARIABLES: string[] = [
   ...INVENTARIS_ATK.groups.flatMap((g) => g.variables.map((x) => x.name)),
+].sort();
+
+/**
+ * Nama variabel Buku Induk yang dikenali pengisian template Word (.docx) ???
+ * dipakai `lib/buku-induk-word.ts`/UI untuk membedakan variabel tak dikenal.
+ */
+export const BUKU_INDUK_KNOWN_VARIABLES: string[] = [
+  ...BUKU_INDUK.groups.flatMap((g) => g.variables.map((x) => x.name)),
 ].sort();

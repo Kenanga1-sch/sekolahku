@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { unknownWordVariables, wordFilename } from "./template-word";
+import { emptyWordVariables, unknownWordVariables, wordFilename } from "./template-word";
 import { resolveWordTemplate } from "./template-word";
 
 describe("unknownWordVariables", () => {
@@ -16,6 +16,20 @@ describe("unknownWordVariables", () => {
   });
   it("kosong bila semua terisi", () => {
     expect(unknownWordVariables(["a", "b"], { a: 1, b: 2 })).toEqual([]);
+  });
+});
+
+describe("emptyWordVariables", () => {
+  it("hanya melaporkan kunci yang ada tapi kosong", () => {
+    expect(emptyWordVariables(["nama", "kelas", "tanggal"], { nama: "", tanggal: "1 Okt" })).toEqual([
+      "nama",
+    ]);
+  });
+  it("token tanpa kunci bukan 'kosong' (itu unknown)", () => {
+    expect(emptyWordVariables(["tidak_ada"], { nama: "Andi" })).toEqual([]);
+  });
+  it("null/undefined juga dianggap kosong", () => {
+    expect(emptyWordVariables(["a", "b"], { a: null, b: undefined })).toEqual(["a", "b"]);
   });
 });
 
@@ -69,4 +83,29 @@ describe("resolveWordTemplate", () => {
     const res = await resolveWordTemplate("arsip", f);
     expect(res.url).toBe("/templates/lama.docx");
   });
+
+  it("memakai template bawaan repo bila default modul belum ada", async () => {
+    const res = await resolveWordTemplate("buku-induk", okFetch(null, 404), "", "/templates/buku-induk-v1.docx");
+    expect(res).toEqual({
+      url: "/templates/buku-induk-v1.docx",
+      code: "",
+      name: "",
+      fromFallback: true,
+    });
+  });
+
+  it("memakai template bawaan repo bila default bukan docx", async () => {
+    const f = okFetch({ success: true, data: { filePath: "templates/x.xlsx", kind: "xlsx" } });
+    const res = await resolveWordTemplate("buku-induk", f, "", "/templates/buku-induk-v1.docx");
+    expect(res.fromFallback).toBe(true);
+  });
+
+  it("memakai template bawaan repo bila jaringan gagal", async () => {
+    const failing = (async () => {
+      throw new Error("offline");
+    }) as unknown as typeof fetch;
+    const res = await resolveWordTemplate("buku-induk", failing, "", "/templates/buku-induk-v1.docx");
+    expect(res.url).toBe("/templates/buku-induk-v1.docx");
+  });
 });
+

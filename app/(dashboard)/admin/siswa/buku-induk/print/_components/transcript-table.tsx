@@ -1,20 +1,8 @@
-import { CLASSES, matchSubject, TranscriptGrid } from "../_lib/transcript";
+import { CLASSES, SUBJECTS, matchSubject, TranscriptGrid } from "../_lib/transcript";
 
-// Daftar mapel baku SD + muatan lokal (tetap sama seperti versi lama).
-export const SUBJECTS = [
-    "Pendidikan Agama Budi Pekerti",
-    "Pendidikan Pancasila",
-    "Matematika",
-    "Bahasa Indonesia",
-    "IPAS",
-    "PJOK",
-    "Bahasa Inggris",
-    "Seni Budaya",
-    "Bahasa Indramayu",
-    "Budi Pekerti",
-    "Tari",
-    "Mangrove",
-];
+// Daftar mapel baku SD + muatan lokal. Sumber tunggal ada di _lib/transcript.ts
+// agar urutan baris tabel cetak HTML sama dengan template Word Buku Induk.
+export { SUBJECTS };
 
 const fmt = (v: number | undefined) => (v !== undefined ? String(Math.round(v * 100) / 100) : "");
 

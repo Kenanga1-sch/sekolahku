@@ -300,10 +300,56 @@ export interface PdfConversionResult {
   filename: string;
 }
 
+/** MIME per ekstensi Office yang didukung konversi PDF (soffice). */
+const OFFICE_MIME: Record<string, string> = {
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+};
+
 /**
- * Konversi buffer xlsx → PDF lewat backend LibreOffice headless
- * (multi-file digabung qpdf oleh backend). Lempar Error berisi pesan
- * backend bila gagal / 503 (LibreOffice belum terpasang).
+ * Konversi buffer Office (xlsx/docx) → PDF lewat backend LibreOffice headless
+ * (multi-file digabung qpdf oleh backend). Lempar Error berisi pesan backend
+ * bila gagal / 503 (LibreOffice belum terpasang).
+ *
+ * Endpoint: /api/reports/pdf/office (netral terhadap jenis berkas — backend
+ * memilih ekstensi dari nama berkas yang dikirim).
+ */
+export async function convertOfficeToPdf(
+  buffers: ArrayBuffer[],
+  filename: string,
+  ext: "xlsx" | "docx" = "xlsx",
+  apiBase: string = process.env.NEXT_PUBLIC_API_URL || ""
+): Promise<PdfConversionResult> {
+  const fd = new FormData();
+  buffers.forEach((b, i) => {
+    fd.append("files", new Blob([b], { type: OFFICE_MIME[ext] }), `laporan-${i + 1}.${ext}`);
+  });
+  fd.append("filename", filename);
+  const resp = await fetch(`${apiBase}/api/reports/pdf/office`, {
+    method: "POST",
+    credentials: "include",
+    body: fd,
+  });
+  if (!resp.ok) {
+    let msg = "Konversi PDF gagal";
+    try {
+      const j = await resp.json();
+      if (j?.error) msg = j.error;
+    } catch {
+      // respons bukan JSON — pakai pesan default
+    }
+    throw new Error(msg);
+  }
+  const blob = await resp.blob();
+  const cd = resp.headers.get("Content-Disposition") || "";
+  const m = /filename="([^"]+)"/.exec(cd);
+  return { blob, filename: m?.[1] || filename };
+}
+
+/**
+ * Konversi buffer xlsx → PDF (kompatibilitas modul presensi/inventaris/tabungan).
+ * Endpoint lama /api/presensi/pdf/libreoffice tetap dipakai agar rute yang
+ * sudah teruji tidak berubah; modul baru memakai convertOfficeToPdf.
  */
 export async function convertXlsxToPdf(
   buffers: ArrayBuffer[],
@@ -315,7 +361,7 @@ export async function convertXlsxToPdf(
     fd.append(
       "files",
       new Blob([b], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        type: OFFICE_MIME.xlsx,
       }),
       `laporan-${i + 1}.xlsx`
     );

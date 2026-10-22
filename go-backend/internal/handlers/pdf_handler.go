@@ -153,9 +153,32 @@ func tempWorkspace(prefix string) (string, func(), error) {
 
 // ------------------------------------------------------------- LibreOffice ---
 
+// officeExts ekstensi berkas Office yang boleh dikonversi ke PDF. Nilai =
+// ekstensi kanonik yang dipakai saat menyimpan berkas sementara.
+var officeExts = map[string]string{
+	".xlsx": ".xlsx",
+	".docx": ".docx",
+}
+
 // ConvertXlsxLibreOffice mengonversi satu atau banyak workbook (.xlsx) hasil
 // fill template presensi menjadi satu PDF gabungan (qpdf bila >1 file).
+// Dipertahankan sebagai alias agar rute lama /api/presensi/pdf/libreoffice
+// tidak berubah perilaku.
 func (h *PDFHandler) ConvertXlsxLibreOffice(c echo.Context) error {
+	return h.convertOfficeToPDF(c, ".xlsx")
+}
+
+// ConvertOfficeLibreOffice mengonversi berkas Office (.xlsx/.docx) menjadi
+// satu PDF gabungan — dipakai laporan Word (Buku Induk) dan modul lain yang
+// memakai template .docx. Ekstensi ditentukan dari nama berkas unggahan.
+func (h *PDFHandler) ConvertOfficeLibreOffice(c echo.Context) error {
+	return h.convertOfficeToPDF(c, "")
+}
+
+// convertOfficeToPDF menjalankan soffice --convert-to pdf untuk tiap berkas
+// lalu menggabungkan hasilnya dengan qpdf (bila lebih dari satu).
+// forceExt kosong = deteksi dari nama berkas unggahan (default .xlsx).
+func (h *PDFHandler) convertOfficeToPDF(c echo.Context, forceExt string) error {
 	bin := binPath("SOFFICE_BIN", "soffice")
 	if err := ensureBinary(c, bin, "libreoffice"); err != nil {
 		return err
@@ -194,13 +217,26 @@ func (h *PDFHandler) ConvertXlsxLibreOffice(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Gagal menyiapkan ruang kerja"})
 	}
 
-	var xlsxPaths []string
+	var srcPaths []string
+	var srcExts []string
 	for i, fh := range files {
-		p, err := saveMultipartFile(fh, filepath.Join(dir, fmt.Sprintf("in-%d.xlsx", i)))
+		ext := forceExt
+		if ext == "" {
+			ext = strings.ToLower(filepath.Ext(fh.Filename))
+		}
+		canon, ok := officeExts[ext]
+		if !ok {
+			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+				"success": false,
+				"error":   "Hanya berkas .xlsx/.docx yang bisa dikonversi ke PDF",
+			})
+		}
+		p, err := saveMultipartFile(fh, filepath.Join(dir, fmt.Sprintf("in-%d%s", i, canon)))
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]interface{}{"success": false, "error": "Gagal menyimpan file: " + err.Error()})
 		}
-		xlsxPaths = append(xlsxPaths, p)
+		srcPaths = append(srcPaths, p)
+		srcExts = append(srcExts, canon)
 	}
 
 	env := append(os.Environ(),
@@ -216,22 +252,22 @@ func (h *PDFHandler) ConvertXlsxLibreOffice(c echo.Context) error {
 		"--outdir", outDir,
 		"-env:UserInstallation=file://" + filepath.Join(dir, "lo-profile"),
 	}
-	args = append(args, xlsxPaths...)
+	args = append(args, srcPaths...)
 	if _, err := execWithTimeout(c.Request().Context(), bin, args, env, libreOfficeTimeout); err != nil {
-		c.Logger().Errorf("libreoffice konversi gagal (%d file): %v", len(xlsxPaths), err)
+		c.Logger().Errorf("libreoffice konversi gagal (%d file): %v", len(srcPaths), err)
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "Konversi LibreOffice gagal: " + err.Error()})
 	}
 
 	// Kumpulkan hasil sesuai urutan input.
 	var pdfPaths []string
-	for _, x := range xlsxPaths {
-		p := filepath.Join(outDir, strings.TrimSuffix(filepath.Base(x), ".xlsx")+".pdf")
+	for i, x := range srcPaths {
+		p := filepath.Join(outDir, strings.TrimSuffix(filepath.Base(x), srcExts[i])+".pdf")
 		if st, err := os.Stat(p); err == nil && st.Size() > 0 {
 			pdfPaths = append(pdfPaths, p)
 		}
 	}
 	if len(pdfPaths) == 0 {
-		c.Logger().Errorf("libreoffice tidak menghasilkan PDF untuk %d file (outdir kosong)", len(xlsxPaths))
+		c.Logger().Errorf("libreoffice tidak menghasilkan PDF untuk %d file (outdir kosong)", len(srcPaths))
 		return c.JSON(http.StatusInternalServerError, map[string]interface{}{"success": false, "error": "LibreOffice tidak menghasilkan PDF"})
 	}
 

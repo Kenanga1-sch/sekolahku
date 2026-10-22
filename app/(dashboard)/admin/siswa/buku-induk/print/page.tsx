@@ -1,8 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { goGet } from "@/lib/api-client";
+import { toast } from "sonner";
+import { Download, FileText, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { convertOfficeToPdf, downloadPdf } from "@/lib/print-kit";
+import { renderWordTemplate } from "@/lib/template-word";
+import {
+    BUKU_INDUK_TEMPLATE_MODULE,
+    BUKU_INDUK_TEMPLATE_PATH,
+    bukuIndukFilename,
+    bukuIndukWordData,
+} from "@/lib/buku-induk-word";
 import {
     buildTranscriptGrid,
     buildPrintMeta,
@@ -16,6 +35,15 @@ import { FieldGrid, FieldItem, ParentColumns, ParentColumn } from "./_components
 import { PhotoBox } from "./_components/photo-box";
 import { TranscriptTable } from "./_components/transcript-table";
 import { AttendanceTable } from "./_components/attendance-table";
+
+/** Ringkasan variabel yang belum terisi / tak dikenal template (untuk toast). */
+function describeGaps(variables: string[]): string | undefined {
+    if (variables.length === 0) return undefined;
+    const shown = variables.slice(0, 8).join(", ");
+    return variables.length > 8
+        ? `Variabel belum terisi: ${shown}, +${variables.length - 8} lainnya`
+        : `Variabel belum terisi: ${shown}`;
+}
 
 export default function BukuIndukGabunganPrintPage() {
     const searchParams = useSearchParams();
@@ -78,6 +106,73 @@ export default function BukuIndukGabunganPrintPage() {
         fetchAll();
     }, [studentId, studentIdsParam, typeParam]);
 
+    // ── Unduh format resmi (template Word yang diunggah di Format Laporan) ──
+    // Alur sama dengan modul presensi (lib/presensi-excel.ts):
+    //   template default modul → fallback template bawaan repo → isi data siswa
+    //   → unduh .docx, atau konversi ke PDF lewat LibreOffice backend.
+    const [exportingWord, setExportingWord] = useState(false);
+    const [exportingPdf, setExportingPdf] = useState(false);
+
+    const handleDownloadWord = useCallback(async () => {
+        if (exportingWord || students.length === 0) return;
+        setExportingWord(true);
+        const toastId = toast.loading("Menyiapkan file Word…");
+        try {
+            const { saveAs } = await import("file-saver");
+            const gaps = new Set<string>();
+            for (const student of students) {
+                const result = await renderWordTemplate({
+                    module: BUKU_INDUK_TEMPLATE_MODULE,
+                    data: bukuIndukWordData(student),
+                    fallbackUrl: BUKU_INDUK_TEMPLATE_PATH,
+                });
+                for (const v of [...result.kosong, ...result.unknown]) gaps.add(v);
+                saveAs(result.blob, bukuIndukFilename(student.fullName || ""));
+            }
+            toast.success(
+                students.length > 1 ? `Word terunduh (${students.length} siswa)` : "Word terunduh",
+                { id: toastId, description: describeGaps([...gaps]) }
+            );
+        } catch (err) {
+            console.error("Unduh Word gagal:", err);
+            toast.error(err instanceof Error ? err.message : "Gagal membuat file Word", { id: toastId });
+        } finally {
+            setExportingWord(false);
+        }
+    }, [exportingWord, students]);
+
+    const handleDownloadPdf = useCallback(async () => {
+        if (exportingPdf || students.length === 0) return;
+        setExportingPdf(true);
+        const toastId = toast.loading("Menyiapkan PDF…");
+        try {
+            const buffers: ArrayBuffer[] = [];
+            const gaps = new Set<string>();
+            for (const student of students) {
+                const result = await renderWordTemplate({
+                    module: BUKU_INDUK_TEMPLATE_MODULE,
+                    data: bukuIndukWordData(student),
+                    fallbackUrl: BUKU_INDUK_TEMPLATE_PATH,
+                });
+                for (const v of [...result.kosong, ...result.unknown]) gaps.add(v);
+                buffers.push(await result.blob.arrayBuffer());
+            }
+            const first = students[0]?.fullName || "siswa";
+            const filename =
+                students.length > 1
+                    ? `buku-induk-${students.length}-siswa.pdf`
+                    : bukuIndukFilename(first).replace(/\.docx$/, ".pdf");
+            const pdf = await convertOfficeToPdf(buffers, filename, "docx");
+            downloadPdf(pdf, filename);
+            toast.success("PDF berhasil diunduh", { id: toastId, description: describeGaps([...gaps]) });
+        } catch (err) {
+            console.error("Unduh PDF gagal:", err);
+            toast.error(err instanceof Error ? err.message : "Konversi PDF gagal", { id: toastId });
+        } finally {
+            setExportingPdf(false);
+        }
+    }, [exportingPdf, students]);
+
     if (loading) return <div className="p-8 text-center font-sans">Memuat dokumen cetak...</div>;
     if (students.length === 0) return <div className="p-8 text-center font-sans">Data tidak ditemukan.</div>;
 
@@ -98,6 +193,70 @@ export default function BukuIndukGabunganPrintPage() {
 
     return (
         <div className="print-root">
+            {/* Toolbar unduh — hanya tampil di layar (disembunyikan saat cetak).
+                Format resmi = template Word yang diunggah di Pengaturan →
+                Format Laporan (modul "buku-induk"), sama seperti modul presensi. */}
+            <div className="print-toolbar">
+                <div className="print-toolbar-info">
+                    <span className="print-toolbar-title">Buku Induk</span>
+                    <span className="print-toolbar-sub">
+                        {students.length > 1
+                            ? `${students.length} siswa · PDF digabung jadi satu berkas`
+                            : students[0]?.fullName || ""}
+                    </span>
+                </div>
+                <div className="print-toolbar-actions">
+                    <Button variant="outline" size="sm" onClick={() => window.print()}>
+                        <FileText className="h-4 w-4 mr-2" />
+                        Cetak
+                    </Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button size="sm" disabled={exportingWord || exportingPdf}>
+                                {exportingWord || exportingPdf ? (
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                ) : (
+                                    <Download className="h-4 w-4 mr-2" />
+                                )}
+                                Unduh
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Format template laporan</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={handleDownloadPdf} disabled={exportingPdf}>
+                                {exportingPdf ? (
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                ) : (
+                                    <FileText className="h-4 w-4 mr-2" />
+                                )}
+                                PDF (siap cetak)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={handleDownloadWord} disabled={exportingWord}>
+                                {exportingWord ? (
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                ) : (
+                                    <Download className="h-4 w-4 mr-2" />
+                                )}
+                                Word (.docx)
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                                disabled={students.length > 1}
+                                onSelect={(e) => {
+                                    // Templat kosong (tanpa data) untuk diedit manual.
+                                    if (students.length > 1) e.preventDefault();
+                                    else window.open(BUKU_INDUK_TEMPLATE_PATH, "_blank");
+                                }}
+                            >
+                                <FileText className="h-4 w-4 mr-2" />
+                                Template kosong
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+            </div>
+
             {students.map((student, index) => {
                 const meta = buildPrintMeta(student);
                 const { grid, yearLabels } = buildTranscriptGrid(student);
@@ -391,6 +550,23 @@ const PRINT_CSS = `
 
     body { background: #ececec; }
 
+    /* ── Toolbar unduh (layar saja) ── */
+    .print-toolbar {
+        position: sticky; top: 0; z-index: 20;
+        display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        margin: 0 auto 12px; padding: 10px 14px; max-width: 29.7cm;
+        background: #fff; border: 1px solid #d4d4d8; border-radius: 10px;
+        box-shadow: 0 1px 6px rgba(0,0,0,.08);
+        font-family: ui-sans-serif, system-ui, sans-serif;
+    }
+    .print-toolbar-info { display: flex; flex-direction: column; min-width: 0; }
+    .print-toolbar-title { font-size: 13px; font-weight: 600; color: var(--ink); }
+    .print-toolbar-sub {
+        font-size: 11px; color: var(--ink-faint);
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .print-toolbar-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+
     .print-root {
         color: var(--ink);
         font-family: Georgia, "Times New Roman", serif;
@@ -578,6 +754,9 @@ const PRINT_CSS = `
 
     @media print {
         body { background: #fff; }
+
+        /* Toolbar unduh tidak boleh ikut tercetak / memakan ruang halaman. */
+        .print-toolbar { display: none !important; }
 
         /* Chrome hanya menghormati named pages (@page portrait-page / landscape-page)
            bila seluruh konten berada dalam aliran normal. Karena itu:

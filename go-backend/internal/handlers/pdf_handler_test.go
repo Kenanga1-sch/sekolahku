@@ -27,7 +27,7 @@ func writeStub(t *testing.T, script string) string {
 	return path
 }
 
-// sofficeStub: untuk tiap input .xlsx tulis .pdf di --outdir.
+// sofficeStub: untuk tiap input .xlsx/.docx tulis .pdf di --outdir.
 const sofficeStub = `#!/bin/sh
 outdir=""
 expect_out=0
@@ -38,6 +38,9 @@ for arg in "$@"; do
     *.xlsx)
       base=$(basename "$arg" .xlsx)
       printf '%%PDF-1.4 stub-lo' > "$outdir/$base.pdf" ;;
+    *.docx)
+      base=$(basename "$arg" .docx)
+      printf '%%PDF-1.4 stub-lo-docx' > "$outdir/$base.pdf" ;;
   esac
 done
 [ -n "$outdir" ] || exit 1
@@ -190,5 +193,68 @@ func TestLibreOfficeMissingBinary(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), "export Excel") {
 		t.Fatalf("pesan harus mengarahkan ke export Excel, got: %s", rec.Body.String())
+	}
+}
+
+// TestConvertOfficeLibreOfficeDocx: endpoint netral menerima .docx hasil fill
+// template Word Buku Induk dan mengembalikan PDF (stub soffice menulis .pdf
+// dari nama berkas .docx).
+func TestConvertOfficeLibreOfficeDocx(t *testing.T) {
+	t.Setenv("SOFFICE_BIN", writeStub(t, sofficeStub))
+	e := echo.New()
+	body, ctype := multipartBody(t, []string{"buku-induk-ahmad.docx"}, "buku-induk-ahmad.pdf")
+	req := httptest.NewRequest(http.MethodPost, "/", body)
+	req.Header.Set(echo.HeaderContentType, ctype)
+	rec := httptest.NewRecorder()
+	if err := NewPDFHandler().ConvertOfficeLibreOffice(e.NewContext(req, rec)); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("code = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if !strings.HasPrefix(rec.Body.String(), "%PDF-1.4") {
+		t.Fatalf("body bukan PDF")
+	}
+	cd := rec.Header().Get(echo.HeaderContentDisposition)
+	if !strings.Contains(cd, "buku-induk-ahmad.pdf") {
+		t.Fatalf("content-disposition = %q", cd)
+	}
+}
+
+// TestConvertOfficeLibreOfficeMultiDocx: beberapa siswa → satu PDF gabungan
+// (qpdf); tanpa qpdf terpasang tetap mengirim PDF pertama (fallback).
+func TestConvertOfficeLibreOfficeMultiDocx(t *testing.T) {
+	t.Setenv("SOFFICE_BIN", writeStub(t, sofficeStub))
+	t.Setenv("QPDF_BIN", filepath.Join(t.TempDir(), "qpdf-tidak-ada"))
+	e := echo.New()
+	body, ctype := multipartBody(t, []string{"a.docx", "b.docx"}, "gabungan.pdf")
+	req := httptest.NewRequest(http.MethodPost, "/", body)
+	req.Header.Set(echo.HeaderContentType, ctype)
+	rec := httptest.NewRecorder()
+	if err := NewPDFHandler().ConvertOfficeLibreOffice(e.NewContext(req, rec)); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.Code != http.StatusOK {
+		t.Fatalf("code = %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+// TestConvertOfficeLibreOfficeTolakEkstensiLain: hanya .xlsx/.docx yang
+// diterima — berkas lain ditolak 400 (bukan diteruskan ke soffice).
+func TestConvertOfficeLibreOfficeTolakEkstensiLain(t *testing.T) {
+	t.Setenv("SOFFICE_BIN", writeStub(t, sofficeStub))
+	e := echo.New()
+	body, ctype := multipartBody(t, []string{"jahat.exe"}, "")
+	req := httptest.NewRequest(http.MethodPost, "/", body)
+	req.Header.Set(echo.HeaderContentType, ctype)
+	rec := httptest.NewRecorder()
+	if err := NewPDFHandler().ConvertOfficeLibreOffice(e.NewContext(req, rec)); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("code = %d, want 400", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "xlsx") || !strings.Contains(rec.Body.String(), "docx") {
+		t.Fatalf("pesan harus menyebut .xlsx/.docx, got: %s", rec.Body.String())
 	}
 }

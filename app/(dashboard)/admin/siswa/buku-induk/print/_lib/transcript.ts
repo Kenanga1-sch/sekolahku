@@ -3,6 +3,23 @@
 
 export const CLASSES = ["I", "II", "III", "IV", "V", "VI"]; // SD: 6 tingkat
 
+// Daftar mapel baku SD + muatan lokal. Dipakai tabel cetak HTML dan pengisian
+// template Word (lib/buku-induk-word.ts) agar urutan baris keduanya sama.
+export const SUBJECTS = [
+    "Pendidikan Agama Budi Pekerti",
+    "Pendidikan Pancasila",
+    "Matematika",
+    "Bahasa Indonesia",
+    "IPAS",
+    "PJOK",
+    "Bahasa Inggris",
+    "Seni Budaya",
+    "Bahasa Indramayu",
+    "Budi Pekerti",
+    "Tari",
+    "Mangrove",
+];
+
 const BULAN_ID = [
     "Januari", "Februari", "Maret", "April", "Mei", "Juni",
     "Juli", "Agustus", "September", "Oktober", "November", "Desember",

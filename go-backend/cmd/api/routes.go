@@ -805,6 +805,9 @@ func registerRoutes(server *echo.Echo, h *AllHandlers, repos *Repositories) {
 	// PDF presensi: LibreOffice headless (satu-satunya mesin sejak 2026-10-08);
 	// 503 bila binary tak terpasang → frontend mengarahkan ke export Excel.
 	guruGroup.POST("/presensi/pdf/libreoffice", h.PDF.ConvertXlsxLibreOffice)
+	// PDF laporan Office netral (.xlsx/.docx): dipakai template Word Buku Induk.
+	// Ekstensi ditentukan dari nama berkas unggahan; konversi + qpdf sama.
+	guruGroup.POST("/reports/pdf/office", h.PDF.ConvertOfficeLibreOffice)
 	auth.GET("/attendance/holiday", h.Attendance.CheckHoliday)
 	adminGroup.GET("/school-holidays", h.Attendance.ListSchoolHolidays)
 	adminGroup.GET("/school-holidays/national", h.Attendance.GetNationalHolidays)

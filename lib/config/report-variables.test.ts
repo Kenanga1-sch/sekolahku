@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { FILL_VARIABLE_MODULES, getFillVariableModule } from "./report-variables";
+import {
+  BUKU_INDUK_EXECUTED_VARIABLES,
+  BUKU_INDUK_KNOWN_VARIABLES,
+  FILL_VARIABLE_MODULES,
+  getFillVariableModule,
+} from "./report-variables";
 
 describe("kamus variabel laporan", () => {
   it("menyediakan modul Buku Induk untuk unggahan template Word", () => {
@@ -35,6 +40,22 @@ describe("kamus variabel laporan", () => {
     ]) {
       expect(names).toContain(key);
     }
+  });
+
+  it("token yang dieksekusi template Word berstatus siap", () => {
+    const mod = getFillVariableModule("buku-induk")!;
+    const byName = new Map(mod.groups.flatMap((g) => g.variables.map((x) => [x.name, x] as const)));
+    for (const key of BUKU_INDUK_EXECUTED_VARIABLES) {
+      expect(byName.get(key)?.status, `token ${key}`).toBe("siap");
+    }
+    // Token di luar daftar eksekusi tetap "rencana" (belum dipakai template).
+    expect(byName.get("no_ijazah")?.status).toBe("rencana");
+  });
+
+  it("setiap token eksekusi terdaftar di kamus", () => {
+    const known = new Set(BUKU_INDUK_KNOWN_VARIABLES);
+    for (const key of BUKU_INDUK_EXECUTED_VARIABLES) expect(known.has(key)).toBe(true);
+    expect(BUKU_INDUK_EXECUTED_VARIABLES.length).toBe(150);
   });
 
   it("setiap modul punya label dan grup berisi variabel", () => {
