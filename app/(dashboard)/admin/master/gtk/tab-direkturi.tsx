@@ -275,7 +275,7 @@ export default function MasterGTKPage() {
                                         setPage(1);
                                     }}
                                 >
-                                    <SelectTrigger className="w-[110px] border-slate-200">
+                                    <SelectTrigger aria-label="Jumlah baris per halaman" className="w-[110px] border-slate-200">
                                         <SelectValue placeholder="Baris" />
                                     </SelectTrigger>
                                     <SelectContent>

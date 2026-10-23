@@ -235,15 +235,22 @@ export function DataTable<T>({
                                 return (
                                     <div
                                         key={id}
-                                        role="button"
-                                        tabIndex={0}
-                                        onClick={() => handleClick(row, index)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === "Enter" || e.key === " ") {
-                                                e.preventDefault();
-                                                handleClick(row, index);
-                                            }
-                                        }}
+                                        // role/tabIndex hanya bila baris memang bisa
+                                        // diklik — kalau tidak, checkbox di dalamnya
+                                        // menjadi kontrol bersarang (nested-interactive).
+                                        role={onRowClick ? "button" : undefined}
+                                        tabIndex={onRowClick ? 0 : undefined}
+                                        onClick={onRowClick ? () => handleClick(row, index) : undefined}
+                                        onKeyDown={
+                                            onRowClick
+                                                ? (e) => {
+                                                      if (e.key === "Enter" || e.key === " ") {
+                                                          e.preventDefault();
+                                                          handleClick(row, index);
+                                                      }
+                                                  }
+                                                : undefined
+                                        }
                                         className={`flex flex-col gap-3 px-4 py-3 transition-colors ${
                                             onRowClick ? "cursor-pointer active:bg-muted/50" : ""
                                         } ${isSelected ? "bg-muted/50" : ""}`}
@@ -279,7 +286,7 @@ export function DataTable<T>({
                                                         key={col.key}
                                                         className={col.cardSpan === "full" ? "col-span-2 min-w-0" : "min-w-0"}
                                                     >
-                                                        <p className="text-xs font-medium uppercase text-muted-foreground/80">
+                                                        <p className="text-xs font-medium uppercase text-muted-foreground">
                                                             {col.header}
                                                         </p>
                                                         <div className="mt-0.5 text-sm">
