@@ -74,7 +74,7 @@ func (h *AttendanceGTKHandler) ScanGTK(c echo.Context) error {
 		case errors.Is(err, repository.ErrNotAttendanceRequired):
 			return c.JSON(http.StatusForbidden, map[string]interface{}{
 				"success": false,
-				"error":   "GTK berstatus PNS/PPPK/P3K tidak wajib presensi",
+				"error":   "GTK berstatus PNS/PPPK tidak wajib presensi",
 			})
 		case errors.Is(err, repository.ErrOutOfRadius):
 			return c.JSON(http.StatusUnprocessableEntity, map[string]interface{}{

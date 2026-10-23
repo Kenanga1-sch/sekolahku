@@ -2,7 +2,7 @@
  * Modul Presensi GTK (perbaikan 000084).
  *
  * Presensi GTK hanya untuk honorer: GTT, GTY, Honorer, PTT, dan Pembina Ekskul.
- * PNS/PPPK/P3K dikecualikan. Presensi via scan QR divalidasi radius lokasi
+ * PNS/PPPK dikecualikan. Presensi via scan QR divalidasi radius lokasi
  * (titik presensi + haversine di backend).
  *
  * Berisi: tipe data, klien API, dan helper murni (mudah diuji).
@@ -171,11 +171,12 @@ export const ekskulTeachersApi = {
 export const ATTENDANCE_REQUIRED_STATUSES = ["GTT", "GTY", "Honorer", "PTT", "Pembina Ekskul"] as const;
 
 /** Status ASN yang dikecualikan dari presensi. */
-export const ATTENDANCE_EXCLUDED_STATUSES = ["PNS", "P3K", "PPPK", "PPPK PW"] as const;
+// "P3K" dipertahankan sebagai alias data lama; UI & penyimpanan baru memakai "PPPK".
+export const ATTENDANCE_EXCLUDED_STATUSES = ["PNS", "PPPK", "PPPK PW", "P3K"] as const;
 
 /**
  * Apakah status kepegawaian wajib presensi. Case-insensitive + trim — nilai
- * lama tak konsisten (P3K vs PPPK).
+ * lama tak konsisten (P3K vs PPPK) tetap diterima lewat alias.
  */
 export function isAttendanceRequired(status?: string | null): boolean {
   if (!status) return false;

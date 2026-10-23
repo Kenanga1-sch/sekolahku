@@ -158,7 +158,7 @@ export function EmployeeFormDialog({ open, onOpenChange, employeeId, onSuccess }
                     fullName: data.name || "",
                     email: data.email || "",
                     role: data.role || "guru",
-                    employmentStatus: data.employmentStatus || "",
+                    employmentStatus: data.employmentStatus === "P3K" ? "PPPK" : data.employmentStatus || "",
                     jobType: data.jobType || "",
                     nip: data.nip || "",
                     nuptk: data.nuptk || "",
@@ -383,7 +383,7 @@ export function EmployeeFormDialog({ open, onOpenChange, employeeId, onSuccess }
                                         </FormControl>
                                         <SelectContent>
                                             <SelectItem value="PNS">PNS</SelectItem>
-                                            <SelectItem value="P3K">P3K / PPPK</SelectItem>
+                                            <SelectItem value="PPPK">PPPK</SelectItem>
                                             <SelectItem value="GTY">GTY (Tetap Yayasan)</SelectItem>
                                             <SelectItem value="GTT">GTT (Tidak Tetap)</SelectItem>
                                             <SelectItem value="PTT">PTT (Pegawai Tidak Tetap)</SelectItem>

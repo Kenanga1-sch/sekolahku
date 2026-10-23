@@ -46,7 +46,7 @@ func setupGtkAttendanceTestDB(t *testing.T) *sql.DB {
 		INSERT INTO employee_details (id, name, nip, qr_code, category, employment_status, attendance_required) VALUES
 			('emp-1', 'Budi', '197001011990031001', 'GTK-197001011990031001', 'guru', 'Honorer', 1),
 			('emp-2', 'Siti', NULL, 'GTK-EMP-2', 'staff', 'PNS', 0),
-			('emp-3', 'Andi', NULL, 'GTK-EMP-3', 'guru', 'P3K', 0);
+			('emp-3', 'Andi', NULL, 'GTK-EMP-3', 'guru', 'PPPK', 0);
 		INSERT INTO attendance_points (id, name, point_type, latitude, longitude, radius_m, is_active) VALUES
 			('point_sekolah_default', 'Sekolah', 'sekolah', -6.3275, 108.3208, 100, 1);
 	`)
@@ -90,7 +90,7 @@ func TestAttendanceGTKUnknownAndInvalidStatus(t *testing.T) {
 	}
 }
 
-// PNS/PPPK/P3K tidak wajib presensi → ErrNotAttendanceRequired.
+// PNS/PPPK tidak wajib presensi → ErrNotAttendanceRequired.
 func TestAttendanceGTKExcludesASN(t *testing.T) {
 	db := setupGtkAttendanceTestDB(t)
 	defer db.Close()
@@ -100,7 +100,7 @@ func TestAttendanceGTKExcludesASN(t *testing.T) {
 		t.Fatalf("PNS harus ditolak, got %v", err)
 	}
 	if _, err := repo.ScanGTK(ScanGTKRequest{QRCode: "GTK-EMP-3", RecordedBy: "u1"}); !errors.Is(err, ErrNotAttendanceRequired) {
-		t.Fatalf("P3K harus ditolak, got %v", err)
+		t.Fatalf("PPPK harus ditolak, got %v", err)
 	}
 }
 
@@ -278,7 +278,7 @@ func TestIsAttendanceRequired(t *testing.T) {
 			t.Errorf("%q harus wajib presensi", s)
 		}
 	}
-	for _, s := range []string{"PNS", "P3K", "PPPK", "PPPK PW", "", "  "} {
+	for _, s := range []string{"PNS", "PPPK", "PPPK PW", "P3K", "", "  "} {
 		if IsAttendanceRequired(s) {
 			t.Errorf("%q tidak boleh wajib presensi", s)
 		}
@@ -370,5 +370,22 @@ func TestAttendanceGTKRangeReport(t *testing.T) {
 	report1, _ := repo.GetGTKRangeReport(2026, 1, 6, "")
 	if len(report1.Rows) != 1 || report1.Rows[0].TotalHadir != 0 {
 		t.Fatalf("semester 1 harus kosong: %+v", report1.Rows)
+	}
+}
+
+func TestCanonicalEmploymentStatus(t *testing.T) {
+	cases := map[string]string{
+		"P3K":     "PPPK",
+		"p3k":     "PPPK",
+		"  P3k  ": "PPPK",
+		"PPPK":    "PPPK",
+		"PNS":     "PNS",
+		"Honorer": "Honorer",
+		"":        "",
+	}
+	for in, want := range cases {
+		if got := CanonicalEmploymentStatus(in); got != want {
+			t.Errorf("CanonicalEmploymentStatus(%q) = %q, want %q", in, got, want)
+		}
 	}
 }

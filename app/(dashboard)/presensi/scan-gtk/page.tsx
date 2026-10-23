@@ -5,7 +5,7 @@
  * + Pembina Ekskul). Berbeda dari /presensi/scan (workbench siswa+tabungan),
  * halaman ini fokus: scan QR GTK + validasi radius lokasi (GPS) di server.
  *
- * PNS/PPPK/P3K ditolak backend (tidak wajib presensi). Scan di luar radius
+ * PNS/PPPK ditolak backend (tidak wajib presensi). Scan di luar radius
  * juga ditolak kecuali override oleh admin (dengan alasan).
  */
 
@@ -229,7 +229,7 @@ export default function ScanGtkPage() {
             </Badge>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            PNS/PPPK/P3K dikecualikan. Lokasi divalidasi terhadap radius titik presensi.
+            PNS/PPPK dikecualikan. Lokasi divalidasi terhadap radius titik presensi.
           </p>
         </div>
       </div>
@@ -438,7 +438,7 @@ export default function ScanGtkPage() {
         <MapPin className="h-4 w-4" />
         <AlertTitle className="text-sm">Tentang radius & pengecualian</AlertTitle>
         <AlertDescription className="text-xs">
-          Presensi hanya untuk GTT/GTY/Honorer/PTT & Pembina Ekskul. PNS/PPPK/P3K tidak perlu absen.
+          Presensi hanya untuk GTT/GTY/Honorer/PTT & Pembina Ekskul. PNS/PPPK tidak perlu absen.
           Jarak dihitung dari titik presensi yang dipilih.
         </AlertDescription>
       </Alert>

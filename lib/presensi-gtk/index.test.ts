@@ -33,9 +33,10 @@ describe("isAttendanceRequired", () => {
 
   it("menolak ASN & kosong", () => {
     expect(isAttendanceRequired("PNS")).toBe(false);
-    expect(isAttendanceRequired("P3K")).toBe(false);
     expect(isAttendanceRequired("PPPK")).toBe(false);
     expect(isAttendanceRequired("PPPK PW")).toBe(false);
+    // Alias data lama: P3K tetap dianggap ASN (tidak wajib presensi).
+    expect(isAttendanceRequired("P3K")).toBe(false);
     expect(isAttendanceRequired("")).toBe(false);
     expect(isAttendanceRequired(null)).toBe(false);
     expect(isAttendanceRequired(undefined)).toBe(false);

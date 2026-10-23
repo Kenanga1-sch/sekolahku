@@ -20,7 +20,7 @@ var ErrNotAttendanceRequired = errors.New("gtk ini tidak wajib presensi")
 // sesi/kelas, rekam idempotent per (employee, date).
 //
 // Sejak 000084: hanya GTK non-ASN (GTT/GTY/Honorer/PTT) + Pembina Ekskul yang
-// wajib presensi (attendance_required=1). PNS/PPPK/P3K dikecualikan. Presensi
+// wajib presensi (attendance_required=1). PNS/PPPK dikecualikan. Presensi
 // divalidasi radius lokasi (haversine) terhadap titik presensi aktif.
 type AttendanceGTKRepository struct {
 	DB *sql.DB

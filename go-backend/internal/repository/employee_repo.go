@@ -228,7 +228,7 @@ func (r *EmployeeRepository) CreateEmployee(req models.CreateEmployeeRequest) (s
 
 	empStatus := "GTY"
 	if req.EmploymentStatus != nil && *req.EmploymentStatus != "" {
-		empStatus = *req.EmploymentStatus
+		empStatus = CanonicalEmploymentStatus(*req.EmploymentStatus)
 	}
 	jobType := "Guru Mapel"
 	if req.JobType != nil && *req.JobType != "" {
@@ -392,15 +392,20 @@ func (r *EmployeeRepository) UpdateEmployee(id string, req models.CreateEmployee
 	now := time.Now().UnixMilli()
 
 	attendanceRequired := 0
-	if req.EmploymentStatus != nil && IsAttendanceRequired(*req.EmploymentStatus) {
-		attendanceRequired = 1
+	var empStatus *string
+	if req.EmploymentStatus != nil {
+		canonical := CanonicalEmploymentStatus(*req.EmploymentStatus)
+		empStatus = &canonical
+		if IsAttendanceRequired(canonical) {
+			attendanceRequired = 1
+		}
 	}
 
 	query := `
 		UPDATE employee_details SET name=?, email=?, role=?, nip=?, nuptk=?, nik=?, employment_status=?, job_type=?, join_date=?, category=?, degree=?, quote=?, photo_url=?, display_order=?, phone=?, updated_at=?, attendance_required=?
 		WHERE id=?
 	`
-	_, err := r.DB.Exec(query, req.FullName, req.Email, req.Role, req.NIP, req.NUPTK, req.NIK, req.EmploymentStatus, req.JobType, req.JoinDate, req.Category, req.Degree, req.Quote, req.PhotoUrl, req.DisplayOrder, req.Phone, now, attendanceRequired, id)
+	_, err := r.DB.Exec(query, req.FullName, req.Email, req.Role, req.NIP, req.NUPTK, req.NIK, empStatus, req.JobType, req.JoinDate, req.Category, req.Degree, req.Quote, req.PhotoUrl, req.DisplayOrder, req.Phone, now, attendanceRequired, id)
 	if err != nil {
 		return err
 	}

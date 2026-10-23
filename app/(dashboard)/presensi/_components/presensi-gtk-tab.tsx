@@ -108,7 +108,7 @@ export function PresensiGtkTab() {
             <CardTitle>Presensi GTK — {today}</CardTitle>
             <CardDescription>
               {hadir} dari {rows.length} GTK wajib presensi hadir. Hanya honorer (GTT/GTY/Honorer/PTT) &
-              Pembina Ekskul; PNS/PPPK/P3K dikecualikan.
+              Pembina Ekskul; PNS/PPPK dikecualikan.
             </CardDescription>
           </div>
           <div className="flex gap-2">
